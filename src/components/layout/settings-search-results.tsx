@@ -9,12 +9,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { SectionId } from "./settings-dialog.schema";
 import {
-  settingsSectionsById,
-  type SettingsSearch,
-  type SettingsSearchField,
-} from "./settings-search";
+  getSettingsPageIcon,
+  getSettingsPageId,
+  settingsPagesById,
+  type SettingsPageId,
+} from "./settings-dialog.pages";
+import { settingsSectionsById, type SectionId } from "./settings-dialog.schema";
+import type { SettingsSearch, SettingsSearchField } from "./settings-search";
 import {
   SETTINGS_SCOPE_PICKER_ID,
   SETTINGS_SCOPE_SEARCH_ENTRY,
@@ -24,14 +26,16 @@ import { settingsDialogStyles as styles } from "./SettingsDialog.styles";
 /**
  * The matches for a Settings search, shared by the sidebar and the narrow
  * header so both layouts find, open and explain the same results. The sidebar
- * already narrows its section list to the matching sections, so only the
- * narrow header, which has no such list, asks for them (`includeSections`).
- * A query nothing answers says so instead of leaving an empty space.
+ * already narrows its page list to the matching pages, so only the narrow
+ * header, which has no such list, asks for them (`includePages`): one row per
+ * page, naming the tab it opens when the page has several. A setting names
+ * the page it lives on. A query nothing answers says so instead of leaving an
+ * empty space.
  */
 export function SettingsSearchResults(props: {
   search: SettingsSearch;
-  includeSections?: boolean;
-  activeSection?: SectionId;
+  includePages?: boolean;
+  activePageId?: SettingsPageId;
   id?: string;
   onSelectScope: () => void;
   onSelectField: (field: SettingsSearchField) => void;
@@ -39,11 +43,11 @@ export function SettingsSearchResults(props: {
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { search } = props;
-  const sections = props.includeSections ? search.sections : [];
+  const pages = props.includePages ? search.pages : [];
   if (!search.query) {
     return null;
   }
-  if (search.fields.length === 0 && !search.scopeMatches && sections.length === 0) {
+  if (search.fields.length === 0 && !search.scopeMatches && pages.length === 0) {
     return search.empty ? (
       <div id={props.id} role="status" className={sx(styles.emptyResults)}>
         {t("settings:dialog.search.noMatches", { query: search.query })}
@@ -82,7 +86,7 @@ export function SettingsSearchResults(props: {
                 icon={<Search />}
                 badge={
                   <span className={sx(styles.menuSectionLabel)}>
-                    {t(settingsSectionsById[field.sectionId].labelKey)}
+                    {t(settingsPagesById[getSettingsPageId(field.sectionId)].labelKey)}
                   </span>
                 }
               >
@@ -90,18 +94,26 @@ export function SettingsSearchResults(props: {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-          {sections.map((section) => {
-            const Icon = section.icon;
+          {pages.map(({ pageId, sectionId }) => {
+            const page = settingsPagesById[pageId];
+            const Icon = getSettingsPageIcon(pageId);
             return (
-              <SidebarMenuItem key={`section:${section.id}`}>
+              <SidebarMenuItem key={`page:${pageId}`}>
                 <SidebarMenuButton
                   size="sm"
-                  current={props.activeSection === section.id}
-                  onClick={() => props.onSelectSection?.(section.id)}
+                  current={props.activePageId === pageId}
+                  onClick={() => props.onSelectSection?.(sectionId)}
                   className={sx(styles.menuButton)}
                   icon={<Icon />}
+                  badge={
+                    page.sectionIds.length > 1 ? (
+                      <span className={sx(styles.menuSectionLabel)}>
+                        {t(settingsSectionsById[sectionId].labelKey)}
+                      </span>
+                    ) : undefined
+                  }
                 >
-                  {t(section.labelKey)}
+                  {t(page.labelKey)}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

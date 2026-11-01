@@ -24,7 +24,10 @@ These controls are product-facing workflow settings. They are the fastest way to
 1. Open `Settings`.
 2. Go to `Providers`.
 3. Choose the `Claude` or `Codex` tab.
-4. Review the preset and the individual runtime controls before sending the next turn.
+4. Pick a preset. The individual permission and sandbox fields sit under
+   `Customize permissions` below it; that group opens by itself when the
+   current combination matches no preset (`Custom`) or a project overrides
+   one of its fields.
 
 You can also confirm the effective state from the runtime chips near the composer.
 
@@ -51,13 +54,14 @@ project:
 
 Nothing else can be overridden per project.
 
-1. Open `Settings`.
-2. At the top, change `Applying settings to` from `All projects` to the project.
+1. Open `Settings > Models` or `Settings > Providers`. Only these pages show
+   the scope bar; every other page always edits the values all projects share.
    Search for "project" or "scope" in the settings search to jump there.
-3. Go to `Models` or `Providers`. Each control you can set for the project shows
-   `Global value` or `Project value`; `Use global value` removes the project's
-   value. Other controls, and every other section, apply to all projects and
-   stay read-only while a project is selected.
+2. At the top, change `Applying settings to` from `All projects` to the project.
+3. Each control you can set for the project shows `Global value` or
+   `Project value`; `Use global value` removes the project's value. Other
+   controls on these pages apply to all projects and stay read-only while a
+   project is selected.
 
 New tasks and turns in that project start from its values. A model, effort or
 mode you pick in the composer for a task still wins over both. Removing the

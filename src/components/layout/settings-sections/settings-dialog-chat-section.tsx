@@ -15,6 +15,7 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { TurnActivityFields } from "./settings-dialog-turn-activity-fields";
 import { InlineRenderSettingsCard } from "./settings-dialog-inline-render-card";
+import { ChatTypographyAdvancedFields } from "./settings-dialog-chat-typography-advanced";
 import {
   ChoiceButtons,
   DraftInput,
@@ -37,9 +38,6 @@ export function ChatSection() {
     messageFontSize,
     messageCodeFontSize,
     messageFontFamily,
-    messageMonoFontFamily,
-    messageKoreanFontFamily,
-    infoPanelScale,
     reasoningExpansionMode,
     showInterimMessages,
     showConversationTurnRail,
@@ -55,9 +53,6 @@ export function ChatSection() {
           state.settings.messageFontSize,
           state.settings.messageCodeFontSize,
           state.settings.messageFontFamily,
-          state.settings.messageMonoFontFamily,
-          state.settings.messageKoreanFontFamily,
-          state.settings.infoPanelScale,
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
           state.settings.showConversationTurnRail,
@@ -146,55 +141,7 @@ export function ChatSection() {
             />
           </div>
         </LabeledField>
-        <LabeledField
-          title={t("settings:chatSection.typography.monoFontFamily.title")}
-          description={t("settings:chatSection.typography.monoFontFamily.description")}
-        >
-          <DraftInput
-            value={messageMonoFontFamily}
-            xstyle={styles.input9}
-            onCommit={(nextValue) =>
-              updateSettings({ patch: { messageMonoFontFamily: nextValue } })
-            }
-          />
-        </LabeledField>
-        <LabeledField
-          title={t("settings:chatSection.typography.koreanFontFamily.title")}
-          description={t("settings:chatSection.typography.koreanFontFamily.description")}
-        >
-          <DraftInput
-            value={messageKoreanFontFamily}
-            xstyle={styles.input9}
-            onCommit={(nextValue) =>
-              updateSettings({
-                patch: { messageKoreanFontFamily: nextValue },
-              })
-            }
-          />
-        </LabeledField>
-        <LabeledField
-          title={t("settings:chatSection.typography.infoPanelScale.title")}
-          description={t("settings:chatSection.typography.infoPanelScale.description")}
-        >
-          <div className={sx(styles.sliderRow)}>
-            <Slider
-              aria-label={t("settings:chatSection.typography.infoPanelScale.ariaLabel")}
-              min={80}
-              max={130}
-              step={5}
-              value={Math.round(infoPanelScale * 100)}
-              onValueChange={(value) =>
-                updateSettings({
-                  patch: { infoPanelScale: value / 100 },
-                })
-              }
-              className={sx(styles.flex1)}
-            />
-            <span className={sx(styles.valueReadout)}>
-              {Math.round(infoPanelScale * 100)}%
-            </span>
-          </div>
-        </LabeledField>
+        <ChatTypographyAdvancedFields />
       </SettingsCard>
       <SettingsCard
         title={t("settings:chatSection.behavior.title")}

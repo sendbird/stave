@@ -52,7 +52,7 @@ review and retry; it does not silently send that prompt as an ordinary turn.
 
 ## Source Configuration
 
-Open `Settings → Kickoff` to configure source matching and resolution.
+Open `Settings → Integrations → Kickoff` to configure source matching and resolution.
 
 Each source defines:
 
@@ -73,7 +73,7 @@ but do not block preview or workspace creation.
 ## Repository Branch Rules
 
 Set a repository-specific naming rule under
-`Settings → Repositories → Kickoff Branch Naming Rule`. The resolver receives this
+`Settings → Projects → Repository → Kickoff Branch Naming Rule`. The resolver receives this
 rule together with the repository's normal instructions. The preview always shows
 the sanitized git branch before creation.
 

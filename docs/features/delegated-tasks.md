@@ -30,7 +30,7 @@ the work should recur rather than be handed off once.
 
 - The **Subagents** tab of the right rail's Task panel lists every subagent the
   task called, durable or in-turn. Delegation requires the Stave Local MCP
-  server (Settings → Local MCP).
+  server (Settings → MCP → Local MCP Server).
 - The parent task's workspace must belong to a registered repository. A delegation
   is refused when the parent task, its workspace, and the repository path do not
   agree.

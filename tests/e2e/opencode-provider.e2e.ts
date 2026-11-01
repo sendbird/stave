@@ -191,7 +191,8 @@ for (const themeMode of ["light", "dark"] as const) {
       fullPage: true,
     });
 
-    await settings.getByRole("button", { name: "Tooling" }).click();
+    await settings.getByRole("button", { name: "Accounts", exact: true }).click();
+    await settings.getByRole("tab", { name: "Tooling" }).click();
     await expect(settings.getByText("OpenCode is ready.").first()).toBeVisible({
       timeout: 20_000,
     });

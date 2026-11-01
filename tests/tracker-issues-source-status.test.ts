@@ -64,12 +64,12 @@ describe("summarizeTrackerSource", () => {
     }
   });
 
-  it("keeps a disabled Crane source pointing at Settings → Issues", () => {
+  it("keeps a disabled Crane source pointing at Settings → Integrations → Issues", () => {
     const summary = summarizeTrackerSource(
       "crane",
       status({ availability: "disabled" }),
     );
-    expect(summary.detail).toBe("Turned off in Settings → Issues.");
+    expect(summary.detail).toBe("Turned off in Settings → Integrations → Issues.");
     expect(summary.fixInSettings).toBe(false);
   });
 

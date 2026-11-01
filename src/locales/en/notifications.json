@@ -80,7 +80,7 @@
   },
   "appStoreProviderActions": {
     "providerStatusCouldNotBeVerified": "Provider status could not be verified.",
-    "retryTheStatusCheckInSettingsTooling": "Retry the status check in Settings > Tooling."
+    "retryTheStatusCheckInSettingsTooling": "Retry the status check in Settings > Accounts > Tooling."
   },
   "appStoreTaskLifecycleActions": {
     "contextCompacted": "context compacted"

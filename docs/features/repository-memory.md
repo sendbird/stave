@@ -28,7 +28,7 @@ Entries display their complete text. **Edit memory** opens a multiline editor;
 
 ## Settings and cleanup
 
-Open **Settings > Memory** and select a repository, or expand **Memory settings and
+Open **Settings > Projects > Memory** and pick the repository in the project picker, or expand **Memory settings and
 actions** in Information > Memory. Settings apply across that repository's workspaces.
 
 - **Use repository memory** controls automatic inclusion in new turns. Switching it

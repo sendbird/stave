@@ -88,7 +88,7 @@ describe("Lens browser fallback", () => {
   test("detects a missing saved account and keeps the current page target", () => {
     const subject = tracker();
     subject.observe([call("stave_lens_navigate", "nav", { url: page }), result({ ok: true, url: page }, "nav")]);
-    subject.observe([call("stave_lens_fill_saved_account"), result({ ok: false, message: "No unambiguous saved Lens account matches the current hostname. Choose a username or mark one account for automatic fill in Settings > Lens." })]);
+    subject.observe([call("stave_lens_fill_saved_account"), result({ ok: false, message: "No unambiguous saved Lens account matches the current hostname. Choose a username or mark one account for automatic fill in Settings > Browser > Lens." })]);
     expect(subject.detected).toBe(true);
     expect(subject.blockedUrls()).toEqual([page]);
   });
@@ -134,9 +134,9 @@ describe("Lens browser fallback", () => {
     for (const failure of [
       "Lens CDP access for workspace.example was denied.",
       "Lens CDP approval for workspace.example timed out after 60 seconds.",
-      "Lens navigation blocked by Settings > Lens > Site Access: workspace.example",
-      "Lens navigation is limited by Settings > Lens > Site Access. Add workspace.example to allowed hosts to continue.",
-      "Lens Developer Mode CDP is disabled. Enable Settings > Lens > Developer Mode to allow CDP-backed Lens actions.",
+      "Lens navigation blocked by Settings > Browser > Lens > Site Access: workspace.example",
+      "Lens navigation is limited by Settings > Browser > Lens > Site Access. Add workspace.example to allowed hosts to continue.",
+      "Lens Developer Mode CDP is disabled. Enable Settings > Browser > Lens > Developer Mode to allow CDP-backed Lens actions.",
       "Lens automation is paused for direct interaction. Wait for the user to resume it in Lens.",
     ]) {
       const subject = tracker();

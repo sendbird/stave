@@ -1,4 +1,4 @@
-import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
+import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -7,11 +7,6 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@/components/ui";
 import { Sparkles } from "lucide-react";
 import { ScriptsManager } from "@/components/scripts";
@@ -21,6 +16,10 @@ import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/typ
 import { sx } from "@/components/ads/utils/stylex";
 import { scriptsSectionStyles } from "./settings-dialog-scripts-section.styles";
 
+/**
+ * Workspace Tools for the project chosen at the top of Settings > Projects;
+ * the page owns the project selection, so this tab has no picker of its own.
+ */
 export function ScriptsSection(props: {
   repositories: RecentRepositoryState[];
   currentRepositoryPath?: string | null;
@@ -48,40 +47,13 @@ export function ScriptsSection(props: {
 
   const currentRepositoryPath =
     props.currentRepositoryPath ?? storeRepositoryPath ?? null;
-  const [selectedRepositoryPath, setSelectedRepositoryPath] = useState<string | null>(
-    () =>
-      props.selectedRepositoryPath ??
-      currentRepositoryPath ??
-      props.repositories[0]?.repositoryPath ??
-      null,
-  );
-
-  // Keep a valid selection if the repositories list changes underneath us.
-  useEffect(() => {
-    if (
-      selectedRepositoryPath &&
-      props.repositories.some(
-        (repository) => repository.repositoryPath === selectedRepositoryPath,
-      )
-    ) {
-      return;
-    }
-    setSelectedRepositoryPath(
-      currentRepositoryPath ?? props.repositories[0]?.repositoryPath ?? null,
-    );
-  }, [currentRepositoryPath, props.repositories, selectedRepositoryPath]);
-
+  const selectedRepositoryPath = props.repositories.some(
+    (repository) => repository.repositoryPath === props.selectedRepositoryPath,
+  )
+    ? (props.selectedRepositoryPath ?? null)
+    : null;
   const isCurrent =
     Boolean(selectedRepositoryPath) && selectedRepositoryPath === currentRepositoryPath;
-  const selectedRepositoryLabel = useMemo(() => {
-    const repository = props.repositories.find(
-      (candidate) => candidate.repositoryPath === selectedRepositoryPath,
-    );
-    if (!repository) {
-      return undefined;
-    }
-    return `${repository.repositoryName}${isCurrent ? i18n.t("settings:settingsDialogScriptsSection.current") : ""}`;
-  }, [isCurrent, props.repositories, selectedRepositoryPath]);
   const scriptsWorkspacePath = isCurrent
     ? (workspacePathById[activeWorkspaceId] ?? selectedRepositoryPath ?? "")
     : (selectedRepositoryPath ?? "");
@@ -136,48 +108,16 @@ export function ScriptsSection(props: {
               {t("settings:settingsDialogScriptsSection.openARepositoryFromTheSidebar")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : (
-        <>
-          <label className={sx(scriptsSectionStyles.repositoryLabel)}>
-            <span className={sx(scriptsSectionStyles.repositoryLabelText)}>
-              {t("settings:settingsDialogScriptsSection.configurationRepository")}</span>
-            <Select
-              value={selectedRepositoryPath ?? undefined}
-              onValueChange={(value) => setSelectedRepositoryPath(value)}
-            >
-              <SelectTrigger className={sx(scriptsSectionStyles.triggerFull)}>
-                <SelectValue placeholder={t("settings:settingsDialogScriptsSection.selectARepository")}>
-                  {selectedRepositoryLabel}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {props.repositories.map((repository) => (
-                  <SelectItem
-                    key={repository.repositoryPath}
-                    value={repository.repositoryPath}
-                  >
-                    {repository.repositoryName}
-                    {repository.repositoryPath === currentRepositoryPath
-                      ? i18n.t("settings:settingsDialogScriptsSection.current")
-                      : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-
-          {selectedRepositoryPath ? (
-            <ScriptsManager
-              key={selectedRepositoryPath}
-              repositoryPath={selectedRepositoryPath}
-              workspacePath={scriptsWorkspacePath}
-              resolvedConfig={resolvedConfig}
-              onSaved={loadResolvedScriptsConfig}
-              {...(runtime ? { runtime } : {})}
-            />
-          ) : null}
-        </>
-      )}
+      ) : selectedRepositoryPath ? (
+        <ScriptsManager
+          key={selectedRepositoryPath}
+          repositoryPath={selectedRepositoryPath}
+          workspacePath={scriptsWorkspacePath}
+          resolvedConfig={resolvedConfig}
+          onSaved={loadResolvedScriptsConfig}
+          {...(runtime ? { runtime } : {})}
+        />
+      ) : null}
     </div>
   );
 }

@@ -111,6 +111,10 @@
         "title": "Information Panel Scale",
         "description": "Zoom level for the workspace information panel. Affects text, icons, buttons, and spacing uniformly.",
         "ariaLabel": "Information panel scale"
+      },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "Mono and Korean font families and the Information panel scale. Saved values apply even while this is collapsed."
       }
     },
     "behavior": {
@@ -260,6 +264,10 @@
     "designTokens": {
       "title": "Design Tokens",
       "description": "These are Stave's base light and dark tokens. Custom presets layer on top, and manual overrides below still win.",
+      "editor": {
+        "title": "Edit token values",
+        "description": "Override single light or dark tokens. Saved overrides apply even while this is collapsed."
+      },
       "lightTokens": "Light Tokens",
       "darkTokens": "Dark Tokens",
       "resetLight": "Reset light",
@@ -292,7 +300,7 @@
       },
       "modelLink": {
         "title": "Completion model",
-        "description": "Choose the provider and model for inline completion in Settings → Background AI.",
+        "description": "Choose the provider and model for inline completion in Settings → Models → Background AI.",
         "action": "Open Background AI"
       }
     },
@@ -302,6 +310,10 @@
       "enable": {
         "title": "Enable LSP Runtime",
         "description": "Uses Electron-managed stdio language-server sessions per active workspace. Keep this off if you only want Monaco's built-in syntax support."
+      },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "Language server commands. Leave them empty to find the servers on PATH. Saved values apply even while this is collapsed."
       },
       "typescript": {
         "title": "TypeScript LSP Command",
@@ -386,6 +398,10 @@
         "title": "Heuristic Search",
         "description": "AI uses class names, text content, and IDs to search for source files via grep. Recommended for most repositories."
       },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "React debug source mapping for development builds. Saved values apply even while this is collapsed."
+      },
       "reactDebugSource": {
         "description": "Extract exact file and line number from React fiber internals. Only works with dev builds that include @babel/plugin-transform-react-jsx-source (enabled by default in Vite React plugin, CRA, and Next.js dev)."
       }
@@ -401,6 +417,10 @@
     "developerMode": {
       "title": "Developer Mode",
       "description": "Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control. Approval prompts appear app-wide, even when the Lens panel is closed.",
+      "advanced": {
+        "title": "Advanced options",
+        "description": "CDP tools and approved CDP hosts. Saved values apply even while this is collapsed."
+      },
       "cdpTools": {
         "title": "CDP Tools",
         "description": "Ask before the first CDP action for each host. Allow once is temporary; always allow saves the hostname below."
@@ -439,11 +459,6 @@
       "codexEffort": {
         "title": "Codex Effort",
         "description": "Default reasoning effort applied to new Codex turns."
-      },
-      "utility": {
-        "title": "Utility model",
-        "description": "Task names, commit messages and prompt enhancement use the utility model set in Background AI. Auto and Agents use the separate Routing decision model in Auto settings.",
-        "action": "Open Background AI"
       },
       "cursorModel": {
         "ariaLabel": "Cursor default model"
@@ -524,7 +539,7 @@
     },
     "turnSummary": {
       "title": "Workspace Latest Turn Summary",
-      "description": "Automatically writes a short 'what the user asked / what the AI did' summary to the top of the Information panel after each completed turn. Its model lives in Settings → Background AI.",
+      "description": "Automatically writes a short 'what the user asked / what the AI did' summary to the top of the Information panel after each completed turn. Its model lives in Settings → Models → Background AI.",
       "field": {
         "title": "Summary Prompt",
         "description": "Instruction template for the Information panel's automatic latest-turn summary. Task title, latest user request, and latest assistant response are appended automatically. Empty disables automatic summaries."
@@ -573,15 +588,6 @@
         "resetToDefault": "Reset to default"
       },
       "skillPreviewNote": "Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
-    },
-    "prePr": {
-      "title": "Pre-PR Review",
-      "description": "Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request.",
-      "link": {
-        "title": "Moved to Background AI",
-        "description": "Turn pre-PR review on or off and choose its provider and model in Settings → Background AI.",
-        "action": "Open Background AI"
-      }
     }
   },
   "repositoriesSection": {
@@ -656,21 +662,6 @@
         "description": "Removes this repository from Stave's registered repository list without deleting files on disk.",
         "button": "Remove repository"
       }
-    },
-    "workspaceTools": {
-      "title": "Workspace Tools",
-      "description": "One-shot commands, long-running processes, lifecycle triggers, and execution environments for this repository.",
-      "manage": "Manage workspace tools",
-      "commandCount_one": "{{count}} Command",
-      "commandCount_other": "{{count}} Commands",
-      "processCount_one": "{{count}} Process",
-      "processCount_other": "{{count}} Processes",
-      "triggerCount_one": "{{count}} Trigger",
-      "triggerCount_other": "{{count}} Triggers",
-      "environmentCount_one": "{{count}} Environment",
-      "environmentCount_other": "{{count}} Environments",
-      "footer": "Configure and run them from the dedicated Workspace Tools section.",
-      "readFailed": "Workspace tools could not be read."
     },
     "empty": {
       "title": "No Repositories Yet",
@@ -994,119 +985,118 @@
   "sections": {
     "general": {
       "label": "General",
-      "description": "Workspace defaults, notifications, and app behavior."
+      "description": "Set the language, notifications, and app behavior."
     },
     "presets": {
       "label": "Presets",
-      "description": "Reusable prompt and provider presets."
+      "description": "Manage quick-launch presets for tasks and CLI sessions."
     },
     "macros": {
       "label": "Macros",
-      "description": "Reusable prompt snippets with optional model pins and instant run."
+      "description": "Save reusable prompts and insert them from the composer."
     },
     "projects": {
-      "label": "Repositories",
-      "description": "Repository-level paths, setup prompts, and workspace defaults."
+      "label": "Repository",
+      "description": "Configure a repository and how its new workspaces start."
     },
     "scripts": {
       "label": "Workspace Tools",
-      "description": "Long-running processes you leave up while developing, plus one-shot commands, lifecycle triggers, and environments."
+      "description": "Set up dev servers and commands, and choose when they run."
     },
     "theme": {
-      "label": "Design",
-      "description": "Theme, color, and visual styling."
+      "label": "Appearance",
+      "description": "Choose a theme and fine-tune how Stave looks."
     },
     "chat": {
       "label": "Chat",
-      "description": "Task mode, chat typography, streaming, reasoning, and active-turn behavior."
+      "description": "Adjust how chat messages look and how turns behave."
     },
     "providers": {
       "label": "Providers",
-      "description": "Claude, Codex, Cursor, Kiro and OpenCode provider runtime settings."
+      "description": "Set permissions and runtime behavior for each provider."
     },
     "models": {
       "label": "Models",
-      "description": "Default model selection and visibility."
+      "description": "Choose default models and which ones appear in selectors."
     },
     "autoRouting": {
       "label": "Auto (Model Router)",
-      "description": "How Auto sizes each turn: a level picks the model, your preference sets the effort."
+      "description": "Choose how Auto picks a model and effort for each turn."
     },
     "mcp": {
       "label": "MCP",
-      "description": "Model Context Protocol servers and runtime status."
+      "description": "Add MCP servers and check that they connect."
     },
     "integrations": {
       "label": "Integrations",
-      "description": "Personal outbound connectors and external task sources."
+      "description": "Connect issue trackers and other services to Stave."
     },
     "issues": {
       "label": "Issues",
-      "description": "Assigned ticket list defaults: starting view, refresh cadence, and how a kickoff begins."
+      "description": "Set the ticket list's view, refresh, and how work starts."
     },
     "kickoff": {
       "label": "Kickoff",
-      "description": "External source matching and workspace proposal settings."
+      "description": "Choose how pasted links and keys become new workspaces."
     },
     "auxiliaryInference": {
       "label": "Background AI",
-      "description": "Background model calls Stave makes on your behalf, and what each one costs."
+      "description": "Choose which background AI tasks run and on which model."
     },
     "prompts": {
       "label": "Prompts",
-      "description": "Default prompt text, response instructions, and review settings."
+      "description": "Edit built-in prompts and set review and PR defaults."
     },
     "memory": {
       "label": "Memory",
-      "description": "Repository memory collection, recall, templates, and reset controls."
+      "description": "Choose what this repository remembers and recalls."
     },
     "skills": {
       "label": "Skills",
-      "description": "Skill discovery and prompt input suggestions."
+      "description": "Enable skills and choose whether the composer suggests them."
     },
     "mentions": {
       "label": "Mentions",
-      "description": "What each @ mention does in a prompt, and how far Stave acts without one."
+      "description": "Choose when the agent may use your Chrome browser."
     },
     "commandPalette": {
-      "label": "Command Palette",
-      "description": "Global command launcher, shell shortcut chords, and model hotkeys."
+      "label": "Keyboard & Commands",
+      "description": "Set up the command palette and keyboard shortcuts."
     },
     "terminal": {
       "label": "Terminal",
-      "description": "Integrated terminal typography and cursor behavior."
+      "description": "Adjust the terminal's font and cursor."
     },
     "editor": {
       "label": "Editor",
-      "description": "Editor typography, display, and language tooling."
+      "description": "Adjust how the editor displays and checks your code."
     },
     "tooling": {
       "label": "Tooling",
-      "description": "CLI paths, install status, versions, and health checks for local tools."
+      "description": "Check that the local tools Stave uses are ready."
     },
     "lens": {
       "label": "Lens",
-      "description": "Browser Lens sessions and visual comment capture."
+      "description": "Choose how Lens opens pages and captures visual comments."
     },
     "secrets": {
       "label": "Secrets",
-      "description": "Encrypted API tokens and other secret values."
+      "description": "Store encrypted API tokens and other secret values."
     },
     "developer": {
       "label": "Developer",
-      "description": "Developer diagnostics and internal runtime toggles."
+      "description": "Inspect diagnostics and adjust internal runtime options."
     },
     "changelog": {
       "label": "Changelog",
-      "description": "Release notes and product changes."
+      "description": "See what changed in each release."
     },
     "groups": {
       "workspace": "Workspace",
-      "appearance": "Appearance",
-      "repositories": "Repositories",
-      "aiAgents": "AI & Agents",
-      "interface": "Interface",
-      "systemAdvanced": "System & Advanced"
+      "app": "App",
+      "projects": "Projects",
+      "agents": "Agents",
+      "system": "System"
     },
     "fields": {
       "autoRoutingEnabled": {
@@ -1119,7 +1109,7 @@
       },
       "accountUsageLimit": {
         "title": "Stop turns at 100% usage",
-        "description": "When Claude, Codex, Cursor, or Kiro reports included account usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish."
+        "description": "When a provider reports included account usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish."
       },
       "auxiliaryInference": {
         "title": "Background AI",
@@ -1188,7 +1178,22 @@
     },
     "accounts": {
       "label": "Accounts",
-      "description": "Sign in to Claude and Codex, add a second subscription, or connect a gateway key billed per token."
+      "description": "Sign in to providers and choose how you pay."
+    }
+  },
+  "pages": {
+    "editorTerminal": "Editor & Terminal",
+    "browser": "Browser",
+    "projects": "Projects",
+    "presetsMacros": "Presets & Macros",
+    "promptsSkills": "Prompts & Skills"
+  },
+  "projectsPage": {
+    "picker": {
+      "label": "Project",
+      "placeholder": "Select a project",
+      "searchPlaceholder": "Search projects…",
+      "empty": "No matching projects."
     }
   },
   "macroEditor": {
@@ -1295,14 +1300,11 @@
     "savePreset": "Save preset"
   },
   "settingsDialogScriptsSection": {
-    "openARepositoryFromTheSidebar": "Open a repository from the sidebar to configure its processes and commands.",
-    "configurationRepository": "Configuration repository",
-    "selectARepository": "Select a repository",
-    "current": " (current)"
+    "openARepositoryFromTheSidebar": "Open a repository from the sidebar to configure its processes and commands."
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "Standalone CLI",
-    "runClaudeCodeCodexCursorAnd": "Run Claude Code, Codex, Cursor, Kiro and OpenCode against one folder without registering it as a repository.",
+    "runClaudeCodeCodexCursorAnd": "Run provider CLIs against one folder without registering it as a repository.",
     "standaloneCLIFolder": "Standalone CLI Folder",
     "absolutePathChangingItRestartsEvery": "Absolute path. Changing it restarts every CLI tab in the new folder and discards their conversations.",
     "enterAnAbsoluteFolderPath": "Enter an absolute folder path."
@@ -1329,10 +1331,7 @@
     "removesThisRepositoryFromStaveApos": "Removes this repository from Stave's registered repository list without deleting files on disk.",
     "configureAndRunThemFromThe": "Configure and run them from the dedicated",
     "section": "section.",
-    "removeFromStaveSRepositoryList": "Remove \"{{value1}}\" from Stave's repository list? This does not delete files on disk.",
-    "processes": "Processes",
-    "triggers": "Triggers",
-    "environments": "Environments"
+    "removeFromStaveSRepositoryList": "Remove \"{{value1}}\" from Stave's repository list? This does not delete files on disk."
   },
   "settingsDialogReviewCards": {
     "defaultModel": "Default model ({{value1}})",
@@ -1423,8 +1422,6 @@
     "theKeptCandidateIsNoLonger": "The kept candidate is no longer part of this run."
   },
   "whole": {
-    "delegationGuide": "There is no button: delegation happens when an agent calls <code>stave_delegate_task</code> during its turn. Ask for it, for example <em>“get a read-only second opinion on this plan from Codex at high effort”</em>. Only the prompt is required. Omitted parameters follow this task’s provider, effort and permissions. The child runs one turn in this workspace; Settings has no global delegation defaults.",
-    "delegationActivity": "Once a delegation starts, its child appears in the task’s turn activity with Open, Follow-up, Stop, Detach and Retry controls.",
     "themeImport": "Drop a <file>.theme.json</file> file to install a community theme. The JSON must include <id>id</id>, <name>name</name>, <mode>baseMode</mode>, and a <tokens>tokens</tokens> map.",
     "commandContributors": "Use <code>registerCommandPaletteContributor()</code> to inject additional commands. Core Stave commands are customizable here; dynamic workspace/task entries and future contributed commands inherit the same execution surface automatically.",
     "lensHostScope": "Enter a hostname or URL. Ports and paths are ignored, so <host>localhost</host> covers <portA>localhost:3000</portA>, <portB>localhost:8899</portB>, and other localhost ports.",
@@ -1468,29 +1465,6 @@
       }
     }
   },
-  "mentionsSection": {
-    "title": "Prompt mentions",
-    "description": "Type @ in the prompt input to add one. Each mention adds context or a capability to that turn only.",
-    "alwaysAvailable": "Always available",
-    "webStatus": {
-      "explicit": "Only with @web",
-      "auto": "Lens first",
-      "always": "Always on"
-    },
-    "web": {
-      "name": "Your Chrome",
-      "description": "Attaches the active provider's native Chrome connection so the agent can read existing tabs and signed-in pages. Choose below whether the agent may use it without @web."
-    },
-    "lens": {
-      "name": "Lens page",
-      "description": "Adds the current Lens page URL and title. The agent can use Lens tools to check this project's UI without @lens.",
-      "action": "Lens settings"
-    },
-    "info": {
-      "name": "Information panel",
-      "description": "Adds a section or item from the workspace Information panel. Use @info:<section> for a whole section or @info:<section>/<item> for one item."
-    }
-  },
   "duration": {
     "seconds_one": "{{count}} second",
     "seconds_other": "{{count}} seconds",
@@ -1503,7 +1477,6 @@
     "currentChord": "Current chord: {{shortcut}}.",
     "modelSlot": "Model Slot {{slot}}",
     "defaultBranch": "default: {{branch}}",
-    "workspaceToolsLink": "Configure and run them from the dedicated {{section}} section.",
     "skillsUpdated": "Last updated {{updatedAt}}",
     "resetMode": "Reset {{mode}}",
     "userThemesTotal": "{{count}} / {{max}} user themes",
@@ -1550,11 +1523,6 @@
       "scoped": {
         "title": "Editing defaults for {{project}}",
         "description": "Default models, effort and permission modes set here apply only to new tasks and turns in this project. Other settings in this section apply to all projects. A model, effort or mode chosen in the composer still wins."
-      },
-      "globalOnly": {
-        "title": "These settings apply to all projects",
-        "description": "{{project}} uses the same values as every other project here. Switch to All projects to change them.",
-        "action": "Edit for all projects"
       }
     },
     "field": {

@@ -175,7 +175,7 @@ renders ADS's `high-contrast` theme, whose stronger elevations and drawn media
 edges apply while the theme's colors still come from the role mapping. ADS has
 no dark high-contrast theme, so dark high contrast stays on ADS `dark` and adds
 the host emphasis in `adsDarkHighContrastVariables`: subtle borders at full
-strength, media edges drawn and a 3px focus ring. Settings → Design → Density
+strength, media edges drawn and a 3px focus ring. Settings → Appearance → Density
 writes `data-ui-density`, which becomes the ADS `ThemeProvider` density:
 Compact moves the control-height ramp down a tier and the spacing ramp down a
 step from `space12`; text sizes do not change, and fixed geometry such as the

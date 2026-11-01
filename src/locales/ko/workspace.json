@@ -364,7 +364,6 @@
     "settingsSection": {
       "title": "저장소 메모리",
       "lead": "이 저장소가 워크스페이스 전반에서 지식을 수집하고 불러오는 방식을 선택합니다.",
-      "repositoryAriaLabel": "메모리 저장소",
       "noRepository": "저장소를 열면 메모리를 설정할 수 있습니다."
     }
   },

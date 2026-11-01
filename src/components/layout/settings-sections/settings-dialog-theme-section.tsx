@@ -1,5 +1,6 @@
 import { SidebarSettingsCard } from "./settings-dialog-sidebar-card";
 import { DensitySettingsCard } from "./settings-dialog-density-card";
+import { SettingsAdvancedDisclosure } from "../settings-dialog-advanced-disclosure";
 import { I18N_NAMESPACES, Trans, useTranslation, i18n, type I18nKey } from "@/i18n";
 import { memo, useMemo, useRef, useState } from "react";
 import {
@@ -217,48 +218,54 @@ export function ThemeSection() {
         title={t("settings:themeSection.designTokens.title")}
         description={t("settings:themeSection.designTokens.description")}
       >
-        <div className={sx(styles.tokenToolbar)}>
-          <div className={sx(styles.rowCenter)}>
+        <SettingsAdvancedDisclosure
+          compact
+          title={t("settings:themeSection.designTokens.editor.title")}
+          description={t("settings:themeSection.designTokens.editor.description")}
+        >
+          <div className={sx(styles.tokenToolbar)}>
+            <div className={sx(styles.rowCenter)}>
+              <Button
+                size="sm"
+                variant={themeEditorMode === "light" ? "primary" : "outline"}
+                onClick={() => setThemeEditorMode("light")}
+              >
+                {t("settings:themeSection.designTokens.lightTokens")}</Button>
+              <Button
+                size="sm"
+                variant={themeEditorMode === "dark" ? "primary" : "outline"}
+                onClick={() => setThemeEditorMode("dark")}
+              >
+                {t("settings:themeSection.designTokens.darkTokens")}</Button>
+            </div>
             <Button
               size="sm"
-              variant={themeEditorMode === "light" ? "primary" : "outline"}
-              onClick={() => setThemeEditorMode("light")}
-            >
-              {t("settings:themeSection.designTokens.lightTokens")}</Button>
-            <Button
-              size="sm"
-              variant={themeEditorMode === "dark" ? "primary" : "outline"}
-              onClick={() => setThemeEditorMode("dark")}
-            >
-              {t("settings:themeSection.designTokens.darkTokens")}</Button>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              const themeOverrides =
-                useAppStore.getState().settings.themeOverrides;
-              updateSettings({
-                patch: {
-                  themeOverrides: {
-                    ...themeOverrides,
-                    [themeEditorMode]: {},
+              variant="outline"
+              onClick={() => {
+                const themeOverrides =
+                  useAppStore.getState().settings.themeOverrides;
+                updateSettings({
+                  patch: {
+                    themeOverrides: {
+                      ...themeOverrides,
+                      [themeEditorMode]: {},
+                    },
                   },
-                },
-              });
-            }}
-          >{t("settings:messages.resetMode", { mode: t(themeEditorMode === "dark" ? "settings:messages.dark" : "settings:messages.light") })}</Button>
-        </div>
+                });
+              }}
+            >{t("settings:messages.resetMode", { mode: t(themeEditorMode === "dark" ? "settings:messages.dark" : "settings:messages.light") })}</Button>
+          </div>
 
-        <div className={sx(styles.stackMd)}>
-          {THEME_TOKEN_NAMES.map((token) => (
-            <ThemeTokenRow
-              key={`${themeEditorMode}-${token}`}
-              token={token}
-              themeEditorMode={themeEditorMode}
-            />
-          ))}
-        </div>
+          <div className={sx(styles.stackMd)}>
+            {THEME_TOKEN_NAMES.map((token) => (
+              <ThemeTokenRow
+                key={`${themeEditorMode}-${token}`}
+                token={token}
+                themeEditorMode={themeEditorMode}
+              />
+            ))}
+          </div>
+        </SettingsAdvancedDisclosure>
       </SettingsCard>
     </SectionStack>
   );

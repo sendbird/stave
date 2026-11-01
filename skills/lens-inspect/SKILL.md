@@ -63,7 +63,7 @@ Captured data is inserted into the active task's prompt draft:
 
 ## Source Code Mapping
 
-Configure in **Settings > Lens > Source Code Mapping**.
+Configure in **Settings > Browser > Lens > Source Code Mapping**.
 
 ### Heuristic Search (default: on)
 

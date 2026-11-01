@@ -2,7 +2,7 @@
 
 Every keyboard shortcut in Stave, in one place. The same list is inside the app:
 press `Cmd/Ctrl+/`, run **Open keyboard shortcuts** from the
-[Command Palette](command-palette.md), or open **Settings → Command Palette** and
+[Command Palette](command-palette.md), or open **Settings → Keyboard & Commands** and
 choose **View all shortcuts**. The in-app list is generated from the same table
 the app uses to handle the keys, so it always matches what the keys do, including
 the keys you changed in Settings.
@@ -83,7 +83,7 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Ask a side question | `Cmd/Ctrl+K` then `Q` | Anywhere; opens the panel beside the active task's conversation |
 
 The letter after `Cmd/Ctrl+K` is the default. Change or turn off any of them under
-**Settings → Command Palette → Shell chords**; the list in the app follows your
+**Settings → Keyboard & Commands → Shell Shortcut Chords**; the list in the app follows your
 choice.
 
 ## Composer And Models
@@ -100,10 +100,10 @@ choice.
 | Ask the side question | `Enter` | While typing in the side question panel; Shift+Enter adds a line |
 | Close the side question panel | `Esc` | Side question panel; the task's turn keeps running |
 | Open model selector | `Alt+P` | Active task |
-| Model shortcut slots | `Alt+1..0` | Active task; assign them in Settings → Command Palette |
-| Increase effort | Unassigned; pick a letter after `Cmd/Ctrl+K` in Settings → Command Palette → Shell chords | Active task; steps through the selected model's levels and stops at the highest; does nothing while a request or question waits |
-| Decrease effort | Unassigned; pick a letter after `Cmd/Ctrl+K` in Settings → Command Palette → Shell chords | Active task; stops at the lowest level; does nothing while a request or question waits |
-| Preset shortcut slots | `Ctrl+1..9` | Anywhere; the first nine presets in Settings → Presets |
+| Model shortcut slots | `Alt+1..0` | Active task; assign them in Settings → Keyboard & Commands |
+| Increase effort | Unassigned; pick a letter after `Cmd/Ctrl+K` in Settings → Keyboard & Commands → Shell Shortcut Chords | Active task; steps through the selected model's levels and stops at the highest; does nothing while a request or question waits |
+| Decrease effort | Unassigned; pick a letter after `Cmd/Ctrl+K` in Settings → Keyboard & Commands → Shell Shortcut Chords | Active task; stops at the lowest level; does nothing while a request or question waits |
+| Preset shortcut slots | `Ctrl+1..9` | Anywhere; the first nine presets in Settings → Presets & Macros → Presets |
 
 ## Editing
 
@@ -163,8 +163,8 @@ The list is read-only. You can change:
 - the model slots behind `Alt+1..0`,
 - the stage-comment and visual-comment keys,
 
-all under **Settings → Command Palette**. Preset slots follow the preset order in
-**Settings → Presets**.
+all under **Settings → Keyboard & Commands**. Preset slots follow the preset order in
+**Settings → Presets & Macros → Presets**.
 
 ## Related Docs
 

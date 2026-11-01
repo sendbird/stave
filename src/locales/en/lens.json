@@ -1,7 +1,7 @@
 {
   "lensCdpApprovalDialog": {
     "cDPApprovalExpired": "CDP approval expired",
-    "retryTheLensActionToShowA": "Retry the Lens action to show a new approval request, or add the host in Settings > Lens > Developer Mode > Approved CDP Hosts.",
+    "retryTheLensActionToShowA": "Retry the Lens action to show a new approval request, or add the host in Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts.",
     "lensApprovalControlsAreUnavailable": "Lens approval controls are unavailable.",
     "failedToAnswerTheCDPApproval": "Failed to answer the CDP approval",
     "allowLensCDPAccess": "Allow Lens CDP access?",
@@ -9,7 +9,7 @@
     "host": "Host",
     "workspace": "Workspace",
     "action": "Action",
-    "allowOnceGrantsTemporaryAccessAlwaysAllow": "Allow once grants temporary access. Always allow saves only the hostname under Settings > Lens > Developer Mode; ports and paths are ignored.",
+    "allowOnceGrantsTemporaryAccessAlwaysAllow": "Allow once grants temporary access. Always allow saves only the hostname under Settings > Browser > Lens > Developer Mode; ports and paths are ignored.",
     "submittingApprovalResponse": "Submitting approval response.",
     "deny": "Deny",
     "allowOnce": "Allow once",

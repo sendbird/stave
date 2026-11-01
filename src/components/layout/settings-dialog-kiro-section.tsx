@@ -13,8 +13,6 @@ import {
   SectionStack,
   SettingsCard,
 } from "./settings-dialog.shared";
-import type { SectionId } from "./settings-dialog.schema";
-import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import { kiroSectionStyles } from "./settings-dialog-kiro-section.styles";
 import {
   ScopedFieldStatus,
@@ -23,9 +21,7 @@ import {
   useScopedSettingsWriter,
 } from "./settings-scope";
 
-export function SettingsKiroSection(args: {
-  onNavigateSection?: (id: SectionId) => void;
-}) {
+export function SettingsKiroSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
   // Settings scope: the approval preset may differ per project.
@@ -61,7 +57,6 @@ export function SettingsKiroSection(args: {
           <p className={sx(kiroSectionStyles.note)}>
             {t("settingsProviders:kiroSection.approvalPreset.note")}</p>
         </LabeledField>
-        <ProviderDefaultsLink onNavigateSection={args.onNavigateSection} />
       </SettingsCard>
       <ScopeLocked>
       <SettingsCard

@@ -55,7 +55,7 @@ writer when another model should change files.
 
 - **Request AI review** in the composer toolbar, or in its overflow tray when the
   toolbar is narrow.
-- **Settings → Prompts → Review Tasks** for the defaults.
+- **Settings → Prompts & Skills → Prompts → Review Tasks** for the defaults.
 - **View** on the composer line opens the review over the task you are in.
 - The review task itself is listed in the task panel's **Subagents** tab,
   where **View activity** opens the same dialog. **Open** in the dialog, or
@@ -135,7 +135,7 @@ API compatibility, persistence/migrations, and performance/resources.
 Select **Preview prompt** to read the selected rubric and shared evidence
 checks. The review also receives its target, focus, additional instructions,
 acceptance criteria and required findings format. Change the choice for one
-review in the dialog, or save it under **Settings > Prompts > Review Tasks**.
+review in the dialog, or save it under **Settings > Prompts & Skills > Prompts > Review Tasks**.
 Switching sources keeps the inactive custom text and skill choice in Settings.
 
 A custom prompt replaces the preset rubric; it does not replace the review
@@ -213,7 +213,7 @@ for the method, preset selection and evaluation limits.
 ### Apply a team checklist to every review
 
 1. Add the checklist as a skill in the repository or your shared skills.
-2. In **Settings → Prompts → Review Tasks**, select **Installed skill** under
+2. In **Settings → Prompts & Skills → Prompts → Review Tasks**, select **Installed skill** under
    **Review prompt**, then select the skill.
 3. Every review now follows it. You can still pick another skill, a preset,
    or a custom prompt in the dialog.

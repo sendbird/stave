@@ -16,10 +16,10 @@ export interface ProviderReadiness {
   stale: boolean;
 }
 
-type ReadinessMap = Partial<Record<ProviderId, ProviderReadiness>>;
+export type ProviderReadinessMap = Partial<Record<ProviderId, ProviderReadiness>>;
 
 // Ephemeral: an authenticated result from a previous app run is never trusted.
-export const useProviderReadinessStore = create<{ providers: ReadinessMap }>(
+export const useProviderReadinessStore = create<{ providers: ProviderReadinessMap }>(
   () => ({ providers: {} }),
 );
 
@@ -65,14 +65,27 @@ export function publishProviderTooling(
   });
 }
 
+/** The entry in `providers` that belongs to the provider's current configuration. */
+export function readinessForConfiguration(
+  providers: ProviderReadinessMap,
+  id: ProviderId,
+  options?: ProviderRuntimeOptions,
+) {
+  const value = providers[id];
+  return value?.configurationKey === providerConfigurationKey(id, options)
+    ? value
+    : undefined;
+}
+
 export function providerReadiness(
   id: ProviderId,
   options?: ProviderRuntimeOptions,
 ) {
-  const value = useProviderReadinessStore.getState().providers[id];
-  return value?.configurationKey === providerConfigurationKey(id, options)
-    ? value
-    : undefined;
+  return readinessForConfiguration(
+    useProviderReadinessStore.getState().providers,
+    id,
+    options,
+  );
 }
 
 export function providerReadsAllowed(

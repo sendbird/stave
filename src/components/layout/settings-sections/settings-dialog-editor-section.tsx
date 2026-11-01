@@ -4,6 +4,7 @@ import { settingsSectionsStyles as styles } from "../settings-dialog-sections.st
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "../settings-dialog.schema";
 import { EditorAiCompletionsCard } from "./settings-dialog-editor-ai-completions-card";
+import { SettingsAdvancedDisclosure } from "../settings-dialog-advanced-disclosure";
 import {
   ChoiceButtons,
   DraftInput,
@@ -143,32 +144,38 @@ export function EditorSection(args: {
             updateSettings({ patch: { editorLspEnabled: checked } })
           }
         />
-        <LabeledField
-          title={t("settings:editorSection.languageServers.typescript.title")}
-          description={t("settings:editorSection.languageServers.typescript.description")}
+        <SettingsAdvancedDisclosure
+          compact
+          title={t("settings:editorSection.languageServers.advanced.title")}
+          description={t("settings:editorSection.languageServers.advanced.description")}
         >
-          <DraftInput
-            xstyle={styles.input40Mono}
-            placeholder="typescript-language-server"
-            value={typescriptLspCommand}
-            onCommit={(nextValue) =>
-              updateSettings({ patch: { typescriptLspCommand: nextValue } })
-            }
-          />
-        </LabeledField>
-        <LabeledField
-          title={t("settings:editorSection.languageServers.python.title")}
-          description={t("settings:editorSection.languageServers.python.description")}
-        >
-          <DraftInput
-            xstyle={styles.input40Mono}
-            placeholder="pyright-langserver"
-            value={pythonLspCommand}
-            onCommit={(nextValue) =>
-              updateSettings({ patch: { pythonLspCommand: nextValue } })
-            }
-          />
-        </LabeledField>
+          <LabeledField
+            title={t("settings:editorSection.languageServers.typescript.title")}
+            description={t("settings:editorSection.languageServers.typescript.description")}
+          >
+            <DraftInput
+              xstyle={styles.input40Mono}
+              placeholder="typescript-language-server"
+              value={typescriptLspCommand}
+              onCommit={(nextValue) =>
+                updateSettings({ patch: { typescriptLspCommand: nextValue } })
+              }
+            />
+          </LabeledField>
+          <LabeledField
+            title={t("settings:editorSection.languageServers.python.title")}
+            description={t("settings:editorSection.languageServers.python.description")}
+          >
+            <DraftInput
+              xstyle={styles.input40Mono}
+              placeholder="pyright-langserver"
+              value={pythonLspCommand}
+              onCommit={(nextValue) =>
+                updateSettings({ patch: { pythonLspCommand: nextValue } })
+              }
+            />
+          </LabeledField>
+        </SettingsAdvancedDisclosure>
       </SettingsCard>
       <SettingsCard title="ESLint">
         <SwitchField

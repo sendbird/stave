@@ -65,6 +65,16 @@ export const searchablePickerStyles = stylex.create({
     flexDirection: "column",
     minInlineSize: 0,
   },
+  itemLabelRow: {
+    alignItems: "center",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    minInlineSize: 0,
+  },
+  badge: {
+    alignSelf: "center",
+    flexShrink: 0,
+  },
   itemLabel: {
     color: vars["--ads-color-text"],
     overflow: "hidden",

@@ -145,7 +145,7 @@ export function summarizeTrackerSource(
 
   if (status.availability !== "ready") {
     // Jira's on/off lives in Settings → Integrations (Issues only links there);
-    // Crane's source toggle is still in Settings → Issues.
+    // Crane's source toggle is still in Settings → Integrations → Issues.
     const disabledInIntegrations =
       status.availability === "disabled" && source === "jira";
     return {

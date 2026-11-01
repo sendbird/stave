@@ -11,7 +11,7 @@ import {
   type Stance,
   type TaskClass,
 } from "@/lib/providers/auto-routing-profile";
-import { getProviderLabel, listProviderIds } from "@/lib/providers/model-catalog";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { describeRoutingDecisionFacts } from "@/lib/providers/routing-decision-label";
 import type {
@@ -20,6 +20,7 @@ import type {
 } from "@/lib/routing/auto-routing";
 import type { RouteTraceEntry } from "./route-trace-entry";
 import { routeTraceStyles as styles } from "./route-trace.styles";
+import { listRouteUnavailableProviders } from "./route-unavailable-providers";
 
 /* -------------------------------------------------------------------------- */
 /* Signals                                                                    */
@@ -38,7 +39,7 @@ export interface RouteTraceSignalChip {
  * live rate-limit snapshot to redraw a decision the router already made.
  */
 export function buildRouteTraceSignals(args: {
-  decision: Pick<AutoRoutingDecision, "signals">;
+  decision: Pick<AutoRoutingDecision, "signals"> & { providerId?: ProviderId };
   budgetStepDownAt?: number;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
 }): RouteTraceSignalChip[] {
@@ -75,9 +76,12 @@ export function buildRouteTraceSignals(args: {
       decisive: deep,
     });
   }
-  const unavailable = listProviderIds().filter(
-    (providerId) => args.providerAvailability?.[providerId] === false,
-  );
+  // The recorded decision keeps no rule table, so only the route and the
+  // provider the task last ran on count as involved.
+  const unavailable = listRouteUnavailableProviders({
+    availability: args.providerAvailability,
+    involved: [args.decision.providerId, signals.lastAssistantProvider],
+  });
   if (unavailable.length > 0) {
     chips.push({
       id: "providers",
@@ -149,7 +153,7 @@ export function RouteTrace(props: RouteTraceProps) {
   const effort = entry.effort;
   const chips = entry.signals
     ? buildRouteTraceSignals({
-        decision: { signals: entry.signals },
+        decision: { signals: entry.signals, providerId: entry.providerId },
         budgetStepDownAt: props.budgetStepDownAt,
         providerAvailability: props.providerAvailability,
       })

@@ -91,7 +91,7 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
   under 512px); double-click the edge to return to the default 288px. Stave
   keeps the width between sessions.
 - **New agent**: describe the job in **What should it do?** and press **Draft
-  agent**. The **Utility inference** model (Settings → Background AI) drafts
+  agent**. The **Utility inference** model (Settings → Models → Background AI) drafts
   the name, **Use when**, instructions, permission, where it works and a
   colour; a reviewer or researcher is kept read only. The editor opens with the
   draft. **Start blank** (Auto model, Auto permission, a new worktree, usable as

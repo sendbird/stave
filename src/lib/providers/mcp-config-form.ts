@@ -70,13 +70,27 @@ export function parseMcpHeaderBindings(value: string) {
   return bindings;
 }
 
+const ALL_MCP_INSTALL_PROVIDERS: readonly McpConfigProvider[] = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+];
+
+/**
+ * `installTo` is where a new server goes by default (every provider when
+ * omitted); Settings passes only the providers that are set up.
+ */
 export function createInitialMcpConfigForm(
   snapshot?: McpServerConfigSnapshot,
+  installTo: readonly McpConfigProvider[] = ALL_MCP_INSTALL_PROVIDERS,
 ): McpConfigFormState {
   if (!snapshot) {
     return {
       provider: "claude-code",
-      installProviders: ["claude-code", "codex", "cursor", "kiro"],
+      installProviders: ALL_MCP_INSTALL_PROVIDERS.filter((provider) =>
+        installTo.includes(provider),
+      ),
       scope: "user",
       name: "",
       transport: "stdio",

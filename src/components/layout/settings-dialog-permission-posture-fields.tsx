@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
@@ -6,8 +7,8 @@ import {
   buildCodexProviderModeSettingsPatch,
   CLAUDE_PROVIDER_MODE_PRESETS,
   CODEX_PROVIDER_MODE_PRESETS,
-  detectClaudeProviderModePreset,
-  detectCodexProviderModePreset,
+  resolveClaudeProviderModePresentation,
+  resolveCodexProviderModePresentation,
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
@@ -25,6 +26,11 @@ import {
   type ExplainedSelectOption,
 } from "./settings-dialog-effort-help";
 import { DescribedSelect } from "./settings-dialog-described-select";
+import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
+import {
+  PROVIDER_PERMISSIONS_FIELD_ID,
+  useCustomizePermissionsOpen,
+} from "./settings-dialog-providers-focus";
 import { providersStyles } from "./settings-dialog-providers-section.styles";
 import {
   ScopedFieldStatus,
@@ -33,11 +39,11 @@ import {
 } from "./settings-scope";
 
 /**
- * Permission posture controls for the Providers section: the mode preset and
- * the permission, sandbox and approval fields each provider exposes. These are
- * the Providers keys a project may override (see
- * `src/store/project-settings-overrides.ts`), so every control reads and
- * writes through the Settings scope.
+ * Permission posture controls for the Providers section: the mode preset, and
+ * under it a collapsed "Customize permissions" group with the permission,
+ * sandbox and approval fields the preset sets. These are the Providers keys a
+ * project may override (see `src/store/project-settings-overrides.ts`), so
+ * every control reads and writes through the Settings scope.
  */
 
 const CLAUDE_PERMISSION_MODE_HELP = [
@@ -178,6 +184,38 @@ function ProviderModePresetButtons(args: {
   );
 }
 
+/**
+ * The fields a preset sets, folded under the preset. It opens by itself when
+ * the combination matches no preset, when the selected project overrides one
+ * of them, and for a deep link to it. Its wrapper is the deep-link target;
+ * landing there focuses the trigger.
+ */
+function CustomizePermissions(args: {
+  fieldId: string;
+  description: string;
+  expand: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const { open, onOpenChange } = useCustomizePermissionsOpen({
+    fieldId: args.fieldId,
+    expand: args.expand,
+  });
+  return (
+    <div id={args.fieldId} tabIndex={-1} data-focus-first-control="">
+      <SettingsAdvancedDisclosure
+        compact
+        open={open}
+        onOpenChange={onOpenChange}
+        title={t("settingsProviders:providersSection.customizePermissions.title")}
+        description={args.description}
+      >
+        {args.children}
+      </SettingsAdvancedDisclosure>
+    </div>
+  );
+}
+
 const CLAUDE_POSTURE_KEYS = [
   "claudePermissionMode",
   "claudeAllowDangerouslySkipPermissions",
@@ -191,34 +229,33 @@ const CODEX_POSTURE_KEYS = [
 ] as const;
 
 function useClaudePosture() {
-  const { t } = useTranslation(I18N_NAMESPACES);
-  const claudePermissionMode = useScopedSetting("claudePermissionMode").value;
-  const claudeAllowDangerouslySkipPermissions = useScopedSetting(
-    "claudeAllowDangerouslySkipPermissions",
-  ).value;
-  const claudeSandboxEnabled = useScopedSetting("claudeSandboxEnabled").value;
-  const claudeAllowUnsandboxedCommands = useScopedSetting(
-    "claudeAllowUnsandboxedCommands",
-  ).value;
-  const presetId = detectClaudeProviderModePreset({
+  // Subscribes to the UI language so the label and summary follow it.
+  useTranslation(I18N_NAMESPACES);
+  const permissionMode = useScopedSetting("claudePermissionMode");
+  const dangerousSkip = useScopedSetting("claudeAllowDangerouslySkipPermissions");
+  const sandbox = useScopedSetting("claudeSandboxEnabled");
+  const unsandboxed = useScopedSetting("claudeAllowUnsandboxedCommands");
+  const presentation = resolveClaudeProviderModePresentation({
     settings: {
-      claudePermissionMode,
-      claudeAllowDangerouslySkipPermissions,
-      claudeSandboxEnabled,
-      claudeAllowUnsandboxedCommands,
+      claudePermissionMode: permissionMode.value,
+      claudeAllowDangerouslySkipPermissions: dangerousSkip.value,
+      claudeSandboxEnabled: sandbox.value,
+      claudeAllowUnsandboxedCommands: unsandboxed.value,
     },
   });
-  const label = presetId
-    ? (CLAUDE_PROVIDER_MODE_PRESETS.find((preset) => preset.id === presetId)
-        ?.label ?? t("common:labels.custom"))
-    : t("common:labels.custom");
+  const presetId = presentation.id === "custom" ? null : presentation.id;
   return {
-    claudePermissionMode,
-    claudeAllowDangerouslySkipPermissions,
-    claudeSandboxEnabled,
-    claudeAllowUnsandboxedCommands,
+    claudePermissionMode: permissionMode.value,
+    claudeAllowDangerouslySkipPermissions: dangerousSkip.value,
+    claudeSandboxEnabled: sandbox.value,
+    claudeAllowUnsandboxedCommands: unsandboxed.value,
     presetId,
-    label,
+    label: presentation.label,
+    detail: presentation.detail,
+    /** The selected project overrides one of these fields. */
+    overridden: [permissionMode, dangerousSkip, sandbox, unsandboxed].some(
+      (setting) => setting.overridden,
+    ),
   };
 }
 
@@ -227,7 +264,11 @@ export function ClaudeModeBadge() {
   return <Badge variant={presetId ? "secondary" : "outline"}>{label}</Badge>;
 }
 
-export function ClaudePermissionPostureFields() {
+/**
+ * `children` (global-only fields, such as the Agent guardrails) render at the
+ * end of the Customize permissions group.
+ */
+export function ClaudePermissionPostureFields(args: { children?: ReactNode }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const posture = useClaudePosture();
   const { write } = useScopedSettingsWriter();
@@ -251,98 +292,110 @@ export function ClaudePermissionPostureFields() {
             write(buildClaudeProviderModeSettingsPatch({ presetId }))
           }
         />
-        <p className={sx(providersStyles.presetHint)}>
+        <p className={sx(providersStyles.presetHint)} data-preset-summary="">
           {posture.presetId
-            ? t("settingsProviders:settingsDialogProvidersSection.isActiveReapplyAPresetAny", { value1: posture.label })
-            : t("settingsProviders:providersSection.claudeRuntime.modePreset.custom")}
+            ? t("settingsProviders:providersSection.claudeRuntime.modePreset.active", { preset: posture.label, detail: posture.detail })
+            : t("settingsProviders:providersSection.claudeRuntime.modePreset.custom", { detail: posture.detail })}
         </p>
       </LabeledField>
-      <LabeledField
-        title={permissionTitle}
-        description={t("settingsProviders:providersSection.claudeRuntime.permissionMode.description")}
-        guide={
-          <>
-            <SettingsFieldGuide
-              title={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.title")}
-              summary={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.summary")}
-              items={buildGuideItems(CLAUDE_PERMISSION_MODE_HELP)}
-              examples={buildGuideExamples(CLAUDE_PERMISSION_MODE_HELP)}
-              tooltip={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.tooltip")}
-            />
-            <ScopedFieldStatus keys={["claudePermissionMode"]} label={permissionTitle} />
-          </>
-        }
+      <CustomizePermissions
+        fieldId={PROVIDER_PERMISSIONS_FIELD_ID["claude-code"]}
+        description={t("settingsProviders:providersSection.customizePermissions.claudeDescription")}
+        expand={!posture.presetId || posture.overridden}
       >
-        <DescribedSelect
-          value={posture.claudePermissionMode}
-          options={CLAUDE_PERMISSION_MODE_HELP}
-          onValueChange={(value) => write({ claudePermissionMode: value })}
+        <LabeledField
+          title={permissionTitle}
+          description={t("settingsProviders:providersSection.claudeRuntime.permissionMode.description")}
+          guide={
+            <>
+              <SettingsFieldGuide
+                title={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.title")}
+                summary={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.summary")}
+                items={buildGuideItems(CLAUDE_PERMISSION_MODE_HELP)}
+                examples={buildGuideExamples(CLAUDE_PERMISSION_MODE_HELP)}
+                tooltip={t("settingsProviders:providersSection.claudeRuntime.permissionMode.guide.tooltip")}
+              />
+              <ScopedFieldStatus keys={["claudePermissionMode"]} label={permissionTitle} />
+            </>
+          }
+        >
+          <DescribedSelect
+            value={posture.claudePermissionMode}
+            options={CLAUDE_PERMISSION_MODE_HELP}
+            onValueChange={(value) => write({ claudePermissionMode: value })}
+          />
+        </LabeledField>
+        <SwitchField
+          title={skipTitle}
+          description={t("settingsProviders:providersSection.claudeRuntime.dangerousSkip.description")}
+          guide={
+            <ScopedFieldStatus
+              keys={["claudeAllowDangerouslySkipPermissions"]}
+              label={skipTitle}
+            />
+          }
+          checked={posture.claudeAllowDangerouslySkipPermissions}
+          onCheckedChange={(checked) =>
+            write({ claudeAllowDangerouslySkipPermissions: checked })
+          }
         />
-      </LabeledField>
-      <SwitchField
-        title={skipTitle}
-        description={t("settingsProviders:providersSection.claudeRuntime.dangerousSkip.description")}
-        guide={
-          <ScopedFieldStatus
-            keys={["claudeAllowDangerouslySkipPermissions"]}
-            label={skipTitle}
-          />
-        }
-        checked={posture.claudeAllowDangerouslySkipPermissions}
-        onCheckedChange={(checked) =>
-          write({ claudeAllowDangerouslySkipPermissions: checked })
-        }
-      />
-      <SwitchField
-        title={sandboxTitle}
-        description={t("settingsProviders:providersSection.claudeRuntime.sandbox.description")}
-        guide={<ScopedFieldStatus keys={["claudeSandboxEnabled"]} label={sandboxTitle} />}
-        checked={posture.claudeSandboxEnabled}
-        onCheckedChange={(checked) => write({ claudeSandboxEnabled: checked })}
-      />
-      <SwitchField
-        title={unsandboxedTitle}
-        description={t("settingsProviders:providersSection.claudeRuntime.unsandboxedCommands.description")}
-        guide={
-          <ScopedFieldStatus
-            keys={["claudeAllowUnsandboxedCommands"]}
-            label={unsandboxedTitle}
-          />
-        }
-        checked={posture.claudeAllowUnsandboxedCommands}
-        onCheckedChange={(checked) =>
-          write({ claudeAllowUnsandboxedCommands: checked })
-        }
-      />
+        <SwitchField
+          title={sandboxTitle}
+          description={t("settingsProviders:providersSection.claudeRuntime.sandbox.description")}
+          guide={<ScopedFieldStatus keys={["claudeSandboxEnabled"]} label={sandboxTitle} />}
+          checked={posture.claudeSandboxEnabled}
+          onCheckedChange={(checked) => write({ claudeSandboxEnabled: checked })}
+        />
+        <SwitchField
+          title={unsandboxedTitle}
+          description={t("settingsProviders:providersSection.claudeRuntime.unsandboxedCommands.description")}
+          guide={
+            <ScopedFieldStatus
+              keys={["claudeAllowUnsandboxedCommands"]}
+              label={unsandboxedTitle}
+            />
+          }
+          checked={posture.claudeAllowUnsandboxedCommands}
+          onCheckedChange={(checked) =>
+            write({ claudeAllowUnsandboxedCommands: checked })
+          }
+        />
+        {args.children}
+      </CustomizePermissions>
     </>
   );
 }
 
 function useCodexPosture() {
-  const { t } = useTranslation(I18N_NAMESPACES);
-  const codexFileAccess = useScopedSetting("codexFileAccess").value;
-  const codexApprovalPolicy = useScopedSetting("codexApprovalPolicy").value;
-  const codexNetworkAccess = useScopedSetting("codexNetworkAccess").value;
+  // Subscribes to the UI language so the label and summary follow it.
+  useTranslation(I18N_NAMESPACES);
+  const fileAccess = useScopedSetting("codexFileAccess");
+  const approvalPolicy = useScopedSetting("codexApprovalPolicy");
+  const networkAccess = useScopedSetting("codexNetworkAccess");
+  const appToolApprovals = useScopedSetting("codexAppToolApprovalMode");
   // Web search is part of the Codex presets but stays global.
   const codexWebSearch = useAppStore((state) => state.settings.codexWebSearch);
-  const presetId = detectCodexProviderModePreset({
+  const presentation = resolveCodexProviderModePresentation({
     settings: {
-      codexFileAccess,
-      codexApprovalPolicy,
-      codexNetworkAccess,
+      codexFileAccess: fileAccess.value,
+      codexApprovalPolicy: approvalPolicy.value,
+      codexNetworkAccess: networkAccess.value,
       codexWebSearch,
     },
   });
-  const label = presetId
-    ? (CODEX_PROVIDER_MODE_PRESETS.find((preset) => preset.id === presetId)
-        ?.label ?? t("common:labels.custom"))
-    : t("common:labels.custom");
+  const presetId = presentation.id === "custom" ? null : presentation.id;
   return {
-    codexFileAccess,
-    codexApprovalPolicy,
-    codexNetworkAccess,
+    codexFileAccess: fileAccess.value,
+    codexApprovalPolicy: approvalPolicy.value,
+    codexNetworkAccess: networkAccess.value,
+    codexAppToolApprovalMode: appToolApprovals.value,
     presetId,
-    label,
+    label: presentation.label,
+    detail: presentation.detail,
+    /** The selected project overrides one of these fields. */
+    overridden: [fileAccess, approvalPolicy, networkAccess, appToolApprovals].some(
+      (setting) => setting.overridden,
+    ),
   };
 }
 
@@ -351,10 +404,13 @@ export function CodexModeBadge() {
   return <Badge variant={presetId ? "secondary" : "outline"}>{label}</Badge>;
 }
 
-export function CodexPermissionPostureFields() {
+/**
+ * `children` (global-only fields, such as web search) render at the end of
+ * the Customize permissions group.
+ */
+export function CodexPermissionPostureFields(args: { children?: ReactNode }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const posture = useCodexPosture();
-  const codexAppToolApprovalMode = useScopedSetting("codexAppToolApprovalMode").value;
   const appToolModesAvailable = useAppStore(
     (state) =>
       state.providerRuntimeCapabilities.codex.approval.appToolModes.length > 0,
@@ -380,86 +436,93 @@ export function CodexPermissionPostureFields() {
             write(buildCodexProviderModeSettingsPatch({ presetId }))
           }
         />
-        <p className={sx(providersStyles.presetHint)}>
+        <p className={sx(providersStyles.presetHint)} data-preset-summary="">
           {posture.presetId
-            ? t("settingsProviders:settingsDialogProvidersSection.isActiveReapplyAPresetAnyVariantcdc4723b", { value1: posture.label })
-            : t("settingsProviders:providersSection.codexRuntime.modePreset.custom")}
+            ? t("settingsProviders:providersSection.codexRuntime.modePreset.active", { preset: posture.label, detail: posture.detail })
+            : t("settingsProviders:providersSection.codexRuntime.modePreset.custom", { detail: posture.detail })}
         </p>
       </LabeledField>
-      <SwitchField
-        title={networkTitle}
-        description={t("settingsProviders:providersSection.codexRuntime.networkAccess.description")}
-        guide={<ScopedFieldStatus keys={["codexNetworkAccess"]} label={networkTitle} />}
-        checked={posture.codexNetworkAccess}
-        onCheckedChange={(checked) => write({ codexNetworkAccess: checked })}
-      />
-      <LabeledField
-        title={fileAccessTitle}
-        guide={
-          <>
-            <SettingsFieldGuide
-              title={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.title")}
-              summary={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.summary")}
-              items={buildGuideItems(CODEX_FILE_ACCESS_HELP)}
-              examples={buildGuideExamples(CODEX_FILE_ACCESS_HELP)}
-              tooltip={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.tooltip")}
-            />
-            <ScopedFieldStatus keys={["codexFileAccess"]} label={fileAccessTitle} />
-          </>
-        }
+      <CustomizePermissions
+        fieldId={PROVIDER_PERMISSIONS_FIELD_ID.codex}
+        description={t("settingsProviders:providersSection.customizePermissions.codexDescription")}
+        expand={!posture.presetId || posture.overridden}
       >
-        <DescribedSelect
-          value={posture.codexFileAccess}
-          options={CODEX_FILE_ACCESS_HELP}
-          onValueChange={(value) => write({ codexFileAccess: value })}
+        <SwitchField
+          title={networkTitle}
+          description={t("settingsProviders:providersSection.codexRuntime.networkAccess.description")}
+          guide={<ScopedFieldStatus keys={["codexNetworkAccess"]} label={networkTitle} />}
+          checked={posture.codexNetworkAccess}
+          onCheckedChange={(checked) => write({ codexNetworkAccess: checked })}
         />
-      </LabeledField>
-      <LabeledField
-        title={approvalsTitle}
-        guide={
-          <>
-            <SettingsFieldGuide
-              title={t("settingsProviders:providersSection.codexRuntime.approvals.guide.title")}
-              summary={t("settingsProviders:providersSection.codexRuntime.approvals.guide.summary")}
-              items={buildGuideItems(CODEX_APPROVAL_POLICY_HELP)}
-              examples={buildGuideExamples(CODEX_APPROVAL_POLICY_HELP)}
-              tooltip={t("settingsProviders:providersSection.codexRuntime.approvals.guide.tooltip")}
-            />
-            <ScopedFieldStatus keys={["codexApprovalPolicy"]} label={approvalsTitle} />
-          </>
-        }
-      >
-        <DescribedSelect
-          value={posture.codexApprovalPolicy}
-          options={CODEX_APPROVAL_POLICY_HELP}
-          onValueChange={(value) => write({ codexApprovalPolicy: value })}
-        />
-      </LabeledField>
-      {appToolModesAvailable ? (
         <LabeledField
-          title={appToolTitle}
-          description={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.description")}
+          title={fileAccessTitle}
           guide={
             <>
               <SettingsFieldGuide
-                title={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.title")}
-                summary={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.summary")}
-                items={buildGuideItems(CODEX_APP_TOOL_APPROVAL_HELP)}
-                examples={buildGuideExamples(CODEX_APP_TOOL_APPROVAL_HELP)}
-                note={t("settingsProviders:messages.writesTrustNote")}
-                tooltip={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.tooltip")}
+                title={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.title")}
+                summary={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.summary")}
+                items={buildGuideItems(CODEX_FILE_ACCESS_HELP)}
+                examples={buildGuideExamples(CODEX_FILE_ACCESS_HELP)}
+                tooltip={t("settingsProviders:providersSection.codexRuntime.fileAccess.guide.tooltip")}
               />
-              <ScopedFieldStatus keys={["codexAppToolApprovalMode"]} label={appToolTitle} />
+              <ScopedFieldStatus keys={["codexFileAccess"]} label={fileAccessTitle} />
             </>
           }
         >
           <DescribedSelect
-            value={codexAppToolApprovalMode}
-            options={CODEX_APP_TOOL_APPROVAL_HELP}
-            onValueChange={(value) => write({ codexAppToolApprovalMode: value })}
+            value={posture.codexFileAccess}
+            options={CODEX_FILE_ACCESS_HELP}
+            onValueChange={(value) => write({ codexFileAccess: value })}
           />
         </LabeledField>
-      ) : null}
+        <LabeledField
+          title={approvalsTitle}
+          guide={
+            <>
+              <SettingsFieldGuide
+                title={t("settingsProviders:providersSection.codexRuntime.approvals.guide.title")}
+                summary={t("settingsProviders:providersSection.codexRuntime.approvals.guide.summary")}
+                items={buildGuideItems(CODEX_APPROVAL_POLICY_HELP)}
+                examples={buildGuideExamples(CODEX_APPROVAL_POLICY_HELP)}
+                tooltip={t("settingsProviders:providersSection.codexRuntime.approvals.guide.tooltip")}
+              />
+              <ScopedFieldStatus keys={["codexApprovalPolicy"]} label={approvalsTitle} />
+            </>
+          }
+        >
+          <DescribedSelect
+            value={posture.codexApprovalPolicy}
+            options={CODEX_APPROVAL_POLICY_HELP}
+            onValueChange={(value) => write({ codexApprovalPolicy: value })}
+          />
+        </LabeledField>
+        {appToolModesAvailable ? (
+          <LabeledField
+            title={appToolTitle}
+            description={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.description")}
+            guide={
+              <>
+                <SettingsFieldGuide
+                  title={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.title")}
+                  summary={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.summary")}
+                  items={buildGuideItems(CODEX_APP_TOOL_APPROVAL_HELP)}
+                  examples={buildGuideExamples(CODEX_APP_TOOL_APPROVAL_HELP)}
+                  note={t("settingsProviders:messages.writesTrustNote")}
+                  tooltip={t("settingsProviders:providersSection.codexRuntime.appToolApprovals.guide.tooltip")}
+                />
+                <ScopedFieldStatus keys={["codexAppToolApprovalMode"]} label={appToolTitle} />
+              </>
+            }
+          >
+            <DescribedSelect
+              value={posture.codexAppToolApprovalMode}
+              options={CODEX_APP_TOOL_APPROVAL_HELP}
+              onValueChange={(value) => write({ codexAppToolApprovalMode: value })}
+            />
+          </LabeledField>
+        ) : null}
+        {args.children}
+      </CustomizePermissions>
     </>
   );
 }

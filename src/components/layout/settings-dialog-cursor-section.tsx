@@ -15,8 +15,6 @@ import {
   SettingsCard,
   SwitchField,
 } from "./settings-dialog.shared";
-import type { SectionId } from "./settings-dialog.schema";
-import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import { cursorSectionStyles } from "./settings-dialog-cursor-section.styles";
 import {
   ScopedFieldStatus,
@@ -38,9 +36,7 @@ const CURSOR_MODE_OPTIONS = [
   },
 ] as const;
 
-export function SettingsCursorSection(args: {
-  onNavigateSection?: (id: SectionId) => void;
-}) {
+export function SettingsCursorSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [cursorMode, cursorFastMode, cursorBinaryPath] = useAppStore(
     useShallow((state) => [
@@ -98,7 +94,6 @@ export function SettingsCursorSection(args: {
           <p className={sx(cursorSectionStyles.note)}>
             {t("settingsProviders:cursorSection.approvalPreset.note")}</p>
         </LabeledField>
-        <ProviderDefaultsLink onNavigateSection={args.onNavigateSection} />
         <ScopeLocked>
         <SwitchField
           title={t("settingsProviders:cursorSection.fastMode.title")}

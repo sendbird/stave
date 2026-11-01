@@ -43,7 +43,7 @@
   you type `/`). `/aside` alone opens the panel with an empty question.
 - `Cmd/Ctrl+K` then `Q` opens the panel for the active task, bringing the task
   to the front when another tab has focus. Change the letter in
-  **Settings → Command Palette → Shell chords**.
+  **Settings → Keyboard & Commands → Shell Shortcut Chords**.
 - **Ask a side question** in the command palette.
 - The question button next to the **Turn** picker in the Task panel's
   **Activity** tab.

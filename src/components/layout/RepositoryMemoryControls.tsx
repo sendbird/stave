@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Button,
-  Textarea,
-  Switch,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui";
+import { Button, Textarea, Switch } from "@/components/ui";
 import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { REPOSITORY_MEMORY_KINDS } from "@/lib/repository-memory";
 import {
@@ -323,15 +314,14 @@ export function RepositoryMemoryControls({
   );
 }
 
+/**
+ * Memory for the project chosen at the top of Settings > Projects; the page
+ * owns the project selection, so this tab has no picker of its own.
+ */
 export function RepositoryMemorySettingsSection(props: {
-  repositories: Array<{ repositoryPath: string; repositoryName: string }>;
-  initialRepositoryPath?: string | null;
+  repositoryPath: string | null;
 }) {
   const { t } = useTranslation("workspace");
-  const [selected, setSelected] = useState(props.initialRepositoryPath ?? "");
-  const repositoryPath = props.repositories.some((p) => p.repositoryPath === selected)
-    ? selected
-    : (props.repositories[0]?.repositoryPath ?? "");
   return (
     <section className={sx(styles.section)}>
       <div>
@@ -340,25 +330,11 @@ export function RepositoryMemorySettingsSection(props: {
           {t("repositoryMemory.settingsSection.lead")}
         </p>
       </div>
-      {repositoryPath ? (
-        <>
-          <Select value={repositoryPath} onValueChange={setSelected}>
-            <SelectTrigger aria-label={t("repositoryMemory.settingsSection.repositoryAriaLabel")}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {props.repositories.map((repository) => (
-                <SelectItem
-                  key={repository.repositoryPath}
-                  value={repository.repositoryPath}
-                >
-                  {repository.repositoryName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <RepositoryMemoryControls key={repositoryPath} repositoryPath={repositoryPath} />
-        </>
+      {props.repositoryPath ? (
+        <RepositoryMemoryControls
+          key={props.repositoryPath}
+          repositoryPath={props.repositoryPath}
+        />
       ) : (
         <p className={sx(styles.loading)}>
           {t("repositoryMemory.settingsSection.noRepository")}

@@ -93,14 +93,15 @@ describe("lane enablement helpers", () => {
 });
 
 describe("Prompts no longer owns pre-PR review", () => {
-  test("shows a pointer to Background AI instead of the switch and provider", async () => {
+  test("shows neither the switch nor a pointer card to Background AI", async () => {
     await store();
     const { PromptsSection } = await import(
       "../src/components/layout/settings-sections/settings-dialog-prompts-section"
     );
-    const html = render(PromptsSection, { onNavigateSection: navigate });
-    expect(html).toContain("Pre-PR Review");
-    expect(html).toContain("Open Background AI");
+    const html = render(PromptsSection, {});
+    // Background AI is a tab of the same Models page, so no pointer card.
+    expect(html).not.toContain("Pre-PR Review");
+    expect(html).not.toContain("Open Background AI");
     expect(html).not.toContain("Review Before Opening PR");
     expect(html).not.toContain("Review Provider");
     // The prompt texts stay editable here.

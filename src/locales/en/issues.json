@@ -243,7 +243,7 @@
     "text1": "1 ticket cached.",
     "valueTicketsCached": "{{value1}} tickets cached.",
     "connected": "Connected.",
-    "turnedOffInSettingsIssues": "Turned off in Settings → Issues.",
+    "turnedOffInSettingsIssues": "Turned off in Settings → Integrations → Issues.",
     "turnedOffInSettingsIntegrations": "Turned off in Settings → Integrations.",
     "pairThisTrackerInSettingsIntegrations": "Pair this tracker in Settings → Integrations.",
     "addTheSiteUrlAccountEmailAnd": "Add the site URL, account email, and API token in Settings.",

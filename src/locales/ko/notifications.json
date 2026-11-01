@@ -80,7 +80,7 @@
   },
   "appStoreProviderActions": {
     "providerStatusCouldNotBeVerified": "프로바이더 상태를 확인하지 못했습니다.",
-    "retryTheStatusCheckInSettingsTooling": "설정 > 도구에서 상태 검사를 다시 시도합니다."
+    "retryTheStatusCheckInSettingsTooling": "설정 > 계정 > 툴링에서 상태 검사를 다시 시도합니다."
   },
   "appStoreTaskLifecycleActions": {
     "contextCompacted": "컨텍스트 압축됨"

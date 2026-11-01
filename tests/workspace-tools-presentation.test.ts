@@ -25,10 +25,10 @@ describe("Workspace Tools presentation", () => {
     expect(section?.labelKey).toBe("settings:sections.scripts.label");
     expect(section?.descriptionKey).toBe("settings:sections.scripts.description");
     expect(i18n.t(section!.labelKey)).toBe(WORKSPACE_TOOLS_LABEL);
-    expect(i18n.t(section!.descriptionKey)).toMatch(/^Long-running processes/);
+    expect(i18n.t(section!.descriptionKey)).toMatch(/^Set up dev servers/);
     for (const [locale, label, descriptionPrefix] of [
-      ["en", "Workspace Tools", /^Long-running processes/],
-      ["ko", "워크스페이스 도구", /^개발하는 동안 켜 두는 장기 실행 프로세스/],
+      ["en", "Workspace Tools", /^Set up dev servers/],
+      ["ko", "워크스페이스 도구", /^개발 서버와 명령을 설정/],
     ] as const) {
       const t = i18n.getFixedT(locale);
       expect(t(section!.labelKey)).toBe(label);

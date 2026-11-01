@@ -551,13 +551,6 @@ export const settingsSectionsStyles = stylex.create({
   },
 
   // --- workspace tools card ---
-  toolsBadge: {
-    borderRadius: vars["--ads-radius-mark"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-regular"],
-    paddingBlock: vars["--ads-space-2"],
-    paddingInline: vars["--ads-space-8"],
-  },
   titleAccessoryButton: {
     gap: vars["--ads-space-8"],
   },

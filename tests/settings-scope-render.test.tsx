@@ -29,7 +29,12 @@ afterEach(() => {
   (globalThis as { window?: unknown }).window = originalWindow;
 });
 
-async function seedStore() {
+const DEFAULT_OVERRIDES = {
+  modelCodex: "gpt-5.6",
+  claudePermissionMode: "default",
+};
+
+async function seedStore(settingsOverrides: Record<string, unknown> = DEFAULT_OVERRIDES) {
   const { useAppStore } = await import("../src/store/app.store");
   useAppStore.setState(useAppStore.getInitialState());
   const initialState = useAppStore.getInitialState();
@@ -45,10 +50,7 @@ async function seedStore() {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      settingsOverrides: {
-        modelCodex: "gpt-5.6",
-        claudePermissionMode: "default",
-      },
+      settingsOverrides,
     },
   ];
   restoreInitialRepositories = () => {
@@ -59,8 +61,9 @@ async function seedStore() {
 async function renderInScope(
   repositoryPath: string | null,
   element: () => Promise<ReactElement>,
+  settingsOverrides?: Record<string, unknown>,
 ) {
-  await seedStore();
+  await seedStore(settingsOverrides);
   const { SettingsScopeProvider } = await import(
     "../src/components/layout/settings-scope"
   );
@@ -94,6 +97,16 @@ async function providersSection() {
 }
 
 describe("Settings scope rendering", () => {
+  test("only Models and Providers are project scoped", async () => {
+    const { isProjectScopedSettingsSection } = await import(
+      "../src/components/layout/settings-scope"
+    );
+    expect(isProjectScopedSettingsSection("models")).toBe(true);
+    expect(isProjectScopedSettingsSection("providers")).toBe(true);
+    expect(isProjectScopedSettingsSection("chat")).toBe(false);
+    expect(isProjectScopedSettingsSection("projects")).toBe(false);
+  });
+
   test("global scope shows no project badges or locks", async () => {
     const html = await renderInScope(null, modelsSection);
     expect(html).not.toContain("data-settings-scope-status");
@@ -116,7 +129,37 @@ describe("Settings scope rendering", () => {
     expect(html).toContain("data-settings-scope-locked");
   });
 
-  test("non-overridable sections say they apply to all projects", async () => {
+  test("a project override inside Customize permissions opens it, with its badges", async () => {
+    // `auto` is also the global value, so the Auto preset still matches: the
+    // override alone opens the group.
+    const html = await renderInScope(PROJECT_PATH, providersSection, {
+      claudePermissionMode: "auto",
+    });
+    const groupAt = html.indexOf('id="settings-field-claude-permissions"');
+    expect(groupAt).toBeGreaterThan(-1);
+    expect(html.slice(0, groupAt)).toContain("Active preset: Auto");
+    const trigger = html.slice(groupAt, html.indexOf("</button>", groupAt));
+    expect(trigger).toContain('aria-expanded="true"');
+    const group = html.slice(groupAt);
+    expect(group).toContain("Use the global value for Permission Mode");
+    expect(group).toContain("Project value");
+    expect(group).toContain("Global value");
+    // The preset row keeps its own badge for every field it sets.
+    expect(html.slice(0, groupAt)).toContain("Use the global value for Mode Preset");
+  });
+
+  test("without a project override or Custom, Customize permissions stays closed", async () => {
+    const html = await renderInScope(PROJECT_PATH, providersSection, {
+      modelCodex: "gpt-5.6",
+    });
+    const groupAt = html.indexOf('id="settings-field-claude-permissions"');
+    const trigger = html.slice(groupAt, html.indexOf("</button>", groupAt));
+    expect(trigger).toContain('aria-expanded="false"');
+    // Still editable per project: the folded fields keep their badges.
+    expect(html.slice(groupAt)).toContain("data-settings-scope-status");
+  });
+
+  test("sections without per-project values ignore the project scope", async () => {
     await seedStore();
     const { SettingsScopeProvider, SettingsScopeSectionFrame } = await import(
       "../src/components/layout/settings-scope"
@@ -137,8 +180,6 @@ describe("Settings scope rendering", () => {
         }),
       ),
     );
-    expect(html).toContain("These settings apply to all projects");
-    expect(html).toContain("Edit for all projects");
-    expect(html).toContain("data-settings-scope-locked");
+    expect(html).toBe("<p>chat body</p>");
   });
 });

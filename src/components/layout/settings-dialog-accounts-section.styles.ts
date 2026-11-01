@@ -70,6 +70,15 @@ export const accountsSectionStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
+  /** A signed-in CLI's reason it has no provider tab (no usable allowance). */
+  rowDetailWarning: {
+    color: vars["--ads-color-warning-text"],
+  },
+  /** An installed CLI's path disclosure, on its own line under the row. */
+  rowPath: {
+    flexBasis: "100%",
+    minInlineSize: 0,
+  },
   rowActions: {
     alignItems: "center",
     display: "flex",
@@ -87,6 +96,10 @@ export const accountsSectionStyles = stylex.create({
   mono: {
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
+  },
+  /** CLI path field for a CLI that was not found; same size as the provider tabs' path fields. */
+  pathInput: {
+    blockSize: vars["--ads-control-height-lg"],
   },
   help: {
     alignItems: "center",

@@ -370,7 +370,6 @@
     "settingsSection": {
       "title": "Repository memory",
       "lead": "Choose how this repository collects and recalls knowledge across its workspaces.",
-      "repositoryAriaLabel": "Memory repository",
       "noRepository": "Open a repository to configure memory."
     }
   },

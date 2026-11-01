@@ -17,18 +17,4 @@ export const scriptsSectionStyles = stylex.create({
     inlineSize: vars["--ads-control-icon-size-md"],
     blockSize: vars["--ads-control-icon-size-md"],
   },
-  repositoryLabel: {
-    display: "flex",
-    maxInlineSize: "28rem",
-    flexDirection: "column",
-    gap: vars["--ads-space-4"],
-  },
-  repositoryLabelText: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
-  },
-  triggerFull: {
-    inlineSize: "100%",
-  },
 });

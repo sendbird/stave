@@ -52,7 +52,7 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
   Agents also has a **Performance** tab, which compares ended runs across
   workspaces; see [Agent performance and task outputs](results.md).
 - Work queue header bar: the expand button opens Fleet View, the queue's full view.
-- `Settings → Design → Sidebar → Sidebar View`: the same two choices. Both
+- `Settings → Appearance → Sidebar → Sidebar View`: the same two choices. Both
   controls write the same preference, so neither can disagree with the other.
 
 ### Repositories View
@@ -119,8 +119,8 @@ anything not in `Idle`:
 
 | Rule | Settles when | Setting |
 | --- | --- | --- |
-| After the PR merges | its pull request merged after your last message there | `Settings → Design → Sidebar → Settle after the PR merges` (on by default) |
-| When inactive | no message, turn, or visit for the chosen time | `Settings → Design → Sidebar → Settle when inactive` (7 days by default; 3, 14, 30 days, or off) |
+| After the PR merges | its pull request merged after your last message there | `Settings → Appearance → Sidebar → Settle after the PR merges` (on by default) |
+| When inactive | no message, turn, or visit for the chosen time | `Settings → Appearance → Sidebar → Settle when inactive` (7 days by default; 3, 14, 30 days, or off) |
 
 - If you keep working in a workspace after its PR merges, the merge rule leaves
   it alone, so a merged workspace you plan to continue stays in the queue.
@@ -178,7 +178,7 @@ the queue exactly the way it narrows the tree.
 - Cause: it was settled or snoozed, by you or by a rule.
 - Fix: expand `Settled` or `Snoozed` and choose **Bring back to the queue** from
   its `⋮` menu, or just send a message in it. To stop automatic settling, turn the
-  rules off in `Settings → Design → Sidebar`, or choose **Never settle
+  rules off in `Settings → Appearance → Sidebar`, or choose **Never settle
   automatically** for that workspace.
 
 ### The Queue Looks Long

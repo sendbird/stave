@@ -1,9 +1,7 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
-import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, RefreshCcw, Sparkles, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { RefreshCcw, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
-import { type SectionId } from "@/components/layout/settings-dialog.schema";
-import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -24,16 +22,12 @@ import {
   RepositoryColorSwatch,
   RepositoryIdentityMark,
 } from "@/components/layout/repository-appearance";
-import { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
-import type { AsyncState } from "@/components/system/AsyncBoundary";
 import {
   parseGitRemotes,
   RepositoryRemoteList,
   repositoryRemotesState,
   type RepositoryMetadataState,
-  WorkspaceToolCounts,
 } from "./settings-dialog-repository-status";
-import { WORKSPACE_TOOLS_LABEL_KEY } from "@/lib/workspace-scripts/constants";
 import { LabeledField, SettingsCard } from "../settings-dialog.shared";
 import { DraftTextarea } from "../settings-dialog.shared";
 
@@ -41,7 +35,6 @@ function RepositorySettingsPanel(args: {
   repository: RecentRepositoryState;
   isCurrent: boolean;
   onRequestRemove: (args: { repositoryPath: string; repositoryName: string }) => void;
-  onNavigateSection?: (id: SectionId) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const setRepositoryBasePrompt = useAppStore(
@@ -59,17 +52,6 @@ function RepositorySettingsPanel(args: {
   const setRepositoryAppearance = useAppStore(
     (state) => state.setRepositoryAppearance,
   );
-  const [currentRepositoryPath, activeWorkspaceId, workspacePathById] =
-    useAppStore(
-      useShallow(
-        (state) =>
-          [
-            state.repositoryPath,
-            state.activeWorkspaceId,
-            state.workspacePathById,
-          ] as const,
-      ),
-    );
   const repositoryWorkspaceInitCommand = normalizeRepositoryWorkspaceInitCommand({
     value: args.repository.newWorkspaceInitCommand,
   });
@@ -89,14 +71,6 @@ function RepositorySettingsPanel(args: {
   const repositoryAppearanceColor = normalizeRepositoryAppearanceColor(
     args.repository.appearanceColor,
   );
-  const scriptsWorkspacePath = args.isCurrent
-    ? (workspacePathById[activeWorkspaceId] ??
-      currentRepositoryPath ??
-      args.repository.repositoryPath)
-    : args.repository.repositoryPath;
-  // A failed read is not "0 commands": the counts wait for a read that answered.
-  const [scriptsConfig, setScriptsConfig] =
-    useState<AsyncState<ResolvedWorkspaceScriptsConfig | null>>({ status: "pending" });
   const [repositoryRefreshNonce, setRepositoryRefreshNonce] = useState(0);
   const [repositoryState, setRepositoryState] = useState<RepositoryMetadataState>({
     status: "idle",
@@ -104,29 +78,6 @@ function RepositorySettingsPanel(args: {
     remotes: [],
     detail: t("settings:repositoriesSection.metadata.refreshing"),
   });
-
-  const loadResolvedScriptsConfig = useCallback(async () => {
-    const getConfig = window.api?.scripts?.getConfig;
-    if (!getConfig || !args.repository.repositoryPath || !scriptsWorkspacePath) {
-      setScriptsConfig({ status: "ready", data: null });
-      return;
-    }
-    setScriptsConfig({ status: "pending" });
-    try {
-      const result = await getConfig({
-        repositoryPath: args.repository.repositoryPath,
-        workspacePath: scriptsWorkspacePath,
-      });
-      const failure = result.error || i18n.t("settings:repositoriesSection.workspaceTools.readFailed");
-      setScriptsConfig(result.ok ? { status: "ready", data: result.config } : { status: "error", error: failure });
-    } catch (error) {
-      setScriptsConfig({ status: "error", error: error instanceof Error ? error.message : String(error) });
-    }
-  }, [args.repository.repositoryPath, scriptsWorkspacePath]);
-
-  useEffect(() => {
-    void loadResolvedScriptsConfig();
-  }, [loadResolvedScriptsConfig]);
 
   useEffect(() => {
     const runCommand = window.api?.terminal?.runCommand;
@@ -481,25 +432,6 @@ function RepositorySettingsPanel(args: {
         </div>
       </SettingsCard>
 
-      <SettingsCard
-        title={t(WORKSPACE_TOOLS_LABEL_KEY)}
-        description={t("settings:repositoriesSection.workspaceTools.description")}
-        titleAccessory={
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            xstyle={styles.titleAccessoryButton}
-            onClick={() => args.onNavigateSection?.("scripts")}
-          >
-            <Sparkles className={sx(styles.iconSm)} />
-            {t("settings:repositoriesSection.workspaceTools.manage")}<ChevronRight className={sx(styles.iconSm)} />
-          </Button>
-        }
-      >
-        <WorkspaceToolCounts state={scriptsConfig} onRetry={() => void loadResolvedScriptsConfig()} />
-        <p className={sx(styles.mutedBody)}>{t("settings:messages.workspaceToolsLink", { section: t(WORKSPACE_TOOLS_LABEL_KEY) })}</p>
-      </SettingsCard>
     </div>
   );
 }
@@ -508,7 +440,6 @@ export function RepositoriesSection(args: {
   currentRepositoryPath?: string | null;
   repositories: RecentRepositoryState[];
   selectedRepositoryPath?: string | null;
-  onNavigateSection?: (id: SectionId) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const removeRepositoryFromList = useAppStore(
@@ -542,7 +473,6 @@ export function RepositoriesSection(args: {
                 selectedRepository.repositoryPath === args.currentRepositoryPath
               }
               onRequestRemove={setRepositoryToRemove}
-              onNavigateSection={args.onNavigateSection}
             />
           ) : (
             <SettingsCard

@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Badge,
   Button,
@@ -38,6 +38,7 @@ import { SettingsCard } from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { modelVisibilityStyles as styles } from "./settings-dialog-model-visibility.styles";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
+import { useSettingsProviderTab } from "./settings-provider-visibility";
 
 const PROVIDER_IDS = listProviderIds();
 
@@ -255,9 +256,8 @@ export function SettingsModelVisibilitySection() {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const [activeProviderId, setActiveProviderId] = useState<ProviderId>(
-    PROVIDER_IDS[0] ?? "claude-code",
-  );
+  // Tabs for providers that are not set up stay hidden.
+  const providerTab = useSettingsProviderTab();
   const catalogRuntimeOptions = useMemo(
     () => ({
       ...(codexBinaryPath ? { codexBinaryPath } : {}),
@@ -330,14 +330,14 @@ export function SettingsModelVisibilitySection() {
       }
     >
       <Tabs
-        value={activeProviderId}
-        onValueChange={(value) => setActiveProviderId(value as ProviderId)}
+        value={providerTab.value}
+        onValueChange={providerTab.onValueChange}
       >
         <SettingsProviderTabsList
-          providerIds={PROVIDER_IDS}
+          providerIds={providerTab.providerIds}
           aria-label={t("settingsProviders:modelVisibility.tabsAriaLabel")}
         />
-        {PROVIDER_IDS.map((providerId) => (
+        {providerTab.providerIds.map((providerId) => (
           <TabsContent
             key={providerId}
             value={providerId}

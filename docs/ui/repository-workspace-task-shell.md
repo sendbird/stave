@@ -12,7 +12,7 @@ Replace the legacy workspace/task shell with a three-part layout:
 
 - The left repository list is full-height and reaches the top edge of the app shell.
 - The left sidebar uses theme-reactive gradient artwork behind translucent repository and workspace panels instead of a flat fill.
-- The left sidebar artwork now supports `Space Haze`, `Wave + Aurora`, and `Gravity Paint`, with `Space Haze` as the default and a selector under `Settings > Design`.
+- The left sidebar artwork now supports `Space Haze`, `Wave + Aurora`, and `Gravity Paint`, with `Space Haze` as the default and a selector under `Settings > Appearance`.
 - The top bar now applies only to the main work area, not the left repository list.
 - The top bar shows the selected workspace path for the current workspace.
 - The top bar reads in four labelled groups: where you are (workspace path and its "Open in" menu, branch, Commit graph, PR) on the left, then search, the views it opens (Fleet, Issues, Schedules, Standalone CLI), and the app's own alerts (Notifications, Update) on the right, with a rule between the right-hand groups. The sidebar toggle leads the bar while the sidebar is collapsed.
@@ -47,7 +47,7 @@ Replace the legacy workspace/task shell with a three-part layout:
 - The top-left sidebar header should match the main top bar height.
 - Repository rows should show a dedicated repository icon on the far left.
 - Repository accordion chevrons should stay hidden until repository-row hover and appear over the repository icon to indicate expand/collapse state.
-- Repository-row hover actions should reveal `New workspace` and `Repository settings`, while repository removal lives under Settings > Repositories.
+- Repository-row hover actions should reveal `New workspace` and `Repository settings`, while repository removal lives under Settings > Projects > Repository.
 
 ### State Model Change
 
@@ -135,7 +135,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 - `moveProjectInList()` and `moveWorkspaceInProjectList()` allow explicit sidebar ordering without auto-reordering on selection.
 - `reorderTasks()` persists manual task ordering within the active, archived, or all-task filter views.
 - `restoreTask()` re-activates archived tasks from workspace task history.
-- Workspace scripts now run from `.stave/scripts.json`, with config editing in `Settings > Repositories`, a right-rail runtime panel for actions, services, and hooks, and hook entry points for task creation, task archiving, turn start/completion, PR creation flows, plus legacy workspace triggers for older configs.
+- Workspace scripts now run from `.stave/scripts.json`, with config editing in `Settings > Projects > Workspace Tools`, a right-rail runtime panel for actions, services, and hooks, and hook entry points for task creation, task archiving, turn start/completion, PR creation flows, plus legacy workspace triggers for older configs.
 
 ### Files Changed
 

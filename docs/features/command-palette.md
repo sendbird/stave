@@ -159,7 +159,7 @@ press `Cmd/Ctrl+/` or run **Open keyboard shortcuts** from the palette.
 - `Cmd/Ctrl+K` then `I` toggles the Information panel.
 - `Cmd/Ctrl+K` then `S` opens Workspace Tools, and `Cmd/Ctrl+K` then `L` opens a Lens tab.
 - `Cmd/Ctrl+K` then `\` focuses the editor, and `Cmd/Ctrl+K` then `` ` `` toggles the terminal.
-- The letter after `Cmd/Ctrl+K` is the default; change it under Settings → Command Palette.
+- The letter after `Cmd/Ctrl+K` is the default; change it under Settings → Keyboard & Commands.
 - `Cmd/Ctrl+Shift+T` reopens the tab you closed last; `Cmd/Ctrl+[` and `Cmd/Ctrl+]` go back and forward.
 - `Alt+P` opens the prompt model selector.
 - `Alt+1..0` selects your mapped prompt models.

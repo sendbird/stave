@@ -4,9 +4,13 @@ import {
   listVisibleSettingsSections,
   matchesSettingsSection,
   resolveVisibleSettingsSection,
-  settingsSectionGroups,
   settingsSections,
 } from "@/components/layout/settings-dialog.schema";
+import {
+  getSettingsPageId,
+  settingsPageGroups,
+  settingsPagesById,
+} from "@/components/layout/settings-dialog.pages";
 import {
   matchesSettingsField,
   searchSettingsFields,
@@ -203,7 +207,23 @@ describe("settings field registry", () => {
     for (const query of ["sign in", "api connection", "account"]) {
       expect(searchSettingsFields(query).some((field) => field.sectionId === "tooling")).toBe(false);
     }
-    expect(settingsSectionGroups.find((group) => group.ids.includes("accounts"))?.ids[0]).toBe("accounts");
+    expect(getSettingsPageId("accounts")).toBe("accounts");
+    expect(settingsPagesById.accounts.sectionIds[0]).toBe("accounts");
+    expect(
+      settingsPageGroups.find((group) => (group.pageIds as readonly string[]).includes("accounts"))?.pageIds[0],
+    ).toBe("accounts");
+  });
+
+  test("CLI provider names lead to Accounts, where their install status lives", () => {
+    const sectionsById = new Map(settingsSections.map((section) => [section.id, section]));
+    for (const query of ["cursor", "kiro", "opencode"]) {
+      expect(matchesSettingsSection(sectionsById.get("accounts")!, query)).toBe(true);
+    }
+    for (const sectionId of ["providers", "models"] as const) {
+      for (const query of ["cursor", "kiro"]) {
+        expect(sectionsById.get(sectionId)!.keywords as readonly string[]).not.toContain(query);
+      }
+    }
   });
 });
 

@@ -71,6 +71,11 @@ export interface McpServerConfigSnapshot extends McpServerConfigTarget {
 export interface McpServerConfigListRequest {
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
+  /**
+   * Providers whose configuration files are read; all of them when omitted.
+   * Settings leaves out providers that are not set up.
+   */
+  providers?: McpConfigProvider[];
 }
 
 export interface McpServerConfigListResponse {
@@ -81,7 +86,8 @@ export interface McpServerConfigListResponse {
   loadedAt: number;
 }
 
-export interface McpServerConfigMutationRequest extends McpServerConfigListRequest {
+export interface McpServerConfigMutationRequest
+  extends Omit<McpServerConfigListRequest, "providers"> {
   operation: McpConfigMutationOperation;
   target?: McpServerConfigTarget;
   destination?: McpServerConfigTarget;

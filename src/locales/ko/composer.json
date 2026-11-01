@@ -19,7 +19,7 @@
   },
   "autoRoutingProfileList": {
     "autoRoutingProfileList": "Stave가 프로바이더, 모델, 추론 수준을 선택합니다.",
-    "autoRoutingProfileList2": "자동 라우팅이 꺼져 있습니다. 여기서 선택하기 전에 설정 › Auto (모델 라우터)에서 켜세요.",
+    "autoRoutingProfileList2": "자동 라우팅이 꺼져 있습니다. 여기서 선택하기 전에 설정 › 모델 › Auto (모델 라우터)에서 켜세요.",
     "autoRoutingProfileList3": "선호 설정",
     "ariaLabel": "자동 라우팅 선호 설정",
     "copy": "현재"
@@ -344,7 +344,7 @@
     "composerCard8": "일치하는 정보 참조가 없습니다.",
     "composerCard9": "일치하는 스킬이 없습니다.",
     "composerCard10": "일치하는 매크로가 없습니다.",
-    "composerCard11": "매크로가 없습니다. 설정 → 매크로에서 추가하세요.",
+    "composerCard11": "매크로가 없습니다. 설정 → 프리셋 및 매크로 → 매크로에서 추가하세요.",
     "composerCard12": "일치하는 슬래시 명령이 없습니다.",
     "heading": "정보 섹션",
     "copy5": "섹션",

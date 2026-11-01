@@ -37,6 +37,7 @@ import {
 } from "./settings-dialog-mcp-config-editor";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { mcpSectionStyles as styles } from "./settings-dialog-mcp-section.styles";
+import { useSettingsVisibleProviderIds } from "./settings-provider-visibility";
 
 type McpManagementViewState = {
   discovery: McpDiscoveryResponse | null;
@@ -273,6 +274,8 @@ function McpShareActions(args: {
   codexConfigured: boolean;
   cursorConfigured: boolean;
   kiroConfigured: boolean;
+  /** Destinations that are set up; no button offers a hidden provider. */
+  providers: readonly McpConfigProvider[];
   configs: McpServerConfigSnapshot[];
   onShare: (
     snapshot: McpServerConfigSnapshot,
@@ -280,25 +283,14 @@ function McpShareActions(args: {
   ) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  if (
-    args.claudeConfigured &&
-    args.codexConfigured &&
-    args.cursorConfigured &&
-    args.kiroConfigured
-  )
-    return null;
-  const toCodex = args.codexConfigured
-    ? null
-    : pickShareSource(args.configs, "codex");
-  const toClaude = args.claudeConfigured
-    ? null
-    : pickShareSource(args.configs, "claude-code");
-  const toCursor = args.cursorConfigured
-    ? null
-    : pickShareSource(args.configs, "cursor");
-  const toKiro = args.kiroConfigured
-    ? null
-    : pickShareSource(args.configs, "kiro");
+  const shareTo = (provider: McpConfigProvider, configured: boolean) =>
+    configured || !args.providers.includes(provider)
+      ? null
+      : pickShareSource(args.configs, provider);
+  const toCodex = shareTo("codex", args.codexConfigured);
+  const toClaude = shareTo("claude-code", args.claudeConfigured);
+  const toCursor = shareTo("cursor", args.cursorConfigured);
+  const toKiro = shareTo("kiro", args.kiroConfigured);
   if (!toCodex && !toClaude && !toCursor && !toKiro) return null;
   return (
     <div className={sx(styles.shareActions)}>
@@ -450,6 +442,18 @@ function McpServerConnectionsCard() {
   const refreshRequestIdRef = useRef(0);
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
+  // Cursor and Kiro columns, buttons and configuration reads exist only for a
+  // provider that is set up. OpenCode has no MCP column.
+  const visibleProviderIds = useSettingsVisibleProviderIds();
+  const mcpProviders = useMemo<McpConfigProvider[]>(
+    () =>
+      (["claude-code", "codex", "cursor", "kiro"] as const).filter((provider) =>
+        visibleProviderIds.includes(provider),
+      ),
+    [visibleProviderIds],
+  );
+  const showCursor = mcpProviders.includes("cursor");
+  const showKiro = mcpProviders.includes("kiro");
   const runtimeOptions = useMemo(
     () => ({
       claude: buildProviderRuntimeOptions({
@@ -502,6 +506,7 @@ function McpServerConnectionsCard() {
                   cursorBinaryPath: runtimeOptions.cursor.cursorBinaryPath,
                   kiroBinaryPath: runtimeOptions.kiro.kiroBinaryPath,
                 },
+                providers: mcpProviders,
               })
           : undefined,
       ),
@@ -565,7 +570,7 @@ function McpServerConnectionsCard() {
       ).some(([next, previous]) => next === null && previous !== null),
       refreshedAt: Date.now(),
     }));
-  }, [runtimeOptions, workspaceCwd]);
+  }, [mcpProviders, runtimeOptions, workspaceCwd]);
 
   useEffect(() => {
     setState({
@@ -756,8 +761,8 @@ function McpServerConnectionsCard() {
   const providerConnections = servers.flatMap((server) => [
     server.claude,
     server.codex,
-    server.cursor,
-    server.kiro,
+    ...(showCursor ? [server.cursor] : []),
+    ...(showKiro ? [server.kiro] : []),
   ]);
   const configuredCount = providerConnections.filter(
     (provider) => provider.configured,
@@ -878,20 +883,28 @@ function McpServerConnectionsCard() {
                     <Badge variant="outline">
                       {formatMcpTransportLabel(server.transport)}
                     </Badge>
-                    <Badge
-                      variant="outline"
-                      title={getAcpAvailabilityCopy(server.acpAvailability).detail}
-                    >
-                      {getAcpAvailabilityCopy(server.acpAvailability).label}
-                    </Badge>
+                    {showCursor || showKiro ? (
+                      <Badge
+                        variant="outline"
+                        title={getAcpAvailabilityCopy(server.acpAvailability).detail}
+                      >
+                        {getAcpAvailabilityCopy(server.acpAvailability).label}
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
-                {server.acpAvailability !== "portable" ? (
+                {(showCursor || showKiro) && server.acpAvailability !== "portable" ? (
                   <p className={sx(styles.serverAvailability)}>
                     {getAcpAvailabilityCopy(server.acpAvailability).detail}
                   </p>
                 ) : null}
-                <div className={sx(styles.providerGrid)}>
+                <div
+                  className={sx(
+                    styles.providerGrid,
+                    mcpProviders.length === 2 && styles.providerGridTwo,
+                    mcpProviders.length === 3 && styles.providerGridThree,
+                  )}
+                >
                   <McpProviderStatus
                     serverName={server.name}
                     overview={server.claude}
@@ -926,33 +939,38 @@ function McpServerConnectionsCard() {
                       })
                     }
                   />
-                  <McpProviderStatus
-                    serverName={server.name}
-                    overview={server.cursor}
-                    authBusy={Boolean(
-                      authBusyByKey[getMcpOauthKey("cursor", server.name)],
-                    )}
-                    authPending={false}
-                    onAuthenticate={() =>
-                      void startOauthLogin({
-                        provider: "cursor",
-                        serverName: server.name,
-                        runtimeOptions: runtimeOptions.cursor,
-                      })
-                    }
-                  />
-                  <McpProviderStatus
-                    serverName={server.name}
-                    overview={server.kiro}
-                    authBusy={false}
-                    authPending={false}
-                  />
+                  {showCursor ? (
+                    <McpProviderStatus
+                      serverName={server.name}
+                      overview={server.cursor}
+                      authBusy={Boolean(
+                        authBusyByKey[getMcpOauthKey("cursor", server.name)],
+                      )}
+                      authPending={false}
+                      onAuthenticate={() =>
+                        void startOauthLogin({
+                          provider: "cursor",
+                          serverName: server.name,
+                          runtimeOptions: runtimeOptions.cursor,
+                        })
+                      }
+                    />
+                  ) : null}
+                  {showKiro ? (
+                    <McpProviderStatus
+                      serverName={server.name}
+                      overview={server.kiro}
+                      authBusy={false}
+                      authPending={false}
+                    />
+                  ) : null}
                 </div>
                 <McpShareActions
                   claudeConfigured={server.claude.configured}
                   codexConfigured={server.codex.configured}
                   cursorConfigured={server.cursor.configured}
                   kiroConfigured={server.kiro.configured}
+                  providers={mcpProviders}
                   configs={configsByName.get(server.name) ?? []}
                   onShare={(snapshot, destinationProvider) => {
                     setMutationNotice(null);
@@ -1007,6 +1025,7 @@ function McpServerConnectionsCard() {
         {...(editor?.snapshot ? { snapshot: editor.snapshot } : {})}
         workspaceCwd={workspaceCwd}
         runtimeOptions={runtimeOptions}
+        providers={mcpProviders}
         onOpenChange={(open) => {
           if (!open) setEditor(null);
         }}

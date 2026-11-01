@@ -18,7 +18,7 @@ Other surfaces fit better when:
 
 ## Before You Start
 
-At least one tracker has to be connected and turned on. Jira is turned on with its connector switch in `Settings → Integrations → Jira`; Crane is turned on under `Settings → Issues`. Jira is first in the list; Crane follows.
+At least one tracker has to be connected and turned on. Jira is turned on with its connector switch in `Settings → Integrations → Jira`; Crane is turned on under `Settings → Integrations → Issues`. Jira is first in the list; Crane follows.
 
 - **Jira Cloud** — in `Settings → Integrations → Jira`, enable the connector and enter your site URL, your account email, and an API token. **Test connection** checks the credential *and* runs your saved JQL, so a query that no longer parses is reported there rather than showing up as a silently empty list. The token is validated once, then stored encrypted by the OS keychain and read only by the desktop main process. Neither the token nor the email is ever readable back by the app window.
 - **Crane** — pair this installation in `Settings → Integrations → Crane`. Issues reuses the existing connector secret and its `crane` scope; there is nothing extra to authorize. Turning Crane off in Issues leaves pairing and dispatched jobs alone.
@@ -103,7 +103,7 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - The Jira list is defined by one JQL query, edited in Settings. The default is `assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC`.
 - Kickoff does not transition the ticket's status in either tracker. Move the ticket yourself if your team expects that.
 - Both trackers page. Crane serves 25-row cursors; Jira follows its search continuation. A source stops at a bounded number of rows and reports `partial`; narrow the JQL or the assignee filter rather than expecting the whole backlog.
-- Background refresh runs only while the surface is open, at the interval set in `Settings → Issues`. Use `r` or Refresh at any time.
+- Background refresh runs only while the surface is open, at the interval set in `Settings → Integrations → Issues`. Use `r` or Refresh at any time.
 - Kickoff is not exposed over MCP. The read-only `stave_list_tracker_issues` tool is; starting a paid, externally visible run stays a human action.
 
 ## Troubleshooting
@@ -112,13 +112,13 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 
 - Symptom: Crane or Jira rows show even though you only want one tracker.
 - Cause: Issues reads every source that is turned on.
-- Fix: turn Crane off under `Settings → Issues`, or Jira off with its switch in `Settings → Integrations → Jira`. Pairing and credentials stay as they are.
+- Fix: turn Crane off under `Settings → Integrations → Issues`, or Jira off with its switch in `Settings → Integrations → Jira`. Pairing and credentials stay as they are.
 
 ### Issues is empty and I do not know why
 
 - Symptom: the surface opens but lists nothing.
 - Cause: usually no source is producing rows — a connector is off, unpaired, missing a credential, or its server does not serve the list.
-- Fix: the empty state names every source and its state, so read it first. It says **No tracker is sending tickets** when nothing can produce rows, and **Nothing assigned right now** only when a source is working and genuinely has nothing for you. `Settings → Issues → Sources` shows the same live state, and a source that needs setup has a **Set up** button next to it.
+- Fix: the empty state names every source and its state, so read it first. It says **No tracker is sending tickets** when nothing can produce rows, and **Nothing assigned right now** only when a source is working and genuinely has nothing for you. `Settings → Integrations → Issues → Sources` shows the same live state, and a source that needs setup has a **Set up** button next to it.
 
 ### Crane shows a note about not serving the task list
 

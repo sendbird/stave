@@ -19,7 +19,7 @@
   },
   "autoRoutingProfileList": {
     "autoRoutingProfileList": "Stave chooses the provider, model, and effort.",
-    "autoRoutingProfileList2": "Auto routing is turned off. Enable it in Settings › Auto (Model Router) before picking it here.",
+    "autoRoutingProfileList2": "Auto routing is turned off. Enable it in Settings › Models › Auto (Model Router) before picking it here.",
     "autoRoutingProfileList3": "Preference",
     "ariaLabel": "Auto routing preference",
     "copy": "Current"
@@ -346,7 +346,7 @@
     "composerCard8": "No matching Information reference.",
     "composerCard9": "No matching skill.",
     "composerCard10": "No matching macro.",
-    "composerCard11": "No macros yet. Add one in Settings → Macros.",
+    "composerCard11": "No macros yet. Add one in Settings → Presets & Macros → Macros.",
     "composerCard12": "No matching slash command.",
     "heading": "Information sections",
     "copy5": "Section",

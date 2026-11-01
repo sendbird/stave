@@ -19,8 +19,8 @@ This rendered example shows the Information panel with the latest-turn summary p
 
 - Open a repository workspace in Stave.
 - Complete at least one task turn in that workspace.
-- Review `Settings → Prompts` if you want to change the summary prompt.
-- Review `Settings → Background AI → Turn summary` if you want to change the model, switch providers, or turn the summary off entirely.
+- Review `Settings → Prompts & Skills → Prompts` if you want to change the summary prompt.
+- Review `Settings → Models → Background AI → Turn summary` if you want to change the model, switch providers, or turn the summary off entirely.
 
 ## Quick Start
 
@@ -33,7 +33,7 @@ This rendered example shows the Information panel with the latest-turn summary p
 ### Entry Points
 
 - Right rail: `Information`
-- Settings: `Prompts`
+- Settings: `Prompts & Skills → Prompts`
 
 ### Key Controls
 
@@ -41,13 +41,13 @@ This rendered example shows the Information panel with the latest-turn summary p
 - `user`: short restatement of the completed turn's request.
 - `ai`: short summary of what the assistant changed, concluded, or reported.
 - Model badge: shows which model produced the summary.
-- `Settings → Prompts → Workspace Latest Turn Summary`: lets you change the primary model, fallback model, and prompt template.
+- `Settings → Prompts & Skills → Prompts → Workspace Latest Turn Summary`: lets you change the primary model, fallback model, and prompt template.
 
 ## Common Workflows
 
 ### Configure Automatic Summaries
 
-1. Open `Settings → Prompts`.
+1. Open `Settings → Prompts & Skills → Prompts`.
 2. Find `Workspace Latest Turn Summary`.
 3. Set the primary model, fallback model, and prompt template.
 4. Leave the prompt empty if you want to disable automatic summaries.
@@ -88,7 +88,7 @@ This rendered example shows the Information panel with the latest-turn summary p
 
 - Symptom: the `Summary` section stays empty after a completed task turn.
 - Cause: the `Turn summary` lane is off, the summary prompt is blank, both configured models are unavailable, the last turn produced no assistant text, or the workspace has not completed a turn yet.
-- Fix: check `Settings → Background AI → Turn summary` and `Settings → Prompts → Workspace Latest Turn Summary`, restore the default prompt if needed, and verify that at least one configured provider is available.
+- Fix: check `Settings → Models → Background AI → Turn summary` and `Settings → Prompts & Skills → Prompts → Workspace Latest Turn Summary`, restore the default prompt if needed, and verify that at least one configured provider is available.
 
 ## Related Docs
 

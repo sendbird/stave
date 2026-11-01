@@ -297,7 +297,7 @@ test("Crane settings pair explicitly and keep the connector off by default", asy
     ),
   ).toEqual([]);
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   await settings
     .getByRole("textbox", { name: "Search settings" })

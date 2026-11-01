@@ -13,8 +13,6 @@ import {
   SectionStack,
   SettingsCard,
 } from "./settings-dialog.shared";
-import type { SectionId } from "./settings-dialog.schema";
-import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import { kiroSectionStyles as sectionStyles } from "./settings-dialog-kiro-section.styles";
 import {
   ScopedFieldStatus,
@@ -23,9 +21,7 @@ import {
   useScopedSettingsWriter,
 } from "./settings-scope";
 
-export function SettingsOpenCodeSection(args: {
-  onNavigateSection?: (id: SectionId) => void;
-}) {
+export function SettingsOpenCodeSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const opencodeBinaryPath = useAppStore(
     (state) => state.settings.opencodeBinaryPath,
@@ -65,7 +61,6 @@ export function SettingsOpenCodeSection(args: {
         </LabeledField>
         <p className={sx(sectionStyles.note)}>
           {t("settingsProviders:opencodeSection.runtime.authentication")}</p>
-        <ProviderDefaultsLink onNavigateSection={args.onNavigateSection} />
       </SettingsCard>
       <ScopeLocked>
       <SettingsCard

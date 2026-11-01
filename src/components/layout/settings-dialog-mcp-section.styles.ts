@@ -172,6 +172,20 @@ export const mcpSectionStyles = stylex.create({
     },
     marginBlockStart: vars["--ads-space-12"],
   },
+  // Fewer provider columns when Cursor or Kiro is not set up.
+  providerGridTwo: {
+    gridTemplateColumns: {
+      default: "1fr",
+      "@media (min-width: 768px)": "repeat(2, minmax(0, 1fr))",
+    },
+  },
+  providerGridThree: {
+    gridTemplateColumns: {
+      default: "1fr",
+      "@media (min-width: 768px)": "repeat(2, minmax(0, 1fr))",
+      "@media (min-width: 1280px)": "repeat(3, minmax(0, 1fr))",
+    },
+  },
   shareActions: {
     display: "flex",
     flexWrap: "wrap",

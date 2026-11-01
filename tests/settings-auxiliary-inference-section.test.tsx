@@ -7,9 +7,9 @@ import { AUX_LANES } from "@/lib/providers/auxiliary-inference-policy";
 import { settingDefinitions } from "@/components/layout/settings-dialog.registry";
 import {
   matchesSettingsSection,
-  settingsSectionGroups,
   settingsSections,
 } from "@/components/layout/settings-dialog.schema";
+import { getSettingsPageId } from "@/components/layout/settings-dialog.pages";
 
 describe("Settings → Background AI", () => {
   const html = renderToStaticMarkup(
@@ -79,9 +79,7 @@ describe("Settings → Background AI", () => {
     expect(i18n.getFixedT("ko")(section!.labelKey)).toBe("백그라운드 AI");
     expect(section?.keywords).toContain("credits");
     expect(matchesSettingsSection(section!, "credits")).toBe(true);
-    expect(
-      settingsSectionGroups.some((group) => group.ids.includes("auxiliaryInference")),
-    ).toBe(true);
+    expect(getSettingsPageId("auxiliaryInference")).toBe("models");
 
     const definition = settingDefinitions.find(
       (candidate) => candidate.key === "auxiliaryInferencePolicy",

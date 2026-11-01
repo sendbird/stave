@@ -103,6 +103,11 @@ export function resetLocalMcpStatusCacheForTests() {
   inflight = null;
 }
 
+/** Test seam: a status the next mount reads first, as if fetched just now. */
+export function seedLocalMcpStatusCacheForTests(status: StaveLocalMcpStatus) {
+  cachedStatus = { status, fetchedAt: Date.now() };
+}
+
 async function loadLocalMcpStatus(args: { force?: boolean }) {
   if (
     !args.force &&
