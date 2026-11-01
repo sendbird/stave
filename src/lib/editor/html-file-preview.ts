@@ -52,8 +52,8 @@ export function isHtmlFilePreviewSaveMessage(data: unknown): boolean {
  *
  * Key events stay inside the frame, so the save shortcut is passed up as the
  * one message the frame sends (`HTML_FILE_PREVIEW_SAVE_MESSAGE`). The host
- * honours it only while the frame holds focus, so a page script cannot save
- * the tab while the user is working elsewhere.
+ * honours it only while the frame holds focus in a focused window, so a page
+ * script cannot save the tab while the user is working elsewhere.
  */
 const FRAME_SCRIPT = [
   "(function(){",

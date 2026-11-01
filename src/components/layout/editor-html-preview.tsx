@@ -34,8 +34,10 @@ export function EditorHtmlPreview({
   onSaveShortcutRef.current = onSaveShortcut;
 
   // Key events stay inside the frame, so it posts the save shortcut up. Only
-  // this frame's message counts, and only while it holds focus: a page script
-  // cannot trigger a save while the user is elsewhere.
+  // this frame's message counts, and only while it holds focus in a focused
+  // window: `activeElement` stays on the frame after the user switches to
+  // another app, so a page timer could otherwise save the tab while the user
+  // is elsewhere.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const frame = frameRef.current;
@@ -43,6 +45,7 @@ export function EditorHtmlPreview({
         !frame ||
         event.source !== frame.contentWindow ||
         document.activeElement !== frame ||
+        !document.hasFocus() ||
         !isHtmlFilePreviewSaveMessage(event.data)
       ) {
         return;

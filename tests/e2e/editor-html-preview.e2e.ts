@@ -127,11 +127,26 @@ test("renders an HTML file in an isolated frame that cannot navigate away", asyn
   await page.keyboard.press("ControlOrMeta+s");
   await expect.poll(saves).toBe(1);
 
-  // A page script cannot save while the user's focus is elsewhere.
-  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await frame.locator("body").evaluate((_body, type) => {
-    window.parent.postMessage({ type }, "*");
-  }, "stave:html-file-preview:save");
+  // A page script cannot save while the user is elsewhere: neither after the
+  // app window loses focus with the frame still its active element (the user
+  // switched apps), nor after focus moves off the frame.
+  const postSaveFromPage = () =>
+    frame.locator("body").evaluate((_body, type) => {
+      window.parent.postMessage({ type }, "*");
+    }, "stave:html-file-preview:save");
+  await page.evaluate(() => {
+    const frameElement = document.querySelector('iframe[title="index.html"]');
+    if (document.activeElement !== frameElement) throw new Error("the frame should still hold focus");
+    document.hasFocus = () => false;
+  });
+  await postSaveFromPage();
+  await page.waitForTimeout(200);
+  expect(await saves()).toBe(1);
+  await page.evaluate(() => {
+    delete (document as { hasFocus?: unknown }).hasFocus;
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
+  await postSaveFromPage();
   await page.waitForTimeout(200);
   expect(await saves()).toBe(1);
 });
