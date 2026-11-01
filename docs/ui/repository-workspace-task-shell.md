@@ -44,6 +44,9 @@ Replace the legacy workspace/task shell with a three-part layout:
 - `Open Repository` should live as a compact icon action in the expanded `Repositories` header instead of an inverse-filled CTA.
 - The Stave app menu should live in the compact top-left sidebar header instead of the top bar.
 - The full repository list sidebar should be collapsible.
+- Drag the sidebar's edge to set its width between 220px and 340px; a double-click returns it to 290px, and the width is saved with the layout.
+- Below a 1180px window the sidebar folds to its icon rail on its own. Opening it there lasts until the window crosses that width again, and never changes the saved choice for wide windows.
+- Workspace rows in the repository tree and the Work queue share one 40px row (36px under compact density): one-line title, the branch only when it differs from the title, the status mark leading and the row actions on hover.
 - The top-left sidebar header should match the main top bar height.
 - Repository rows should show a dedicated repository icon on the far left.
 - Repository accordion chevrons should stay hidden until repository-row hover and appear over the repository icon to indicate expand/collapse state.

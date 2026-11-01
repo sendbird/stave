@@ -444,23 +444,6 @@ export const repositorySidebarStyles = stylex.create({
     color: vars["--ads-color-text"],
     zIndex: 0,
   },
-  /*
-   * The collapse/expand glide. `width`/`min-width` stay in the inline `style`
-   * because they are a live pixel value the user drags; only the transition
-   * moves here, and it moves for two reasons the inline attribute cannot serve:
-   * the hard-coded `200ms ease` was the last un-tokenized curve in the sidebar,
-   * and an inline declaration cannot carry a `prefers-reduced-motion` arm — so
-   * the whole rail kept sliding for a reader who had opted out of exactly that.
-   * `motionDurationNormal` is the token nearest the hand-picked value.
-   */
-  asideAnimated: {
-    transitionDuration: {
-      default: vars["--ads-motion-duration-normal"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
-    },
-    transitionProperty: "width, min-width",
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
-  },
   chrome: {
     borderBottomStyle: "solid",
     borderBottomWidth: vars["--ads-border-width-hairline"],

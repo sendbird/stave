@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { panelBarStyles } from "@/components/layout/panel-bar.constants";
+import { setWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { transition } from "@/components/ads/recipes/transition";
@@ -130,7 +131,6 @@ const WORKSPACE_SORTABLE_LIST_PREFIX = "sidebar-workspaces:";
 export function RepositoryWorkspaceSidebar(args: {
   width: number;
   collapsed: boolean;
-  animate?: boolean;
   onOpenCommandPalette: () => void;
   onOpenKeyboardShortcuts: () => void;
   onOpenSettings: (options?: {
@@ -688,10 +688,9 @@ export function RepositoryWorkspaceSidebar(args: {
         aria-label={tI18n("workspace:repositoryWorkspaceSidebar.accessibility.sidebar")}
         className={cx(
           "stave-project-sidebar",
-          sx(
-            repositorySidebarStyles.aside,
-            args.animate !== false && repositorySidebarStyles.asideAnimated,
-          ),
+          // Folding is an instant width change: animating `width` would
+          // re-lay out the whole shell every frame.
+          sx(repositorySidebarStyles.aside),
         )}
         style={{
           width: `${args.collapsed ? COLLAPSED_REPOSITORY_SIDEBAR_WIDTH : args.width}px`,
@@ -757,11 +756,7 @@ export function RepositoryWorkspaceSidebar(args: {
                           repositorySidebarStyles.chromeButton,
                           repositorySidebarStyles.chromeButtonPressed,
                         ]}
-                        onClick={() =>
-                          setLayout({
-                            patch: { workspaceSidebarCollapsed: true },
-                          })
-                        }
+                        onClick={() => setWorkspaceSidebarCollapsed(true)}
                         data-testid="collapse-project-list"
                         aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.collapseProjectList")}
                       />

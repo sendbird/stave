@@ -51,13 +51,21 @@ import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
   STAVE_OPEN_SETTINGS_EVENT,
-  WORKSPACE_SIDEBAR_MIN_WIDTH,
   useAppStore,
   type LayoutState,
 } from "@/store/app.store";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
-import { createDefaultLayoutState } from "@/store/layout.utils";
+import {
+  WORKSPACE_SIDEBAR_AUTO_COLLAPSE_BELOW,
+  createDefaultLayoutState,
+  normalizeWorkspaceSidebarWidth,
+} from "@/store/layout.utils";
+import {
+  toggleWorkspaceSidebarCollapsed,
+  useWorkspaceSidebarCollapsed,
+  useWorkspaceSidebarFoldStore,
+} from "@/store/workspace-sidebar-fold-store";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
 import { RightRail } from "@/components/layout/RightRail";
@@ -109,7 +117,6 @@ const IssuesView = lazy(() =>
 
 type ResizableLayoutKey = "workspaceSidebarWidth" | "explorerPanelWidth";
 
-const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 /** Panel widths a double-click on a resize handle returns to. */
 const DEFAULT_LAYOUT = createDefaultLayoutState();
 
@@ -131,7 +138,6 @@ export function AppShell() {
     workspacePrInfoById,
     recentRepositories,
     workspaceSidebarWidth,
-    workspaceSidebarCollapsed,
     sidebarOverlayVisible,
     sidebarOverlayTab,
     explorerPanelWidth,
@@ -178,7 +184,6 @@ export function AppShell() {
           state.workspacePrInfoById,
           state.recentRepositories,
           state.layout.workspaceSidebarWidth,
-          state.layout.workspaceSidebarCollapsed,
           state.layout.sidebarOverlayVisible,
           state.layout.sidebarOverlayTab,
           state.layout.explorerPanelWidth,
@@ -229,7 +234,7 @@ export function AppShell() {
   >(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [kickoffOpen, setKickoffOpen] = useState(false);
-  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const workspaceSidebarCollapsed = useWorkspaceSidebarCollapsed();
   const [contentRowWidth, setContentRowWidth] = useState(0);
   const [isLargeViewport, setIsLargeViewport] = useState(() =>
     typeof window === "undefined"
@@ -677,6 +682,22 @@ export function AppShell() {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
+  // A narrow window folds the repository sidebar to its rail; crossing the
+  // width either way drops the session's "open it anyway".
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+    const narrowQuery = window.matchMedia(
+      `(max-width: ${WORKSPACE_SIDEBAR_AUTO_COLLAPSE_BELOW - 0.02}px)`,
+    );
+    const { setNarrowWindow } = useWorkspaceSidebarFoldStore.getState();
+    const handleChange = (event: MediaQueryListEvent) => setNarrowWindow(event.matches);
+    setNarrowWindow(narrowQuery.matches);
+    narrowQuery.addEventListener("change", handleChange);
+    return () => narrowQuery.removeEventListener("change", handleChange);
+  }, []);
+
   // Prewarm Monaco off-screen at idle time so the first real editor open does
   // not block the main thread.
   const [monacoWarmupActive, setMonacoWarmupActive] = useState(false);
@@ -939,13 +960,7 @@ export function AppShell() {
           });
         },
         toggleTerminal: () => paneHost.toggleTerminalGroup(),
-        toggleWorkspaceSidebar: () =>
-          setLayout({
-            patch: {
-              workspaceSidebarCollapsed:
-                !useAppStore.getState().layout.workspaceSidebarCollapsed,
-            },
-          }),
+        toggleWorkspaceSidebar: toggleWorkspaceSidebarCollapsed,
       },
     }),
     [
@@ -1100,9 +1115,8 @@ export function AppShell() {
       <div className={sx(appShellStyles.shellRow)}>
         <RenderProfiler id="RepositoryWorkspaceSidebar">
           <RepositoryWorkspaceSidebar
-            width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
+            width={normalizeWorkspaceSidebarWidth(workspaceSidebarWidth)}
             collapsed={workspaceSidebarCollapsed}
-            animate={!sidebarResizing}
             onOpenCommandPalette={handleOpenCommandPalette}
             onOpenKeyboardShortcuts={handleOpenKeyboardShortcuts}
             onOpenSettings={handleOpenSettings}
@@ -1114,21 +1128,12 @@ export function AppShell() {
         </RenderProfiler>
         {!workspaceSidebarCollapsed ? (
           <PanelResizeHandle
-            width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
-            clamp={(next) =>
-              Math.max(
-                WORKSPACE_SIDEBAR_MIN_WIDTH,
-                Math.min(WORKSPACE_SIDEBAR_MAX_WIDTH, next),
-              )
-            }
-            onResizeStart={() => setSidebarResizing(true)}
+            width={normalizeWorkspaceSidebarWidth(workspaceSidebarWidth)}
+            clamp={normalizeWorkspaceSidebarWidth}
             onResize={(next) =>
               scheduleLayoutResizePatch("workspaceSidebarWidth", next)
             }
-            onResizeEnd={() => {
-              setSidebarResizing(false);
-              flushPendingLayoutPatch();
-            }}
+            onResizeEnd={flushPendingLayoutPatch}
             onReset={() =>
               setLayout({ patch: { workspaceSidebarWidth: DEFAULT_LAYOUT.workspaceSidebarWidth } })
             }

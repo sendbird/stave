@@ -60,7 +60,66 @@ export type WorkspaceSidebarItemDisplayMode =
   (typeof WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODES)[number];
 export const DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE: WorkspaceSidebarItemDisplayMode =
   "expanded";
-export const WORKSPACE_SIDEBAR_MIN_WIDTH = 290;
+/**
+ * The repository sidebar's drag range. The default is the width it opened at
+ * before it could be narrowed; a double-click on its edge returns there.
+ */
+export const WORKSPACE_SIDEBAR_MIN_WIDTH = 220;
+export const WORKSPACE_SIDEBAR_DEFAULT_WIDTH = 290;
+export const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
+/**
+ * Below this window width the sidebar folds to its icon rail on its own, so a
+ * laptop-width window keeps its room for the conversation. The user can still
+ * open it for the moment; that choice lasts until the window crosses back.
+ */
+export const WORKSPACE_SIDEBAR_AUTO_COLLAPSE_BELOW = 1180;
+
+/** A saved or dragged sidebar width inside the drag range; anything unreadable is the default. */
+export function normalizeWorkspaceSidebarWidth(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return WORKSPACE_SIDEBAR_DEFAULT_WIDTH;
+  }
+  return Math.round(
+    Math.min(WORKSPACE_SIDEBAR_MAX_WIDTH, Math.max(WORKSPACE_SIDEBAR_MIN_WIDTH, value)),
+  );
+}
+
+/** Whether a window this wide folds the sidebar to its rail on its own. */
+export function isNarrowWindowForWorkspaceSidebar(windowWidth: number): boolean {
+  return windowWidth < WORKSPACE_SIDEBAR_AUTO_COLLAPSE_BELOW;
+}
+
+/**
+ * Whether the sidebar shows as its rail. In a wide window that is the saved
+ * choice; in a narrow one it is the rail unless the user opened it there.
+ */
+export function resolveWorkspaceSidebarCollapsed(args: {
+  savedCollapsed: boolean;
+  narrowWindow: boolean;
+  openedInNarrowWindow: boolean;
+}): boolean {
+  return args.narrowWindow ? !args.openedInNarrowWindow : args.savedCollapsed;
+}
+
+/**
+ * Where a request to fold or open the sidebar is kept. A wide window saves it
+ * with the layout. A narrow window keeps it for the session only, so the
+ * automatic fold never overwrites the saved choice; opening it there also
+ * clears a saved fold, since the user plainly wants it open.
+ */
+export function planWorkspaceSidebarCollapse(args: {
+  collapsed: boolean;
+  narrowWindow: boolean;
+  savedCollapsed: boolean;
+}): { savedCollapsed: boolean; openedInNarrowWindow: boolean } {
+  if (!args.narrowWindow) {
+    return { savedCollapsed: args.collapsed, openedInNarrowWindow: false };
+  }
+  return {
+    savedCollapsed: args.collapsed ? args.savedCollapsed : false,
+    openedInNarrowWindow: !args.collapsed,
+  };
+}
 
 /** The Agents list's drag range. The default is the width it had before it could be dragged. */
 export const AGENTS_LIST_MIN_WIDTH = 240;
@@ -104,7 +163,7 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
     layout.taskPanelTab,
   );
   return {
-    workspaceSidebarWidth: layout.workspaceSidebarWidth,
+    workspaceSidebarWidth: normalizeWorkspaceSidebarWidth(layout.workspaceSidebarWidth),
     workspaceSidebarCollapsed: layout.workspaceSidebarCollapsed,
     workspaceSidebarItemDisplayMode: normalizeWorkspaceSidebarItemDisplayMode(
       layout.workspaceSidebarItemDisplayMode,
@@ -174,7 +233,7 @@ export function resolveEditorDiffMode(args: {
 /** The layout a fresh install starts with: rail closed, Explorer and Activity selected. */
 export function createDefaultLayoutState(): LayoutState {
   return {
-    workspaceSidebarWidth: WORKSPACE_SIDEBAR_MIN_WIDTH,
+    workspaceSidebarWidth: WORKSPACE_SIDEBAR_DEFAULT_WIDTH,
     workspaceSidebarCollapsed: false,
     workspaceSidebarItemDisplayMode: DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
     explorerPanelWidth: 300,
