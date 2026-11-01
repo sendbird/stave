@@ -397,8 +397,8 @@ export interface AppliedStance {
   stance: Stance;
   /**
    * Effort step every route moves by: −1, 0 or +1, clamped to the effort
-   * range of the task's level. The stance never changes the model rung: the
-   * level decides the model, the stance only how hard it thinks.
+   * range of the task's effective level, including the Quality-first floor
+   * for primary implementation and review.
    */
   shift: -1 | 0 | 1;
   budgetGuard: BudgetGuard;
@@ -1508,15 +1508,29 @@ function eligibleForRole(role: RouterRole, providerId: ProviderId) {
   return true;
 }
 
-/** The level a turn routes at, after the safety and uncertainty floors. */
+function requiresQualityFirstStandard(args: { stance: Stance; role: RouterRole; taskClass: TaskClass }) {
+  return args.stance === "quality-first" && args.role === "primary"
+    && (args.taskClass === "implement" || args.taskClass === "review");
+}
+
+/** The preference's hard floor, also carried through subsequent adaptive selection. */
+export function resolveAutoRoutingMinimumTier(args: { stance: Stance; role: RouterRole; taskClass: TaskClass }): RouteTier | undefined {
+  return requiresQualityFirstStandard(args) ? getRouteLevel("medium").floor : undefined;
+}
+
+/** The level a turn routes at, after the quality, safety and uncertainty floors. */
 export function resolveEffectiveComplexity(args: {
-  signals: Pick<RouterSignals, "complexity" | "sensitive" | "uncertain">;
+  signals: Pick<RouterSignals, "complexity" | "sensitive" | "uncertain" | "taskClass">;
+  stance: Stance;
   role: RouterRole;
   safetyEscalation: boolean;
 }): RouteComplexity {
   let complexity = args.signals.complexity;
   if (args.role !== "primary") {
     return complexity;
+  }
+  if (requiresQualityFirstStandard({ stance: args.stance, role: args.role, taskClass: args.signals.taskClass })) {
+    complexity = maxComplexity(complexity, "medium");
   }
   // Unclear scope keeps an ordinary capable route rather than a light one.
   if (args.signals.uncertain) {
@@ -1563,11 +1577,16 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   const stance = applyStance(profile);
   const complexity = resolveEffectiveComplexity({
     signals,
+    stance: stance.stance,
     role,
     safetyEscalation: profile.signals.safetyEscalation,
   });
   const level = getProfileRouteLevel(profile, complexity);
-  const minimumTier: RouteTier = role !== "primary" ? "light" : level.floor;
+  // Custom levels and explicit light rules cannot weaken this preference's floor.
+  const qualityFirstStandard = requiresQualityFirstStandard({ stance: stance.stance, role, taskClass: signals.taskClass });
+  const minimumTier: RouteTier = role !== "primary" ? "light" : qualityFirstStandard
+    ? ROUTE_TIERS[Math.min(routeTierIndex(level.floor), routeTierIndex(getRouteLevel("medium").floor))]!
+    : level.floor;
   const satisfiesFloor = (model: string) => routeTierIndex(resolveRouteTierForModel(model)) <= routeTierIndex(minimumTier);
   // Each candidate is judged on its own usage window. `budgetUsedPercent`
   // describes the pinned provider, so it only stands in for that one.
@@ -1624,6 +1643,9 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     .sort((left, right) => Number(isManagedProvider(right)) - Number(isManagedProvider(left)));
 
   const reasonParts: string[] = [];
+  if (qualityFirstStandard && signals.complexity === "low") {
+    reasonParts.push(i18n.t("providers:autoRoutingProfile.qualityFirstStandardFloor"));
+  }
   if (role === "primary" && signals.uncertain && complexity !== signals.complexity) {
     reasonParts.push(i18n.t("providers:autoRoutingProfile.unclearScopeRoutesAsStandardWork"));
   }

@@ -12,6 +12,8 @@ import {
 import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/lib/routing/auto-routing";
 import { AutoRoutingModelResolutionSchema } from "../src/lib/providers/model-resolution";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
+import { resolveAutoRoutingDecision } from "../src/lib/routing/auto-routing";
+import { RuntimeOptionsObjectSchema } from "../electron/main/ipc/provider-runtime-schemas";
 
 test("default Auto dispatch uses the classifier bridge for an execute turn", async () => {
   const previousWindow = globalThis.window;
@@ -231,6 +233,18 @@ test("a send tells an Agent run whether the composer pinned its model and effort
   expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: undefined, decision: null })).toEqual({ model: "default", effortPinned: false });
   expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: { autoRouting: true },
     decision: { source: "disabled", rationale: "Auto is off" } as unknown as Parameters<typeof resolveComposerSelection>[0]["decision"] }).model).toBe("default");
+});
+
+test("quality-first primary implementation and review carry their floor through the runtime contract", async () => {
+  for (const taskClass of ["implement", "review", "explain"] as const) {
+    const decision = await resolveAutoRoutingDecision({ settings: { autoRoutingEnabled: true, autoRoutingProfile: buildStarterProfile("starter-quality-first") },
+      currentProviderId: "codex", currentModel: "gpt-6.1-sol", prompt: "Adjust the workspace display", history: [], taskClassHint: taskClass, runtimeOverrides: { autoRouting: true } });
+    const composerSelection = resolveComposerSelection({ provider: "codex", runtimeOverrides: { autoRouting: true }, decision });
+    expect(composerSelection.minimumTier).toBe(taskClass === "explain" ? undefined : "balanced");
+    expect(RuntimeOptionsObjectSchema.parse({ composerSelection }).composerSelection).toEqual(composerSelection);
+    expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: { model: "gpt-6-luna" }, decision }).minimumTier).toBeUndefined();
+  }
+  expect(RuntimeOptionsObjectSchema.safeParse({ composerSelection: { model: "auto", effortPinned: false, minimumTier: "unknown" } }).success).toBe(false);
 });
 
 test("Auto replies keep the active Run provider even when the profile prefers another", async () => {

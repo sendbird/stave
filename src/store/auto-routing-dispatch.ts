@@ -1,5 +1,6 @@
 import {
   formatResolvedRouteLabel,
+  resolveAutoRoutingMinimumTier,
   type TaskClass,
 } from "@/lib/providers/auto-routing-profile";
 import type {
@@ -257,7 +258,8 @@ export function resolveComposerSelection(args: {
   const routed = !modelPinned && args.decision !== null && args.decision.source !== "disabled";
   const effort = args.provider === "codex" ? overrides?.codexReasoningEffort : args.provider === "claude-code" ? overrides?.claudeEffort : undefined;
   const rationale = routed ? args.decision?.rationale.trim().slice(0, 1_000) : undefined;
-  return { model: modelPinned ? "pinned" : routed ? "auto" : "default", effortPinned: Boolean(effort), ...(effort ? { effort } : {}), ...(rationale ? { rationale } : {}) };
+  const minimumTier = routed && args.decision ? resolveAutoRoutingMinimumTier(args.decision) : undefined;
+  return { model: modelPinned ? "pinned" : routed ? "auto" : "default", effortPinned: Boolean(effort), ...(effort ? { effort } : {}), ...(rationale ? { rationale } : {}), ...(minimumTier ? { minimumTier } : {}) };
 }
 
 /** The `model_resolved` event a routed send records first on its turn; null when nothing was routed. */

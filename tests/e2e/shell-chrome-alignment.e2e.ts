@@ -111,9 +111,8 @@ test("workspace rows share one height in both views and hide a branch that repea
     })),
   );
   expect(treeRows.map((row) => row.height)).toEqual([40, 40, 40]);
-  // Default names its branch; a branch-named worktree does not repeat it; a
-  // renamed one shows the branch it is on.
-  expect(treeRows.map((row) => row.branch)).toEqual(["main", null, "docs/settings-copy"]);
+  // Default keeps its branch; branch-named and renamed worktrees use only their title.
+  expect(treeRows.map((row) => row.branch)).toEqual(["main", null, null]);
 
   await page.getByTestId("sidebar-view-work-queue").click();
   const queueRow = sidebar.locator("[data-testid^='active-workspace-']").first();
@@ -138,3 +137,64 @@ test("a narrow window folds the sidebar to its rail; opening it there does not c
   });
   expect(saved).toBe(false);
 });
+
+for (const theme of ["light", "dark"] as const) {
+  for (const locale of ["en", "ko"] as const) {
+    test(`workspace tooltip shortcut uses its content right edge: ${theme}/${locale}`, async ({ page }) => {
+      await seed(page);
+      await page.goto("/");
+      await expect(page.getByTestId("top-bar")).toBeVisible();
+      await restateWorkspaces(page);
+      await page.evaluate(async ({ theme, locale }) => {
+        const { applyThemeClass } = await import("/src/lib/themes/apply.ts");
+        const { applyAppLocale } = await import("/src/i18n/index.ts");
+        applyThemeClass({ enabled: theme === "dark" });
+        applyAppLocale(locale);
+        await document.fonts.ready;
+      }, { theme, locale });
+      expect(await page.locator("html").evaluate((element) => element.classList.contains("dark"))).toBe(theme === "dark");
+      for (const density of ["regular", "compact"]) {
+        await page.evaluate((density) => { document.documentElement.dataset.uiDensity = density; }, density);
+        for (const displayMode of ["expanded", "compact"] as const) {
+          await page.evaluate(async (displayMode) => {
+            const { useAppStore } = await import("/src/store/app.store.ts");
+            useAppStore.setState((state) => ({ layout: { ...state.layout, workspaceSidebarItemDisplayMode: displayMode } }));
+          }, displayMode);
+          for (const width of [1024, 1440]) {
+            await page.setViewportSize({ width, height: 900 });
+            // Wait for the media-query event before opening the narrow sidebar;
+            // crossing the breakpoint resets its temporary open choice.
+            await expect.poll(() => page.evaluate(async () => {
+              const { useWorkspaceSidebarFoldStore } = await import("/src/store/workspace-sidebar-fold-store.ts");
+              const { isNarrowWindowForWorkspaceSidebar } = await import("/src/store/layout.utils.ts");
+              return useWorkspaceSidebarFoldStore.getState().narrowWindow === isNarrowWindowForWorkspaceSidebar(window.innerWidth);
+            })).toBe(true);
+            await page.evaluate(async () => {
+              const { setWorkspaceSidebarCollapsed } = await import("/src/store/workspace-sidebar-fold-store.ts");
+              setWorkspaceSidebarCollapsed(false);
+            });
+            const row = page.getByTestId("project-workspace-sidebar").getByRole("button", { name: /Docs pass/ }).first();
+            await expect(row.locator("[data-workspace-row-branch]")).toHaveCount(0);
+            await expect(page.getByTestId("project-workspace-sidebar").locator('[data-workspace-row-branch]')).toHaveText("main");
+            await row.hover({ position: { x: 8, y: 8 } });
+            const tooltip = page.locator('[data-slot="tooltip-content"]');
+            await expect(tooltip).toBeVisible();
+            await expect(tooltip).toContainText("docs/settings-copy");
+            const chip = tooltip.locator("kbd");
+            await expect(chip).toBeVisible();
+            // Both boxes must share the right edge (half a CSS pixel allows rounding).
+            await expect.poll(() => chip.evaluate((element) => Math.abs(
+              element.getBoundingClientRect().right - element.parentElement!.getBoundingClientRect().right,
+            ))).toBeLessThanOrEqual(0.5);
+            const chipBox = (await chip.boundingBox())!;
+            const tooltipBox = (await tooltip.boundingBox())!;
+            expect(chipBox.x).toBeGreaterThanOrEqual(tooltipBox.x);
+            expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(width);
+            await page.mouse.move(width - 1, 899);
+            await expect(tooltip).toBeHidden();
+          }
+        }
+      }
+    });
+  }
+}

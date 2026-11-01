@@ -268,6 +268,23 @@ describe("resolveAutoRoutingDecision", () => {
     expect(decision.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
   });
 
+  test("quality-first promotes a low implementation or review classifier verdict to Standard", async () => {
+    for (const intent of ["implement", "review"] as const) {
+      for (const currentProviderId of ["claude-code", "codex"] as const) {
+        const decision = await resolveDecision({ prompt: "Adjust the workspace branch display.", currentProviderId,
+          settings: { autoRoutingUseClassifier: true, autoRoutingObjective: 0.9 },
+          classifyRoute: async () => ({ version: 2, intent, complexity: "low", risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"] }),
+        });
+        expect(decision).toMatchObject({ source: "classifier", stance: "quality-first", ruleId: "standard",
+          signals: { taskClass: intent, complexity: "medium" },
+          model: currentProviderId === "codex" ? "gpt-6.1-sol" : DEFAULT_CLAUDE_OPUS_MODEL,
+        });
+        expect(decision.ruleReason).toContain("Quality-first");
+        expect(decision.rationale).toContain("low complexity");
+      }
+    }
+  });
+
   test("slash skills do not automatically force a cheap route", async () => {
     const decision = await resolveDecision({
       prompt: "/ship the current branch with a conventional commit message",

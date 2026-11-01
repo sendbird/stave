@@ -150,6 +150,9 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
     });
   }
 
+  let workspaceLoad: { workspaceId: string; promise: Promise<void> } | null = null;
+  let loadGeneration = 0;
+
   return {
     workspaceId: null,
     loadedWorkspaceId: null,
@@ -160,29 +163,31 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
     failureByAgentRun: {},
     pendingByAgentRun: {},
 
-    loadWorkspace: async (workspaceId) => {
-      set({
-        workspaceId,
-        loadedWorkspaceId: null,
-        agentRunIdByTask: {},
-        agentRunIdsByTask: {},
-        details: {},
-        dividersByAgentRun: {},
-      });
-      const api = agentRunsApi();
-      if (!api || !workspaceId) return;
-      const listed = await api.list({ workspaceId, includeActive: true }).catch(() => null);
-      if (!listed?.ok || get().workspaceId !== workspaceId) return;
-      const picked = pickAgentRunPerTask(listed.agentRuns);
-      await Promise.all(
-        [...picked.values()].map(async (agentRun) => {
+    loadWorkspace: (workspaceId) => {
+      if (workspaceId && workspaceLoad?.workspaceId === workspaceId) return workspaceLoad.promise;
+      const generation = ++loadGeneration;
+      set({ workspaceId, loadedWorkspaceId: null, agentRunIdByTask: {},
+        agentRunIdsByTask: {}, details: {}, dividersByAgentRun: {} });
+      const promise = (async () => {
+        const api = agentRunsApi();
+        if (!api || !workspaceId) return;
+        const listed = await api.list({ workspaceId, includeActive: true }).catch(() => null);
+        if (!listed?.ok || generation !== loadGeneration) return;
+        const picked = pickAgentRunPerTask(listed.agentRuns);
+        const loaded = await Promise.all([...picked.values()].map(async (agentRun) => {
           const response = await api.get({ agentRunId: agentRun.id }).catch(() => null);
-          if (response?.ok && response.agentRun && get().workspaceId === workspaceId) {
-            storeDetail(response.agentRun);
-          }
-        }),
-      );
-      if (get().workspaceId === workspaceId) set({ loadedWorkspaceId: workspaceId });
+          if (!response?.ok || !response.agentRun) return false;
+          if (generation === loadGeneration) storeDetail(response.agentRun);
+          return true;
+        }));
+        // A missing detail is unknown, never evidence that the task has no run.
+        if (generation === loadGeneration && loaded.every(Boolean)) set({ loadedWorkspaceId: workspaceId });
+      })();
+      workspaceLoad = workspaceId ? { workspaceId, promise } : null;
+      void promise.finally(() => {
+        if (workspaceLoad?.promise === promise) workspaceLoad = null;
+      });
+      return promise;
     },
 
     refreshAgentRun: async (agentRunId) => {
@@ -297,6 +302,13 @@ registerAgentRunBridge({
       providerId: hasAgentOrigin(agentRun) && (agentRun.state === "running" || agentRun.pauseReason === "wait-expired")
         ? agentRun.fingerprint.providerId : undefined,
     } : null;
+  },
+  ensureWorkspaceLoaded: async (workspaceId) => {
+    const store = useAgentRunsStore.getState();
+    if (store.loadedWorkspaceId === workspaceId) return;
+    // Do not switch the run mirror back to a workspace the user has left.
+    if (useAppStore.getState().activeWorkspaceId !== workspaceId) return;
+    await store.loadWorkspace(workspaceId);
   },
   start: (input) => useAgentRunsStore.getState().startAgentRun(input),
   cancel: (agentRunId) => useAgentRunsStore.getState().runCommand("cancel", { agentRunId }),

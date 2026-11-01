@@ -3,7 +3,7 @@ import { createConstrainedHostRouter } from "../electron/host-service/supervisio
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync";
 import { defaultSettings } from "../src/store/app-settings";
-import { previewRouteLevels, resolveRoute } from "../src/lib/providers/auto-routing-profile";
+import { buildStarterProfile, previewRouteLevels, resolveRoute } from "../src/lib/providers/auto-routing-profile";
 import type { AgentAssignment } from "../src/lib/agents/assign";
 import { withConstrainedRoutingCancellation } from "../electron/providers/constrained-routing-cancellation";
 import { cancelUtilityRouteClassification } from "../electron/providers/utility-inference";
@@ -17,6 +17,24 @@ const input = { workspaceId: "ws", taskId: "child", providerId: "codex" as const
 const assignment = { workspaceId: "ws", role: "delegate", agent: { ...getBuiltinAgent("reviewer")!, model: { mode: "auto" as const, decision: config } } } as AgentAssignment;
 
 describe("constrained host Decision routing", () => {
+  test("only primary quality-first implementation/review expose a hard adaptive floor", async () => {
+    let role: "primary" | "delegate" = "primary";
+    let intent = "implement";
+    let stance = "starter-quality-first";
+    const router = createConstrainedHostRouter({ assignment: () => ({ ...assignment, role }),
+      settings: () => buildAgentRouteSettings({ ...defaultSettings, autoRoutingEnabled: true, autoRoutingProfile: buildStarterProfile(stance) }),
+      profiles: () => [], cwd: async () => "/tmp/workspace", history: () => [], classify: async () => ({ ok: true, classification: { ...classification, intent } }) });
+    for (const providerId of ["codex", "claude-code"] as const) {
+      const base = { workspaceId: "ws", taskId: "primary", providerId, prompt: "Adjust the workspace display" };
+      for (intent of ["implement", "review"]) expect((await router(base)).minimumTier).toBe("balanced");
+      intent = "explain"; expect((await router(base)).minimumTier).toBeUndefined();
+      intent = "implement"; role = "delegate"; expect((await router(base)).minimumTier).toBeUndefined();
+      role = "primary"; expect((await router({ ...base, parentTaskId: "parent" })).minimumTier).toBeUndefined();
+      stance = "starter-balanced"; expect((await router(base)).minimumTier).toBeUndefined();
+      stance = "starter-quality-first";
+      expect((await router({ ...base, modelPinned: true, model: providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5" })).minimumTier).toBeUndefined();
+    }
+  });
   test("private admission cancellation reaches classification and handles cancel-before-start", async () => {
     const requestId = crypto.randomUUID();
     let entered!: () => void;

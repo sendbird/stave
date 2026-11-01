@@ -224,10 +224,10 @@ test("a reply hands the composer's choice to its run, keeps it from the provider
   const done = new Promise<void>((resolve) => { resolveDone = resolve; });
   providerRuntime.startTurnStream({ turnId: "routed-reply", taskId: "task-1", cwd: TEST_WORKSPACE_CWD, providerId: "claude-code", prompt: "Go on",
     conversation: { mode: "chat", history: [], contextParts: [] },
-    runtimeOptions: { model: "claude-haiku-5-5", claudeEffort: "medium", composerSelection: { model: "auto", effortPinned: false, rationale: "bounded" } } },
+    runtimeOptions: { model: "claude-haiku-5-5", claudeEffort: "medium", composerSelection: { model: "auto", effortPinned: false, rationale: "bounded", minimumTier: "balanced" } } },
   { onEvent: (event) => events.push(event), onDone: resolveDone });
   await done;
-  expect(seen).toEqual([{ model: "auto", effortPinned: false, rationale: "bounded", requestedModel: "claude-haiku-5-5", requestedEffort: "medium" }]);
+  expect(seen).toEqual([{ model: "auto", effortPinned: false, rationale: "bounded", minimumTier: "balanced", requestedModel: "claude-haiku-5-5", requestedEffort: "medium" }]);
   const turn = primaryTurns.at(-1)!;
   expect(turn.runtimeOptions?.model).toBe("claude-opus-5-5");
   expect(turn.runtimeOptions && "composerSelection" in turn.runtimeOptions).toBe(false);

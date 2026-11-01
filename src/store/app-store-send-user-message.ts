@@ -538,15 +538,16 @@ export function createSendUserMessageAction(args: {
         informationContext: (lensState) => buildWorkspaceInformationReferencesRetrievedContext({ promptDraft, workspaceInformation: taskWorkspaceSession.workspaceInformation, lensState }) }),
       providerId: provider, prompt: promptContent, promptDraft,
       turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft, queuedTurnId: queuedTurnToSend?.id, accounts: turnAccounts });
+    let composerClearedForRun = false;
     if (agentRunStart) {
       const result = await agentRunStart();
-      if (result.status === "run-started") {
+      if (result?.status === "run-started") {
         const session = getWorkspaceSessionForState({ state: get(), workspaceId: taskWorkspaceId });
-        if (session) suggestTitle(session, existingHistory, resolveTurnModelForSend({
-          providerId: provider, runtimeOverrides: promptDraft.runtimeOverrides, settings: turnSettings,
-        }));
+        if (session) suggestTitle(session, existingHistory, resolveTurnModelForSend({ providerId: provider, runtimeOverrides: promptDraft.runtimeOverrides, settings: turnSettings }));
       }
-      return result;
+      if (result) return result;
+      // Hydration already cleared this draft; keep subsequent edits and recovery.
+      composerClearedForRun = !preservePromptDraft && !queuedTurnToSend;
     }
     // A "stalled" turn is one whose provider stream has gone silent past the
     // stall threshold with no pending approval/user_input interaction — e.g. a
@@ -822,7 +823,7 @@ export function createSendUserMessageAction(args: {
     });
     const draftAfterSend = (currentDraft?: PromptDraft) =>
       resolvePromptDraftAfterSend({ currentDraft, storedDraft: storedPromptDraftForTask, sourceDraft: sourcePromptDraft,
-        sentDraft: promptDraft, preservePromptDraft, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns });
+        sentDraft: promptDraft, preservePromptDraft: preservePromptDraft || composerClearedForRun, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns });
 
     const submittedPromptDraft = createSubmittedPromptDraftLifecycle({
       taskId: resolvedTaskId,
@@ -835,7 +836,7 @@ export function createSendUserMessageAction(args: {
       preservedQueuedDispatchDraft,
       queuedTurns: codexGoalQueuedTurns,
       queuedTurnToSend,
-      updateDrafts: updatePromptDraftsForWorkspace,
+      updateDrafts: updatePromptDraftsForWorkspace, composerClearedAtSend: composerClearedForRun,
       ...guardTypedTextDuringSend({ get, set, taskId: resolvedTaskId, workspaceId: taskWorkspaceId, draft: promptDraft }),
     });
 
