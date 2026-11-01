@@ -1,5 +1,62 @@
 import { expect, test, type Locator } from "@playwright/test";
 
+test("catalog changes refresh open menus, settings, launch labels and memoized shortcuts", async ({ page }) => {
+  async function setPresets() {
+    await page.evaluate(async () => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      useAppStore.setState((state) => ({ settings: { ...state.settings, taskPresets: [
+        { id: "dynamic", label: "Dynamic", kind: "task", provider: "codex", model: "gpt-6-astra" },
+        { id: "saved", label: "Saved", kind: "task", provider: "codex", model: "gpt-6-astra", effort: "high" },
+        { id: "owned", label: "Owned", kind: "task", provider: "codex", model: "gpt-6.1-sol" },
+      ] } }));
+    });
+  }
+  async function updateCatalog(level: string, supported: string[]) {
+    return page.evaluate(async ({ level, supported }) => {
+      const catalog = await import("/src/lib/providers/model-catalog.ts");
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      const { resolveTaskPresetRuntimeOverrides } = await import("/src/lib/task-presets.ts");
+      catalog.registerDynamicDisplayNames(new Map([["gpt-6-astra", "Catalog Astra"]]));
+      catalog.registerDynamicDefaultReasoningEfforts(new Map([["gpt-6-astra", level], ["gpt-6.1-sol", "low"]]));
+      catalog.registerDynamicSupportedReasoningEfforts(new Map([["gpt-6-astra", supported]]));
+      return useAppStore.getState().settings.taskPresets.map((preset) =>
+        resolveTaskPresetRuntimeOverrides(preset).codexReasoningEffort);
+    }, { level, supported });
+  }
+  await page.goto("/tests/e2e/fixtures/task-presets.html");
+  await page.getByTestId("preset-launcher").waitFor();
+  await setPresets();
+  const launcher = page.getByTestId("preset-launcher").getByRole("button");
+  const meta = page.getByRole("region").locator('[data-preset-id="dynamic"] p').last();
+  await expect(launcher.first()).toHaveAccessibleName(/Dynamic.*Effort: Medium/);
+  await launcher.last().click();
+  const menu = page.getByRole("menu");
+  await expect(menu.locator('[data-preset-id="dynamic"]')).toContainText("Effort: Medium");
+  for (const [level, supported, expected, saved] of [
+    ["high", ["low", "medium", "high"], "High", "High"],
+    ["low", ["low", "medium"], "Low", "Low"],
+    ["medium", ["low", "medium", "high"], "Medium", "High"],
+  ] as const) {
+    expect(await updateCatalog(level, [...supported])).toEqual([level, saved.toLowerCase(), "high"]);
+    await expect(launcher.first()).toHaveAccessibleName(new RegExp(`Dynamic.*Catalog Astra.*Effort: ${expected}`));
+    await expect(meta).toContainText(`Catalog Astra · Effort: ${expected}`);
+    await expect(menu.locator('[data-preset-id="dynamic"]')).toContainText(`Catalog Astra · Effort: ${expected}`);
+    await expect(menu.locator('[data-preset-id="saved"]')).toContainText(`Effort: ${saved}`);
+    await expect(menu.locator('[data-preset-id="owned"]')).toContainText("Effort: High");
+  }
+  await page.keyboard.press("Escape");
+  await launcher.first().hover();
+  await expect(page.getByRole("tooltip").filter({ hasText: "Catalog Astra" })).toContainText("Catalog Astra · Effort: Medium");
+  await page.goto("/tests/e2e/fixtures/task-presets.html?shortcuts=1");
+  const drawer = page.getByTestId("keyboard-shortcuts-drawer");
+  await expect(drawer).toBeVisible();
+  await setPresets();
+  const shortcut = drawer.locator("[data-keybinding-id]").filter({ hasText: "Dynamic" });
+  await expect(shortcut).toContainText("Effort: Medium");
+  await updateCatalog("high", ["low", "medium", "high"]);
+  await expect(shortcut).toContainText("Catalog Astra · Effort: High");
+});
+
 // Check the actual text boxes, not just DOM text that ellipsis can hide.
 async function expectUnclipped(locator: Locator) {
   await expect(locator).toBeVisible();

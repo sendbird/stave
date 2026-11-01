@@ -1038,15 +1038,35 @@ export function resolveCodexEffortForModelSwitch(args: {
  * without a Stave code change.
  */
 const dynamicDisplayNames = new Map<string, string>();
+let dynamicModelCatalogRevision = 0;
+const dynamicModelCatalogListeners = new Set<() => void>();
+
+export function getDynamicModelCatalogRevision() {
+  return dynamicModelCatalogRevision;
+}
+
+export function subscribeDynamicModelCatalog(listener: () => void) {
+  dynamicModelCatalogListeners.add(listener);
+  return () => { dynamicModelCatalogListeners.delete(listener); };
+}
+
+function notifyDynamicModelCatalogChanged() {
+  dynamicModelCatalogRevision += 1;
+  for (const listener of dynamicModelCatalogListeners) listener();
+}
 
 /**
  * Merge server-provided display names into the runtime registry.
  * Called from `useCodexModelCatalog` after a successful `model/list` fetch.
  */
 export function registerDynamicDisplayNames(names: Map<string, string>) {
+  let changed = false;
   for (const [model, displayName] of names) {
+    if (dynamicDisplayNames.get(model) === displayName) continue;
     dynamicDisplayNames.set(model, displayName);
+    changed = true;
   }
+  if (changed) notifyDynamicModelCatalogChanged();
 }
 
 /**
@@ -1090,11 +1110,17 @@ function isValidCodexReasoningEffort(
 export function registerDynamicDefaultReasoningEfforts(
   defaults: Map<string, string>,
 ) {
+  let changed = false;
   for (const [model, effort] of defaults) {
-    if (isValidCodexReasoningEffort(effort)) {
+    if (
+      isValidCodexReasoningEffort(effort) &&
+      dynamicDefaultReasoningEfforts.get(model) !== effort
+    ) {
       dynamicDefaultReasoningEfforts.set(model, effort);
+      changed = true;
     }
   }
+  if (changed) notifyDynamicModelCatalogChanged();
 }
 
 /**
@@ -1119,12 +1145,19 @@ const dynamicSupportedReasoningEfforts = new Map<
 export function registerDynamicSupportedReasoningEfforts(
   supported: Map<string, readonly string[]>,
 ) {
+  let changed = false;
   for (const [model, efforts] of supported) {
     const valid = efforts.filter(isValidCodexReasoningEffort);
-    if (valid.length > 0) {
+    const previous = dynamicSupportedReasoningEfforts.get(model);
+    if (
+      valid.length > 0 &&
+      (previous?.length !== valid.length || valid.some((effort, index) => previous?.[index] !== effort))
+    ) {
       dynamicSupportedReasoningEfforts.set(model, valid);
+      changed = true;
     }
   }
+  if (changed) notifyDynamicModelCatalogChanged();
 }
 
 /**

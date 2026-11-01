@@ -147,6 +147,30 @@ describe("normalizeTaskPreset", () => {
 });
 
 describe("describeTaskPresetModelEffort", () => {
+  test.each([
+    ["claude-code", "claude-opus-5-5", "Medium"],
+    ["codex", "gpt-6.1-sol", "High"],
+    ["cursor", "composer-2", "Medium"],
+    ["kiro", "auto", "Medium"],
+    ["opencode", "openai/gpt-6.1-sol", "Default (per model)"],
+  ] as const)("shows the default effort for %s", (provider, model, effort) => {
+    expect(describeTaskPresetModelEffort({
+      id: "provider-default", label: "Default", kind: "task", provider, model,
+    })).toContain(`Effort: ${effort}`);
+  });
+
+  test.each([
+    ["claude-code", "claude-opus-5-5", "ultra", "Medium"],
+    ["codex", "gpt-6-luna", "ultra", "X-High"],
+    ["cursor", "composer-2", "minimal", "Medium"],
+    ["kiro", "auto", "minimal", "Medium"],
+    ["opencode", "openai/gpt-6.1-sol", "ultra", "Default (per model)"],
+  ] as const)("describes the runtime fallback for unsupported %s effort", (provider, model, effort, expected) => {
+    expect(describeTaskPresetModelEffort({
+      id: "unsupported-effort", label: "Fallback", kind: "task", provider, model, effort,
+    })).toContain(`Effort: ${expected}`);
+  });
+
   test("includes the model and effective default effort for task presets", () => {
     expect(describeTaskPresetModelEffort({
       id: "default-model",

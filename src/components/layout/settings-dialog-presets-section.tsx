@@ -39,6 +39,7 @@ import { TaskPresetEditor } from "./task-preset-editor";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
 import { sx } from "@/components/ads/utils/stylex";
 import { presetsSectionStyles as styles } from "./settings-dialog-presets-section.styles";
+import { useModelCatalogRevision } from "@/lib/providers/use-model-catalog-revision";
 
 type PresetEditorTarget =
   { kind: "edit"; presetId: string } | { kind: "new" } | null;
@@ -53,6 +54,7 @@ function describePreset(preset: TaskPreset) {
 
 export function PresetsSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
+  useModelCatalogRevision();
   const [
     presets,
     upsertTaskPreset,

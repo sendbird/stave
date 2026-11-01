@@ -24,6 +24,7 @@ import { ShortcutKeys } from "@/components/system/ShortcutKeys";
 import { resolveKeybindingPlatform } from "@/lib/keybindings/key-chord";
 import { useAppStore } from "@/store/app.store";
 import { shortcutsDrawerStyles } from "./keyboard-shortcuts-drawer.styles";
+import { useModelCatalogRevision } from "@/lib/providers/use-model-catalog-revision";
 
 interface KeyboardShortcutsDrawerProps {
   open: boolean;
@@ -40,6 +41,7 @@ export function KeyboardShortcutsDrawer({
   onOpenChange,
 }: KeyboardShortcutsDrawerProps) {
   useTranslation();
+  const modelCatalogRevision = useModelCatalogRevision();
   const [searchQuery, setSearchQuery] = useState("");
   const platform = useMemo(() => resolveKeybindingPlatform(), []);
   const [
@@ -86,6 +88,7 @@ export function KeyboardShortcutsDrawer({
       visualCommentShortcut,
       taskPresets,
       i18n.language,
+      modelCatalogRevision,
     ],
   );
   const filteredSections = useMemo(

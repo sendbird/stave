@@ -31,6 +31,7 @@ import {
   type TaskPreset,
 } from "@/lib/task-presets";
 import { isTaskArchived } from "@/lib/tasks";
+import { useModelCatalogRevision } from "@/lib/providers/use-model-catalog-revision";
 import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
 import {
   getCliSessionProviderLabel,
@@ -82,6 +83,7 @@ function presetTitle(preset: TaskPreset) {
  */
 export function PaneNewTabSplitButton(props: { groupId: string }) {
   useTranslation();
+  useModelCatalogRevision();
   const [
     presets,
     providerAvailability,
