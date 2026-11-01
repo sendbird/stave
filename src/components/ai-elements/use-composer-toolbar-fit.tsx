@@ -25,6 +25,9 @@ import type { ComposerControlMenuItem } from "./composer-control-menu";
 const UNMEASURED_CONTROL_PX = 96;
 /** The `⋯` trigger before it has been measured: an `icon` button. */
 const UNMEASURED_TRAY_PX = 36;
+/** The side question as a bare glyph before it has been measured. */
+const UNMEASURED_COMPACT_PX = 40;
+const COMPACT_KEY = (id: string) => `${id}:compact`;
 
 const slotStyles = stylex.create({
   // A measuring hook, not a box: the lane rules still reach the control.
@@ -43,10 +46,12 @@ export function ComposerToolbarSlot(props: { id: string; children: ReactNode }) 
   );
 }
 
+function findSlot(row: HTMLElement, id: string) {
+  return row.querySelector<HTMLElement>(`[data-composer-toolbar-slot="${id}"]`);
+}
+
 function slotWidth(row: HTMLElement, id: string): number | null {
-  const slot = row.querySelector<HTMLElement>(
-    `[data-composer-toolbar-slot="${id}"]`,
-  );
+  const slot = findSlot(row, id);
   if (!slot) {
     return null;
   }
@@ -86,10 +91,13 @@ export function useComposerToolbarFit(args: {
   demotedCount: number;
   activeIds: readonly ComposerControlId[];
 }) {
-  const sideQuestion = useSideQuestionComposerControl();
   const rowRef = useRef<HTMLDivElement | null>(null);
   const widthsRef = useRef(new Map<string, number>());
-  const [collapsedKey, setCollapsedKey] = useState("");
+  // "collapsed ids|compacted ids": one state, so a fit lands in one render.
+  const [fitKey, setFitKey] = useState("|");
+  const [collapsedKey, compactedKey] = fitKey.split("|") as [string, string];
+  const sideQuestionCompact = compactedKey.split(" ").includes(COMPOSER_SIDE_QUESTION_SLOT);
+  const sideQuestion = useSideQuestionComposerControl({ iconOnly: sideQuestionCompact });
   const itemIds = useMemo(
     () => [
       ...args.toolbarIds.filter((id) => Boolean(args.nodes[id])),
@@ -116,7 +124,9 @@ export function useComposerToolbarFit(args: {
     for (const id of [...ids, "model"]) {
       const width = slotWidth(row, id);
       if (width != null && width > 0) {
-        widths.set(id, width);
+        // A control drawn without its label marks itself `data-compact`.
+        const compact = findSlot(row, id)?.querySelector('[data-compact="true"]') != null;
+        widths.set(compact ? COMPACT_KEY(id) : id, width);
       }
     }
     const tray = row.querySelector<HTMLElement>('[data-composer-tray-trigger="true"]');
@@ -130,27 +140,33 @@ export function useComposerToolbarFit(args: {
     const actionsWidth =
       (actions?.getBoundingClientRect().width ?? 0) -
       (sideQuestionOnRow ? sideQuestionOnRow + gapOf(actions) : 0);
-    const collapsed = fitComposerToolbar({
+    const fit = fitComposerToolbar({
       availableWidth,
       fixedWidth: (widths.get("model") ?? 0) + gapOf(row) + actionsWidth,
       gap: laneGap,
-      items: ids.map((id) => ({ id, width: widths.get(id) ?? UNMEASURED_CONTROL_PX })),
+      items: ids.map((id) => ({
+        id,
+        width: widths.get(id) ?? UNMEASURED_CONTROL_PX,
+        ...(id === COMPOSER_SIDE_QUESTION_SLOT
+          ? { compactWidth: widths.get(COMPACT_KEY(id)) ?? UNMEASURED_COMPACT_PX }
+          : {}),
+      })),
       trayWidth: widths.get("tray") ?? UNMEASURED_TRAY_PX,
       trayAlwaysShown: demotedCount > 0,
       activeIds,
     });
-    const next = collapsed.join(" ");
-    setCollapsedKey((current) => (current === next ? current : next));
+    const next = `${fit.collapsed.join(" ")}|${fit.compacted.join(" ")}`;
+    setFitKey((current) => (current === next ? current : next));
   }, []);
 
   // Before paint, so a narrow column never shows the wrapped or clipped row.
   useLayoutEffect(() => {
     if (!args.enabled) {
-      setCollapsedKey("");
+      setFitKey("|");
       return;
     }
     measure();
-  }, [args.enabled, itemKey, activeKey, args.demotedCount, collapsedKey, measure]);
+  }, [args.enabled, itemKey, activeKey, args.demotedCount, fitKey, measure]);
 
   useLayoutEffect(() => {
     const row = rowRef.current;
@@ -167,7 +183,7 @@ export function useComposerToolbarFit(args: {
       observer.observe(element);
     }
     return () => observer.disconnect();
-  }, [args.enabled, itemKey, collapsedKey, measure]);
+  }, [args.enabled, itemKey, fitKey, measure]);
 
   const collapsedIds = useMemo(
     () => new Set(collapsedKey ? collapsedKey.split(" ") : []),
@@ -196,5 +212,6 @@ export function useComposerToolbarFit(args: {
     collapsedIds: collapsedIds as ReadonlySet<string>,
     overflowItems,
     sideQuestion: sideQuestionCollapsed ? null : sideQuestion,
+    sideQuestionCompact,
   };
 }

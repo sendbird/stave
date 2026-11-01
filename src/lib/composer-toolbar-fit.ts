@@ -12,6 +12,11 @@
  * Widths are each control's natural width, measured while it was last on the
  * row, so the answer does not depend on which controls are currently out — the
  * row cannot oscillate between two layouts.
+ *
+ * Before anything leaves, a control that can drop its label does
+ * (`compactWidth`). The side question only ever does that: it is a direct
+ * action beside Attach and Send whatever the placement, so it keeps its glyph,
+ * tooltip and name on the row.
  */
 
 /** The side question action, which lives with Attach and Send. */
@@ -19,18 +24,18 @@ export const COMPOSER_SIDE_QUESTION_SLOT = "sideQuestion";
 
 /**
  * The order controls leave the row: Stave's own tooling first (it is used
- * least often per turn), then the side question, then the run settings, with
- * the permission preset last — it changes what the next turn may do. The model
- * picker, Attach and Send never leave.
+ * least often per turn), then the runtime readout (checked rather than
+ * operated), then the run settings, with the permission preset last — it
+ * changes what the next turn may do. The model picker, the side question,
+ * Attach and Send never leave.
  */
 export const COMPOSER_TOOLBAR_DROP_ORDER: readonly string[] = [
   "compare",
   "macro",
   "secrets",
   "review",
-  COMPOSER_SIDE_QUESTION_SLOT,
-  "runAccountPool",
   "runtime",
+  "runAccountPool",
   "thinking",
   "providerMode",
 ];
@@ -39,10 +44,19 @@ export interface ComposerToolbarFitItem {
   id: string;
   /** Natural width in px, measured while the control was on the row. */
   width: number;
+  /** Width without its label, for a control that can drop it. */
+  compactWidth?: number;
+}
+
+export interface ComposerToolbarFit {
+  /** Controls that keep their place but drop their label. */
+  compacted: string[];
+  /** Controls that leave the row for the `⋯` menu, in drop order. */
+  collapsed: string[];
 }
 
 /**
- * The ids that leave the row, in drop order.
+ * Which controls drop their label and which leave the row.
  *
  * `fixedWidth` is everything that always stays (the model picker, the gap to
  * the actions and the actions without the side question). Each kept item adds
@@ -50,6 +64,7 @@ export interface ComposerToolbarFitItem {
  * whenever it is shown — always when `trayAlwaysShown` (the user demoted a
  * control), otherwise as soon as one control leaves. `activeIds` are holding a
  * deliberate state and leave last, so the row keeps saying what is set.
+ * Compacting comes first, for every item that offers it.
  */
 export function fitComposerToolbar(args: {
   availableWidth: number;
@@ -60,7 +75,7 @@ export function fitComposerToolbar(args: {
   trayAlwaysShown: boolean;
   dropOrder?: readonly string[];
   activeIds?: readonly string[];
-}): string[] {
+}): ComposerToolbarFit {
   const dropOrder = args.dropOrder ?? COMPOSER_TOOLBAR_DROP_ORDER;
   const active = new Set(args.activeIds ?? []);
   const present = new Set(args.items.map((item) => item.id));
@@ -69,23 +84,37 @@ export function fitComposerToolbar(args: {
     ...droppable.filter((id) => !active.has(id)),
     ...droppable.filter((id) => active.has(id)),
   ];
+  const compacted: string[] = [];
   const collapsed: string[] = [];
+  const widthOf = (item: ComposerToolbarFitItem) =>
+    compacted.includes(item.id) && item.compactWidth != null ? item.compactWidth : item.width;
   const total = () => {
     const kept = args.items.filter((item) => !collapsed.includes(item.id));
     const trayShown = args.trayAlwaysShown || collapsed.length > 0;
     return (
       args.fixedWidth +
-      kept.reduce((sum, item) => sum + args.gap + item.width, 0) +
+      kept.reduce((sum, item) => sum + args.gap + widthOf(item), 0) +
       (trayShown ? args.gap + args.trayWidth : 0)
     );
   };
   // Sub-pixel layout rounds both ways; a half pixel is not a reason to fold.
   const limit = args.availableWidth + 0.5;
-  for (const id of order) {
+  const steps = [
+    ...args.items.filter((item) => item.compactWidth != null).map((item) => ({ id: item.id, fold: false })),
+    ...order.map((id) => ({ id, fold: true })),
+  ];
+  for (const step of steps) {
     if (total() <= limit) {
       break;
     }
-    collapsed.push(id);
+    if (step.fold) {
+      collapsed.push(step.id);
+    } else {
+      compacted.push(step.id);
+    }
   }
-  return collapsed;
+  return {
+    compacted: compacted.filter((id) => !collapsed.includes(id)),
+    collapsed,
+  };
 }

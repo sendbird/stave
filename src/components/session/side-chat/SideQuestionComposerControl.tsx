@@ -13,7 +13,11 @@ import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui
  * leaves the draft alone, so nothing typed here is sent, queued or steered.
  * Offered while a turn runs too, which is when a side question is most useful.
  */
-export function SideQuestionComposerControl(props: { taskId: string }) {
+export function SideQuestionComposerControl(props: {
+  taskId: string;
+  /** A narrow row keeps the glyph; the tooltip and accessible name still say it. */
+  iconOnly?: boolean;
+}) {
   useTranslation();
   const hint = i18n.t("session:sideChat.hint");
   return (
@@ -28,12 +32,15 @@ export function SideQuestionComposerControl(props: { taskId: string }) {
             {...composerControlAttributes}
             aria-label={hint}
             data-testid="composer-side-question"
+            data-compact={props.iconOnly ? "true" : undefined}
             onClick={() => openTaskSideQuestion(props.taskId)}
           />
         }
       >
         <MessageCircleQuestion size={16} aria-hidden />
-        <ComposerControlLabel>{i18n.t("session:sideChat.title")}</ComposerControlLabel>
+        {props.iconOnly ? null : (
+          <ComposerControlLabel>{i18n.t("session:sideChat.title")}</ComposerControlLabel>
+        )}
       </TooltipTrigger>
       <TooltipContent side="top">{hint}</TooltipContent>
     </Tooltip>
