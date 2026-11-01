@@ -9,8 +9,10 @@ import {
   getProviderLabel,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
+  toHumanModelName,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
+import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   CLAUDE_EFFORT_OPTIONS,
@@ -116,6 +118,34 @@ export function listEffortsForPresetProvider(
       : CODEX_EFFORT_OPTIONS;
   }
   return CLAUDE_EFFORT_OPTIONS;
+}
+
+/** Human-readable model and effective effort shown anywhere a task preset is listed. */
+export function describeTaskPresetModelEffort(
+  preset: TaskPreset,
+): string | null {
+  if (preset.kind !== "task" || !preset.model) {
+    return null;
+  }
+
+  const runtime = resolveTaskPresetRuntimeOverrides(preset);
+  const effectiveEffort =
+    preset.provider === "claude-code"
+      ? runtime.claudeEffort
+      : preset.provider === "codex"
+        ? runtime.codexReasoningEffort
+        : preset.provider === "cursor"
+          ? runtime.cursorEffort
+          : preset.provider === "kiro"
+            ? runtime.kiroEffort
+            : runtime.opencodeEffort;
+  const effortLabel = listEffortsForPresetProvider(
+    preset.provider,
+    preset.model,
+  ).find((option) => option.value === effectiveEffort)?.label
+    ?? i18n.t("settings:macroEditor.defaultPerModel");
+
+  return `${toHumanModelName({ model: preset.model })} · ${i18n.t("settingsProviders:providersSection.claudeRuntime.effort.title")}: ${effortLabel}`;
 }
 
 export const TASK_PRESET_SHORTCUT_SLOT_LABELS = [

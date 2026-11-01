@@ -135,9 +135,7 @@ export const presetsSectionStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-control"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
   },
   rowActions: {
     alignItems: "center",

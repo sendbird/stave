@@ -25,8 +25,13 @@ import {
 } from "@/components/ui";
 import { openPaneTabInGroup } from "@/components/panes/pane-host-controller";
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
-import { getTaskPresetShortcutLabel, type TaskPreset } from "@/lib/task-presets";
+import {
+  describeTaskPresetModelEffort,
+  getTaskPresetShortcutLabel,
+  type TaskPreset,
+} from "@/lib/task-presets";
 import { isTaskArchived } from "@/lib/tasks";
+import { useModelCatalogRevision } from "@/lib/providers/use-model-catalog-revision";
 import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
 import {
   getCliSessionProviderLabel,
@@ -62,9 +67,11 @@ function openPresetSettings() {
 }
 
 function presetTitle(preset: TaskPreset) {
-  return preset.kind === "cli-session"
-    ? i18n.t("panes:paneNewTab.cliSessionPreset", { label: preset.label })
-    : preset.label;
+  if (preset.kind === "cli-session") {
+    return i18n.t("panes:paneNewTab.cliSessionPreset", { label: preset.label });
+  }
+  const modelEffort = describeTaskPresetModelEffort(preset);
+  return modelEffort ? `${preset.label} · ${modelEffort}` : preset.label;
 }
 
 /**
@@ -76,6 +83,7 @@ function presetTitle(preset: TaskPreset) {
  */
 export function PaneNewTabSplitButton(props: { groupId: string }) {
   useTranslation();
+  useModelCatalogRevision();
   const [
     presets,
     providerAvailability,
@@ -175,18 +183,27 @@ export function PaneNewTabSplitButton(props: { groupId: string }) {
             <DropdownMenuLabel>{i18n.t("panes:paneNewTab.presets")}</DropdownMenuLabel>
             {presets.map((preset, index) => {
               const shortcut = formatPresetSlotShortcut(index);
+              const modelEffort = describeTaskPresetModelEffort(preset);
               return (
                 <DropdownMenuItem
                   key={preset.id}
                   data-preset-id={preset.id}
+                  className={modelEffort ? sx(styles.item) : undefined}
                   onSelect={() => applyTaskPreset({ presetId: preset.id })}
                 >
                   <ModelIcon
                     providerId={preset.provider}
                     model={preset.model}
-                    className={sx(styles.icon)}
+                    className={sx(modelEffort ? styles.providerIcon : styles.icon)}
                   />
-                  <span className={sx(styles.itemLabel)}>{presetTitle(preset)}</span>
+                  {modelEffort ? (
+                    <div className={sx(styles.content)}>
+                      <div className={sx(styles.label)}>{preset.label}</div>
+                      <div className={sx(styles.description, styles.presetDetails)}>{modelEffort}</div>
+                    </div>
+                  ) : (
+                    <span className={sx(styles.itemLabel)}>{presetTitle(preset)}</span>
+                  )}
                   {shortcut ? <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut> : null}
                 </DropdownMenuItem>
               );
@@ -328,6 +345,7 @@ const styles = stylex.create({
     width: vars["--ads-control-icon-size-md"],
   },
   itemLabel: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  presetDetails: { overflowWrap: "anywhere" },
   menu: { width: 256 },
   submenu: { width: 256 },
   item: { alignItems: "flex-start" },

@@ -22,6 +22,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import {
+  describeTaskPresetModelEffort,
   generatePresetId,
   getTaskPresetShortcutLabel,
   type TaskPreset,
@@ -38,6 +39,7 @@ import { TaskPresetEditor } from "./task-preset-editor";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
 import { sx } from "@/components/ads/utils/stylex";
 import { presetsSectionStyles as styles } from "./settings-dialog-presets-section.styles";
+import { useModelCatalogRevision } from "@/lib/providers/use-model-catalog-revision";
 
 type PresetEditorTarget =
   { kind: "edit"; presetId: string } | { kind: "new" } | null;
@@ -47,11 +49,12 @@ function describePreset(preset: TaskPreset) {
     return i18n.t("settings:settingsDialogPresetsSection.cliSession", { value1: getProviderLabel({ providerId: preset.provider, variant: "full" }) });
   }
 
-  return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} · ${toHumanModelName({ model: preset.model ?? "" })}`;
+  return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} · ${describeTaskPresetModelEffort(preset) ?? toHumanModelName({ model: preset.model ?? "" })}`;
 }
 
 export function PresetsSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
+  useModelCatalogRevision();
   const [
     presets,
     upsertTaskPreset,
@@ -189,7 +192,7 @@ export function PresetsSection() {
                       }
                     }}
                   >
-                    <div className={sx(styles.row)}>
+                    <div className={sx(styles.row)} data-preset-id={preset.id}>
                       <div className={sx(styles.rowMain)}>
                         <div className={sx(styles.mark)}>
                           <ModelIcon

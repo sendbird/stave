@@ -21,8 +21,10 @@ import {
   normalizeModelShortcutKeys,
 } from "@/lib/providers/model-shortcuts";
 import {
+  describeTaskPresetModelEffort,
   getTaskPresetShortcutLabel,
   TASK_PRESET_SHORTCUT_SLOT_LABELS,
+  type TaskPreset,
 } from "@/lib/task-presets";
 
 /**
@@ -50,7 +52,7 @@ export interface ShortcutListSection {
 export interface ShortcutListSettings extends KeybindingSettingsSnapshot {
   modelShortcutKeys?: unknown;
   modelShortcutEfforts?: unknown;
-  taskPresets: ReadonlyArray<{ id: string; label: string }>;
+  taskPresets: ReadonlyArray<TaskPreset>;
 }
 
 /** `i18n.t` for keys held in tables, where the key is a union. */
@@ -163,7 +165,9 @@ function presetSlotItems(
           ...baseItem(entry, platform),
           id: `${entry.id}.${slotLabel}`,
           label: i18n.t("shell:keyboardShortcutsDrawer.run", {
-            value1: preset.label,
+            value1: [preset.label, describeTaskPresetModelEffort(preset)]
+              .filter(Boolean)
+              .join(" · "),
           }),
           description: i18n.t(
             "shell:keyboardShortcutsDrawer.launchThisPresetDirectlyReorderPresetsIn",
