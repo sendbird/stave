@@ -278,7 +278,7 @@ describe("continueWorkspaceFromSummary", () => {
       "git show-ref --verify --quiet \"refs/remotes/origin/main\"",
       "git show-ref --verify --quiet \"refs/heads/origin/main\"",
       "mkdir -p .stave/workspaces",
-      `git worktree add -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/main\"`,
+      `git worktree add --no-track -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/main\"`,
     ]);
 
     expect(createdDirectories).toEqual([".stave/context"]);
@@ -468,7 +468,7 @@ describe("continueWorkspaceFromSummary", () => {
       "git diff --stat \"main\"...HEAD",
       "git diff --name-only \"main\"...HEAD",
       "mkdir -p .stave/workspaces",
-      `git worktree add -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"main\"`,
+      `git worktree add --no-track -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"main\"`,
     ]);
   });
 
@@ -619,7 +619,7 @@ describe("continueWorkspaceFromSummary", () => {
       "git show-ref --verify --quiet \"refs/remotes/origin/release\"",
       "git show-ref --verify --quiet \"refs/heads/origin/release\"",
       "mkdir -p .stave/workspaces",
-      `git worktree add -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/release\"`,
+      `git worktree add --no-track -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/release\"`,
     ]);
   });
 });

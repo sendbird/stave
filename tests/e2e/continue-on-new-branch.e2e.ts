@@ -74,6 +74,6 @@ test("continuing a merged branch here switches this worktree to a new branch", a
   );
   expect(commands).toEqual([
     "git fetch 'origin' --prune",
-    `git switch -c '${branchName}' 'origin/main'`,
+    `git switch --no-track -c '${branchName}' 'origin/main'`,
   ]);
 });

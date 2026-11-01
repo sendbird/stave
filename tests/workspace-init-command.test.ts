@@ -111,7 +111,7 @@ describe("new workspace init command", () => {
     expect(runCalls.map((call) => call.command)).toEqual([
       "git fetch origin --prune",
       "mkdir -p .stave/workspaces",
-      `git worktree add -b "feature/remote-bootstrap" ${JSON.stringify(workspacePath)} "origin/main"`,
+      `git worktree add --no-track -b "feature/remote-bootstrap" ${JSON.stringify(workspacePath)} "origin/main"`,
     ]);
   });
 
@@ -195,7 +195,7 @@ describe("new workspace init command", () => {
       "git fetch origin --prune",
       'git show-ref --verify --quiet "refs/heads/main"',
       "mkdir -p .stave/workspaces",
-      `git worktree add -b "feature/remote-fallback" ${JSON.stringify(workspacePath)} "main"`,
+      `git worktree add --no-track -b "feature/remote-fallback" ${JSON.stringify(workspacePath)} "main"`,
     ]);
   });
 
@@ -267,7 +267,7 @@ describe("new workspace init command", () => {
     expect(result.message).toContain("bun install");
     expect(runCalls.map((call) => call.command)).toEqual([
       "mkdir -p .stave/workspaces",
-      `git worktree add -b \"feature/bootstrap\" ${JSON.stringify(workspacePath)} \"main\"`,
+      `git worktree add --no-track -b \"feature/bootstrap\" ${JSON.stringify(workspacePath)} \"main\"`,
       "bun install",
     ]);
     expect(runCalls[2]).toEqual({
@@ -354,7 +354,7 @@ describe("new workspace init command", () => {
       runCalls
         .map((call) => call.command)
         .some((command) =>
-          command.includes('git worktree add -b "feature/customer-quota"'),
+          command.includes('git worktree add --no-track -b "feature/customer-quota"'),
         ),
     ).toBe(true);
   });
@@ -429,7 +429,7 @@ describe("new workspace init command", () => {
     expect(result.message).toContain("bun run bootstrap:workspace");
     expect(runCalls.map((call) => call.command)).toEqual([
       "mkdir -p .stave/workspaces",
-      `git worktree add -b \"feature/shared-deps\" ${JSON.stringify(workspacePath)} \"main\"`,
+      `git worktree add --no-track -b \"feature/shared-deps\" ${JSON.stringify(workspacePath)} \"main\"`,
       runCalls[2]?.command ?? "",
       "bun run bootstrap:workspace",
     ]);
@@ -677,7 +677,7 @@ describe("branch case and legacy/new folder coexistence", () => {
       async (args: { cwd?: string; command: string }) => {
         calls.push(args);
         const worktreeMatch = args.command.match(
-          /git worktree add -b "[^"]+" "([^"]+)"/,
+          /git worktree add --no-track -b "[^"]+" "([^"]+)"/,
         );
         if (worktreeMatch?.[1]) {
           pathsCreated.push(worktreeMatch[1]);

@@ -126,11 +126,14 @@ export async function readAgentRunWorkspaceState(args: {
   if (!branch || branch === "HEAD") return empty;
   const upstream = await git(args.run, args.cwd, [
     "rev-parse",
-    "--verify",
-    "--quiet",
+    "--abbrev-ref",
+    "--symbolic-full-name",
     "@{upstream}",
   ]);
-  if (!upstream.ok) return { ...empty, branch };
+  // Pushed only when it tracks a remote branch of its own name: an older
+  // workspace branch still tracks the `origin/main` it was started from.
+  const upstreamName = upstream.ok ? upstream.stdout.trim() : "";
+  if (!upstreamName.endsWith(`/${branch}`)) return { ...empty, branch };
   let openPullRequest: AgentRunWorkspaceState["openPullRequest"] = null;
   try {
     openPullRequest = await args.readOpenPullRequest(args.cwd);

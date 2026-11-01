@@ -36,6 +36,21 @@ export function cleanupWorkspaceRows(): CleanupWorkspaceRow[] {
   }));
 }
 
+type CleanupCommandRunner = NonNullable<NonNullable<NonNullable<Window["api"]>["terminal"]>["runCommand"]>;
+
+/**
+ * Commits the branch has not pushed. A workspace branch has no upstream until
+ * its first push, so without one this counts the commits no remote has rather
+ * than reporting the remote state unknown; a repository without remotes stays unknown.
+ */
+export async function countUnpushedCommits(runner: CleanupCommandRunner, cwd: string) {
+  const upstream = await runner({ cwd, command: "git rev-list --count @{upstream}..HEAD" });
+  if (upstream.ok) return upstream;
+  const remotes = await runner({ cwd, command: "git remote" });
+  if (!remotes.ok || !remotes.stdout.trim()) return upstream;
+  return runner({ cwd, command: "git rev-list --count HEAD --not --remotes" });
+}
+
 export async function inspectCleanupWorkspace(repositoryPath: string, row: CleanupWorkspaceRow): Promise<CleanupWorkspaceRow> {
   const blocker = workspaceCleanupBlocker(useAppStore.getState(), repositoryPath, row.id, row.path);
   if (blocker) return { ...row, checked: true, blocker };
@@ -46,7 +61,7 @@ export async function inspectCleanupWorkspace(repositoryPath: string, row: Clean
       runner({ cwd: row.path, command: "git status --porcelain --untracked-files=all" }),
       window.api.scripts.getStatus({ workspaceId: row.id }),
       loadWorkspaceShell({ workspaceId: row.id }),
-      runner({ cwd: row.path, command: "git rev-list --count @{upstream}..HEAD" }),
+      countUnpushedCommits(runner, row.path),
     ]);
     if (!status.ok || !scripts.ok || !shell) throw new Error(i18n.t("workspace:cleanupDialog.operations.verifyFailed"));
     let reason: string | null = worktreeStatusHasMeaningfulChanges(status.stdout) ? i18n.t("workspace:cleanupDialog.operations.reasons.changedFiles") : null;
