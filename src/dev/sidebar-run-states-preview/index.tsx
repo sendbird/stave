@@ -6,7 +6,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { repositorySidebarStyles as s } from "@/components/layout/repository-workspace-sidebar.styles";
 import {
   InlineWorkspaceLabel,
-  WorkspaceExpandedMeta,
+  WorkspaceRowSecondary,
   WorkspaceLeadingStatusIcon,
 } from "@/components/layout/workspace-sidebar-rows";
 import { TooltipProvider } from "@/components/ui";
@@ -178,9 +178,9 @@ export function SidebarRunStatesPreview() {
         <nav className={sx(styles.sidebar)} aria-label="Workspaces">
           {ROWS.map((row) => (
             <div key={row.id} className={sx(s.workspaceItem)}>
-              <div className={sx(s.workspaceRow, s.workspaceRowExpanded, row.id === "working-claude" ? s.workspaceRowActive : s.workspaceRowIdle)}>
-                <div className={sx(s.workspaceOpen, s.workspaceOpenExpanded)}>
-                  <span className={sx(s.workspaceLeadSlot, s.workspaceLeadSlotExpanded)}>
+              <div className={sx(s.workspaceRow, s.row, row.id === "working-claude" ? s.workspaceRowActive : s.workspaceRowIdle)}>
+                <div className={sx(s.workspaceOpen, s.rowHit)}>
+                  <span className={sx(s.workspaceLeadSlot)}>
                     <WorkspaceLeadingStatusIcon
                       workspaceId={row.id}
                       workspaceName={row.name}
@@ -189,6 +189,7 @@ export function SidebarRunStatesPreview() {
                       attentionKind={row.attentionKind}
                     />
                   </span>
+                  <span className={sx(s.rowStack)}>
                   <InlineWorkspaceLabel
                     workspaceId={row.id}
                     workspaceName={row.name}
@@ -199,13 +200,14 @@ export function SidebarRunStatesPreview() {
                     showBranchContext={false}
                     onRename={async () => ({ ok: true })}
                   />
-                  <WorkspaceExpandedMeta
+                  <WorkspaceRowSecondary
                     workspaceId={row.id}
+                    workspaceName={row.name}
                     branch={row.branch}
                     isDefault={false}
-                    hasHoverActions
-                    isClosing={false}
+                    layout="stacked"
                   />
+                  </span>
                 </div>
               </div>
             </div>

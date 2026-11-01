@@ -2,7 +2,6 @@ import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
-  GitBranch,
   GitMerge,
   MoreVertical,
 } from "lucide-react";
@@ -25,6 +24,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   formatWorkQueueWorkspaceLabel,
   formatWorkspaceDisplayName,
+  resolveWorkspaceRowBranch,
   buildWorkspaceHoverPreview,
   getWorkspaceHoverActionVisibilityStyle,
   getWorkspaceLeadingAttentionKind,
@@ -146,17 +146,6 @@ function formatWorkspaceTitle(args: {
 
 export function isWorkspaceActivationKey(event: ReactKeyboardEvent<HTMLElement>) {
   return event.key === "Enter" || event.key === " ";
-}
-
-function formatWorkspaceBranchLabel(args: {
-  branch?: string;
-  isDefault: boolean;
-}) {
-  const label = formatBranchLabel(args.branch);
-  if (label) {
-    return label;
-  }
-  return args.isDefault ? "default" : "worktree";
 }
 
 function formatCountLabel(count: number, singular: string) {
@@ -521,11 +510,12 @@ export function WorkQueueRow(args: {
             data-testid={`active-workspace-${entry.workspaceId}`}
             aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.openWorkspace", { value1: entry.workspaceName })}
             xstyle={[
-              repositorySidebarStyles.queueButton,
+              repositorySidebarStyles.row,
+              repositorySidebarStyles.rowHit,
               transition.colors,
               entry.isActive
-                ? repositorySidebarStyles.queueButtonActive
-                : repositorySidebarStyles.queueButtonIdle,
+                ? repositorySidebarStyles.workspaceRowActive
+                : repositorySidebarStyles.workspaceRowIdle,
             ]}
           >
             <WorkspaceLeadingStatusIcon
@@ -535,7 +525,7 @@ export function WorkQueueRow(args: {
               busy={false}
               attentionKind={args.attentionKind}
             />
-            <span className={sx(repositorySidebarStyles.queueLabel)}>
+            <span className={sx(repositorySidebarStyles.rowTitle)}>
               {formatWorkQueueWorkspaceLabel({
                 name: entry.workspaceName,
                 branch: entry.branch,
@@ -544,7 +534,8 @@ export function WorkQueueRow(args: {
             </span>
             <span
               className={sx(
-                repositorySidebarStyles.queueRepository,
+                repositorySidebarStyles.rowSecondary,
+                repositorySidebarStyles.rowSecondaryTrailing,
                 args.actions ? repositorySidebarStyles.rowCountYields : null,
               )}
             >
@@ -753,8 +744,7 @@ export function InlineWorkspaceLabel(args: {
     <span
       className={sx(
         repositorySidebarStyles.label,
-        args.compact && repositorySidebarStyles.labelCompact,
-        !args.compact && repositorySidebarStyles.labelRoomy,
+        repositorySidebarStyles.rowTitle,
         args.isActive && repositorySidebarStyles.labelActive,
         canEdit && repositorySidebarStyles.labelEditable,
         canEdit && focusRing.ring,
@@ -783,65 +773,45 @@ export function InlineWorkspaceLabel(args: {
   );
 }
 
-export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
+/**
+ * The muted text that follows a workspace row's title: what a running turn is
+ * doing, else the branch when it differs from the title. `stacked` sits under the
+ * title inside the row's height; `trailing` follows the title on the same line
+ * and shows the branch only. Renders nothing when there is nothing new to say.
+ */
+export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
   workspaceId: string;
+  workspaceName: string;
   branch?: string;
   isDefault: boolean;
-  shortcutLabel?: string | null;
-  hasHoverActions: boolean;
-  isClosing: boolean;
+  layout: "stacked" | "trailing";
 }) {
-  const { respondingTaskCount } = useWorkspaceSidebarActivityState(
-    args.workspaceId,
-  );
   // While a turn runs the line says what it is doing instead of the branch.
-  const { progress } = useWorkspaceRunProgress(args.workspaceId, true);
-  const branchLabel = formatWorkspaceBranchLabel({
+  const { progress } = useWorkspaceRunProgress(args.workspaceId, args.layout === "stacked");
+  if (args.layout === "stacked" && progress) {
+    return (
+      <span className={sx(repositorySidebarStyles.rowSecondary)}>
+        <WorkspaceRunProgressText progress={progress} />
+      </span>
+    );
+  }
+  const branch = resolveWorkspaceRowBranch({
+    name: args.workspaceName,
     branch: args.branch,
     isDefault: args.isDefault,
   });
-
-  // The shortcut is a hover/focus hint over the line's end: no width at rest.
+  if (!branch) {
+    return null;
+  }
   return (
-    <span className={sx(repositorySidebarStyles.metaGrid)}>
-      <span className={sx(repositorySidebarStyles.metaIconSlot)}>
-        {progress ? null : <GitBranch className={sx(repositorySidebarStyles.metaIcon)} />}
-      </span>
-      <span className={sx(repositorySidebarStyles.metaBody)}>
-        {progress ? (
-          <WorkspaceRunProgressText progress={progress} />
-        ) : (
-          <span className={sx(repositorySidebarStyles.metaBranch)}>{branchLabel}</span>
-        )}
-        {respondingTaskCount > 0 ? (
-          <span
-            className={sx(
-              repositorySidebarStyles.metaActions,
-              transition.fade,
-              getWorkspaceRespondingCountVisibilityStyle({ hasHoverActions: args.hasHoverActions, isClosing: args.isClosing }),
-            )}
-          >
-            <Badge variant="outline" tone="accent" className={sx(repositorySidebarStyles.respondingBadgeInline)}>
-              {respondingTaskCount}
-            </Badge>
-          </span>
-        ) : null}
-        {args.shortcutLabel ? (
-          <span
-            className={sx(
-              repositorySidebarStyles.metaShortcutReveal,
-              transition.fade,
-              getWorkspaceHoverActionVisibilityStyle({ isClosing: args.isClosing }),
-            )}
-          >
-            <WorkspaceShortcutChip
-              modifier={workspaceShortcutModifierLabel}
-              label={args.shortcutLabel}
-              className={sx(repositorySidebarStyles.metaShortcutChip)}
-            />
-          </span>
-        ) : null}
-      </span>
+    <span
+      className={sx(
+        repositorySidebarStyles.rowSecondary,
+        args.layout === "trailing" && repositorySidebarStyles.rowSecondaryTrailing,
+      )}
+      data-workspace-row-branch=""
+    >
+      {branch}
     </span>
   );
 });
@@ -912,7 +882,6 @@ export function WorkspaceRowActions(args: {
   }) => Promise<{ ok: boolean; message?: string }>;
   shortcutLabel?: string | null;
   shortcutModifier: string;
-  placement?: "center" | "top";
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -926,9 +895,7 @@ export function WorkspaceRowActions(args: {
         className={sx(
           repositorySidebarStyles.rowActions,
           transition.fade,
-          args.placement === "top"
-            ? repositorySidebarStyles.rowActionsTop
-            : repositorySidebarStyles.rowActionsInline,
+          repositorySidebarStyles.rowActionsInline,
           forceVisible
             ? repositorySidebarStyles.rowActionsPinned
             : getWorkspaceHoverActionVisibilityStyle({ isClosing }),

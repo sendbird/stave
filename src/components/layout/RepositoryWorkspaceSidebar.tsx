@@ -90,7 +90,7 @@ import {
   RepositoryAttentionAlertIcon,
   WorkspaceRespondingCountBadge,
   InlineWorkspaceLabel,
-  WorkspaceExpandedMeta,
+  WorkspaceRowSecondary,
   IS_MAC,
   workspaceShortcutModifierLabel,
   SortableSidebarItem,
@@ -1431,8 +1431,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                       const isClosingWorkspace =
                                         closingWorkspaceId === workspace.id;
                                       // The ⋮ row-actions menu is always shown, so hover
-                                      // actions are always present (compact: chip + ⋮,
-                                      // expanded: ⋮; the chip lives in WorkspaceExpandedMeta).
+                                      // actions (shortcut chip + ⋮) are always present.
                                       const hasHoverActions = true;
 
                                       return (
@@ -1469,9 +1468,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                 <div
                                                   className={sx(
                                                     repositorySidebarStyles.workspaceRow,
-                                                    isExpandedWorkspaceItem
-                                                      ? repositorySidebarStyles.workspaceRowExpanded
-                                                      : repositorySidebarStyles.workspaceRowCompact,
+                                                    repositorySidebarStyles.row,
                                                     isActive
                                                       ? repositorySidebarStyles.workspaceRowActive
                                                       : repositorySidebarStyles.workspaceRowIdle,
@@ -1509,9 +1506,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       }
                                                       className={sx(
                                                         repositorySidebarStyles.workspaceOpen,
-                                                        isExpandedWorkspaceItem
-                                                          ? repositorySidebarStyles.workspaceOpenExpanded
-                                                          : repositorySidebarStyles.workspaceOpenCompact,
+                                                        repositorySidebarStyles.rowHit,
                                                         handleRef &&
                                                           repositorySidebarStyles.workspaceOpenDraggable,
                                                         isDragging &&
@@ -1607,8 +1602,6 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       <span
                                                         className={sx(
                                                           repositorySidebarStyles.workspaceLeadSlot,
-                                                          isExpandedWorkspaceItem &&
-                                                            repositorySidebarStyles.workspaceLeadSlotExpanded,
                                                         )}
                                                       >
                                                         <WorkspaceLeadingStatusIcon
@@ -1629,204 +1622,79 @@ export function RepositoryWorkspaceSidebar(args: {
                                                           }
                                                         />
                                                       </span>
-                                                      {isExpandedWorkspaceItem ? (
-                                                        <>
+                                                      {(() => {
+                                                        const title = (
                                                           <InlineWorkspaceLabel
-                                                            workspaceId={
-                                                              workspace.id
-                                                            }
-                                                            workspaceName={
-                                                              workspace.name
-                                                            }
-                                                            branch={
-                                                              workspace.branch
-                                                            }
-                                                            isDefault={
-                                                              workspace.isDefault
-                                                            }
+                                                            workspaceId={workspace.id}
+                                                            workspaceName={workspace.name}
+                                                            branch={workspace.branch}
+                                                            isDefault={workspace.isDefault}
                                                             isActive={isActive}
-                                                            compact={false}
-                                                            showBranchContext={
-                                                              false
-                                                            }
-                                                            onRename={({
-                                                              workspaceId,
-                                                              name,
-                                                            }) =>
+                                                            compact={!isExpandedWorkspaceItem}
+                                                            showBranchContext={false}
+                                                            onRename={({ workspaceId, name }) =>
                                                               renameWorkspace({
-                                                                repositoryPath:
-                                                                  repository.repositoryPath,
+                                                                repositoryPath: repository.repositoryPath,
                                                                 workspaceId,
                                                                 name,
                                                               })
                                                             }
                                                           />
-                                                          <WorkspaceExpandedMeta
-                                                            workspaceId={
-                                                              workspace.id
-                                                            }
-                                                            branch={
-                                                              workspace.branch
-                                                            }
-                                                            isDefault={
-                                                              workspace.isDefault
-                                                            }
-                                                            shortcutLabel={
-                                                              workspaceShortcutLabel
-                                                            }
-                                                            hasHoverActions={
-                                                              hasHoverActions
-                                                            }
-                                                            isClosing={
-                                                              isClosingWorkspace
-                                                            }
+                                                        );
+                                                        const secondary = (
+                                                          <WorkspaceRowSecondary
+                                                            workspaceId={workspace.id}
+                                                            workspaceName={workspace.name}
+                                                            branch={workspace.branch}
+                                                            isDefault={workspace.isDefault}
+                                                            layout={isExpandedWorkspaceItem ? "stacked" : "trailing"}
                                                           />
-                                                        </>
-                                                      ) : (
-                                                        <InlineWorkspaceLabel
-                                                          workspaceId={
-                                                            workspace.id
-                                                          }
-                                                          workspaceName={
-                                                            workspace.name
-                                                          }
-                                                          branch={
-                                                            workspace.branch
-                                                          }
-                                                          isDefault={
-                                                            workspace.isDefault
-                                                          }
-                                                          isActive={isActive}
-                                                          compact
-                                                          showBranchContext
-                                                          onRename={({
-                                                            workspaceId,
-                                                            name,
-                                                          }) =>
-                                                            renameWorkspace({
-                                                              repositoryPath:
-                                                                repository.repositoryPath,
-                                                              workspaceId,
-                                                              name,
-                                                            })
-                                                          }
-                                                        />
-                                                      )}
+                                                        );
+                                                        // Expanded: a muted second line inside the row's height.
+                                                        // Compact: the same text trails the title.
+                                                        return isExpandedWorkspaceItem ? (
+                                                          <span className={sx(repositorySidebarStyles.rowStack)}>
+                                                            {title}
+                                                            {secondary}
+                                                          </span>
+                                                        ) : (
+                                                          <>
+                                                            {title}
+                                                            {secondary}
+                                                          </>
+                                                        );
+                                                      })()}
                                                     </div>
                                                   </WorkspaceHoverPreviewTooltip>
                                                   <WorkspaceAccountLimitIcon
                                                     workspaceId={workspace.id}
                                                   />
-                                                  {isExpandedWorkspaceItem ? (
-                                                    <WorkspaceRowActions
+                                                  <div className={sx(repositorySidebarStyles.workspaceCountHost)}>
+                                                    <WorkspaceRespondingCountBadge
                                                       workspaceId={workspace.id}
-                                                      workspaceName={
-                                                        workspace.name
-                                                      }
-                                                      isDefault={
-                                                        workspace.isDefault
-                                                      }
-                                                      branch={
-                                                        workspaceBranchById[
-                                                          workspace.id
-                                                        ]
-                                                      }
-                                                      repositoryPath={
-                                                        repository.repositoryPath
-                                                      }
-                                                      workspacePath={
-                                                        repository
-                                                          .workspacePathById[
-                                                          workspace.id
-                                                        ] ?? repository.repositoryPath
-                                                      }
-                                                      canArchiveWorkspace={
-                                                        canArchiveWorkspace
-                                                      }
-                                                      closingWorkspaceId={
-                                                        closingWorkspaceId
-                                                      }
-                                                      onArchive={() =>
-                                                        setWorkspaceToClose({
-                                                          id: workspace.id,
-                                                          name: workspace.name,
-                                                        })
-                                                      }
-                                                      onRename={renameWorkspace}
-                                                      shortcutLabel={undefined}
-                                                      shortcutModifier={
-                                                        workspaceShortcutModifierLabel
-                                                      }
-                                                      placement="top"
+                                                      hasHoverActions={hasHoverActions}
+                                                      isClosing={isClosingWorkspace}
                                                     />
-                                                  ) : (
-                                                    <>
-                                                      <div
-                                                        className={sx(
-                                                          repositorySidebarStyles.workspaceCountHost,
-                                                        )}
-                                                      >
-                                                        <WorkspaceRespondingCountBadge
-                                                          workspaceId={
-                                                            workspace.id
-                                                          }
-                                                          hasHoverActions={
-                                                            hasHoverActions
-                                                          }
-                                                          isClosing={
-                                                            isClosingWorkspace
-                                                          }
-                                                        />
-                                                      </div>
-                                                      <WorkspaceRowActions
-                                                        workspaceId={
-                                                          workspace.id
-                                                        }
-                                                        workspaceName={
-                                                          workspace.name
-                                                        }
-                                                        isDefault={
-                                                          workspace.isDefault
-                                                        }
-                                                        branch={
-                                                          workspaceBranchById[
-                                                            workspace.id
-                                                          ]
-                                                        }
-                                                        repositoryPath={
-                                                          repository.repositoryPath
-                                                        }
-                                                        workspacePath={
-                                                          repository
-                                                            .workspacePathById[
-                                                            workspace.id
-                                                          ] ??
-                                                          repository.repositoryPath
-                                                        }
-                                                        canArchiveWorkspace={
-                                                          canArchiveWorkspace
-                                                        }
-                                                        closingWorkspaceId={
-                                                          closingWorkspaceId
-                                                        }
-                                                        onArchive={() =>
-                                                          setWorkspaceToClose({
-                                                            id: workspace.id,
-                                                            name: workspace.name,
-                                                          })
-                                                        }
-                                                        onRename={
-                                                          renameWorkspace
-                                                        }
-                                                        shortcutLabel={
-                                                          workspaceShortcutLabel
-                                                        }
-                                                        shortcutModifier={
-                                                          workspaceShortcutModifierLabel
-                                                        }
-                                                      />
-                                                    </>
-                                                  )}
+                                                  </div>
+                                                  <WorkspaceRowActions
+                                                    workspaceId={workspace.id}
+                                                    workspaceName={workspace.name}
+                                                    isDefault={workspace.isDefault}
+                                                    branch={workspaceBranchById[workspace.id]}
+                                                    repositoryPath={repository.repositoryPath}
+                                                    workspacePath={
+                                                      repository.workspacePathById[workspace.id] ??
+                                                      repository.repositoryPath
+                                                    }
+                                                    canArchiveWorkspace={canArchiveWorkspace}
+                                                    closingWorkspaceId={closingWorkspaceId}
+                                                    onArchive={() =>
+                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name })
+                                                    }
+                                                    onRename={renameWorkspace}
+                                                    shortcutLabel={workspaceShortcutLabel}
+                                                    shortcutModifier={workspaceShortcutModifierLabel}
+                                                  />
                                                 </div>
                                               <WorkspaceProgressTaskTree
                                                 workspaceId={workspace.id}
