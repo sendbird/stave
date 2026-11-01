@@ -134,6 +134,54 @@ export function isMarkdownEditorTab(
   return Boolean(tab && tab.kind !== "image" && tab.language === "markdown");
 }
 
+const HTML_DOCUMENT_PATH_PATTERN = /\.html?$/i;
+
+/**
+ * An `.html`/`.htm` file. Checked by extension because `.vue` and `.svelte`
+ * also use Monaco's `html` language but are not documents a browser renders.
+ */
+export function isHtmlEditorTab(
+  tab: Pick<EditorTab, "kind" | "language" | "filePath"> | null | undefined,
+) {
+  return Boolean(
+    tab &&
+      tab.kind !== "image" &&
+      tab.language === "html" &&
+      HTML_DOCUMENT_PATH_PATTERN.test(tab.filePath),
+  );
+}
+
+/** A tab whose toolbar offers a rendered preview next to its source. */
+export function isPreviewableEditorTab(
+  tab: Pick<EditorTab, "kind" | "language" | "filePath"> | null | undefined,
+) {
+  return isMarkdownEditorTab(tab) || isHtmlEditorTab(tab);
+}
+
+/**
+ * The editor preview flag once `tab` becomes the active tab.
+ *
+ * - HTML opens in the mode the user last picked (`htmlViewMode`), whether it
+ *   is opened from the tree or reached by switching tabs.
+ * - Markdown opens in preview when opened from the tree and otherwise keeps
+ *   the current flag.
+ * - Every other tab keeps the current flag.
+ */
+export function resolveEditorPreviewModeForTab(args: {
+  tab: Pick<EditorTab, "kind" | "language" | "filePath"> | null | undefined;
+  opening: boolean;
+  current: boolean;
+  htmlViewMode: "preview" | "source";
+}) {
+  if (isHtmlEditorTab(args.tab)) {
+    return args.htmlViewMode === "preview";
+  }
+  if (args.opening && isMarkdownEditorTab(args.tab)) {
+    return true;
+  }
+  return args.current;
+}
+
 export function canSendEditorContextToTask(args: {
   taskId?: string | null;
   hasActiveEditorTab: boolean;

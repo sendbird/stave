@@ -178,6 +178,67 @@ describe("editor save/conflict behavior", () => {
     expect(useAppStore.getState().editorTabs).toHaveLength(1);
   });
 
+  test("opens HTML files in preview by default and remembers the last choice", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "index.html";
+    await writeFile(path.join(rootPath, filePath), "<h1>Hello</h1>\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    useAppStore.getState().updateSettings({ patch: { editorHtmlViewMode: "preview" } });
+    await useAppStore.getState().openFileFromTree({ filePath });
+
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
+
+    // Switching to source is remembered for the next open, even after a close.
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("source");
+    useAppStore.getState().closeEditorTab({ tabId: `file:${filePath}` });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+
+    // Re-opening an already open tab also follows the remembered choice.
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+
+    // And switching back to preview is remembered the same way.
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("preview");
+    useAppStore.getState().closeEditorTab({ tabId: `file:${filePath}` });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
+  });
+
+  test("applies the remembered HTML mode on tab switch without changing markdown", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "index.html";
+    await writeFile(path.join(rootPath, filePath), "<h1>Hello</h1>\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    useAppStore.getState().updateSettings({ patch: { editorHtmlViewMode: "preview" } });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("source");
+
+    // Markdown keeps opening in preview and does not touch the HTML choice.
+    await useAppStore.getState().openFileFromTree({
+      filePath: "README.md",
+      fallbackContent: "# Notes\n",
+    });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("source");
+
+    useAppStore.getState().setActiveEditorTab({ tabId: `file:${filePath}` });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+
+    // Closing the HTML tab falls back to markdown, which keeps the flag as is.
+    useAppStore.getState().closeEditorTab({ tabId: `file:${filePath}` });
+    expect(useAppStore.getState().activeEditorTabId).toBe("file:README.md");
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+  });
+
   test("keeps markdown preview and diff mode mutually exclusive", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "README.md";

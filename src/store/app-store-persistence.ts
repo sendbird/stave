@@ -100,6 +100,7 @@ import {
   normalizeFleetBoardLayout,
   normalizeTurnActivityPlacement,
   normalizeComposerLayoutMode,
+  normalizeEditorHtmlViewMode,
   normalizeUiDensity,
   type AppSettings,
 } from "@/store/app-settings";
@@ -349,6 +350,9 @@ export function createAppStorePersistenceOptions() {
       );
       state.settings.composerLayout = normalizeComposerLayoutMode(
         raw.composerLayout,
+      );
+      state.settings.editorHtmlViewMode = normalizeEditorHtmlViewMode(
+        raw.editorHtmlViewMode,
       );
       state.settings.sidebarShowFleetView =
         typeof raw.sidebarShowFleetView === "boolean"

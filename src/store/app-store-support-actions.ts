@@ -29,6 +29,10 @@ import type {
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { mergeLayoutPatch } from "@/store/layout.utils";
 import {
+  isHtmlEditorTab,
+  isPreviewableEditorTab,
+} from "@/store/editor.utils";
+import {
   buildManagedTaskTakeoverStatePatch,
   requestManagedTaskTakeover,
 } from "@/store/managed-task-takeover";
@@ -435,12 +439,7 @@ export function createSupportActions(args: {
         const activeTab = state.editorTabs.find(
           (tab) => tab.id === state.activeEditorTabId,
         );
-        const activeTabIsMarkdown = Boolean(
-          activeTab &&
-          activeTab.kind !== "image" &&
-          activeTab.language === "markdown",
-        );
-        if (!activeTabIsMarkdown) {
+        if (!isPreviewableEditorTab(activeTab)) {
           return {};
         }
         const nextPreviewMode = !state.layout.editorMarkdownPreviewMode;
@@ -448,11 +447,22 @@ export function createSupportActions(args: {
           layout: {
             ...state.layout,
             editorMarkdownPreviewMode: nextPreviewMode,
-            // Diff and markdown preview are mutually exclusive views.
+            // Diff and preview are mutually exclusive views.
             editorDiffMode: nextPreviewMode
               ? false
               : state.layout.editorDiffMode,
           },
+          // HTML remembers the last pick so the next HTML file opens in it.
+          ...(isHtmlEditorTab(activeTab)
+            ? {
+                settings: {
+                  ...state.settings,
+                  editorHtmlViewMode: nextPreviewMode
+                    ? ("preview" as const)
+                    : ("source" as const),
+                },
+              }
+            : {}),
         };
       }),
     openWorkspacePicker: async () => {

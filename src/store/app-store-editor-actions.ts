@@ -11,7 +11,7 @@ import {
   canSendWorkspaceFileToTask,
   getTooLargeEditorTabMetadata,
   isImageFilePath,
-  isMarkdownEditorTab,
+  resolveEditorPreviewModeForTab,
   resolveLanguage,
   updateMessageById,
 } from "@/store/editor.utils";
@@ -491,15 +491,17 @@ export function createEditorActions(args: {
         if (existing) {
           existingDeferredTabId =
             existing.contentState === "deferred" ? existing.id : null;
-          const shouldPreviewMarkdown = isMarkdownEditorTab(existing);
           return {
             activeEditorTabId: existing.id,
             layout: {
               ...state.layout,
               editorDiffMode: false,
-              editorMarkdownPreviewMode: shouldPreviewMarkdown
-                ? true
-                : state.layout.editorMarkdownPreviewMode,
+              editorMarkdownPreviewMode: resolveEditorPreviewModeForTab({
+                tab: existing,
+                opening: true,
+                current: state.layout.editorMarkdownPreviewMode,
+                htmlViewMode: state.settings.editorHtmlViewMode,
+              }),
             },
             pendingEditorSelection: pendingSelection,
             workspaceSnapshotVersion:
@@ -549,9 +551,12 @@ export function createEditorActions(args: {
           layout: {
             ...state.layout,
             editorDiffMode: false,
-            editorMarkdownPreviewMode: isMarkdownEditorTab(nextTab)
-              ? true
-              : state.layout.editorMarkdownPreviewMode,
+            editorMarkdownPreviewMode: resolveEditorPreviewModeForTab({
+              tab: nextTab,
+              opening: true,
+              current: state.layout.editorMarkdownPreviewMode,
+              htmlViewMode: state.settings.editorHtmlViewMode,
+            }),
           },
           pendingEditorSelection: pendingSelection,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
@@ -585,7 +590,12 @@ export function createEditorActions(args: {
             editorDiffMode: isDiffTab,
             editorMarkdownPreviewMode: isDiffTab
               ? false
-              : state.layout.editorMarkdownPreviewMode,
+              : resolveEditorPreviewModeForTab({
+                  tab: selectedTab,
+                  opening: false,
+                  current: state.layout.editorMarkdownPreviewMode,
+                  htmlViewMode: state.settings.editorHtmlViewMode,
+                }),
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
@@ -645,7 +655,12 @@ export function createEditorActions(args: {
             editorDiffMode: isDiffTab,
             editorMarkdownPreviewMode: isDiffTab
               ? false
-              : state.layout.editorMarkdownPreviewMode,
+              : resolveEditorPreviewModeForTab({
+                  tab: fallbackTab,
+                  opening: false,
+                  current: state.layout.editorMarkdownPreviewMode,
+                  htmlViewMode: state.settings.editorHtmlViewMode,
+                }),
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
