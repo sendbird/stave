@@ -102,7 +102,7 @@ describe("continue here: flow", () => {
     expect(result.noticeLevel).toBe("success");
     expect(harness.commands).toEqual([
       "git fetch 'origin' --prune",
-      "git switch -c 'feat/next' 'origin/main'",
+      "git switch --no-track -c 'feat/next' 'origin/main'",
     ]);
     expect(harness.state().workspaceBranchById.w).toBe("feat/next");
     expect(harness.state().workspacePrInfoById.w).toBeUndefined();
@@ -119,7 +119,7 @@ describe("continue here: flow", () => {
     });
     const result = await harness.continueHere("feat/next");
     expect(result).toMatchObject({ ok: true, noticeLevel: "warning" });
-    expect(harness.commands.at(-1)).toBe("git switch -c 'feat/next' 'main'");
+    expect(harness.commands.at(-1)).toBe("git switch --no-track -c 'feat/next' 'main'");
   });
 
   test("leaves everything as it was when git refuses the switch", async () => {

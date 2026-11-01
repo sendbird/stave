@@ -1588,13 +1588,15 @@ export async function createWorkspace(args: {
     cwd: repositoryPath,
     command: "mkdir -p .stave/workspaces",
   });
+  // `--no-track`: a branch started from `origin/main` would otherwise track it,
+  // and a bare `git push` then suggests `git push origin HEAD:main`.
   const addResult = await runCommandArgs({
     cwd: repositoryPath,
     command: "git",
     commandArgs:
       args.mode === "clean"
-        ? ["worktree", "add", "-b", branchName, workspacePath]
-        : ["worktree", "add", "-b", branchName, workspacePath, baseBranch],
+        ? ["worktree", "add", "--no-track", "-b", branchName, workspacePath]
+        : ["worktree", "add", "--no-track", "-b", branchName, workspacePath, baseBranch],
   });
   if (!addResult.ok) {
     const fallbackResult = await runCommandArgs({

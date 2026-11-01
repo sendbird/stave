@@ -100,8 +100,8 @@ export async function continueWorkspaceOnNewBranch(args: {
   const previousPr = state.workspacePrInfoById[workspaceId]?.pr ?? null;
   // `git switch -c` refuses rather than overwrite: uncommitted changes come
   // along when they do not conflict with the base, and stop the switch when
-  // they do.
-  const switched = await runCommand({ cwd, command: `git switch -c '${branch}' '${base}'` });
+  // they do. `--no-track` keeps the new branch off the `origin/main` it starts from.
+  const switched = await runCommand({ cwd, command: `git switch --no-track -c '${branch}' '${base}'` });
   if (!switched.ok) {
     return fail(
       i18n.t("workspace:appStoreWorkspaceCreateActions.continueHereSwitchFailed", {
