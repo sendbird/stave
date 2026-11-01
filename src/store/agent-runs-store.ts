@@ -420,12 +420,14 @@ export function useAgentRunDetailForTurn(workspaceId: string, taskId: string, tu
   return useAgentRunsStore((state) => selectAgentRunDetailForTurn(state, workspaceId, taskId, turnId));
 }
 
-/** The agent run a marked row names, or null until its detail is loaded. */
+/** The agent run a marked row names, or null until its detail is loaded; the stored object. */
+export function selectAgentRunById(state: Pick<AgentRunsState, "details">, agentRunId: string | undefined): AgentRun | null {
+  const agentRun = agentRunId ? state.details[agentRunId]?.agentRun : undefined;
+  return agentRun && hasAgentOrigin(agentRun) ? agentRun : null;
+}
+
 export function useAgentRunById(agentRunId: string | undefined): AgentRun | null {
-  return useAgentRunsStore((state) => {
-    const agentRun = agentRunId ? state.details[agentRunId]?.agentRun : undefined;
-    return agentRun && hasAgentOrigin(agentRun) ? agentRun : null;
-  });
+  return useAgentRunsStore((state) => selectAgentRunById(state, agentRunId));
 }
 
 export function useAgentRunForTurn(workspaceId: string, taskId: string, turnId: string | undefined) {

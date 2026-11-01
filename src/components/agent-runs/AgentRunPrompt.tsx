@@ -10,6 +10,8 @@ import {
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { useAppStore } from "@/store/app.store";
 import { useAgentRunById, useAgentRunDetailForTurn } from "@/store/agent-runs-store";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import type { AgentRun } from "@/lib/agent-runs/domain";
 import type { AgentRunPromptProvenance } from "@/types/chat";
 import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
 import { Loader } from "@/components/ads/components/Loader";
@@ -27,6 +29,56 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 
 /** A user message an agent run started: the user's own words and Stave's instructions. */
 export type AgentRunPrompt = AgentRunPromptView;
+
+/** Whether a row's mark names the stage its turn ran, so the run's events are not needed to find it. */
+export function agentRunPromptProvenanceNamesStage(provenance: AgentRunPromptProvenance | undefined | null): boolean {
+  return Boolean(provenance && (provenance.stageId || typeof provenance.stageIndex === "number"));
+}
+
+/**
+ * Which store reads a row needs: the detail (events) of the run that started
+ * its turn, and the run its mark names. A row needs the events unless its
+ * mark already names the stage: an unmarked row for its assignment and
+ * stage, a mark written before stages were recorded ({ agentRunId,
+ * assignment } only) for its stage. A pending row needs neither. Pure, so
+ * the choice is checked without React.
+ */
+export function agentRunPromptRowSources(args: {
+  turnId: string | undefined;
+  provenance?: AgentRunPromptProvenance;
+  pending?: boolean;
+}): { detailTurnId: string | undefined; markedRunId: string | undefined } {
+  if (args.pending) return { detailTurnId: undefined, markedRunId: undefined };
+  return {
+    detailTurnId: agentRunPromptProvenanceNamesStage(args.provenance) ? undefined : args.turnId,
+    markedRunId: args.provenance?.agentRunId,
+  };
+}
+
+/**
+ * The row's prompt view from what the stores hold: the run its mark names
+ * (once loaded) and the detail of the run that started its turn. Pure; the
+ * hook feeds it from its subscriptions.
+ */
+export function resolveAgentRunPromptRow(args: {
+  text: string;
+  turnId: string | undefined;
+  provenance?: AgentRunPromptProvenance;
+  pending?: boolean;
+  markedRun: AgentRun | null;
+  detail: AgentRunDetail | null;
+}): AgentRunPrompt | null {
+  const run = args.markedRun ?? args.detail?.agentRun ?? null;
+  return resolveAgentRunPrompt({
+    text: args.text,
+    provenance: args.provenance,
+    runAssignment: args.detail?.agentRun.assignment,
+    pending: args.pending,
+    stage: args.pending
+      ? null
+      : resolveAgentRunPromptStage({ run, provenance: args.provenance, turnId: args.turnId, events: args.detail?.events }),
+  });
+}
 
 /**
  * Splits the user message that started a turn of an agent run, so the bubble
@@ -47,22 +99,20 @@ export function useAgentRunPrompt(args: {
   pending?: boolean;
 }): AgentRunPrompt | null {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
-  const marked = Boolean(args.provenance || args.pending);
-  const detail = useAgentRunDetailForTurn(workspaceId, args.taskId, marked ? undefined : args.turnId);
-  const markedRun = useAgentRunById(args.pending ? undefined : args.provenance?.agentRunId);
-  const run = markedRun ?? detail?.agentRun ?? null;
-  const runAssignment = detail?.agentRun.assignment;
-  const events = detail?.events;
+  const sources = agentRunPromptRowSources(args);
+  const detail = useAgentRunDetailForTurn(workspaceId, args.taskId, sources.detailTurnId);
+  const markedRun = useAgentRunById(sources.markedRunId);
   return useMemo(
     () =>
-      resolveAgentRunPrompt({
+      resolveAgentRunPromptRow({
         text: args.text,
+        turnId: args.turnId,
         provenance: args.provenance,
-        runAssignment,
         pending: args.pending,
-        stage: args.pending ? null : resolveAgentRunPromptStage({ run, provenance: args.provenance, turnId: args.turnId, events }),
+        markedRun,
+        detail,
       }),
-    [args.pending, args.provenance, args.text, args.turnId, events, run, runAssignment],
+    [args.pending, args.provenance, args.text, args.turnId, detail, markedRun],
   );
 }
 

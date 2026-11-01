@@ -552,6 +552,9 @@ export const ChatMessageSchema = z.object({
     .object({
       agentRunId: z.string().min(1).max(200),
       assignment: z.string().nullable(),
+      // The stage the turn ran; absent on rows written before stages were recorded.
+      stageIndex: z.number().int().min(0).optional(),
+      stageId: z.string().min(1).max(200).optional(),
     })
     .strict()
     .optional()
