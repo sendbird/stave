@@ -21,6 +21,12 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { conversationStyles as styles } from "./conversation.styles";
 import {
+  correctAnchorScrollTop,
+  DISCLOSURE_ANCHOR_HOLD_MS,
+  findDisclosureTrigger,
+  shouldFollowAfterDisclosureToggle,
+} from "./conversation-scroll-anchor";
+import {
   Button,
   Tooltip,
   TooltipContent,
@@ -391,6 +397,73 @@ export function ConversationContent(props: ConversationContentProps) {
   const markUserScrollIntent = () => {
     userScrollIntentUntilRef.current = Date.now() + 1_500;
   };
+  const disclosureAnchorFrameRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (disclosureAnchorFrameRef.current !== null) {
+        cancelAnimationFrame(disclosureAnchorFrameRef.current);
+      }
+    },
+    [],
+  );
+  // Runs in the capture phase, before the trigger's own handler toggles it,
+  // so the trigger's position is read while the panel is still unchanged.
+  const anchorDisclosureToggle = (target: EventTarget | null) => {
+    const container = containerRef.current;
+    const trigger = container ? findDisclosureTrigger(target, container) : null;
+    if (!container || !trigger) {
+      return;
+    }
+    if (disclosureAnchorFrameRef.current !== null) {
+      cancelAnimationFrame(disclosureAnchorFrameRef.current);
+    }
+    const anchorTopBefore = trigger.getBoundingClientRect().top;
+    const wasAtBottom = getDistanceFromBottom(container) < AT_BOTTOM_THRESHOLD;
+    const scrollIntentBefore = userScrollIntentUntilRef.current;
+    const startedAt = performance.now();
+    // Growth below the trigger is the reader's doing, not new output.
+    setStickToBottom(false);
+    const settle = () => {
+      disclosureAnchorFrameRef.current = null;
+      const atBottomNow = getDistanceFromBottom(container) < AT_BOTTOM_THRESHOLD;
+      const follow = shouldFollowAfterDisclosureToggle({
+        wasAtBottom,
+        atBottomNow,
+        expandedNow: trigger.getAttribute("aria-expanded") === "true",
+      });
+      setAtBottom(atBottomNow);
+      if (follow) {
+        if (atBottomNow) setStickToBottom(true);
+        else scrollToBottom({ behavior: "auto" });
+      }
+    };
+    const hold = () => {
+      if (!trigger.isConnected || !container.isConnected) {
+        disclosureAnchorFrameRef.current = null;
+        return;
+      }
+      // The reader scrolled during the hold: their position wins.
+      if (userScrollIntentUntilRef.current !== scrollIntentBefore) {
+        disclosureAnchorFrameRef.current = null;
+        return;
+      }
+      const nextScrollTop = correctAnchorScrollTop({
+        scrollTop: container.scrollTop,
+        anchorTopBefore,
+        anchorTopNow: trigger.getBoundingClientRect().top,
+        maxScrollTop: container.scrollHeight - container.clientHeight,
+      });
+      if (nextScrollTop !== container.scrollTop) {
+        container.scrollTop = nextScrollTop;
+      }
+      if (performance.now() - startedAt < DISCLOSURE_ANCHOR_HOLD_MS) {
+        disclosureAnchorFrameRef.current = requestAnimationFrame(hold);
+      } else {
+        settle();
+      }
+    };
+    disclosureAnchorFrameRef.current = requestAnimationFrame(hold);
+  };
   useEffect(() => {
     if (!manualScrollIntentRef) {
       return;
@@ -511,6 +584,7 @@ export function ConversationContent(props: ConversationContentProps) {
       }}
       className={cx(sx(styles.scroller), className)}
       {...rest}
+      onClickCapture={(event) => anchorDisclosureToggle(event.target)}
       onWheelCapture={markUserScrollIntent}
       onTouchStartCapture={markUserScrollIntent}
       onPointerDownCapture={(event) => {

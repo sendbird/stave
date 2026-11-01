@@ -29,6 +29,7 @@ import {
   getRandomCompletionPhraseKey,
   getSeededCompletionPhraseKey,
 } from "@/lib/completion-phrases";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
 import { TranscriptWideScope } from "./transcript-wide";
 import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
@@ -390,10 +391,22 @@ export function ChainOfThoughtTrigger(
 
 /* ─── Content container ───────────────────────────────────────────── */
 
+type ContentPhase = "closed" | "entering" | "open" | "exiting";
+
+/** Upper bound for a phase whose `animationend` never arrives (hidden pane). */
+const CONTENT_PHASE_FALLBACK_MS = 400;
+
 /*
- * Unmounts when closed rather than animating a collapse. Keeping long trace
- * subtrees out of the render tree matters more than a close transition here —
- * see docs/architecture/chat-message-rendering.md.
+ * Unmounts once closed: keeping long trace subtrees out of the render tree
+ * matters more than keeping them warm — see
+ * docs/architecture/chat-message-rendering.md. A toggle still animates both
+ * ways: the panel opens and closes on its row track (`grid-template-rows`
+ * 0fr ↔ 1fr) with the content fading, and only unmounts after the close has
+ * played. Under reduced motion the panel switches at once.
+ *
+ * A trace that mounts already open (a streaming turn, a remount while
+ * scrolling) keeps the reveal wipe instead; the row-track motion answers the
+ * reader's own toggle.
  */
 export function ChainOfThoughtContent({
   className,
@@ -401,7 +414,32 @@ export function ChainOfThoughtContent({
 }: HTMLAttributes<HTMLDivElement>) {
   useTranslation();
   const { open } = useChainOfThoughtContext();
-  if (!open) return null;
+  const reduceMotion = usePrefersReducedMotion();
+  const [phase, setPhase] = useState<ContentPhase>(open ? "open" : "closed");
+  const [previousOpen, setPreviousOpen] = useState(open);
+  const [toggled, setToggled] = useState(false);
+  if (open !== previousOpen) {
+    setPreviousOpen(open);
+    setToggled(true);
+    setPhase(
+      open
+        ? reduceMotion ? "open" : "entering"
+        : reduceMotion ? "closed" : "exiting",
+    );
+  }
+
+  useEffect(() => {
+    if (phase !== "entering" && phase !== "exiting") return;
+    const settled = phase === "entering" ? "open" : "closed";
+    const timer = window.setTimeout(
+      () => setPhase((current) => (current === phase ? settled : current)),
+      CONTENT_PHASE_FALLBACK_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  if (phase === "closed") return null;
+  const moving = phase === "entering" || phase === "exiting";
 
   /*
    * No height cap here. Capping the whole trace pushed the *step rows*
@@ -419,15 +457,39 @@ export function ChainOfThoughtContent({
    * emission order.
    */
   return (
-    <TranscriptWideScope enabled={false}>
-      <StepRail
-        className={className}
-        rail={false}
-        density="compact"
-        xstyle={[s.content, s.contentTraceMotion]}
-        {...args}
-      />
-    </TranscriptWideScope>
+    <div
+      className={sx(
+        s.collapse,
+        phase === "entering" && s.collapseEntering,
+        phase === "exiting" && s.collapseExiting,
+      )}
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget) return;
+        setPhase((current) =>
+          current === "entering" ? "open" : current === "exiting" ? "closed" : current,
+        );
+      }}
+    >
+      <div
+        className={sx(
+          s.collapseBody,
+          toggled && s.collapseBodyToggled,
+          moving && s.collapseBodyMoving,
+          phase === "entering" && s.collapseBodyEntering,
+          phase === "exiting" && s.collapseBodyExiting,
+        )}
+      >
+        <TranscriptWideScope enabled={false}>
+          <StepRail
+            className={className}
+            rail={false}
+            density="compact"
+            xstyle={[s.content, !toggled && s.contentTraceMotion]}
+            {...args}
+          />
+        </TranscriptWideScope>
+      </div>
+    </div>
   );
 }
 

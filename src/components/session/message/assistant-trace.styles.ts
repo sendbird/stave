@@ -41,7 +41,9 @@ export const assistantTraceStyles = stylex.create({
       default: traceRowIn,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationDuration: "260ms",
+    // `ChainOfThoughtContent` zeroes this for a panel the reader opened: its
+    // rows arrive with the panel, not one by one after it.
+    animationDuration: "var(--stave-trace-row-entrance, 260ms)",
     animationTimingFunction: "var(--ease-agent-spring)",
     transformOrigin: "top",
   },
