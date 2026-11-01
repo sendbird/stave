@@ -35,7 +35,7 @@ describe("countTraceCategories", () => {
         DIFF,
         tool("t4", "Bash"),
         tool("t5", "Glob"),
-        tool("t6", "mcp__linear__get_issue"),
+        tool("t6", "mcp__docs__lookup"),
       ]),
     ).toEqual([
       { category: "search", count: 2 },
