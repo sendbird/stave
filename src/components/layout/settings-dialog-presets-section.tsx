@@ -190,7 +190,7 @@ export function PresetsSection() {
                       }
                     }}
                   >
-                    <div className={sx(styles.row)}>
+                    <div className={sx(styles.row)} data-preset-id={preset.id}>
                       <div className={sx(styles.rowMain)}>
                         <div className={sx(styles.mark)}>
                           <ModelIcon

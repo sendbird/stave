@@ -57,7 +57,7 @@
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:design-system": "bun scripts/check-design-system-migration.mjs",
     "check:ui-layout": "bun run check:style-channel && bun run check:design-system",
-    "test:ui-layout": "playwright test tests/e2e/icon-text-alignment.e2e.ts tests/e2e/layout-spacing.e2e.ts tests/e2e/trace-row-alignment.e2e.ts tests/e2e/transcript-column.e2e.ts --workers=1 --trace=retain-on-failure",
+    "test:ui-layout": "playwright test tests/e2e/icon-text-alignment.e2e.ts tests/e2e/layout-spacing.e2e.ts tests/e2e/trace-row-alignment.e2e.ts tests/e2e/transcript-column.e2e.ts tests/e2e/task-preset-effort.e2e.ts --workers=1 --trace=retain-on-failure",
     "check:style-channel": "node scripts/check-style-channel.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:max-lines-ratchet": "node scripts/check-max-lines-ratchet.mjs",
