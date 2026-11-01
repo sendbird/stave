@@ -71,6 +71,7 @@ import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../../src
 import { readDelegatedAgentCompletion } from "../../../src/lib/agent-runs/delegated-completion";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
 import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
+import { admitDelegationUsage, type ProviderUsageSummary, type TeamProviderId } from "../../../src/lib/agent-runs/provider-usage";
 import { formatAgentRunReportMarkdown } from "../../../src/lib/agent-runs/report-markdown";
 import { currentStageRecord } from "../../../src/lib/agent-runs/domain";
 
@@ -288,6 +289,12 @@ interface DelegatedTaskCoordinatorDependencies {
    * failed check counts as available, so the child reports its own error.
    */
   isProviderAvailable?: (providerId: "claude-code" | "codex") => Promise<boolean>;
+  /**
+   * Both providers' account usage for the calling turn's accounts, from the
+   * readings Stave already holds. A model's new delegation is admitted against
+   * it; null or a failed read admits, since unknown usage is not a refusal.
+   */
+  readProviderUsage?: (accounts: ProviderAccountSelection | undefined) => Promise<Record<TeamProviderId, ProviderUsageSummary> | null>;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
@@ -1168,7 +1175,7 @@ export function createDelegatedTaskCoordinator(
 
   const delegateChild = async (
     rawArgs: unknown,
-    defaults: { inheritedEffort?: DelegatedTaskEffort; accounts?: ProviderAccountSelection } = {},
+    defaults: { inheritedEffort?: DelegatedTaskEffort; accounts?: ProviderAccountSelection; usageCheck?: { override: boolean } } = {},
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskArgsSchema.safeParse(rawArgs);
     if (!parsed.success) {
@@ -1190,7 +1197,7 @@ export function createDelegatedTaskCoordinator(
     const resourceRootRunId = await dependencies.readResourceRoot?.(args.parentTaskId);
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts),
+      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
     );
   };
 
@@ -1207,6 +1214,7 @@ export function createDelegatedTaskCoordinator(
     effort: DelegatedTaskEffort | undefined = args.effort,
     expectedResourceRoot?: string | null,
     accounts?: ProviderAccountSelection,
+    usageCheck?: { override: boolean },
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -1276,6 +1284,18 @@ export function createDelegatedTaskCoordinator(
       if (isActiveDelegatedTaskPhase(existingSummary.phase)) {
         return accepted({ duplicate: true, child: existingSummary });
       }
+    }
+
+    // ── Account usage ───────────────────────────────────────────────────
+    // A model's new attempt does not start where the account cannot run it,
+    // or where it would spend what the user's other tasks still need. A
+    // re-sent key that starts nothing keeps its own answer.
+    if (usageCheck && (!existingSummary || args.retry)) {
+      const usage = dependencies.readProviderUsage
+        ? await dependencies.readProviderUsage(accounts).catch(() => null)
+        : null;
+      const admission = admitDelegationUsage({ providerId: args.providerId, model: args.model, usage, override: usageCheck.override });
+      if (!admission.ok) return rejected("usage-limited", existingSummary, admission.message.slice(0, 500));
     }
 
     // ── Pinned commit ───────────────────────────────────────────────────
@@ -1561,6 +1581,7 @@ export function createDelegatedTaskCoordinator(
         inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined,
         // The subagent runs on the calling turn's accounts, not System default.
         ...(caller?.accounts ? { accounts: caller.accounts } : {}),
+        usageCheck: { override: input.usageOverride === "user-request" },
       },
     );
     const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
