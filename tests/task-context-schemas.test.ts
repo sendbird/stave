@@ -804,6 +804,30 @@ describe("task-context workspace schemas", () => {
     expect(parsed?.editorTabs[0]?.kind).toBe("git-graph");
   });
 
+  test("keeps each HTML tab's view mode through a restore, dropping only a bad value", () => {
+    const htmlTab = (id: string, htmlViewMode: unknown) => ({
+      id: `file:${id}`,
+      filePath: id,
+      language: "html",
+      content: "<p></p>",
+      hasConflict: false,
+      isDirty: false,
+      htmlViewMode,
+    });
+    for (const parse of [parseWorkspaceShell, parseWorkspaceSnapshot]) {
+      const parsed = parse({
+        payload: {
+          ...createWorkspaceBase(),
+          messageCountByTask: {},
+          messagesByTask: {},
+          editorTabs: [htmlTab("a.html", "source"), htmlTab("b.html", "preview"), htmlTab("c.html", "split")],
+        },
+      });
+      expect(parsed).not.toBeNull();
+      expect(parsed?.editorTabs.map((tab) => tab.htmlViewMode)).toEqual(["source", "preview", undefined]);
+    }
+  });
+
   test("defaults editor tab content state to ready", () => {
     const parsed = parseWorkspaceShell({
       payload: {

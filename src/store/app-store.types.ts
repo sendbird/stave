@@ -844,6 +844,14 @@ export interface AppState
     fallbackContent?: string;
   }) => Promise<void>;
   setActiveEditorTab: (args: { tabId: string }) => void;
+  /**
+   * Shows an HTML tab as its rendered page or its source, and remembers the
+   * pick as the mode new HTML tabs open in.
+   */
+  setEditorTabHtmlViewMode: (args: {
+    tabId: string;
+    mode: "preview" | "source";
+  }) => void;
   closeEditorTab: (args: { tabId: string }) => void;
   requestCloseActiveEditorTab: () => void;
   clearPendingCloseEditorTab: () => void;

@@ -3,6 +3,7 @@ import type { LoadTaskMessagesIntoSession } from "@/store/app-store-workspace-ac
 import { parsePanePanelId } from "@/lib/panes/types";
 import { isTaskArchived } from "@/lib/tasks";
 import type { AppState } from "@/store/app-store.types";
+import { resolveEditorLayoutForActivatedTab } from "@/store/layout.utils";
 import {
   reduceActiveSurfaceFromPane,
   reduceCloseCompareRun,
@@ -71,13 +72,35 @@ export function createPaneActions(args: {
           messagesByTask: stateBefore.messagesByTask,
           messageCountByTask: stateBefore.messageCountByTask,
         });
-      set((state) =>
-        reduceActiveSurfaceFromPane({
+      set((state) => {
+        const next = reduceActiveSurfaceFromPane({
           state,
           surface,
           nextSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
-        }),
-      );
+        });
+        // A tab click in the pane is a tab switch: it gets the same view as
+        // `setActiveEditorTab`, not the previous tab's diff or preview flags.
+        if (
+          next === state ||
+          surface.kind !== "editor" ||
+          surface.editorTabId === state.activeEditorTabId
+        ) {
+          return next;
+        }
+        const tab = state.editorTabs.find(
+          (item) => item.id === surface.editorTabId,
+        );
+        if (!tab) {
+          return next;
+        }
+        return {
+          ...next,
+          layout: {
+            ...state.layout,
+            ...resolveEditorLayoutForActivatedTab({ tab, layout: state.layout }),
+          },
+        };
+      });
       if (workspaceId && shouldLoadMessages) {
         void loadTaskMessagesIntoSession({
           workspaceId,

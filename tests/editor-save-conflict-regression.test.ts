@@ -178,6 +178,116 @@ describe("editor save/conflict behavior", () => {
     expect(useAppStore.getState().editorTabs).toHaveLength(1);
   });
 
+  test("opens HTML files in preview by default and remembers the last choice", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "index.html";
+    const tabId = `file:${filePath}`;
+    await writeFile(path.join(rootPath, filePath), "<h1>Hello</h1>\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    const htmlMode = () =>
+      useAppStore.getState().editorTabs.find((tab) => tab.id === tabId)?.htmlViewMode;
+    useAppStore.getState().updateSettings({ patch: { editorHtmlViewMode: "preview" } });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(htmlMode()).toBe("preview");
+
+    // Switching to source is remembered for the next open, even after a close.
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(htmlMode()).toBe("source");
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("source");
+    useAppStore.getState().closeEditorTab({ tabId });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(htmlMode()).toBe("source");
+
+    // Opening a tab that is already open keeps what it shows.
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(htmlMode()).toBe("source");
+
+    // And switching back to preview is remembered the same way.
+    useAppStore.getState().setEditorTabHtmlViewMode({ tabId, mode: "preview" });
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("preview");
+    useAppStore.getState().closeEditorTab({ tabId });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    expect(htmlMode()).toBe("preview");
+  });
+
+  test("keeps each HTML tab's mode on every tab switch path, including a pane tab click", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "index.html";
+    const htmlTabId = `file:${filePath}`;
+    const markdownTabId = "file:README.md";
+    await writeFile(path.join(rootPath, filePath), "<h1>Hello</h1>\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    const htmlMode = () =>
+      useAppStore.getState().editorTabs.find((tab) => tab.id === htmlTabId)?.htmlViewMode;
+    const clickPaneTab = (editorTabId: string) =>
+      useAppStore.getState().setActiveSurfaceFromPane({ kind: "editor", editorTabId });
+    useAppStore.getState().updateSettings({ patch: { editorHtmlViewMode: "preview" } });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    useAppStore.getState().setEditorTabHtmlViewMode({ tabId: htmlTabId, mode: "source" });
+
+    // Markdown keeps opening in preview and does not touch the HTML choice.
+    await useAppStore.getState().openFileFromTree({
+      filePath: "README.md",
+      fallbackContent: "# Notes\n",
+    });
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(true);
+
+    // Source stays source when the HTML tab is clicked from a markdown preview.
+    clickPaneTab(htmlTabId);
+    expect(useAppStore.getState().activeEditorTabId).toBe(htmlTabId);
+    expect(htmlMode()).toBe("source");
+
+    // Preview stays preview when the HTML tab is clicked from markdown source.
+    useAppStore.getState().setEditorTabHtmlViewMode({ tabId: htmlTabId, mode: "preview" });
+    clickPaneTab(markdownTabId);
+    useAppStore.getState().toggleEditorMarkdownPreviewMode();
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+    expect(useAppStore.getState().settings.editorHtmlViewMode).toBe("preview");
+    clickPaneTab(htmlTabId);
+    expect(htmlMode()).toBe("preview");
+    useAppStore.getState().setActiveEditorTab({ tabId: markdownTabId });
+    useAppStore.getState().setActiveEditorTab({ tabId: htmlTabId });
+    expect(htmlMode()).toBe("preview");
+
+    // Closing the HTML tab falls back to markdown, which keeps its flag as is.
+    useAppStore.getState().closeEditorTab({ tabId: htmlTabId });
+    expect(useAppStore.getState().activeEditorTabId).toBe(markdownTabId);
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+  });
+
+  test("a pane tab click shows the clicked tab's own diff mode", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "index.html";
+    await writeFile(path.join(rootPath, filePath), "<h1>Hello</h1>\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    await useAppStore.getState().openDiffInEditor({
+      editorTabId: "scm-diff:index.html",
+      filePath,
+      oldContent: "<h1>Before</h1>\n",
+      newContent: "<h1>Hello</h1>\n",
+    });
+    expect(useAppStore.getState().layout.editorDiffMode).toBe(true);
+    // Leaving an HTML diff lands on its source, as a markdown diff does.
+    expect(
+      useAppStore.getState().editorTabs.find((tab) => tab.id === "scm-diff:index.html")?.htmlViewMode,
+    ).toBe("source");
+
+    useAppStore.getState().setActiveSurfaceFromPane({ kind: "editor", editorTabId: `file:${filePath}` });
+    expect(useAppStore.getState().layout.editorDiffMode).toBe(false);
+    useAppStore.getState().setActiveSurfaceFromPane({ kind: "editor", editorTabId: "scm-diff:index.html" });
+    expect(useAppStore.getState().layout.editorDiffMode).toBe(true);
+    expect(useAppStore.getState().layout.editorMarkdownPreviewMode).toBe(false);
+
+    // Re-reporting the tab that is already active changes nothing.
+    useAppStore.getState().toggleEditorDiffMode();
+    useAppStore.getState().setActiveSurfaceFromPane({ kind: "editor", editorTabId: "scm-diff:index.html" });
+    expect(useAppStore.getState().layout.editorDiffMode).toBe(false);
+  });
+
   test("keeps markdown preview and diff mode mutually exclusive", async () => {
     const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
     const filePath = "README.md";

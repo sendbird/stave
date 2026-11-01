@@ -14,7 +14,7 @@ import {
   recordRendererUnresponsive,
 } from "./runtime-health-metrics";
 import { openExternalWithFallback } from "./utils/external-url";
-import { shouldBlockInlineRenderFrameNavigation } from "../../src/lib/inline-render/inline-render";
+import { shouldBlockSandboxedFrameNavigation } from "../../src/lib/inline-render/inline-render";
 import {
   resolveLensGuestPreloadScriptPath,
   resolvePreloadScriptPath,
@@ -147,10 +147,12 @@ export function createMainWindow() {
     void openExternalWithFallback({ url });
   });
 
-  // An inline render page may only be loaded by the app. A page that tries to
-  // navigate its own frame (to escape, or to reload under a wider network
-  // policy), a nested frame aimed at a render, and a form submission are all
-  // started by a subframe, and are cancelled here.
+  // An inline render page, or a srcdoc page such as an HTML file preview, may
+  // only be loaded by the app. A page that tries to navigate its own frame (to
+  // escape, to reload under a wider network policy, or to follow a link that
+  // srcdoc resolves against the app's URL), a nested frame aimed at a render,
+  // and a form submission are all started by a subframe, and are cancelled
+  // here.
   window.webContents.on("will-frame-navigate", (details) => {
     if (details.isMainFrame) return;
     let frameUrl: string | null = null;
@@ -165,7 +167,7 @@ export function createMainWindow() {
       initiatedBySubframe = true;
     }
     if (
-      shouldBlockInlineRenderFrameNavigation({
+      shouldBlockSandboxedFrameNavigation({
         isMainFrame: false,
         isSameDocument: details.isSameDocument,
         frameUrl,

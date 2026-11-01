@@ -346,6 +346,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   pythonLspCommand: string;
   typescriptLspCommand: string;
   diffViewMode: "unified" | "split";
+  /**
+   * How an HTML file opens in the editor: the rendered page or its source.
+   * The editor toolbar's preview toggle writes it, so the last choice is how
+   * the next HTML file opens.
+   */
+  editorHtmlViewMode: EditorHtmlViewMode;
   /** Auto-refresh interval (seconds) for the Source Control panel. 0 = disabled. */
   scmAutoRefreshSeconds: number;
   confirmBeforeClose: boolean;
@@ -591,6 +597,14 @@ export const COMPOSER_LAYOUT_MODES: readonly ComposerLayoutMode[] = [
   "classic",
 ] as const;
 
+export type EditorHtmlViewMode = "preview" | "source";
+
+export function normalizeEditorHtmlViewMode(
+  value: unknown,
+): EditorHtmlViewMode {
+  return value === "source" ? "source" : "preview";
+}
+
 export function normalizeComposerLayoutMode(
   value: unknown,
 ): ComposerLayoutMode {
@@ -776,6 +790,7 @@ export const defaultSettings: AppSettings = {
   pythonLspCommand: "",
   typescriptLspCommand: "",
   diffViewMode: "unified",
+  editorHtmlViewMode: "preview",
   scmAutoRefreshSeconds: 0,
   confirmBeforeClose: true,
   nativeNotificationsEnabled: true,

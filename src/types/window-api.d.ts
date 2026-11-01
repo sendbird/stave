@@ -1788,6 +1788,7 @@ interface WindowPersistenceApi {
         fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
+        htmlViewMode?: "preview" | "source";
       }>;
       activeEditorTabId?: string | null;
       terminalTabs?: WorkspaceTerminalTab[];
@@ -1833,6 +1834,7 @@ interface WindowPersistenceApi {
         fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
+        htmlViewMode?: "preview" | "source";
       }>;
       activeEditorTabId?: string | null;
       terminalTabs?: WorkspaceTerminalTab[];
@@ -1942,6 +1944,7 @@ interface WindowPersistenceApi {
         fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
+        htmlViewMode?: "preview" | "source";
       }>;
       activeEditorTabId?: string | null;
       terminalTabs?: WorkspaceTerminalTab[];
@@ -2066,6 +2069,7 @@ interface WindowPersistenceApi {
         fileSizeLimitBytes?: number;
         hasConflict: boolean;
         isDirty: boolean;
+        htmlViewMode?: "preview" | "source";
       }>;
       activeEditorTabId?: string | null;
       terminalTabs?: WorkspaceTerminalTab[];

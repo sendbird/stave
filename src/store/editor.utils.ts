@@ -134,6 +134,58 @@ export function isMarkdownEditorTab(
   return Boolean(tab && tab.kind !== "image" && tab.language === "markdown");
 }
 
+const HTML_DOCUMENT_PATH_PATTERN = /\.html?$/i;
+
+/**
+ * An `.html`/`.htm` file. Checked by extension because `.vue` and `.svelte`
+ * also use Monaco's `html` language but are not documents a browser renders.
+ */
+export function isHtmlEditorTab(
+  tab: Pick<EditorTab, "kind" | "language" | "filePath"> | null | undefined,
+) {
+  return Boolean(
+    tab &&
+      tab.kind !== "image" &&
+      tab.language === "html" &&
+      HTML_DOCUMENT_PATH_PATTERN.test(tab.filePath),
+  );
+}
+
+/**
+ * How an HTML tab shows. The tab's own choice wins; a tab without one (restored
+ * from an older snapshot, or opened by a path that does not set it) follows the
+ * remembered setting.
+ */
+export function resolveEditorTabHtmlViewMode(args: {
+  tab: Pick<EditorTab, "htmlViewMode"> | null | undefined;
+  remembered: "preview" | "source";
+}): "preview" | "source" {
+  return args.tab?.htmlViewMode ?? args.remembered;
+}
+
+/**
+ * Whether an editor panel shows a rendered preview instead of Monaco.
+ *
+ * - HTML follows the tab's own mode, in every panel, so a background split
+ *   keeps its preview and no activation path can desync it.
+ * - Markdown follows the layout flag, which tracks the active tab only.
+ * - A diff always wins over a preview.
+ */
+export function shouldShowEditorPreview(args: {
+  previewKind: "markdown" | "html" | null;
+  isActiveEditorTab: boolean;
+  diffMode: boolean;
+  markdownPreviewFlag: boolean;
+  htmlViewMode: "preview" | "source";
+}): boolean {
+  if (args.diffMode) return false;
+  if (args.previewKind === "html") return args.htmlViewMode === "preview";
+  if (args.previewKind === "markdown") {
+    return args.isActiveEditorTab && args.markdownPreviewFlag;
+  }
+  return false;
+}
+
 export function canSendEditorContextToTask(args: {
   taskId?: string | null;
   hasActiveEditorTab: boolean;

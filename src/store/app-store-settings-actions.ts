@@ -49,6 +49,7 @@ import {
   normalizeFleetBoardLayout,
   normalizeTurnActivityPlacement,
   normalizeComposerLayoutMode,
+  normalizeEditorHtmlViewMode,
   type AppSettings,
 } from "@/store/app-settings";
 import type { AppState } from "@/store/app-store.types";
@@ -461,6 +462,13 @@ export function createSettingsActions(args: {
           ? {}
           : {
               composerLayout: normalizeComposerLayoutMode(patch.composerLayout),
+            }),
+        ...(patch.editorHtmlViewMode === undefined
+          ? {}
+          : {
+              editorHtmlViewMode: normalizeEditorHtmlViewMode(
+                patch.editorHtmlViewMode,
+              ),
             }),
         ...(patch.inlineRenderNetworkPolicy === undefined
           ? {}
