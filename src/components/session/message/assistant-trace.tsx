@@ -570,8 +570,8 @@ export function AssistantMessageBody(args: {
           }),
     [categoryCounts, isStreaming, trace.responseParts, t],
   );
-  /* Total reasoning time for the turn, shown next to the collapsed completion
-     phrase ("Thought for 12s"). Only meaningful once the turn has finished. */
+  /* Total reasoning time for the turn, shown next to the collapsed title
+     ("12s"). Only meaningful once the turn has finished. */
   const traceDurationSeconds = useMemo(() => {
     if (isStreaming) {
       return undefined;

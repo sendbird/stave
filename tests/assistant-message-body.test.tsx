@@ -296,8 +296,8 @@ describe("AssistantMessageBody", () => {
       traceExpansionMode: "manual",
     }));
     // 59.9s reads 59s, as it does in Fleet, not a minute it did not take.
-    expect(render([pass("Considered.", 0, 59_900)])).toContain("for 59s");
-    expect(render([pass("Quick.", 0, 400)])).toContain("for &lt;1s");
+    expect(render([pass("Considered.", 0, 59_900)])).toContain(">59s<");
+    expect(render([pass("Quick.", 0, 400)])).toContain(">&lt;1s<");
   });
 
   test("keeps assistant trace collapsed in manual expansion mode", async () => {

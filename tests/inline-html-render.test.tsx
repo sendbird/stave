@@ -68,7 +68,8 @@ describe("inline HTML render in the conversation", () => {
     expect(frame).toMatch(/referrerpolicy="no-referrer"/i);
     // The browser-only page carries its CSP in a meta tag ahead of the markup.
     expect(frame).toContain("Content-Security-Policy");
-    expect(html.indexOf("<figure")).toBeLessThan(html.indexOf("The chart above compares"));
+    // The reply's first sentence also titles the turn's header, so look for the reply itself.
+    expect(html.indexOf("<figure")).toBeLessThan(html.lastIndexOf("The chart above compares"));
   });
 
   test("leaves an ordinary tool output alone", async () => {
