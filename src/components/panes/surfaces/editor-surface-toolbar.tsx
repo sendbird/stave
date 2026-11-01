@@ -42,14 +42,34 @@ import type { EditorTab } from "@/types/chat";
  * and copy-path actions that used to live in the editor tab strip context
  * menu.
  */
+/** A tab type whose toolbar toggles between its rendered view and source. */
+export type EditorPreviewKind = "markdown" | "html";
+
+const PREVIEW_TOGGLE_LABEL_KEYS = {
+  markdown: {
+    showSource: "panes:editorSurfaceToolbar.showMarkdownSource",
+    showPreview: "panes:editorSurfaceToolbar.showMarkdownPreview",
+    preview: "panes:editorSurfaceToolbar.previewMarkdown",
+  },
+  html: {
+    showSource: "panes:editorSurfaceToolbar.showHtmlSource",
+    showPreview: "panes:editorSurfaceToolbar.showHtmlPreview",
+    preview: "panes:editorSurfaceToolbar.previewHtml",
+  },
+} as const satisfies Record<
+  EditorPreviewKind,
+  { showSource: string; showPreview: string; preview: string }
+>;
+
 export function EditorSurfaceToolbar(args: {
   tab: EditorTab;
   absolutePath: string;
   tabIsImage: boolean;
-  tabIsMarkdown: boolean;
+  /** Set when the tab offers a rendered preview; null hides the toggle. */
+  previewKind: EditorPreviewKind | null;
   sendToAgentDisabled: boolean;
   diffMode: boolean;
-  markdownPreviewMode: boolean;
+  previewMode: boolean;
   diffViewMode: "unified" | "split";
   showDiffDisplayControls: boolean;
   reviewCommentCount: number;
@@ -59,7 +79,7 @@ export function EditorSurfaceToolbar(args: {
   canSubmitReviewFeedback: boolean;
   onSave: () => void;
   onToggleDiffMode: () => void;
-  onToggleMarkdownPreviewMode: () => void;
+  onTogglePreviewMode: () => void;
   onChangeDiffViewMode: (mode: "unified" | "split") => void;
   onAddReviewComment: () => void;
   onSubmitReviewFeedback: () => void;
@@ -124,7 +144,7 @@ export function EditorSurfaceToolbar(args: {
               {args.diffMode ? i18n.t("panes:editorSurfaceToolbar.backToEdit") : i18n.t("panes:editorSurfaceToolbar.viewDiff")}
             </TooltipContent>
           </Tooltip>
-          {args.tabIsMarkdown ? (
+          {args.previewKind ? (
             <Tooltip>
               <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
                 <Button
@@ -133,28 +153,28 @@ export function EditorSurfaceToolbar(args: {
                   xstyle={[
                     s.iconButton,
                     transition.colors,
-                    args.markdownPreviewMode && s.iconButtonActive,
+                    args.previewMode && s.iconButtonActive,
                   ]}
                   disabled={args.tabIsImage}
-                  onClick={args.onToggleMarkdownPreviewMode}
+                  onClick={args.onTogglePreviewMode}
                   aria-label={
-                    args.markdownPreviewMode
-                      ? i18n.t("panes:editorSurfaceToolbar.showMarkdownSource")
-                      : i18n.t("panes:editorSurfaceToolbar.showMarkdownPreview")
+                    args.previewMode
+                      ? i18n.t(PREVIEW_TOGGLE_LABEL_KEYS[args.previewKind].showSource)
+                      : i18n.t(PREVIEW_TOGGLE_LABEL_KEYS[args.previewKind].showPreview)
                   }
-                  aria-pressed={args.markdownPreviewMode}
-                  data-testid="editor-markdown-preview-toggle"
+                  aria-pressed={args.previewMode}
+                  data-testid={`editor-${args.previewKind}-preview-toggle`}
                 >
                   <Eye
                     size={16}
-                    strokeWidth={args.markdownPreviewMode ? 2.25 : undefined}
+                    strokeWidth={args.previewMode ? 2.25 : undefined}
                   />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {args.markdownPreviewMode
-                  ? i18n.t("panes:editorSurfaceToolbar.showMarkdownSource")
-                  : i18n.t("panes:editorSurfaceToolbar.previewMarkdown")}
+                {args.previewMode
+                  ? i18n.t(PREVIEW_TOGGLE_LABEL_KEYS[args.previewKind].showSource)
+                  : i18n.t(PREVIEW_TOGGLE_LABEL_KEYS[args.previewKind].preview)}
               </TooltipContent>
             </Tooltip>
           ) : null}

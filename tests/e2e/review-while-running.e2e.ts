@@ -158,10 +158,10 @@ test("an editor diff opened from Review leads back to that task and scope", asyn
       document.body.append(host);
       createRoot(host).render(React.createElement(EditorSurfaceToolbar, {
         tab: { id: tabId, filePath: "src/billing.ts", language: "typescript", content: "", originalContent: "a", isDirty: false },
-        absolutePath: "/repo/src/billing.ts", tabIsImage: false, tabIsMarkdown: false, sendToAgentDisabled: true,
-        diffMode: true, markdownPreviewMode: false, diffViewMode: "unified", showDiffDisplayControls: true,
+        absolutePath: "/repo/src/billing.ts", tabIsImage: false, previewKind: null, sendToAgentDisabled: true,
+        diffMode: true, previewMode: false, diffViewMode: "unified", showDiffDisplayControls: true,
         reviewCommentCount: 0, fileReviewCommentCount: 0, canAddReviewComment: false, canSubmitReviewFeedback: false,
-        onSave: noop, onToggleDiffMode: noop, onToggleMarkdownPreviewMode: noop, onChangeDiffViewMode: noop,
+        onSave: noop, onToggleDiffMode: noop, onTogglePreviewMode: noop, onChangeDiffViewMode: noop,
         onAddReviewComment: noop, onSubmitReviewFeedback: noop, onSubmitFileReviewFeedback: noop, onSendToAgent: noop,
         onBulkClose: noop, onCopyPath: noop, onCopyRelativePath: noop, onCopyBreadcrumbsPath: noop,
       }));

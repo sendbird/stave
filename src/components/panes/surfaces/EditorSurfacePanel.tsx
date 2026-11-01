@@ -52,6 +52,7 @@ import {
   buildDiffEditorModelPath,
   releaseDiffEditorModels,
 } from "@/components/layout/editor-main-panel.utils";
+import { EditorHtmlPreview } from "@/components/layout/editor-html-preview";
 import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
 import {
   configureMonacoDefaults,
@@ -74,7 +75,10 @@ import {
   type EditorBulkClosePlan,
 } from "@/components/panes/editor-tab-actions";
 import { isGitGraphEditorTab } from "@/components/panes/editor-tab-presentation";
-import { EditorSurfaceToolbar } from "@/components/panes/surfaces/editor-surface-toolbar";
+import {
+  EditorSurfaceToolbar,
+  type EditorPreviewKind,
+} from "@/components/panes/surfaces/editor-surface-toolbar";
 import { useEditorPanelMountGate } from "@/components/panes/surfaces/editor-panel-mount-gate";
 import {
   disposeTextModelIfUnused,
@@ -94,7 +98,10 @@ import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import { buildPanePanelId, parsePanePanelId } from "@/lib/panes/types";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
-import { canSendEditorContextToTask } from "@/store/editor.utils";
+import {
+  canSendEditorContextToTask,
+  isHtmlEditorTab,
+} from "@/store/editor.utils";
 import { isDiffEditorTab } from "@/store/layout.utils";
 import type { ReviewComment } from "@/types/review";
 import { classifySentReviewComment, type SentReviewCommentView } from "@/lib/sent-review-comments";
@@ -397,12 +404,18 @@ function EditorTabSurface({
   const tabIsMarkdown = Boolean(
     tab && tab.language === "markdown" && !tabIsImage,
   );
+  const tabIsHtml = !tabIsImage && isHtmlEditorTab(tab);
+  const previewKind: EditorPreviewKind | null = tabIsMarkdown
+    ? "markdown"
+    : tabIsHtml
+      ? "html"
+      : null;
   // The store tracks diff/preview mode for the ACTIVE editor tab only (layout
   // flags). Non-active panels fall back to the tab's intrinsic mode so a
   // source-control diff keeps rendering as a diff in a background split.
   const diffMode = isActiveEditorTab ? editorDiffMode : isDiffEditorTab(tab);
-  const showMarkdownPreview = Boolean(
-    tabIsMarkdown &&
+  const showPreview = Boolean(
+    previewKind &&
     isActiveEditorTab &&
     editorMarkdownPreviewMode &&
     !diffMode,
@@ -425,7 +438,7 @@ function EditorTabSurface({
     tab.kind !== "git-graph" &&
     !tabContentUnavailable &&
     !tabIsImage &&
-    !showMarkdownPreview &&
+    !showPreview &&
     !renderDiffEditor,
   );
   const mountCodeEditor = showCodeEditor && editorMounted;
@@ -523,15 +536,22 @@ function EditorTabSurface({
     });
   }
 
-  function handleToggleMarkdownPreviewMode() {
-    const nextPreviewMode = !showMarkdownPreview;
+  function handleTogglePreviewMode() {
+    const nextPreviewMode = !showPreview;
     ensureTabActive();
-    useAppStore.getState().setLayout({
+    const store = useAppStore.getState();
+    store.setLayout({
       patch: {
         editorMarkdownPreviewMode: nextPreviewMode,
         ...(nextPreviewMode ? { editorDiffMode: false } : {}),
       },
     });
+    // HTML remembers the last pick so the next HTML file opens in it.
+    if (previewKind === "html") {
+      store.updateSettings({
+        patch: { editorHtmlViewMode: nextPreviewMode ? "preview" : "source" },
+      });
+    }
   }
 
   function handleSendToAgent() {
@@ -814,7 +834,7 @@ function EditorTabSurface({
       !editor ||
       !tab ||
       tabIsImage ||
-      showMarkdownPreview ||
+      showPreview ||
       Boolean(diffSessionKey)
     ) {
       return;
@@ -823,7 +843,7 @@ function EditorTabSurface({
     // isActiveEditorTab re-runs this when an already-mounted panel becomes
     // the navigation target (openFileFromTree on an open file).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diffSessionKey, isActiveEditorTab, tab, tabIsImage, showMarkdownPreview]);
+  }, [diffSessionKey, isActiveEditorTab, tab, tabIsImage, showPreview]);
 
   // Pending caret placement requested by openFileFromTree({ line, column }).
   useEffect(() => {
@@ -834,7 +854,7 @@ function EditorTabSurface({
       !editor ||
       !tab ||
       tabIsImage ||
-      showMarkdownPreview ||
+      showPreview ||
       Boolean(diffSessionKey)
     ) {
       return;
@@ -847,12 +867,12 @@ function EditorTabSurface({
     pendingEditorSelection,
     tab,
     tabIsImage,
-    showMarkdownPreview,
+    showPreview,
   ]);
 
-  // Markdown preview hides Monaco, so Cmd/Ctrl+S needs a window-level catch.
+  // A preview hides Monaco, so Cmd/Ctrl+S needs a window-level catch.
   useEffect(() => {
-    if (!showMarkdownPreview) {
+    if (!showPreview) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -869,7 +889,7 @@ function EditorTabSurface({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [showMarkdownPreview]);
+  }, [showPreview]);
 
   const disposeKeptCodeModel = useCallback(() => {
     const model = keptCodeModelRef.current;
@@ -1045,10 +1065,10 @@ function EditorTabSurface({
           tab={tab}
           absolutePath={absolutePath}
           tabIsImage={tabIsImage}
-          tabIsMarkdown={tabIsMarkdown}
+          previewKind={previewKind}
           sendToAgentDisabled={sendToAgentDisabled}
           diffMode={diffMode}
-          markdownPreviewMode={showMarkdownPreview}
+          previewMode={showPreview}
           diffViewMode={diffViewMode}
           showDiffDisplayControls={showDiffDisplayControls}
           reviewCommentCount={reviewCommentsForActiveTask.length}
@@ -1057,7 +1077,7 @@ function EditorTabSurface({
           canSubmitReviewFeedback={canSubmitReviewFeedback}
           onSave={performSave}
           onToggleDiffMode={handleToggleDiffMode}
-          onToggleMarkdownPreviewMode={handleToggleMarkdownPreviewMode}
+          onTogglePreviewMode={handleTogglePreviewMode}
           onChangeDiffViewMode={(mode) =>
             useAppStore.getState().updateSettings({
               patch: { diffViewMode: mode },
@@ -1146,7 +1166,13 @@ function EditorTabSurface({
                 </div>
               )}
             </div>
-          ) : showMarkdownPreview ? (
+          ) : showPreview && previewKind === "html" ? (
+            <EditorHtmlPreview
+              data-testid="editor-html-preview"
+              content={tab.content}
+              frameTitle={imageName}
+            />
+          ) : showPreview ? (
             <EditorMarkdownPreview
               data-testid="editor-markdown-preview"
               content={tab.content}

@@ -1,0 +1,79 @@
+/**
+ * The rendered view of an `.html` file open in the editor.
+ *
+ * A workspace file may come from anywhere (a cloned repository, an agent), so
+ * it gets the same isolation as an inline render: a sandboxed frame without
+ * `allow-same-origin`, so the page runs with an opaque origin and cannot reach
+ * Stave, its storage, or the preload bridge. Network access matches opening
+ * the file in a browser (`open`), since the user chose to view this file.
+ *
+ * The page is shown as written: no padding, theme, or bootstrap of the
+ * inline render frame. Only a `<meta>` CSP and a link guard go ahead of the
+ * page's own markup.
+ */
+
+import {
+  INLINE_RENDER_FRAME_SANDBOX,
+  buildInlineRenderCsp,
+} from "@/lib/inline-render/inline-render";
+
+/** Never `allow-same-origin`, `allow-popups`, or `allow-modals`. */
+export const HTML_FILE_PREVIEW_FRAME_SANDBOX = INLINE_RENDER_FRAME_SANDBOX;
+
+export const HTML_FILE_PREVIEW_CSP = buildInlineRenderCsp("open", {
+  delivery: "meta",
+});
+
+/**
+ * A srcdoc document resolves links against the app's own URL, so following
+ * any link (even `#section`) would load another page, or the app itself, in
+ * the preview. The guard cancels every link: one that leaves the page does
+ * nothing, and an in-page `#fragment` link scrolls to its target instead. It
+ * runs on `window` in the bubble phase so the page's own handlers (an SPA
+ * router that checks `defaultPrevented`) see the click first.
+ */
+const LINK_GUARD_SCRIPT = [
+  'window.addEventListener("click",function(e){',
+  "if(e.defaultPrevented)return;",
+  "var t=e.target;",
+  'var a=t&&t.closest?t.closest("a[href]"):null;',
+  "if(!a)return;",
+  "e.preventDefault();",
+  'var h=a.getAttribute("href")||"";',
+  'if(h.charAt(0)!=="#")return;',
+  "var id=h.slice(1);",
+  "try{id=decodeURIComponent(id)}catch(_){}",
+  "var el=id?document.getElementById(id)||document.getElementsByName(id)[0]:null;",
+  "if(el)el.scrollIntoView();",
+  'else if(!id||id.toLowerCase()==="top")window.scrollTo(0,0);',
+  "});",
+].join("");
+
+const LEADING_DOCTYPE_PATTERN = /^\uFEFF?\s*<!doctype[^>]*>/i;
+
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;");
+}
+
+/**
+ * The srcdoc for one HTML file. The CSP and guard go right after the doctype,
+ * ahead of every script the page declares; a page without a doctype keeps
+ * rendering in quirks mode, as it would in a browser.
+ */
+export function buildHtmlFilePreviewDocument(html: string): string {
+  const doctypeMatch = LEADING_DOCTYPE_PATTERN.exec(html);
+  const doctype = doctypeMatch
+    ? doctypeMatch[0].replace(/^\uFEFF?\s*/, "")
+    : "";
+  const rest = doctypeMatch
+    ? html.slice(doctypeMatch[0].length)
+    : html.replace(/^\uFEFF/, "");
+  const head = [
+    `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(HTML_FILE_PREVIEW_CSP)}">`,
+    `<script>${LINK_GUARD_SCRIPT}</script>`,
+  ].join("");
+  return `${doctype}${head}${rest}`;
+}
