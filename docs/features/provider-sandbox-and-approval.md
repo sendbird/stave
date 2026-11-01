@@ -38,6 +38,10 @@ You can also confirm the effective state from the runtime chips near the compose
   `Settings > Providers > Claude > Thinking Mode`, and the menu says so.
 - **Runtime** names the profile in use (`Safe`, `Custom` or `Elevated`) in its
   side-wing label; open it for the details behind that profile.
+- In the classic composer the controls stay on one row at any width. When
+  they do not fit, the side question first shows only its icon, then the
+  others move into the row's **⋯** menu, Stave's own tools first and the
+  permission preset last; a control holding a non-default setting moves last.
 
 ## Per-project defaults
 
@@ -148,6 +152,19 @@ How firmly each provider holds them:
   Codex's own approvals, when that matters.
 - **Cursor, Kiro and OpenCode** keep your settings; only a read-only agent changes them.
 
+## Answering An Approval
+
+While the conversation is shown, the current task's pending approval appears
+once, as a row attached above the composer: the tool, the command, file or
+pattern it would run, **Allow once** (Enter), **Always allow** when the
+provider can keep the grant, and **Deny**. The disclosure at the end of the
+row shows the description and the full input, Stave's own trusted-tools
+allow for providers that cannot keep a grant, and **guide instead** (Tab).
+When several requests wait, the row reads **1 of N**; step through them
+with the arrows, and Enter and Tab act on the request the row shows. The
+task's attention summary above the conversation does not repeat these
+requests; in Review, where the composer is hidden, it lists them.
+
 ## Who Decided Each Approval
 
 Stave records how every permission request was decided: by you, by a Stave
@@ -193,8 +210,8 @@ waiting for you, so the message answers it instead of queueing behind it.
 - `/aside` side questions, queued messages and messages Stave would refuse to
   send (for example with Stave Auto turned off) leave the approvals waiting.
 - **Allow once**, **Deny**, **Deny & guide**, and the Enter and Tab shortcuts
-  on the card work as before. With the composer empty, Enter and Tab in it act
-  on the card too. A pending question keeps the composer, as before.
+  on the approval row work as before. With the composer empty, Enter and Tab
+  in it act on the row too. A pending question keeps the composer, as before.
 
 | Provider | The decline | Then the message |
 |---|---|---|
