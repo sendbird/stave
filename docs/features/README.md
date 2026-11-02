@@ -13,6 +13,7 @@ Use this folder for user-facing feature guides.
 - Add a guide when shipping a new user-facing feature.
 - Update the existing guide when behavior, entry points, limitations, or workflow steps change.
 - If a UI change alters how a feature is configured or used, the feature guide should change in the same PR or task.
+- Update the Heron user guide sources in `docs/heron/` in the same change when the guide covers the feature, and re-capture any linked screenshot that changed. See [`docs/heron/README.md`](../heron/README.md).
 
 ## Scope Rules
 
