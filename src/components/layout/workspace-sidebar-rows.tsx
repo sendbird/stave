@@ -54,7 +54,6 @@ import {
   useSortableRow,
 } from "@/hooks/use-sortable-list";
 import {
-  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -543,6 +542,8 @@ export function WorkQueueRow(args: {
             </span>
             <WorkspaceUnansweredCount workspaceId={entry.workspaceId} />
             <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
+            {/* The revealed menu's room, so the counts step aside instead of sitting under it. */}
+            {args.actions ? <span aria-hidden className={sx(repositorySidebarStyles.rowActionReserve)} /> : null}
           </AdsButton>
         </WorkspaceHoverPreviewTooltip>
         {args.actions}
@@ -614,9 +615,11 @@ export const WorkspaceRespondingCountBadge = memo(
     hasHoverActions: boolean;
     isClosing: boolean;
   }) {
+    const { t: tI18n } = useTranslation(["workspace"]);
     const { respondingTaskCount } = useWorkspaceSidebarActivityState(
       args.workspaceId,
     );
+    const runningLabel = tI18n("workspace:workspaceSidebarRows.runningTaskCount", { count: respondingTaskCount });
     // Requests waiting for an answer sit beside the responding count.
     const unansweredCount = useWorkspaceUnansweredCount(args.workspaceId);
 
@@ -631,13 +634,21 @@ export const WorkspaceRespondingCountBadge = memo(
     return (
       <div className={sx(repositorySidebarStyles.respondingSlot)}>
         <WorkspaceUnansweredCount workspaceId={args.workspaceId} xstyle={[transition.fade, visibility]} />
-        {respondingTaskCount === 0 ? null : <Badge
-          variant="outline"
-          tone="accent"
-          className={sx(repositorySidebarStyles.respondingBadge, transition.fade, visibility)}
-        >
-          {respondingTaskCount}
-        </Badge>}
+        {/*
+          A plain count, as the repository row counts its workspaces: the
+          leading mark already says the workspace is running, and a chip here
+          read as a button. The warning badge beside it is the one that asks.
+        */}
+        {respondingTaskCount === 0 ? null : (
+          <span
+            aria-label={runningLabel}
+            title={runningLabel}
+            data-responding-count={respondingTaskCount}
+            className={sx(repositorySidebarStyles.respondingCount, transition.fade, visibility)}
+          >
+            {respondingTaskCount}
+          </span>
+        )}
       </div>
     );
   },
@@ -880,8 +891,6 @@ export function WorkspaceRowActions(args: {
     workspaceId: string;
     name: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  shortcutLabel?: string | null;
-  shortcutModifier: string;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -889,9 +898,12 @@ export function WorkspaceRowActions(args: {
   const isClosing = args.closingWorkspaceId === args.workspaceId;
   const forceVisible = dropdownOpen || settingsOpen || isClosing;
 
+  // Only the menu trigger: the row's hover preview already names the
+  // workspace's shortcut, and a chip here ran over the title.
   return (
     <>
       <div
+        data-row-actions-pinned={forceVisible ? "" : undefined}
         className={sx(
           repositorySidebarStyles.rowActions,
           transition.fade,
@@ -901,13 +913,6 @@ export function WorkspaceRowActions(args: {
             : getWorkspaceHoverActionVisibilityStyle({ isClosing }),
         )}
       >
-        {args.shortcutLabel ? (
-          <WorkspaceShortcutChip
-            modifier={args.shortcutModifier}
-            label={args.shortcutLabel}
-            className={sx(repositorySidebarStyles.rowActionsShortcut)}
-          />
-        ) : null}
         <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <DropdownMenuTrigger
             render={
