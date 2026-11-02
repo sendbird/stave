@@ -93,7 +93,6 @@ import {
   InlineWorkspaceLabel,
   WorkspaceRowSecondary,
   IS_MAC,
-  workspaceShortcutModifierLabel,
   SortableSidebarItem,
   WorkspaceRowActions,
 } from "./workspace-sidebar-rows";
@@ -1687,8 +1686,6 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       setWorkspaceToClose({ id: workspace.id, name: workspace.name })
                                                     }
                                                     onRename={renameWorkspace}
-                                                    shortcutLabel={workspaceShortcutLabel}
-                                                    shortcutModifier={workspaceShortcutModifierLabel}
                                                   />
                                                 </div>
                                               <WorkspaceProgressTaskTree

@@ -198,3 +198,77 @@ for (const theme of ["light", "dark"] as const) {
     });
   }
 }
+
+/** Give the renamed worktree three running tasks, so its row shows the running count. */
+async function runTasksInDocsPass(page: Page) {
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const tasks = ["a", "b", "c"].map((id) => ({ id: `docs-${id}`, title: `Docs task ${id}`, provider: "claude-code", updatedAt: "2026-10-31T00:00:00.000Z", unread: false, archivedAt: null }));
+    useAppStore.setState((state) => ({
+      workspaceRuntimeCacheById: {
+        ...state.workspaceRuntimeCacheById,
+        "ws-docs": {
+          ...(state.workspaceRuntimeCacheById["ws-docs"] ?? {}),
+          tasks,
+          messagesByTask: {},
+          activeTurnIdsByTask: Object.fromEntries(tasks.map((task) => [task.id, `turn-${task.id}`])),
+          openTaskTabIds: [],
+        },
+      },
+    }) as never);
+  });
+}
+
+for (const displayMode of ["expanded", "compact"] as const) {
+  test(`workspace row menu takes its own room and the running count is plain: ${displayMode}`, async ({ page }) => {
+    await seed(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(page.getByTestId("top-bar")).toBeVisible();
+    await restateWorkspaces(page);
+    await runTasksInDocsPass(page);
+    await page.evaluate(async (displayMode) => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      useAppStore.setState((state) => ({ layout: { ...state.layout, workspaceSidebarItemDisplayMode: displayMode } }));
+      await document.fonts.ready;
+    }, displayMode);
+    // The preview bubble opens on hover and would cover the trigger being measured.
+    await page.addStyleTag({ content: '[data-slot="tooltip-content"], [data-slot="tooltip-positioner"] { display: none !important; }' });
+    const sidebar = page.getByTestId("project-workspace-sidebar");
+
+    // The running count reads like the repository's workspace count: numerals, no chip.
+    const count = sidebar.locator("[data-responding-count]");
+    await expect(count).toHaveText("3");
+    await expect(count).toHaveAttribute("aria-label", "3 tasks running");
+    expect(await count.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("none");
+
+    for (const name of [/Docs pass/, /Default/]) {
+      const open = sidebar.getByRole("button", { name }).first();
+      const trigger = open.locator("xpath=ancestor::div[.//*[starts-with(@data-testid,'workspace-actions-')]][1]").locator("[data-testid^='workspace-actions-']").first();
+      // The workspace's shortcut lives in the hover preview, not in the row's actions.
+      await expect(trigger.locator("xpath=..").locator("kbd")).toHaveCount(0);
+      const clearance = async () => {
+        const triggerLeft = (await trigger.boundingBox())!.x;
+        const textRight = await open.evaluate((element) =>
+          Math.max(...[...element.querySelectorAll("span, p")]
+            .filter((node) => node.children.length === 0 && node.textContent?.trim())
+            .map((node) => node.getBoundingClientRect().right)),
+        );
+        return triggerLeft - textRight;
+      };
+      await open.hover({ position: { x: 8, y: 8 } });
+      await expect(trigger).toBeVisible();
+      await expect.poll(clearance).toBeGreaterThanOrEqual(0);
+      // An open menu keeps the room after the pointer leaves the row.
+      await trigger.click();
+      await expect(page.getByRole("menu")).toBeVisible();
+      await page.mouse.move(1200, 880);
+      await expect.poll(clearance).toBeGreaterThanOrEqual(0);
+      if (name.source === "Docs pass") {
+        await expect.poll(() => count.evaluate((element) => getComputedStyle(element).opacity)).toBe("0");
+      }
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("menu")).toHaveCount(0);
+    }
+  });
+}

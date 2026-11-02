@@ -1074,7 +1074,8 @@
       "editWorkspaceLabel": "워크스페이스 이름 편집: {{value1}}",
       "workspaceActions": "워크스페이스 작업: {{value1}}"
     },
-    "unansweredCount_other": "답변을 기다리는 요청 {{count}}개"
+    "unansweredCount_other": "답변을 기다리는 요청 {{count}}개",
+    "runningTaskCount_other": "실행 중인 작업 {{count}}개"
   },
   "workspaceInformationReferenceChip": {
     "section": "섹션",

@@ -58,6 +58,15 @@ const invertedEdge20 = `color-mix(in oklab, ${vars["--ads-color-text-inverted"]}
 const ROW_ACTION_OPACITY = "--staveWorkspaceRowActionOpacity";
 const ROW_ACTION_EVENTS = "--staveWorkspaceRowActionEvents";
 const ROW_COUNT_OPACITY = "--staveWorkspaceRowCountOpacity";
+/**
+ * The room the revealed actions take at the row's end. Published as a width
+ * so the row's own content steps aside for the menu instead of running under
+ * it: the trigger plus the inline padding after it.
+ */
+const ROW_ACTION_RESERVE = "--staveWorkspaceRowActionReserve";
+const ROW_ACTION_BOX = `calc(28px + ${vars["--ads-space-4"]})`;
+/** A row whose menu is open or whose workspace is closing keeps its actions shown. */
+const ROW_ACTIONS_PINNED = ":has([data-row-actions-pinned])";
 
 const REPOSITORY_MARK_SCALE = "--staveProjectRowMarkScale";
 const REPOSITORY_MARK_OPACITY = "--staveProjectRowMarkOpacity";
@@ -256,6 +265,12 @@ export const repositorySidebarStyles = stylex.create({
       ":hover": "0",
       ":has(:focus-visible)": "0",
     },
+    [ROW_ACTION_RESERVE]: {
+      default: "0px",
+      ":hover": ROW_ACTION_BOX,
+      ":has(:focus-visible)": ROW_ACTION_BOX,
+      [ROW_ACTIONS_PINNED]: ROW_ACTION_BOX,
+    },
     minWidth: 0,
     position: "relative",
   },
@@ -336,31 +351,28 @@ export const repositorySidebarStyles = stylex.create({
   respondingSlot: {
     alignItems: "center",
     display: "flex",
+    gap: vars["--ads-space-4"],
     height: 28,
-    justifyContent: "center",
+    justifyContent: "flex-end",
     minWidth: 28,
     paddingInlineEnd: vars["--ads-space-4"],
   },
-  /*
-   * Geometry only. These used to override `Badge`'s fill, ring and ink with a
-   * hand-mixed accent wash, which broke twice over: the mix is TRANSLUCENT, so
-   * the chip's real colour changed with whatever the row behind it was doing —
-   * at rest, hovered or selected — where a semantic token is opaque precisely
-   * so it does not; and it re-chromatised what the theme layer deliberately
-   * de-chromatises, since `ads-theme.ts` remaps `colorAccentSoft` to a neutral
-   * wash because spreading the host's accent across ordinary rows and chips
-   * was what made every theme look blue. The colour now comes from
-   * `Badge tone="accent"`, so it is one decision made in one place.
+  /**
+   * The running count, set like the repository row's workspace count: muted
+   * micro numerals, right-aligned with it, no chip. Only the unanswered count
+   * beside it is a badge, because it is the one that needs the user.
    */
-  respondingBadge: {
-    borderRadius: vars["--ads-radius-mark"],
+  respondingCount: {
+    alignItems: "center",
+    color: vars["--ads-color-text-muted"],
+    display: "inline-flex",
     fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-medium"],
-    justifyContent: "center",
-    minWidth: 28,
-    paddingBlock: 2,
-    paddingInline: 6,
+    height: 20,
+    justifyContent: "flex-end",
+    minWidth: 20,
+    paddingInlineEnd: vars["--ads-space-4"],
   },
   respondingBadgeInline: {
     borderRadius: vars["--ads-radius-mark"],
@@ -424,7 +436,8 @@ export const repositorySidebarStyles = stylex.create({
   },
   rowCountHidden: { opacity: 0 },
   rowCountYields: { opacity: `var(${ROW_COUNT_OPACITY}, 1)` },
-  rowActionsShortcut: { flexShrink: 0 },
+  /** Holds the revealed actions' room at the end of a work-queue row. */
+  rowActionReserve: { flexShrink: 0, width: `var(${ROW_ACTION_RESERVE}, 0px)` },
   rowActionsTrigger: {
     borderRadius: vars["--ads-radius-control"],
     color: vars["--ads-color-text-muted"],
@@ -902,6 +915,13 @@ export const repositorySidebarStyles = stylex.create({
       default: "1",
       ":hover": "0",
       ":has(:focus-visible)": "0",
+      [ROW_ACTIONS_PINNED]: "0",
+    },
+    [ROW_ACTION_RESERVE]: {
+      default: "0px",
+      ":hover": ROW_ACTION_BOX,
+      ":has(:focus-visible)": ROW_ACTION_BOX,
+      [ROW_ACTIONS_PINNED]: ROW_ACTION_BOX,
     },
     borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
@@ -954,7 +974,16 @@ export const repositorySidebarStyles = stylex.create({
     justifyContent: "center",
     width: 16,
   },
-  workspaceCountHost: { flexShrink: 0, position: "relative" },
+  /**
+   * The row's last in-flow box, under the revealed actions: it widens to their
+   * room on reveal, so the title truncates before the menu instead of under it.
+   * A count already that wide does not move.
+   */
+  workspaceCountHost: {
+    flexShrink: 0,
+    minWidth: `var(${ROW_ACTION_RESERVE}, 0px)`,
+    position: "relative",
+  },
 
   footer: {
     borderTopColor: vars["--ads-color-border-subtle"],

@@ -1090,7 +1090,9 @@
       "workspaceActions": "Workspace actions: {{value1}}"
     },
     "unansweredCount_one": "{{count}} request waiting for an answer",
-    "unansweredCount_other": "{{count}} requests waiting for an answer"
+    "unansweredCount_other": "{{count}} requests waiting for an answer",
+    "runningTaskCount_one": "{{count}} task running",
+    "runningTaskCount_other": "{{count}} tasks running"
   },
   "workspaceInformationReferenceChip": {
     "section": "Section",

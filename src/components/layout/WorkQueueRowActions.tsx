@@ -84,6 +84,7 @@ export function WorkQueueRowActions(props: {
 
   return (
     <div
+      data-row-actions-pinned={open ? "" : undefined}
       className={sx(
         repositorySidebarStyles.rowActions,
         repositorySidebarStyles.rowActionsInline,
