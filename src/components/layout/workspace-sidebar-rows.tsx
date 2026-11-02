@@ -43,11 +43,7 @@ import {
   WorkspaceUnansweredCount,
 } from "@/components/layout/WorkspaceUnansweredCount";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
-import {
-  useWorkspaceRunProgress,
-  WorkspaceRunMark,
-  WorkspaceRunProgressText,
-} from "@/components/layout/WorkspaceRunProgress";
+import { WorkspaceRunMark } from "@/components/layout/WorkspaceRunProgress";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
   SortableDropIndicator,
@@ -244,6 +240,12 @@ export function WorkspaceHoverPreviewTooltip(args: {
    * trigger: the popup must clear them or it swallows their clicks.
    */
   sideOffset?: number;
+  /**
+   * What the popup is placed against, when not the trigger: a tree row's
+   * whole box, so a preview opened to its right clears the row's counts and
+   * menu instead of covering them.
+   */
+  anchor?: () => Element | null;
   children: ReactElement;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
@@ -322,6 +324,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
       <TooltipContent
         side={args.side}
         sideOffset={args.sideOffset}
+        anchor={args.anchor}
         align="start"
         className={sx(repositorySidebarStyles.previewContent)}
       >
@@ -488,7 +491,13 @@ export function WorkQueueRow(args: {
   const { entry } = args;
 
   return (
-    <div className={sx(repositorySidebarStyles.queueRow)}>
+    <div
+      className={sx(
+        repositorySidebarStyles.queueRow,
+        // The row and its open tasks are one selected item.
+        entry.isActive && repositorySidebarStyles.workspaceGroupActive,
+      )}
+    >
       <div className={sx(repositorySidebarStyles.queueItem)}>
         <WorkspaceHoverPreviewTooltip
           workspaceId={entry.workspaceId}
@@ -785,10 +794,12 @@ export function InlineWorkspaceLabel(args: {
 }
 
 /**
- * The muted text that follows a workspace row's title: what a running turn is
- * doing, else the branch under the generic Default title. `stacked` sits under the
- * title inside the row's height; `trailing` follows the title on the same line
- * and shows the branch only. Renders nothing when there is nothing new to say.
+ * The muted text that follows a workspace row's title: the branch under the
+ * generic Default title. `stacked` sits under the title inside the row's
+ * height; `trailing` follows the title on the same line. Renders nothing when
+ * there is nothing new to say. What a running turn is doing is not said here:
+ * it belongs to one task, so it sits on that task's row in the list below
+ * (`TaskRunProgressMeta`), where each running task says its own.
  */
 export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
   workspaceId: string;
@@ -797,15 +808,6 @@ export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
   isDefault: boolean;
   layout: "stacked" | "trailing";
 }) {
-  // While a turn runs the line says what it is doing instead of the branch.
-  const { progress } = useWorkspaceRunProgress(args.workspaceId, args.layout === "stacked");
-  if (args.layout === "stacked" && progress) {
-    return (
-      <span className={sx(repositorySidebarStyles.rowSecondary)}>
-        <WorkspaceRunProgressText progress={progress} />
-      </span>
-    );
-  }
   const branch = resolveWorkspaceRowBranch({
     name: args.workspaceName,
     branch: args.branch,

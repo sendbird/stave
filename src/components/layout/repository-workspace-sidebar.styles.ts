@@ -11,6 +11,13 @@ const accent10 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 10%, transpar
 const accent16 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 16%, transparent)`;
 const accent20 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 20%, transparent)`;
 const accent40 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 40%, transparent)`;
+/*
+ * The active workspace in two tones: its open tasks on a light 7% wash, its
+ * row on 10% over that. Stacked, the row reads about 16% at rest and 20% on
+ * hover, the fills a selected row had before it was grouped.
+ */
+const accent07 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 7%, transparent)`;
+const accent14 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 14%, transparent)`;
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
@@ -248,6 +255,15 @@ export const repositorySidebarStyles = stylex.create({
 
   /* -------------------------------------------------------- work-queue rows */
   queueRow: { minWidth: 0 },
+  /**
+   * The active workspace's row and its open tasks share one selection: a
+   * light wash under both, the row deeper on top, so the tasks read as part of
+   * the selected workspace and still sit a step below its title.
+   */
+  workspaceGroupActive: {
+    backgroundColor: accent07,
+    borderRadius: vars["--ads-radius-control"],
+  },
   /** The row's button and its hover menu; reveals the menu like a tree row. */
   queueItem: {
     [ROW_ACTION_OPACITY]: {
@@ -898,7 +914,13 @@ export const repositorySidebarStyles = stylex.create({
     flexDirection: "column",
     gap: vars["--ads-space-4"],
   },
-  workspaceItem: { minWidth: 0 },
+  workspaceItem: {
+    borderRadius: vars["--ads-radius-control"],
+    minWidth: 0,
+    transitionDuration: vars["--ads-motion-duration-fast"],
+    transitionProperty: "background-color",
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+  },
 
   workspaceRow: {
     [ROW_ACTION_OPACITY]: {
@@ -934,10 +956,11 @@ export const repositorySidebarStyles = stylex.create({
     // every control inside it runs on the house curve.
     transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
-  // The fill alone marks the selected row: no outline, raised shadow or
-  // corner mark, so selection reads calmly next to the idle rows.
+  // The fill alone marks the selected workspace: no outline, raised shadow or
+  // corner mark, so selection reads calmly next to the idle rows. The row's
+  // tone sits over the group's (`workspaceGroupActive`).
   workspaceRowActive: {
-    backgroundColor: { default: accent16, ":hover": accent20 },
+    backgroundColor: { default: accent10, ":hover": accent14 },
     borderColor: "transparent",
     color: vars["--ads-color-text"],
   },

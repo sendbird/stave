@@ -177,7 +177,7 @@ export function SidebarRunStatesPreview() {
       <main className={sx(styles.page)}>
         <nav className={sx(styles.sidebar)} aria-label="Workspaces">
           {ROWS.map((row) => (
-            <div key={row.id} className={sx(s.workspaceItem)}>
+            <div key={row.id} className={sx(s.workspaceItem, row.id === "working-claude" && s.workspaceGroupActive)}>
               <div className={sx(s.workspaceRow, s.row, row.id === "working-claude" ? s.workspaceRowActive : s.workspaceRowIdle)}>
                 <div className={sx(s.workspaceOpen, s.rowHit)}>
                   <span className={sx(s.workspaceLeadSlot)}>

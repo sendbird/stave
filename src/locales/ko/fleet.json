@@ -245,7 +245,9 @@
     "waitingOnHelpers_other": "보조 Agent {{count}}개 기다리는 중 · {{duration}}",
     "waitingOnBackground": "백그라운드 작업 기다리는 중 · {{duration}}",
     "waitingOnHelpersLabel_other": "보조 Agent {{count}}개 기다리는 중",
-    "waitingOnBackgroundLabel": "백그라운드 작업 기다리는 중"
+    "waitingOnBackgroundLabel": "백그라운드 작업 기다리는 중",
+    "noOutputLabel": "출력 없음",
+    "workingWithTodosLabel": "{{step}} · {{done}}/{{total}}"
   },
   "inbox": {
     "unreadLabel": "{{label}}, 읽지 않음"

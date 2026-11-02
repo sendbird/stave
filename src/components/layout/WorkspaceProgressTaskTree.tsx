@@ -22,6 +22,7 @@ import type { ChatMessage, Task } from "@/types/chat";
 import { useFleetAttentionStore } from "@/store/fleet-attention-store";
 import { useAppStore } from "@/store/app.store";
 import { workspaceProgressTaskTreeStyles as styles } from "./workspace-progress-task-tree.styles";
+import { TaskRunProgressMeta } from "./WorkspaceRunProgress";
 
 const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
@@ -70,6 +71,12 @@ export function WorkspaceProgressTaskTreeView(args: {
   onOpenTask: (taskId: string) => void;
   /** Lets a row be dragged into a composer to attach the task as context. */
   workspaceId?: string;
+  /**
+   * A running task says what it is doing on a second line of its own row.
+   * The workspace row above no longer speaks for one of its tasks, so the
+   * words sit with the task they describe, each task with its own.
+   */
+  showProgress?: boolean;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   if (!args.loading && args.items.length === 0) {
@@ -129,6 +136,13 @@ export function WorkspaceProgressTaskTreeView(args: {
               <StateMark state={STATUS_WORK_STATE[item.status]} />
               <VisuallyHidden>{statusLabel}</VisuallyHidden>
             </span>
+            {args.showProgress && args.workspaceId && (item.status === "running" || item.status === "stalled") ? (
+              <TaskRunProgressMeta
+                workspaceId={args.workspaceId}
+                taskId={item.taskId}
+                xstyle={styles.progress}
+              />
+            ) : null}
           </AdsButton>
         </li>
       );
@@ -150,6 +164,7 @@ export const WorkspaceProgressTaskTree = memo(
   function WorkspaceProgressTaskTree(args: {
     workspaceId: string;
     repositoryPath: string;
+    showProgress?: boolean;
   }) {
     const [
       tasks,
@@ -210,6 +225,7 @@ export const WorkspaceProgressTaskTree = memo(
       <WorkspaceProgressTaskTreeView
         items={items}
         workspaceId={args.workspaceId}
+        showProgress={args.showProgress}
         onOpenTask={(taskId) => {
           void focusTaskAttention({
             taskId,

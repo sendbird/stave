@@ -9,10 +9,14 @@ import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
 import { AgentRunMark } from "@/components/system/AgentRunMark";
 import {
   buildRunProgress,
+  formatRunProgressDuration,
   formatRunProgressLabel,
+  formatRunProgressSummary,
   selectWorkspaceRunTask,
   type RunProgress,
 } from "@/lib/fleet/run-progress";
+import type { StyleXValue } from "@/components/ads/utils/stylex";
+import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { getTodoProgress } from "@/lib/todo-progress";
 import { useAppStore } from "@/store/app.store";
@@ -46,6 +50,23 @@ function useWorkspaceRunTask(workspaceId: string) {
   );
 }
 
+/** One task's live turn, read row-locally like the workspace's. */
+function useTaskRun(workspaceId: string, taskId: string) {
+  return useAppStore(
+    useShallow((state) => {
+      const isActive = state.activeWorkspaceId === workspaceId;
+      const runtime = isActive ? null : state.workspaceRuntimeCacheById[workspaceId];
+      const activeTurnIdsByTask = isActive ? state.activeTurnIdsByTask : runtime?.activeTurnIdsByTask;
+      const messagesByTask = isActive ? state.messagesByTask : runtime?.messagesByTask;
+      return [
+        activeTurnIdsByTask?.[taskId] ?? null,
+        state.providerTurnActivityByTask[taskId] ?? null,
+        messagesByTask?.[taskId] ?? EMPTY_MESSAGES,
+      ] as const;
+    }),
+  );
+}
+
 export interface WorkspaceRunProgressState {
   progress: RunProgress | null;
   providerId: ProviderId | null;
@@ -61,6 +82,25 @@ export function useWorkspaceRunProgress(
   ticking: boolean,
 ): WorkspaceRunProgressState {
   const [activeTurnId, activity, messages] = useWorkspaceRunTask(workspaceId);
+  return useRunProgress(activeTurnId, activity, messages, ticking);
+}
+
+/** One task's run progress, for its own row in the workspace's task list. */
+export function useTaskRunProgress(
+  workspaceId: string,
+  taskId: string,
+  ticking: boolean,
+): WorkspaceRunProgressState {
+  const [activeTurnId, activity, messages] = useTaskRun(workspaceId, taskId);
+  return useRunProgress(activeTurnId, activity, messages, ticking);
+}
+
+function useRunProgress(
+  activeTurnId: string | null,
+  activity: ProviderTurnActivitySnapshot | null,
+  messages: ChatMessage[],
+  ticking: boolean,
+): WorkspaceRunProgressState {
   const todo = useMemo(() => {
     if (!activeTurnId) {
       return null;
@@ -116,7 +156,50 @@ export function WorkspaceRunProgressText(args: {
   );
 }
 
+/**
+ * A running task's second line in the workspace's task list: what it is doing
+ * (and its to-dos) on the left, its time in a slot of its own on the right, so
+ * the time never truncates with the words. Nothing while no turn runs, or
+ * while it waits on a person: the row's status mark says that.
+ */
+export const TaskRunProgressMeta = memo(function TaskRunProgressMeta(args: {
+  workspaceId: string;
+  taskId: string;
+  xstyle?: StyleXValue;
+}) {
+  useTranslation();
+  const { progress } = useTaskRunProgress(args.workspaceId, args.taskId, true);
+  if (!progress) {
+    return null;
+  }
+  return (
+    <span
+      data-task-run-progress={progress.kind}
+      className={sx(styles.meta, args.xstyle)}
+      title={formatRunProgressLabel(progress)}
+    >
+      <span className={sx(styles.text, toneStyles[progress.kind])}>
+        {formatRunProgressSummary(progress)}
+      </span>
+      <span className={sx(styles.duration)}>{formatRunProgressDuration(progress)}</span>
+    </span>
+  );
+});
+
 const styles = stylex.create({
+  meta: {
+    alignItems: "baseline",
+    color: vars["--ads-color-text-muted"],
+    display: "flex",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    lineHeight: vars["--ads-line-height-normal"],
+    minWidth: 0,
+  },
+  duration: {
+    flexShrink: 0,
+    fontVariantNumeric: "tabular-nums",
+  },
   text: {
     flex: 1,
     fontVariantNumeric: "tabular-nums",

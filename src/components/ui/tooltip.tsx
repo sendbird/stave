@@ -34,17 +34,19 @@ function TooltipContent({
   sideOffset = 8,
   align = "center",
   alignOffset = 0,
+  anchor,
   children,
   ...props
 }: TooltipPrimitive.Popup.Props &
   Pick<
     TooltipPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
+    "align" | "alignOffset" | "anchor" | "side" | "sideOffset"
   >) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
         data-ui-popup-positioner=""
+        anchor={anchor}
         align={align}
         alignOffset={alignOffset}
         side={side}

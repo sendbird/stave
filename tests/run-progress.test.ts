@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { createCodexWorkerActivityMapper } from "../electron/providers/codex-worker-activity";
 import {
   buildRunProgress,
+  formatRunProgressDuration,
   formatRunProgressLabel,
+  formatRunProgressSummary,
   isBlockingWaitToolName,
   resolveRunIndicatorKind,
   resolveTurnWaitTarget,
@@ -258,6 +260,9 @@ describe("run progress", () => {
     expect(progress.step).toBe("Edit file");
     expect(progress.durationMs).toBe(190_000);
     expect(formatRunProgressLabel(progress)).toBe("Edit file · 2/5 · 3m 10s");
+    // A task row keeps the time in its own slot, one unit wide.
+    expect(formatRunProgressSummary(progress)).toBe("Edit file · 2/5");
+    expect(formatRunProgressDuration(progress)).toBe("3m");
   });
 
   test("working without a reported step or to-dos says it is working", () => {
@@ -273,6 +278,7 @@ describe("run progress", () => {
     expect(progress.kind).toBe("stalled");
     expect(progress.durationMs).toBe(360_000);
     expect(formatRunProgressLabel(progress)).toBe("No output · 6m");
+    expect(formatRunProgressSummary(progress)).toBe("No output");
   });
 
   test("waiting measures from the blocking call and counts the helpers", () => {
