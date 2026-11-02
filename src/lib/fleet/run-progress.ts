@@ -261,6 +261,30 @@ export function describeRunWaitLabel(wait: TurnWaitTarget | null) {
  * "Edit file · 2/5 · 3m 10s", "Waiting on 2 helpers · 1m", "No output · 6m".
  * The to-do count rides only with work: a quiet or blocked turn says why first.
  */
+/**
+ * The same words without the time, for a line that keeps the time in a slot
+ * of its own: "Edit file · 2/5", "Waiting on 2 helpers", "No output".
+ */
+export function formatRunProgressSummary(progress: RunProgress) {
+  if (progress.kind === "stalled") {
+    return i18n.t("fleet:runProgress.noOutputLabel");
+  }
+  if (progress.kind === "waiting") {
+    return progress.helperCount > 0
+      ? i18n.t("fleet:runProgress.waitingOnHelpersLabel", { count: progress.helperCount })
+      : i18n.t("fleet:runProgress.waitingOnBackgroundLabel");
+  }
+  const step = progress.step ?? i18n.t("fleet:runProgress.working");
+  return progress.todo
+    ? i18n.t("fleet:runProgress.workingWithTodosLabel", { step, done: progress.todo.done, total: progress.todo.total })
+    : step;
+}
+
+/** The time in its own slot, one unit wide so the slot stays narrow: `24s`, `1m`, `2h`. */
+export function formatRunProgressDuration(progress: RunProgress) {
+  return formatDuration(progress.durationMs, { units: 1 });
+}
+
 export function formatRunProgressLabel(progress: RunProgress) {
   const duration = formatDuration(progress.durationMs);
   if (progress.kind === "stalled") {

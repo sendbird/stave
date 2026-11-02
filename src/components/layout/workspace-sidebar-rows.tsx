@@ -43,11 +43,7 @@ import {
   WorkspaceUnansweredCount,
 } from "@/components/layout/WorkspaceUnansweredCount";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
-import {
-  useWorkspaceRunProgress,
-  WorkspaceRunMark,
-  WorkspaceRunProgressText,
-} from "@/components/layout/WorkspaceRunProgress";
+import { WorkspaceRunMark } from "@/components/layout/WorkspaceRunProgress";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
   SortableDropIndicator,
@@ -798,10 +794,12 @@ export function InlineWorkspaceLabel(args: {
 }
 
 /**
- * The muted text that follows a workspace row's title: what a running turn is
- * doing, else the branch under the generic Default title. `stacked` sits under the
- * title inside the row's height; `trailing` follows the title on the same line
- * and shows the branch only. Renders nothing when there is nothing new to say.
+ * The muted text that follows a workspace row's title: the branch under the
+ * generic Default title. `stacked` sits under the title inside the row's
+ * height; `trailing` follows the title on the same line. Renders nothing when
+ * there is nothing new to say. What a running turn is doing is not said here:
+ * it belongs to one task, so it sits on that task's row in the list below
+ * (`TaskRunProgressMeta`), where each running task says its own.
  */
 export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
   workspaceId: string;
@@ -810,15 +808,6 @@ export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
   isDefault: boolean;
   layout: "stacked" | "trailing";
 }) {
-  // While a turn runs the line says what it is doing instead of the branch.
-  const { progress } = useWorkspaceRunProgress(args.workspaceId, args.layout === "stacked");
-  if (args.layout === "stacked" && progress) {
-    return (
-      <span className={sx(repositorySidebarStyles.rowSecondary)}>
-        <WorkspaceRunProgressText progress={progress} />
-      </span>
-    );
-  }
   const branch = resolveWorkspaceRowBranch({
     name: args.workspaceName,
     branch: args.branch,

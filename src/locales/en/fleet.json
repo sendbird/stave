@@ -255,7 +255,9 @@
     "waitingOnBackground": "Waiting on background work · {{duration}}",
     "waitingOnHelpersLabel_one": "Waiting on {{count}} helper",
     "waitingOnHelpersLabel_other": "Waiting on {{count}} helpers",
-    "waitingOnBackgroundLabel": "Waiting on background work"
+    "waitingOnBackgroundLabel": "Waiting on background work",
+    "noOutputLabel": "No output",
+    "workingWithTodosLabel": "{{step}} · {{done}}/{{total}}"
   },
   "inbox": {
     "unreadLabel": "{{label}}, unread"

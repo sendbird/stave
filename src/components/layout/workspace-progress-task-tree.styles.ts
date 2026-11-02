@@ -11,7 +11,9 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     listStyleType: "none",
     marginBlock: 0,
     marginBlockStart: vars["--ads-space-2"],
-    marginInlineStart: vars["--ads-space-20"],
+    // A step in from the workspace row: the active workspace's two-tone fill
+    // already says the tasks are its own, so the rows keep their width.
+    marginInlineStart: vars["--ads-space-12"],
     minWidth: 0,
     paddingInline: 0,
   },
@@ -26,13 +28,19 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     paddingBlock: 6,
     paddingInline: vars["--ads-space-8"],
   },
+  /**
+   * Mark, title and status on the first line; a running task's progress on a
+   * second line that starts under the title and runs under the status too, so
+   * the words get the row's full width after the mark.
+   */
   row: {
     alignItems: "center",
     borderRadius: vars["--ads-radius-control"],
     color: { default: vars["--ads-color-text"], ":hover": vars["--ads-color-text"] },
-    display: "flex",
+    columnGap: vars["--ads-space-8"],
+    display: "grid",
     fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
+    gridTemplateColumns: "16px minmax(0, 1fr) auto",
     minHeight: 32,
     minWidth: 0,
     paddingBlock: 6,
@@ -40,6 +48,7 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     textAlign: "start",
     width: "100%",
   },
+  progress: { gridColumn: "2 / -1" },
   rowTitle: {
     flex: 1,
     minWidth: 0,

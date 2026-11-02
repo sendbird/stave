@@ -47,10 +47,16 @@ async function seed(page: Page) {
   });
 }
 
-/** The browser build lists only the worktrees it finds, so restate the three after hydration. */
+/**
+ * The browser build lists only the worktrees it finds, so restate the three
+ * after hydration. The app also re-lists them every 30 seconds (`App.tsx`),
+ * which would drop the restated rows from a test that runs past that under
+ * load, so the fixture's refresh does nothing.
+ */
 async function restateWorkspaces(page: Page) {
   await page.evaluate(async () => {
     const { useAppStore } = await import("/src/store/app.store.ts");
+    useAppStore.setState({ refreshWorkspaces: async () => {} } as never);
     const workspaces = [
       { id: "ws-main", name: "main", updatedAt: "2026-10-31T00:00:00.000Z" },
       { id: "ws-nav", name: "feat/navigation", updatedAt: "2026-10-31T00:00:00.000Z" },
@@ -300,9 +306,10 @@ for (const theme of ["light", "dark"] as const) {
         row: getComputedStyle(row).backgroundColor,
       };
     });
-    // The group paints the selection; the row inside it adds nothing at rest.
+    // Two tones: a light wash under the row and its tasks, the row deeper on top.
     expect(fills.group).not.toBe("rgba(0, 0, 0, 0)");
-    expect(fills.row).toBe("rgba(0, 0, 0, 0)");
+    expect(fills.row).not.toBe("rgba(0, 0, 0, 0)");
+    expect(fills.row).not.toBe(fills.group);
     const groupBox = (await group.boundingBox())!;
     const tasksBox = (await tasks.boundingBox())!;
     expect(tasksBox.y + tasksBox.height).toBeLessThanOrEqual(groupBox.y + groupBox.height + 0.5);
@@ -325,5 +332,83 @@ for (const theme of ["light", "dark"] as const) {
       await page.mouse.move(1400, 880);
       await expect(tooltip).toBeHidden();
     }
+  });
+}
+
+/** A live turn on the fixture's task, with a step and to-dos, as the provider reports it. */
+async function runFixtureTask(page: Page) {
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { applyProviderTurnActivityEvents } = await import("/src/lib/providers/turn-status.ts");
+    const activity = applyProviderTurnActivityEvents({
+      activityByTask: {},
+      taskId: "task-a",
+      turnId: "turn-a",
+      providerId: "claude-code",
+      events: [{ type: "tool", toolUseId: "read-1", toolName: "Read", input: JSON.stringify({ file_path: "src/a.ts" }), state: "input-available" }],
+      now: Date.now() - 90_000,
+    });
+    const todo = {
+      id: "todo-message", role: "assistant", providerId: "claude-code", model: "model", content: "", turnId: "turn-a", isStreaming: true,
+      parts: [{ type: "tool_use", toolUseId: "todo", toolName: "TodoWrite", state: "output-available", input: JSON.stringify({ todos: [{ content: "One", status: "completed" }, { content: "Two", status: "in_progress" }, { content: "Three", status: "pending" }] }) }],
+    };
+    useAppStore.setState((state) => ({
+      activeTurnIdsByTask: { "task-a": "turn-a" },
+      providerTurnActivityByTask: { ...state.providerTurnActivityByTask, ...activity },
+      messagesByTask: { ...state.messagesByTask, "task-a": [todo] },
+    }) as never);
+  });
+}
+
+for (const locale of ["en", "ko"] as const) {
+  test(`a running task says what it is doing on its own row, not on the workspace row: ${locale}`, async ({ page }) => {
+    await seed(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(page.getByTestId("top-bar")).toBeVisible();
+    await restateWorkspaces(page);
+    await runFixtureTask(page);
+    await page.evaluate(async (locale) => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      const { applyAppLocale } = await import("/src/i18n/index.ts");
+      applyAppLocale(locale);
+      useAppStore.setState((state) => ({ layout: { ...state.layout, workspaceSidebarItemDisplayMode: "expanded" } }) as never);
+      await document.fonts.ready;
+    }, locale);
+    const sidebar = page.getByTestId("project-workspace-sidebar");
+    const group = sidebar.locator("[data-workspace-item][data-active]");
+    // The workspace row keeps its title; the step lives with the task.
+    await expect(group.locator("[data-run-progress]")).toHaveCount(0);
+    const task = group.locator('[data-workspace-progress-task="task-a"]');
+    const progress = task.locator("[data-task-run-progress]");
+    await expect(progress).toHaveAttribute("data-task-run-progress", "working");
+    await expect(progress).toContainText(locale === "en" ? "Read file · 1/3" : "1/3");
+    await expect(progress).toContainText(locale === "en" ? "1m" : "1분");
+    const geometry = await task.evaluate((row) => {
+      const title = row.querySelector(":scope > span:nth-child(2)")!.getBoundingClientRect();
+      const meta = row.querySelector("[data-task-run-progress]")!;
+      const words = meta.firstElementChild!.getBoundingClientRect();
+      const time = meta.lastElementChild!.getBoundingClientRect();
+      const status = row.querySelector(":scope > span:nth-child(3)")!.getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      return {
+        wordsLeft: words.left, titleLeft: title.left, timeRight: time.right, statusRight: status.right,
+        rowRight: box.right, metaTop: meta.getBoundingClientRect().top, titleBottom: title.bottom,
+        scroll: row.scrollWidth <= row.clientWidth + 1,
+      };
+    });
+    // The words start under the title, the time ends under the status mark, on a line of its own.
+    expect(Math.abs(geometry.wordsLeft - geometry.titleLeft)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.timeRight - geometry.statusRight)).toBeLessThanOrEqual(1);
+    expect(geometry.timeRight).toBeLessThanOrEqual(geometry.rowRight);
+    expect(geometry.metaTop).toBeGreaterThanOrEqual(geometry.titleBottom - 1);
+    expect(geometry.scroll).toBe(true);
+
+    // Compact rows stay one line.
+    await page.evaluate(async () => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      useAppStore.setState((state) => ({ layout: { ...state.layout, workspaceSidebarItemDisplayMode: "compact" } }) as never);
+    });
+    await expect(task.locator("[data-task-run-progress]")).toHaveCount(0);
   });
 }

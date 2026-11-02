@@ -1710,6 +1710,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                                 repositoryPath={
                                                   repository.repositoryPath
                                                 }
+                                                // The expanded rows carried the progress line before; it moves to the task it describes.
+                                                showProgress={isExpandedWorkspaceItem}
                                               />
                                             </div>
                                           )}
