@@ -1,6 +1,9 @@
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
 import { EmptyState } from "@/components/ads/components/EmptyState";
-import { clearTaskMessagesLoadFailure, useTaskMessageLoadFailures } from "@/store/task-message-load-failures";
+import {
+  clearTaskMessagesLoadFailure,
+  useTaskMessageLoadFailures,
+} from "@/store/task-message-load-failures";
 import { questionReplyAnswerText } from "@/lib/question-reply";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDate, formatDuration } from "@/i18n/format";
@@ -83,10 +86,7 @@ import type { ChatMessage, MessagePart } from "@/types/chat";
 import type { PromptCacheTurnSnapshot } from "@/lib/providers/usage-cache";
 import type { ClaudeFileRewindResponse } from "@/lib/providers/provider.types";
 import { useShallow } from "zustand/react/shallow";
-import {
-  CopyButton,
-  toProviderWaveHueClass,
-} from "./chat-panel-message-parts";
+import { CopyButton, toProviderWaveHueClass } from "./chat-panel-message-parts";
 import { ConversationTurnActions } from "./ConversationTurnActions";
 import {
   MessageUsageSummary,
@@ -294,8 +294,14 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     pending: isUser && pendingAgentRun,
   });
   const agentRunPrompt = questionReply ? null : resolvedAgentRunPrompt;
-  const userMessageSourceText = questionReply ? questionReplyAnswerText(questionReply) : agentRunPrompt?.assignment ?? messageText;
+  const userMessageSourceText = questionReply
+    ? questionReplyAnswerText(questionReply)
+    : (agentRunPrompt?.assignment ?? messageText);
   const promptLayout = agentRunPromptLayout(agentRunPrompt);
+  // Copy and the timestamp belong to the words a person sent. A run turn
+  // Stave wrote alone (a later stage's card, the reminder to report) draws no
+  // bubble, so it draws neither; its action row stays only for history actions.
+  const staveWroteTurn = !promptLayout.bubble;
   const bodyMessage = useMemo(
     () =>
       agentRunPrompt?.assignment
@@ -399,7 +405,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
       if (result.ok && result.canRewind) {
         setRewindDialogOpen(false);
         toast.success(i18n.t("session:chatPanel.handleRewindConfirm"), {
-          description: i18n.t("session:chatPanel.description", { value1: result.filesChanged?.length ?? 0 }),
+          description: i18n.t("session:chatPanel.description", {
+            value1: result.filesChanged?.length ?? 0,
+          }),
         });
       } else {
         setRewindPreview(result);
@@ -410,7 +418,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setRewindPreview({ ok: false, canRewind: false, detail });
-      toast.error(i18n.t("session:chatPanel.handleRewindConfirm3"), { description: detail });
+      toast.error(i18n.t("session:chatPanel.handleRewindConfirm3"), {
+        description: detail,
+      });
     } finally {
       setHistoryAction(null);
     }
@@ -461,8 +471,11 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ) : null}
           {/* A run prompt with no words of the user's draws no bubble: the
               bubble holds only what the person wrote. */}
-          {promptLayout.bubble && (!questionReply || Boolean(userMessageSourceText)) ? (
-            <AgentRunBubbleFrame framed={promptLayout.row !== null || Boolean(questionReply)}>
+          {promptLayout.bubble &&
+          (!questionReply || Boolean(userMessageSourceText)) ? (
+            <AgentRunBubbleFrame
+              framed={promptLayout.row !== null || Boolean(questionReply)}
+            >
               <MessageContent
                 className={
                   message.role === "assistant"
@@ -489,113 +502,129 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               </MessageContent>
             </AgentRunBubbleFrame>
           ) : null}
-          {promptLayout.stage ? <AgentRunStageCard stage={promptLayout.stage} /> : null}
+          {promptLayout.stage ? (
+            <AgentRunStageCard stage={promptLayout.stage} />
+          ) : null}
           {agentRunPrompt && promptLayout.row ? (
-            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} align={promptLayout.stage ? "start" : "end"} />
+            <AgentRunPromptRow
+              text={agentRunPrompt.instructions}
+              kind={promptLayout.row}
+              align={promptLayout.stage ? "start" : "end"}
+            />
           ) : null}
           {questionReply ? <QuestionReplyRow reply={questionReply} /> : null}
           {message.role === "user" && steerDeliveryLabel ? (
             <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
-          <MessageActions
-            className={sx(
-              message.role === "user" && !promptLayout.stage && styles.actionsUser,
-              (message.role === "assistant" || promptLayout.stage) && styles.actionsAssistant,
-            )}
-          >
-            <div className={sx(styles.actionRow)}>
-              {message.providerId !== "user" && message.model ? (
-                <MessageAction
-                  key="provider-action"
-                  label={turnModelInfoLabel}
-                  tooltip={
-                    <TurnModelTooltip
-                      modelLabel={turnModelLabel}
-                      account={turnAccount}
+          {!staveWroteTurn || canRewindFiles ? (
+            <MessageActions
+              className={sx(
+                message.role === "user" &&
+                  !promptLayout.stage &&
+                  styles.actionsUser,
+                (message.role === "assistant" || promptLayout.stage) &&
+                  styles.actionsAssistant,
+              )}
+            >
+              <div className={sx(styles.actionRow)}>
+                {message.providerId !== "user" && message.model ? (
+                  <MessageAction
+                    key="provider-action"
+                    label={turnModelInfoLabel}
+                    tooltip={
+                      <TurnModelTooltip
+                        modelLabel={turnModelLabel}
+                        account={turnAccount}
+                      />
+                    }
+                    press="none"
+                    // The notation is a flat metadata row, so the action shell
+                    // is stripped back to a positioning wrapper.
+                    className={sx(styles.providerAction)}
+                  >
+                    <TurnModelChip
+                      providerId={message.providerId}
+                      model={message.model}
+                      parts={turnModelInfoParts}
+                      account={
+                        turnAccount?.inline ? turnAccountName : undefined
+                      }
                     />
-                  }
-                  press="none"
-                  // The notation is a flat metadata row, so the action shell
-                  // is stripped back to a positioning wrapper.
-                  className={sx(styles.providerAction)}
-                >
-                  <TurnModelChip
+                  </MessageAction>
+                ) : null}
+                {message.role === "assistant" && elapsedLabel ? (
+                  <MessageAction
+                    key="elapsed-action"
+                    label={i18n.t("session:chatPanel.label")}
+                    className={sx(styles.elapsedAction)}
+                  >
+                    {showRespondingWave ? (
+                      <Loader
+                        aria-hidden
+                        className={toProviderWaveHueClass({
+                          providerId: message.providerId,
+                          model: message.model,
+                        })}
+                        size="xs"
+                        variant="pulse"
+                      />
+                    ) : null}
+                    {elapsedLabel}
+                  </MessageAction>
+                ) : null}
+                {!staveWroteTurn &&
+                (!questionReply || userMessageSourceText) ? (
+                  <CopyButton key="copy-action" text={userMessageSourceText} />
+                ) : null}
+                {!staveWroteTurn ? (
+                  <MessageTimeDetails
+                    message={message}
+                    onOpenChange={setTimeDetailsOpen}
+                    className={sx(styles.turnActionsReveal)}
+                  />
+                ) : null}
+                {canRewindFiles ? (
+                  <MessageAction
+                    key="rewind-action"
+                    label={i18n.t("session:chatPanel.label2")}
+                    disabled={historyAction != null}
+                    onClick={() => void handleRewindPreview()}
+                  >
+                    {historyAction === "preview" ? (
+                      <Loader aria-hidden size="xs" variant="scan" />
+                    ) : (
+                      <Undo2 className={sx(styles.rewindIcon)} />
+                    )}
+                  </MessageAction>
+                ) : null}
+                {/* Kiro can finish a turn with no usage record; the summary
+                    still mounts so it can say so. Cursor never reports over
+                    ACP, so an empty Cursor turn stays badge-less. */}
+                {message.role === "assistant" &&
+                (message.usage ||
+                  message.delegatedUsage?.length ||
+                  providerMayOmitTurnUsage(message.providerId)) &&
+                !showRespondingWave ? (
+                  <MessageUsageSummary
+                    usage={message.usage}
+                    delegatedUsage={message.delegatedUsage}
                     providerId={message.providerId}
                     model={message.model}
-                    parts={turnModelInfoParts}
-                    account={turnAccount?.inline ? turnAccountName : undefined}
+                    nativeProviderSessionId={message.nativeProviderSessionId}
+                    previousTurn={previousAssistantTurn}
                   />
-                </MessageAction>
-              ) : null}
-              {message.role === "assistant" && elapsedLabel ? (
-                <MessageAction
-                  key="elapsed-action"
-                  label={i18n.t("session:chatPanel.label")}
-                  className={sx(styles.elapsedAction)}
-                >
-                  {showRespondingWave ? (
-                    <Loader
-                      aria-hidden
-                      className={toProviderWaveHueClass({
-                        providerId: message.providerId,
-                        model: message.model,
-                      })}
-                      size="xs"
-                      variant="pulse"
-                    />
-                  ) : null}
-                  {elapsedLabel}
-                </MessageAction>
-              ) : null}
-              {!questionReply || userMessageSourceText ? (
-                <CopyButton key="copy-action" text={userMessageSourceText} />
-              ) : null}
-              <MessageTimeDetails
-                message={message}
-                onOpenChange={setTimeDetailsOpen}
-                className={sx(styles.turnActionsReveal)}
-              />
-              {canRewindFiles ? (
-                <MessageAction
-                  key="rewind-action"
-                  label={i18n.t("session:chatPanel.label2")}
-                  disabled={historyAction != null}
-                  onClick={() => void handleRewindPreview()}
-                >
-                  {historyAction === "preview" ? (
-                    <Loader aria-hidden size="xs" variant="scan" />
-                  ) : (
-                    <Undo2 className={sx(styles.rewindIcon)} />
-                  )}
-                </MessageAction>
-              ) : null}
-              {/* Kiro can finish a turn with no usage record; the summary
-                  still mounts so it can say so. Cursor never reports over
-                  ACP, so an empty Cursor turn stays badge-less. */}
-              {message.role === "assistant" &&
-              (message.usage ||
-                message.delegatedUsage?.length ||
-                providerMayOmitTurnUsage(message.providerId)) &&
-              !showRespondingWave ? (
-                <MessageUsageSummary
-                  usage={message.usage}
-                  delegatedUsage={message.delegatedUsage}
-                  providerId={message.providerId}
-                  model={message.model}
-                  nativeProviderSessionId={message.nativeProviderSessionId}
-                  previousTurn={previousAssistantTurn}
-                />
-              ) : null}
-              {message.role === "assistant" && threadActionState ? (
-                <ConversationTurnActions
-                  taskId={taskId}
-                  messageId={message.id}
-                  state={threadActionState}
-                  className={sx(styles.turnActionsReveal)}
-                />
-              ) : null}
-            </div>
-          </MessageActions>
+                ) : null}
+                {message.role === "assistant" && threadActionState ? (
+                  <ConversationTurnActions
+                    taskId={taskId}
+                    messageId={message.id}
+                    state={threadActionState}
+                    className={sx(styles.turnActionsReveal)}
+                  />
+                ) : null}
+              </div>
+            </MessageActions>
+          ) : null}
           {canRewindFiles || rewindDialogOpen ? (
             <Dialog
               open={rewindDialogOpen}
@@ -610,21 +639,31 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 xstyle={styles.dialogContent}
               >
                 <DialogHeader>
-                  <DialogTitle>{i18n.t("session:chatPanel.messageRow")}</DialogTitle>
+                  <DialogTitle>
+                    {i18n.t("session:chatPanel.messageRow")}
+                  </DialogTitle>
                   <DialogDescription>
-                    {i18n.t("session:chatPanel.messageRow2")}</DialogDescription>
+                    {i18n.t("session:chatPanel.messageRow2")}
+                  </DialogDescription>
                 </DialogHeader>
                 <div aria-live="polite" className={sx(styles.dialogBody)}>
                   {historyAction === "preview" && !rewindPreview ? (
                     <div className={sx(styles.dialogStatusRow)}>
                       <Loader aria-hidden size="xs" variant="scan" />
-                      {i18n.t("session:chatPanel.messageRow3")}</div>
+                      {i18n.t("session:chatPanel.messageRow3")}
+                    </div>
                   ) : rewindPreview?.ok && rewindPreview.canRewind ? (
                     <>
-                      <p className={sx(styles.dialogFilesLine)}>{i18n.t("session:chatPanel.sentence39", { value1: rewindPreview.filesChanged?.length ?? 0, value2: rewindPreview.insertions != null ||
-                        rewindPreview.deletions != null
-                          ? ` · +${rewindPreview.insertions ?? 0} / −${rewindPreview.deletions ?? 0}`
-                          : "" })}</p>
+                      <p className={sx(styles.dialogFilesLine)}>
+                        {i18n.t("session:chatPanel.sentence39", {
+                          value1: rewindPreview.filesChanged?.length ?? 0,
+                          value2:
+                            rewindPreview.insertions != null ||
+                            rewindPreview.deletions != null
+                              ? ` · +${rewindPreview.insertions ?? 0} / −${rewindPreview.deletions ?? 0}`
+                              : "",
+                        })}
+                      </p>
                       {rewindPreview.filesChanged?.length ? (
                         <ul
                           aria-label={i18n.t("session:chatPanel.ariaLabel")}
@@ -641,7 +680,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                         </ul>
                       ) : (
                         <p className={sx(styles.dialogEmpty)}>
-                          {i18n.t("session:chatPanel.messageRow5")}</p>
+                          {i18n.t("session:chatPanel.messageRow5")}
+                        </p>
                       )}
                     </>
                   ) : rewindPreview ? (
@@ -658,7 +698,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     disabled={historyAction === "rewind"}
                     onClick={() => setRewindDialogOpen(false)}
                   >
-                    {i18n.t("session:chatPanel.messageRow6")}</Button>
+                    {i18n.t("session:chatPanel.messageRow6")}
+                  </Button>
                   <Button
                     type="button"
                     variant="destructive"
@@ -673,7 +714,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     {historyAction === "rewind" ? (
                       <Loader aria-hidden size="xs" variant="persist" />
                     ) : null}
-                    {i18n.t("session:chatPanel.messageRow7")}</Button>
+                    {i18n.t("session:chatPanel.messageRow7")}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -715,7 +757,9 @@ function PendingAutoRouteTurn(props: {
         autoRouteLineStyles.pendingTurn,
         props.first && autoRouteLineStyles.pendingTurnFirst,
       )}
-      data-testid={pending.agentRun ? "pending-agent-run-turn" : "pending-auto-route-turn"}
+      data-testid={
+        pending.agentRun ? "pending-agent-run-turn" : "pending-auto-route-turn"
+      }
     >
       <MessageRow
         taskId={props.taskId}
@@ -830,7 +874,10 @@ function ChatPanelMessageList(props: {
   const suppressAnchorUntilRef = useRef(0);
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
 
-  const visibleMessages = useMemo(() => visibleSteerMessageSegments(messages), [messages]);
+  const visibleMessages = useMemo(
+    () => visibleSteerMessageSegments(messages),
+    [messages],
+  );
   const dateSeparators = useMemo(
     () => buildConversationDateSeparators(visibleMessages),
     [visibleMessages],
@@ -856,7 +903,9 @@ function ChatPanelMessageList(props: {
   const hasOlderMessages = messages.length < totalMessageCount;
   // A read of this task's messages failed: never draw that as a new task, and
   // say so at the older-messages row.
-  const messagesLoadFailed = useTaskMessageLoadFailures((state) => state.failedByTask[taskId] === true);
+  const messagesLoadFailed = useTaskMessageLoadFailures(
+    (state) => state.failedByTask[taskId] === true,
+  );
   const retryMessages = (mode: "latest" | "older") => {
     clearTaskMessagesLoadFailure(taskId);
     void loadTaskMessages({ taskId, mode });
@@ -1082,11 +1131,19 @@ function ChatPanelMessageList(props: {
   // and every way the search can end (not in the conversation, too far back, a
   // failed load) says so instead of leaving the click with no answer.
   const handledFocusTranscriptNonceRef = useRef<number | null>(null);
-  const transcriptRevealRef = useRef<{ nonce: number; pages: number; inFlight: boolean } | null>(null);
+  const transcriptRevealRef = useRef<{
+    nonce: number;
+    pages: number;
+    inFlight: boolean;
+  } | null>(null);
   const [transcriptRevealTick, setTranscriptRevealTick] = useState(0);
   // The step being revealed (a tool call, or an approval or answer you gave):
   // its row opens the trace that holds it, and focus moves once it is on screen.
-  const [revealedStep, setRevealedStep] = useState<{ messageId: string; toolUseId?: string; requestId?: string } | null>(null);
+  const [revealedStep, setRevealedStep] = useState<{
+    messageId: string;
+    toolUseId?: string;
+    requestId?: string;
+  } | null>(null);
   // Read by the focus wait below without restarting it on every provider flush.
   const visibleMessagesRef = useRef(visibleMessages);
   useEffect(() => {
@@ -1104,7 +1161,10 @@ function ChatPanelMessageList(props: {
     const { toolUseId, decision, nonce } = focusTranscriptToolRequest;
     const messageIndex = decision
       ? findMessageIndexByDecision({ messages: visibleMessages, ...decision })
-      : findMessageIndexByToolUseId({ messages: visibleMessages, toolUseId: toolUseId ?? "" });
+      : findMessageIndexByToolUseId({
+          messages: visibleMessages,
+          toolUseId: toolUseId ?? "",
+        });
     if (transcriptRevealRef.current?.nonce !== nonce) {
       transcriptRevealRef.current = { nonce, pages: 0, inFlight: false };
     }
@@ -1155,7 +1215,8 @@ function ChatPanelMessageList(props: {
     // between would save a reading anchor from rows on their way out, and the
     // next render would restore to it, away from the step. The focus wait
     // below saves the anchor once the step is on screen.
-    suppressAnchorUntilRef.current = Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
+    suppressAnchorUntilRef.current =
+      Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
     virtuosoRef.current?.scrollToIndex({
       index: messageIndex,
       align: "center",
@@ -1163,7 +1224,11 @@ function ChatPanelMessageList(props: {
     });
     const messageId = visibleMessages[messageIndex]?.id;
     if (messageId) {
-      setRevealedStep(decision ? { messageId, requestId: decision.requestId } : { messageId, toolUseId });
+      setRevealedStep(
+        decision
+          ? { messageId, requestId: decision.requestId }
+          : { messageId, toolUseId },
+      );
     }
   }, [
     focusTranscriptToolRequest,
@@ -1200,7 +1265,10 @@ function ChatPanelMessageList(props: {
       if (container && row) {
         taskScrollAnchorCache.save(scrollContextKey, {
           messageId: revealedStep.messageId,
-          offset: Math.round(container.getBoundingClientRect().top - row.getBoundingClientRect().top),
+          offset: Math.round(
+            container.getBoundingClientRect().top -
+              row.getBoundingClientRect().top,
+          ),
         });
       }
     };
@@ -1220,14 +1288,20 @@ function ChatPanelMessageList(props: {
           (message) => message.id === revealedStep.messageId,
         );
         if (index >= 0) {
-          virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "auto" });
+          virtuosoRef.current?.scrollToIndex({
+            index,
+            align: "center",
+            behavior: "auto",
+          });
         }
       }
       if (node || ++frames >= TRANSCRIPT_STEP_FOCUS_MAX_FRAMES) {
         if (!node) {
           suppressAnchorUntilRef.current = 0;
         }
-        setRevealedStep((current) => (current === revealedStep ? null : current));
+        setRevealedStep((current) =>
+          current === revealedStep ? null : current,
+        );
         return;
       }
       frame = window.requestAnimationFrame(focusStep);
@@ -1322,7 +1396,9 @@ function ChatPanelMessageList(props: {
             >
               {taskMessagesLoading
                 ? i18n.t("session:chatPanel.chatPanelMessageList")
-                : i18n.t("session:chatPanel.chatPanelMessageList2", { value1: totalMessageCount - messages.length })}
+                : i18n.t("session:chatPanel.chatPanelMessageList2", {
+                    value1: totalMessageCount - messages.length,
+                  })}
             </Button>
           </div>
         ) : null}
@@ -1332,13 +1408,18 @@ function ChatPanelMessageList(props: {
             title={i18n.t("session:chatPanel.title")}
             description={i18n.t("session:chatPanel.description2")}
           />
-        ) : visibleMessages.length === 0 && totalMessageCount > 0 && messagesLoadFailed ? (
+        ) : visibleMessages.length === 0 &&
+          totalMessageCount > 0 &&
+          messagesLoadFailed ? (
           <EmptyState
             role="alert"
             tone="danger"
             title={i18n.t("session:chatPanel.messagesFailedTitle")}
             description={i18n.t("session:chatPanel.messagesFailedDescription")}
-            action={{ children: i18n.t("common:actions.retry"), onClick: () => retryMessages("latest") }}
+            action={{
+              children: i18n.t("common:actions.retry"),
+              onClick: () => retryMessages("latest"),
+            }}
           />
         ) : visibleMessages.length === 0 &&
           !hasFailedSends &&
