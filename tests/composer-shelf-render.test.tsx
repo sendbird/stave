@@ -194,19 +194,35 @@ const runLine = (props: Partial<Parameters<typeof TurnRunLine>[0]> = {}) =>
   );
 
 describe("turn run line", () => {
-  test("says Working, the current step, the to-do progress and the elapsed time, with Stop", () => {
+  test("leads with the plan step, puts the tool call under it, and counts the to-dos once, with Stop", () => {
     const html = runLine();
     expect(html).toContain('data-testid="composer-shelf-run"');
     expect(html).toContain('data-state="active"');
-    expect(html).toContain("Working");
-    expect(html).toContain("Edit file");
-    expect(html).toContain("src/components/session/ChatInput.tsx");
+    expect(html).toContain(">Move the queue<");
+    expect(html).not.toContain("Working");
+    expect(html).toContain('data-testid="composer-shelf-action"');
+    expect(html).toContain("Edit file · src/components/session/ChatInput.tsx");
     expect(html).toContain('aria-label="3 of 7 to-dos done"');
-    expect(html).toContain("3/7");
+    // One count: the segment's, not a second one in words.
+    expect(html.match(/3\/7/g)).toHaveLength(1);
     expect(html).toContain("48s");
     expect(html).toContain(">Stop<");
     expect(html).toContain('aria-label="Open activity in the Task panel"');
     expect(html).toContain('aria-label="Show activity details"');
+  });
+
+  test("without a plan it says Working and the tool call on the one line", () => {
+    const html = runLine({ surface: surface({ todos: [] }) });
+    expect(html).toContain("Working");
+    expect(html).toContain("Edit file");
+    expect(html).not.toContain('data-testid="composer-shelf-action"');
+    expect(html).not.toContain("composer-shelf-todo-progress");
+  });
+
+  test("a plan-only toggle says it shows the plan", () => {
+    const html = runLine({ detail: { kind: "inline", open: false, onToggle: noop, planOnly: true } });
+    expect(html).toContain('aria-label="Show plan"');
+    expect(html).not.toContain('aria-label="Show activity details"');
   });
 
   test("a stalled turn is a tone of the line, not a banner of its own", () => {

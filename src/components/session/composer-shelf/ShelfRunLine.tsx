@@ -68,6 +68,8 @@ export interface ShelfRunDetailToggle {
   kind: "inline" | "floating";
   open: boolean;
   onToggle: () => void;
+  /** The inline details hold only the plan; the activity lives in the Task panel. */
+  planOnly?: boolean;
 }
 
 export interface ShelfRunPanelButton {
@@ -240,7 +242,9 @@ function ShelfDetailButton(props: ShelfRunDetailToggle) {
       </Tooltip>
     );
   }
-  const label = props.open ? i18n.t("composer:shelfRunLine.label3") : i18n.t("composer:shelfRunLine.label4");
+  const label = props.planOnly
+    ? props.open ? i18n.t("composer:shelfPlan.hidePlan") : i18n.t("composer:shelfPlan.showPlan")
+    : props.open ? i18n.t("composer:shelfRunLine.label3") : i18n.t("composer:shelfRunLine.label4");
   return (
     <Tooltip content={label}>
       <Button

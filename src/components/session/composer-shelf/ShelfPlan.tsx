@@ -1,46 +1,79 @@
 import * as stylex from "@stylexjs/stylex";
+import { useState } from "react";
 import { i18n, useTranslation } from "@/i18n";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { AgentRunPlan, describePlanProgress } from "@/components/agent-runs/AgentRunPlan";
+import { AgentRunPlan } from "@/components/agent-runs/AgentRunPlan";
 import type { StagePlan } from "@/lib/agent-runs/domain";
 
-/** A plan stays readable independently of the activity list's placement/toggle. */
+/**
+ * The plan in the shelf's open details. The run line above already names the
+ * current step and the count, so this section has no summary of its own: it
+ * lists the steps, with the finished ones folded behind one toggle while any
+ * are left, so the current step leads.
+ */
 export function ShelfPlan({ items, live }: { items: StagePlan["items"]; live: boolean }) {
   useTranslation();
+  const [showDone, setShowDone] = useState(false);
   if (!items.length) return null;
-  const current = items.find((item) => item.status === "in_progress");
-  const label = [i18n.t("ui:plan.plan"), describePlanProgress(items), current?.content].filter(Boolean).join(" · ");
+  const done = items.filter((item) => item.status === "completed").length;
+  // A finished plan lists every step; there is nothing left to lead with.
+  const foldable = done > 0 && done < items.length;
+  const shown = foldable && !showDone ? items.filter((item) => item.status !== "completed") : items;
   return (
-    <details className={sx(styles.root)} data-testid="shelf-plan">
-      <summary className={sx(styles.summary, focusRing.ringInset)} title={label}>
-        <span className={sx(styles.label)}>{label}</span>
-      </summary>
-      <div className={sx(styles.list)}>
-        <AgentRunPlan items={items} live={live} />
+    <section className={sx(styles.root)} data-testid="shelf-plan" aria-label={i18n.t("ui:plan.plan")}>
+      <div className={sx(styles.head)}>
+        <span className={sx(styles.heading)}>{i18n.t("ui:plan.plan")}</span>
+        {foldable ? (
+          <Button
+            variant="quiet"
+            size="xs"
+            aria-expanded={showDone}
+            onClick={() => setShowDone(!showDone)}
+            xstyle={styles.toggle}
+          >
+            {showDone
+              ? i18n.t("composer:shelfPlan.hideDone")
+              : i18n.t("composer:shelfPlan.showDone", { count: done })}
+          </Button>
+        ) : null}
       </div>
-    </details>
+      <div className={sx(styles.list)}>
+        <AgentRunPlan items={shown} live={live} compact />
+      </div>
+    </section>
   );
 }
 
 const styles = stylex.create({
-  root: { minWidth: 0 },
-  summary: {
-    cursor: "pointer",
-    overflow: "hidden",
-    whiteSpace: "nowrap",
-    textOverflow: "ellipsis",
+  root: {
+    minWidth: 0,
+    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 50%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+  },
+  head: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+    paddingBlockStart: vars["--ads-space-4"],
+    paddingInlineStart: vars["--ads-space-12"],
+    paddingInlineEnd: vars["--ads-space-4"],
+  },
+  heading: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
-  label: { overflowWrap: "anywhere" },
+  toggle: { color: vars["--ads-color-text-muted"] },
   list: {
     maxHeight: "25vh",
     overflowY: "auto",
-    paddingBlockEnd: vars["--ads-space-8"],
+    overscrollBehavior: "contain",
+    paddingBlock: vars["--ads-space-4"],
     paddingInline: vars["--ads-space-12"],
   },
 });

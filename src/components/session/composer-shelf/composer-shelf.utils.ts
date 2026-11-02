@@ -153,23 +153,38 @@ export interface ShelfRunControls {
   /** The toggle beside the line, or none when the details live in the Task panel. */
   detailToggle: "inline" | "floating" | null;
   /**
+   * The inline toggle unfolds the plan alone: the activity list lives in the
+   * Task panel, or there is no list to unfold yet.
+   */
+  planOnly: boolean;
+  /**
    * The Task panel button. `wide` drops it when the composer is narrow, where
    * the details are still one toggle away; `always` keeps it because it is the
-   * only way to the details.
+   * only way to the activity.
    */
   panelButton: "always" | "wide" | null;
 }
 
+/**
+ * One toggle for the line. It unfolds the activity where the placement says;
+ * with nothing to unfold there, a plan still unfolds under the line, so the
+ * steps stay one click away whatever the placement. The floating card lists
+ * the plan with its activity, so it never gets a second, inline one.
+ */
 export function resolveShelfRunControls(args: {
   detailHost: ShelfDetailHost;
   canExpand: boolean;
   canOpenPanel: boolean;
+  hasPlan?: boolean;
 }): ShelfRunControls {
-  const detailToggle =
+  const activityToggle =
     args.detailHost === "panel" || !args.canExpand ? null : args.detailHost;
+  const planOnly =
+    activityToggle == null && Boolean(args.hasPlan) && args.detailHost !== "floating";
   return {
-    detailToggle,
-    panelButton: args.canOpenPanel ? (detailToggle ? "wide" : "always") : null,
+    detailToggle: activityToggle ?? (planOnly ? "inline" : null),
+    planOnly,
+    panelButton: args.canOpenPanel ? (activityToggle ? "wide" : "always") : null,
   };
 }
 

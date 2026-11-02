@@ -111,6 +111,14 @@ export function AgentRunLineView(props: {
   const staged = detail.agentRun.workflow.stages.length > 1;
   const plan = props.plan ?? agentRunStoredPlan(detail);
   const planText = staged || !plan?.items.length ? null : describeRunPlan(plan);
+  // Beside the to-do segment, which already counts, the line says only the
+  // step it is on; without one it says the count and the step in words.
+  const planWords = props.todo
+    ? (planText ? (plan?.items.find((item) => item.status === "in_progress")?.content ?? null) : null)
+    : planText;
+  // While the run just works, the step leads the line as it does for a turn;
+  // the agent's name stays in the title and the announcement.
+  const stepLeads = Boolean(props.todo && planWords && progressing && !alert);
   const rows = useMemo(
     () => (staged ? projectAgentRunStages(detail, new Date(props.now)) : null),
     [detail, props.now, staged, i18n.language],
@@ -137,7 +145,7 @@ export function AgentRunLineView(props: {
         }
         text={
           <ShelfRunText
-            label={status.waiting ? badgeText : status.agentName}
+            label={stepLeads ? planWords : status.waiting ? badgeText : status.agentName}
             title={[
               status.agentName,
               stageWords,
@@ -156,13 +164,13 @@ export function AgentRunLineView(props: {
               alert
                 ? shelfTurnAlertParts(alert)
                 : [
-                    !status.waiting && (!planText || !progressing) ? <span key="badge" className={sx(attention ? shelfStyles.labelWaiting : shelfStyles.strong)}>{badgeText}</span> : null,
+                    !status.waiting && (!planWords || !progressing) ? <span key="badge" className={sx(attention ? shelfStyles.labelWaiting : shelfStyles.strong)}>{badgeText}</span> : null,
                     noteNode(delegateNote, "delegate"),
                     noteNode(waitCheck, "check"),
-                    reason ?? planText ?? (showNow ? (
+                    reason ?? (stepLeads ? null : planWords && props.todo ? <span key="plan" className={sx(shelfStyles.strong)}>{planWords}</span> : planWords) ?? (showNow ? (
                       <TextShimmer key="now" active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
                     ) : (
-                      progressing && !staged ? i18n.t("agentRuns:agentRunLine.extraCopy3") : reason
+                      progressing && !staged && !stepLeads ? i18n.t("agentRuns:agentRunLine.extraCopy3") : reason
                     )),
                   ]
             }

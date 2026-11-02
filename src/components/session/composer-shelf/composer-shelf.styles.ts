@@ -133,6 +133,19 @@ export const shelfStyles = stylex.create({
     WebkitLineClamp: 2,
   },
   /**
+   * The tool call under a plan step: the thought's slot (composed after
+   * `thought`, so it keeps that alignment), on one line and upright, so the
+   * shelf stays two lines high.
+   */
+  action: {
+    display: "block",
+    fontStyle: "normal",
+    overflowWrap: "normal",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    WebkitLineClamp: "unset",
+  },
+  /**
    * A wrapper inside the mark centers its glyph as a flex box. A bare span is
    * a block with a text line, so an inline-flex loader in it rides the font's
    * baseline and strut and lands off the row's center.
@@ -172,8 +185,9 @@ export const shelfStyles = stylex.create({
   /** Says at a narrow width what the progress segment says when there is room. */
   narrowOnly: { display: { default: "none", [NARROW]: "inline" } },
   wideOnly: { display: { default: "inline-flex", [NARROW]: "none" } },
+  /** The count stays when the composer is narrow; only the segments give way. */
   progress: {
-    display: { default: "inline-flex", [NARROW]: "none" },
+    display: "inline-flex",
     flex: "0 0 auto",
     alignItems: "center",
     gap: 6,
@@ -184,7 +198,7 @@ export const shelfStyles = stylex.create({
     flex: "0 1 11rem",
     minWidth: "6rem",
   },
-  segments: { display: "inline-flex", alignItems: "center", gap: 2 },
+  segments: { display: { default: "inline-flex", [NARROW]: "none" }, alignItems: "center", gap: 2 },
   segment: {
     width: 6,
     height: 4,

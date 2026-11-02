@@ -739,5 +739,11 @@
     "textAndParts_other": "메시지는 텍스트로 전달됩니다. 텍스트가 없는 메시지 {{count}}개는 대신 구성 요소의 요약으로 전달됩니다. 도구 호출은 입력과 출력까지, 이미지와 파일은 이름만 들어갑니다.",
     "recordFirst_other": "이 작업의 인계 기록을 먼저 받습니다. 섹션 {{count}}개입니다.",
     "recordNone": "이 작업에는 아직 인계 기록이 없습니다."
+  },
+  "shelfPlan": {
+    "showDone_other": "완료 {{count}}개 보기",
+    "hideDone": "완료 숨기기",
+    "showPlan": "계획 보기",
+    "hidePlan": "계획 숨기기"
   }
 }

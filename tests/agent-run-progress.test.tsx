@@ -93,6 +93,15 @@ test("Progress renders the live plan and uses stored facts between turns", () =>
   ] }));
   expect(shelf).toContain("Plan 0/1 · Now: Check the live diff");
   expect(shelf).toContain("Implementer running · Reviewer done");
+  // Beside the to-do segment the step leads the line: the segment counts, and
+  // the agent's name stays in the title and the announcement.
+  const counted = renderToStaticMarkup(createElement(AgentRunLineView, { detail: stored, now: now.getTime(), nowPhrase: null, reducedMotion: true, todo: { done: 0, total: 1, segments: ["active"] } }));
+  expect(counted).toContain(">Check the live diff<");
+  // The count words stay in the title and the announcement, not on the line.
+  const words = /<p[^>]*>(.*?)<\/p>/.exec(counted)?.[1] ?? "";
+  expect(words.replace(/<[^>]*>/g, "")).toBe("Check the live diff");
+  expect(counted).toContain('aria-label="Implementer: Running"');
+  expect(counted).toContain("0/1");
 });
 
 test("Claude subagents retain label, step, result and failure after event compaction", () => {

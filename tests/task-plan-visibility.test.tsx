@@ -20,10 +20,22 @@ test("Progress reads only this task's primary plan and clears on a new user turn
   expect(html()).toBe("");
 });
 
-test("the shelf exposes the current step and exact completion count without activity details", () => {
+test("the shelf's plan leads with the steps left and folds the finished ones behind one toggle", () => {
   expect(renderToStaticMarkup(createElement(ShelfPlan, { items: [], live: false }))).toBe("");
-  const html = renderToStaticMarkup(createElement(ShelfPlan, { items: [{ content: "Inspect", status: "completed" }, { content: "Verify", status: "in_progress" }], live: false }));
-  expect(html).toContain("Plan · 1 of 2 done · Verify");
-  expect(html).toContain("<details");
+  const html = renderToStaticMarkup(createElement(ShelfPlan, { items: [{ content: "Inspect", status: "completed" }, { content: "Verify", status: "in_progress" }, { content: "Ship", status: "pending" }], live: false }));
+  // No summary of its own: the run line already says the step and the count.
+  expect(html).not.toContain("<details");
+  expect(html).not.toContain("1 of 3 done");
+  expect(html).toContain("Show 1 done");
+  expect(html).toContain('aria-expanded="false"');
+  expect(html).not.toContain(">Inspect<");
+  expect(html).toContain("Verify");
+  expect(html).toContain("Ship");
+  // The state is the mark's and the ink's; the word stays for screen readers only.
+  expect(html).toContain(", Now");
   expect(html).not.toContain("loader-circle");
+  // A finished plan has nothing left to lead with, so it lists every step.
+  const finished = renderToStaticMarkup(createElement(ShelfPlan, { items: [{ content: "Inspect", status: "completed" }], live: false }));
+  expect(finished).toContain("Inspect");
+  expect(finished).not.toContain("Show 1 done");
 });
