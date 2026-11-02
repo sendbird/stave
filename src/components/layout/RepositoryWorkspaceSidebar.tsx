@@ -467,6 +467,8 @@ export function RepositoryWorkspaceSidebar(args: {
       }),
     [args.collapsed, collapsedByRepositoryPath, repositories, i18n.resolvedLanguage],
   );
+  // Each tree row's box, so its hover preview opens past the row's counts and menu.
+  const workspaceRowElementsRef = useRef(new Map<string, HTMLDivElement>());
   const workspaceShortcutLabels = useMemo(
     () =>
       new Map(
@@ -1455,11 +1457,23 @@ export function RepositoryWorkspaceSidebar(args: {
                                         >
                                           {({ handleRef, isDragging }) => (
                                             <div
+                                              data-workspace-item={workspace.id}
+                                              data-active={isActive ? "" : undefined}
                                               className={sx(
                                                 repositorySidebarStyles.workspaceItem,
+                                                // The row and its open tasks are one selected item.
+                                                isActive &&
+                                                  repositorySidebarStyles.workspaceGroupActive,
                                               )}
                                             >
                                                 <div
+                                                  ref={(element) => {
+                                                    if (element) {
+                                                      workspaceRowElementsRef.current.set(workspace.id, element);
+                                                    } else {
+                                                      workspaceRowElementsRef.current.delete(workspace.id);
+                                                    }
+                                                  }}
                                                   className={sx(
                                                     repositorySidebarStyles.workspaceRow,
                                                     repositorySidebarStyles.row,
@@ -1478,6 +1492,9 @@ export function RepositoryWorkspaceSidebar(args: {
                                                     branch={workspace.branch}
                                                     shortcutLabel={
                                                       workspaceShortcutLabel
+                                                    }
+                                                    anchor={() =>
+                                                      workspaceRowElementsRef.current.get(workspace.id) ?? null
                                                     }
                                                     side="right"
                                                   >

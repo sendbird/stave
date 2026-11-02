@@ -272,3 +272,58 @@ for (const displayMode of ["expanded", "compact"] as const) {
     }
   });
 }
+
+for (const theme of ["light", "dark"] as const) {
+  test(`the active workspace and its open tasks share one fill, and the preview clears the row menu: ${theme}`, async ({ page }) => {
+    await seed(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await expect(page.getByTestId("top-bar")).toBeVisible();
+    await restateWorkspaces(page);
+    await page.evaluate(async (theme) => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      const { applyThemeClass } = await import("/src/lib/themes/apply.ts");
+      applyThemeClass({ enabled: theme === "dark" });
+      // A running task keeps the fixture's task listed under the active row.
+      useAppStore.setState({ activeTurnIdsByTask: { "task-a": "turn-a" } } as never);
+      await document.fonts.ready;
+    }, theme);
+    const sidebar = page.getByTestId("project-workspace-sidebar");
+    const group = sidebar.locator("[data-workspace-item][data-active]");
+    await expect(group).toHaveCount(1);
+    const tasks = group.getByTestId("workspace-progress-tasks");
+    await expect(tasks).toBeVisible();
+    const fills = await group.evaluate((element) => {
+      const row = element.firstElementChild as HTMLElement;
+      return {
+        group: getComputedStyle(element).backgroundColor,
+        row: getComputedStyle(row).backgroundColor,
+      };
+    });
+    // The group paints the selection; the row inside it adds nothing at rest.
+    expect(fills.group).not.toBe("rgba(0, 0, 0, 0)");
+    expect(fills.row).toBe("rgba(0, 0, 0, 0)");
+    const groupBox = (await group.boundingBox())!;
+    const tasksBox = (await tasks.boundingBox())!;
+    expect(tasksBox.y + tasksBox.height).toBeLessThanOrEqual(groupBox.y + groupBox.height + 0.5);
+    // Idle workspaces stay unfilled.
+    for (const idle of await sidebar.locator("[data-workspace-item]:not([data-active])").all()) {
+      expect(await idle.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    }
+
+    // The hover preview opens past the row's menu instead of over it.
+    for (const name of [/Default/, /Docs pass/]) {
+      const open = sidebar.getByRole("button", { name }).first();
+      await open.hover({ position: { x: 8, y: 8 } });
+      const tooltip = page.locator('[data-slot="tooltip-content"]');
+      await expect(tooltip).toBeVisible();
+      const trigger = open
+        .locator("xpath=ancestor::*[@data-workspace-item][1]")
+        .locator("[data-testid^='workspace-actions-']");
+      await expect(trigger).toBeVisible();
+      await expect.poll(async () => (await tooltip.boundingBox())!.x - ((await trigger.boundingBox())!.x + (await trigger.boundingBox())!.width)).toBeGreaterThanOrEqual(0);
+      await page.mouse.move(1400, 880);
+      await expect(tooltip).toBeHidden();
+    }
+  });
+}

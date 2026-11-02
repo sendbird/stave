@@ -244,6 +244,12 @@ export function WorkspaceHoverPreviewTooltip(args: {
    * trigger: the popup must clear them or it swallows their clicks.
    */
   sideOffset?: number;
+  /**
+   * What the popup is placed against, when not the trigger: a tree row's
+   * whole box, so a preview opened to its right clears the row's counts and
+   * menu instead of covering them.
+   */
+  anchor?: () => Element | null;
   children: ReactElement;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
@@ -322,6 +328,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
       <TooltipContent
         side={args.side}
         sideOffset={args.sideOffset}
+        anchor={args.anchor}
         align="start"
         className={sx(repositorySidebarStyles.previewContent)}
       >
@@ -488,7 +495,13 @@ export function WorkQueueRow(args: {
   const { entry } = args;
 
   return (
-    <div className={sx(repositorySidebarStyles.queueRow)}>
+    <div
+      className={sx(
+        repositorySidebarStyles.queueRow,
+        // The row and its open tasks are one selected item.
+        entry.isActive && repositorySidebarStyles.workspaceGroupActive,
+      )}
+    >
       <div className={sx(repositorySidebarStyles.queueItem)}>
         <WorkspaceHoverPreviewTooltip
           workspaceId={entry.workspaceId}

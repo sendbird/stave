@@ -11,6 +11,8 @@ const accent10 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 10%, transpar
 const accent16 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 16%, transparent)`;
 const accent20 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 20%, transparent)`;
 const accent40 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 40%, transparent)`;
+/** Over the active group's 16% fill this lands near the 20% a hovered active row had. */
+const accent05 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 5%, transparent)`;
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
@@ -248,6 +250,11 @@ export const repositorySidebarStyles = stylex.create({
 
   /* -------------------------------------------------------- work-queue rows */
   queueRow: { minWidth: 0 },
+  /** The active workspace's row and its open tasks share one fill. */
+  workspaceGroupActive: {
+    backgroundColor: accent16,
+    borderRadius: vars["--ads-radius-control"],
+  },
   /** The row's button and its hover menu; reveals the menu like a tree row. */
   queueItem: {
     [ROW_ACTION_OPACITY]: {
@@ -898,7 +905,13 @@ export const repositorySidebarStyles = stylex.create({
     flexDirection: "column",
     gap: vars["--ads-space-4"],
   },
-  workspaceItem: { minWidth: 0 },
+  workspaceItem: {
+    borderRadius: vars["--ads-radius-control"],
+    minWidth: 0,
+    transitionDuration: vars["--ads-motion-duration-fast"],
+    transitionProperty: "background-color",
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+  },
 
   workspaceRow: {
     [ROW_ACTION_OPACITY]: {
@@ -934,10 +947,12 @@ export const repositorySidebarStyles = stylex.create({
     // every control inside it runs on the house curve.
     transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
-  // The fill alone marks the selected row: no outline, raised shadow or
-  // corner mark, so selection reads calmly next to the idle rows.
+  // The fill alone marks the selected workspace: no outline, raised shadow or
+  // corner mark, so selection reads calmly next to the idle rows. The fill is
+  // the group's (`workspaceGroupActive`), so the row and the open tasks under
+  // it read as one selected item; the row only deepens it on hover.
   workspaceRowActive: {
-    backgroundColor: { default: accent16, ":hover": accent20 },
+    backgroundColor: { default: "transparent", ":hover": accent05 },
     borderColor: "transparent",
     color: vars["--ads-color-text"],
   },
