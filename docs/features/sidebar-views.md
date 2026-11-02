@@ -61,6 +61,13 @@ The repository → workspace tree, unchanged: drag to reorder, rename in place, 
 `⋮` row menu for task history, workspace settings, and archive, and the row
 density menu (`Expanded` / `Compact`) in the header bar.
 
+- A workspace with a running task lists its open tasks under its row. The active
+  workspace and those tasks share one selection fill, with the workspace row a
+  step deeper.
+- In `Expanded` rows, a running task shows what it is doing on a second line of
+  its own row: the current step and to-do count, with the run time at the end.
+  `Compact` rows stay one line.
+
 ### Work Queue View
 
 Every workspace, grouped into four lanes in fixed priority order:
