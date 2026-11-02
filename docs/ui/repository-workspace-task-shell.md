@@ -33,8 +33,8 @@ Replace the legacy workspace/task shell with a three-part layout:
 - Task tab close should confirm before archiving.
 - Repository delete removes the repository from Stave's list only.
 - Workspace rows show a responding indicator if any delegated task is actively running, including inactive workspaces.
-- Workspace rows should show the responding-task count in the trailing action slot, then swap that slot to the workspace shortcut and `Archive` on row hover.
-- Workspace hover tooltips should show a compact task-summary preview, with inactive uncached workspaces loading shell data only on first tooltip open.
+- Workspace rows show the running-task count as plain muted numerals in the trailing slot, then swap that slot to the `⋮` row menu on row hover; the title truncates before the menu instead of running under it.
+- Workspace hover tooltips should show a compact task-summary preview and the workspace shortcut, opening past the row's count and menu, with inactive uncached workspaces loading shell data only on first tooltip open.
 - Default workspace icons should use a neutral gray chip, while non-default worktree icons should use deterministic name-hashed blue accents.
 - Repository and workspace order should stay stable while navigating.
 - Repository and workspace order can be adjusted manually by long-pressing a row and dragging it.

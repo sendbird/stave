@@ -1,3 +1,26 @@
+## [0.29.2](https://github.com/sendbird/stave/compare/v0.29.1...v0.29.2) (2026-11-02)
+
+This patch release ships the one change merged since 0.29.1 (PR #878): sidebar fixes for the active workspace, its hover preview, and where a running task's progress shows.
+
+### Changes
+
+- Sidebar: the active workspace and its open tasks read as one selection, in the repository tree and the Work queue. A light wash sits under the row and its tasks, with the workspace row a step deeper on top, so the tasks belong to the selection and still sit below its title.
+- Sidebar: a running task's progress moves from the workspace row to the task's own row. In Expanded rows, the step and to-do count sit under the task title, and the run time has its own slot under the status mark (`1m`, `24s`) so it no longer truncates first. Each running task shows its own step, and the workspace row keeps its title alone. Compact rows stay one line.
+- Sidebar: task rows under a workspace step in 12px instead of 20px, so titles and progress keep more width.
+- Sidebar: a workspace row's hover preview opens past the row's count and `⋮` menu instead of covering them.
+
+### Upgrade Notes
+
+- No data migration or settings reset is required. No temporary migration expires in 0.29.2; the next removals are scheduled for 0.30.0 and 0.31.0.
+
+### Known Limits
+
+- Release validation does not exercise packaged upgrades, live provider runs or screen readers.
+
+### References
+
+- [PR #878](https://github.com/sendbird/stave/pull/878)
+
 ## [0.29.1](https://github.com/sendbird/stave/compare/v0.29.0...v0.29.1) (2026-11-02)
 
 This patch release includes all seven merged changes since 0.29.0 (PRs #870–#876). The requested patch version is retained although three PRs add UI features.
