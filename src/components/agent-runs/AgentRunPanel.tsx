@@ -1,3 +1,5 @@
+import { AgentRunPlan } from "./AgentRunPlan";
+import { useAgentRunProgress } from "./useAgentRunProgress";
 import { formatTime, formatDuration } from "@/i18n/format";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { i18n, useTranslation } from "@/i18n";
@@ -112,6 +114,7 @@ export function AgentRunDetailView(props: AgentRunDetailViewProps) {
 
 function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
   useTranslation();
+  const plan = useAgentRunProgress(props.detail);
   const { detail, now, onCommand } = props;
   const { agentRun } = detail;
   const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now, i18n.language]);
@@ -246,6 +249,13 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         <p className={sx(styles.error)} role="alert">
           {props.failure}
         </p>
+      ) : null}
+
+      {plan ? (
+        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel2")}>
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("ui:plan.plan")}</h3>
+          <AgentRunPlan items={plan.items} live={Boolean(active && agentRun.state === "running")} />
+        </section>
       ) : null}
 
       {criteria.length > 0 ? (

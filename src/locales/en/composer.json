@@ -753,5 +753,12 @@
     "recordFirst_one": "It receives the task's handoff record first: {{count}} section.",
     "recordFirst_other": "It receives the task's handoff record first: {{count}} sections.",
     "recordNone": "This task has no handoff record yet."
+  },
+  "shelfPlan": {
+    "showDone_one": "Show {{count}} done",
+    "showDone_other": "Show {{count}} done",
+    "hideDone": "Hide done",
+    "showPlan": "Show plan",
+    "hidePlan": "Hide plan"
   }
 }

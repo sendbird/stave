@@ -3,7 +3,7 @@ import type { AgentRunDetail } from "./api";
 import type { StagePlan } from "./domain";
 import { agentRunStoredPlan } from "./agent-run-status";
 import { extractLatestPlan } from "./facts";
-import { isActiveAgentRunState } from "./domain";
+import { currentStageRecord, isActiveAgentRunState } from "./domain";
 export { describeRunPlan } from "./plan-progress";
 
 /** Run events include user replies; prompt marks cover a turn before its link arrives. */
@@ -34,8 +34,22 @@ export function agentRunIncludesTime(detail: AgentRunDetail, timestamp: string |
 }
 
 export function resolveAgentRunPlan(detail: AgentRunDetail, messages: readonly ChatMessage[]): StagePlan | null {
-  if (detail.agentRun.workflow.stages.length !== 1) return null;
-  const scoped = agentRunMessages(detail, messages);
+  const runMessages = agentRunMessages(detail, messages);
+  const staged = detail.agentRun.workflow.stages.length > 1;
+  const record = currentStageRecord(detail);
+  const stageTurns = new Set(detail.events.flatMap((event) =>
+    (event.kind === "turn-linked" || event.kind === "user-turn") &&
+    event.detail.stageId === record.stageId && event.detail.attempt === record.attempt &&
+    typeof event.detail.turnId === "string" ? [event.detail.turnId] : []));
+  let inStage = false;
+  const scoped = !staged ? runMessages : runMessages.filter((message) => {
+    if (message.role === "user" && !message.steeredIntoTurnId) {
+      inStage = message.agentRunPrompt?.stageId === record.stageId && Boolean(
+        record.startedAt && message.startedAt && Date.parse(message.startedAt) >= Date.parse(record.startedAt));
+    }
+    return Boolean(message.turnId && (stageTurns.has(message.turnId) || inStage ||
+      (record.startedAt && message.startedAt && Date.parse(message.startedAt) >= Date.parse(record.startedAt))));
+  });
   const plan = extractLatestPlan({ messages: scoped, turnIds: new Set(scoped.flatMap((m) => m.turnId ? [m.turnId] : [])) });
-  return plan ?? agentRunStoredPlan(detail);
+  return plan ?? (staged ? record.facts?.plan ?? null : agentRunStoredPlan(detail));
 }

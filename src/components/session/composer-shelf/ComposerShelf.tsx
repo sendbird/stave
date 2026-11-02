@@ -1,3 +1,4 @@
+import { ShelfPlan } from "./ShelfPlan";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Children,
@@ -46,7 +47,7 @@ import type { ShelfRunDetailToggle, ShelfRunPanelButton } from "./ShelfRunLine";
 import { TurnRunLine } from "./TurnRunLine";
 import { useShelfDetail } from "./use-shelf-detail";
 
-const NO_TODOS: readonly { status: "pending" | "in_progress" | "completed" }[] = [];
+const NO_TODOS: { content: string; status: "pending" | "in_progress" | "completed" }[] = [];
 
 /**
  * The composer shelf: one surface over the prompt input whose rows — the run
@@ -57,9 +58,10 @@ const NO_TODOS: readonly { status: "pending" | "in_progress" | "completed" }[] =
  * the one place a run's state is written while it runs.
  *
  * The placement only decides where the details open: the chevron unfolds the
- * turn's list under the line (`docked`), shows the floating card
- * (`floating`), or there is no chevron and the panel button is the way in
- * (`panel`).
+ * plan and the turn's list under the line (`docked`), shows the floating card
+ * (`floating`), or unfolds only the plan while the panel button is the way to
+ * the activity (`panel`). The plan has no row of its own: the run line already
+ * names its current step and count, so a second summary would repeat it.
  *
  * Memoized on primitives and a stable queue: the composer around it
  * re-renders on every keystroke, and the shelf's own subscriptions are what
@@ -95,6 +97,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const taskId = useScopedTaskId();
   const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code", { model: props.model, autoRouting: props.autoRouting });
   const blocker = props.providerId ? accountBlocker : null;
+  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId]);
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const setLayout = useAppStore((state) => state.setLayout);
@@ -159,13 +162,22 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     turnProps?.hasPendingInteractionCard && turnProps.activity?.pendingInteraction,
   );
   const canExpand = turnProps != null && !turn.isLeaving && !cardOwnsFocus;
-  const controls = resolveShelfRunControls({ detailHost, canExpand, canOpenPanel: true });
+  const turnTodos = turnProps?.todos ?? NO_TODOS;
+  // A run's text and segments share the live plan, or saved facts between turns.
+  const plan = useAgentRunProgress(agentRun);
+  const planItems = agentRun ? (plan?.items ?? NO_TODOS) : turnTodos;
+  const controls = resolveShelfRunControls({
+    detailHost,
+    canExpand,
+    canOpenPanel: true,
+    hasPlan: planItems.length > 0,
+  });
   const detailToggle = useMemo<ShelfRunDetailToggle | null>(
     () =>
       controls.detailToggle
-        ? { kind: controls.detailToggle, open, onToggle: () => setOpen(!open) }
+        ? { kind: controls.detailToggle, open, onToggle: () => setOpen(!open), planOnly: controls.planOnly }
         : null,
-    [controls.detailToggle, open, setOpen],
+    [controls.detailToggle, controls.planOnly, open, setOpen],
   );
   const agentRunHeads = runSource === "agentRun";
   const openPanel = useCallback(
@@ -180,15 +192,20 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     [controls.panelButton, openPanel, i18n.language],
   );
   const onStop = useCallback(() => abortTaskTurn({ taskId }), [abortTaskTurn, taskId]);
-  const turnTodos = turnProps?.todos ?? NO_TODOS;
-  // A run's text and segments share the live plan, or saved facts between turns.
-  const plan = useAgentRunProgress(agentRun);
-  const planItems = plan?.items ?? NO_TODOS;
   const delegates = useTaskSubagentSources(taskId, agentRun);
   const todo = useMemo<ShelfTodoProgress | null>(
-    () => summarizeShelfTodos(agentRun ? planItems : turnTodos),
-    [agentRun, turnTodos, planItems],
+    () => summarizeShelfTodos(planItems),
+    [planItems],
   );
+  // The open details: the plan first, then the activity list without the
+  // to-dos the plan already lists.
+  const detailOpenInline = open && controls.detailToggle === "inline";
+  // With the to-dos gone, a list with no work of its own would be an empty band.
+  const activityBeyondPlan =
+    planItems.length === 0 ||
+    (turnProps != null && (turnProps.workItems.length > 0 || turnProps.autoRouting != null));
+  const activityInline =
+    detailOpenInline && !controls.planOnly && turnProps != null && activityBeyondPlan;
   // A stage waiting for sign-off already asks in its card above the shelf.
   const currentStage = agentRun?.agentRun.workflow.stages[agentRun.agentRun.currentStageIndex];
   const signOffShown =
@@ -252,7 +269,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
           {runSource === "agentRun" ? (
             <AgentRunBar
               panelKeep={panel?.keep}
-              detailToggle={turnProps ? detailToggle : null}
+              detailToggle={detailToggle}
               todo={todo}
               plan={plan}
               subagents={delegates.rows}
@@ -270,10 +287,18 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
               onStop={onStop}
             />
           ) : null}
-          {inlineOpen && canExpand && turnProps ? (
+          {detailOpenInline ? (
+            <ShelfPlan
+              key={`${taskId}:${plan?.turnId ?? turn.surfaceKey}`}
+              items={planItems}
+              live={Boolean(liveTurnId) && !turnProps?.activity?.pendingInteraction}
+            />
+          ) : null}
+          {activityInline && turnProps ? (
             <TurnActivitySurface
               key={turn.surfaceKey}
               {...turnProps}
+              todos={planItems.length > 0 ? NO_TODOS : turnProps.todos}
               variant="docked"
               chrome="list"
             />

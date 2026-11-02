@@ -171,12 +171,25 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     replayOutcome: surface.replayOutcome,
     activity,
   });
-  const words = [label, headline.text, headline.detail]
+  // With a plan, the step it is on leads the line and the tool call it is
+  // making goes under it: the step changes a few times a turn, the tool every
+  // second. A wait, a stall or a failure keeps the line, as it has to be said.
+  const step =
+    tone === "active" && completedAt == null
+      ? (surface.todos.find((item) => item.status === "in_progress")?.content ?? null)
+      : null;
+  const action = [runKind === "waiting" ? label : null, headline.text, headline.detail]
     .filter(Boolean)
     .join(" · ");
+  const words = [step ?? label, step ? action : null, step ? null : headline.text, step ? null : headline.detail]
+    .filter(Boolean)
+    .join(" · ");
+  const detailOpen = props.detail?.kind === "inline" && props.detail.open;
   // Only while the agent is working on its own: a pending question or a
-  // stall already says what the line needs to say.
-  const thought = tone === "active" && completedAt == null ? latestThought : null;
+  // stall already says what the line needs to say. Under a step, the tool
+  // call takes the second line and the thought waits for the open details.
+  const thought =
+    tone === "active" && completedAt == null && (!step || detailOpen) ? latestThought : null;
 
   return (
     <>
@@ -207,11 +220,10 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
         }
         text={
           <ShelfRunText
-            label={label}
+            label={step ?? label}
             tone={SHELF_RUN_STATE_INK[tone]}
             title={words}
-            narrow={todo ? `${todo.done}/${todo.total}` : null}
-            parts={[
+            parts={step ? undefined : [
               headline.text ? (
                 <span key="headline" className={sx(styles.strong)}>
                   {headline.live ? (
@@ -250,6 +262,15 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
         panel={props.panel}
         detail={props.detail}
       />
+      {step && action && !(detailOpen && thought) ? (
+        <p className={sx(styles.thought, styles.action)} data-testid="composer-shelf-action" title={action}>
+          {headline.live ? (
+            <TextShimmer active={!reducedMotion}>{action}</TextShimmer>
+          ) : (
+            action
+          )}
+        </p>
+      ) : null}
       {thought ? (
         <p className={sx(styles.thought)} data-testid="composer-shelf-thought" title={thought}>
           {thought}

@@ -151,7 +151,7 @@ export function AgentRunOverview(props: {
             }}
           </ElapsedClock>
         ) : null}
-        {!staged && (plan || active) ? <p className={sx(styles.notice, styles.statusText)} title={describeRunPlan(plan)}>{describeRunPlan(plan)}</p> : null}
+        {!staged && !plan && active ? <p className={sx(styles.notice, styles.statusText)} title={describeRunPlan(plan)}>{describeRunPlan(plan)}</p> : null}
         <RunHeaderContract detail={detail} />
       </header>
 
@@ -160,15 +160,6 @@ export function AgentRunOverview(props: {
           {props.failure}
         </p>
       ) : null}
-
-      <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel")}>
-        <div className={sx(styles.sectionHeader)}>
-          <ListChecks aria-hidden className={sx(styles.sectionIcon)} />
-          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview2")}</h3>
-          <span className={sx(styles.sectionAside)}>{i18n.t("agentRuns:agentRunOverview.sentence1", { value1: met, value2: result.doneWhen.length })}</span>
-        </div>
-        <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
-      </section>
 
       {plan ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel2")}>
@@ -182,10 +173,6 @@ export function AgentRunOverview(props: {
           <AgentRunPlan items={plan.items} live={status.badge === "running" && !status.waiting} />
         </section>
       ) : null}
-
-      <AgentRunSubagents rows={subagents} />
-      {detail.resources ? <RunTeamLimits resources={detail.resources} /> : null}
-      <AgentRunDecisionLog detail={detail} />
 
       {rows ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel3")}>
@@ -217,6 +204,19 @@ export function AgentRunOverview(props: {
           </StepRail>
         </section>
       ) : null}
+
+      <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel")}>
+        <div className={sx(styles.sectionHeader)}>
+          <ListChecks aria-hidden className={sx(styles.sectionIcon)} />
+          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview2")}</h3>
+          <span className={sx(styles.sectionAside)}>{i18n.t("agentRuns:agentRunOverview.sentence1", { value1: met, value2: result.doneWhen.length })}</span>
+        </div>
+        <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
+      </section>
+
+      <AgentRunDecisionLog detail={detail} />
+      <AgentRunSubagents rows={subagents} />
+      {detail.resources ? <RunTeamLimits resources={detail.resources} /> : null}
 
       {status.badge === "completed" ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel4")}>

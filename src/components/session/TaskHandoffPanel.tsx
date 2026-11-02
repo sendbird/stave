@@ -184,25 +184,6 @@ export function TaskHandoffEditor(props: {
   return (
     <>
       <p className={sx(styles.intro)}>{i18n.t("session:handoff.intro")}</p>
-      {!editor.isEditing ? (
-        <div className={sx(styles.actions)}>
-          <Button size="sm" variant="outline" onClick={editor.startEditing}>
-            {i18n.t("session:handoff.edit")}
-          </Button>
-          <Button size="sm" variant="outline" disabled={filling} onClick={() => void fill()}>
-            {i18n.t("session:handoff.fill")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={turnRunning}
-            title={turnRunning ? i18n.t("session:handoff.askBusy") : undefined}
-            onClick={() => void askAgent()}
-          >
-            {i18n.t("session:handoff.ask")}
-          </Button>
-        </div>
-      ) : null}
       {proposal && !editor.isEditing ? (
         <Banner
           tone="info"
@@ -227,6 +208,25 @@ export function TaskHandoffEditor(props: {
         >
           {i18n.t("session:handoff.proposalDetail")}
         </Banner>
+      ) : null}
+      {!editor.isEditing ? (
+        <div className={sx(styles.actions)}>
+          <Button size="sm" variant="outline" onClick={editor.startEditing}>
+            {i18n.t("session:handoff.edit")}
+          </Button>
+          <Button size="sm" variant="outline" disabled={filling} onClick={() => void fill()}>
+            {i18n.t("session:handoff.fill")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={turnRunning}
+            title={turnRunning ? i18n.t("session:handoff.askBusy") : undefined}
+            onClick={() => void askAgent()}
+          >
+            {i18n.t("session:handoff.ask")}
+          </Button>
+        </div>
       ) : null}
       {editor.isEditing ? (
         <HandoffDraftFields

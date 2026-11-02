@@ -81,7 +81,8 @@ test("Progress renders the live plan and uses stored facts between turns", () =>
   const message = todo(assistant(), "Check the live diff");
   useAppStore.setState({ messagesByTask: { [detail.agentRun.leadTaskId]: [prompt, message] } });
   const html = renderToStaticMarkup(createElement(AgentRunOverview, { detail, plan: resolveAgentRunPlan(detail, [prompt, message]), now: now.getTime() }));
-  expect(html).toContain("Plan 0/1 · Now: Check the live diff");
+  expect(html).toContain("Check the live diff");
+  expect(html).toContain("0 of 1 done");
   expect(html).toContain('aria-label="Plan"');
   const plan = resolveAgentRunPlan(detail, [prompt, message])!;
   const stored = { ...detail, stages: detail.stages.map((stage) => ({ ...stage, facts: { diff: null, commands: [], toolCalls: [], action: null, plan } })) };
@@ -92,6 +93,15 @@ test("Progress renders the live plan and uses stored facts between turns", () =>
   ] }));
   expect(shelf).toContain("Plan 0/1 · Now: Check the live diff");
   expect(shelf).toContain("Implementer running · Reviewer done");
+  // Beside the to-do segment the step leads the line: the segment counts, and
+  // the agent's name stays in the title and the announcement.
+  const counted = renderToStaticMarkup(createElement(AgentRunLineView, { detail: stored, now: now.getTime(), nowPhrase: null, reducedMotion: true, todo: { done: 0, total: 1, segments: ["active"] } }));
+  expect(counted).toContain(">Check the live diff<");
+  // The count words stay in the title and the announcement, not on the line.
+  const words = /<p[^>]*>(.*?)<\/p>/.exec(counted)?.[1] ?? "";
+  expect(words.replace(/<[^>]*>/g, "")).toBe("Check the live diff");
+  expect(counted).toContain('aria-label="Implementer: Running"');
+  expect(counted).toContain("0/1");
 });
 
 test("Claude subagents retain label, step, result and failure after event compaction", () => {
@@ -293,4 +303,23 @@ test("a failed native spawn receipt remains failed after message-only reconstruc
   let message = assistant();
   for (const event of [...mapper.mapStarted(spawn).events, ...mapper.mapCompleted(spawn).events]) message = appendProviderEventToAssistant({ message, event });
   expect(describeSubagentSummary(selectTaskSubagents({ messages: [message] }))).toBe("Reviewer failed");
+});
+
+test("workflow plans belong to the current stage attempt, including stored progress", () => {
+  const stage = detail.agentRun.workflow.stages[0]!;
+  const second = { ...stage, id: "verify", title: "Verify" };
+  const run = {
+    ...detail,
+    agentRun: { ...detail.agentRun, currentStageIndex: 1, workflow: { ...detail.agentRun.workflow, stages: [stage, second] } },
+    stages: [...detail.stages, { ...detail.stages[0]!, stageId: second.id, attempt: 2, startedAt: "2026-10-05T00:02:00Z", facts: null }],
+  };
+  const old = { ...todo(assistant(), "Old implementation"), startedAt: "2026-10-05T00:01:00Z" };
+  expect(resolveAgentRunPlan(run, [prompt, old])).toBeNull();
+  const current = { ...todo(assistant(), "Verify current attempt"), turnId: "verify-turn", startedAt: "2026-10-05T00:03:00Z" };
+  const plan = resolveAgentRunPlan(run, [prompt, old, current]);
+  expect(plan?.items[0]?.content).toBe("Verify current attempt");
+  const persisted = { ...run, stages: run.stages.map((record) => record.stageId === second.id ? { ...record, facts: { diff: null, commands: [], toolCalls: [], action: null, plan: plan! } } : record) };
+  expect(resolveAgentRunPlan(persisted, [])).toEqual(plan);
+  const retry = { ...run, stages: [...persisted.stages, { ...run.stages[1]!, attempt: 3, startedAt: "2026-10-05T00:04:00Z" }] };
+  expect(resolveAgentRunPlan(retry, [prompt, old, current])).toBeNull();
 });

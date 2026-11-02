@@ -19,9 +19,10 @@ export function describePlanProgress(items: StagePlan["items"]): string {
  * A one-stage run's steps: the agent's own to-do list, as it stood when its
  * latest turn ended. While the run is running (`live`), the step it is on
  * turns; once it pauses, halts or ends, that step keeps a still mark so a
- * stopped run never looks busy.
+ * stopped run never looks busy. `compact` leaves the state to the mark and
+ * the ink, keeping the word for assistive technology only.
  */
-export function AgentRunPlan({ items, live = false }: { items: StagePlan["items"]; live?: boolean }) {
+export function AgentRunPlan({ items, live = false, compact = false }: { items: StagePlan["items"]; live?: boolean; compact?: boolean }) {
   useTranslation();
   return (
     <ul className={sx(styles.checkList)} aria-label={i18n.t("agentRuns:agentRunPlan.ariaLabel")}>
@@ -34,8 +35,13 @@ export function AgentRunPlan({ items, live = false }: { items: StagePlan["items"
             <span className={sx(styles.checkMark)}>
               <Icon aria-hidden className={sx(styles.icon, presentation.mark, current && live && styles.spinning)} />
             </span>
-            <span className={sx(styles.checkText, presentation.text)}>{item.content}</span>
-            {presentation.label ? (
+            <span className={sx(styles.checkText, presentation.text)}>
+              {item.content}
+              {compact && presentation.label ? (
+                <span className={sx(styles.visuallyHidden)}>{`, ${presentation.label}`}</span>
+              ) : null}
+            </span>
+            {!compact && presentation.label ? (
               <span className={sx(styles.checkState, presentation.text)}>{presentation.label}</span>
             ) : null}
           </li>

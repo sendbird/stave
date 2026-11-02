@@ -344,7 +344,6 @@ export function TaskResultReviews(props: {
         <p className={sx(styles.introduction)}>
           {i18n.t("session:taskResultReviews.taskResultReviews2")}</p>
       </div>
-      <TaskAgentRunReport workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.toolbar)} role="group" aria-label={i18n.t("session:taskResultReviews.ariaLabel2")}>
         <div className={sx(styles.filterGroup)}>
           <ActionButton
@@ -449,6 +448,7 @@ export function TaskResultReviews(props: {
           </div>
         ) : null}
       </div>
+      <TaskAgentRunReport workspaceId={props.workspaceId} taskId={props.taskId} />
     </section>
   );
 }

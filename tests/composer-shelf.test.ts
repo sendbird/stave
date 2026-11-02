@@ -169,10 +169,18 @@ describe("where details open", () => {
   test("inline and floating get a toggle and keep the panel button only when wide", () => {
     expect(resolveShelfRunControls({ detailHost: "inline", canExpand: true, canOpenPanel: true })).toEqual({
       detailToggle: "inline",
+      planOnly: false,
       panelButton: "wide",
     });
     expect(resolveShelfRunControls({ detailHost: "floating", canExpand: true, canOpenPanel: true })).toEqual({
       detailToggle: "floating",
+      planOnly: false,
+      panelButton: "wide",
+    });
+    // A plan joins the activity under the same toggle instead of adding one.
+    expect(resolveShelfRunControls({ detailHost: "inline", canExpand: true, canOpenPanel: true, hasPlan: true })).toEqual({
+      detailToggle: "inline",
+      planOnly: false,
       panelButton: "wide",
     });
   });
@@ -180,11 +188,32 @@ describe("where details open", () => {
   test("the panel button is the only way in, and never dropped, when nothing else opens details", () => {
     expect(resolveShelfRunControls({ detailHost: "panel", canExpand: true, canOpenPanel: true })).toEqual({
       detailToggle: null,
+      planOnly: false,
       panelButton: "always",
     });
     // An agent run between turns has no list to unfold.
     expect(resolveShelfRunControls({ detailHost: "inline", canExpand: false, canOpenPanel: true })).toEqual({
       detailToggle: null,
+      planOnly: false,
+      panelButton: "always",
+    });
+  });
+
+  test("a plan still unfolds in place when the activity lives elsewhere, and the panel button stays", () => {
+    expect(resolveShelfRunControls({ detailHost: "panel", canExpand: true, canOpenPanel: true, hasPlan: true })).toEqual({
+      detailToggle: "inline",
+      planOnly: true,
+      panelButton: "always",
+    });
+    expect(resolveShelfRunControls({ detailHost: "inline", canExpand: false, canOpenPanel: true, hasPlan: true })).toEqual({
+      detailToggle: "inline",
+      planOnly: true,
+      panelButton: "always",
+    });
+    // The floating card lists the plan with its activity; no second inline copy.
+    expect(resolveShelfRunControls({ detailHost: "floating", canExpand: false, canOpenPanel: true, hasPlan: true })).toEqual({
+      detailToggle: null,
+      planOnly: false,
       panelButton: "always",
     });
   });
