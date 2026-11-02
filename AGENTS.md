@@ -318,6 +318,25 @@ When handing follow-up work to a newly created Stave workspace:
 - Keep todos terse and point them back at the plan file.
 - Do not copy the source workspace's notes, todos, or plan body verbatim into the target workspace.
 
+## Heron User Guide
+
+The end-user guide is published in Atelier Heron (product `stave`, spec
+`user-guide`). Its Korean and English sources are tracked in
+`docs/heron/user-guide.ko.md` and `docs/heron/user-guide.en.md`, and its
+screenshots in `docs/screenshots/guide/`.
+
+- A change that adds a user-facing feature or alters a label, entry point,
+  default, workflow step or limitation must update the affected guide pages in
+  both locales in the same change, alongside the matching `docs/features/` guide.
+- When a screen the guide links to changes, re-capture it with
+  `node scripts/capture-guide-screenshots.mjs` (use `GUIDE_SCREENSHOT_ONLY`) and
+  open the new images before committing them.
+- After the change merges, validate both sources with Heron and publish them as
+  a new revision of `stave/user-guide`. Follow
+  [`docs/heron/README.md`](docs/heron/README.md) for the format limits and steps.
+  If Heron access is unavailable, say so in the PR and leave the published
+  revision for the next person with access; do not skip the source update.
+
 ## Validation
 
 Use the smallest relevant check set for the change, then escalate when the scope is broad.
