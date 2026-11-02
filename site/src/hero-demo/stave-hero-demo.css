@@ -1,0 +1,7 @@
+/*
+ * The stage element belongs to the vendored illustration kit and cannot take
+ * StyleX props. It clips the window's deliberate bleed past the stage edges.
+ */
+.stave-hero-demo .ss-stage {
+  overflow: hidden;
+}

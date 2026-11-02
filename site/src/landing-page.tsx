@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 
+import { StaveHeroDemo } from "./hero-demo/stave-hero-demo";
 import { landingStyles as s } from "./landing-page.styles";
 import { SiteFooter, SiteHeader } from "./site-layout";
 import type { SiteData } from "./site-types";
@@ -170,23 +171,11 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
           </div>
         </section>
 
-        {/* Product shot */}
+        {/* Product demo */}
         <section className={sx(s.shotSection)}>
           <div className={sx(s.sectionInner)}>
             <div className={sx(s.shotFrame)}>
-              <div className={sx(s.shotWindow)}>
-                <div className={sx(s.shotTitlebar)}>
-                  <span className={sx(s.shotDot)} />
-                  <span className={sx(s.shotDot)} />
-                  <span className={sx(s.shotDot)} />
-                </div>
-                <img
-                  alt="Stave workspace with chat, editor, and terminal visible"
-                  className={sx(s.shotImage)}
-                  loading="eager"
-                  src="./docs/screenshots/stave-app.png"
-                />
-              </div>
+              <StaveHeroDemo />
             </div>
           </div>
         </section>
