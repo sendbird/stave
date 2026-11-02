@@ -1,3 +1,31 @@
+## [0.29.1](https://github.com/sendbird/stave/compare/v0.29.0...v0.29.1) (2026-11-02)
+
+This patch release includes all seven merged changes since 0.29.0 (PRs #870–#876). The requested patch version is retained although three PRs add UI features.
+
+### Changes
+
+- Tasks: put the current plan and stages first in Progress, with Decisions before team activity. Show the current plan step above the composer and expand the plan and activity through one toggle, without listing steps twice.
+- Task presets: show the model and effective Effort in Settings, launch menus, tooltips and keyboard shortcuts, and refresh these descriptions when model metadata changes.
+- Usage: give the quota reset date its own prominent row, with the countdown and elapsed-window text as secondary context.
+- Workspaces: new workspaces and Continue here branches no longer track `origin/main`. Run reports require a same-name upstream before calling a branch pushed, and cleanup detects commits not present on any remote even without an upstream.
+- Agent runs: preserve the assignment after an initial start fails, show linked first-stage continuations as stage cards, and wait for workspace run hydration before sending a stage reply while preserving drafts.
+- Routing: keep quality-first primary implementation and review at the Standard model tier or above across adaptive selection, budget pressure, replay and host-admitted replies; explicit model pins remain authoritative.
+- Sidebar: hide redundant branches on named workspaces, align tooltip shortcuts to the content edge, show a quiet running-task count, and reserve room for the row menu so it does not cover the title.
+
+### Upgrade Notes
+
+- Existing workspace branches keep their saved upstream. If a workspace still tracks `origin/main`, run `git branch --unset-upstream` there or push its own branch with `git push -u origin <branch>`.
+- No data migration or settings reset is required. No temporary migration expires in 0.29.1; the next removals are scheduled for 0.30.0 and 0.31.0.
+- An automatic route can fail if the admitted catalog and pinned effort cannot satisfy its minimum model tier; explicit model pins still bypass Auto.
+
+### Known Limits
+
+- Release validation does not exercise packaged upgrades, live provider steering or screen readers.
+
+### References
+
+- [PR #870](https://github.com/sendbird/stave/pull/870), [PR #871](https://github.com/sendbird/stave/pull/871), [PR #872](https://github.com/sendbird/stave/pull/872), [PR #873](https://github.com/sendbird/stave/pull/873), [PR #874](https://github.com/sendbird/stave/pull/874), [PR #875](https://github.com/sendbird/stave/pull/875), [PR #876](https://github.com/sendbird/stave/pull/876)
+
 ## [0.29.0](https://github.com/sendbird/stave/compare/v0.28.4...v0.29.0) (2026-11-01)
 
 This minor release includes all seven merged changes since 0.28.4 (PRs #862–#868).
