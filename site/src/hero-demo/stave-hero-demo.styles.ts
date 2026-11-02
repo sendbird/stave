@@ -1,0 +1,533 @@
+import * as stylex from "@stylexjs/stylex";
+
+// The illustration is drawn at a fixed design size and scaled by its stage,
+// so its geometry is in design pixels rather than page spacing tokens. Only
+// div and span elements are styled here: the stage resets host element rules
+// (p, button, …) inside it so a faux interface never inherits page styles.
+
+const MONO =
+  '"JetBrains Mono Variable", "JetBrains Mono", "SFMono-Regular", "SF Mono", ui-monospace, monospace';
+
+export const demoStyles = stylex.create({
+  frame: {
+    position: "relative",
+  },
+
+  // Sidebar
+  sidebar: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    paddingTop: "8px",
+    paddingInline: "8px",
+  },
+  sidebarGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    height: "28px",
+    paddingInline: "8px",
+    color: "var(--ss-icon)",
+  },
+  sidebarGroupGap: {
+    marginTop: "14px",
+  },
+  taskRow: {
+    display: "grid",
+    gridTemplateColumns: "16px minmax(0, 1fr)",
+    columnGap: "10px",
+    alignItems: "start",
+    paddingBlock: "8px",
+    paddingInline: "8px",
+    borderRadius: "var(--ss-radius-sm)",
+  },
+  taskRowSelected: {
+    backgroundColor: "var(--ss-ink-2)",
+  },
+  taskStatus: {
+    display: "grid",
+    placeItems: "center",
+    width: "16px",
+    height: "18px",
+    color: "var(--ss-icon)",
+  },
+  taskStatusLayer: {
+    gridArea: "1 / 1",
+    display: "grid",
+    placeItems: "center",
+    transitionProperty: "opacity",
+    transitionDuration: "240ms",
+  },
+  hidden: {
+    opacity: 0,
+  },
+  taskText: {
+    display: "flex",
+    minWidth: 0,
+    flexDirection: "column",
+    gap: "3px",
+  },
+  taskTitle: {
+    overflow: "hidden",
+    fontSize: "13px",
+    lineHeight: 1.38,
+    fontWeight: 500,
+    color: "var(--ss-text-strong)",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+  },
+  barLine: {
+    display: "flex",
+    alignItems: "center",
+  },
+  // Placeholder bars keep the real row's line boxes and the air between
+  // its lines' ink: the title bar sits low in its box, the branch bar high.
+  barLineTitle: {
+    alignItems: "flex-end",
+    height: "18px",
+    paddingBottom: "4px",
+  },
+  barLineBranch: {
+    alignItems: "flex-start",
+    height: "15px",
+    paddingTop: "4px",
+  },
+  taskBranch: {
+    overflow: "hidden",
+    fontFamily: MONO,
+    fontSize: "11px",
+    lineHeight: 1.36,
+    color: "var(--ss-text-faint)",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+  },
+
+  // Window bar
+  branchChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    height: "22px",
+    paddingInline: "8px",
+    borderRadius: "var(--ss-radius-pill)",
+    backgroundColor: "var(--ss-ink-2)",
+    fontFamily: MONO,
+    fontSize: "11px",
+    lineHeight: 1,
+    color: "var(--ss-text)",
+    whiteSpace: "nowrap",
+  },
+
+  barIcon: {
+    display: "grid",
+    placeItems: "center",
+    color: "var(--ss-icon)",
+  },
+
+  // Content column
+  content: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+  },
+  column: {
+    display: "flex",
+    flex: "1 1 auto",
+    minWidth: 0,
+    flexDirection: "column",
+    paddingInline: "24px",
+  },
+  columnCompact: {
+    paddingInline: "16px",
+  },
+  thread: {
+    display: "flex",
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflow: "hidden",
+    flexDirection: "column",
+    justifyContent: "flex-end",
+    paddingBottom: "12px",
+    maskImage: "linear-gradient(to bottom, transparent 0, black 64px)",
+    willChange: "transform",
+  },
+  // The phone column's thread is short; a long fade would dim the payoff.
+  threadCompact: {
+    maskImage: "linear-gradient(to bottom, transparent 0, black 20px)",
+  },
+  history: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "14px",
+    paddingBottom: "20px",
+  },
+  historyBubble: {
+    display: "flex",
+    justifyContent: "flex-end",
+  },
+  pastLines: {
+    display: "flex",
+    alignSelf: "stretch",
+    flexDirection: "column",
+    gap: "9px",
+  },
+  request: {
+    display: "flex",
+    justifyContent: "flex-end",
+    paddingBottom: "14px",
+  },
+  requestBubble: {
+    maxWidth: "78%",
+    paddingBlock: "9px",
+    paddingInline: "13px",
+    borderRadius: "14px",
+    backgroundColor: "var(--ss-ink-2)",
+    fontSize: "13px",
+    lineHeight: 1.45,
+    color: "var(--ss-text-strong)",
+  },
+  activity: {
+    display: "grid",
+    gridTemplateColumns: "16px auto minmax(0, 1fr) auto",
+    columnGap: "10px",
+    alignItems: "center",
+    height: "30px",
+    fontSize: "13px",
+    color: "var(--ss-text)",
+  },
+  activityIcon: {
+    display: "grid",
+    placeItems: "center",
+    color: "var(--ss-icon)",
+  },
+  activityVerb: {
+    fontWeight: 500,
+    color: "var(--ss-text-strong)",
+  },
+  fileChip: {
+    justifySelf: "start",
+    overflow: "hidden",
+    maxWidth: "100%",
+    paddingBlock: "2px",
+    paddingInline: "7px",
+    borderRadius: "var(--ss-radius-sm)",
+    backgroundColor: "var(--ss-ink-1)",
+    fontFamily: MONO,
+    fontSize: "11.5px",
+    lineHeight: 1.5,
+    color: "var(--ss-text)",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+  },
+  statusResult: {
+    width: "176px",
+  },
+  rowResult: {
+    justifyContent: "flex-end",
+    width: "88px",
+  },
+  activityResult: {
+    display: "flex",
+    alignItems: "center",
+    height: "16px",
+    gap: "6px",
+    fontSize: "12px",
+    color: "var(--ss-text)",
+  },
+
+  // Above the composer
+  status: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    height: "30px",
+    fontSize: "12.5px",
+    color: "var(--ss-text)",
+  },
+  approval: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    marginBottom: "10px",
+    paddingBlock: "12px",
+    paddingInline: "14px",
+    borderRadius: "12px",
+    backgroundColor: "var(--ss-raised)",
+    boxShadow: "0 0 0 1px var(--ss-line), 0 6px 18px -10px rgba(0, 0, 0, 0.3)",
+  },
+  approvalHead: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    height: "18px",
+    lineHeight: "18px",
+    fontSize: "13px",
+    fontWeight: 500,
+    color: "var(--ss-text-strong)",
+  },
+  approvalCommand: {
+    paddingBlock: "7px",
+    paddingInline: "10px",
+    borderRadius: "var(--ss-radius-sm)",
+    backgroundColor: "var(--ss-ink-1)",
+    fontFamily: MONO,
+    fontSize: "12px",
+    lineHeight: 1.4,
+    color: "var(--ss-text-strong)",
+  },
+  approvalActions: {
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "8px",
+  },
+  action: {
+    display: "inline-flex",
+    flex: "none",
+    alignItems: "center",
+    height: "28px",
+    paddingInline: "12px",
+    borderRadius: "var(--ss-radius-sm)",
+    fontSize: "12.5px",
+    fontWeight: 500,
+    lineHeight: 1,
+    transitionProperty: "background-color, transform",
+    transitionDuration: "120ms",
+  },
+  actionQuiet: {
+    backgroundColor: "var(--ss-ink-2)",
+    color: "var(--ss-text-strong)",
+  },
+  actionPrimary: {
+    backgroundColor: "var(--ss-accent)",
+    color: "var(--stave-demo-on-accent)",
+  },
+  actionPressed: {
+    transform: "scale(0.97)",
+  },
+
+  // Composer
+  composer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    paddingTop: "12px",
+    paddingBottom: "10px",
+    paddingInline: "14px",
+    borderRadius: "14px",
+    backgroundColor: "var(--ss-raised)",
+    boxShadow: "0 0 0 1px var(--ss-line), 0 8px 24px -16px rgba(0, 0, 0, 0.35)",
+  },
+  composerFocused: {
+    boxShadow:
+      "0 0 0 1px color-mix(in oklab, var(--ss-accent) 55%, transparent), 0 8px 24px -16px rgba(0, 0, 0, 0.35)",
+  },
+  draft: {
+    position: "relative",
+    minHeight: "19px",
+    fontSize: "13px",
+    lineHeight: 1.45,
+    color: "var(--ss-text-strong)",
+  },
+  // The request wraps to two lines in the phone column; reserve them so the
+  // composer does not grow mid-sentence.
+  draftCompact: {
+    minHeight: "38px",
+  },
+  placeholder: {
+    position: "absolute",
+    insetInlineStart: 0,
+    top: 0,
+    color: "var(--ss-text-faint)",
+    whiteSpace: "nowrap",
+    transitionProperty: "opacity",
+    transitionDuration: "120ms",
+  },
+  caret: {
+    display: "inline-block",
+    width: "1.5px",
+    height: "15px",
+    marginLeft: "1px",
+    verticalAlign: "-2px",
+    backgroundColor: "var(--ss-accent)",
+  },
+  composerFooter: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    color: "var(--ss-icon)",
+  },
+  modelChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    height: "24px",
+    paddingInline: "8px",
+    borderRadius: "var(--ss-radius-pill)",
+    backgroundColor: "var(--ss-ink-1)",
+    fontSize: "12px",
+    lineHeight: 1,
+    color: "var(--ss-text-strong)",
+    whiteSpace: "nowrap",
+  },
+  safetyChip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "12px",
+    lineHeight: 1,
+    color: "var(--ss-text)",
+    whiteSpace: "nowrap",
+  },
+  footerSpacer: {
+    flex: "1 1 auto",
+  },
+  send: {
+    display: "grid",
+    flex: "none",
+    placeItems: "center",
+    width: "26px",
+    height: "26px",
+    borderRadius: "var(--ss-radius-pill)",
+    backgroundColor: "var(--ss-ink-3)",
+    color: "var(--ss-icon)",
+    transitionProperty: "background-color, color, transform",
+    transitionDuration: "160ms",
+  },
+  sendReady: {
+    backgroundColor: "var(--ss-accent)",
+    color: "var(--stave-demo-on-accent)",
+  },
+
+  // The pull request the task opens
+  pr: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    paddingBlock: "12px",
+    paddingInline: "14px",
+    borderRadius: "10px",
+    backgroundColor: "var(--ss-raised)",
+    boxShadow: "0 0 0 1px var(--ss-line), 0 6px 16px -12px rgba(0, 0, 0, 0.35)",
+  },
+  inlinePr: {
+    paddingBottom: "12px",
+  },
+  prList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    marginInline: "-8px",
+  },
+  prRow: {
+    display: "grid",
+    gridTemplateColumns: "16px minmax(0, 1fr)",
+    columnGap: "10px",
+    alignItems: "start",
+    paddingBlock: "8px",
+    paddingInline: "8px",
+    borderRadius: "var(--ss-radius-md)",
+  },
+  prRowNew: {
+    backgroundColor: "var(--ss-ink-2)",
+  },
+  prIconFaint: {
+    color: "var(--ss-icon-faint)",
+  },
+  prBarTitle: {
+    alignItems: "flex-end",
+    height: "20px",
+    paddingBottom: "5px",
+  },
+  prBarMeta: {
+    alignItems: "flex-start",
+    height: "16px",
+    paddingTop: "5px",
+  },
+  prRowChecks: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    marginTop: "4px",
+    fontSize: "12px",
+    lineHeight: "16px",
+    color: "var(--ss-text)",
+  },
+  prHead: {
+    display: "grid",
+    gridTemplateColumns: "16px minmax(0, 1fr)",
+    columnGap: "10px",
+    alignItems: "start",
+  },
+  prIcon: {
+    display: "grid",
+    placeItems: "center",
+    height: "20px",
+    color: "var(--ss-success)",
+  },
+  prTitle: {
+    fontSize: "13px",
+    lineHeight: "20px",
+    fontWeight: 500,
+    color: "var(--ss-text-strong)",
+  },
+  prMeta: {
+    overflow: "hidden",
+    marginTop: "2px",
+    fontSize: "12px",
+    lineHeight: "16px",
+    color: "var(--ss-text-faint)",
+    whiteSpace: "nowrap",
+    textOverflow: "ellipsis",
+  },
+  // Information panel
+  panel: {
+    display: "flex",
+    flex: "none",
+    overflow: "hidden",
+    width: "264px",
+    flexDirection: "column",
+    gap: "20px",
+    paddingTop: "12px",
+    paddingInline: "16px",
+    borderLeftWidth: "1px",
+    borderLeftStyle: "solid",
+    borderLeftColor: "var(--ss-line)",
+  },
+  panelSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  panelHeading: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    height: "20px",
+    color: "var(--ss-icon)",
+  },
+  panelHeadingReal: {
+    fontSize: "12.5px",
+    fontWeight: 500,
+    lineHeight: 1,
+    color: "var(--ss-text-strong)",
+  },
+  panelRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    height: "24px",
+    color: "var(--ss-icon-faint)",
+  },
+  prChecks: {
+    display: "grid",
+    gridTemplateColumns: "16px minmax(0, 1fr)",
+    columnGap: "10px",
+    alignItems: "center",
+    paddingTop: "10px",
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: "var(--ss-line)",
+    fontSize: "12.5px",
+    color: "var(--ss-text)",
+  },
+});
