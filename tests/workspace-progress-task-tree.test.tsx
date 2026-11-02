@@ -108,7 +108,10 @@ describe("WorkspaceProgressTaskTreeView", () => {
       const html = render(true);
       expect(html.match(/data-task-run-progress="working"/g)).toHaveLength(1);
       expect(html).toContain(">Read file<");
-      expect(html).toContain(">1m<");
+      // The time sits in its own span after the words. Its value follows the
+      // shared clock, which does not tick under server rendering, so only its
+      // one-unit form is fixed here.
+      expect(html).toMatch(/>Read file<\/span><span[^>]*>\d+(?:s|m)<\/span>/);
       expect(html).toContain(sx(workspaceProgressTaskTreeStyles.progress));
     });
 
