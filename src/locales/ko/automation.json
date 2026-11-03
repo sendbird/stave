@@ -70,7 +70,14 @@
       "runHistoryCount": "실행 기록 · {{total}}"
     },
     "statusOn": "켜짐 · 일정에 따라 실행",
-    "statusOff": "꺼짐 · 수동으로만 실행"
+    "statusOff": "꺼짐 · 수동으로만 실행",
+    "runHistory": "실행 기록",
+    "runStatusFilter": "실행 상태",
+    "appliedFilters": "적용된 필터",
+    "clearAllFilters": "모두 지우기",
+    "appliedStatus": "상태",
+    "appliedAutomation": "자동화",
+    "appliedIs": "일치"
   },
   "automationEditor": {
     "when": "시점",

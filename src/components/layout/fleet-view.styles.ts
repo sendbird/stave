@@ -165,24 +165,16 @@ export const fleetStyles = stylex.create({
     paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-16"],
   },
-  filterGroup: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars["--ads-space-2"],
-    padding: vars["--ads-space-2"],
-  },
-  filterChip: {
-    fontSize: vars["--ads-font-size-caption"],
-    height: 26,
-    paddingInline: vars["--ads-space-8"],
-  },
-  filterChipActive: {
+  // The applied-filter chips sit under the toolbar on the same canvas and
+  // hairline, and appear only while a filter narrows the board.
+  appliedFilters: {
     backgroundColor: vars["--ads-color-canvas"],
-    borderColor: vars["--ads-color-border"],
-    boxShadow: vars["--ads-elevation-raised"],
+    borderBottomColor: vars["--ads-color-border"],
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    flexShrink: 0,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-16"],
   },
   searchField: {
     marginInlineStart: "auto",

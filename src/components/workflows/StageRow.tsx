@@ -28,7 +28,7 @@ import {
   type AiStage,
   type WorkflowStage,
 } from "@/lib/workflows/schema";
-import { Segmented } from "./Segmented";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { StageAgentField } from "./StageAgentField";
 import { StageChecksField } from "./StageChecksField";
 import { readyWorkspaceScripts, useWorkspaceScriptActions } from "./useWorkspaceScriptActions";
@@ -304,12 +304,11 @@ function AiStageFields(props: {
       <StageChecksField stage={stage} error={props.issues.get("acceptanceCriteria")} onChange={props.onChange} />
       <div className={sx(styles.propertyValue)}>
         <span className={sx(styles.propertyLabel)}>{i18n.t("agentRuns:stageRow.aiStageFields")}</span>
-        <Segmented
+        <SegmentedControl
           aria-label={i18n.t("agentRuns:stageRow.ariaLabel9")}
-          size="xs"
           value={role}
-          options={ROLE_OPTIONS}
-          onChange={(next) => {
+          options={ROLE_OPTIONS.map((option) => ({ value: option.value, label: option.label, title: option.description }))}
+          onValueChange={(next) => {
             const { role: _previous, ...rest } = stage;
             props.onChange(next === "none" ? rest : { ...rest, role: next as (typeof AI_STAGE_ROLES)[number] });
           }}
@@ -375,9 +374,8 @@ function ActionStageFields(props: {
         <div className={sx(styles.properties)}>
           <span className={sx(styles.propertyLabel)}>{i18n.t("agentRuns:stageRow.actionStageFields")}</span>
           <div className={sx(styles.propertyValue)}>
-            <Segmented
+            <SegmentedControl
               aria-label={i18n.t("agentRuns:stageRow.ariaLabel10")}
-              size="xs"
               value={String(action.repairAttempts) as "0" | "1" | "2" | "3"}
               options={[
                 { value: "0", label: i18n.t("agentRuns:stageRow.label11") },
@@ -385,7 +383,7 @@ function ActionStageFields(props: {
                 { value: "2", label: "2" },
                 { value: "3", label: "3" },
               ]}
-              onChange={(next) =>
+              onValueChange={(next) =>
                 props.onChange({
                   ...stage,
                   action: { ...action, repairAttempts: Number(next) as 0 | 1 | 2 | 3 },
@@ -396,9 +394,8 @@ function ActionStageFields(props: {
           </div>
           <span className={sx(styles.propertyLabel)}>{i18n.t("agentRuns:stageRow.actionStageFields3")}</span>
           <div className={sx(styles.propertyValue)}>
-            <Segmented
+            <SegmentedControl
               aria-label={i18n.t("agentRuns:stageRow.ariaLabel11")}
-              size="xs"
               value={String(action.timeoutMinutes)}
               options={[15, 30, 60, 120]
                 .filter((minutes) => minutes >= WATCH_CHECKS_TIMEOUT_MINUTES.min && minutes <= WATCH_CHECKS_TIMEOUT_MINUTES.max)
@@ -409,7 +406,7 @@ function ActionStageFields(props: {
                   value: String(minutes),
                   label: formatDuration(minutes * 60_000),
                 }))}
-              onChange={(next) =>
+              onValueChange={(next) =>
                 props.onChange({
                   ...stage,
                   action: { ...action, timeoutMinutes: Number(next) || DEFAULT_WATCH_CHECKS.timeoutMinutes },

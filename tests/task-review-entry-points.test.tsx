@@ -163,7 +163,7 @@ function renderHeader(args: { taskId: string; reviewShown: boolean; messages?: u
 
 /** The header's mode switch: each item's text and whether it shows pressed. */
 function modeSwitch(markup: string) {
-  return [...markup.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)]
+  return [...markup.matchAll(/<(?:span|button)[^>]*role="radio"[^>]*aria-checked="(true|false)"[^>]*>(.*?)<\/(?:span|button)><input/g)]
     .map((match) => ({ pressed: match[1] === "true", label: match[2]!.replace(/<[^>]+>/g, "").trim() }));
 }
 

@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
-import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
@@ -55,15 +55,11 @@ export function ReviewScopeBar(props: {
           {i18n.t("review:mode.conversation")}
         </Button>
       </Tooltip>
-      <ToggleGroup
+      <SegmentedControl
         aria-label={i18n.t("review:scope.label")}
-        density="compact"
-        value={[props.scope.kind]}
-        items={props.available.map((kind) => ({ value: kind, label: i18n.t(SCOPE_LABEL_KEYS[kind]) }))}
-        onValueChange={(next) => {
-          const kind = next[0] as ReviewScopeKind | undefined;
-          if (kind && kind !== props.scope.kind) props.onScope(kind);
-        }}
+        value={props.scope.kind}
+        options={props.available.map((kind) => ({ value: kind, label: i18n.t(SCOPE_LABEL_KEYS[kind]) }))}
+        onValueChange={props.onScope}
       />
       <span className={sx(styles.scopeRevision)} data-testid="review-revision">{describeRevision(props.scope, props.data)}</span>
       <Button variant="quiet" size="xs" iconOnly aria-label={i18n.t("review:scope.refresh")} onClick={props.onRefresh}>

@@ -18,7 +18,8 @@ import {
   X,
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
-import { ActionButton } from "@/components/system/ActionButton";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -75,6 +76,7 @@ import { AutomationLatestRun } from "./AutomationLatestRun";
 import { AutomationRunDetail, AutomationRunRow } from "./AutomationRunDetail";
 import {
   AUTOMATION_RUN_FILTERS,
+  automationRunAppliedFilters,
   buildEnvironmentOptions,
   createAutomationDraft,
   formatRelativeTime,
@@ -805,14 +807,13 @@ export function AutomationCenterView() {
     activeTab === "automations"
       ? listState === "loading"
       : !snapshotAnswered && snapshot.runs.length === 0;
-  const schedulesTabLabel =
-    scheduleRows.length > 0
-      ? tI18n("automation:automationCenterView.tabs.schedulesCount", { total: scheduleRows.length })
-      : tI18n("automation:automationCenterView.tabs.schedules");
-  const runHistoryTabLabel =
-    snapshot.runs.length > 0
-      ? tI18n("automation:automationCenterView.tabs.runHistoryCount", { total: snapshot.runs.length })
-      : tI18n("automation:automationCenterView.tabs.runHistory");
+  const runAppliedFilters = automationRunAppliedFilters({
+    status: runFilter,
+    automationName:
+      runAutomationFilter === ALL_AUTOMATIONS
+        ? null
+        : (snapshot.automations.find((automation) => automation.id === runAutomationFilter)?.name ?? runAutomationFilter),
+  });
 
   return (
     <div className={sx(centerStyles.root)}>
@@ -881,24 +882,23 @@ export function AutomationCenterView() {
       </header>
 
       <div className={sx(centerStyles.toolbar)}>
-        <nav aria-label={tI18n("automation:automationCenterView.scheduleViews")} className={sx(centerStyles.tabNav)}>
-          {(
-            [
-              ["automations", schedulesTabLabel],
-              ["runs", runHistoryTabLabel],
-            ] as const
-          ).map(([id, label]) => (
-            <ActionButton
-              key={id}
-              size="sm"
-              weight={activeTab === id ? "secondary" : "quiet"}
-              aria-current={activeTab === id ? "page" : undefined}
-              onClick={() => setActiveTab(id)}
-            >
-              {label}
-            </ActionButton>
-          ))}
-        </nav>
+        <SegmentedControl
+          aria-label={tI18n("automation:automationCenterView.scheduleViews")}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          options={[
+            {
+              value: "automations",
+              label: tI18n("automation:automationCenterView.schedules"),
+              count: scheduleRows.length > 0 ? scheduleRows.length : undefined,
+            },
+            {
+              value: "runs",
+              label: tI18n("automation:automationCenterView.runHistory"),
+              count: snapshot.runs.length > 0 ? snapshot.runs.length : undefined,
+            },
+          ]}
+        />
 
         {activeTab === "automations" ? (
           <p className={sx(centerStyles.toolbarNote)}>
@@ -907,24 +907,12 @@ export function AutomationCenterView() {
 
         {activeTab === "runs" ? (
           <>
-            <div className={sx(centerStyles.filterGroup)}>
-              {AUTOMATION_RUN_FILTERS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  size="xs"
-                  variant={runFilter === option.value ? "secondary" : "ghost"}
-                  aria-pressed={runFilter === option.value}
-                  xstyle={[
-                    centerStyles.filterChip,
-                    runFilter === option.value && centerStyles.filterChipActive,
-                  ]}
-                  onClick={() => setRunFilter(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
+            <SegmentedControl
+              aria-label={tI18n("automation:automationCenterView.runStatusFilter")}
+              value={runFilter}
+              onValueChange={setRunFilter}
+              options={AUTOMATION_RUN_FILTERS.map((option) => ({ value: option.value, label: option.label }))}
+            />
             <Select
               value={runAutomationFilter}
               onValueChange={(value) => {
@@ -954,6 +942,25 @@ export function AutomationCenterView() {
           </>
         ) : null}
       </div>
+
+      {activeTab === "runs" && runAppliedFilters.length > 0 ? (
+        <AppliedFilters
+          xstyle={centerStyles.appliedFilters}
+          label={tI18n("automation:automationCenterView.appliedFilters")}
+          clearAllLabel={tI18n("automation:automationCenterView.clearAllFilters")}
+          filters={runAppliedFilters}
+          onRemove={(id) => {
+            if (id === "status") setRunFilter("all");
+            else setRunAutomationFilter(ALL_AUTOMATIONS);
+            setSelectedRunId(null);
+          }}
+          onClearAll={() => {
+            setRunFilter("all");
+            setRunAutomationFilter(ALL_AUTOMATIONS);
+            setSelectedRunId(null);
+          }}
+        />
+      ) : null}
 
       {loadError ? (
         <div className={sx(centerStyles.errorBanner)} role="alert">

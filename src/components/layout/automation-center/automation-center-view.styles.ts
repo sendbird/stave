@@ -126,21 +126,14 @@ export const centerStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     margin: 0,
   },
-  filterGroup: {
-    alignItems: "center",
-    backgroundColor: mutedSurface(45),
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    gap: 2,
-    padding: 2,
-  },
-  // Extra-small chips in a 2px well come to the small controls' 32px, so every
-  // view's toolbar keeps one height.
-  filterChip: { fontSize: vars["--ads-font-size-micro"], paddingInline: vars["--ads-space-8"] },
-  filterChipActive: {
-    backgroundColor: canvasSurface(85),
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 55%, transparent)`,
-    boxShadow: vars["--ads-elevation-raised"],
+  // Run-history filters that narrow the list, under the toolbar.
+  appliedFilters: {
+    borderBlockEndColor: vars["--ads-color-border-subtle"],
+    borderBlockEndStyle: "solid",
+    borderBlockEndWidth: vars["--ads-border-width-hairline"],
+    flexShrink: 0,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-16"],
   },
   runSelect: { fontSize: vars["--ads-font-size-caption"], inlineSize: 224 },
   shownCount: {

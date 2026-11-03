@@ -31,6 +31,7 @@ import {
 import { CountBadge } from "@/components/system/CountBadge";
 import { ReviewEditorOriginButton } from "@/components/review/ReviewEditorOriginButton";
 import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { transition } from "@/components/ads/recipes/transition";
 import { editorSurfaceToolbarStyles as s } from "./editor-surface-toolbar.styles";
 import type { EditorTab } from "@/types/chat";
@@ -179,49 +180,16 @@ export function EditorSurfaceToolbar(args: {
             </Tooltip>
           ) : null}
           {args.showDiffDisplayControls ? (
-            <div className={sx(s.diffViewGroup)}>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      xstyle={[
-                        s.diffViewButton,
-                        args.diffViewMode === "unified" &&
-                          s.diffViewButtonActive,
-                      ]}
-                      onClick={() => args.onChangeDiffViewMode("unified")}
-                      aria-label={i18n.t("panes:editorSurfaceToolbar.unifiedDiff")}
-                      aria-pressed={args.diffViewMode === "unified"}
-                    />
-                  }
-                >
-                  <AlignJustify size={14} />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{i18n.t("panes:editorSurfaceToolbar.unifiedDiff")}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      xstyle={[
-                        s.diffViewButton,
-                        args.diffViewMode === "split" && s.diffViewButtonActive,
-                      ]}
-                      onClick={() => args.onChangeDiffViewMode("split")}
-                      aria-label={i18n.t("panes:editorSurfaceToolbar.splitDiff")}
-                      aria-pressed={args.diffViewMode === "split"}
-                    />
-                  }
-                >
-                  <Columns2 size={14} />
-                </TooltipTrigger>
-                <TooltipContent side="bottom">{i18n.t("panes:editorSurfaceToolbar.splitDiff")}</TooltipContent>
-              </Tooltip>
-            </div>
+            <SegmentedControl
+              aria-label={i18n.t("panes:editorSurfaceToolbar.diffLayout")}
+              iconOnly
+              value={args.diffViewMode}
+              onValueChange={args.onChangeDiffViewMode}
+              options={[
+                { value: "unified", label: i18n.t("panes:editorSurfaceToolbar.unifiedDiff"), icon: <AlignJustify aria-hidden /> },
+                { value: "split", label: i18n.t("panes:editorSurfaceToolbar.splitDiff"), icon: <Columns2 aria-hidden /> },
+              ]}
+            />
           ) : null}
           {args.showDiffDisplayControls ? (
             <>

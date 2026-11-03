@@ -4,7 +4,7 @@ import { Bot, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
-import { ActionButton } from "@/components/system/ActionButton";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { MyStandardsPanel } from "@/components/agents/MyStandardsPanel";
 import { ResultsView } from "@/components/results/ResultsView";
@@ -85,19 +85,12 @@ export function AgentsView(props: {
       </header>
 
       <div className={sx(centerStyles.toolbar)}>
-        <nav aria-label={i18n.t("agents:agentsView.ariaLabel")} className={sx(centerStyles.tabNav)}>
-          {TABS.map(([id, label]) => (
-            <ActionButton
-              key={id}
-              size="sm"
-              weight={activeTab === id ? "secondary" : "quiet"}
-              aria-current={activeTab === id ? "page" : undefined}
-              onClick={() => setActiveTab(id)}
-            >
-              {i18n.t(label)}
-            </ActionButton>
-          ))}
-        </nav>
+        <SegmentedControl
+          aria-label={i18n.t("agents:agentsView.ariaLabel")}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          options={TABS.map(([id, label]) => ({ value: id, label: i18n.t(label) }))}
+        />
         <p className={sx(centerStyles.toolbarNote)}>{TAB_NOTES[activeTab]}</p>
       </div>
 

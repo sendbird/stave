@@ -12,6 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ActionButton } from "@/components/system/ActionButton";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { paneHost } from "@/components/panes/pane-host-controller";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
@@ -345,22 +346,15 @@ export function TaskResultReviews(props: {
           {i18n.t("session:taskResultReviews.taskResultReviews2")}</p>
       </div>
       <div className={sx(styles.toolbar)} role="group" aria-label={i18n.t("session:taskResultReviews.ariaLabel2")}>
-        <div className={sx(styles.filterGroup)}>
-          <ActionButton
-            size="xs"
-            weight={filter === "pending" ? "secondary" : "quiet"}
-            aria-pressed={filter === "pending"}
-            onClick={() => changeFilter("pending")}
-          >
-            {i18n.t("session:taskResultReviews.taskResultReviews3")}</ActionButton>
-          <ActionButton
-            size="xs"
-            weight={filter === "all" ? "secondary" : "quiet"}
-            aria-pressed={filter === "all"}
-            onClick={() => changeFilter("all")}
-          >
-            {i18n.t("session:taskResultReviews.taskResultReviews4")}</ActionButton>
-        </div>
+        <SegmentedControl
+          aria-label={i18n.t("session:taskResultReviews.filterLabel")}
+          value={filter}
+          onValueChange={changeFilter}
+          options={[
+            { value: "pending", label: i18n.t("session:taskResultReviews.taskResultReviews3") },
+            { value: "all", label: i18n.t("session:taskResultReviews.taskResultReviews4") },
+          ]}
+        />
         <span className={sx(styles.caption)} aria-live="polite">
           {loading && page.total === 0
             ? i18n.t("session:taskResultReviews.taskResultReviews5")

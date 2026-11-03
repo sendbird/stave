@@ -166,7 +166,8 @@
     "closeAll": "Close All",
     "copyPath": "Copy Path",
     "copyRelativePath": "Copy Relative Path",
-    "copyBreadcrumbsPath": "Copy Breadcrumbs Path"
+    "copyBreadcrumbsPath": "Copy Breadcrumbs Path",
+    "diffLayout": "Diff layout"
   },
   "paneTabChip.closeNamed": "Close {{title}} pane",
   "terminalSurfacePanel.clear": "Clear terminal"

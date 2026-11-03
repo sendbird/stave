@@ -75,7 +75,6 @@
     "findWorkspaceBranchOrTask": "Find workspace, branch, or task…",
     "searchWorkspacesBranchesOrTasks": "Search workspaces, branches, or tasks",
     "clearSearch": "Clear search",
-    "reset": "Reset",
     "noWorkspaces": "No Workspaces",
     "openARepositoryOrWorkspaceToSee": "Open a repository or workspace to see agent activity here.",
     "nothingActive": "Nothing active",
@@ -101,7 +100,14 @@
     "cards": "Cards",
     "table": "Table",
     "valueTasksShown_one": " · {{count}} task shown",
-    "valueTasksShown_other": " · {{count}} tasks shown"
+    "valueTasksShown_other": " · {{count}} tasks shown",
+    "filterLabel": "Board filter",
+    "appliedFilters": "Applied filters",
+    "clearAllFilters": "Clear all",
+    "appliedStatus": "Status",
+    "appliedIs": "is",
+    "appliedSearch": "Search",
+    "appliedContains": "contains"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "Default · {{branchLabel}}",

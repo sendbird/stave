@@ -2,6 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { fleetAppliedFilters } from "@/lib/fleet/fleet-applied-filters";
 import {
   ArrowRight,
   ChartNoAxesColumn,
@@ -794,25 +797,16 @@ export function FleetView() {
 
         <div className={sx(styles.board)}>
           <div className={sx(styles.toolbar)}>
-            <div className={sx(styles.filterGroup)}>
-              {(showTable ? FLEET_TABLE_FILTER_OPTIONS : FLEET_BOARD_FILTER_OPTIONS).map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  size="sm"
-                  variant={boardFilter === option.value ? "secondary" : "ghost"}
-                  xstyle={[
-                    styles.filterChip,
-                    boardFilter === option.value && styles.filterChipActive,
-                  ]}
-                  aria-pressed={boardFilter === option.value}
-                  title={option.hint}
-                  onClick={() => setBoardFilter(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
+            <SegmentedControl
+              aria-label={tI18n("fleet:fleetView.filterLabel")}
+              value={boardFilter}
+              onValueChange={setBoardFilter}
+              options={(showTable ? FLEET_TABLE_FILTER_OPTIONS : FLEET_BOARD_FILTER_OPTIONS).map((option) => ({
+                value: option.value,
+                label: option.label,
+                title: option.hint,
+              }))}
+            />
             <div className={sx(styles.searchField)}>
               <Search className={sx(styles.searchIcon)} aria-hidden="true" />
               <Input
@@ -839,48 +833,40 @@ export function FleetView() {
                 </Tooltip>
               ) : null}
             </div>
-            {isFilterActive ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                xstyle={styles.filterChip}
-                onClick={clearFilters}
-              >
-                {tI18n("fleet:fleetView.reset")}</Button>
-            ) : null}
-            {/* Last, so it stays put while the filters and Reset come and go. */}
-            <div
-              className={sx(styles.filterGroup)}
-              role="group"
+            {/* Last, so it stays put while the applied filters come and go. */}
+            <SegmentedControl
               aria-label={tI18n("fleet:fleetView.layoutLabel")}
-            >
-              {(["cards", "table"] as const).map((layout) => (
-                <Button
-                  key={layout}
-                  type="button"
-                  size="sm"
-                  variant={boardLayout === layout ? "secondary" : "ghost"}
-                  xstyle={[
-                    styles.filterChip,
-                    boardLayout === layout && styles.filterChipActive,
-                  ]}
-                  aria-pressed={boardLayout === layout}
-                  data-fleet-board-layout={layout}
-                  onClick={() => setBoardLayout(layout)}
-                >
-                  {layout === "cards" ? (
-                    <LayoutGrid className={sx(styles.actionIcon)} aria-hidden="true" />
-                  ) : (
-                    <Table2 className={sx(styles.actionIcon)} aria-hidden="true" />
-                  )}
-                  {layout === "cards"
-                    ? tI18n("fleet:fleetView.cards")
-                    : tI18n("fleet:fleetView.table")}
-                </Button>
-              ))}
-            </div>
+              value={boardLayout}
+              onValueChange={setBoardLayout}
+              options={[
+                {
+                  value: "cards",
+                  label: tI18n("fleet:fleetView.cards"),
+                  icon: <LayoutGrid aria-hidden="true" />,
+                  testId: "fleet-board-layout-cards",
+                },
+                {
+                  value: "table",
+                  label: tI18n("fleet:fleetView.table"),
+                  icon: <Table2 aria-hidden="true" />,
+                  testId: "fleet-board-layout-table",
+                },
+              ]}
+            />
           </div>
+          {isFilterActive ? (
+            <AppliedFilters
+              xstyle={styles.appliedFilters}
+              label={tI18n("fleet:fleetView.appliedFilters")}
+              clearAllLabel={tI18n("fleet:fleetView.clearAllFilters")}
+              filters={fleetAppliedFilters({ filter: boardFilter, query: searchQuery })}
+              onRemove={(id) => {
+                if (id === "query") setSearchQuery("");
+                else setBoardFilter("active");
+              }}
+              onClearAll={clearFilters}
+            />
+          ) : null}
 
           <div
             data-fleet-board-scroll="true"

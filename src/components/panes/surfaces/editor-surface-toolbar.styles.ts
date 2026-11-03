@@ -67,28 +67,6 @@ export const editorSurfaceToolbarStyles = stylex.create({
     borderWidth: vars["--ads-border-width-hairline"],
     color: vars["--ads-color-accent"],
   },
-  diffViewGroup: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-canvas"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    display: "flex",
-    gap: vars["--ads-space-2"],
-    padding: vars["--ads-space-2"],
-  },
-  diffViewButton: {
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
-    height: 24,
-    padding: 0,
-    width: 24,
-  },
-  diffViewButtonActive: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-    color: vars["--ads-color-text"],
-  },
   reviewButton: {
     borderRadius: vars["--ads-radius-mark"],
     color: vars["--ads-color-text-muted"],

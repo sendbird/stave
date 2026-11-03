@@ -394,7 +394,8 @@
     "noErrors": "오류가 없습니다.",
     "failedRunsAndChecksWillAppear": "실패한 실행, 차단된 실행, 실패한 풀 리퀘스트 검사가 여기에 표시됩니다.",
     "allowOnceFor": "{{title}} 작업의 요청 한 번 허용",
-    "denyFor": "{{title}} 작업의 요청 거부"
+    "denyFor": "{{title}} 작업의 요청 거부",
+    "viewSwitch": "알림 보기"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "독립 CLI — 설정에서 폴더 지정",

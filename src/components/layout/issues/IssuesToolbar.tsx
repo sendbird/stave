@@ -42,6 +42,7 @@ import {
   type TrackerStatusCategory,
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import {
   TrackerIssueFilterChip,
   type TrackerIssueFilterOption,
@@ -122,38 +123,20 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
   return (
     <div className={sx(taskLayoutStyles.toolbar)}>
       <div className={sx(taskLayoutStyles.toolbarRow)}>
-        <div
-          className={sx(taskLayoutStyles.tabList)}
-          role="tablist"
+        <SegmentedControl
           aria-label={tI18n("issues:issuesToolbar.trackerIssueViews")}
-        >
-          {TRACKER_ISSUE_VIEWS.map((view) => {
-            const selected = filter.view === view;
-            return (
-              <Button
-                key={view}
-                type="button"
-                size="sm"
-                role="tab"
-                aria-selected={selected}
-                variant={selected ? "secondary" : "ghost"}
-                xstyle={[
-                  taskLayoutStyles.tab,
-                  selected && taskLayoutStyles.activeTab,
-                ]}
-                // Switching tabs starts a clean filter: the chips answer a
-                // different question in each view, and carrying them across is
-                // how a tab looks broken on arrival.
-                onClick={() => props.onFilterChange(createTrackerIssueFilter(view))}
-              >
-                {VIEW_LABELS[view]}
-                <span className={sx(trackerVisualStyles.count)}>
-                  {props.viewCounts[view]}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
+          density="regular"
+          value={filter.view}
+          // Switching views starts a clean filter: the filters answer a
+          // different question in each view, and carrying them across is how
+          // a view looks broken on arrival.
+          onValueChange={(view) => props.onFilterChange(createTrackerIssueFilter(view))}
+          options={TRACKER_ISSUE_VIEWS.map((view) => ({
+            value: view,
+            label: VIEW_LABELS[view],
+            count: props.viewCounts[view],
+          }))}
+        />
 
         <div className={sx(taskLayoutStyles.search)}>
           <Search className={sx(taskLayoutStyles.searchIcon)} />
@@ -233,32 +216,16 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
         </Select>
 
         <div className={sx(taskLayoutStyles.toolbarActions)}>
-          <div
-            className={sx(taskLayoutStyles.segmented)}
-            role="group"
+          <SegmentedControl
             aria-label={tI18n("issues:issuesToolbar.ticketLayout")}
-          >
-            <Button
-              type="button"
-              size="sm"
-              variant={props.layout === "list" ? "secondary" : "ghost"}
-              aria-pressed={props.layout === "list"}
-              xstyle={taskLayoutStyles.tab}
-              onClick={() => props.onLayoutChange("list")}
-            >
-              <LayoutList className={sx(trackerVisualStyles.icon)} />
-              {tI18n("issues:issuesToolbar.list")}</Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={props.layout === "board" ? "secondary" : "ghost"}
-              aria-pressed={props.layout === "board"}
-              xstyle={taskLayoutStyles.tab}
-              onClick={() => props.onLayoutChange("board")}
-            >
-              <LayoutGrid className={sx(trackerVisualStyles.icon)} />
-              {tI18n("issues:issuesToolbar.board")}</Button>
-          </div>
+            density="regular"
+            value={props.layout}
+            onValueChange={props.onLayoutChange}
+            options={[
+              { value: "list", label: tI18n("issues:issuesToolbar.list"), icon: <LayoutList aria-hidden /> },
+              { value: "board", label: tI18n("issues:issuesToolbar.board"), icon: <LayoutGrid aria-hidden /> },
+            ]}
+          />
           {props.layout === "list" ? (
             <Select
               value={props.group}

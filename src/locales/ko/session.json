@@ -452,7 +452,8 @@
     "runCount_other": "산출물 {{count}}개",
     "agentRunReport": "에이전트 실행 보고서와 후속 작업",
     "markedReviewed": "검토함",
-    "review": "검토"
+    "review": "검토",
+    "filterLabel": "표시할 산출물"
   },
   "taskRunOverview": {
     "label": "대기 중",

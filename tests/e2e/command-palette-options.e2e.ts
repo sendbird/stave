@@ -37,7 +37,7 @@ async function openAllRepositories(page: Page) {
   });
   const input = page.getByPlaceholder("Find a command, task, workspace, or setting");
   await expect(input).toBeFocused();
-  await page.locator('[data-task-scope="all"]').click();
+  await page.getByTestId("task-scope-all").click();
   return input;
 }
 

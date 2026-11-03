@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ArrowUpDown, CornerDownLeft, Pin, PinOff } from "lucide-react";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   Badge,
@@ -325,25 +326,17 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           <span id={scopeLabelId} className={sx(commandPaletteStyles.scopeLabel)}>
             {i18n.t("shell:taskSearch.scopeLabel")}
           </span>
-          <div className={sx(commandPaletteStyles.scopeButtons)} role="group" aria-labelledby={scopeLabelId}>
-            {(["workspace", "all"] as const).map((scope) => (
-              <Button
-                key={scope}
-                type="button"
-                size="sm"
-                variant={taskScope === scope ? "secondary" : "ghost"}
-                aria-pressed={taskScope === scope}
-                data-task-scope={scope}
-                // Keep typing in the search field while switching.
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => setTaskScope(scope)}
-              >
-                {scope === "workspace"
-                  ? i18n.t("shell:taskSearch.scopeWorkspace")
-                  : i18n.t("shell:taskSearch.scopeAll")}
-              </Button>
-            ))}
-          </div>
+          <SegmentedControl
+            aria-labelledby={scopeLabelId}
+            value={taskScope}
+            onValueChange={setTaskScope}
+            // Keep typing in the search field while switching.
+            keepFocusOnPointer
+            options={[
+              { value: "workspace", label: i18n.t("shell:taskSearch.scopeWorkspace"), testId: "task-scope-workspace" },
+              { value: "all", label: i18n.t("shell:taskSearch.scopeAll"), testId: "task-scope-all" },
+            ]}
+          />
         </div>
         <CommandList className={sx(commandPaletteStyles.list)}>
           {/*

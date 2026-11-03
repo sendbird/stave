@@ -462,7 +462,8 @@
     "runCount_other": "{{count}} outputs",
     "agentRunReport": "Agent run report and actions",
     "markedReviewed": "Reviewed",
-    "review": "Review"
+    "review": "Review",
+    "filterLabel": "Which outputs to show"
   },
   "taskRunOverview": {
     "label": "Waiting",

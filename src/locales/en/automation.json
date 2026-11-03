@@ -70,7 +70,14 @@
       "runHistoryCount": "Run history · {{total}}"
     },
     "statusOn": "On · Runs on its schedule",
-    "statusOff": "Off · Manual runs only"
+    "statusOff": "Off · Manual runs only",
+    "runHistory": "Run history",
+    "runStatusFilter": "Run status",
+    "appliedFilters": "Applied filters",
+    "clearAllFilters": "Clear all",
+    "appliedStatus": "Status",
+    "appliedAutomation": "Automation",
+    "appliedIs": "is"
   },
   "automationEditor": {
     "when": "When",

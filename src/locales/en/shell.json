@@ -397,7 +397,8 @@
     "noErrors": "No errors.",
     "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here.",
     "allowOnceFor": "Allow the request in {{title}} once",
-    "denyFor": "Deny the request in {{title}}"
+    "denyFor": "Deny the request in {{title}}",
+    "viewSwitch": "Notification view"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "Standalone CLI — set a folder in Settings",

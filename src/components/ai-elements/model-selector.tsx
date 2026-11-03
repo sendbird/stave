@@ -31,7 +31,7 @@ import {
 } from "@/lib/providers/model-catalog";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { modelSelectorStyles as styles } from "./model-selector.styles";
-import { ChoiceChips } from "@/components/system/ChoiceChips";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { ModelIcon } from "./model-icon";
 import {
   shouldOpenModelSelector,
@@ -299,8 +299,9 @@ export function ModelSelector(args: ModelSelectorProps) {
         {effortEnabled && effortOptions.length > 0 ? (
           <div className={sx(styles.effortRow)}>
             <p className={sx(styles.effortLabel)}>{i18n.t("composer:modelSelector.sentence28", { value1: value.label })}</p>
-            <ChoiceChips
-              label={i18n.t("composer:modelSelector.label", { value1: value.label })}
+            <SegmentedControl
+              aria-label={i18n.t("composer:modelSelector.label", { value1: value.label })}
+              fullWidth
               options={effortOptions}
               value={effort}
               disabled={disabled}

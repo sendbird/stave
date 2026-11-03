@@ -1,10 +1,8 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { FolderTree, ListChecks } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
-import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { LabeledField, SelectField, SettingsCard, SwitchField } from "../settings-dialog.shared";
 import {
   normalizeWorkspaceSettleAfterDays,
@@ -68,25 +66,17 @@ export function SidebarSettingsCard() {
         title={t("settings:themeSection.sidebar.view.title")}
         description={t("settings:themeSection.sidebar.view.description")}
       >
-        <div className={sx(styles.rowWrapGap2)}>
-          {SIDEBAR_NAV_VIEW_FIELDS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              variant={
-                sidebarNavView === option.value ? "primary" : "outline"
-              }
-              size="sm"
-              aria-pressed={sidebarNavView === option.value}
-              onClick={() =>
-                updateSettings({ patch: { sidebarNavView: option.value } })
-              }
-            >
-              <option.Icon className={sx(styles.iconMd)} />
-              {t(option.label)}
-            </Button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label={t("settings:themeSection.sidebar.view.title")}
+          density="regular"
+          value={sidebarNavView}
+          onValueChange={(value) => updateSettings({ patch: { sidebarNavView: value } })}
+          options={SIDEBAR_NAV_VIEW_FIELDS.map((option) => ({
+            value: option.value,
+            label: t(option.label),
+            icon: <option.Icon aria-hidden />,
+          }))}
+        />
       </LabeledField>
       <SwitchField
         title={t("settings:themeSection.sidebar.settle.onMerge.title")}

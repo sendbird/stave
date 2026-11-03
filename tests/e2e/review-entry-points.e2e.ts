@@ -178,8 +178,8 @@ test("the pane header shows the task's mode switch and keeps side questions in t
 
   // Every task gets the switch, whatever its provider; a terminal tab gets none.
   const claude = page.locator("#entry-header-claude").getByTestId("pane-header-mode-switch");
-  await expect(claude.getByRole("button", { name: /^Review/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(claude.getByRole("button", { name: "Conversation" })).toHaveAttribute("aria-pressed", "false");
+  await expect(claude.getByRole("radio", { name: /^Review/ })).toHaveAttribute("aria-checked", "true");
+  await expect(claude.getByRole("radio", { name: "Conversation" })).toHaveAttribute("aria-checked", "false");
   await expect(page.locator("#entry-header-cursor").getByTestId("pane-header-mode-switch")).toBeVisible();
   await expect(page.locator("#entry-header-terminal").getByTestId("pane-header-mode-switch")).toHaveCount(0);
   await expect(page.locator("#entry-header-claude").getByTestId("pane-header-side-question")).toHaveCount(0);
@@ -217,10 +217,10 @@ test("the pane header switches Review, and Review's Conversation goes back to th
   // Review needs no side question support: a task on any provider gets the switch.
   const header = page.locator("#entry-toggle-header");
   await expect(header.getByRole("button", { name: "Side question" })).toHaveCount(0);
-  const toggle = header.getByTestId("pane-header-mode-switch").getByRole("button", { name: /^Review/ });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  const toggle = header.getByTestId("pane-header-mode-switch").getByRole("radio", { name: /^Review/ });
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
   const back = page.locator("#entry-toggle-surface").getByTestId("review-back-to-conversation");
   await expect(back).toBeVisible();
 
@@ -230,7 +230,7 @@ test("the pane header switches Review, and Review's Conversation goes back to th
   }, MODULES);
   const before = await focusRequests();
   await back.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
   expect((await surfaceEntry(page, "entry-toggle"))?.mode).toBe("conversation");
   expect(await focusRequests()).toBe(before + 1);
 });

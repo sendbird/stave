@@ -24,7 +24,7 @@ import {
   type StageCheck,
 } from "@/lib/workflows/stage-checks";
 import { workspaceCheckMode } from "@/lib/agent-runs/workspace-check";
-import { Segmented } from "./Segmented";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { readyWorkspaceScripts, useWorkspaceScriptActions, type WorkspaceScriptActions, type WorkspaceScriptOption } from "./useWorkspaceScriptActions";
 import { stageCheckStyles as styles } from "./stage-checks.styles";
 import { workflowStyles } from "./workflows.styles";
@@ -135,15 +135,14 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
         </ul>
       ) : null}
       {ids.length > 1 ? (
-        <Segmented<WorkspaceCheckMode>
+        <SegmentedControl<WorkspaceCheckMode>
           aria-label={i18n.t("agentRuns:stageChecks.modeAria", { check: name })}
-          size="xs"
           value={mode}
           options={[
-            { value: "all", label: i18n.t("agentRuns:stageChecks.modeAll"), description: i18n.t("agentRuns:stageChecks.modeAllDescription") },
-            { value: "any", label: i18n.t("agentRuns:stageChecks.modeAny"), description: i18n.t("agentRuns:stageChecks.modeAnyDescription") },
+            { value: "all", label: i18n.t("agentRuns:stageChecks.modeAll"), title: i18n.t("agentRuns:stageChecks.modeAllDescription") },
+            { value: "any", label: i18n.t("agentRuns:stageChecks.modeAny"), title: i18n.t("agentRuns:stageChecks.modeAnyDescription") },
           ]}
-          onChange={(next) => props.onChange(setStageCheckMode(stage, check.index, next))}
+          onValueChange={(next) => props.onChange(setStageCheckMode(stage, check.index, next))}
         />
       ) : null}
       {check.criterion.required === false ? <p className={sx(workflowStyles.hint)}>{i18n.t("agentRuns:stageChecks.optional")}</p> : null}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { Badge, Button, Input } from "@/components/ui";
 import {
   Dialog,
@@ -127,31 +128,16 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
               xstyle={styles.searchInput}
             />
           </div>
-          <div
-            className={sx(styles.filterGroup)}
-            role="group"
+          <SegmentedControl
             aria-label={t("compare:compareRunHistoryDialog.filterCompareRunsByStatus")}
-          >
-            {COMPARE_RUN_HISTORY_STATUS_FILTERS.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={status === option.value ? "secondary" : "ghost"}
-                className={sx(
-                  styles.filterButton,
-                  status === option.value && styles.filterButtonActive,
-                )}
-                aria-pressed={status === option.value}
-                onClick={() => setStatus(option.value)}
-              >
-                {option.label}
-                <span className={sx(styles.filterCount)}>
-                  {statusCounts[option.value] ?? 0}
-                </span>
-              </Button>
-            ))}
-          </div>
+            value={status}
+            onValueChange={setStatus}
+            options={COMPARE_RUN_HISTORY_STATUS_FILTERS.map((option) => ({
+              value: option.value,
+              label: option.label,
+              count: statusCounts[option.value] ?? 0,
+            }))}
+          />
         </div>
 
         <div className={sx(styles.list)}>

@@ -8,7 +8,7 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { AgentRunReportView } from "@/components/agent-runs/AgentRunReportView";
-import { Segmented } from "@/components/workflows/Segmented";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { centerStyles } from "@/components/layout/automation-center/automation-center-view.styles";
 import type { AgentRunInsights, ResultRun } from "@/lib/agent-runs/insights";
 import type { AgentRunReport } from "@/lib/agent-runs/report";
@@ -200,7 +200,7 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
   const reading = state.status === "loading" || (state.status === "ready" && state.reloading);
   const periodControl = (
     <span className={sx(styles.toolbar)}>
-      <Segmented aria-label={t("compare:resultsView.period")} size="xs" value={period} options={PERIODS} onChange={setPeriod} />
+      <SegmentedControl aria-label={t("compare:resultsView.period")} value={period} options={PERIODS.map((option) => ({ value: option.value, label: option.label }))} onValueChange={setPeriod} />
     </span>
   );
   const refresh = (

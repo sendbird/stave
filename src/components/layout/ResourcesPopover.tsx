@@ -44,6 +44,7 @@ import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace
 import type { StorageCleanupReport } from "@/lib/storage-cleanup/storage-cleanup-policy";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { processTypeStyles, resourceStyles } from "./resources-popover.styles";
 import { ResourceDashboard } from "./ResourceDashboard";
 import { ResourceManagerOverview } from "./ResourceManagerOverview";
@@ -528,28 +529,15 @@ export function MemoryUsagePopover({
           ) : null}
 
           <div className={sx(managerStyles.toolbar)}>
-            <div
-              className={sx(managerStyles.segmented)}
-              role="group"
+            <SegmentedControl
               aria-label={tI18n("workspace:resourcesPopover.resourceView")}
-            >
-              <Button
-                size="sm"
-                variant={view === "usage" ? "secondary" : "ghost"}
-                aria-pressed={view === "usage"}
-                xstyle={managerStyles.segment}
-                onClick={() => setView("usage")}
-              >
-                {tI18n("workspace:resourcesPopover.workspacesAndProcesses")}</Button>
-              <Button
-                size="sm"
-                variant={view === "diagnostics" ? "secondary" : "ghost"}
-                aria-pressed={view === "diagnostics"}
-                xstyle={managerStyles.segment}
-                onClick={() => setView("diagnostics")}
-              >
-                {tI18n("workspace:resourcesPopover.diagnosticsAndStorage")}</Button>
-            </div>
+              value={view}
+              onValueChange={setView}
+              options={[
+                { value: "usage", label: tI18n("workspace:resourcesPopover.workspacesAndProcesses") },
+                { value: "diagnostics", label: tI18n("workspace:resourcesPopover.diagnosticsAndStorage") },
+              ]}
+            />
             <Button
               variant="outline"
               size="sm"

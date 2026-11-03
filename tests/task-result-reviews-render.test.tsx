@@ -22,8 +22,8 @@ test("run history opens as a filterable list with its purpose stated up front", 
   expect(html).toContain("Saved answers and reported file changes");
   expect(html).toContain("All outputs");
   expect(html).toContain("Unread");
-  expect(html).toMatch(/aria-pressed="false"[^>]*><span[^>]*>Unread/);
-  expect(html).toMatch(/aria-pressed="true"[^>]*><span[^>]*>All outputs/);
+  expect(html).toMatch(/role="radio"[^>]*aria-checked="false"[^>]*>.*?Unread/);
+  expect(html).toMatch(/role="radio"[^>]*aria-checked="true"[^>]*>(?:(?!role="radio").)*All outputs/);
   expect(html.indexOf("Unread")).toBeLessThan(html.indexOf("All outputs"));
   expect(html).not.toContain("Current changes");
   expect(html).not.toContain("Mark read");

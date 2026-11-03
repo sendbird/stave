@@ -75,7 +75,6 @@
     "findWorkspaceBranchOrTask": "워크스페이스, 브랜치 또는 작업 검색…",
     "searchWorkspacesBranchesOrTasks": "워크스페이스, 브랜치 또는 작업 검색",
     "clearSearch": "검색 지우기",
-    "reset": "초기화",
     "noWorkspaces": "워크스페이스 없음",
     "openARepositoryOrWorkspaceToSee": "에이전트 활동을 보려면 저장소 또는 워크스페이스를 엽니다.",
     "nothingActive": "활성 항목 없음",
@@ -97,7 +96,14 @@
     "layoutLabel": "보드 레이아웃",
     "cards": "카드",
     "table": "표",
-    "valueTasksShown_other": " · 작업 {{count}}개 표시됨"
+    "valueTasksShown_other": " · 작업 {{count}}개 표시됨",
+    "filterLabel": "보드 필터",
+    "appliedFilters": "적용된 필터",
+    "clearAllFilters": "모두 지우기",
+    "appliedStatus": "상태",
+    "appliedIs": "일치",
+    "appliedSearch": "검색어",
+    "appliedContains": "포함"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "기본 · {{branchLabel}}",

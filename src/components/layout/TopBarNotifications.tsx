@@ -1,12 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
-import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Archive, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Badge,
   Button,
   Popover,
   PopoverContent,
@@ -40,6 +38,7 @@ import { isNotificationUnread } from "@/lib/notifications/notification.types";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { notificationsStyles } from "./top-bar-notifications.styles";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -548,32 +547,18 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 </Button>
               </div>
             ) : null}
-            <div className={sx(notificationsStyles.viewSwitch)}>
-              {(["all", "unread", "errors", "history"] as const).map((option) => (
-                <AdsButton
-                  key={option}
-                  layout="host"
-                  type="button"
-                  xstyle={[
-                    notificationsStyles.viewTab,
-                    view === option
-                      ? notificationsStyles.viewTabActive
-                      : notificationsStyles.viewTabIdle,
-                  ]}
-                  aria-pressed={view === option}
-                  onClick={() => setView(option)}
-                >
-                  <span className={sx(notificationsStyles.viewTabLabel)}>
-                    {i18n.t(VIEW_LABEL_KEY[option])}
-                  </span>
-                  {/* Always `outline`: a ring reads the same on the raised
-                      active tab and on the track behind the idle ones. */}
-                  <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
-                    {viewCount[option]}
-                  </Badge>
-                </AdsButton>
-              ))}
-            </div>
+            <SegmentedControl
+              aria-label={i18n.t("shell:topBarNotifications.viewSwitch")}
+              fullWidth
+              xstyle={notificationsStyles.viewSwitch}
+              value={view}
+              onValueChange={setView}
+              options={(["all", "unread", "errors", "history"] as const).map((option) => ({
+                value: option,
+                label: i18n.t(VIEW_LABEL_KEY[option]),
+                count: viewCount[option],
+              }))}
+            />
           </PopoverHeader>
           <div className={sx(notificationsStyles.scroller)}>
             <AsyncBoundary

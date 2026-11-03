@@ -742,6 +742,13 @@ Further host extensions:
   - Comments naming other internal products and their tracker numbers were
     generalized.
 
+  `ToggleGroup.tsx` (byte-identical to upstream until then) now also exports
+  its styles as `toggleGroupStyles`, the same canonical-style export Toggle,
+  Slider and Tooltip carry, so the host `SegmentedControl`
+  (`src/components/system/SegmentedControl.tsx`) draws its single-choice
+  radiogroup with the group's track, gliding chip and 28px item instead of a
+  second copy.
+
   Additive forward-ports the closure needed from newer upstream versions of
   host-modified files, each a strict addition: `useFieldDisabled` and
   `FieldsetDisabledProvider` in `field-anatomy.tsx`, the exported
