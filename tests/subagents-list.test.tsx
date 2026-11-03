@@ -80,7 +80,7 @@ function rowStatus(html: string, key: string) {
 }
 
 describe("SubagentsList", () => {
-  function render(rows: DelegationExchange[], opened: string[] = []) {
+  function render(rows: DelegationExchange[], opened: string[] = [], retryable = false) {
     const items: SubagentListItem[] = orderSubagentList(rows).map((exchange) => ({
       exchange,
       who: exchange.ref.delegationKey ?? exchange.title,
@@ -88,15 +88,21 @@ describe("SubagentsList", () => {
       canStop: false,
       busy: false,
       onOpen: () => opened.push(exchange.ref.delegationKey ?? exchange.title),
+      ...(retryable && exchange.kind === "delegated-task" && exchange.outcome.status === "failed" ? { onRetry: () => true } : {}),
     }));
     return renderToStaticMarkup(createElement(SubagentsList, { items, nowMs: T0 + 10 * MINUTE }));
   }
 
-  test("the summary counts the children and opens the first one waiting on the user", () => {
+  test("the tray counts the children by state as filters and opens the first one waiting on the user", () => {
     const html = render(sampleRows());
-    expect(html).toContain("2 need you · 2 running · 1 done · 1 failed");
+    expect(html).toContain('data-testid="subagents-filter"');
+    expect(html).toContain('aria-label="Show subagents"');
+    // One filter per state with rows, each named with its count; every row sits under one.
+    const filters = [...html.matchAll(/aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)]
+      .map(([, pressed, label]) => `${label!.replace(/<[^>]+>/g, "")}${pressed === "true" ? " (pressed)" : ""}`);
+    expect(filters).toEqual(["All 6 (pressed)", "Needs you 1", "Failed 2", "Running 2", "Done 1"]);
     expect(html).toMatch(/title="writer: [^"]+"[^>]*>.*Open writer/s);
-    // The stopped child is first in the list too.
+    // The asking child is first in the list too.
     expect(html.indexOf('data-needs-user="true"')).toBeLessThan(html.indexOf('data-subagent-kind="subagent"'));
   });
 
@@ -113,12 +119,19 @@ describe("SubagentsList", () => {
     expect(html).toMatch(/data-subagent-state="needs-you"[^>]*data-needs-user="true"/);
   });
 
-
-  test("with nothing waiting on the user there is no open shortcut", () => {
-    const html = render([subagent("explorer", "running", { started: 0 }), delegated("review", "completed", { started: 1, ended: 5 })]);
-    expect(html).toContain("1 running · 1 done");
+  test("with every child in one state the counts are a sentence and there is no open shortcut", () => {
+    const html = render([subagent("explorer", "running", { started: 0 }), subagent("planner", "running", { started: 1 })]);
+    expect(html).not.toContain('data-testid="subagents-filter"');
+    expect(html).toContain("2 running");
     expect(html).not.toContain("Open explorer");
     expect(html).not.toContain('data-needs-user="true"');
+  });
+
+  test("Retry failed counts only the failed delegated tasks the user may retry", () => {
+    expect(render(sampleRows())).not.toContain('data-testid="subagents-retry-failed"');
+    const html = render(sampleRows(), [], true);
+    // migrate is a failed delegated task; planner is an in-turn subagent its turn reports.
+    expect(html).toMatch(/data-testid="subagents-retry-failed"[^>]*>.*Retry failed \(1\)/s);
   });
 });
 

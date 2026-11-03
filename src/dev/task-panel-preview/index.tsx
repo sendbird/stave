@@ -63,9 +63,14 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  *   (failed, with a full digest) and the Turn picker lists an older turn
  *   from before records existed.
  * - `stuck=1` (with `task=agent-run`) adds a delegated child that asks a
- *   question and one that failed, which the Subagents tab lists first.
+ *   question and one that failed, which the Subagents tab lists first, and
+ *   in-turn subagents that wait on an approval and that failed. Retry is
+ *   accepted without a ledger (`retry=refuse` refuses it) and recorded on
+ *   `window.__staveSubagentRetries`.
  */
 const params = new URLSearchParams(window.location.search);
+/** `stuck=1`: see above. */
+const STUCK = params.get("stuck") === "1";
 
 const WORKSPACE_ID = "task-panel-preview-ws";
 const REPOSITORY_PATH = "/tmp/task-panel-preview-repo";
@@ -407,11 +412,60 @@ function liveTurnActivity(now: number, pending: string | null) {
     updatedAt: now,
     progress: ["Reading server/users.ts"],
   };
+  // `stuck=1`: an in-turn subagent waiting on an approval it raised, and one
+  // that failed, which only its calling turn may retry.
+  const plannerKey = providerAgentNodeKey("claude-code", "plan-1");
+  const checkerKey = providerAgentNodeKey("claude-code", "check-1");
+  const stuckNodes: AgentNode[] = STUCK
+    ? [
+        {
+          key: plannerKey,
+          identitySource: "provider",
+          agentId: "plan-1",
+          parentKey: graph.rootKey,
+          label: "Plan the users rollout",
+          badge: "Plan",
+          status: "running",
+          startedAt: now - 70_000,
+          updatedAt: now - 20_000,
+          progress: [],
+        },
+        {
+          key: checkerKey,
+          identitySource: "provider",
+          agentId: "check-1",
+          parentKey: graph.rootKey,
+          label: "Check the users index",
+          badge: "Explore",
+          status: "failed",
+          startedAt: now - 80_000,
+          updatedAt: now - 60_000,
+          completedAt: now - 60_000,
+          progress: [],
+          reason: "The index file could not be read.",
+        },
+      ]
+    : [];
   const workGraph: WorkGraph = {
     ...graph,
     updatedAt: now,
-    nodesByKey: { ...graph.nodesByKey, [explorerKey]: explorer },
-    orderedNodeKeys: [...graph.orderedNodeKeys, explorerKey],
+    nodesByKey: {
+      ...graph.nodesByKey,
+      [explorerKey]: explorer,
+      ...Object.fromEntries(stuckNodes.map((node) => [node.key, node])),
+    },
+    orderedNodeKeys: [...graph.orderedNodeKeys, explorerKey, ...stuckNodes.map((node) => node.key)],
+    interactionsById: STUCK
+      ? {
+          "approval:preview-plan": {
+            id: "approval:preview-plan",
+            nodeKey: plannerKey,
+            kind: "approval",
+            title: "Write docs/rollout.md",
+            raisedAt: now - 20_000,
+          },
+        }
+      : graph.interactionsById,
   };
   const item = (
     id: string,
@@ -481,7 +535,6 @@ const DELEGATED_REVIEW: DelegatedTaskSummary = {
 };
 
 /** `stuck=1`: a child that asks the user a question and one that failed. */
-const STUCK = params.get("stuck") === "1";
 const DELEGATED_ASKING: DelegatedTaskSummary = {
   ...DELEGATED_REVIEW,
   runId: "child-task:agent-run:changelog",
@@ -529,6 +582,15 @@ function stubDelegatedTasks() {
         args.parentTaskId === AGENT_RUN_TASK_ID
           ? STUCK ? [DELEGATED_REVIEW, DELEGATED_ASKING, DELEGATED_FAILED] : [DELEGATED_REVIEW]
           : [],
+      // Accepted without a ledger (`retry=refuse` refuses it); each call is
+      // kept on the window for the e2e.
+      retryDelegatedTask: async (args: { delegationKey: string; prompt: string }) => {
+        const calls = ((window as unknown as { __staveSubagentRetries?: unknown[] }).__staveSubagentRetries ??= []);
+        calls.push({ delegationKey: args.delegationKey, prompt: args.prompt });
+        return params.get("retry") === "refuse"
+          ? { accepted: false, duplicate: false, reason: "invalid-state", message: null, child: null }
+          : { accepted: true, duplicate: false, reason: null, message: null, child: null };
+      },
     },
   };
 }

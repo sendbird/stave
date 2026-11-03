@@ -127,6 +127,11 @@ export function SubagentsSection(props: {
           : undefined,
       onStop: child ? () => controller.onStop(child) : undefined,
       onView: child ? () => setViewingId(exchange.id) : undefined,
+      // The same Retry the delegated task's own row offers, for the tray's
+      // "Retry failed"; a managed task's subagents stay read-only.
+      onRetry: child && !props.readOnly && exchange.outcome.status === "failed" && resolveDelegatedTaskControls(child).canRetry
+        ? (prompt: string) => controller.onRetry(child, prompt)
+        : undefined,
     };
   });
   return (

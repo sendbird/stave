@@ -386,7 +386,28 @@
     "countRunning": "{{value}} running",
     "summaryLabel": "Subagent summary",
     "openFirstNeedsYou": "Open {{name}}",
-    "openFirstNeedsYouTitle": "{{name}}: {{reason}}"
+    "openFirstNeedsYouTitle": "{{name}}: {{reason}}",
+    "filterLabel": "Show subagents",
+    "filter": {
+      "all": "All",
+      "needsYou": "Needs you",
+      "failed": "Failed",
+      "running": "Running",
+      "done": "Done",
+      "stopped": "Stopped"
+    },
+    "retryFailed_one": "Retry failed ({{count}})",
+    "retryFailed_other": "Retry failed ({{count}})",
+    "retryFailedLabel": "Retry instructions",
+    "retryFailedPlaceholder": "What should each new attempt do?",
+    "retryFailedHint": "Each task retries with its original model and permissions.",
+    "retryFailedSubmit_one": "Retry {{count}} task",
+    "retryFailedSubmit_other": "Retry {{count}} tasks",
+    "retryFailedCancel": "Cancel",
+    "retryFailedStarted_one": "Retrying {{count}} failed task.",
+    "retryFailedStarted_other": "Retrying {{count}} failed tasks.",
+    "retryFailedRefused_one": "{{count}} could not be retried; its row says why.",
+    "retryFailedRefused_other": "{{count}} could not be retried; their rows say why."
   },
   "taskPanel": {
     "ariaLabel": "Task sections",

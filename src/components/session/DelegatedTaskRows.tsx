@@ -408,6 +408,11 @@ async function openTaskInWorkspace(args: {
 }
 
 export interface DelegatedTaskRowController extends DelegatedTaskRowActionHandlers {
+  /**
+   * Settles once the coordinator answered, `false` when it refused, so a
+   * caller can retry several in turn and say how many started.
+   */
+  onRetry: (child: DelegatedTaskSummary, prompt: string) => Promise<boolean>;
   children: readonly DelegatedTaskSummary[];
   errorByDelegationKey: Readonly<Record<string, string>>;
   blockedByDelegationKey: Readonly<Record<string, DelegatedTaskBlockedKind>>;
@@ -481,8 +486,9 @@ export function useDelegatedTaskRowController(args: {
       ) => Promise<DelegatedTaskActionResult>,
     ) => {
       setBusyDelegationKey(child.delegationKey);
-      void invoke(buildDelegatedTaskExpectedIdentity(child)).then((result) => {
+      return invoke(buildDelegatedTaskExpectedIdentity(child)).then((result) => {
         applyResult(child.delegationKey, result);
+        return result.ok;
       });
     },
     [applyResult],
@@ -529,11 +535,10 @@ export function useDelegatedTaskRowController(args: {
   );
 
   const handleRetry = useCallback(
-    (child: DelegatedTaskSummary, prompt: string) => {
+    (child: DelegatedTaskSummary, prompt: string) =>
       runAction(child, (expected) =>
         actions.retry({ delegationKey: child.delegationKey, expected, prompt }),
-      );
-    },
+      ),
     [actions, runAction],
   );
 
