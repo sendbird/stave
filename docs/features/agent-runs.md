@@ -605,8 +605,8 @@ sample limits and examples of when each screen helps.
   approval or question, or a stage's sign-off) and while Stave is closed. Stave
   notices a wait within a few seconds. After Stave quit unexpectedly, the time
   stops where Stave last recorded something for the run. Stave keeps a run's
-  newest 2,000 events; on a longer run a pause older than those counts as
-  active.
+  pauses, waits and stops for its whole life, so a long run still leaves out
+  an early pause.
 - An agent run started at a later stage has no acceptance criteria from
   **Understand**, so its report shows only what the stages that ran reported.
 

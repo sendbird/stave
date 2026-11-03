@@ -7,6 +7,7 @@ import {
   resolveCodexApprovalRisk,
 } from "../electron/providers/approval-allow-always";
 import { resolveClaudeHandoffDecision } from "../electron/providers/claude-permission-handoff";
+import { mapCodexServerRequestPresentation } from "../electron/providers/codex-server-request-mapping";
 import {
   hasTrustedToolEntry,
   isTrustedApproval,
@@ -118,6 +119,22 @@ describe("trusted approvals matching", () => {
     })).toBe(false);
     // A provider risk that is not a guardrail does not block a rule the user chose.
     expect(isTrustedApprovalRequest({ trustedTools, request: { toolName: "bash", input: "git push", risk: "network-access" } })).toBe(true);
+  });
+
+  test("an apply_patch entry never answers a Codex patch that asks for a root beyond the workspace", () => {
+    const trustedTools = ["apply_patch"];
+    for (const method of ["item/fileChange/requestApproval", "applyPatchApproval"]) {
+      const inside = mapCodexServerRequestPresentation({ method, params: { changes: {} }, requestId: "inside" });
+      const outside = mapCodexServerRequestPresentation({ method, params: { changes: {}, grantRoot: "/tmp/outside-workspace" }, requestId: "outside" });
+      if (inside?.kind !== "approval" || outside?.kind !== "approval") throw new Error("expected approval presentations");
+      expect(isTrustedApprovalRequest({ trustedTools, request: inside.event })).toBe(true);
+      expect(outside.event.risk).toBe("write-outside-repository");
+      expect(isTrustedApprovalRequest({ trustedTools, request: outside.event })).toBe(false);
+    }
+  });
+
+  test("file-system access beyond the sandbox always reaches the user", () => {
+    expect(isTrustedApprovalRequest({ trustedTools: ["permissions"], request: { toolName: "permissions", risk: "file-system-access" } })).toBe(false);
   });
 
   test("an entry is found again case-insensitively", () => {

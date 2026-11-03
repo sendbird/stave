@@ -132,13 +132,18 @@ export function isTrustedApproval(args: {
 }
 
 /**
- * Risks of a request that crossed a Stave guardrail (Claude G1–G3). Such a
- * request always reaches the user: no trusted entry answers it.
+ * Risks that always reach the user: a request that crossed a Stave guardrail
+ * (Claude G1–G3), a write beyond the workspace root, or file-system access
+ * beyond the sandbox. A trusted entry is consent to a call inside the
+ * workspace, so it never answers one of these. Network access is not on the
+ * list: a trusted command that needs the network (a push, an install) stays
+ * answered by the rule the user chose.
  */
 const GUARDRAIL_RISKS: ReadonlySet<ApprovalRisk> = new Set([
   "write-outside-repository",
   "credential-access",
   "irreversible-remote",
+  "file-system-access",
 ]);
 
 export function isGuardrailApprovalRisk(risk: ApprovalRisk | undefined) {

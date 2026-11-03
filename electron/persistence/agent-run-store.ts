@@ -28,6 +28,7 @@ import {
   type AgentRunStageRecord,
 } from "../../src/lib/agent-runs/domain";
 import { SECOND_AGENT_RUN_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
+import { AGENT_RUN_CLOCK_EVENT_KINDS } from "../../src/lib/agent-runs/active-time";
 
 interface AgentRunStatement {
   get: (...params: unknown[]) => unknown;
@@ -406,7 +407,10 @@ export class AgentRunStore {
 
   /**
    * Keeps the newest events within the retention bound. Keyed events are the
-   * idempotency guard for turns and Stave actions, so they are never pruned.
+   * idempotency guard for turns and Stave actions, and the clock's transitions
+   * (start, pause, user wait, host stop, end) are the run's active-time ledger,
+   * so neither is ever pruned: dropping an early pause would count the pause
+   * as work.
    */
   private pruneEvents(agentRunId: string) {
     const { count } = this.db
@@ -419,10 +423,11 @@ export class AgentRunStore {
         `DELETE FROM agent_run_events WHERE id IN (
            SELECT id FROM agent_run_events
            WHERE agent_run_id = ? AND idempotency_key IS NULL
+             AND kind NOT IN (${AGENT_RUN_CLOCK_EVENT_KINDS.map(() => "?").join(", ")})
            ORDER BY sequence ASC LIMIT ?
          )`,
       )
-      .run(agentRunId, excess);
+      .run(agentRunId, ...AGENT_RUN_CLOCK_EVENT_KINDS, excess);
   }
 
   private writeChange(change: AgentRunChange, now: Date, insert: boolean) {

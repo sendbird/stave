@@ -123,6 +123,14 @@ export function resolveCodexApprovalRisk(args: {
   method: string;
   params: Record<string, unknown>;
 }): ApprovalRisk | undefined {
+  // A patch that asks for a write root beyond the workspace is a write outside
+  // the repository, whatever trusted entry names its tool.
+  if (
+    (args.method === "item/fileChange/requestApproval" || args.method === "applyPatchApproval") &&
+    typeof args.params.grantRoot === "string" && args.params.grantRoot.trim()
+  ) {
+    return "write-outside-repository";
+  }
   if (args.method === "item/commandExecution/requestApproval") {
     return isRecord(args.params.networkApprovalContext) ? "network-access" : undefined;
   }

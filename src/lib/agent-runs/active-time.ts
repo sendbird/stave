@@ -19,8 +19,8 @@ import type { AgentRun, AgentRunEvent, AgentRunEventKind } from "./domain";
  *   (`detail.lastSeenAt`), so the time Stave was closed is not counted;
  * - `agent-run-ended` stops it for good.
  *
- * The host keeps the newest 2,000 unkeyed events of a run, so on a longer run
- * an early pause that was pruned counts as active time.
+ * The host never prunes these transitions (it keeps only the newest 2,000 of
+ * the other unkeyed events), so a long run still subtracts its early pauses.
  */
 
 /** The run's transitions the active time reads, in the order the host recorded them. */

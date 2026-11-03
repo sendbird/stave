@@ -156,7 +156,21 @@ describe("run store", () => {
     const events = store.listEvents("agent-run-1", { limit: AGENT_RUN_LIMITS.maxRetainedEvents });
     expect(events).toHaveLength(AGENT_RUN_LIMITS.maxRetainedEvents);
     expect(store.hasEvent("agent-run-1:open-draft-pr:1:action")).toBe(true);
-    expect(events.some((event) => event.kind === "agent-run-started")).toBe(false);
+    // The clock's transitions are the active-time ledger and are never pruned.
+    expect(store.listEvents("agent-run-1", { limit: AGENT_RUN_LIMITS.maxRetainedEvents + 10 }).some((event) => event.kind === "agent-run-started")).toBe(true);
+  });
+
+  test("a pause older than the retention bound still counts against the run's active time", () => {
+    store.create(startChange("agent-run-1"), AGENT_RUN_NOW);
+    store.recordEvent("agent-run-1", { kind: "paused", idempotencyKey: null, detail: {} }, AGENT_RUN_NOW);
+    store.recordEvent("agent-run-1", { kind: "resumed", idempotencyKey: null, detail: {} }, AGENT_RUN_NOW);
+    for (let index = 0; index < AGENT_RUN_LIMITS.maxRetainedEvents + 5; index += 1) {
+      store.recordEvent("agent-run-1", { kind: "checks-observed", idempotencyKey: null, detail: { index } }, AGENT_RUN_NOW);
+    }
+    const kinds = store.listEvents("agent-run-1", { limit: AGENT_RUN_LIMITS.maxRetainedEvents + 10 }).map((event) => event.kind);
+    expect(kinds).toContain("paused");
+    expect(kinds).toContain("resumed");
+    expect(kinds.filter((kind) => kind === "checks-observed")).toHaveLength(AGENT_RUN_LIMITS.maxRetainedEvents - 3);
   });
 
   test("an unreadable run row is skipped in listings instead of hiding the rest", () => {

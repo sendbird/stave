@@ -184,6 +184,12 @@ the grant is honored on later calls, and nowhere else.
   input to a running terminal, a request for a write root outside the
   workspace, a request for extra permissions or an MCP tool approval. Codex's
   own session grants are not used: Stave could not show or remove them.
+- No trusted entry answers a request that reaches beyond the workspace: a
+  Claude call that crossed a guardrail, a Codex edit that asks for a write
+  root outside the workspace (it reads **Writes outside the repository**), or
+  a request for file access outside the sandbox. These always ask, even when
+  an entry names the same tool. A trusted command that only needs network
+  access is still answered by its entry.
 - **Cursor, Kiro and OpenCode** use the agent's own `allow_always` when it
   offers one; otherwise the grant is a trusted-approvals entry as above.
 - A task an external host manages, a turn the host runs, and a delegated
@@ -199,7 +205,8 @@ Claude turn already running keeps the list it started with until it ends.
 - With focus anywhere in an approval card, **Cmd/Ctrl+Enter** allows the
   request once. **Esc** never denies a request.
 - A request that reports a risk shows it as a word before the status:
-  **Network access** or **File access outside the sandbox** for Codex, and
+  **Network access**, **File access outside the sandbox** or **Writes outside
+  the repository** for Codex, and
   the guardrail a Claude call crossed (**Writes outside the repository**,
   **Credential access**, **Irreversible remote action**). Cursor, Kiro and
   OpenCode report none.

@@ -97,6 +97,8 @@ describe("Codex server request presentation", () => {
         toolName: "apply_patch",
         requestId: "file-1",
         description: "Write generated output\n\nGrant root: /tmp/project",
+        // A write root beyond the workspace always reaches the user.
+        risk: "write-outside-repository",
       },
     });
     expect(
