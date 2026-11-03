@@ -6,14 +6,15 @@ import {
 } from "@/components/ads/components/ToastHost.promise";
 import type { ToastSecondaryAction } from "@/components/ads/components/ToastHost";
 
-export const notificationToastManager = createToastManager();
-export const workspaceToastManager = createToastManager();
-
-type ToastManager = typeof notificationToastManager;
+/**
+ * The one toast stack. Every notice — a store notification, a workspace
+ * result, a save failure — lands in the same bottom-right host, so at most
+ * `limit` cards show at once and none is split across two corners.
+ */
+export const toastManager = createToastManager();
 
 type NoticeOptions = {
   id?: string;
-  position?: "top-center" | "bottom-right";
   description?: ReactNode;
   duration?: number;
   action?: { label: ReactNode; onClick: MouseEventHandler<HTMLButtonElement> };
@@ -39,7 +40,7 @@ type UpdateOptions = {
   duration?: number;
 };
 
-/** The hosts' auto-dismiss delay, restored when a pinned loading toast settles. */
+/** The host's auto-dismiss delay, restored when a pinned loading toast settles. */
 const DEFAULT_DURATION_MS = 5000;
 
 const MANAGER_TYPE: Record<SettledKind, string> = {
@@ -50,19 +51,10 @@ const MANAGER_TYPE: Record<SettledKind, string> = {
   info: "info",
 };
 
-/** Which host shows each open toast, so `update` reaches the right stack. */
-const managerById = new Map<string, ToastManager>();
-
-function managerFor(position: NoticeOptions["position"]) {
-  return position === "bottom-right" ? workspaceToastManager : notificationToastManager;
-}
-
 function notice(type: string) {
   return (title: ReactNode, options: NoticeOptions = {}) => {
     const id = options.id ?? crypto.randomUUID();
-    const manager = managerFor(options.position);
-    managerById.set(id, manager);
-    return manager.add({
+    return toastManager.add({
       id,
       title,
       type,
@@ -71,16 +63,13 @@ function notice(type: string) {
       // work must not quietly disappear.
       timeout: type === "loading" ? 0 : options.duration,
       priority: type === "danger" ? "high" : "low",
-      onClose: () => {
-        managerById.delete(id);
-        options.onClose?.();
-      },
+      onClose: options.onClose,
       actionProps: options.action
         ? {
             children: options.action.label,
             onClick: (event) => {
               options.action?.onClick(event);
-              if (!event.defaultPrevented) manager.close(id);
+              if (!event.defaultPrevented) toastManager.close(id);
             },
           }
         : undefined,
@@ -90,7 +79,7 @@ function notice(type: string) {
               label: options.secondaryAction.label,
               onClick: (event: Parameters<MouseEventHandler<HTMLButtonElement>>[0]) => {
                 options.secondaryAction?.onClick(event);
-                if (!event.defaultPrevented) manager.close(id);
+                if (!event.defaultPrevented) toastManager.close(id);
               },
             } satisfies ToastSecondaryAction,
           }
@@ -105,22 +94,18 @@ function notice(type: string) {
  * card stacked under it.
  */
 function update(id: string, options: UpdateOptions) {
-  const manager = managerById.get(id);
-  const targets = manager ? [manager] : [notificationToastManager, workspaceToastManager];
-  for (const target of targets) {
-    target.update(id, {
-      ...(options.title !== undefined ? { title: options.title } : null),
-      ...(options.description !== undefined ? { description: options.description } : null),
-      ...(options.tone !== undefined
-        ? { type: MANAGER_TYPE[options.tone], priority: options.tone === "error" ? "high" : "low" }
+  toastManager.update(id, {
+    ...(options.title !== undefined ? { title: options.title } : null),
+    ...(options.description !== undefined ? { description: options.description } : null),
+    ...(options.tone !== undefined
+      ? { type: MANAGER_TYPE[options.tone], priority: options.tone === "error" ? "high" : "low" }
+      : null),
+    ...(options.duration !== undefined
+      ? { timeout: options.duration }
+      : options.tone !== undefined
+        ? { timeout: DEFAULT_DURATION_MS }
         : null),
-      ...(options.duration !== undefined
-        ? { timeout: options.duration }
-        : options.tone !== undefined
-          ? { timeout: DEFAULT_DURATION_MS }
-          : null),
-    });
-  }
+  });
 }
 
 const loading = notice("loading");
@@ -134,7 +119,7 @@ const loading = notice("loading");
 function promise<Value>(
   work: Promise<Value>,
   messages: ToastPromiseOptions<Value>,
-  options: Pick<NoticeOptions, "position" | "id"> = {},
+  options: Pick<NoticeOptions, "id"> = {},
 ): Promise<Value> {
   return runToastPromise(
     {
@@ -156,8 +141,5 @@ export const toast = Object.assign(notice("neutral"), {
   loading,
   update,
   promise,
-  dismiss: (id?: string) => {
-    notificationToastManager.close(id);
-    workspaceToastManager.close(id);
-  },
+  dismiss: (id?: string) => toastManager.close(id),
 });

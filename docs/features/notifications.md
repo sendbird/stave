@@ -53,6 +53,15 @@ If you prefer, the task itself also shows the pending approval as a row above th
 - Stave switches to the right repository, workspace, and task.
 - If the task was archived, Stave asks you to restore it before reopening.
 
+## In-App Toasts
+
+- Notices that need a glance — a finished turn, an approval request, a
+  workspace result, a failed save — appear as toasts in one stack at the
+  bottom-right of the window.
+- The stack shows up to three toasts at once; older ones fold behind the newest.
+- It sits above the composer and the status bar instead of covering them, and
+  moves up as the composer grows.
+
 ## System Notifications
 
 With `Settings > General > Desktop Notifications > Native Notifications` on,

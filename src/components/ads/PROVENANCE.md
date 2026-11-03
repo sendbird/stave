@@ -102,6 +102,13 @@ Further host extensions:
   exports are unchanged.
 - ToastHost accepts an external canonical toast manager for store-originated
   notifications. Task navigation is an explicit visible action.
+- ToastHost `avoid` (host extension, `ToastHost.avoid.ts`): a selector for
+  product chrome a bottom-anchored stack must stay above. While a toast is
+  open, a visible match that shares the stack's column lifts the viewport so
+  its `--ads-space-20` gap is measured from the match's top edge; matches
+  beside the column leave it in place, and nothing is observed while the stack
+  is empty. Top positions ignore it. The product's single bottom-right host
+  passes `[data-toast-avoid]` (the chat composer column and the status bar).
 - Lightbox accepts host overlay layering, accessible title, close label, and a
   test marker; canonical focus management, zoom, and pan remain authoritative.
 

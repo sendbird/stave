@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import {
-  notificationToastManager,
-  toast,
-  workspaceToastManager,
-} from "@/lib/notifications/toast";
+import { toast, toastManager } from "@/lib/notifications/toast";
 
 type ManagerEvent = { action: string; options: Record<string, unknown> & { id?: string; updates?: Record<string, unknown> } };
 type Subscribable = { " subscribe": (listener: (event: ManagerEvent) => void) => () => void };
@@ -22,7 +18,7 @@ afterEach(() => {
 
 describe("toast facade", () => {
   test("loading is pinned until it settles; update rewrites the same toast and restarts the timer", () => {
-    const notifications = record(notificationToastManager);
+    const notifications = record(toastManager);
     stops.push(notifications.stop);
     const id = toast.loading("Creating workspace…", { description: "feat/meter" });
     const [added] = notifications.events;
@@ -37,19 +33,18 @@ describe("toast facade", () => {
     expect(notifications.events.filter((event) => event.action === "add")).toHaveLength(1);
   });
 
-  test("update reaches the host the toast was shown on", () => {
-    const notifications = record(notificationToastManager);
-    const workspace = record(workspaceToastManager);
-    stops.push(notifications.stop, workspace.stop);
-    const id = toast.loading("Exporting", { position: "bottom-right" });
-    toast.update(id, { tone: "error", title: "Export failed" });
-    expect(workspace.events.map((event) => event.action)).toEqual(["add", "update"]);
-    expect(workspace.events[1]?.options.updates).toMatchObject({ type: "danger", priority: "high" });
-    expect(notifications.events).toHaveLength(0);
+  test("every notice and its update go to the one host", () => {
+    const notifications = record(toastManager);
+    stops.push(notifications.stop);
+    const exported = toast.loading("Exporting");
+    toast.warning("Default workspace changed branches");
+    toast.update(exported, { tone: "error", title: "Export failed" });
+    expect(notifications.events.map((event) => event.action)).toEqual(["add", "add", "update"]);
+    expect(notifications.events[2]?.options.updates).toMatchObject({ type: "danger", priority: "high" });
   });
 
   test("an explicit duration wins over the settled default", () => {
-    const notifications = record(notificationToastManager);
+    const notifications = record(toastManager);
     stops.push(notifications.stop);
     const id = toast.loading("Working");
     toast.update(id, { tone: "info", title: "Done", duration: 1200 });
@@ -57,7 +52,7 @@ describe("toast facade", () => {
   });
 
   test("promise settles one toast to success with the value, and to error while re-throwing", async () => {
-    const notifications = record(notificationToastManager);
+    const notifications = record(toastManager);
     stops.push(notifications.stop);
     const value = await toast.promise(Promise.resolve(412), {
       loading: "Importing",
@@ -82,7 +77,7 @@ describe("toast facade", () => {
   });
 
   test("a secondary action rides on the toast's data and closes it after running", () => {
-    const notifications = record(notificationToastManager);
+    const notifications = record(toastManager);
     stops.push(notifications.stop);
     let viewed = 0;
     let undone = 0;

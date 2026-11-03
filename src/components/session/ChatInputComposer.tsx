@@ -1313,7 +1313,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         onClose={() => setPromptEnhancementDiff(null)}
         onKeep={() => (setPromptEnhancementDiff(null), setFocusNonce((current) => current + 1))}
         onRevert={() => promptEnhancementDiff && revertPromptEnhancement(promptEnhancementDiff)}
-        render={<div className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)} />}
+        // `data-toast-avoid`: the toast stack rises above the whole composer
+        // column (attached rows, card and frame) instead of covering Send.
+        render={<div data-toast-avoid="" className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)} />}
       >
         {/* Rows attached above the card keep the card's width: in the framed
             composer they stay clear of the wing tracks beside it. */}
