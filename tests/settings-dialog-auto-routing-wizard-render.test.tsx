@@ -74,6 +74,13 @@ describe("SettingsAutoRoutingWizard", () => {
     expect(html).toContain("Claude Opus 5");
     expect(html).toContain("Claude Haiku 5.5");
     expect(html).not.toContain("No history yet");
+    // The step rail: a named navigation landmark, the current step marked,
+    // the prompt count stated on Scan, and the position in words.
+    expect(html).toMatch(/<nav[^>]*aria-label="Setup steps"/);
+    expect(html).toMatch(/aria-current="step"[^>]*>(?:(?!<\/button>).)*Scan/);
+    expect(html).toContain("6 prompts read");
+    expect(html).toContain("Step 1 of 3");
+    expect(html).toContain("Step 1 of 3: Scan");
   });
 
   test("renders the empty state once a scan found nothing", async () => {
