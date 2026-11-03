@@ -391,5 +391,23 @@
     "subagentsFailed": "하위 에이전트를 읽지 못했습니다: {{error}}",
     "stepsTitle": "{{name}}의 작업",
     "closeSteps": "작업 닫기"
+  },
+  "tree": {
+    "rename": "이름 바꾸기",
+    "movedUp": "{{name}}을(를) 위로 옮겼습니다.",
+    "movedDown": "{{name}}을(를) 아래로 옮겼습니다.",
+    "movedInto": "{{name}}을(를) {{parent}} 안으로 옮겼습니다.",
+    "movedOut": "{{name}}을(를) 폴더 밖으로 옮겼습니다.",
+    "itemMoved": "항목을 옮겼습니다."
+  },
+  "disclosureGroup": {
+    "expandAll": "모두 펼치기",
+    "collapseAll": "모두 접기"
+  },
+  "traceWaterfall": {
+    "label": "실행 시간 흐름",
+    "summary_other": "구간 <strong>{{count}}</strong>개<dot>·</dot>{{duration}}",
+    "expand": "{{name}} 펼치기",
+    "collapse": "{{name}} 접기"
   }
 }

@@ -412,5 +412,24 @@
     "subagentsFailed": "Subagents could not be read: {{error}}",
     "stepsTitle": "Tasks of {{name}}",
     "closeSteps": "Close tasks"
+  },
+  "tree": {
+    "rename": "Rename",
+    "movedUp": "{{name}} moved up.",
+    "movedDown": "{{name}} moved down.",
+    "movedInto": "{{name}} moved into {{parent}}.",
+    "movedOut": "{{name}} moved out of its folder.",
+    "itemMoved": "Item moved."
+  },
+  "disclosureGroup": {
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
+  },
+  "traceWaterfall": {
+    "label": "Trace waterfall",
+    "summary_one": "<strong>{{count}}</strong> span<dot>·</dot>{{duration}}",
+    "summary_other": "<strong>{{count}}</strong> spans<dot>·</dot>{{duration}}",
+    "expand": "Expand {{name}}",
+    "collapse": "Collapse {{name}}"
   }
 }

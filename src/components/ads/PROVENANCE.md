@@ -774,3 +774,49 @@ Further host extensions:
   in `tokens.stylex.ts` (size tokens, not colors, so no theme carries them),
   and the `xs` size rung on the `stepper`, `stepper-indicator` and
   `stepper-trigger` theme targets.
+
+- **Tree and TraceWaterfall (`.ads-source-selection.json`).** `Tree` (root,
+  `Tree.model`, `Tree.keyboard`, `Tree.row`, `Tree.dnd`, `Tree.parts`, the
+  `tree-styles`, `disclosure-chevron` and `selection-mark` recipes and
+  `utils/tree-selection`) and `TraceWaterfall` (with `TraceWaterfall.styles`,
+  `disclosure-group-toggle` and `utils/disclosure-group`) were installed from
+  the ADS source bundle on 2026-11-03 and added to the selection manifest, whose
+  `bundleIntegrity` is now the five-entrypoint bundle's. Before installing,
+  `check_source_updates` against the unchanged selection manifest reported the
+  same `sourceRevision`, 11 files current and 14 host-modified (the i18n
+  changes above), so nothing upstream had moved. As with the rest of the
+  family, only the 14 files absent from this copy were written; shared files
+  kept their host versions, and the bundle's newer CSS sheets, `Menu` parts,
+  `shortcut-keys` and theme-target files were not installed because nothing
+  installed here imports them. Integrity values are PRISTINE upstream hashes.
+
+  The agent tree (`src/components/session/WorkGraphTree.tsx`) is a treeview
+  built on `Tree.model`'s `flattenVisibleTree`, `Tree.keyboard`'s key map and
+  the `disclosure-chevron` recipe rather than on the `Tree` root: an agent row
+  is a two-line card with its own controls, which the fixed-height,
+  single-line `Tree.row` cannot hold. The Activity tab's Timeline view
+  (`src/components/session/TurnTraceTimeline.tsx`) renders `TraceWaterfall`.
+
+  Host modifications, kept when refreshing:
+
+  - Every English string reads `i18n.t("ui:tree.*" | "ui:disclosureGroup.*" |
+    "ui:traceWaterfall.*")`: the rename input's name and the move
+    announcements in `Tree.parts`, `Tree.keyboard` and `Tree.dnd`, the
+    expand/collapse-all control, and the waterfall's default label, span
+    summary and expand/collapse names.
+  - `TraceWaterfall` formats durations with the host's `formatDuration`
+    (tenths under ten seconds), so a span reads like every other clock here.
+  - `TraceWaterfall`'s rows are subgrids of the root's three columns. Each row
+    used to be its own grid with a `max-content` trailing column, so a longer
+    duration on one row narrowed that row's track and moved its bar off the
+    shared axis.
+  - `TraceWaterfall` gains three additive span/prop fields: `tone` (the bar's
+    data-ink series: `chart1` default, `chart2`, `chart4` or `neutral`;
+    `error` still wins), `trailing` (content before the duration figure) and
+    `markerMs` (a vertical "now" line in `colorInfo` through every track; the
+    axis stretches to include it). It sets `aria-pressed` only when the caller
+    keeps a selection, and tags rows, names, bars and the marker with
+    `data-trace-*` attributes for geometry tests.
+  - Forward-port: the `head`, `summary` and `toggle` slots on the
+    `trace-waterfall` theme target (`theme-targets.insight.ts`), a strict
+    addition the newer upstream target carries and `TraceWaterfall` reads.

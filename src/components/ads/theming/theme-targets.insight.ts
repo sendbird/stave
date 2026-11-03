@@ -101,6 +101,15 @@ export const insightThemeTargets = {
       /* The trailing time figure, machine register. */
       duration: ink,
       /*
+       * The summary + expand/collapse-all line above the first span, present
+       * once two or more spans have children. It owns the hairline under it.
+       */
+      head: [...surface, ...themeSpaceProperties],
+      /* The span count and total duration inside `head`. */
+      summary: ink,
+      /* The expand/collapse-all text control inside `head`. */
+      toggle: control,
+      /*
        * The empty track behind a span bar — chrome, so themeable, exactly like
        * `bar-list`'s `track`. `backgroundColor` only: the bar's own fill is
        * data ink (`chart1`), and its `error`/`running` tint is a STATE signal a
