@@ -24,10 +24,17 @@ export function useAgentRunDecision(leadTaskId: string | null | undefined): Agen
 }
 
 /**
+ * How often a run's one-line surface (the composer line, the Fleet strip)
+ * re-reads its ages ("waited 5m", "checked 2m ago"). Its elapsed span reads
+ * the shared one-second clock in `ElapsedClock` instead.
+ */
+export const RUN_LINE_CLOCK_MS = 5_000;
+
+/**
  * A clock for ages ("6m", "2h"). Ticks only while `active`; a static surface,
  * such as a finished agent run, never re-renders on a timer. A live elapsed
- * span reads to the second on a faster clock: a one-line surface passes
- * `ELAPSED_CLOCK_MS`, and a panel keeps it in the span's own `ElapsedClock`.
+ * span reads to the second in its own `ElapsedClock`, so only that text
+ * re-renders every second.
  */
 export function useNow(active: boolean, intervalMs = 30_000) {
   const [now, setNow] = useState(() => Date.now());

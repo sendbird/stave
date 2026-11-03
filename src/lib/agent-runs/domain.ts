@@ -745,6 +745,18 @@ export const AGENT_RUN_EVENT_KINDS = [
   "agent-run-ended",
   /** The user shared the ended agent run's report to a Slack thread. */
   "report-shared",
+  /**
+   * The run began waiting on the user: an approval or question its lead task
+   * holds open, or a stage's sign-off. Written by the host as it observes the
+   * change, for the run's active time (`active-time.ts`).
+   */
+  "user-wait-started",
+  /** The run stopped waiting on the user. */
+  "user-wait-ended",
+  /** The host stopped with the run still active; its clock stops until the host starts again. */
+  "host-stopped",
+  /** The host started with the run still active, after a stop or a crash. */
+  "host-started",
 ] as const;
 export type AgentRunEventKind = (typeof AGENT_RUN_EVENT_KINDS)[number];
 

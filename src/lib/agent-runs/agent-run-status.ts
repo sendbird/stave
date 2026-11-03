@@ -26,6 +26,7 @@ import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } fro
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckMode, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
 import { type AgentRunBadgeTone, type StageState } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
+import { activeMsAt } from "./active-time";
 
 export { extractRunAssignment };
 
@@ -249,14 +250,39 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
 }
 
 /**
- * How long the run has gone, or went: from its start to now, or to its last
- * change, in the shared duration words (`2m 10s`), as Fleet reads a task.
+ * The run's wall-clock span: from its start to now, or to its last change once
+ * it ended, pauses and waits included.
+ */
+export function agentRunWallClockMs(detail: AgentRunDetail, now: number): number {
+  const { agentRun } = detail;
+  const end = isActiveAgentRunState(agentRun.state) ? now : Date.parse(agentRun.updatedAt);
+  return Math.max(0, end - Date.parse(agentRun.createdAt));
+}
+
+/**
+ * How long the run has worked, or worked: its active time when the host
+ * reports it (pauses, waits on the user and host downtime left out), else its
+ * wall-clock span from an older host.
+ */
+export function agentRunElapsedMs(detail: AgentRunDetail, now: number): number {
+  return detail.activeTime ? activeMsAt(detail.activeTime, now) : agentRunWallClockMs(detail, now);
+}
+
+/**
+ * Whether the run's time is still counting, so a surface keeps its clock
+ * live: while the host reports a span counting, or for an older host while the
+ * run is active.
+ */
+export function agentRunClockRunning(detail: AgentRunDetail): boolean {
+  return detail.activeTime ? detail.activeTime.activeSince !== null : isActiveAgentRunState(detail.agentRun.state);
+}
+
+/**
+ * How long the run has worked, or worked, in the shared duration words
+ * (`2m 10s`), as Fleet reads a task: `agentRunElapsedMs`.
  */
 export function agentRunDuration(detail: AgentRunDetail, now: number): string {
-  const { agentRun } = detail;
-  const active = agentRun.state === "running" || agentRun.state === "paused";
-  const end = active ? now : Date.parse(agentRun.updatedAt);
-  return formatDuration(end - Date.parse(agentRun.createdAt));
+  return formatDuration(agentRunElapsedMs(detail, now));
 }
 
 export type DoneWhenStatus = "met-verified" | "met-reported" | "unmet" | "unverified";

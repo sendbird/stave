@@ -636,7 +636,8 @@
       "completed": "완료",
       "skipped": "건너뜀",
       "cancelled": "취소됨"
-    }
+    },
+    "summaryActive_other": "{{outcome}} · 활성 {{duration}} · {{count}}턴"
   },
   "report": {
     "summary": "차단됨: {{value1}}",
@@ -1139,5 +1140,16 @@
       "attachments_other": "첨부 {{count}}개 유지",
       "filePaths": "첨부 파일은 저장본을 읽음"
     }
+  },
+  "activeTime": {
+    "activeFor": "활성 시간",
+    "wasActive": "총 활성 시간",
+    "since": "{{time}}부터 · 일시 중지 제외",
+    "from": "{{time}}부터 · 일시 중지 제외",
+    "explain": "실행이 작업한 시간만 셉니다. 일시 중지, 답변이나 승인을 기다린 시간, Stave가 꺼져 있던 시간은 빼고 셉니다.",
+    "wallClockSince": "{{explain}} 시작한 지 {{duration}} 지났습니다.",
+    "wallClockTook": "{{explain}} 시작부터 끝까지 {{duration}} 걸렸습니다.",
+    "soFar": "현재까지 활성 {{value1}}",
+    "reportLabel": "활성 시간"
   }
 }

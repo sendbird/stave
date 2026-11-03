@@ -21,7 +21,7 @@ import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { isVerifiedEvidence } from "@/lib/agent-runs/evidence";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunReport } from "@/lib/agent-runs/report";
-import { describeAgentRunMetrics, formatAgentRunReportMarkdown } from "@/lib/agent-runs/report-markdown";
+import { describeAgentRunMetrics, formatAgentRunReportMarkdown, reportDurationMs } from "@/lib/agent-runs/report-markdown";
 import { describeAgentRunAccountSwitch } from "@/lib/agent-runs/account-pool";
 import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
 import { EvidenceList } from "./EvidenceList";
@@ -91,11 +91,11 @@ export function AgentRunReportView({
   const plan = planItems && planItems.length > 0 ? planItems : null;
   const open = report.acceptanceCriteria.filter((criterion) => criterion.status !== "met");
   const completedStages = report.stages.filter((stage) => stage.status === "completed").length;
-  const duration = formatDuration(Date.parse(report.endedAt) - Date.parse(report.startedAt));
+  const duration = formatDuration(reportDurationMs(report));
   const spent = describeUsageShort(report.usage);
   // In the Agent run panel the Run card already shows turns and spend.
   const figures: Array<readonly [string, string]> = [
-    [i18n.t("agentRuns:agentRunReportView.extraCopy4"), duration],
+    [i18n.t(report.activeMs === undefined ? "agentRuns:agentRunReportView.extraCopy4" : "agentRuns:activeTime.reportLabel"), duration],
     ...(agentOrigin && report.stages.length <= 1 ? [] : ([[i18n.t("agentRuns:agentRunReportView.extraCopy5"), `${completedStages}/${report.stages.length}`]] as const)),
     ...(standalone ? ([[i18n.t("agentRuns:agentRunReportView.extraCopy6"), String(report.turnCount)]] as const) : []),
     [i18n.t("agentRuns:agentRunReportView.extraCopy7"), String(verifiedCount)],

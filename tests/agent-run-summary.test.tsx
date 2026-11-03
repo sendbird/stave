@@ -69,3 +69,33 @@ test("an ended run counts its time to its end, and aliases name their provider",
   expect(describeRunModel("claude-code", "sonnet")).toEqual({ name: "Claude Sonnet", namesProvider: true });
   expect(describeRunModel("codex", "gpt-6-sol")).toEqual({ name: "GPT-6 Sol", namesProvider: false });
 });
+
+test("with the host's active time the run reads Active for, its pauses left out", () => {
+  // Paused for 30 of 40 minutes: the clock stands at the 10 it worked.
+  const html = render({}, {
+    now: Date.parse(START) + 40 * 60_000,
+    activeTime: { activeMs: 10 * 60_000, activeSince: null },
+  });
+  expect(html).toContain("Active for");
+  expect(html).not.toContain("Running for");
+  expect(html).toContain(">10m<");
+  expect(html).toContain("since 6:46 PM · pauses not counted");
+  // The wall-clock span stays on hover.
+  expect(html).toContain("It started 40m ago.");
+});
+
+test("a counting active span adds the time since it began, and an ended run reads its active time", () => {
+  const counting = render({}, {
+    now: Date.parse(START) + 25 * 60_000,
+    activeTime: { activeMs: 5 * 60_000, activeSince: new Date(Date.parse(START) + 20 * 60_000).toISOString() },
+  });
+  expect(counting).toContain(">10m<");
+  const ended = render({ updatedAt: new Date(Date.parse(START) + 34 * 60_000).toISOString() }, {
+    active: false,
+    activeTime: { activeMs: 21 * 60_000, activeSince: null },
+  });
+  expect(ended).toContain("Active time");
+  expect(ended).toContain(">21m<");
+  expect(ended).toContain("from 6:46 PM · pauses not counted");
+  expect(ended).toContain("It took 34m from start to end.");
+});

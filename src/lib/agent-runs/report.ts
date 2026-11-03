@@ -84,6 +84,12 @@ export interface AgentRunReport {
   usage?: AgentRunUsage;
   /** Host-observed route facts, separate from the Agent's reported decisions. */
   routing?: AgentRunRouteObservation[];
+  /**
+   * How long the run worked, without pauses, waits on the user and host
+   * downtime; the host adds it on read (`active-time.ts`). Absent from older
+   * hosts, where the span from `startedAt` to `endedAt` stands in.
+   */
+  activeMs?: number;
   /** Account-pool switches, oldest first; present when the run switched at least once. */
   accountSwitches?: AgentRunAccountSwitch[];
   /** Event waits: each start, wake and end, oldest first; present when the run waited. */

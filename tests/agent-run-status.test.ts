@@ -5,7 +5,10 @@ import { agentRunLanesByWorkspace, agentRunWorkQueueLane } from "../src/lib/agen
 import { describe, expect, test } from "bun:test";
 import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import {
+  agentRunClockRunning,
   agentRunDuration,
+  agentRunElapsedMs,
+  agentRunWallClockMs,
   agentRunStoredPlan,
   describeAgentRunProgress,
   describeAgentRunResult,
@@ -57,6 +60,20 @@ describe("agent run state", () => {
     const created = Date.parse(detail.agentRun.createdAt);
     expect(agentRunDuration({ ...detail, agentRun: { ...detail.agentRun, state: "running" } }, created + 12_000)).toBe("12s");
     expect(agentRunDuration({ ...detail, agentRun: { ...detail.agentRun, state: "running" } }, created + 23 * 60_000 + 5_000)).toBe("23m 5s");
+  });
+
+  test("with the host's active time a run's duration leaves out its pauses and only counts while it works", () => {
+    const detail = { ...runs.working, agentRun: { ...runs.working.agentRun, state: "running" as const } };
+    const created = Date.parse(detail.agentRun.createdAt);
+    const paused = { ...detail, activeTime: { activeMs: 8 * 60_000, activeSince: null } };
+    expect(agentRunDuration(paused, created + 40 * 60_000)).toBe("8m");
+    expect(agentRunWallClockMs(paused, created + 40 * 60_000)).toBe(40 * 60_000);
+    expect(agentRunClockRunning(paused)).toBe(false);
+    const counting = { ...detail, activeTime: { activeMs: 8 * 60_000, activeSince: new Date(created + 30 * 60_000).toISOString() } };
+    expect(agentRunElapsedMs(counting, created + 32 * 60_000)).toBe(10 * 60_000);
+    expect(agentRunClockRunning(counting)).toBe(true);
+    // An older host without it: the time since the start, live while active.
+    expect(agentRunClockRunning(detail)).toBe(true);
   });
 });
 

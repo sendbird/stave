@@ -13,7 +13,7 @@ import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTi
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState, latestStageRecord } from "@/lib/agent-runs/domain";
-import { agentRunDuration, describeAgentRunResult, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
+import { agentRunClockRunning, agentRunDuration, describeAgentRunResult, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
 import { describeRunPlan } from "@/lib/agent-runs/progress";
 import { describeRunWaitLiveness } from "@/lib/agent-runs/wait-liveness";
 import { useAgentRunProgress } from "./useAgentRunProgress";
@@ -70,7 +70,9 @@ export function AgentRunOverview(props: {
   // The badge names the state; its subtitle and the line beside it say why, or how long.
   const describeStatus = (clock: number) => [
     status.subtitle,
-    status.reason ?? (active ? i18n.t("agentRuns:agentRunOverview.statusText", { value1: agentRunDuration(detail, clock) }) : result.duration),
+    status.reason ?? (active
+      ? i18n.t(detail.activeTime ? "agentRuns:activeTime.soFar" : "agentRuns:agentRunOverview.statusText", { value1: agentRunDuration(detail, clock) })
+      : result.duration),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -118,7 +120,7 @@ export function AgentRunOverview(props: {
             {status.label}
           </Badge>
           {/* How long reads to the second on its own clock; the panel keeps a slower one. */}
-          <ElapsedClock live={active} now={now}>
+          <ElapsedClock live={agentRunClockRunning(detail)} now={now}>
             {(clock) => {
               const statusText = describeStatus(clock);
               return (
@@ -239,6 +241,7 @@ export function AgentRunOverview(props: {
           agentRun={agentRun}
           usage={detail.usage ?? null}
           active={active}
+          activeTime={detail.activeTime ?? null}
           now={now}
           formatClock={formatClock}
         />

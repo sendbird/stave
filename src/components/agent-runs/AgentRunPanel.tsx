@@ -324,7 +324,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
           <Gauge aria-hidden className={sx(styles.sectionIcon)} />
           <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView11")}</h3>
         </div>
-        <AgentRunSummary agentRun={agentRun} usage={detail.usage ?? null} active={active} now={now} formatClock={formatClock} />
+        <AgentRunSummary agentRun={agentRun} usage={detail.usage ?? null} active={active} activeTime={detail.activeTime ?? null} now={now} formatClock={formatClock} />
       </section>
     </section>
   );

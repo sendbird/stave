@@ -401,6 +401,8 @@ edge halted -> stopped dashed : stop
 | Completed         | The done-when conditions are met                                                   | Read the run report in Outputs            |
 | Stopped           | Cancelled, or ended with a reason card                                             | **Retry** or **Take control**             |
 
+A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Progress** shows what its turns spent: a cost for Claude, tokens for Codex.
+
 The run line above the composer shows the buttons that fit: **Retry**, **Extend (+10 turns)**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model).
 Task panel > **Progress** shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
 Each done-when condition shows **Met · checked by Stave**, **Met · agent reported**, **Not met** or **Not verified**.

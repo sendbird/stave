@@ -18,6 +18,7 @@ import type {
 import type { AgentRunReport } from "./report";
 import type { AgentRunUsage } from "./usage";
 import type { AgentRunRouteObservation } from "./route-observation";
+import type { AgentRunActiveTime } from "./active-time";
 import type { AgentRunInsights } from "./insights";
 
 /** IPC channels behind `window.api.agentRuns`, keyed by bridge method. */
@@ -100,6 +101,13 @@ export interface AgentRunDetail {
   usage?: AgentRunUsage;
   /** Read-only route/outcome evidence. Older hosts omit this projection. */
   routing?: AgentRunRouteObservation[];
+  /**
+   * How long the run has worked, without its pauses, its waits on the user and
+   * the time the host was down, projected by the host from the run's
+   * transitions (`active-time.ts`). Older hosts omit it; surfaces then read
+   * the time since the run started.
+   */
+  activeTime?: AgentRunActiveTime;
   /** Frozen policy and shared supervised-turn capacity, never a money guarantee. */
   resources?: import("./resources").AgentResourceSnapshot;
   /**

@@ -9,6 +9,9 @@ import {
   EventWaitFactSchema,
 } from "./event-wait";
 import { getStageDisplayTitle } from "./stage-display";
+import { AGENT_RUN_CLOCK_ONLY_EVENT_KINDS } from "./active-time";
+import { projectStageSpend } from "./route-observation";
+import type { AgentRunUsage } from "./usage";
 import { i18n } from "@/i18n/runtime";
 /**
  * What the agent run surfaces show, derived from an `AgentRunDetail`: stage rows,
@@ -57,10 +60,13 @@ export interface AgentRunStageRow {
   asksFirst: boolean;
   durationMs: number | null;
   evidence: ClassifiedEvidence[];
+  /** What the stage's turns spent over all its attempts; null before a turn of it ran. */
+  spend: AgentRunUsage | null;
 }
 
 export function projectAgentRunStages(detail: AgentRunDetail, now: Date): AgentRunStageRow[] {
   const { agentRun, stages: records } = detail;
+  const spend = projectStageSpend(detail.routing);
   return agentRun.workflow.stages.map((stage, index) => {
     const record = latestStageRecord(records, stage.id) ?? null;
     const status: StageStatus = record?.status ?? "pending";
@@ -82,6 +88,7 @@ export function projectAgentRunStages(detail: AgentRunDetail, now: Date): AgentR
       durationMs:
         started === null ? null : (ended ?? (status === "running" ? now.getTime() : started)) - started,
       evidence,
+      spend: spend.get(stage.id) ?? null,
     };
   });
 }
@@ -105,10 +112,11 @@ export interface AgentRunHeadline {
   since: string;
 }
 
+/** The newest event of `kinds`; with none, the newest the run did, past the clock's own bookkeeping. */
 function latestEvent(events: readonly AgentRunEvent[], kinds?: readonly AgentRunEvent["kind"][]) {
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index]!;
-    if (!kinds || kinds.includes(event.kind)) return event;
+    if (kinds ? kinds.includes(event.kind) : !AGENT_RUN_CLOCK_ONLY_EVENT_KINDS.has(event.kind)) return event;
   }
   return null;
 }

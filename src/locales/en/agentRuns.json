@@ -646,7 +646,9 @@
       "completed": "completed",
       "skipped": "skipped",
       "cancelled": "cancelled"
-    }
+    },
+    "summaryActive_one": "{{outcome}} · {{duration}} active · {{count}} turn",
+    "summaryActive_other": "{{outcome}} · {{duration}} active · {{count}} turns"
   },
   "report": {
     "summary": "Blocked: {{value1}}",
@@ -1175,5 +1177,16 @@
       "attachments_other": "Keeps {{count}} attachments",
       "filePaths": "Reads saved copies of attached files"
     }
+  },
+  "activeTime": {
+    "activeFor": "Active for",
+    "wasActive": "Active time",
+    "since": "since {{time}} · pauses not counted",
+    "from": "from {{time}} · pauses not counted",
+    "explain": "Counts only the time the run worked. Pauses, waits for your answer or sign-off, and time Stave was closed are left out.",
+    "wallClockSince": "{{explain}} It started {{duration}} ago.",
+    "wallClockTook": "{{explain}} It took {{duration}} from start to end.",
+    "soFar": "{{value1}} active so far",
+    "reportLabel": "Active"
   }
 }

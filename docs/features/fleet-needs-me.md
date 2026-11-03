@@ -125,7 +125,8 @@ Fleet item, and the task records the answer the same way.
   A stopped turn's reason remains discoverable there after reading its global
   reminder. Starting a new turn replaces that failure.
 - A workspace running an agent run shows an agent run strip on its card: the stage
-  track, where the agent run stands, its stage position and what it has spent.
+  track, where the agent run stands, its stage position, how long it has worked
+  (pauses and waits for you not counted) and what it has spent.
   Clicking the strip opens the lead task.
 
 ### Key Controls
