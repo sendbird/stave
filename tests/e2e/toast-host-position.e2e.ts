@@ -223,3 +223,30 @@ test("in Fleet view the stack stays clear of the Action required band", async ({
     expect(toast.top).toBeGreaterThanOrEqual(bandBox.y + bandBox.height);
   }
 });
+
+test("collapsed, the newest toast stays in front of the older ones", async ({ page }) => {
+  await seedShell(page, "en");
+  await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.locator("[data-toast-avoid]:not(footer)")).toBeVisible();
+  await page.evaluate(async () => {
+    const modulePath = "/src/lib/notifications/toast.ts";
+    const { toast } = await import(modulePath);
+    toast.loading("Creating workspace…", { description: "feat/meter-primitive" });
+    toast.warning("Approval needed", { description: "Sort the Fleet table (2) · billing-table", duration: 0 });
+  });
+  await expect(page.locator(".atelier-toast-stack")).toHaveCount(2);
+  // Keep the pointer away so the stack stays collapsed.
+  await page.mouse.move(5, 5);
+  await expect(page.locator(".atelier-toast-stack[data-expanded]")).toHaveCount(0);
+  const newest = page.locator(".atelier-toast-stack", { hasText: "Approval needed" });
+  await expect
+    .poll(async () =>
+      newest.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return Boolean(hit && element.contains(hit));
+      }),
+    )
+    .toBe(true);
+});
