@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { usePanelMount } from "./Collapsible.panel-mount";
 import { Wrench } from "lucide-react";
 import * as React from "react";
 
@@ -152,6 +153,7 @@ function ToolRunRoot({
   ...props
 }: ToolRunProps) {
   useTranslation();
+  const panel = usePanelMount("lazy");
   const live = isLiveRunState(status);
   const elapsedMs = useMeasuredElapsed(
     { durationMs, now, settledAt, startedAt },
@@ -261,8 +263,9 @@ function ToolRunRoot({
           sx(inlineDisclosure.panel, toolRunStyles.panel),
           "atelier-motion-collapse",
         )}
-        keepMounted
+        keepMounted={panel.keepMounted}
       >
+        {panel.probe}
         <div
           className={cx(
             sx(inlineDisclosure.body, toolRunStyles.payload),

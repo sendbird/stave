@@ -187,7 +187,8 @@ describe("AssistantMessageBody", () => {
       streamingEnabled: true,
     }));
 
-    expect(html).toContain("Inspecting files.");
+    expect(html).toContain('data-thinking-status="thinking"');
+    expect(html).not.toContain("Inspecting files.");
     expect(html.match(/<button/g)?.length ?? 0).toBe(2);
   });
 
@@ -307,7 +308,7 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain(">Search<");
   });
 
-  test("keeps streaming reasoning text plain for hot-path performance", async () => {
+  test("defers streaming reasoning text until the reader opens it", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
@@ -319,7 +320,7 @@ describe("AssistantMessageBody", () => {
       streamingEnabled: true,
     }));
 
-    expect(html).toContain("https://example.com/docs");
+    expect(html).not.toContain("https://example.com/docs");
     expect(html).not.toContain("<a");
   });
 
@@ -510,7 +511,7 @@ describe("AssistantMessageBody", () => {
     );
   });
 
-  test("draws a display-list tool call with the trace's row, collapsed, its streaming output labelled live", async () => {
+  test("draws a display-list tool call with the trace's row, collapsed, deferring its streaming output", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const screenshotOutput = `data:image/png;base64,${"B".repeat(400)}`;
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
@@ -537,7 +538,8 @@ describe("AssistantMessageBody", () => {
       /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
     );
     expect(html).not.toContain('aria-expanded="true"');
-    expect(html).toContain("Live output");
+    expect(html).not.toContain("Live output");
+    expect(html).not.toContain(screenshotOutput);
   });
 
   test("renders interim assistant messages when enabled", async () => {

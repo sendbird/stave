@@ -22,6 +22,10 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 
 ## Before You Start
 
+In the conversation trace, tool output, reasoning, and rolled-up tool groups
+load their bodies when first opened and keep them after closing. Open a body
+before using browser find or printing its contents.
+
 - Start or open a task with an active turn so the shelf has something to say.
 - Expand the right rail if you want to open the Task panel directly.
 
