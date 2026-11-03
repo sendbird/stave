@@ -78,6 +78,24 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       state: "output-available",
     },
     {
+      /* Two web lookups that share a page: the finished turn lists two sources. */
+      type: "tool_use",
+      toolUseId: "tool-web-search",
+      toolName: "WebSearch",
+      input: JSON.stringify({ query: "prefers-reduced-motion animation" }),
+      output:
+        "1. https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion\n2. https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions",
+      state: "output-available",
+    },
+    {
+      type: "tool_use",
+      toolUseId: "tool-web-fetch",
+      toolName: "WebFetch",
+      input: JSON.stringify({ url: "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions" }),
+      output: "Fetched https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions",
+      state: "output-available",
+    },
+    {
       type: "tool_use",
       toolUseId: "tool-stave-lens-evaluate",
       toolName: "stave-local:stave_lens_evaluate",

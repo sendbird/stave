@@ -133,22 +133,44 @@ export function TraceOutput(args: {
  */
 export function TraceCitations(args: { output?: string }) {
   useTranslation();
-  const sources = useMemo<CitationSource[]>(
-    () =>
-      extractOutputUrls(args.output).map((url, position) => ({
-        href: url,
-        id: url,
-        index: position + 1,
-        source: toUrlSource(url),
-        title: url,
-      })),
-    [args.output],
-  );
+  const sources = useMemo(() => toCitationSources(extractOutputUrls(args.output)), [args.output]);
 
   if (sources.length === 0) return null;
 
   // i18n-ignore: component presentation enum, not visible text
   return <Citation.List detail="compact" sources={sources} />;
+}
+
+function toCitationSources(urls: readonly string[]): CitationSource[] {
+  return urls.map((url, position) => ({
+    href: url,
+    id: url,
+    index: position + 1,
+    source: toUrlSource(url),
+    title: url,
+  }));
+}
+
+/**
+ * The turn's web sources under its answer: one "Sources N" line that opens to
+ * the URLs every web search and fetch in the turn returned (see
+ * `collectTurnWebSources`). The trace keeps each call's own list; this one is
+ * for the reader who never opens the trace. No marks go into the answer text:
+ * nothing reports which sentence came from which page.
+ */
+export function TurnSources(args: { urls: readonly string[] }) {
+  useTranslation();
+  const sources = useMemo(() => toCitationSources(args.urls), [args.urls]);
+  if (sources.length === 0) return null;
+  return (
+    <Citation.List
+      data-turn-sources=""
+      // i18n-ignore: component presentation enum, not visible text
+      detail="compact"
+      sources={sources}
+      xstyle={styles.turnSources}
+    />
+  );
 }
 
 /**

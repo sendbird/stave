@@ -66,8 +66,8 @@ import {
 import { TraceApproval, TraceClarification } from "./turn-event-decisions";
 import { TraceSystemNotice } from "./turn-event-notice";
 import { resolveTraceActivity } from "./trace-activity";
-import { ReasoningRow } from "./turn-event-rows";
-import { toMeasuredDurationMs } from "./turn-event-state";
+import { ReasoningRow, TurnSources } from "./turn-event-rows";
+import { collectTurnWebSources, toMeasuredDurationMs } from "./turn-event-state";
 import {
   TRACE_GLYPH_SIZE,
   TraceSubagentRun,
@@ -574,6 +574,11 @@ export function AssistantMessageBody(args: {
           }),
     [categoryCounts, isStreaming, trace.responseParts, t],
   );
+  /* Once the turn ends: the web sources its searches and fetches returned. */
+  const turnSources = useMemo(
+    () => (isStreaming ? [] : collectTurnWebSources(message.parts)),
+    [isStreaming, message.parts],
+  );
   /* While the turn runs: the newest step still in progress, for the header. */
   const streamingActivity = useMemo(
     () => (isStreaming ? resolveTraceActivity(trace.entries, t) : null),
@@ -764,6 +769,8 @@ export function AssistantMessageBody(args: {
           ))}
         </div>
       ) : null}
+
+      {turnSources.length > 0 ? <TurnSources urls={turnSources} /> : null}
 
       {showDiffResults ? (
         <div className={sx(styles.spacedTop)}>

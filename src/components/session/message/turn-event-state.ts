@@ -1,6 +1,7 @@
 import type { AgentStepState } from "@/components/ads/components/agent-state";
 import type { FileChangeStatus } from "@/components/session/chat-panel.utils";
-import type { CodeDiffPart, ToolUsePart } from "@/types/chat";
+import type { CodeDiffPart, MessagePart, ToolUsePart } from "@/types/chat";
+import { normalizeTraceToolName } from "./assistant-trace.utils";
 
 /**
  * The one place a Stave tool-part state becomes an ADS `AgentStepState`.
@@ -94,6 +95,22 @@ export function extractOutputUrls(output?: string): string[] {
     // that genuinely ends in a period.
     const url = match[0].replace(/[.,;:!?]+$/, "");
     if (url.length > 0) seen.add(url);
+  }
+  return [...seen];
+}
+
+/**
+ * Every URL the turn's web searches and fetches returned, once each, in the
+ * order they first appeared: the sources the answer could have used. Failed
+ * calls are skipped; nothing is inferred about which sentence cites which.
+ */
+export function collectTurnWebSources(parts: readonly MessagePart[]): string[] {
+  const seen = new Set<string>();
+  for (const part of parts) {
+    if (part.type !== "tool_use" || part.state === "output-error") continue;
+    const tool = normalizeTraceToolName(part.toolName);
+    if (tool !== "websearch" && tool !== "webfetch") continue;
+    for (const url of extractOutputUrls(part.output)) seen.add(url);
   }
   return [...seen];
 }

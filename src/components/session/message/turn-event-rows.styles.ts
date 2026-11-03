@@ -66,4 +66,8 @@ export const turnEventRowStyles = stylex.create({
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
+  /** The answer's sources sit one block below it, like the other end-of-turn blocks. */
+  turnSources: {
+    marginTop: vars["--ads-space-12"],
+  },
 });
