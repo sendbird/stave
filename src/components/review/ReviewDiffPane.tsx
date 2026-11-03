@@ -12,6 +12,7 @@ import { languageFromFilePath } from "@/lib/syntax-highlight";
 import type { ReviewFile, ReviewFileStatus, ReviewScope } from "@/lib/review/review-scope";
 import { useAppStore } from "@/store/app.store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
+import type { ReviewCommentSide } from "@/types/review";
 import { describeReviewReadError } from "./review-errors";
 import { reviewStyles as styles } from "./review.styles";
 import { useReviewFileContent, type ReviewData } from "./useReviewData";
@@ -32,7 +33,44 @@ const CHANGE_KIND: Record<ReviewFileStatus, FileChangeKind> = { added: "added", 
 /** Unchanged lines kept around each change; longer unchanged runs collapse behind Expand. */
 const DIFF_CONTEXT_LINES = 3;
 
-export function ReviewDiffPane(props: { taskId: string; workspaceId: string; scope: ReviewScope; cwd: string | null; data: ReviewData; file: ReviewFile; onShown?: () => void }) {
+/** A line a comment row asked to see: the side it was written on, and a nonce so the same line can be asked twice. */
+export interface ReviewDiffReveal {
+  line: number;
+  side: ReviewCommentSide;
+  nonce: number;
+}
+
+/**
+ * The diff row that shows `line` on `side`, or the nearest shown row when an
+ * unchanged run around it is folded. Rows carry their old and new line
+ * numbers in the viewer's two line-number cells.
+ */
+export function findReviewDiffRow(root: ParentNode, line: number, side: ReviewCommentSide): HTMLElement | null {
+  const cell = side === "original" ? 0 : 1;
+  let nearest: { row: HTMLElement; distance: number } | null = null;
+  for (const row of Array.from(root.querySelectorAll<HTMLElement>("div:has(> [data-ads-slot='line-number'])"))) {
+    const number = Number(row.querySelectorAll(":scope > [data-ads-slot='line-number']")[cell]?.textContent ?? "");
+    if (!Number.isInteger(number) || number < 1) continue;
+    const distance = Math.abs(number - line);
+    if (distance === 0) return row;
+    if (!nearest || distance < nearest.distance) nearest = { row, distance };
+  }
+  return nearest?.row ?? null;
+}
+
+export function ReviewDiffPane(props: {
+  taskId: string;
+  workspaceId: string;
+  scope: ReviewScope;
+  cwd: string | null;
+  data: ReviewData;
+  file: ReviewFile;
+  onShown?: () => void;
+  /** Scrolls to a commented line once the diff shows. */
+  reveal?: ReviewDiffReveal | null;
+  /** The file's working-tree text once read, for the sent comments' check. */
+  onContent?: (path: string, content: string) => void;
+}) {
   useTranslation();
   const { file } = props;
   const content = useReviewFileContent({ cwd: props.cwd, data: props.data, file });
@@ -40,10 +78,30 @@ export function ReviewDiffPane(props: { taskId: string; workspaceId: string; sco
   const highlighter = useDiffLineHighlighter(language);
   const onShown = useRef(props.onShown);
   onShown.current = props.onShown;
+  const onContent = useRef(props.onContent);
+  onContent.current = props.onContent;
   const shown = isReviewDiffShown(content.state);
   useEffect(() => {
     if (shown) onShown.current?.();
   }, [shown, file.path]);
+  const readContent = content.state.status === "ready" && !content.state.data.binary ? content.state.data.newContent : null;
+  useEffect(() => {
+    if (readContent !== null) onContent.current?.(file.path, readContent);
+  }, [file.path, readContent]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { reveal } = props;
+  useEffect(() => {
+    if (!reveal || !shown) return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = rootRef.current ? findReviewDiffRow(rootRef.current, reveal.line, reveal.side) : null;
+      if (!row) return;
+      row.scrollIntoView({ block: "center" });
+      // The row takes focus so the keyboard and a screen reader land on the line.
+      row.tabIndex = -1;
+      row.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [reveal, shown]);
   const comment = async () => {
     if (content.state.status !== "ready") return;
     const { oldContent, newContent } = content.state.data;
@@ -60,7 +118,7 @@ export function ReviewDiffPane(props: { taskId: string; workspaceId: string; sco
     paneHost.openSurface({ kind: "editor", editorTabId });
   };
   return (
-    <div className={sx(styles.section)}>
+    <div ref={rootRef} className={sx(styles.section)}>
       {/* Stays at the top of the diff column while the diff scrolls, so the file and its comment action stay in reach. */}
       <div className={sx(styles.diffHeader)}>
         <div className={sx(styles.diffTitle)}>

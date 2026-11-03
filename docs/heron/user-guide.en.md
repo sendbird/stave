@@ -439,6 +439,8 @@ Screens: [Review mode](https://github.com/sendbird/stave/blob/main/docs/screensh
 2. Send them all at once with **Send review to agent** (Cmd/Ctrl+Alt+Enter).
 3. Review again after the agent fixes them, and **Sign off** when it is good enough.
 
+Review's **Diff comments** list opens each comment's line when selected. Remove a comment before sending it; a sent one says whether its lines changed since and offers **Resolve**. Sent comments stay after a restart until you resolve them.
+
 **Mark reviewed** shows a notice with **Undo** for a moment. Once a review is decided, the main button becomes **Next review**, the next result or sign-off waiting in Fleet View; in Review, J and K move to the next and previous waiting review.
 
 ## AI review

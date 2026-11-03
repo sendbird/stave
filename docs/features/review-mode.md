@@ -120,7 +120,14 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Lens checks** lists the task's saved Lens comparisons with their verdict;
   **Show comparison** opens the before and after images.
 - **Diff comments** repeats the task's comments, not sent and sent, because
-  the editor's comment areas are not reachable by screen readers.
+  the editor's comment areas are not reachable by screen readers. Selecting a
+  comment shows its file in this scope's diff at its line, or opens the file
+  in the editor at that line when the scope does not list it. A comment not
+  sent yet has **Remove**. A sent one shows when it was sent, whether its
+  lines changed since (**Sent · lines changed since** or **Sent · not changed
+  yet**, read from an open editor tab of the file or the file Review shows in
+  the Stage, Branch and Uncommitted scopes; otherwise just **Sent**), and
+  **Resolve**.
 - The decision bar at the bottom says where the decision stands and offers it:
   - In **This stage**, while the run waits for your sign-off about this stage
     (the latest stage that ran before the waiting one, at this attempt):

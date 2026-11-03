@@ -97,7 +97,10 @@
     "sent_one": "Sent ({{count}})",
     "sent_other": "Sent ({{count}})",
     "where": "{{path}}:{{line}}",
-    "sentWhere": "{{where}} · sent {{time}}"
+    "jump": "Show {{where}} in the diff",
+    "remove": "Remove the comment on {{where}}",
+    "resolve": "Resolve the sent comment on {{where}}",
+    "sentAt": "sent <time/>"
   },
   "outputs": {
     "title": "Output",

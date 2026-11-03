@@ -7,6 +7,7 @@ import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
 import { Toaster } from "@/components/ui";
 import { compareFleetAttentionItems, FLEET_ATTENTION_PRIORITY, type FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
+import { useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
 import type { ReviewScope } from "@/lib/review/review-scope";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
@@ -20,6 +21,8 @@ import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
  * agent run waiting for sign-off after its Reproduce stage.
  * `&scope=turn|stage|branch|uncommitted` opens that scope (default: turn),
  * `&diff=error|empty` makes the change read fail or come back empty,
+ * `&queue=1` adds two more reviews waiting in Fleet, `&comments=1` adds a
+ * second pending comment and two sent ones,
  * `&theme=dark` or `&theme=<built-in theme id>` and `&lang=ko` apply.
  */
 const params = new URLSearchParams(window.location.search);
@@ -33,6 +36,7 @@ const HEAD = "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d";
  * `&queue=1`: two more tasks wait for review in Fleet, one before this task
  * and one after it, so Next review and J / K have somewhere to go.
  */
+const COMMENTS = params.get("comments") === "1";
 const PREVIEW_TASKS = [
   { id: TASK_ID, title: "Fix the billing table overflow", turnId: "turn-2", createdAt: "2026-10-22T09:20:00.000Z", summary: "Replaced the fixed minimum width with a scroll container and added a 600px test." },
   ...(params.get("queue") === "1" ? [
@@ -152,8 +156,25 @@ function seed() {
       ],
     },
     messageCountByTask: Object.fromEntries(PREVIEW_TASKS.map((task) => [task.id, 2])),
-    reviewCommentsByTask: { [TASK_ID]: [{ id: "c1", filePath: "src/billing/BillingTable.tsx", line: 3, side: "modified", body: "Keep the header row sticky while it scrolls.", createdAt: "2026-10-22T09:31:00.000Z" }] },
+    reviewCommentsByTask: { [TASK_ID]: [
+      { id: "c1", filePath: "src/billing/BillingTable.tsx", line: 3, side: "modified", body: "Keep the header row sticky while it scrolls.", createdAt: "2026-10-22T09:31:00.000Z" },
+      ...(COMMENTS ? [{ id: "c2", filePath: "src/billing/billing-table.test.tsx", line: 2, side: "modified", body: "Also cover 375px so the phone layout is checked.", createdAt: "2026-10-22T09:32:00.000Z" }] : []),
+    ] },
   } as never);
+  // `&comments=1`: two comments already sent on the table, one whose lines
+  // still read as sent and one whose lines the agent changed since.
+  useSentReviewCommentsStore.setState({ byTask: COMMENTS ? { [TASK_ID]: [
+    {
+      comment: { id: "s1", filePath: "src/billing/BillingTable.tsx", line: 4, side: "modified", body: "Use the shared scroll container instead of a new div.", createdAt: "2026-10-22T09:10:00.000Z" },
+      sentAt: "2026-10-22T09:12:00.000Z",
+      anchor: ["    <div className={styles.scroll}>", "      <table>{rows}</table>", "    </div>"],
+    },
+    {
+      comment: { id: "s2", filePath: "src/billing/BillingTable.tsx", line: 2, side: "modified", body: "Assert the scroll width, not only visibility.", createdAt: "2026-10-22T09:11:00.000Z" },
+      sentAt: "2026-10-22T09:12:00.000Z",
+      anchor: ["export function BillingTable() {", "  return <table style={{ minWidth: 960 }}>{rows}</table>;", "}"],
+    },
+  ] } : {} });
   const scope = params.get("scope");
   const chosen: ReviewScope | undefined = scope === "stage" ? { kind: "stage", agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: 1 }
     : scope === "branch" ? { kind: "branch" } : scope === "uncommitted" ? { kind: "uncommitted" } : undefined;
