@@ -32,8 +32,11 @@
 
 ### Key Controls
 
-- The fill bar uses the same ok / warn / critical tones as other usage meters: under 60%, under 85%, then above.
+- The fill bar uses the shared context thresholds (`USAGE_THRESHOLDS.context` in `src/lib/usage/usage-thresholds.ts`): ok under 60%, warn under 85%, then critical. Account quota meters read their own entry in the same module (80% / 97%).
+- The trigger's accessible name says the percent used and, when the provider reported enough to know, the tokens left (`72% used, 28,000 tokens left`).
+- The first time the fill climbs into warn, and the first time it reaches critical, one polite announcement says so. A meter that opens a conversation already past a boundary stays quiet, and dropping back after a compact does not repeat a boundary.
 - The popover shows the percent and, when the provider reported them, used and window token counts.
+- `Composition` lists what fills the window. For Claude it shows the fixed parts — system prompt, tools, MCP tools, MCP instructions, custom agents, memory files, skills — and `Conversation (estimated)`, which is the used tokens minus those parts. MCP tools (loaded ones only) and memory files expand to their entries. Other providers report only a total, so the section says the provider does not report a breakdown.
 - `Compact context` sends `/compact` as a utility turn and leaves the composer draft in place.
 
 ## Common Workflows
@@ -55,10 +58,12 @@
 - The meter reads the latest assistant message usage for the selected provider, not another provider's usage from the same task.
 - Codex uses the last token-usage snapshot and the reported model window. Claude uses the latest primary API message's input, cache, and output counts with that model's reported window. Multi-call billing totals are not context-window occupancy.
 - It does not add a new settings key or persist a separate counter.
+- Claude's composition comes from the SDK's context-usage read on a new session in the task's folder, on the model and account the measured turn used. That read starts a Claude process, connects its MCP servers and counts each category, so it runs only when the popover opens. One result (or one request in flight) per task, model, account and folder is reused for a minute; a failed read is reused too, so reopening cannot retry in a loop. It never resumes or writes to the task's own session.
 
 ## Limitations And Advanced Options
 
 - Providers that never report a window or percent do not show the meter.
+- The conversation row is an estimate: the fixed parts are measured on a new session, so a session that loaded different tools or memory since it started can make it slightly off. When the fixed parts exceed the reported fill, the row is left out rather than shown wrong.
 - Compact is offered for Claude and Codex, or when the loaded slash catalog includes `/compact`.
 - Compact is a provider session command. It does not revert workspace files.
 - Claude receives its native `/compact` command; optional focus instructions are supported by that CLI. Codex calls the App Server compaction API, waits for a completed compaction item and successful turn completion, and rejects custom compact instructions that the API cannot accept.

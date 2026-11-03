@@ -128,6 +128,15 @@ construction even though they are not separate `NormalizedProviderEvent` types.
   option or supplied an explicit recommendation pointer. A single-select card
   may use that marked option as its initial value; the first listed option is
   never treated as recommended by position alone.
+- An option's `preview` (Claude `AskUserQuestion` only; Codex and Cursor
+  questions have no such field) shows under the options while that option has
+  focus or the pointer: plain text, never markdown, in a capped region that
+  takes focus to scroll and is not a live region. An option without a preview
+  shows no area.
+- A finished assistant turn ends with one compact `Sources N` line
+  (`Citation.List`) of the URLs its web searches and fetches returned, once
+  each, in first-seen order. No inline citation marks: nothing reports which
+  sentence came from which page.
 - Stave-owned MCP tools use the Stave icon and an action-oriented title. Only
   the exact managed `stave-local` / `stave-local-mcp` namespaces and known bare
   Stave tool names qualify; other MCP servers retain their existing identity

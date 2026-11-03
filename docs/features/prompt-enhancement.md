@@ -34,6 +34,7 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 - **Enhancing**: indicates that the rewrite request is running. The composer is locked and dimmed for the whole request, so the draft cannot be edited into an inconsistent state.
 - **Applying**: indicates that the rewritten prompt is being revealed. Words the rewrite left unchanged stay in place, and new or rewritten words fade in with a short accent highlight so the edit is visible as an edit. The reveal takes about a second and is skipped entirely when the system prefers reduced motion.
 - **Undo**: restores the original draft after a successful rewrite, provided the enhanced text has not been edited again.
+- **View changes**: beside Undo in the same toast. It opens a popover over the composer with a word diff of the draft against the rewrite: removed words struck through, added words underlined, with the counts of each. **Revert to original** does what Undo does; **Keep** closes the popover. When the draft has changed since the rewrite there is nothing to compare, and a note says so.
 
 ## Common Workflows
 

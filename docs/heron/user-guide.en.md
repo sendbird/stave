@@ -235,6 +235,10 @@ S --> U: Reply · changed files · summary
 **Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
+**Progress line**: while a turn runs, the line above its steps shows a playful status phrase, the step in progress (for example **Reading search.ts**) and the elapsed time. Once the turn ends it becomes the turn's title. A turn that searched or fetched the web ends with **Sources** and a count under the answer; open it to list each page once.
+
+**Questions**: when the AI asks a question with choices, the number keys pick an option. A Claude option can carry a preview, such as a code snippet; it shows under the options while that option has focus or the pointer.
+
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.
 
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
@@ -291,8 +295,8 @@ The Information panel, task context and the latest turn summary are attached to 
 - **Side question**: **Side question** in the composer toolbar, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Welcome back**: after you have been away for more than 15 minutes, a card summarizes what happened and the last decision.
 - **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
-- **Enhance prompt**: the wand icon in the composer rewrites your request.
-- **Compact context**: in the context meter, shortens a long conversation.
+- **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
+- **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation.
 - **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
 
 @page safety | Working | Permissions and safety | guide

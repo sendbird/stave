@@ -64,7 +64,10 @@ their execution account. A partial Claude update records only the window it
 observed; other cached windows keep their earlier times. Codex native-cache
 reads keep the original observation time instead of recording another sample.
 Each account groups its windows together and shows the last observed remaining
-percentage and time until reset. Within a provider, accounts with the soonest
+percentage and time until reset. A window is coloured as worth watching from
+80% used and as about to bind from 97%; the status bar ring and strip read the
+same quota thresholds (`src/lib/usage/usage-thresholds.ts`), so one reading
+has one colour everywhere. Within a provider, accounts with the soonest
 upcoming reset appear first. Expired readings remain marked older, and registered
 accounts with no quota observations display **No saved quota** instead of zero.
 
