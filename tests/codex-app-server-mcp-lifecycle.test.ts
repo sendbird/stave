@@ -945,6 +945,12 @@ describe("Codex App Server MCP lifecycle mapping", () => {
 
   test("emits MCP input at item start, then progress and one completion", async () => {
     const events = await streamScenario("full-lifecycle");
+    // Read the stamps before any matcher touches the objects.
+    const startedAt = (events[0] as { startedAt?: unknown }).startedAt;
+    const completedAt = (events[2] as { completedAt?: unknown }).completedAt;
+    expect(typeof startedAt).toBe("number");
+    expect(typeof completedAt).toBe("number");
+    expect((completedAt as number) >= (startedAt as number)).toBe(true);
 
     expect(events).toEqual([
       {
@@ -954,6 +960,8 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         input:
           '{"task_name":"inspect_runtime","message":"Inspect the Codex runtime"}',
         state: "input-available",
+        // The runtime stamps when it saw the call start and finish.
+        startedAt: expect.any(Number),
       },
       {
         type: "subagent_progress",
@@ -964,6 +972,7 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         type: "tool_result",
         tool_use_id: "mcp-item-1",
         output: '{"content":[{"type":"text","text":"Inspection complete"}]}',
+        completedAt: expect.any(Number),
       },
     ]);
     // An MCP progress notification carries no child thread identity, so the
@@ -1025,8 +1034,13 @@ describe("Codex App Server MCP lifecycle mapping", () => {
         toolName: "bash",
         input: "rg --files-with-matches TODO",
         state: "input-available",
+        startedAt: expect.any(Number),
       },
     ]);
+    // Streamed chunks are not an ending; the completed result is.
+    const results = events.filter((event) => event.type === "tool_result");
+    expect(results.at(0)).not.toHaveProperty("completedAt");
+    expect(results.at(-1)).toHaveProperty("completedAt");
     expect(events.map((event) => event.type)).toEqual([
       "tool",
       "tool_result",
