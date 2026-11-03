@@ -4,6 +4,7 @@ import { RepositoryMemoryStore } from "../electron/persistence/repository-memory
 import {
   REPOSITORY_MEMORY_INJECTION_MAX_CHARS,
   REPOSITORY_MEMORY_INJECTION_MAX_ITEMS,
+  REPOSITORY_MEMORY_RESTORE_WINDOW_MS,
   REPOSITORY_MEMORY_STALE_AFTER_MS,
 } from "../src/lib/repository-memory";
 import { buildRepositoryMemoryRetrievedContextPart } from "../src/lib/task-context/repository-memory";
@@ -429,5 +430,125 @@ describe("curated memory lifecycle", () => {
     expect(store.recall({ repositoryPath: REPOSITORY_P, query: "terminal", now: NOW }).map((m) => m.id)).toEqual(["explicit"]);
     store.update({ id: "auto", repositoryPath: REPOSITORY_P, recallMode: "core", now: NOW });
     expect(new RepositoryMemoryStore(database).get("auto")?.recallMode).toBe("core");
+  });
+});
+
+describe("forget, restore and purge", () => {
+  const CONTENT = "Terminal snapshots use shared slot keys.";
+
+  function setup() {
+    const database = new Database(":memory:");
+    const store = new RepositoryMemoryStore(database);
+    enableCollection(database);
+    const memory = store.remember({
+      repositoryPath: REPOSITORY_P,
+      kind: "decision",
+      content: CONTENT,
+      confidence: 0.9,
+      sourceTaskId: "task-a",
+      sourceTurnId: "turn-a",
+      now: NOW,
+    })!.memory;
+    return { database, store, memory };
+  }
+
+  test("restore brings a forgotten memory back exactly as it was, into the list and recall", () => {
+    const { store, memory } = setup();
+    expect(store.softDelete({ id: memory.id, now: NOW + 10 })).toBe(true);
+    expect(store.list({ repositoryPath: REPOSITORY_P })).toEqual([]);
+    expect(store.recall({ repositoryPath: REPOSITORY_P, query: "terminal", now: NOW + 10 })).toEqual([]);
+
+    const restored = store.restore({ id: memory.id, repositoryPath: REPOSITORY_P, now: NOW + 20 });
+    expect(restored).toEqual({ ...memory, deletedAt: null, updatedAt: NOW + 20 });
+    expect(store.list({ repositoryPath: REPOSITORY_P }).map((item) => item.id)).toEqual([memory.id]);
+    expect(store.recall({ repositoryPath: REPOSITORY_P, query: "terminal", now: NOW + 20 })[0]?.id).toBe(memory.id);
+    // Recall still finds it through the FTS index the forget never touched.
+    expect(store.index).toBe("fts5-trigram");
+  });
+
+  test("restore refuses another repository, a memory that is not forgotten, and an unknown id", () => {
+    const { store, memory } = setup();
+    expect(store.restore({ id: memory.id, repositoryPath: REPOSITORY_P, now: NOW + 1 })).toBeNull();
+    store.softDelete({ id: memory.id, now: NOW + 1 });
+    expect(store.restore({ id: memory.id, repositoryPath: REPOSITORY_Q, now: NOW + 2 })).toBeNull();
+    expect(store.get(memory.id)?.deletedAt).toBe(NOW + 1);
+    expect(store.restore({ id: "missing", repositoryPath: REPOSITORY_P, now: NOW + 2 })).toBeNull();
+  });
+
+  test("restore ends with the window; the purge then erases the text but still blocks re-extraction", () => {
+    const { store, memory } = setup();
+    store.softDelete({ id: memory.id, now: NOW });
+    const expired = NOW + REPOSITORY_MEMORY_RESTORE_WINDOW_MS + 1;
+    expect(store.restore({ id: memory.id, repositoryPath: REPOSITORY_P, now: expired })).toBeNull();
+
+    expect(store.purgeForgotten({ now: expired })).toBe(1);
+    expect(store.purgeForgotten({ now: expired })).toBe(0);
+    const tombstone = store.get(memory.id)!;
+    expect(tombstone.content).not.toContain("Terminal");
+    expect(tombstone.content).toMatch(/^stave-forgotten:sha256:[0-9a-f]{64}$/);
+    expect(tombstone).toMatchObject({ sourceTaskId: null, sourceTurnId: null, deletedAt: NOW, kind: "decision" });
+    expect(store.search({ repositoryPath: REPOSITORY_P, query: "stave-forgotten" }).memories).toEqual([]);
+
+    for (const confidence of [0.6, 0.9]) {
+      expect(
+        store.remember({
+          repositoryPath: REPOSITORY_P,
+          kind: "decision",
+          content: `  ${CONTENT}  `,
+          confidence,
+          now: expired + 1,
+        }),
+      ).toBeNull();
+    }
+    // Only this kind is blocked: dedup has always been per kind.
+    expect(
+      store.remember({ repositoryPath: REPOSITORY_P, kind: "fact", content: CONTENT, confidence: 0.9, now: expired })?.outcome,
+    ).toBe("inserted");
+    expect(store.restore({ id: memory.id, repositoryPath: REPOSITORY_P, now: NOW + 1 })).toBeNull();
+  });
+
+  test("the purge leaves active rows and rows still inside the window alone", () => {
+    const { store, memory } = setup();
+    const recent = store.remember({ repositoryPath: REPOSITORY_P, kind: "fact", content: "Recently forgotten fact.", confidence: 0.9, now: NOW })!.memory;
+    const active = store.remember({ repositoryPath: REPOSITORY_P, kind: "fact", content: "Active fact.", confidence: 0.9, now: NOW })!.memory;
+    store.softDelete({ id: memory.id, now: NOW });
+    const later = NOW + REPOSITORY_MEMORY_RESTORE_WINDOW_MS + 5;
+    // Forgetting another memory purges the expired one on the way.
+    store.softDelete({ id: recent.id, now: later });
+    expect(store.get(memory.id)?.content).toMatch(/^stave-forgotten:/);
+    expect(store.get(recent.id)?.content).toBe("Recently forgotten fact.");
+    expect(store.get(active.id)?.content).toBe("Active fact.");
+    expect(store.restore({ id: recent.id, repositoryPath: REPOSITORY_P, now: later + 1 })?.content).toBe("Recently forgotten fact.");
+  });
+
+  test("opening the store purges what expired while the app was closed", () => {
+    const { database, memory } = setup();
+    // Forgotten long before now (the store's own clock).
+    database.prepare("UPDATE repository_memories SET deleted_at = ? WHERE id = ?")
+      .run(Date.now() - REPOSITORY_MEMORY_RESTORE_WINDOW_MS - 60_000, memory.id);
+    const reopened = new RepositoryMemoryStore(database);
+    expect(reopened.get(memory.id)?.content).toMatch(/^stave-forgotten:/);
+    expect(reopened.get(memory.id)?.sourceTaskId).toBeNull();
+  });
+
+  test("a restored core memory still counts against the core limit", () => {
+    const { store } = setup();
+    const pinned = store.remember({ repositoryPath: REPOSITORY_P, kind: "convention", content: "Pinned one.", confidence: 0.9, recallMode: "core", now: NOW })!.memory;
+    store.softDelete({ id: pinned.id, now: NOW + 1 });
+    for (const content of ["Pinned two.", "Pinned three.", "Pinned four."]) {
+      store.remember({ repositoryPath: REPOSITORY_P, kind: "convention", content, confidence: 0.9, recallMode: "core", now: NOW + 2 });
+    }
+    expect(() => store.restore({ id: pinned.id, repositoryPath: REPOSITORY_P, now: NOW + 3 })).toThrow(/core/);
+    expect(store.get(pinned.id)?.deletedAt).toBe(NOW + 1);
+  });
+
+  test("a forgotten memory never reaches the injected block, even from a stale read", () => {
+    const { store, memory } = setup();
+    const before = store.list({ repositoryPath: REPOSITORY_P });
+    store.softDelete({ id: memory.id, now: NOW + 1 });
+    expect(store.recall({ repositoryPath: REPOSITORY_P, query: "terminal snapshots", now: NOW + 1 })).toEqual([]);
+    const stale = before.map((item) => ({ ...item, deletedAt: NOW + 1 }));
+    expect(buildRepositoryMemoryRetrievedContextPart({ memories: stale })).toBeNull();
+    expect(buildRepositoryMemoryRetrievedContextPart({ memories: before })?.content).toContain(CONTENT);
   });
 });

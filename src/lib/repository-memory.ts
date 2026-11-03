@@ -48,6 +48,28 @@ export const REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS = 50;
 export const REPOSITORY_MEMORY_STALE_AFTER_MS = 60 * 24 * 60 * 60 * 1000;
 export const REPOSITORY_MEMORY_STALE_CONFIDENCE_FLOOR = 0.7;
 
+/**
+ * Forgetting is a soft delete, never injected again. For this long the row can
+ * be restored exactly as it was (the Memory panel's Undo). After it, the next
+ * purge (when the store opens, and on every forget) erases the text and its
+ * provenance and keeps only a one-way fingerprint, so automatic extraction
+ * still cannot bring the fact back and nothing can restore it. Undo is the
+ * only way back and is offered for seconds; a day is slack for a slow click,
+ * not a recycle bin.
+ */
+export const REPOSITORY_MEMORY_RESTORE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Whether a forgotten memory is still inside the restore window. */
+export function isRepositoryMemoryRestorable(args: {
+  memory: Pick<RepositoryMemory, "deletedAt">;
+  now: number;
+}) {
+  return (
+    args.memory.deletedAt !== null &&
+    args.now - args.memory.deletedAt <= REPOSITORY_MEMORY_RESTORE_WINDOW_MS
+  );
+}
+
 export interface RepositoryMemory {
   id: string;
   repositoryPath: string;
@@ -136,6 +158,24 @@ export const RepositoryMemoryDeleteArgsSchema = z
   })
   .strict();
 
+/** Undo a forget: the row must belong to `repositoryPath` and still be restorable. */
+export const RepositoryMemoryRestoreArgsSchema = z
+  .object({
+    id: z.string().min(1),
+    repositoryPath: RepositoryPathSchema,
+  })
+  .strict();
+
+/**
+ * The open task a memory came from, so its row can link there. Only tasks of
+ * the memory's own repository that are not archived are resolved.
+ */
+export interface RepositoryMemorySourceTask {
+  taskId: string;
+  workspaceId: string;
+  title: string;
+}
+
 export type RepositoryMemoryListArgs = z.infer<typeof RepositoryMemoryListArgsSchema>;
 export type RepositoryMemoryRecallArgs = z.infer<
   typeof RepositoryMemoryRecallArgsSchema
@@ -148,6 +188,9 @@ export type RepositoryMemoryUpdateArgs = z.infer<
 >;
 export type RepositoryMemoryDeleteArgs = z.infer<
   typeof RepositoryMemoryDeleteArgsSchema
+>;
+export type RepositoryMemoryRestoreArgs = z.infer<
+  typeof RepositoryMemoryRestoreArgsSchema
 >;
 
 export type RepositoryMemoryRememberOutcome = "inserted" | "confirmed";

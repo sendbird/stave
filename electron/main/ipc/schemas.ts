@@ -1585,5 +1585,6 @@ export {
   RepositoryMemoryListArgsSchema as ProjectMemoryListArgsSchema,
   RepositoryMemoryRecallArgsSchema as ProjectMemoryRecallArgsSchema,
   RepositoryMemoryRememberArgsSchema as ProjectMemoryRememberArgsSchema,
+  RepositoryMemoryRestoreArgsSchema as ProjectMemoryRestoreArgsSchema,
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";

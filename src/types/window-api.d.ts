@@ -15,6 +15,8 @@ import type {
   RepositoryMemoryRecallArgs,
   RepositoryMemoryRememberArgs,
   RepositoryMemoryRememberResult,
+  RepositoryMemoryRestoreArgs,
+  RepositoryMemorySourceTask,
   RepositoryMemoryUpdateArgs,
 } from "@/lib/repository-memory";
 import type {
@@ -976,6 +978,8 @@ interface WindowRepositoryMemoryApi extends Partial<RepositoryMemoryControlsApi>
   list?: (args: RepositoryMemoryListArgs) => Promise<{
     ok: boolean;
     items: RepositoryMemory[];
+    /** The open tasks the listed memories came from; absent from older builds. */
+    sourceTasks?: RepositoryMemorySourceTask[];
     message?: string;
   }>;
   recall?: (args: RepositoryMemoryRecallArgs) => Promise<{
@@ -996,6 +1000,15 @@ interface WindowRepositoryMemoryApi extends Partial<RepositoryMemoryControlsApi>
   delete?: (args: RepositoryMemoryDeleteArgs) => Promise<{
     ok: boolean;
     deleted?: boolean;
+    message?: string;
+  }>;
+  /**
+   * Undo a forget within the restore window. `memory` is null when the row is
+   * not this repository's, was not forgotten, or can no longer be restored.
+   */
+  restore?: (args: RepositoryMemoryRestoreArgs) => Promise<{
+    ok: boolean;
+    memory?: RepositoryMemory | null;
     message?: string;
   }>;
 }

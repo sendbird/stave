@@ -15,6 +15,8 @@ import {
   LocalMcpConfigUpdateArgsSchema,
   McpServerConfigMutationApplyArgsSchema,
   McpServerConfigMutationArgsSchema,
+  ProjectMemoryDeleteArgsSchema,
+  ProjectMemoryRestoreArgsSchema,
   RateLimitsSnapshotArgsSchema,
   ReviewDiffArgsSchema,
   AutomationInformationResourceCreateArgsSchema,
@@ -1046,6 +1048,37 @@ describe("rate-limits snapshot IPC schema", () => {
     ).toBe(false);
     expect(
       RateLimitsSnapshotArgsSchema.safeParse({ providers: ["nope"] }).success,
+    ).toBe(false);
+  });
+});
+
+describe("repository memory restore IPC schema", () => {
+  test("restoring needs the memory id and the repository it must belong to", () => {
+    expect(
+      ProjectMemoryRestoreArgsSchema.safeParse({
+        id: "mem-1",
+        repositoryPath: "/tmp/stave-memory/project-p",
+      }).success,
+    ).toBe(true);
+    // Forgetting stays id-only; restoring is scoped, so another repository's
+    // tombstone cannot be brought back by id alone.
+    expect(ProjectMemoryDeleteArgsSchema.safeParse({ id: "mem-1" }).success).toBe(true);
+    expect(ProjectMemoryRestoreArgsSchema.safeParse({ id: "mem-1" }).success).toBe(false);
+  });
+
+  test("rejects an empty id, a blank repository and extra fields", () => {
+    expect(
+      ProjectMemoryRestoreArgsSchema.safeParse({ id: "", repositoryPath: "/tmp/p" }).success,
+    ).toBe(false);
+    expect(
+      ProjectMemoryRestoreArgsSchema.safeParse({ id: "mem-1", repositoryPath: "   " }).success,
+    ).toBe(false);
+    expect(
+      ProjectMemoryRestoreArgsSchema.safeParse({
+        id: "mem-1",
+        repositoryPath: "/tmp/p",
+        deletedAt: null,
+      }).success,
     ).toBe(false);
   });
 });

@@ -1969,6 +1969,67 @@ describe("local MCP project memory curation", () => {
       for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
     }
   });
+
+  test("the tools see a forget, its Undo and the purge the same way the Memory panel does", async () => {
+    const { Database } = await import("bun:sqlite");
+    const { RepositoryMemoryStore } = await import("../electron/persistence/repository-memory-store");
+    const { REPOSITORY_MEMORY_RESTORE_WINDOW_MS } = await import("../src/lib/repository-memory");
+    const store = new RepositoryMemoryStore(new Database(":memory:"));
+    for (const repositoryPath of [REPOSITORY_PATH, "/tmp/other-project"]) {
+      store.settings.save({ repositoryPath, expectedRevision: 0, patch: { collectAutomatically: true } });
+    }
+    const methods = {
+      rememberRepositoryMemory: store.remember.bind(store),
+      updateRepositoryMemory: store.update.bind(store),
+      getRepositoryMemory: store.get.bind(store),
+      searchRepositoryMemories: store.search.bind(store),
+      deleteRepositoryMemory: (id: string) => store.softDelete({ id }),
+    };
+    Object.assign(fakeStore, methods);
+    const listed = async () =>
+      (await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID })).memories.map((memory) => memory.id);
+    try {
+      const content = "Terminal snapshots use stable keys.";
+      const { memory } = await runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, kind: "decision", content });
+      const id = memory!.id;
+
+      // The panel forgets (soft delete): the tools stop listing it and cannot
+      // re-add or revise it.
+      expect(store.softDelete({ id })).toBe(true);
+      expect(await listed()).toEqual([]);
+      expect((await runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, kind: "decision", content })).outcome).toBe("rejected");
+      await expect(
+        runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: id, kind: "decision", content: "Revised." }),
+      ).rejects.toThrow(/not found/);
+      // Forgetting it again through the tool is a no-op, not an error.
+      expect(await runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: id })).toMatchObject({ forgotten: false });
+
+      // The panel's Undo: the same row is listed again.
+      expect(store.restore({ id, repositoryPath: "/tmp/other-project" })).toBeNull();
+      expect(store.restore({ id, repositoryPath: REPOSITORY_PATH })?.content).toBe(content);
+      expect(await listed()).toEqual([id]);
+
+      // A tool forget is the same soft delete, restorable from the store.
+      expect(await runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: id })).toMatchObject({ forgotten: true });
+      expect(await listed()).toEqual([]);
+
+      // Past the window the text is purged; the tools still cannot bring it back.
+      expect(store.purgeForgotten({ now: Date.now() + REPOSITORY_MEMORY_RESTORE_WINDOW_MS + 1 })).toBe(1);
+      expect(await listed()).toEqual([]);
+      expect((await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID, query: "terminal" })).memories).toEqual([]);
+      expect((await runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, kind: "decision", content })).outcome).toBe("rejected");
+      expect(await runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: id })).toMatchObject({ forgotten: false });
+
+      // Another project's memory is not this workspace's to forget.
+      const foreign = store.remember({ repositoryPath: "/tmp/other-project", kind: "fact", content: "Foreign memory.", confidence: 0.9 })!;
+      await expect(
+        runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: foreign.memory.id }),
+      ).rejects.toThrow(/not found/);
+      expect(store.get(foreign.memory.id)?.deletedAt).toBeNull();
+    } finally {
+      for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
+    }
+  });
 });
 
 describe("local MCP runtime runTask: an Agent run's account-pool switch", () => {

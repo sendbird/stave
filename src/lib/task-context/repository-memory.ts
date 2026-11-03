@@ -21,16 +21,22 @@ const REPOSITORY_MEMORY_HEADER_LINES = [
  *
  * The body carries no timestamps or ids, so an idle turn's block stays
  * byte-identical and the per-session dedup can replace it with a pointer.
+ *
+ * A forgotten row never reaches a prompt: the store's recall already leaves it
+ * out, and a row that still carries a `deletedAt` (a list read before the
+ * forget, say) is dropped here too.
  */
 export function buildRepositoryMemoryRetrievedContextPart(args: {
-  memories: readonly Pick<RepositoryMemory, "kind" | "content">[];
+  memories: readonly (Pick<RepositoryMemory, "kind" | "content"> &
+    Partial<Pick<RepositoryMemory, "deletedAt">>)[];
 }): CanonicalRetrievedContextPart | null {
   // The cap is for the whole block: header lines count against it.
   const headerChars = REPOSITORY_MEMORY_HEADER_LINES.reduce(
     (total, line) => total + line.length + 1,
     0,
   );
-  const kept = capRepositoryMemoriesForInjection(args.memories, {
+  const active = args.memories.filter((memory) => memory.deletedAt == null);
+  const kept = capRepositoryMemoriesForInjection(active, {
     maxChars: REPOSITORY_MEMORY_INJECTION_MAX_CHARS - headerChars,
   });
   if (kept.length === 0) {

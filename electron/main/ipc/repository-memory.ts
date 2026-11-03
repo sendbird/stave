@@ -11,9 +11,11 @@ import {
   ProjectMemoryListArgsSchema,
   ProjectMemoryRecallArgsSchema,
   ProjectMemoryRememberArgsSchema,
+  ProjectMemoryRestoreArgsSchema,
   ProjectMemoryUpdateArgsSchema,
 } from "./schemas";
 import { ensurePersistenceReady } from "../state";
+import { resolveRepositoryMemorySourceTasks } from "../../persistence/repository-memory-source-tasks";
 
 function failureMessage(error: unknown) {
   return error instanceof Error
@@ -23,7 +25,7 @@ function failureMessage(error: unknown) {
 
 /**
  * Renderer access to project memory: the Information panel's Memory section
- * (list/update/delete), the turn-start recall that builds the
+ * (list with source tasks, update, delete and its Undo), the turn-start recall that builds the
  * `stave:project-memory` block, and the auto-extracted facts the turn summary
  * hands back. Agent-side writes go through the Local MCP tools instead.
  */
@@ -78,7 +80,15 @@ export function registerRepositoryMemoryHandlers() {
     }
     try {
       const store = await ensurePersistenceReady();
-      return { ok: true, items: store.listRepositoryMemories(parsed.data) };
+      const items = store.listRepositoryMemories(parsed.data);
+      return {
+        ok: true,
+        items,
+        sourceTasks: resolveRepositoryMemorySourceTasks(store, {
+          repositoryPath: parsed.data.repositoryPath,
+          memories: items,
+        }),
+      };
     } catch (error) {
       return { ok: false, items: [], message: failureMessage(error) };
     }
@@ -155,6 +165,21 @@ export function registerRepositoryMemoryHandlers() {
     try {
       const store = await ensurePersistenceReady();
       return { ok: true, deleted: store.deleteRepositoryMemory(parsed.data.id) };
+    } catch (error) {
+      return { ok: false, message: failureMessage(error) };
+    }
+  });
+
+  // `memory: null` when the row is not this repository's, was never
+  // forgotten, or is past the restore window.
+  ipcMain.handle("repository-memory:restore", async (_event, args: unknown) => {
+    const parsed = ProjectMemoryRestoreArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid project memory restore." };
+    }
+    try {
+      const store = await ensurePersistenceReady();
+      return { ok: true, memory: store.restoreRepositoryMemory(parsed.data) };
     } catch (error) {
       return { ok: false, message: failureMessage(error) };
     }

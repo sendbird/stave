@@ -128,6 +128,8 @@ import type {
   RepositoryMemoryRecallArgs,
   RepositoryMemoryRememberArgs,
   RepositoryMemoryRememberResult,
+  RepositoryMemoryRestoreArgs,
+  RepositoryMemorySourceTask,
   RepositoryMemoryUpdateArgs,
 } from "../src/lib/repository-memory";
 import type {
@@ -2148,6 +2150,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("repository-memory:list", args) as Promise<{
         ok: boolean;
         items: RepositoryMemory[];
+        sourceTasks?: RepositoryMemorySourceTask[];
         message?: string;
       }>,
     recall: (args: RepositoryMemoryRecallArgs) =>
@@ -2172,6 +2175,12 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("repository-memory:delete", args) as Promise<{
         ok: boolean;
         deleted?: boolean;
+        message?: string;
+      }>,
+    restore: (args: RepositoryMemoryRestoreArgs) =>
+      ipcRenderer.invoke("repository-memory:restore", args) as Promise<{
+        ok: boolean;
+        memory?: RepositoryMemory | null;
         message?: string;
       }>,
   },
