@@ -16,8 +16,8 @@ const PROGRESS_TONE: Record<StageState, ProgressTone> = {
   waiting: "warning",
   attention: "danger",
   done: "success",
-  idle: "default",
-  skipped: "default",
+  idle: "neutral",
+  skipped: "neutral",
 };
 
 /**
@@ -110,7 +110,8 @@ const styles = stylex.create({
   count: { flex: "0 0 auto", color: vars["--ads-color-text-muted"], fontVariantNumeric: "tabular-nums" },
   mark: { flex: "0 0 auto", width: 12, height: 12 },
   markMd: { width: 14, height: 14 },
-  bar: { flex: "1 1 auto", minWidth: "3rem" },
+  // The bar takes what the stage name leaves: its own 100% width would otherwise squeeze the name first.
+  bar: { flex: "1 1 3rem", inlineSize: "auto", minWidth: "3rem" },
   percent: {
     flex: "0 0 auto",
     // "100%" is the widest value; the bar does not shift as the number grows.

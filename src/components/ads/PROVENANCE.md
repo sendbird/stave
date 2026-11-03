@@ -860,8 +860,10 @@ Further host extensions:
     prints the reading beside the bar). `Progress` gains `hideLabel`, the same
     clipped label `Meter` already had; with both hidden the header row is not
     rendered, so the bar is the whole surface.
-  - `Meter` gains a `neutral` tone (the muted ink), for a reading that is not
-    yet a concern; the `meter` theme target's `tone` axis lists it.
+  - `Meter` and `Progress` gain a `neutral` tone (the muted ink): a reading
+    that is not yet a concern, or work that stopped without failing (a
+    cancelled stage). The `meter` and `progress` theme targets' `tone` axes
+    list it.
   - Both fills set `forced-color-adjust: none`, so forced colors do not paint
     the fill as Canvas and empty the track.
   - `FileUpload` and `Attachment` read every English default from

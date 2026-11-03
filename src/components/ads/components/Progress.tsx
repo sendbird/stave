@@ -24,7 +24,9 @@ export type ProgressTone =
   | "info"
   | "success"
   | "warning"
-  | "danger";
+  | "danger"
+  /** Host extension: the muted ink, for work that stopped without failing (cancelled, not started). */
+  | "neutral";
 
 /** Track height: `md` is the bundle's 8px bar, `sm` the 6px bar a one-line row carries. */
 export type ProgressSize = "sm" | "md";
@@ -272,12 +274,16 @@ const styles = stylex.create({
   danger: {
     backgroundColor: vars["--ads-color-danger"],
   },
+  neutral: {
+    backgroundColor: vars["--ads-color-text-muted"],
+  },
 });
 
 const toneStyles = {
   danger: styles.danger,
   default: styles.default,
   info: styles.info,
+  neutral: styles.neutral,
   success: styles.success,
   warning: styles.warning,
 } as const;

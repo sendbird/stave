@@ -135,7 +135,7 @@ export const signalThemeTargets = {
      * container that frames it. Reflecting it anyway is what keeps the DOM
      * honest about which tone a caller asked for.
      */
-    axes: { tone: ["default", "info", "success", "warning", "danger"] },
+    axes: { tone: ["default", "info", "success", "warning", "danger", "neutral"] },
     exports: ["Progress"],
     properties: panel,
     root: "the `<div>` Base UI's progress root renders",
