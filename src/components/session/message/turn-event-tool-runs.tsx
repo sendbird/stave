@@ -1,19 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import {
-  Bot,
-  FileText,
-  Globe,
-  ListTodo,
-  Pencil,
-  Search,
-  Terminal,
-  Wrench,
-} from "lucide-react";
-import { StaveIcon } from "@/components/brand-icons";
+import { Bot, ListTodo } from "lucide-react";
 import { ToolRun } from "@/components/ads/components/ToolRun";
-import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
-import { sx } from "@/components/ads/utils/stylex";
 import { parseFileChangeToolInput } from "@/components/session/chat-panel.utils";
 import {
   isInlineRenderToolName,
@@ -21,10 +9,8 @@ import {
 } from "@/lib/inline-render/inline-render";
 import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
 import { parseSubagentToolInput } from "@/lib/subagent-tool-input";
-import { isStaveToolName } from "@/lib/tool-display-name";
 import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
 import type { ToolUsePart } from "@/types/chat";
-import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import {
   deriveTraceToolSummary,
   getResidualToolInput,
@@ -41,6 +27,7 @@ import {
   TraceOutput,
 } from "./turn-event-rows";
 import { toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
+import { getToolIcon, TRACE_GLYPH_SIZE } from "./tool-icon";
 
 /**
  * The one tool-call renderer. A tool call is drawn as an ADS `ToolRun` whether
@@ -50,38 +37,7 @@ import { toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
  * the display list renders them bare.
  */
 
-/**
- * The object glyph's box. `controlIconSizes.md` is what ADS `ToolRun` sizes its
- * own glyph slot to, and passing it explicitly is what keeps a lucide icon from
- * falling back to its 24px default inside the row.
- */
-export const TRACE_GLYPH_SIZE = controlIconSizes.md;
-
-export function getToolIcon(toolName: string): ReactNode {
-  if (isStaveToolName(toolName)) {
-    return <StaveIcon className={sx(styles.glyphEm)} />;
-  }
-
-  switch (normalizeTraceToolName(toolName)) {
-    case "bash":
-      return <Terminal size={TRACE_GLYPH_SIZE} />;
-    case "read":
-    case "write":
-      return <FileText size={TRACE_GLYPH_SIZE} />;
-    case "edit":
-      return <Pencil size={TRACE_GLYPH_SIZE} />;
-    case "glob":
-    case "grep":
-    /* ACP `search` kind — the canonical name ACP providers map onto. */
-    case "search":
-      return <Search size={TRACE_GLYPH_SIZE} />;
-    case "websearch":
-    case "webfetch":
-      return <Globe size={TRACE_GLYPH_SIZE} />;
-    default:
-      return <Wrench size={TRACE_GLYPH_SIZE} />;
-  }
-}
+export { getToolIcon, TRACE_GLYPH_SIZE } from "./tool-icon";
 
 /** A tool call: command, file, search, web or any other tool. */
 export function TraceToolRun(args: {
