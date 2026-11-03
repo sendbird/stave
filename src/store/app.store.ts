@@ -99,8 +99,6 @@ import {
   defaultSettings,
 } from "@/store/app-settings";
 import { createDefaultProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
-// temporary-migration: aux-lane-single-switch (also wraps the persistence options at the end of this file)
-import { withAuxLaneSingleSwitchMigration } from "@/lib/providers/aux-lane-single-switch-migration";
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
   // i18n-ignore: canonical transcript marker; renderer translates its presentation.
@@ -1371,6 +1369,5 @@ export const useAppStore = create<AppState>()(
       ...providerInteractionActions,
       ...editorActions,
     };
-    // temporary-migration: aux-lane-single-switch (at expiry pass createAppStorePersistenceOptions() directly)
-  }, withAuxLaneSingleSwitchMigration(createAppStorePersistenceOptions())),
+  }, createAppStorePersistenceOptions()),
 );

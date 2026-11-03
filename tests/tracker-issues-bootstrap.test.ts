@@ -39,10 +39,9 @@ const savedProfile = JSON.stringify({
 let restoreSettings: (() => void) | null = null;
 
 /**
- * Boots against a 0.27.3 profile through the store's own rehydrate callback
- * (which runs the jira-single-switch migration before normalizing). The
- * callback is called directly, like the migration tests do, because in the
- * shared test process the store may already exist without its persist API.
+ * Boots against saved settings through the store's own rehydrate callback.
+ * Call it directly because in the shared test process the store may already
+ * exist without its persist API.
  */
 async function bootWith(api: Record<string, unknown>) {
   (globalThis as { window?: unknown }).window = {
@@ -97,7 +96,7 @@ describe("tracker issues bootstrap", () => {
     });
     try {
       expect(jiraConfigured).toHaveLength(1);
-      // The saved settings, after the jira-single-switch migration ran.
+      // The connector settings survive normalization independently of issue sources.
       expect(jiraConfigured[0]).toMatchObject({
         enabled: true,
         siteUrl: "https://acme.atlassian.net",
