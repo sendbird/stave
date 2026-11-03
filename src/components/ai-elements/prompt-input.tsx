@@ -41,6 +41,8 @@ import {
 import { hasPromptSubmitPayload } from "./prompt-input-submit";
 import { readDroppedTask } from "./prompt-input-mentions";
 import { TASK_DRAG_MIME } from "@/lib/task-context/attached-task-context";
+import { dragCarriesFiles } from "@/lib/files/file-drop";
+import { PromptInputFileDropOverlay } from "./prompt-input-file-drop";
 import { isReviewTaskDelegationAvailable } from "@/store/review-task-runtime";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ComposerFrame } from "./composer-frame";
@@ -181,7 +183,7 @@ export function PromptInput(args: PromptInputProps) {
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
-  const { clipboardReadQueue, handlePaste } = usePromptInputClipboardPaste({
+  const { clipboardReadQueue, handlePaste, attachTransfer, acceptsFiles } = usePromptInputClipboardPaste({
     attachmentScopeId: args.attachmentScopeId,
     workspaceCwd: args.workspaceCwd,
     onAttachmentsChange,
@@ -205,6 +207,8 @@ export function PromptInput(args: PromptInputProps) {
     promptBatch,
   });
   const [taskDropActive, setTaskDropActive] = useState(false);
+  // Files dragged in from the operating system: the same outline as a task drop, plus words for what the drop does.
+  const [fileDropActive, setFileDropActive] = useState(false);
   const [imagePreviewSrc, setImagePreviewSrc] = useState<{
     dataUrl: string;
     label: string;
@@ -525,30 +529,46 @@ export function PromptInput(args: PromptInputProps) {
         <form
           data-prompt-input-root
           data-task-drop={taskDropActive ? "" : undefined}
+          data-file-drop={fileDropActive ? "" : undefined}
           onSubmit={handleSubmit}
           onDragOverCapture={(event) => {
-            if (!onAttachTask || !event.dataTransfer.types.includes(TASK_DRAG_MIME)) {
+            if (onAttachTask && event.dataTransfer.types.includes(TASK_DRAG_MIME)) {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+              setTaskDropActive(true);
+              return;
+            }
+            if (!acceptsFiles || interactionsDisabled || !dragCarriesFiles(event.dataTransfer.types)) {
               return;
             }
             event.preventDefault();
             event.dataTransfer.dropEffect = "copy";
-            setTaskDropActive(true);
+            setFileDropActive(true);
           }}
           onDragLeave={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
               setTaskDropActive(false);
+              setFileDropActive(false);
             }
           }}
           onDropCapture={(event) => {
+            setFileDropActive(false);
             const task = onAttachTask ? readDroppedTask(event.dataTransfer) : null;
             setTaskDropActive(false);
-            if (!task) {
+            if (task) {
+              // The editor would otherwise insert the payload as text.
+              event.preventDefault();
+              event.stopPropagation();
+              onAttachTask?.(task);
               return;
             }
-            // The editor would otherwise insert the payload as text.
+            if (!acceptsFiles || interactionsDisabled || !dragCarriesFiles(event.dataTransfer.types)) {
+              return;
+            }
+            // Files attach the way a paste does; the editor and the page never open or insert them.
             event.preventDefault();
             event.stopPropagation();
-            onAttachTask?.(task);
+            attachTransfer(event.dataTransfer);
           }}
           onFocusCapture={syncComposerFocus}
           onBlurCapture={() => {
@@ -557,9 +577,10 @@ export function PromptInput(args: PromptInputProps) {
           className={sx(
             promptInputStyles.formBase,
             minimal ? promptInputStyles.formMinimal : promptInputStyles.formDefault,
-            taskDropActive && promptInputStyles.formTaskDrop,
+            (taskDropActive || fileDropActive) && promptInputStyles.formTaskDrop,
           )}
         >
+          {fileDropActive ? <PromptInputFileDropOverlay /> : null}
           {goalStatus ? (
             <PromptInputGoalStatusStrip status={goalStatus} compact={minimal} />
           ) : null}

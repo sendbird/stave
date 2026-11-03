@@ -796,5 +796,9 @@
   },
   "modelPrice": {
     "perMTok": "{{price}} / MTok"
+  },
+  "fileDrop": {
+    "title": "Drop to attach",
+    "hint": "Images and files attach the same way as paste"
   }
 }

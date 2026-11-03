@@ -44,11 +44,16 @@
       },
       "customAudioDescription": "Upload an audio file (MP3, WAV, OGG, M4A, WebM). Max {{maxKb}} KB.",
       "replace": "Replace",
-      "upload": "Upload Audio File",
       "readFailed": "Failed to read the audio file.",
       "previewCustomDescription": "Play the uploaded audio once with the current volume.",
       "previewPresetDescription": "Play the current preset once with the current volume.",
-      "testSound": "Test Sound"
+      "testSound": "Test Sound",
+      "dropLabel": "Drop an audio file here",
+      "dropHint": "MP3, WAV, OGG, M4A or WebM, up to {{maxKb}} KB",
+      "choose": "Choose file",
+      "wrongType": "Not a supported audio file",
+      "tooLarge": "Larger than {{maxKb}} KB",
+      "dismiss": "Dismiss {{name}}"
     }
   },
   "desktopNotifications": {
@@ -254,12 +259,16 @@
       "dark": "dark"
     },
     "importTheme": {
-      "button": "Import Theme JSON",
       "userThemeCount": "{{used}} / {{max}} user themes",
       "tooLarge": "File too large (max 256 KB).",
       "unknownValidationError": "Unknown validation error.",
       "installFailed": "Failed to install theme.",
-      "help": "Drop a <code>.theme.json</code> file to install a community theme. The JSON must include <code>id</code>, <code>name</code>, <code>baseMode</code>, and a <code>tokens</code> map."
+      "help": "Drop a <code>.theme.json</code> file to install a community theme. The JSON must include <code>id</code>, <code>name</code>, <code>baseMode</code>, and a <code>tokens</code> map.",
+      "dropLabel": "Drop a <file>.theme.json</file> here",
+      "dropHint": "JSON only, up to 256 KB · {{count}} / {{max}} user themes",
+      "choose": "Choose file",
+      "wrongType": "Not a JSON theme file",
+      "dismiss": "Dismiss {{name}}"
     },
     "designTokens": {
       "title": "Design Tokens",

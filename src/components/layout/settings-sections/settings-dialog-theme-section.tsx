@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import { Badge, Input } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
+import { FileUpload, type FileUploadItem } from "@/components/ads/components/FileUpload";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import { acceptAttribute, rejectFile, type FileAcceptRule } from "@/lib/files/file-drop";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { settingsDialogStyles as dialogStyles } from "../SettingsDialog.styles";
@@ -379,71 +381,64 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
   );
 });
 
+/** A theme file: JSON by name or type, at most 256 KB. The picker and the drop area check the same rule. */
+const THEME_FILE: FileAcceptRule = { extensions: [".json"], mimeTypes: ["application/json"], maxBytes: 256 * 1024 };
+const NO_FILES: File[] = [];
+const NO_UPLOADS: FileUploadItem[] = [];
+
+/**
+ * Installs a theme from a `.theme.json`: dropped on the row or chosen with
+ * it (Enter or Space opens the picker). A refused file stays as a row that
+ * says why, until it is dismissed or another file is tried.
+ */
 function ThemeImportButton(args: {
   existingIds: string[];
   userThemeCount: number;
   onInstall: (theme: CustomThemeDefinition) => { ok: boolean; error?: string };
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importError, setImportError] = useState<string | null>(null);
+  const [rejected, setRejected] = useState<{ file: File; reason: string } | null>(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImportError(null);
-    const file = e.target.files?.[0];
+  const importFile = async (file: File | undefined) => {
+    setRejected(null);
     if (!file) return;
-
-    // Reset so the same file can be re-selected.
-    e.target.value = "";
-
-    if (file.size > 256 * 1024) {
-      setImportError(i18n.t("settings:themeSection.importTheme.tooLarge"));
+    const refusal = rejectFile(file, THEME_FILE);
+    if (refusal) {
+      setRejected({ file, reason: refusal === "type" ? t("settings:themeSection.importTheme.wrongType") : t("settings:themeSection.importTheme.tooLarge") });
       return;
     }
-
     const text = await file.text();
     const result = parseCustomThemeFile({
       text,
       existingIds: args.existingIds,
     });
     if (!result.ok) {
-      setImportError(result.errors?.join(" ") ?? i18n.t("settings:themeSection.importTheme.unknownValidationError"));
+      setRejected({ file, reason: result.errors?.join(" ") ?? i18n.t("settings:themeSection.importTheme.unknownValidationError") });
       return;
     }
 
     const installResult = args.onInstall(result.theme!);
     if (!installResult.ok) {
-      setImportError(installResult.error ?? i18n.t("settings:themeSection.importTheme.installFailed"));
+      setRejected({ file, reason: installResult.error ?? i18n.t("settings:themeSection.importTheme.installFailed") });
     }
   };
 
   return (
     <div className={sx(styles.importGrid)}>
-      <div className={sx(styles.importRow)}>
-        <Button
-          size="sm"
-          variant="outline"
-          xstyle={styles.importButton}
-          disabled={args.userThemeCount >= MAX_USER_THEMES}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload className={sx(styles.iconSm)} />
-          {t("settings:themeSection.importTheme.button")}</Button>
-        <span className={sx(styles.captionMuted)}>{t("settings:messages.userThemesTotal", { count: args.userThemeCount, max: MAX_USER_THEMES })}</span>
-      </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json,application/json"
-        className={sx(styles.hiddenInput)}
-        onChange={handleFileChange}
+      <FileUpload
+        variant="compact"
+        accept={acceptAttribute(THEME_FILE)}
+        files={NO_FILES}
+        disabled={args.userThemeCount >= MAX_USER_THEMES}
+        label={<Trans t={t} i18nKey="settings:themeSection.importTheme.dropLabel" components={{ file: <code className={sx(styles.code)} /> }} />}
+        description={t("settings:themeSection.importTheme.dropHint", { count: args.userThemeCount, max: MAX_USER_THEMES })}
+        actionLabel={t("settings:themeSection.importTheme.choose")}
+        uploads={rejected ? [{ id: "rejected", file: rejected.file, status: "failed", error: rejected.reason }] : NO_UPLOADS}
+        removeLabel={(name) => t("settings:themeSection.importTheme.dismiss", { name })}
+        onRemove={() => setRejected(null)}
+        onChange={(files) => void importFile(files[0])}
+        data-theme-import=""
       />
-
-      {importError && (
-        <p className={sx(styles.importErrorBox)}>{importError}</p>
-      )}
-
       <p className={sx(styles.importHelp)}><Trans t={t} i18nKey="settings:whole.themeImport" components={{ file: <code className={sx(styles.code)} />, id: <code className={sx(styles.code)} />, name: <code className={sx(styles.code)} />, mode: <code className={sx(styles.code)} />, tokens: <code className={sx(styles.code)} /> }} /></p>
     </div>
   );

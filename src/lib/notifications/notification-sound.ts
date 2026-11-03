@@ -1,3 +1,5 @@
+import { rejectFile, type FileAcceptRule, type FileRejectionReason } from "../files/file-drop";
+
 export const NOTIFICATION_SOUND_PRESETS = [
   "chime",
   "bell",
@@ -429,15 +431,15 @@ export const playCustomNotificationSound = createCustomNotificationSoundPlayer()
  * Validate a File for custom notification sound upload.
  * Returns an error message string if invalid, or `null` if valid.
  */
-export function validateCustomAudioFile(file: File): string | null {
-  if (!CUSTOM_AUDIO_ACCEPTED_TYPES.includes(file.type as (typeof CUSTOM_AUDIO_ACCEPTED_TYPES)[number])) {
-    return `Unsupported file type: ${file.type || "unknown"}. Accepted: MP3, WAV, OGG, M4A, WebM.`;
-  }
-  if (file.size > CUSTOM_AUDIO_MAX_SIZE_BYTES) {
-    const sizeKB = Math.round(file.size / 1024);
-    return `File is too large (${sizeKB} KB). Maximum allowed size is ${CUSTOM_AUDIO_MAX_SIZE_BYTES / 1024} KB.`;
-  }
-  return null;
+/** The custom sound's picker and drop area accept the same audio types and size. */
+export const CUSTOM_AUDIO_ACCEPT: FileAcceptRule = {
+  mimeTypes: CUSTOM_AUDIO_ACCEPTED_TYPES,
+  maxBytes: CUSTOM_AUDIO_MAX_SIZE_BYTES,
+};
+
+/** Why a custom sound was refused, or null when it can be read; the settings row words the reason. */
+export function validateCustomAudioFile(file: Pick<File, "name" | "type" | "size">): FileRejectionReason | null {
+  return rejectFile(file, CUSTOM_AUDIO_ACCEPT);
 }
 
 /**

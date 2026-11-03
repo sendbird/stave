@@ -44,11 +44,16 @@
       },
       "customAudioDescription": "오디오 파일(MP3, WAV, OGG, M4A, WebM)을 업로드합니다. 최대 {{maxKb}}KB입니다.",
       "replace": "교체",
-      "upload": "오디오 파일 업로드",
       "readFailed": "오디오 파일을 읽지 못했습니다.",
       "previewCustomDescription": "업로드한 오디오를 현재 음량으로 한 번 재생합니다.",
       "previewPresetDescription": "현재 프리셋을 현재 음량으로 한 번 재생합니다.",
-      "testSound": "소리 테스트"
+      "testSound": "소리 테스트",
+      "dropLabel": "오디오 파일을 여기에 놓으세요",
+      "dropHint": "MP3, WAV, OGG, M4A, WebM, 최대 {{maxKb}}KB",
+      "choose": "파일 선택",
+      "wrongType": "지원하지 않는 오디오 파일입니다",
+      "tooLarge": "{{maxKb}}KB보다 큽니다",
+      "dismiss": "{{name}} 닫기"
     }
   },
   "desktopNotifications": {
@@ -251,12 +256,16 @@
       "dark": "다크"
     },
     "importTheme": {
-      "button": "테마 JSON 가져오기",
       "userThemeCount": "사용자 테마 {{used}} / {{max}}",
       "tooLarge": "파일이 너무 큽니다(최대 256KB).",
       "unknownValidationError": "알 수 없는 유효성 검사 오류입니다.",
       "installFailed": "테마를 설치하지 못했습니다.",
-      "help": "<code>.theme.json</code> 파일을 넣어 커뮤니티 테마를 설치합니다. JSON에는 <code>id</code>, <code>name</code>, <code>baseMode</code>, <code>tokens</code> 맵이 있어야 합니다."
+      "help": "<code>.theme.json</code> 파일을 넣어 커뮤니티 테마를 설치합니다. JSON에는 <code>id</code>, <code>name</code>, <code>baseMode</code>, <code>tokens</code> 맵이 있어야 합니다.",
+      "dropLabel": "<file>.theme.json</file> 파일을 여기에 놓으세요",
+      "dropHint": "JSON만, 최대 256KB · 사용자 테마 {{count}} / {{max}}",
+      "choose": "파일 선택",
+      "wrongType": "JSON 테마 파일이 아닙니다",
+      "dismiss": "{{name}} 닫기"
     },
     "designTokens": {
       "title": "디자인 토큰",

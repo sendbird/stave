@@ -781,5 +781,9 @@
   },
   "modelPrice": {
     "perMTok": "MTok당 {{price}}"
+  },
+  "fileDrop": {
+    "title": "놓아서 첨부",
+    "hint": "이미지와 파일은 붙여넣기와 같은 방식으로 첨부됩니다"
   }
 }

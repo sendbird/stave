@@ -110,9 +110,6 @@ export const settingsSectionsStyles = stylex.create({
   },
 
   // --- file/custom-audio controls ---
-  hiddenInput: {
-    display: "none",
-  },
   audioNameRow: {
     alignItems: "center",
     display: "flex",
@@ -697,25 +694,6 @@ export const settingsSectionsStyles = stylex.create({
   importGrid: {
     display: "grid",
     gap: vars["--ads-space-8"],
-  },
-  importRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-12"],
-  },
-  importButton: {
-    gap: vars["--ads-space-8"],
-  },
-  importErrorBox: {
-    backgroundColor: vars["--ads-color-danger-soft"],
-    borderColor: vars["--ads-color-danger-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-danger-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
   },
   importHelp: {
     color: vars["--ads-color-text-muted"],
