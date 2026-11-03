@@ -114,6 +114,14 @@ export const searchablePickerStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  // A chip for a chosen value no option lists: the warning rim and ink say
+  // "this no longer resolves" without hiding the value.
+  chipMissing: {
+    backgroundColor: "transparent",
+    borderColor: vars["--ads-color-warning-border"],
+    borderStyle: "dashed",
+    color: vars["--ads-color-warning-text"],
+  },
   loading: {
     alignItems: "center",
     color: vars["--ads-color-text-muted"],

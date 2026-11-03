@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useState, type ReactNode } from "react";
-import { ListChecks, Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { SearchableMultiPicker } from "@/components/layout/settings-searchable-picker";
+import { SearchableMultiPicker, type SearchablePickerOption } from "@/components/layout/settings-searchable-picker";
 import type { AiStage, WorkflowStage, WorkspaceCheckMode } from "@/lib/workflows/schema";
 import {
   addStageCheck,
@@ -74,20 +74,15 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
   useTranslation();
   const { check, stage } = props;
   const ids = check.criterion.scriptIds ?? [];
-  const known = new Map(readyWorkspaceScripts(props.scripts).map((script) => [script.id, script]));
+  // A saved ID the ready workspace does not list: kept as a chip, marked, so
+  // the reader sees why a run here would refuse to start.
+  const settled = props.scripts.available && props.scripts.state.status === "ready";
   const mode = workspaceCheckMode(check.criterion);
   const name = check.criterion.text;
   return (
     <li className={sx(styles.check)} aria-label={name}>
       <div className={sx(styles.head)}>
         <span className={sx(styles.name)}>{name}</span>
-        <ScriptPicker
-          scripts={props.scripts}
-          selected={ids}
-          onToggle={(scriptId) => props.onChange(toggleStageCheckScript(stage, check.index, scriptId))}
-          trigger={<><ListChecks aria-hidden />{i18n.t("agentRuns:stageChecks.editScripts")}</>}
-          triggerLabel={i18n.t("agentRuns:stageChecks.editScriptsAria", { check: name })}
-        />
         <Button
           variant="quiet"
           size="xs"
@@ -98,32 +93,27 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
           <Trash2 aria-hidden />
         </Button>
       </div>
-      {ids.length ? (
-        <ul className={sx(styles.scripts)} aria-label={i18n.t("agentRuns:stageChecks.scriptsAria", { check: name })}>
-          {ids.map((id) => {
-            const script = known.get(id);
-            const unknown = props.scripts.available && props.scripts.state.status === "ready" && !script;
-            return (
-              <li key={id} className={sx(styles.script, unknown && styles.scriptUnknown)} title={unknown ? i18n.t("agentRuns:stageChecks.unknownScript") : script?.description || id}>
-                <span className={sx(styles.scriptLabel)}>
-                  {unknown ? i18n.t("agentRuns:stageChecks.unknownScriptLabel", { script: id }) : script?.label ?? id}
-                </span>
-                <Button
-                  variant="quiet"
-                  size="xs"
-                  iconOnly
-                  press="none"
-                  xstyle={styles.removeScript}
-                  aria-label={i18n.t("agentRuns:stageChecks.removeScript", { script: script?.label ?? id })}
-                  onClick={() => props.onChange(toggleStageCheckScript(stage, check.index, id))}
-                >
-                  <X aria-hidden />
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      {/* The check's scripts are chips in a field: remove one with its own
+          button or Backspace, search and add more in place. */}
+      <ScriptPicker
+        scripts={props.scripts}
+        selected={ids}
+        fieldLabel={i18n.t("agentRuns:stageChecks.scriptsAria", { check: name })}
+        missingOption={(id) =>
+          settled
+            ? { value: id, label: i18n.t("agentRuns:stageChecks.unknownScriptLabel", { script: id }), detail: i18n.t("agentRuns:stageChecks.unknownScript"), stale: true }
+            : { value: id, label: id }
+        }
+        onSet={(next) => {
+          // Apply every difference in turn, additions first: removing the last
+          // script removes the check (as the trash button does), so nothing
+          // may follow that on the same index.
+          let nextStage = stage;
+          const changed = [...next.filter((id) => !ids.includes(id)), ...ids.filter((id) => !next.includes(id))];
+          for (const id of changed) nextStage = toggleStageCheckScript(nextStage, check.index, id);
+          if (changed.length) props.onChange(nextStage);
+        }}
+      />
       {ids.length > 1 ? (
         <SegmentedControl<WorkspaceCheckMode>
           aria-label={i18n.t("agentRuns:stageChecks.modeAria", { check: name })}
@@ -140,15 +130,25 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
   );
 }
 
-/** A searchable multi-select of the workspace's action scripts; picking keeps the list open. */
+/**
+ * A searchable multi-select of the workspace's action scripts; picking keeps
+ * the list open. With `trigger` it opens from that button (adding a check);
+ * without it the chosen scripts are chips in the field (editing a check).
+ */
 function ScriptPicker(props: {
   scripts: WorkspaceScriptActions;
   selected: readonly string[];
-  onToggle: (scriptId: string) => void;
+  /** Trigger form: one pick or unpick at a time. */
+  onToggle?: (scriptId: string) => void;
+  /** Chip field form: the whole new set, so Clear can empty it at once. */
+  onSet?: (scriptIds: string[]) => void;
   onClose?: () => void;
-  trigger: ReactNode;
+  trigger?: ReactNode;
   /** An accessible name that starts with the visible label, when the label alone is ambiguous. */
   triggerLabel?: string;
+  /** Chip field: what the field holds, read with its input. */
+  fieldLabel?: string;
+  missingOption?: (scriptId: string) => SearchablePickerOption & { stale?: boolean };
 }) {
   useTranslation();
   const state = props.scripts.available ? props.scripts.state : null;
@@ -161,18 +161,26 @@ function ScriptPicker(props: {
   }));
   return (
     <SearchableMultiPicker
-      trigger={<Button variant="quiet" size="xs" />}
+      trigger={props.trigger ? <Button variant="quiet" size="xs" /> : undefined}
       triggerContent={props.trigger}
-      aria-label={props.triggerLabel}
+      aria-label={props.trigger ? props.triggerLabel : props.fieldLabel}
       options={options}
       selected={props.selected}
       onChange={(next) => {
+        if (props.onSet) {
+          props.onSet(next);
+          return;
+        }
         // One pick or unpick at a time: hand the changed script back.
         const changed = next.find((id) => !props.selected.includes(id))
           ?? props.selected.find((id) => !next.includes(id));
-        if (changed) props.onToggle(changed);
+        if (changed) props.onToggle?.(changed);
       }}
-      popupXstyle={styles.popup}
+      missingOption={props.missingOption}
+      removeLabel={(script) => i18n.t("agentRuns:stageChecks.removeScript", { script })}
+      // A list opened from a small button gets its own width; a chip field's
+      // list follows the field.
+      popupXstyle={props.trigger ? styles.popup : undefined}
       onOpenChange={(open) => {
         if (!open) props.onClose?.();
       }}

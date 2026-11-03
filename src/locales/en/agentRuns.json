@@ -1073,8 +1073,6 @@
     "description": "Stave runs these action scripts itself on the final revision before the stage can finish.",
     "none": "None. The agent reports when this stage is done.",
     "add": "Add check",
-    "editScripts": "Edit scripts",
-    "editScriptsAria": "Edit scripts: {{check}}",
     "scriptsAria": "Scripts of {{check}}",
     "removeCheck": "Remove check: {{check}}",
     "removeScript": "Remove {{script}} from this check",

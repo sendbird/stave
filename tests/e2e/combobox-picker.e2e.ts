@@ -29,6 +29,7 @@ async function mountPickers(page: Page) {
     function Harness() {
       const [model, setModel] = React.useState("claude-sonnet-5");
       const [statuses, setStatuses] = React.useState<string[]>(["todo"]);
+      const [labels, setLabels] = React.useState<string[]>(["design-system", "retired"]);
       return React.createElement("div", { style: { display: "grid", gap: "24px" } },
         React.createElement("span", { id: "model-label" }, "Model"),
         React.createElement(SearchablePicker, {
@@ -57,6 +58,23 @@ async function mountPickers(page: Page) {
           emptyText: "No statuses match.",
         }),
         React.createElement("output", { id: "status-value" }, statuses.join(",")),
+        React.createElement("span", { id: "labels-label" }, "Labels"),
+        // The default form: chosen values are chips in the field.
+        React.createElement(SearchableMultiPicker, {
+          labelledBy: "labels-label",
+          options: [
+            { value: "design-system", label: "design-system" },
+            { value: "bug", label: "bug", keywords: ["defect"] },
+            { value: "docs", label: "docs" },
+          ],
+          selected: labels,
+          onChange: setLabels,
+          missingOption: (value: string) => ({ value, label: `${value} (gone)`, stale: true }),
+          searchPlaceholder: "Add labels",
+          emptyText: "No labels match.",
+          size: "md",
+        }),
+        React.createElement("output", { id: "labels-value" }, labels.join(",")),
       );
     }
     createRoot(host).render(React.createElement(StaveDesignProvider, null, React.createElement(Harness)));
@@ -119,4 +137,56 @@ test("multiple picker: stays open while checking, searches, and clears to none",
   await expect(page.locator("#status-value")).toHaveText("");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("option")).toHaveCount(0);
+});
+
+test("chip field: chips in the field, search in its input, remove, Backspace and clear", async ({ page }) => {
+  await mountPickers(page);
+  const input = page.getByRole("combobox", { name: "Labels" });
+  const field = page.locator('[data-ads-slot="chips"]').filter({ has: input });
+  // Both chosen values are chips inside the field, the one no option lists
+  // included, beside the input.
+  const chips = field.locator('[data-ads-slot="chip"]');
+  await expect(chips).toHaveText(["design-system", "retired (gone)"]);
+  const fieldBox = (await field.boundingBox())!;
+  for (const index of [0, 1]) {
+    const box = (await chips.nth(index).boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(fieldBox.x - 0.5);
+    expect(box.x + box.width).toBeLessThanOrEqual(fieldBox.x + fieldBox.width + 0.5);
+    expect(box.y).toBeGreaterThanOrEqual(fieldBox.y - 0.5);
+  }
+  // The stale value reads differently from a resolved one.
+  const borderStyle = (index: number) => chips.nth(index).evaluate((chip) => getComputedStyle(chip).borderStyle);
+  expect(await borderStyle(1)).toBe("dashed");
+  expect(await borderStyle(0)).not.toBe("dashed");
+
+  // The field's input is the search; the list has no second search row.
+  await input.click();
+  await expect(page.getByRole("option")).toHaveCount(3);
+  await expect(page.getByRole("combobox", { name: "Add labels" })).toHaveCount(0);
+  await input.fill("defect");
+  await expect(page.getByRole("option")).toHaveCount(1);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#labels-value")).toHaveText("design-system,retired,bug");
+  await expect(chips).toHaveCount(3);
+  await input.fill("zzz");
+  await expect(page.getByText("No labels match.")).toBeVisible();
+  await input.fill("");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("option")).toHaveCount(0);
+
+  // Each chip's own remove button takes that value out.
+  await page.getByRole("button", { name: "Remove retired (gone)" }).click();
+  await expect(page.locator("#labels-value")).toHaveText("design-system,bug");
+  // Backspace in the empty input removes the last chip.
+  await input.focus();
+  await expect(input).toHaveValue("");
+  await page.keyboard.press("Backspace");
+  await expect(page.locator("#labels-value")).toHaveText("design-system");
+  await expect(chips).toHaveText(["design-system"]);
+  // Clear empties the field, and the placeholder comes back.
+  await page.getByRole("button", { name: "Clear selection" }).click();
+  await expect(page.locator("#labels-value")).toHaveText("");
+  await expect(chips).toHaveCount(0);
+  await expect(input).toHaveAttribute("placeholder", "Add labels");
+  await expect(page.getByRole("button", { name: "Clear selection" })).toHaveCount(0);
 });

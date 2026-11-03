@@ -1,5 +1,6 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
 import { useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { i18n, useTranslation } from "@/i18n";
 import { Badge } from "@/components/ads/components/Badge";
 import { Combobox } from "@/components/ads/components/Combobox";
 import { groupOptions, type OptionGroup } from "@/components/ads/components/Combobox.options";
@@ -268,14 +269,22 @@ export function SearchablePicker(props: {
 
 /**
  * The multiple-choice form of the same picker: the list stays open while
- * options are checked and unchecked, and a check marks every chosen row. The
- * trigger is the caller's (a filter button, an "Add" action), because what it
- * should say about the choice differs by surface.
+ * options are checked and unchecked, and a check marks every chosen row.
+ *
+ * By default it is a chip field: each chosen value is a chip inside the field
+ * with its own remove button, the field's input is the search, Backspace in
+ * an empty input removes the last chip, and a clear button empties the field.
+ * Pass `trigger` instead to open the list from the caller's own control (a
+ * filter button, an "Add" action) with the search inside the list, where what
+ * the trigger should say about the choice differs by surface.
  */
 export function SearchableMultiPicker(props: {
-  trigger: ReactElement;
+  /** The caller's own trigger; without it the picker is a chip field. */
+  trigger?: ReactElement;
   triggerContent?: ReactNode;
   "aria-label"?: string;
+  /** Chip field: id of a visible label the field's input announces. */
+  labelledBy?: string;
   options: readonly SearchablePickerOption[];
   selected: readonly string[];
   onChange: (selected: string[]) => void;
@@ -290,7 +299,25 @@ export function SearchableMultiPicker(props: {
   popupXstyle?: StyleXValue;
   /** Shown above the list, for example a status the list depends on. */
   children?: ReactNode;
+  /** Chip field: control scale; match it to neighbouring controls. */
+  size?: "sm" | "md";
+  /**
+   * Chip field: the chip for a chosen value no option lists, such as a saved
+   * ID the catalog dropped. The value stays chosen (removing it is the
+   * reader's call); `stale` draws its chip with the warning rim. Defaults to
+   * the bare value.
+   */
+  missingOption?: (value: string) => SearchablePickerOption & { stale?: boolean };
+  /** Chip field: names a chip's remove button. Defaults to "Remove {label}". */
+  removeLabel?: (label: string) => string;
 }) {
+  if (!props.trigger) return <SearchableChipField {...props} />;
+  return <SearchableTriggerMultiPicker {...props} trigger={props.trigger} />;
+}
+
+type SearchableMultiPickerProps = Parameters<typeof SearchableMultiPicker>[0];
+
+function SearchableTriggerMultiPicker(props: SearchableMultiPickerProps & { trigger: ReactElement }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -340,6 +367,74 @@ export function SearchableMultiPicker(props: {
                 props.onOpenChange?.(false);
               }}
             />
+            <PickerList grouped={grouped} loading={props.loading} loadingText={props.loadingText} emptyText={props.emptyText} />
+          </Combobox.Popup>
+        </Combobox.Positioner>
+      </Combobox.Portal>
+    </Combobox.Root>
+  );
+}
+
+function SearchableChipField(props: SearchableMultiPickerProps) {
+  useTranslation();
+  const size = props.size ?? "sm";
+  const { grouped, items } = usePickerItems(props.options);
+  const known = useMemo(() => new Map(props.options.map((option) => [option.value, option])), [props.options]);
+  // Chips keep the order values were chosen in, and a value no option lists
+  // stays a chip rather than vanishing from the choice.
+  const chosen: Array<SearchablePickerOption & { stale?: boolean }> = props.selected.map(
+    (value) => known.get(value) ?? props.missingOption?.(value) ?? { value, label: value },
+  );
+  const removeLabel = (label: string) =>
+    props.removeLabel?.(label) ?? i18n.t("ui:combobox.removeOption", { label });
+  return (
+    <Combobox.Root<SearchablePickerOption, true>
+      multiple
+      items={items}
+      value={chosen}
+      onValueChange={(next) => props.onChange(next.map((option) => option.value))}
+      // The input is the field's own search: typing is what opens the list,
+      // so it is left to the combobox rather than reset on open.
+      onOpenChange={props.onOpenChange}
+      filter={matchesSearchablePickerOption}
+      itemToStringLabel={optionLabel}
+      itemToStringValue={optionValue}
+      isItemEqualToValue={sameOption}
+      disabled={props.disabled}
+      autoHighlight
+    >
+      <Combobox.InputGroup size={size} aria-busy={props.loading || undefined}>
+        <Combobox.Chips>
+          {chosen.map((option) => (
+            <Combobox.Chip
+              key={option.value}
+              title={option.detail}
+              xstyle={option.stale ? styles.chipMissing : undefined}
+            >
+              {option.label}
+              <Combobox.ChipRemove aria-label={removeLabel(option.label)} />
+            </Combobox.Chip>
+          ))}
+          <Combobox.Input
+            size={size}
+            aria-label={props.labelledBy ? undefined : (props.searchLabel ?? props["aria-label"] ?? props.searchPlaceholder)}
+            aria-labelledby={props.labelledBy}
+            placeholder={chosen.length === 0 ? props.searchPlaceholder : ""}
+          />
+        </Combobox.Chips>
+        <Combobox.Actions>
+          {props.loading ? (
+            <Combobox.Loading label={props.loadingText} size={size} />
+          ) : chosen.length > 0 && !props.disabled ? (
+            <Combobox.Clear aria-label={i18n.t("ui:combobox.clearSelection")} size={size} />
+          ) : null}
+          <Combobox.Trigger aria-label={i18n.t("ui:combobox.openOptions")} size={size} />
+        </Combobox.Actions>
+      </Combobox.InputGroup>
+      <Combobox.Portal>
+        <Combobox.Positioner>
+          <Combobox.Popup xstyle={[styles.popup, props.popupXstyle]}>
+            {props.children}
             <PickerList grouped={grouped} loading={props.loading} loadingText={props.loadingText} emptyText={props.emptyText} />
           </Combobox.Popup>
         </Combobox.Positioner>
