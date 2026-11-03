@@ -8,6 +8,19 @@ provider and in its own worktree. The delegation is recorded on the run ledger,
 so the parent can trust what it is told about the child — including after a
 restart — and the child's answer comes back to the parent on its own.
 
+## Results in the conversation
+
+The message that launched a subagent shows **Subagent results** outside its collapsed
+**Work history**. Each row previews the result or failure; select it to read the original
+answer and execution details. **Result received** confirms arrival, not incorporation into
+or verification of the parent answer. A pending asynchronous launch is not a completed result.
+
+For a durable child, **Open task** opens its conversation. A current question or approval
+changes that action to **Answer in the subagent task** or **Review approval in the subagent task**.
+Retry and stop controls remain in the existing task surfaces. Results from a different retry
+or child turn do not replace the recorded result in an older message. Native tool records
+without a turn identity remain available in work history.
+
 ## When To Use It
 
 - For a task that should keep running on its own schedule while the parent moves

@@ -13,13 +13,17 @@ function isSpawnHandle(part: ToolUsePart) {
   return Boolean(output && (output.newThreadId || output.receiverThreadId || Array.isArray(output.receiverThreadIds)));
 }
 
+export type SubagentMessage = Pick<ChatMessage, "parts"> & Partial<Pick<ChatMessage,
+  "role" | "turnId" | "providerId" | "startedAt" | "terminalReceipt"
+>>;
+
 /** Tool parts survive SQL turn-event compaction; no transcript fetch is needed. */
-export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { messages: readonly ChatMessage[] }): DelegationExchange[] {
+export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { messages: readonly SubagentMessage[] }): DelegationExchange[] {
   const graphs = new Map<string, WorkGraph>();
   const partsById = new Map<string, ToolUsePart>();
   const receipts = new Map<string, NonNullable<ChatMessage["terminalReceipt"]>>();
   for (const message of args.messages) {
-    if (message.role !== "assistant" || !message.turnId || message.providerId === "user") continue;
+    if (message.role !== "assistant" || !message.turnId || !message.providerId || message.providerId === "user") continue;
     if (message.terminalReceipt?.completedAt) receipts.set(message.turnId, message.terminalReceipt);
     const now = Date.parse(message.startedAt ?? "") || 0;
     let graph = graphs.get(message.turnId) ?? createWorkGraph({ turnId: message.turnId, providerId: message.providerId, startedAt: now });

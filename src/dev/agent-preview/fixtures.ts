@@ -15,6 +15,8 @@ export type PreviewMessage = Pick<
   | "isStreaming"
   | "role"
   | "startedAt"
+  | "turnId"
+  | "providerId"
 >;
 
 const REASONING_TEXT = [
@@ -222,6 +224,8 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
 export function createStreamingPreviewMessage(): PreviewMessage {
   return {
     role: "assistant",
+    turnId: "preview-turn",
+    providerId: "claude-code",
     content: "",
     parts: [
       ...commonParts({ reasoningStreaming: true }),
@@ -242,6 +246,8 @@ export function createStreamingPreviewMessage(): PreviewMessage {
 export function createCompletedPreviewMessage(): PreviewMessage {
   return {
     role: "assistant",
+    turnId: "preview-turn",
+    providerId: "claude-code",
     content: "",
     parts: [
       ...commonParts({ reasoningStreaming: false }),

@@ -814,7 +814,15 @@
       "search": "Searching {{target}}",
       "web": "Looking up {{target}}",
       "tool": "Using {{tool}}"
-    }
+    },
+    "workHistory": "Work history",
+    "subagents": "Subagent results",
+    "openChild": "Open task",
+    "noResult": "No result recorded",
+    "resultReceived": "Result received",
+    "needsAnswer": "Answer in the subagent task",
+    "needsApproval": "Review approval in the subagent task",
+    "questionTitle": "Question"
   },
   "commandResult": {
     "commandResult": "Copied",

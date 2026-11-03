@@ -3,16 +3,7 @@ import { formatProviderErrorDisplay } from "@/lib/providers/error-display";
 import { i18n, useTranslation, type AppTFunction } from "@/i18n";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import {
-  Bot,
-  FileCode2,
-  FileText,
-  Globe,
-  Pencil,
-  Search,
-  Terminal,
-  Wrench,
-} from "lucide-react";
+import { FileCode2 } from "lucide-react";
 import type { AgentStepState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { ToolRun } from "@/components/ads/components/ToolRun";
@@ -22,7 +13,6 @@ import {
   ChainOfThoughtTrigger,
   MessageResponse,
 } from "@/components/ai-elements";
-import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
 import { TranscriptWideBlock } from "@/components/ai-elements/transcript-wide";
 import {
   ChangedFilesBlock,
@@ -38,6 +28,7 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { parseInlineRenderToolOutput } from "@/lib/inline-render/inline-render";
+import { MessageSubagents } from "./message-subagents";
 import { InlineHtmlRenderList } from "./inline-html-render";
 import {
   isProviderFailureRecoveryEligible,
@@ -49,13 +40,6 @@ import type {
   MessagePart,
   ThinkingPart,
 } from "@/types/chat";
-import {
-  buildCompletedTurnTitle,
-  countTraceCategories,
-  TRACE_CATEGORY_COUNT_KEYS,
-  type TraceCategory,
-  type TraceCategoryCount,
-} from "./trace-summary";
 import {
   buildAssistantTrace,
   joinReasoningText,
@@ -116,30 +100,6 @@ function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
       ) : null}
     </span>
   );
-}
-
-/* ─── Trace summary (collapsed trigger stats) ────────────────────── */
-
-const CATEGORY_ICONS: Record<TraceCategory, ReactNode> = {
-  edit: <Pencil />,
-  command: <Terminal />,
-  read: <FileText />,
-  search: <Search />,
-  web: <Globe />,
-  agent: <Bot />,
-  change: <FileCode2 />,
-  tool: <Wrench />,
-};
-
-function buildTraceSummary(
-  counts: readonly TraceCategoryCount[],
-  t: AppTFunction,
-): TraceSummaryItem[] {
-  return counts.map(({ category, count }) => ({
-    id: category,
-    icon: CATEGORY_ICONS[category],
-    label: t(TRACE_CATEGORY_COUNT_KEYS[category], { count }),
-  }));
 }
 
 /* ─── Reasoning step (message-duration summary) ──────────────────── */
@@ -380,6 +340,7 @@ function AssistantTraceEntryView(args: {
           xstyle={[styles.railStep, styles.rowMotion]}
         >
           <TraceClarification
+            readOnly={readOnly}
             messageId={messageId}
             part={entry.part}
             taskId={taskId}
@@ -496,7 +457,9 @@ export function AssistantMessageBody(args: {
     | "terminalStopReason"
     | "role"
     | "startedAt"
-  >;
+    | "turnId"
+    | "terminalReceipt"
+  > & Partial<Pick<ChatMessage, "providerId">>;
   taskId: string;
   messageId: string;
   streamingEnabled: boolean;
@@ -551,28 +514,11 @@ export function AssistantMessageBody(args: {
     [revealRequestId, revealToolUseId, trace.entries],
   );
 
-  const categoryCounts = useMemo(
-    () => countTraceCategories(trace.entries),
-    [trace.entries],
-  );
-  // Fixed to the display language, so a language change rebuilds the labels.
   const t = useMemo(() => i18n.getFixedT(language) as AppTFunction, [language]);
-  const summaryItems = useMemo(
-    () => buildTraceSummary(categoryCounts, t),
-    [categoryCounts, t],
-  );
-  /* What a finished turn did, without another model call: the reply's first
-     sentence, or else a summary of the counted work. */
-  const completedTitle = useMemo(
-    () =>
-      isStreaming
-        ? undefined
-        : buildCompletedTurnTitle({
-            responseText: trace.responseParts.map((part) => part.text).join("\n\n"),
-            counts: categoryCounts,
-            t,
-          }),
-    [categoryCounts, isStreaming, trace.responseParts, t],
+  // Human decisions remain visible when work history is collapsed.
+  const historyEntries = useMemo(
+    () => trace.entries.filter((entry) => entry.kind !== "user_input"),
+    [trace.entries],
   );
   /* Once the turn ends: the web sources its searches and fetches returned. */
   const turnSources = useMemo(
@@ -667,7 +613,7 @@ export function AssistantMessageBody(args: {
 
   return (
     <>
-      {trace.showStreamingPlaceholder || trace.entries.length > 0 ? (
+      {trace.showStreamingPlaceholder || historyEntries.length > 0 ? (
         <ChainOfThought
           isStreaming={isStreaming}
           defaultOpen={
@@ -684,25 +630,24 @@ export function AssistantMessageBody(args: {
             shouldAutoExpandTrace &&
             !isStreaming
           }
-          summaryItems={summaryItems}
           durationSeconds={traceDurationSeconds}
         >
           <ChainOfThoughtTrigger
             completionLabel={
               hasActionableCapacityFailure
                 ? i18n.t("session:assistantTrace.completionLabel")
-                : completedTitle
+                : t("session:assistantTrace.workHistory")
             }
             streamingActivity={streamingActivity}
             streamingStartedAt={message.startedAt}
           />
-          {trace.entries.length > 0 ? (
+          {historyEntries.length > 0 ? (
             <ChainOfThoughtContent>
-              {trace.entries.map((entry, index) => (
+              {historyEntries.map((entry, index) => (
                 <AssistantTraceEntryView
                   key={entry.id}
                   entry={entry}
-                  isLast={index === trace.entries.length - 1}
+                  isLast={index === historyEntries.length - 1}
                   taskId={taskId}
                   messageId={messageId}
                   terminalStopReason={message.terminalStopReason}
@@ -713,6 +658,11 @@ export function AssistantMessageBody(args: {
           ) : null}
         </ChainOfThought>
       ) : null}
+
+      <MessageSubagents message={message} taskId={taskId} readOnly={readOnly} />
+      {trace.entries.filter((entry) => entry.kind === "user_input").map((entry) => (
+        <TraceClarification readOnly={readOnly} key={entry.id} part={entry.part} taskId={taskId} messageId={messageId} />
+      ))}
 
       {!isStreaming &&
       showInterimMessages &&

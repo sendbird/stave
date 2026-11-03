@@ -35,6 +35,9 @@ export interface ExchangeRowProps {
   onToggle?: (expanded: boolean) => void;
   /** Wrap title and ask instead of clipping them to one line. */
   expandCopy?: boolean;
+  /** Transcript rows preview the return and lead with it in details. */
+  resultFirst?: boolean;
+  preview?: string;
   /** Extra detail sections, forwarded to `ExchangeDetail`. */
   detailChildren?: ReactNode;
   extraActions?: ReactNode;
@@ -109,13 +112,13 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
               className={sx(
                 styles.rowTitle,
                 props.expandCopy && styles.rowTitleExpanded,
-                exchange.outcome.status === "returned" && styles.rowTitleDone,
+                !props.resultFirst && exchange.outcome.status === "returned" && styles.rowTitleDone,
               )}
             >
               {exchange.title}
             </span>
             <AgentIdentity
-              compact
+              compact={!props.resultFirst}
               providerId={exchange.identity.providerId}
               model={exchange.identity.model}
               effort={exchange.identity.effort}
@@ -129,7 +132,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
               props.expandCopy && styles.rowAskExpanded,
             )}
           >
-            {exchange.ask}
+            {props.preview ?? exchange.ask}
           </span>
         </span>
         <span className={sx(styles.rowAside)}>
@@ -162,6 +165,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
           <ExchangeDetail
             exchange={exchange}
             nowMs={nowMs}
+            resultFirst={props.resultFirst}
             onAction={props.onAction}
             extraActions={props.extraActions}
             statusNote={props.statusNote}
