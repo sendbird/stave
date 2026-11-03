@@ -232,7 +232,7 @@ S --> U: Reply · changed files · summary
 @caption A simplified turn. The approval step may not appear, depending on the permission preset.
 ```
 
-**Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. Its disclosure adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**.
+**Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. The row also names a subagent that asked and a risk the request reports, such as **Network access**. Its disclosure adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.
@@ -311,6 +311,8 @@ Screens: [Settings > Providers](https://github.com/sendbird/stave/blob/main/docs
 | Cursor   | Asks before every tool call                    | Cursor's own auto-review                   | Runs every tool call and trusts MCP servers              |
 | Kiro     | Asks before every tool call                    | None                                       | Approves everything                                      |
 | OpenCode | Asks every time, reads included; no subagents  | None                                       | Approves every request; your OpenCode `deny` rules still apply |
+
+The composer's preset menu and **Settings > Providers** list, under the selected preset, what it does on its own and what it asks about first, one row per kind of action (reading files, editing files, running commands, web tools, MCP tools and so on). For Claude the list also shows the guardrails you left on (G1–G3), which always ask in Agent mode whatever the preset. Other providers have no such fixed rows.
 
 Changing an individual field turns the preset into **Custom**. The runtime chip in the composer shows the current state as **Safe**, **Custom** or **Elevated**.
 

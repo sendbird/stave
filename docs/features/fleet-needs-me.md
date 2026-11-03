@@ -134,8 +134,10 @@ Fleet item, and the task records the answer the same way.
 - `Allow once`, `Always allow` and `Deny`: an approval is answered in its row,
   without opening the task. The row draws the same approval card as the
   conversation and the composer, with the tool and the command it would run;
-  `Always allow` appears only when the provider can keep the grant, and not for
-  a task an external host manages.
+  `Always allow` follows the same rule as everywhere else (it appears whenever
+  the provider or your trusted approvals keep the grant), and not for a task
+  an external host manages or a turn the host runs. With focus in the card,
+  `Cmd/Ctrl+Enter` allows the request once; `Esc` never denies it.
 - A short question (one question, one choice, two to six options) is answered
   in its row by picking an option. Longer forms, free text, numbers and links
   are answered in the task: the row says so and `Open` takes you there.
