@@ -15,6 +15,7 @@ import { IssuesBoard } from "@/components/layout/issues/IssuesBoard";
 import { ExplorerEntryIcon, WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { notifications, tickets } from "./fixtures";
 import { AgentTreeRegressionFixture } from "./agent-tree";
+import { TurnTraceRegressionFixture } from "./turn-trace";
 
 const models: ModelSelectorOption[] = [
   {
@@ -140,6 +141,7 @@ export function AdsRegressionPreview() {
           />
         </header>
         <AgentTreeRegressionFixture />
+        <TurnTraceRegressionFixture />
         <section className={sx(styles.section)}>
           <h2 className={sx(styles.heading)}>Explorer entry icons</h2>
           <div className={sx(styles.explorer)} data-review-explorer-icons="">
