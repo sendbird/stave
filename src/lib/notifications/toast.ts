@@ -21,13 +21,13 @@ type NoticeOptions = {
 };
 
 /** A settled tone `update` can turn a toast into. */
-type UpdateTone = "neutral" | "success" | "warning" | "error" | "info";
+type SettledKind = "neutral" | "success" | "warning" | "error" | "info";
 
 type UpdateOptions = {
   title?: ReactNode;
   description?: ReactNode;
   /** A settled tone ends a loading toast and restarts its dismiss timer. */
-  tone?: UpdateTone;
+  tone?: SettledKind;
   /** Overrides the timer; a settled tone otherwise gets the host default. */
   duration?: number;
 };
@@ -35,7 +35,7 @@ type UpdateOptions = {
 /** The hosts' auto-dismiss delay, restored when a pinned loading toast settles. */
 const DEFAULT_DURATION_MS = 5000;
 
-const MANAGER_TYPE: Record<UpdateTone, string> = {
+const MANAGER_TYPE: Record<SettledKind, string> = {
   neutral: "neutral",
   success: "success",
   warning: "warning",

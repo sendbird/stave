@@ -33,12 +33,12 @@ afterEach(() => {
   globalThis.window = originalWindow;
 });
 
-/** The text of the Agents view tab marked as the current page. */
+/** The text of the Agents view section that is checked in its switch. */
 function currentTabText(html: string) {
-  const tag = html.match(/<button[^>]*aria-current="page"[^>]*>/);
+  const tag = html.match(/<(span|button)[^>]*role="radio"[^>]*aria-checked="true"[^>]*>/);
   if (!tag || tag.index === undefined) return null;
   const rest = html.slice(tag.index + tag[0].length);
-  return rest.slice(0, rest.indexOf("</button>")).replace(/<[^>]*>/g, "");
+  return rest.slice(0, rest.indexOf(`</${tag[1]}><input`)).replace(/<[^>]*>/g, "");
 }
 
 /** Server rendering reads a zustand store's initial state, so pass the tab. */
