@@ -23,7 +23,6 @@ export {
 import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
 import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-stop-reason";
-import { resolveApprovalExpiresAt } from "../../src/lib/approvals/approval-expiry";
 import { resolveClaudeTurnGuardrail, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
 import { resolveClaudeApprovalExtras } from "./approval-allow-always";
 import {
@@ -3289,13 +3288,6 @@ export async function streamClaudeWithSdk(
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
-    // `waitForClaudeToolDecision` starts this timer as it announces a request,
-    // so the deadline is known as the request is built: the card says when an
-    // unanswered request will be denied. Same contract as Codex and ACP.
-    const approvalDeadline = () => {
-      const expiresAt = resolveApprovalExpiresAt({ timeoutMs: approvalDecisionTimeoutMs });
-      return expiresAt ? { expiresAt } : {};
-    };
     let nextClaudeUserInputRequestOrdinal = 1;
     const createClaudeUserInputRequestId = (prefix: string) =>
       `${prefix}-${Date.now()}-${nextClaudeUserInputRequestOrdinal++}`;
@@ -3700,12 +3692,11 @@ export async function streamClaudeWithSdk(
               blockedPath: options.blockedPath,
             }),
             ...(trustedApprovalInput ? { input: trustedApprovalInput } : {}),
-            ...resolveClaudeApprovalExtras({ toolName, trustedApprovalInput, guardrail }),
+            ...resolveClaudeApprovalExtras({ toolName, trustedApprovalInput, guardrail, timeoutMs: approvalDecisionTimeoutMs }),
             // `agentID` is set only when the call came from inside a subagent,
             // which is exactly when the work graph needs it: it names the one
             // worker of the fan-out whose progress this prompt is holding up.
             ...(options.agentID ? { ownerAgentId: options.agentID } : {}),
-            ...approvalDeadline(),
           };
 
           try {

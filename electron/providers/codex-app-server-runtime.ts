@@ -2180,7 +2180,6 @@ export async function streamCodexWithAppServer(
         requestId: string;
         toolName: string;
       }): string | undefined => {
-        const expiresAt = resolveApprovalExpiresAt({ timeoutMs: codexApprovalDecisionTimeoutMs });
         const handle = setTimeout(() => {
           pendingApprovalAutoDeclineHandles.delete(args.requestId);
           const pending = pendingApprovalRequests.get(args.requestId);
@@ -2216,7 +2215,7 @@ export async function streamCodexWithAppServer(
             .finally(() => elicitationPauseController.end(args.requestId));
         }, codexApprovalDecisionTimeoutMs);
         pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
-        return expiresAt;
+        return resolveApprovalExpiresAt({ timeoutMs: codexApprovalDecisionTimeoutMs });
       };
       const runStage = args.managedTask ? undefined : args.agentRunStage; // a managed run's controller answers; today's timeout stays
       const scheduleUserInputAutoDecline = (args: {
@@ -2519,10 +2518,7 @@ export async function streamCodexWithAppServer(
               ...presentation.pending,
             });
             void elicitationPauseController.begin(requestId);
-            const expiresAt = scheduleApprovalAutoDecline({
-              requestId,
-              toolName: presentation.event.toolName,
-            });
+            const expiresAt = scheduleApprovalAutoDecline({ requestId, toolName: presentation.event.toolName });
             emitBridgeEvent({ ...presentation.event, ...childRequestOwner, ...(expiresAt ? { expiresAt } : {}) });
             return;
           }

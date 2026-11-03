@@ -1,3 +1,4 @@
+import { resolveApprovalExpiresAt } from "../../src/lib/approvals/approval-expiry";
 import type { ApprovalRisk } from "../../src/lib/approvals/approval-resolution";
 import { buildTrustedToolEntryForApproval } from "../../src/lib/providers/trusted-tools";
 import type { ClaudeGuardrailHit } from "./claude-guardrail-hook";
@@ -163,10 +164,18 @@ export function resolveAcpApprovalAllowAlways(args: {
   return resolveTrustedRuleAllowAlways({ toolName: args.toolName, input: args.input });
 }
 
-/** The always-allow fields and the risk word of a Claude approval, as one spread for its event. */
-export function resolveClaudeApprovalExtras(args: Parameters<typeof resolveClaudeApprovalAllowAlways>[0]) {
+/**
+ * The always-allow fields, the risk word and the auto-decline deadline of a
+ * Claude approval, as one spread for its event. `waitForClaudeToolDecision`
+ * starts its `timeoutMs` timer as it announces the request, so the deadline is
+ * known as the request is built (the same contract as Codex and ACP).
+ */
+export function resolveClaudeApprovalExtras(
+  args: Parameters<typeof resolveClaudeApprovalAllowAlways>[0] & { timeoutMs?: number },
+) {
   const risk = resolveClaudeApprovalRisk(args.guardrail);
-  return { ...resolveClaudeApprovalAllowAlways(args), ...(risk ? { risk } : {}) };
+  const expiresAt = args.timeoutMs === undefined ? undefined : resolveApprovalExpiresAt({ timeoutMs: args.timeoutMs });
+  return { ...resolveClaudeApprovalAllowAlways(args), ...(risk ? { risk } : {}), ...(expiresAt ? { expiresAt } : {}) };
 }
 
 /** The always-allow fields and the risk word of a Codex approval, as one spread for its event. */

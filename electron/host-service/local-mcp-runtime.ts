@@ -128,7 +128,7 @@ import {
   resolveManagedTaskRuntimeOptions,
   userSettingsPermissionOptions,
 } from "../../src/lib/providers/managed-task-runtime";
-import { earlierApprovalDeadline } from "../../src/lib/approvals/approval-expiry";
+import { withManagedApprovalDeadline } from "./managed-approval-deadline";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { recordTurnWorkspaceDocuments } from "./turn-workspace-documents";
 import {
@@ -1116,25 +1116,6 @@ function clearManagedApprovalAutoDeny(args: {
       managedApprovalAutoDenyTimers.delete(key);
     }
   }
-}
-
-/**
- * A delegated task's host denies an unanswered approval (below) before the
- * runtime's own timer would, so the request carries the deadline that
- * actually applies and its card does not promise a later one.
- */
-function withManagedApprovalDeadline(
-  event: BridgeEvent,
-  task: Pick<Task, "controlMode" | "controlOwner"> | null | undefined,
-): BridgeEvent {
-  if (event.type !== "approval" || !isExternallyManagedTask(task)) {
-    return event;
-  }
-  const expiresAt = earlierApprovalDeadline({
-    expiresAt: event.expiresAt,
-    timeoutMs: MANAGED_TASK_APPROVAL_TIMEOUT_MS,
-  });
-  return expiresAt ? { ...event, expiresAt } : event;
 }
 
 /** A managed approval expires if neither the user nor controller answers. */
