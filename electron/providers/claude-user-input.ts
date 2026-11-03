@@ -4,12 +4,9 @@ import {
   markRecommendedUserInputOptions,
   optionLabelHasRecommendedSuffix,
   readQuestionRecommendPointer,
-  readRawOptionRecommended,
+  readRawOptionPreview, readRawOptionRecommended,
   recommendedOptionDefaultValue,
 } from "../../src/lib/user-input-options";
-
-/** Matches the IPC schema's bound for an option preview. */
-export const MAX_OPTION_PREVIEW_LENGTH = 20_000;
 
 export function parseClaudeQuestionList(args: {
   input: Record<string, unknown>;
@@ -54,16 +51,11 @@ export function parseClaudeQuestionList(args: {
             typeof option.description === "string" && option.description.trim()
               ? option.description
               : label;
-          // Shown while the option has focus; kept as written, whitespace and all.
-          const preview =
-            typeof option.preview === "string" && option.preview.trim()
-              ? option.preview.slice(0, MAX_OPTION_PREVIEW_LENGTH)
-              : undefined;
           return [
             {
               label,
               description,
-              ...(preview ? { preview } : {}),
+              ...readRawOptionPreview(option),
               ...(readRawOptionRecommended(option) ||
               optionLabelHasRecommendedSuffix(label)
                 ? { recommended: true }

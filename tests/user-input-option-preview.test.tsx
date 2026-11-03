@@ -2,10 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import {
-  MAX_OPTION_PREVIEW_LENGTH,
-  parseClaudeQuestionList,
-} from "../electron/providers/claude-user-input";
+import { parseClaudeQuestionList } from "../electron/providers/claude-user-input";
+import { MAX_OPTION_PREVIEW_LENGTH } from "@/lib/user-input-options";
 import { mapCodexUserInputQuestions } from "../electron/providers/codex-user-input-mapping";
 import { mapCursorAskQuestionEvent } from "../electron/providers/cursor/cursor-acp-extensions";
 import { StreamTurnArgsSchema } from "../electron/main/ipc/provider-conversation-schemas";
