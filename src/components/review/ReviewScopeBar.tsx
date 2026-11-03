@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Kbd } from "@/components/ads/components/Kbd";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
@@ -40,6 +41,8 @@ export function ReviewScopeBar(props: {
   scope: ReviewScope;
   available: readonly ReviewScopeKind[];
   data: ReviewData | null;
+  /** Other reviews waiting on the user; J / K move between them. */
+  queueRemaining?: number;
   onScope: (kind: ReviewScopeKind) => void;
   onRefresh: () => void;
   /** Shows the task's conversation again; Review keeps its scope and read files. */
@@ -62,10 +65,25 @@ export function ReviewScopeBar(props: {
         onValueChange={props.onScope}
       />
       <span className={sx(styles.scopeRevision)} data-testid="review-revision">{describeRevision(props.scope, props.data)}</span>
+      {props.queueRemaining ? <ReviewQueueHint remaining={props.queueRemaining} /> : null}
       <Button variant="quiet" size="xs" iconOnly aria-label={i18n.t("review:scope.refresh")} onClick={props.onRefresh}>
         <RefreshCw aria-hidden />
       </Button>
     </div>
+  );
+}
+
+/** `J K Next / previous review · 2 left`: the keys and how many reviews wait besides this one. */
+function ReviewQueueHint(props: { remaining: number }) {
+  useTranslation();
+  return (
+    <span className={sx(styles.queueHint)} data-testid="review-queue-hint">
+      <span className={sx(styles.queueKeys)} aria-hidden>
+        <Kbd size="sm">J</Kbd>
+        <Kbd size="sm">K</Kbd>
+      </span>
+      {i18n.t("review:queue.hint", { count: props.remaining })}
+    </span>
   );
 }
 

@@ -1027,6 +1027,14 @@
       "approvalAllowOnce": {
         "title": "승인 요청 한 번 허용",
         "description": "승인 카드에 포커스가 있을 때 그 요청을 한 번 허용합니다. Esc로는 요청을 거절하지 않습니다."
+      },
+      "reviewNext": {
+        "title": "다음 리뷰",
+        "description": "검토 화면에서 리뷰를 기다리는 다음 결과나 단계를 Fleet 순서대로 엽니다."
+      },
+      "reviewPrevious": {
+        "title": "이전 리뷰",
+        "description": "검토 화면에서 리뷰를 기다리는 이전 결과나 단계를 엽니다."
       }
     },
     "ui": {

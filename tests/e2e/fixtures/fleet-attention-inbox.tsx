@@ -12,8 +12,12 @@ const params = new URLSearchParams(location.search);
 applyAppLocale(params.get("locale") === "ko" ? "ko" : "en");
 useAppStore.persist.setOptions({ name: "fleet-attention-inbox-focus-fixture" });
 
-function need(id: string, kind: FleetAttentionItem["kind"], title: string): FleetAttentionItem {
+const HOUR_MS = 60 * 60 * 1000;
+
+/** `waitedMs`: how long ago the wait began, so the row's age reads under, past and well past the thresholds. */
+function need(id: string, kind: FleetAttentionItem["kind"], title: string, waitedMs: number): FleetAttentionItem {
   return {
+    waitingSince: new Date(Date.now() - waitedMs).toISOString(),
     id,
     kind,
     priority: 0,
@@ -31,9 +35,9 @@ function need(id: string, kind: FleetAttentionItem["kind"], title: string): Flee
 }
 
 const NEEDS = [
-  need("one", "approval", "Ship the release"),
-  need("two", "run-failed", "Tune the search index"),
-  need("three", "approval", "Rotate the deploy key"),
+  need("one", "approval", "Ship the release", 5 * 60 * 1000),
+  need("two", "run-failed", "Tune the search index", 2 * HOUR_MS),
+  need("three", "approval", "Rotate the deploy key", 30 * HOUR_MS),
 ];
 
 /**

@@ -31,6 +31,17 @@ export const reviewStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
+  /** The J / K keys and how many reviews wait, at the scope bar's end before Refresh. */
+  queueHint: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
+    whiteSpace: "nowrap",
+  },
+  queueKeys: { display: "inline-flex", alignItems: "center", gap: vars["--ads-space-4"] },
   sha: { fontFamily: vars["--ads-font-mono"], color: vars["--ads-color-text"] },
   limits: {
     margin: 0,

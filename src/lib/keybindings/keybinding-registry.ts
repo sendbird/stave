@@ -103,6 +103,8 @@ const FLEET_ROW_ANSWER = [
   "src/components/layout/FleetAttentionInbox.tsx",
   "src/components/layout/FleetRowInlineAnswer.tsx",
 ] as const;
+/** Review moves between the reviews waiting on the user. */
+const REVIEW_SURFACE = "src/components/review/TaskReviewSurface.tsx";
 /** Approvals answer to the same keys in Fleet's rows and in the bell. */
 const APPROVAL_ROW_ANSWER = [
   ...FLEET_ROW_ANSWER,
@@ -683,7 +685,7 @@ export const KEYBINDING_REGISTRY = [
   },
   {
     id: "fleet.next-row",
-    keys: ["arrowdown"],
+    keys: ["arrowdown", "j"],
     scope: "fleet",
     focus: true,
     editable: "block",
@@ -695,7 +697,7 @@ export const KEYBINDING_REGISTRY = [
   },
   {
     id: "fleet.previous-row",
-    keys: ["arrowup"],
+    keys: ["arrowup", "k"],
     scope: "fleet",
     focus: true,
     editable: "block",
@@ -752,6 +754,30 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:keybindings.entries.fleetRowChoose.description",
     section: "surfaces",
     handledBy: FLEET_ROW_ANSWER,
+  },
+  {
+    id: "review.next",
+    keys: ["j"],
+    scope: "task-pane",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.reviewNext.title",
+    descriptionKey: "shell:keybindings.entries.reviewNext.description",
+    section: "surfaces",
+    handledBy: [REVIEW_SURFACE],
+  },
+  {
+    id: "review.previous",
+    keys: ["k"],
+    scope: "task-pane",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.reviewPrevious.title",
+    descriptionKey: "shell:keybindings.entries.reviewPrevious.description",
+    section: "surfaces",
+    handledBy: [REVIEW_SURFACE],
   },
   {
     id: "issues.next",

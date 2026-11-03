@@ -439,6 +439,8 @@ Screens: [Review mode](https://github.com/sendbird/stave/blob/main/docs/screensh
 2. Send them all at once with **Send review to agent** (Cmd/Ctrl+Alt+Enter).
 3. Review again after the agent fixes them, and **Sign off** when it is good enough.
 
+**Mark reviewed** shows a notice with **Undo** for a moment. Once a review is decided, the main button becomes **Next review**, the next result or sign-off waiting in Fleet View; in Review, J and K move to the next and previous waiting review.
+
 ## AI review
 
 An AI review runs as a read-only child task in the same workspace for one turn, and returns approve, approve with changes, or request changes.
@@ -487,7 +489,7 @@ Idle | Tasks with nothing to do right now
 | In review       | Tasks with a ready result, a PR, or no updates for a while           |
 | Idle            | Tasks with nothing to do                                             |
 
-Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you".
+Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you". J and K move between rows like the arrow keys. A wait's age turns to the warning color after an hour and the failed color after a day.
 Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
 
 Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task. If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.

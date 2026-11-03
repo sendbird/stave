@@ -7,11 +7,13 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { useNow } from "@/components/agent-runs/useAgentRun";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
+import { classifyWaitAge, type WaitAgeTone } from "@/lib/fleet/wait-age";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import { inboxRowStyles as styles } from "./inbox-row.styles";
 
@@ -74,14 +76,24 @@ function isTextEntry(target: EventTarget | null) {
   );
 }
 
+/** J and K are the letters for Down and Up, as in Issues and Review. */
+const INBOX_STEP_BY_KEY: Readonly<Record<string, 1 | -1>> = {
+  ArrowDown: 1,
+  j: 1,
+  ArrowUp: -1,
+  k: -1,
+};
+
 /**
- * Up and Down move between the rows of an inbox list, from any row control
- * that is not a text field, and wrap at the ends. The key is consumed so a
- * scroller does not also scroll.
+ * Up and Down (or J and K) move between the rows of an inbox list, from any
+ * row control that is not a text field, and wrap at the ends. The key is
+ * consumed so a scroller does not also scroll.
  */
 export function moveInboxFocus(event: KeyboardEvent<HTMLElement>) {
+  const step = INBOX_STEP_BY_KEY[event.key];
   if (
-    (event.key !== "ArrowDown" && event.key !== "ArrowUp") ||
+    step === undefined ||
+    event.nativeEvent?.isComposing === true ||
     event.defaultPrevented ||
     event.altKey ||
     event.ctrlKey ||
@@ -99,7 +111,6 @@ export function moveInboxFocus(event: KeyboardEvent<HTMLElement>) {
   const current = row
     ? triggers.findIndex((trigger) => row.contains(trigger))
     : -1;
-  const step = event.key === "ArrowDown" ? 1 : -1;
   const next =
     current === -1
       ? step === 1
@@ -108,6 +119,26 @@ export function moveInboxFocus(event: KeyboardEvent<HTMLElement>) {
       : (current + step + triggers.length) % triggers.length;
   event.preventDefault();
   triggers[next]?.focus();
+}
+
+const WAIT_TONE_STYLE: Record<WaitAgeTone, StyleXValue> = {
+  neutral: null,
+  warning: styles.rowTimeWarning,
+  danger: styles.rowTimeDanger,
+};
+
+/** A minute is the finest step a row's age shows. */
+const WAIT_AGE_TICK_MS = 60_000;
+
+/**
+ * How late a blocking entry's wait reads. Only a wait whose start a source
+ * recorded (`waitingSince`) is colored, and only the rows that block on the
+ * user; the clock ticks only for those rows.
+ */
+function useWaitTone(entry: FleetInboxEntry): WaitAgeTone {
+  const since = entry.tier === "blocking" ? entry.item?.waitingSince : undefined;
+  const now = useNow(Boolean(since), WAIT_AGE_TICK_MS);
+  return classifyWaitAge(since, now);
 }
 
 /**
@@ -149,6 +180,8 @@ export function InboxRow(props: {
 }) {
   const { t } = useTranslation(["fleet"]);
   const { entry } = props;
+  const waitTone = useWaitTone(entry);
+  const timeStyle = WAIT_TONE_STYLE[waitTone];
   const meta = [entry.workspaceName, entry.repositoryName].filter(
     (value): value is string => Boolean(value?.trim()),
   );
@@ -192,7 +225,7 @@ export function InboxRow(props: {
           {props.supplement ? (
             <span className={sx(styles.rowSupplement, styles.compactSupplement)}>{props.supplement}</span>
           ) : null}
-          <span className={sx(styles.rowTime, styles.compactTime)}>{formatAgeCompact(entry.at)}</span>
+          <span className={sx(styles.rowTime, styles.compactTime, timeStyle)} data-wait-tone={waitTone}>{formatAgeCompact(entry.at)}</span>
         </AdsButton>
         {props.body}
         {props.actions ? (
@@ -233,7 +266,7 @@ export function InboxRow(props: {
             <InboxEntryIcon kind={entry.kind} prStatus={entry.item?.prStatus} />
             {FLEET_ATTENTION_KIND_LABEL[entry.kind]}
           </Badge>
-          <span className={sx(styles.rowTime)}>
+          <span className={sx(styles.rowTime, timeStyle)} data-wait-tone={waitTone}>
             {formatTimeAgo(entry.at)}
           </span>
         </span>

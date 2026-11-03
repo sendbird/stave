@@ -166,8 +166,13 @@ Fleet item, and the task records the answer the same way.
 - A dot marks an item whose notification you have not read, the same in the
   bell. Opening an item with `Open`, here or in the bell, reads it; expanding
   its row to see its controls does not.
-- With a row focused, `ArrowUp` and `ArrowDown` move between rows and `Enter`
-  opens the row's control panel. `Esc` steps back one level at a time: it
+- With a row focused, `ArrowUp` and `ArrowDown` (or `K` and `J`) move between
+  rows and `Enter` opens the row's control panel. The bell's list takes the same
+  keys.
+- A row in `Action required` whose wait began at a known time colors its age:
+  quiet under an hour, the needs-answer color from an hour, and the failed
+  color from a day. The age text still says how long; the color only repeats
+  it. Rows with no recorded start (pull request rows) stay quiet. `Esc` steps back one level at a time: it
   closes an open panel, then leaves the focused row, then clears the search,
   and only then closes Fleet View.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs

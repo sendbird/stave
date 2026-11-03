@@ -1,14 +1,16 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { AsyncState } from "@/components/ads/utils/async";
 import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
 import { sx } from "@/components/ads/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
+import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { findLatestFinishedTurnId } from "@/lib/fleet/result-auto-review";
 import { findStageRecord, stageToReview } from "@/lib/review/review-stage";
+import type { ReviewQueuePosition } from "@/lib/review/review-queue";
 import { getSyntaxHighlighter } from "@/lib/syntax-highlight";
 import {
   availableReviewScopes,
@@ -29,8 +31,37 @@ import { ReviewScopeBar, ReviewScopeLimits } from "./ReviewScopeBar";
 import { ReviewTaskStatusLine } from "./ReviewTaskStatusLine";
 import { reviewStyles as styles } from "./review.styles";
 import { useDiffReviewData, useTurnReviewData, type ReviewData } from "./useReviewData";
+import { openReviewQueueItem, useReviewQueue } from "./useReviewQueue";
 
 const NOTHING_READ: readonly string[] = [];
+
+/** J and K move to the next and previous review waiting on the user. */
+const REVIEW_STEP_BY_KEY: Readonly<Record<string, "next" | "previous">> = { j: "next", k: "previous" };
+
+/**
+ * J / K outside a text field open the next or previous waiting review. A key
+ * another control already handled, a modified key and an IME composition
+ * mean nothing here.
+ */
+function handleReviewQueueKey(event: KeyboardEvent<HTMLElement>, position: ReviewQueuePosition) {
+  const direction = REVIEW_STEP_BY_KEY[event.key];
+  if (
+    !direction ||
+    event.defaultPrevented ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.nativeEvent.isComposing ||
+    isEditableShortcutTarget(event.target)
+  ) {
+    return;
+  }
+  const target = position[direction];
+  if (!target) return;
+  event.preventDefault();
+  void openReviewQueueItem(target);
+}
 
 /**
  * Review: the work of a task checked in one place, against one scope at a
@@ -50,9 +81,11 @@ export function TaskReviewSurface(props: { taskId: string }) {
   const setScope = useTaskReviewModeStore((state) => state.setScope);
   const available = availableReviewScopes({ hasAgentRun: Boolean(detail), hasTurn: Boolean(latestTurnId) });
   const scope = entry?.scope ?? defaultReviewScope({ latestTurn: latestTurnId ? { taskId, turnId: latestTurnId } : undefined });
+  const queue = useReviewQueue({ workspaceId, taskId });
   const surfaceRef = useRef<HTMLElement>(null);
-  // Opening Review moves focus into it, so the keyboard does not stay in a hidden composer.
-  useEffect(() => surfaceRef.current?.focus(), []);
+  // Opening Review moves focus into it, so the keyboard does not stay in a
+  // hidden composer; so does moving on to another task's review with J / K.
+  useEffect(() => surfaceRef.current?.focus(), [taskId]);
   const onScope = (kind: ReviewScopeKind) => {
     if (kind === "turn" && latestTurnId) setScope(taskId, { kind: "turn", taskId, turnId: latestTurnId });
     else if (kind === "stage") {
@@ -60,9 +93,16 @@ export function TaskReviewSurface(props: { taskId: string }) {
       if (stage) setScope(taskId, { kind: "stage", agentRunId: stage.agentRunId, stageId: stage.stageId, attempt: stage.attempt });
     } else if (kind === "branch" || kind === "uncommitted") setScope(taskId, { kind });
   };
-  const shared = { taskId, workspaceId, cwd, detail, latestTurnId, available: scope.kind === "stage" && !available.includes("stage") ? [...available, "stage" as const] : available, onScope };
+  const shared = { taskId, workspaceId, cwd, detail, latestTurnId, queue, available: scope.kind === "stage" && !available.includes("stage") ? [...available, "stage" as const] : available, onScope };
   return (
-    <section ref={surfaceRef} tabIndex={-1} className={sx(styles.surface)} aria-label={i18n.t("review:surface.label")} data-testid="task-review-surface">
+    <section
+      ref={surfaceRef}
+      tabIndex={-1}
+      className={sx(styles.surface)}
+      aria-label={i18n.t("review:surface.label")}
+      data-testid="task-review-surface"
+      onKeyDown={(event) => handleReviewQueueKey(event, queue)}
+    >
       {scope.kind === "turn"
         ? <TurnScopeReview key={reviewScopeKey(scope)} scope={scope} {...shared} />
         : <DiffScopeReview key={reviewScopeKey(scope)} scope={scope} {...shared} />}
@@ -76,6 +116,7 @@ interface SharedProps {
   cwd: string | null;
   detail: AgentRunDetail | undefined;
   latestTurnId: string | null;
+  queue: ReviewQueuePosition;
   available: readonly ReviewScopeKind[];
   onScope: (kind: ReviewScopeKind) => void;
 }
@@ -113,7 +154,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   return (
     <>
       <ReviewTaskStatusLine taskId={taskId} />
-      <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} />
+      <ReviewScopeBar scope={scope} available={props.available} data={data} queueRemaining={props.queue.remaining} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} />
       <ReviewScopeLimits limits={data?.limits ?? (scope.kind === "turn" ? ["reported-edits-only"] : [])} />
       <div className={sx(styles.layoutHost)}>
       <div className={sx(styles.layoutScroll)}>
@@ -149,7 +190,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
           <SideChatPanel taskId={taskId} host="review" />
         </div>
       </div>
-      <ReviewDecisions taskId={taskId} workspaceId={props.workspaceId} scope={scope} detail={props.detail} read={read} data={data} latestTurnId={props.latestTurnId} />
+      <ReviewDecisions taskId={taskId} workspaceId={props.workspaceId} scope={scope} detail={props.detail} read={read} data={data} latestTurnId={props.latestTurnId} nextReview={props.queue.next} />
     </>
   );
 }

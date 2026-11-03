@@ -183,6 +183,20 @@ export const inboxRowStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
   },
+  /*
+   * A blocking wait past `FLEET_WAIT_AGE_THRESHOLDS_MS`. The words take the
+   * same ink as `StateMark`'s needs-answer and failed words: the state color
+   * mixed with body text for 4.5:1, from the theme's own `--state-*` values,
+   * so every built-in theme already defines them.
+   */
+  rowTimeWarning: {
+    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-needs-answer))`,
+    fontWeight: vars["--ads-font-weight-medium"],
+  },
+  rowTimeDanger: {
+    color: vars["--ads-color-danger-text"],
+    fontWeight: vars["--ads-font-weight-medium"],
+  },
   rowTitle: {
     color: vars["--ads-color-text"],
     display: "block",

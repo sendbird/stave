@@ -123,12 +123,14 @@ These keys work only while their surface is open or focused.
 | --- | --- | --- |
 | Next item that needs you | `N` | Fleet View, not while typing |
 | Close Fleet View | `Esc` | Fleet View; steps back first: an open panel, then the focused row, then the search |
-| Next inbox row | `ArrowDown` | Fleet's inbox or the notification list, with a row focused |
-| Previous inbox row | `ArrowUp` | Fleet's inbox or the notification list, with a row focused |
+| Next inbox row | `J` or `ArrowDown` | Fleet's inbox or the notification list, with a row focused |
+| Previous inbox row | `K` or `ArrowUp` | Fleet's inbox or the notification list, with a row focused |
 | Open inbox row | `Enter` | A focused Fleet or notification row: opens its control panel or its task |
 | Allow a request once | `A` | A focused Fleet or notification row with an approval |
 | Deny a request | `D` | A focused Fleet or notification row with an approval |
 | Answer a Fleet question | `1..9` | A focused Fleet row with a short question |
+| Next review | `J` | Review, not while typing: opens the next result or stage waiting for review, in Fleet's order |
+| Previous review | `K` | Review, not while typing |
 | Next issue | `J` or `ArrowDown` | Issues, not while typing |
 | Previous issue | `K` or `ArrowUp` | Issues, not while typing |
 | Kick off issue | `Enter` or `Cmd/Ctrl+Enter` | Issues, not while typing |

@@ -1033,6 +1033,14 @@
       "approvalAllowOnce": {
         "title": "Allow an approval once",
         "description": "With focus in an approval card, allow its request once. Esc never denies a request."
+      },
+      "reviewNext": {
+        "title": "Next review",
+        "description": "In Review, open the next result or stage waiting for your review, in Fleet's order."
+      },
+      "reviewPrevious": {
+        "title": "Previous review",
+        "description": "In Review, open the previous result or stage waiting for your review."
       }
     },
     "ui": {

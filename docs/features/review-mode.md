@@ -133,7 +133,18 @@ Review is not saved across restarts: every task opens on its conversation.
   - In the other scopes: **Mark reviewed** marks the turn's output reviewed,
     and **Send comments** sends the pending diff comments to the agent and
     shows the task's conversation, where the agent answers. A send Stave
-    refuses keeps Review open and says why.
+    refuses keeps Review open and says why. After **Mark reviewed**, a
+    **Marked reviewed** notice offers **Undo** (also Cmd/Ctrl+Z while it
+    shows), which takes the mark back, and the read it made when the output
+    was unread. When another window or Fleet changed the mark since, Undo
+    leaves it and says so.
+- Once nothing is left to decide here, the decision bar's main button becomes
+  **Next review · <task>**, the next result or stage sign-off waiting in
+  Fleet, in Fleet's order. Focus moves onto it right after **Mark reviewed**.
+- While other reviews wait, the scope bar shows `J` `K` **Next / previous
+  review · N left**. Outside a text field, `J` opens the next waiting review
+  and `K` the previous one, wrapping at the ends, in whatever workspace it
+  is in.
 
 Four things stay apart: a file **read** in Review, completion checks that
 **passed**, an output marked **Reviewed**, and a stage **Signed off**. None of

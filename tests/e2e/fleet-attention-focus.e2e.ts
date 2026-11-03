@@ -56,3 +56,30 @@ test("the Korean row snooze menu and live region have no English", async ({ page
   expect(items).toEqual(["1시간", "4시간", "1일", "1주일"]);
   for (const text of items) expect(text).not.toMatch(/[A-Za-z]/);
 });
+
+test("J and K move between rows like Down and Up, and wrap at the ends", async ({ page }) => {
+  await page.goto(FIXTURE);
+  await trigger(page, "one").focus();
+  await page.keyboard.press("j");
+  await expect(trigger(page, "two")).toBeFocused();
+  await page.keyboard.press("j");
+  await expect(trigger(page, "three")).toBeFocused();
+  await page.keyboard.press("j");
+  await expect(trigger(page, "one")).toBeFocused();
+  await page.keyboard.press("k");
+  await expect(trigger(page, "three")).toBeFocused();
+  // A modified letter is not a move.
+  await page.keyboard.press("Shift+K");
+  await expect(trigger(page, "three")).toBeFocused();
+});
+
+test("a wait's age turns warning after an hour and danger after a day", async ({ page }) => {
+  await page.goto(FIXTURE);
+  const age = (id: string) => row(page, id).locator("[data-wait-tone]");
+  await expect(age("one")).toHaveAttribute("data-wait-tone", "neutral");
+  await expect(age("two")).toHaveAttribute("data-wait-tone", "warning");
+  await expect(age("three")).toHaveAttribute("data-wait-tone", "danger");
+  const color = (id: string) => age(id).evaluate((element) => getComputedStyle(element).color);
+  // Three tones, three different inks.
+  expect(new Set([await color("one"), await color("two"), await color("three")]).size).toBe(3);
+});
