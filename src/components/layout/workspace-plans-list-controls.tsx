@@ -1,18 +1,12 @@
-import { Search, X } from "lucide-react";
 import type { RefObject } from "react";
 import { useTranslation } from "@/i18n";
-import { InputGroup, InputGroupAction } from "@/components/ads/components/InputGroup";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
+import { InformationListSearchField } from "./information-list-search-field";
 import type { PlansListRows } from "./workspace-plans-list-state";
 import { planListControlStyles as styles } from "./workspace-plans.styles";
 
-/**
- * Searches every document the list holds, not just the recent ones. Escape
- * clears a typed query and stops there, so it does not also close the panel;
- * an Escape that ends an input method's composition is left to the method.
- * Clearing from the field's own action keeps the keyboard in the field.
- */
+/** Searches every document the list holds, not just the recent ones. */
 export function PlansSearchField(props: {
   query: string;
   onQueryChange: (query: string) => void;
@@ -21,37 +15,13 @@ export function PlansSearchField(props: {
   inputRef: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useTranslation("workspace");
-  const clear = () => {
-    props.onQueryChange("");
-    props.inputRef.current?.focus();
-  };
   return (
-    <InputGroup
-      ref={props.inputRef}
-      size="sm"
-      leading={<Search aria-hidden />}
-      value={props.query}
-      onChange={(event) => props.onQueryChange(event.target.value)}
-      onFocus={() => props.onFocusChange(true)}
-      onBlur={() => props.onFocusChange(false)}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || event.nativeEvent.isComposing || !props.query) return;
-        event.preventDefault();
-        event.stopPropagation();
-        props.onQueryChange("");
-      }}
-      aria-label={t("workspacePlansSection.searchLabel")}
+    <InformationListSearchField
+      {...props}
+      label={t("workspacePlansSection.searchLabel")}
       placeholder={t("workspacePlansSection.searchPlaceholder")}
-      autoComplete="off"
-      spellCheck={false}
+      clearLabel={t("workspacePlansSection.clearSearch")}
       data-workspace-plans-search=""
-      actions={
-        props.query ? (
-          <InputGroupAction type="button" aria-label={t("workspacePlansSection.clearSearch")} onClick={clear}>
-            <X aria-hidden />
-          </InputGroupAction>
-        ) : null
-      }
     />
   );
 }
