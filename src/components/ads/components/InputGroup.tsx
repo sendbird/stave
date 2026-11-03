@@ -30,7 +30,8 @@ type InputGroupContextValue = {
   disabled: boolean;
 };
 
-const InputGroupContext = React.createContext<InputGroupContextValue | null>(
+/** Exported for `Combobox.InputGroup`, a second bordered group on the same scale. */
+export const InputGroupContext = React.createContext<InputGroupContextValue | null>(
   null,
 );
 

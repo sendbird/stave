@@ -75,7 +75,6 @@
     "findWorkspaceBranchOrTask": "Find workspace, branch, or task…",
     "searchWorkspacesBranchesOrTasks": "Search workspaces, branches, or tasks",
     "clearSearch": "Clear search",
-    "reset": "Reset",
     "noWorkspaces": "No Workspaces",
     "openARepositoryOrWorkspaceToSee": "Open a repository or workspace to see agent activity here.",
     "nothingActive": "Nothing active",
@@ -98,10 +97,18 @@
     "expandRepository": "Expand {{name}}",
     "collapseRepository": "Collapse {{name}}",
     "layoutLabel": "Board layout",
+    "tree": "Tree",
     "cards": "Cards",
     "table": "Table",
     "valueTasksShown_one": " · {{count}} task shown",
-    "valueTasksShown_other": " · {{count}} tasks shown"
+    "valueTasksShown_other": " · {{count}} tasks shown",
+    "filterLabel": "Board filter",
+    "appliedFilters": "Applied filters",
+    "clearAllFilters": "Clear all",
+    "appliedStatus": "Status",
+    "appliedIs": "is",
+    "appliedSearch": "Search",
+    "appliedContains": "contains"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "Default · {{branchLabel}}",
@@ -219,7 +226,10 @@
     "actionRequiredCount_one": "{{count}} action required",
     "actionRequiredCount_other": "{{count}} actions required",
     "inReviewCount_one": "{{count}} in review",
-    "inReviewCount_other": "{{count}} in review"
+    "inReviewCount_other": "{{count}} in review",
+    "waitingOnYou_one": "{{count}} waiting on you",
+    "waitingOnYou_other": "{{count}} waiting on you",
+    "nothingWaitingOnYou": "Nothing is waiting on you"
   },
   "inlineAnswer": {
     "otherRepository": "This request belongs to another repository. Open the task to answer it.",
@@ -321,10 +331,6 @@
     "snoozeFor_one": "Snooze {{count}} item for {{duration}}",
     "snoozeFor_other": "Snooze {{count}} items for {{duration}}",
     "requestsUnanswered": "Pending requests stay unanswered.",
-    "oneHour": "1 hour",
-    "fourHours": "4 hours",
-    "oneDay": "1 day",
-    "oneWeek": "1 week",
     "snoozed_one": "Snoozed {{count}} item",
     "snoozed_other": "Snoozed {{count}} items",
     "scope_one": "All workspaces and filters · includes {{count}} request needing attention",
@@ -354,5 +360,16 @@
     "openFailed": "Could not open this request. Try again.",
     "recentFailure_one": "Last stopped turn ({{count}})",
     "recentFailure_other": "Last stopped turns ({{count}})"
+  },
+  "snoozeDuration": {
+    "oneHour": "1 hour",
+    "fourHours": "4 hours",
+    "oneDay": "1 day",
+    "oneWeek": "1 week"
+  },
+  "agentTree": {
+    "answer": "Answer",
+    "open": "Open",
+    "openTask": "Open task"
   }
 }

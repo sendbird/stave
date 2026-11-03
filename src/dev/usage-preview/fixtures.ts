@@ -57,15 +57,18 @@ function quota(): QuotaObservation[] {
 export function usagePreviewReport(args: UsageStatisticsArgs, empty = false): UsageStatisticsReport {
   const all = empty ? [] : turns();
   const inScope = (row: { providerId: string; accountProfileId: string }) => (!args.providerId || row.providerId === args.providerId) && (!args.accountProfileId || row.accountProfileId === args.accountProfileId);
-  const selected = all.filter((row) => inScope(row) && row.createdAt >= args.from && row.createdAt < args.to
+  const within = (from: string, to: string) => all.filter((row) => inScope(row) && row.createdAt >= from && row.createdAt < to
     && (args.modelId === undefined || row.modelId === args.modelId));
+  const selected = within(args.from, args.to);
+  const previousTotals = args.previous ? emptyUsageMetrics() : null;
+  if (previousTotals && args.previous) for (const row of within(args.previous.from, args.previous.to)) addUsageMetrics(previousTotals, row);
   const totals = emptyUsageMetrics();
   const accounts = new Map<string, UsageStatisticsReport["accounts"][number]>();
   const models = new Map<string, UsageStatisticsReport["models"][number]>();
   const buckets = new Map<string, UsageStatisticsReport["series"][number]>();
   for (let at = Date.parse(args.from); at < Date.parse(args.to); at += 30 * 60_000) {
     const key = usageBucketKey(new Date(at).toISOString(), args.timeZone, args.granularity);
-    buckets.set(key, { at: key, ...emptyUsageMetrics() });
+    buckets.set(key, { at: key, ...emptyUsageMetrics(), providers: {} });
   }
   for (const row of selected) {
     addUsageMetrics(totals, row);
@@ -76,13 +79,15 @@ export function usagePreviewReport(args: UsageStatisticsArgs, empty = false): Us
     const model = models.get(modelKey) ?? { providerId: row.providerId, modelId: row.modelId, ...emptyUsageMetrics() };
     addUsageMetrics(model, row); models.set(modelKey, model);
     const key = usageBucketKey(row.createdAt, args.timeZone, args.granularity);
-    const bucket = buckets.get(key) ?? { at: key, ...emptyUsageMetrics() };
+    const bucket = buckets.get(key) ?? { at: key, ...emptyUsageMetrics(), providers: {} };
     addUsageMetrics(bucket, row); buckets.set(key, bucket);
+    const share = bucket.providers[row.providerId] ?? emptyUsageMetrics();
+    addUsageMetrics(share, row); bucket.providers[row.providerId] = share;
   }
   const observations = quota().filter(inScope);
   const latest = new Map<string, QuotaObservation>();
   for (const row of observations) latest.set(`${row.providerId}:${row.accountProfileId}:${row.windowId}`, row);
-  return { totals, series: [...buckets.values()], accounts: [...accounts.values()], models: [...models.values()],
+  return { totals, previousTotals, series: [...buckets.values()], accounts: [...accounts.values()], models: [...models.values()],
     knownAccounts: [...new Map(all.map((row) => [`${row.providerId}:${row.accountProfileId}`, { providerId: row.providerId, accountProfileId: row.accountProfileId }])).values()],
     turns: selected.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(args.offset, args.offset + args.limit),
     quota: observations.filter((row) => row.observedAt >= args.from && row.observedAt < args.to), latestQuota: [...latest.values()],

@@ -8,12 +8,11 @@ import type {
   MouseEvent,
   ReactNode,
 } from "react";
-import { createContext, useContext, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Paperclip, X } from "lucide-react";
+import { useMemo } from "react";
+import { Paperclip, X } from "lucide-react";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import type { ButtonPress } from "@/components/ads/components/Button.types";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { transition } from "@/components/ads/recipes/transition";
 import { messageStyles as styles } from "./message.styles";
 import {
   getKnownFilePathSet,
@@ -393,161 +392,6 @@ export function MessageAction({
         <TooltipContent side="top">{tooltip ?? label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  );
-}
-
-interface MessageBranchContextValue {
-  branch: number;
-  setBranch: (index: number) => void;
-  total: number;
-}
-
-const MessageBranchContext = createContext<MessageBranchContextValue | null>(
-  null,
-);
-
-function useMessageBranchContext() {
-  const context = useContext(MessageBranchContext);
-  if (!context) {
-    throw new Error(
-      "MessageBranch components must be used inside <MessageBranch />.",
-    );
-  }
-  return context;
-}
-
-interface MessageBranchProps extends HTMLAttributes<HTMLDivElement> {
-  defaultBranch?: number;
-  onBranchChange?: (branchIndex: number) => void;
-}
-
-export function MessageBranch({
-  defaultBranch = 0,
-  onBranchChange,
-  children,
-  ...props
-}: MessageBranchProps) {
-  useTranslation();
-  const childArray = (Array.isArray(children) ? children : [children]).filter(
-    Boolean,
-  );
-  const total = childArray.length;
-  const [branch, setBranchState] = useState(
-    Math.min(Math.max(0, defaultBranch), Math.max(0, total - 1)),
-  );
-  const setBranch = (index: number) => {
-    const clamped = Math.min(Math.max(0, index), Math.max(0, total - 1));
-    setBranchState(clamped);
-    onBranchChange?.(clamped);
-  };
-  const value = useMemo(() => ({ branch, setBranch, total }), [branch, total]);
-
-  return (
-    <MessageBranchContext.Provider value={value}>
-      <div {...props}>{children}</div>
-    </MessageBranchContext.Provider>
-  );
-}
-
-export function MessageBranchContent(props: HTMLAttributes<HTMLDivElement>) {
-  useTranslation();
-  const { branch } = useMessageBranchContext();
-  const childArray = (
-    Array.isArray(props.children) ? props.children : [props.children]
-  ).filter(Boolean);
-  return (
-    <div className={props.className}>{childArray[branch] as ReactNode}</div>
-  );
-}
-
-interface MessageBranchSelectorProps extends HTMLAttributes<HTMLDivElement> {
-  from?: "user" | "assistant";
-}
-
-export function MessageBranchSelector({
-  from = "assistant",
-  className,
-  ...props
-}: MessageBranchSelectorProps) {
-  useTranslation();
-  return (
-    <div
-      className={cx(
-        sx(
-          styles.branchSelector,
-          from === "user"
-            ? styles.branchSelectorUser
-            : styles.branchSelectorAssistant,
-        ),
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-export function MessageBranchPrevious(
-  props: ButtonHTMLAttributes<HTMLButtonElement>,
-) {
-  useTranslation();
-  const { branch, setBranch } = useMessageBranchContext();
-  const { className, onClick, ...rest } = props;
-  return (
-    <AdsButton
-      layout="host"
-      type="button"
-      xstyle={[styles.branchArrow, transition.colors]}
-      className={className}
-      disabled={branch <= 0}
-      onClick={(event) => {
-        onClick?.(event);
-        if (!event.defaultPrevented) {
-          setBranch(branch - 1);
-        }
-      }}
-      {...rest}
-    >
-      <ChevronLeft className={sx(styles.branchArrowIcon)} />
-    </AdsButton>
-  );
-}
-
-export function MessageBranchNext(
-  props: ButtonHTMLAttributes<HTMLButtonElement>,
-) {
-  useTranslation();
-  const { branch, setBranch, total } = useMessageBranchContext();
-  const { className, onClick, ...rest } = props;
-  return (
-    <AdsButton
-      layout="host"
-      type="button"
-      xstyle={[styles.branchArrow, transition.colors]}
-      className={className}
-      disabled={branch >= total - 1}
-      onClick={(event) => {
-        onClick?.(event);
-        if (!event.defaultPrevented) {
-          setBranch(branch + 1);
-        }
-      }}
-      {...rest}
-    >
-      <ChevronRight className={sx(styles.branchArrowIcon)} />
-    </AdsButton>
-  );
-}
-
-export function MessageBranchPage(props: HTMLAttributes<HTMLSpanElement>) {
-  useTranslation();
-  const { branch, total } = useMessageBranchContext();
-  return (
-    <span
-      className={cx(sx(styles.branchPage), props.className)}
-      {...props}
-    >
-      {branch + 1}/{total}
-    </span>
   );
 }
 

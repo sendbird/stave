@@ -8,6 +8,7 @@ import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import {
+  agentRunClockRunning,
   agentRunDuration,
   describeAgentRunStatus,
   formatAgentRunBadge,
@@ -18,9 +19,9 @@ import { describeAgentRunStatusLine, projectAgentRunStages, type AgentRunStageRo
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { StageStatusIcon } from "./StageStatusIcon";
-import { ELAPSED_CLOCK_MS } from "./ElapsedClock";
+import { ElapsedClock } from "./ElapsedClock";
 import { StageTrack } from "./StageTrack";
-import { useNow } from "./useAgentRun";
+import { RUN_LINE_CLOCK_MS, useNow } from "./useAgentRun";
 import { useAgentRunProgress } from "./useAgentRunProgress";
 import { describeRunPlan } from "@/lib/agent-runs/progress";
 import { describeRunWaitLiveness } from "@/lib/agent-runs/wait-liveness";
@@ -102,7 +103,7 @@ export function FleetAgentRunStripView(props: {
         </span>
         {spent ? <span className={sx(styles.position)}>{spent}</span> : null}
       </span>
-      <StageTrack rows={rows} live={false} paused={paused} />
+      <StageTrack rows={rows} paused={paused} />
     </Button>
   );
 }
@@ -118,8 +119,7 @@ function FleetAgentRunLine(props: {
   const { detail, rows, status } = props;
   const label = formatAgentRunBadge(status);
   const spent = describeUsageShort(detail.usage);
-  const now = useNow(isActiveAgentRunState(detail.agentRun.state), ELAPSED_CLOCK_MS);
-  const elapsed = agentRunDuration(detail, now);
+  const now = useNow(isActiveAgentRunState(detail.agentRun.state), RUN_LINE_CLOCK_MS);
   const staged = rows.length > 1;
   const plan = useAgentRunProgress(detail);
   // Only a reported plan is described; with none, the line says nothing rather
@@ -161,12 +161,19 @@ function FleetAgentRunLine(props: {
             </span>
           ) : null}
         </span>
-        <span className={sx(styles.position)} title={liveness.since?.title}>
-          {liveness.since ? liveness.since.text : elapsed}
+        <span
+          className={sx(styles.position)}
+          title={liveness.since?.title ?? (detail.activeTime ? i18n.t("agentRuns:activeTime.explain") : undefined)}
+        >
+          {liveness.since ? liveness.since.text : (
+            <ElapsedClock live={agentRunClockRunning(detail)} now={now}>
+              {(clock) => agentRunDuration(detail, clock)}
+            </ElapsedClock>
+          )}
           {spent ? ` · ${spent}` : ""}
         </span>
       </span>
-      {staged ? <StageTrack rows={rows} live={false} paused={detail.agentRun.state === "paused"} /> : null}
+      {staged ? <StageTrack rows={rows} paused={detail.agentRun.state === "paused"} /> : null}
     </Button>
   );
 }

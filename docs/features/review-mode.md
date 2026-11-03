@@ -120,7 +120,14 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Lens checks** lists the task's saved Lens comparisons with their verdict;
   **Show comparison** opens the before and after images.
 - **Diff comments** repeats the task's comments, not sent and sent, because
-  the editor's comment areas are not reachable by screen readers.
+  the editor's comment areas are not reachable by screen readers. Selecting a
+  comment shows its file in this scope's diff at its line, or opens the file
+  in the editor at that line when the scope does not list it. A comment not
+  sent yet has **Remove**. A sent one shows when it was sent, whether its
+  lines changed since (**Sent · lines changed since** or **Sent · not changed
+  yet**, read from an open editor tab of the file or the file Review shows in
+  the Stage, Branch and Uncommitted scopes; otherwise just **Sent**), and
+  **Resolve**.
 - The decision bar at the bottom says where the decision stands and offers it:
   - In **This stage**, while the run waits for your sign-off about this stage
     (the latest stage that ran before the waiting one, at this attempt):
@@ -133,7 +140,18 @@ Review is not saved across restarts: every task opens on its conversation.
   - In the other scopes: **Mark reviewed** marks the turn's output reviewed,
     and **Send comments** sends the pending diff comments to the agent and
     shows the task's conversation, where the agent answers. A send Stave
-    refuses keeps Review open and says why.
+    refuses keeps Review open and says why. After **Mark reviewed**, a
+    **Marked reviewed** notice offers **Undo** (also Cmd/Ctrl+Z while it
+    shows), which takes the mark back, and the read it made when the output
+    was unread. When another window or Fleet changed the mark since, Undo
+    leaves it and says so.
+- Once nothing is left to decide here, the decision bar's main button becomes
+  **Next review · <task>**, the next result or stage sign-off waiting in
+  Fleet, in Fleet's order. Focus moves onto it right after **Mark reviewed**.
+- While other reviews wait, the scope bar shows `J` `K` **Next / previous
+  review · N left**. Outside a text field, `J` opens the next waiting review
+  and `K` the previous one, wrapping at the ends, in whatever workspace it
+  is in.
 
 Four things stay apart: a file **read** in Review, completion checks that
 **passed**, an output marked **Reviewed**, and a stage **Signed off**. None of

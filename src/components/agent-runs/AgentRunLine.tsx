@@ -8,6 +8,7 @@ import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
+  agentRunClockRunning,
   agentRunDuration,
   describeAgentRunStatus,
   formatAgentRunBadge,
@@ -33,6 +34,7 @@ import {
   shelfTurnAlertParts,
   type ShelfRunDetailToggle,
 } from "@/components/session/composer-shelf/ShelfRunLine";
+import { ElapsedClock } from "./ElapsedClock";
 import { ShelfSubagentLine } from "./ShelfSubagentLine";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
@@ -91,7 +93,6 @@ export function AgentRunLineView(props: {
   const progressing = status.badge === "running" && !status.waiting;
   const showNow = !alert && progressing && props.nowPhrase !== null;
   const reason = !progressing && !props.reasonShownElsewhere && !alert ? status.reason : null;
-  const elapsed = agentRunDuration(detail, props.now);
   // A wait's mark does not move, so its count and last check say it is alive.
   const eventWait = status.eventWait;
   const waited = eventWait ? describeEventWaitSince(eventWait, props.now) : null;
@@ -179,7 +180,7 @@ export function AgentRunLineView(props: {
         progress={
           rows ? (
             <span className={sx(shelfStyles.track)}>
-              <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} showPercent={false} />
+              <StageTrack rows={rows} paused={paused} showPercent={false} />
             </span>
           ) : props.todo ? (
             <ShelfTodoProgressView progress={props.todo} />
@@ -189,7 +190,12 @@ export function AgentRunLineView(props: {
           status.waiting ? (
             waited ? <span data-testid="agent-run-waited" title={waited.title}>{waited.text}</span> : null
           ) : (
-            <span title={i18n.t("agentRuns:agentRunLine.title")}>{elapsed}</span>
+            <span title={i18n.t(detail.activeTime ? "agentRuns:activeTime.explain" : "agentRuns:agentRunLine.title")}>
+              {/* The span reads to the second on the shared clock; the line keeps its slower one. */}
+              <ElapsedClock live={agentRunClockRunning(detail)} now={props.now}>
+                {(clock) => agentRunDuration(detail, clock)}
+              </ElapsedClock>
+            </span>
           )
         }
         actions={

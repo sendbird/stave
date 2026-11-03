@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
+import { commentJumpMarker } from "./review-comment.stylex";
 
 export const reviewStyles = stylex.create({
   /* Task surface ----------------------------------------------------------- */
@@ -31,6 +32,17 @@ export const reviewStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
+  /** The J / K keys and how many reviews wait, at the scope bar's end before Refresh. */
+  queueHint: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
+    whiteSpace: "nowrap",
+  },
+  queueKeys: { display: "inline-flex", alignItems: "center", gap: vars["--ads-space-4"] },
   sha: { fontFamily: vars["--ads-font-mono"], color: vars["--ads-color-text"] },
   limits: {
     margin: 0,
@@ -126,8 +138,71 @@ export const reviewStyles = stylex.create({
   sectionTitle: { margin: 0, fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text-muted"], textTransform: "none" },
   list: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], margin: 0, padding: 0, listStyle: "none" },
   comment: { display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], minWidth: 0, fontSize: vars["--ads-font-size-caption"] },
-  commentWhere: { fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-muted"], overflowWrap: "anywhere" },
+  /** A pending comment: the row that opens its line, and Remove beside it. */
+  commentRow: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-4"], minWidth: 0 },
+  /** A sent comment: the row, then whether its lines changed and Resolve. */
+  commentStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], minWidth: 0 },
+  commentJump: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: vars["--ads-space-2"],
+    flex: "1 1 auto",
+    minWidth: 0,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-4"],
+    marginInline: `calc(-1 * ${vars["--ads-space-4"]})`,
+    borderRadius: vars["--ads-radius-control"],
+    fontSize: vars["--ads-font-size-caption"],
+    textAlign: "start",
+    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
+  },
+  // The jump mark shows on the row's hover and keyboard focus only (always on
+  // a touch screen), so a list of rows does not read as a column of arrows.
+  // It keeps its room either way, so the path never shifts under the pointer.
+  commentJumpIcon: {
+    flexShrink: 0,
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-text-muted"],
+    opacity: {
+      default: 0,
+      [stylex.when.ancestor(":is(:hover, :focus-visible)", commentJumpMarker)]: 1,
+      "@media (hover: none)": 1,
+    },
+  },
+  // Path and sent time share a line while they fit; in a narrow panel the time
+  // drops below instead of truncating the path.
+  commentWhereLine: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--ads-space-4"], rowGap: 0, minWidth: 0 },
+  // The path keeps its jump mark beside it; only a path longer than the whole
+  // line truncates.
+  commentWhereHead: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"], minWidth: 0, maxWidth: "100%" },
+  commentWhere: {
+    minWidth: 0,
+    flexShrink: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "16px",
+    color: vars["--ads-color-text-muted"],
+  },
+  commentSentAt: { fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
   commentBody: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: vars["--ads-color-text"] },
+  commentSentRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-8"], minWidth: 0 },
+  commentSentState: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text-muted"] },
+  /** The editor's word for lines changed since sending, in the same ink. */
+  commentSentStateChanged: { color: vars["--ads-color-success-text"] },
+  // A pending comment's delete: quiet at rest, danger under the pointer and
+  // keyboard focus, as the editor's own remove button.
+  commentRemove: {
+    color: {
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-danger"],
+      ":focus-visible": vars["--ads-color-danger"],
+    },
+  },
   lensRecord: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0 },
   lensPage: { fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-muted"], overflowWrap: "anywhere" },
   decisions: {

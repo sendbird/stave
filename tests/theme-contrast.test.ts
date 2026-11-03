@@ -5,15 +5,18 @@ import {
 } from "@/lib/themes";
 import {
   CONTROL_LABEL_FLOOR,
+  FILL_ON_TRACK_FLOOR,
   MUTED_SURFACES,
   MUTED_TEXT_FLOOR,
   PLACEHOLDER_TEXT_FLOOR,
   SELECTION_DISTINGUISH_FLOOR,
   SEMANTIC_FILL_FLOOR,
   SUBTLE_TEXT_FLOOR,
+  TRACK_DISTINGUISH_FLOOR,
   compositeOver,
   contrastRatio,
   deriveAdsSemanticRamp,
+  deriveAdsTrack,
   deriveAdsTextRamp,
   parseCssColor,
 } from "@/lib/themes/contrast";
@@ -203,6 +206,41 @@ describe("built-in themes meet ADS text floors", () => {
       const ratio = contrastRatio(compositeOver(accent, card), card);
       if (ratio < SELECTION_DISTINGUISH_FLOOR) {
         failures.push(`${theme.id}: accent/card ${ratio.toFixed(2)}:1`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it("keeps meter tracks visible on every surface and fills readable on the track", () => {
+    const surfaces = ["background", "card", "popover", "muted", "sidebar"] as const;
+    const fills = ["muted-foreground", "primary", "warning", "success", "info", "destructive"] as const;
+    const failures: string[] = [];
+    for (const theme of catalog) {
+      const track = deriveAdsTrack(theme.tokens);
+      if (!track) {
+        failures.push(`${theme.id}: missing foreground`);
+        continue;
+      }
+      for (const surfaceName of surfaces) {
+        const surface = parseCssColor(theme.tokens[surfaceName] ?? "");
+        if (!surface) {
+          continue;
+        }
+        const painted = compositeOver(track, surface);
+        const ratio = contrastRatio(painted, surface);
+        if (ratio < TRACK_DISTINGUISH_FLOOR) {
+          failures.push(`${theme.id}: track/${surfaceName} ${ratio.toFixed(2)}:1`);
+        }
+        for (const fillName of fills) {
+          const fill = parseCssColor(theme.tokens[fillName] ?? "");
+          if (!fill) {
+            continue;
+          }
+          const onTrack = contrastRatio(fill, painted);
+          if (onTrack < FILL_ON_TRACK_FLOOR) {
+            failures.push(`${theme.id}: ${fillName}/track on ${surfaceName} ${onTrack.toFixed(2)}:1`);
+          }
+        }
       }
     }
     expect(failures).toEqual([]);

@@ -206,6 +206,7 @@ export function describeTurnVerification(
     return i18n.t("scripts:verification.verificationPassedValueValueChecks", { value1: result.executedEntries, value2: result.totalEntries });
   }
   const names = result.failures.map((failure) => failure.scriptId).join(", ");
-  const verb = result.status === "fail" ? "failed" : "reported warnings";
-  return i18n.t("scripts:verification.verificationValueValue", { verb: verb, names: names });
+  return result.status === "fail"
+    ? i18n.t("scripts:verification.failedNames", { names })
+    : i18n.t("scripts:verification.warnedNames", { names });
 }

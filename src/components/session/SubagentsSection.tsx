@@ -13,7 +13,9 @@ import { resolveDelegatedTaskControls, type DelegatedTaskSummary } from "@/lib/r
 import { useAppStore } from "@/store/app.store";
 import { useDelegatedTaskRowController } from "./DelegatedTaskRows";
 import { useDelegatedTasks } from "./useDelegatedTasks";
-import { selectTaskSubagents } from "@/lib/delegation/subagent-summary";
+import { selectTaskSubagents, subagentWorkState } from "@/lib/delegation/subagent-summary";
+import { describeExchangeStatus } from "@/lib/delegation/format";
+import { SharedFilesSection, type SharedFilesChildInfo } from "./SharedFilesSection";
 import { SubagentsList, type SubagentListItem } from "./SubagentsList";
 import type { ChatMessage } from "@/types/chat";
 
@@ -127,11 +129,37 @@ export function SubagentsSection(props: {
           : undefined,
       onStop: child ? () => controller.onStop(child) : undefined,
       onView: child ? () => setViewingId(exchange.id) : undefined,
+      // The same Retry the delegated task's own row offers, for the tray's
+      // "Retry failed"; a managed task's subagents stay read-only.
+      onRetry: child && !props.readOnly && exchange.outcome.status === "failed" && resolveDelegatedTaskControls(child).canRetry
+        ? (prompt: string) => controller.onRetry(child, prompt)
+        : undefined,
     };
   });
+  // Who each delegated child is and how it stands, for the Shared files columns.
+  const infoByDelegationKey = new Map<string, SharedFilesChildInfo>();
+  for (const item of items) {
+    const key = item.exchange.kind === "delegated-task" ? item.exchange.ref.delegationKey : undefined;
+    if (!key) continue;
+    infoByDelegationKey.set(key, {
+      label: item.what && item.what !== item.who ? `${item.who} · ${item.what}` : item.who,
+      state: subagentWorkState(item.exchange),
+      stateLabel: describeExchangeStatus(item.exchange.outcome.status).label,
+    });
+  }
   return (
     <>
-      <SubagentsList items={items} />
+      <SubagentsList
+        items={items}
+        afterTray={
+          <SharedFilesSection
+            workspaceId={props.workspaceId}
+            taskId={props.taskId}
+            delegatedTasks={controller.children}
+            infoByDelegationKey={infoByDelegationKey}
+          />
+        }
+      />
       {viewing ? (
         <ActivityDetailDialog
           key={viewing.exchange.id}

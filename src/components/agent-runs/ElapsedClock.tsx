@@ -1,25 +1,18 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useSharedNow } from "@/components/ads/components/DurationTimer";
 
 /**
- * How often a live elapsed span re-reads the time. It reads to the second
- * (`2m 10s`), so it ticks every five seconds, as Fleet's rows do.
- */
-export const ELAPSED_CLOCK_MS = 5_000;
-
-/**
- * The text that shows a live elapsed span, on a clock of its own. While `live`
- * it re-reads the time every five seconds and re-renders alone, so the panel
- * around it keeps its slower clock for ages and its cards do not re-render
- * with every tick. `now` is the surrounding clock's reading: used until this
- * one ticks, and whenever it is the newer of the two.
+ * The text that shows a live elapsed span. While `live` it reads the design
+ * system's shared one-second clock (the one `DurationTimer` ticks on, one
+ * interval however many spans are live) and re-renders alone, so the panel or
+ * line around it keeps its slower clock for ages and does not re-render with
+ * every tick. `now` is the surrounding clock's reading: used until the shared
+ * clock ticks, and whenever it is the newer of the two.
  */
 export function ElapsedClock(props: { live: boolean; now: number; children: (now: number) => ReactNode }) {
   const { live, now } = props;
-  const [tick, setTick] = useState<number | null>(null);
-  useEffect(() => {
-    if (!live) return;
-    const timer = window.setInterval(() => setTick(Date.now()), ELAPSED_CLOCK_MS);
-    return () => window.clearInterval(timer);
-  }, [live]);
-  return <>{props.children(live && tick !== null ? Math.max(tick, now) : now)}</>;
+  const shared = useSharedNow(live);
+  // The shared reading at mount may be an old one; it counts once it has ticked.
+  const [mounted] = useState(shared);
+  return <>{props.children(live && shared !== mounted ? Math.max(shared, now) : now)}</>;
 }

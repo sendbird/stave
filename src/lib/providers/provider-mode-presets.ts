@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppSettings } from "@/store/app.store";
+import type { ClaudeGuardrailId, ProviderId } from "@/lib/providers/provider.types";
 import type { Tone } from "@/components/ads/utils/tone";
 
 export type ProviderModePresetId = "manual" | "guided" | "auto";
@@ -448,4 +449,132 @@ export function resolveKiroProviderModePresentation(args: {
     presets: KIRO_PROVIDER_MODE_PRESETS,
     detail: formatKiroModeDetail(args.settings),
   });
+}
+
+/* ─── What a preset does on its own and what it asks about ─────────────── */
+
+/**
+ * The kinds of action a preset list names. Each provider lists only the kinds
+ * its preset settings decide: Codex leaves MCP tools to its own App and MCP
+ * tool approval setting, and the ACP agents take one approval mode for every
+ * tool call.
+ */
+export type PresetActionKind = "read" | "edit" | "command" | "web" | "mcp" | "tools";
+
+/**
+ * - `own`: runs without asking.
+ * - `sandbox`: runs without asking, inside the sandbox.
+ * - `asks`: asks first, every time.
+ * - `flagged`: the provider's own review decides per call; what it does not
+ *   clear asks first.
+ * - `off`: the preset turns it off.
+ */
+export type PresetActionState = "own" | "sandbox" | "asks" | "flagged" | "off";
+
+/** A qualifier a state needs to stay exact. */
+export type PresetActionNote =
+  /** Claude Accept Edits also runs some file commands in the workspace. */
+  | "someFileCommands"
+  /** Codex's read-only sandbox: anything more is asked for. */
+  | "beyondSandboxAsks";
+
+export interface PresetAction {
+  kind: PresetActionKind;
+  state: PresetActionState;
+  note?: PresetActionNote;
+}
+
+const own = (kind: PresetActionKind): PresetAction => ({ kind, state: "own" });
+const asks = (kind: PresetActionKind, note?: PresetActionNote): PresetAction =>
+  ({ kind, state: "asks", ...(note ? { note } : {}) });
+const flagged = (kind: PresetActionKind): PresetAction => ({ kind, state: "flagged" });
+
+/**
+ * Claude, from `CLAUDE_PROVIDER_MODE_PATCHES` and the permission callback
+ * (`resolveClaudePermissionModeDecision`), on a chat turn:
+ *
+ * - Manual (`default`, sandbox on, no unsandboxed fallback): reads in the
+ *   workspace need no permission; edits, web tools and MCP tools ask; Bash
+ *   runs without asking inside the sandbox (the sandbox auto-allows sandboxed
+ *   Bash by default) and can never leave it.
+ * - Guided (`acceptEdits`, sandbox off): edits run; the CLI's Accept Edits
+ *   also lets some file commands in the workspace run; every other command,
+ *   web tools and MCP tools ask.
+ * - Auto (`auto`, sandbox off): Claude's classifier reviews each call. Edits,
+ *   reads and web tools it hands over are allowed by Stave; commands and MCP
+ *   tools it hands over ask.
+ */
+const CLAUDE_PRESET_ACTIONS: Readonly<Record<ProviderModePresetId, readonly PresetAction[]>> = {
+  manual: [own("read"), asks("edit"), { kind: "command", state: "sandbox" }, asks("web"), asks("mcp")],
+  guided: [own("read"), own("edit"), asks("command", "someFileCommands"), asks("web"), asks("mcp")],
+  auto: [own("read"), own("edit"), flagged("command"), own("web"), flagged("mcp")],
+};
+
+/**
+ * Codex, from `CODEX_PROVIDER_MODE_PATCHES`:
+ *
+ * - Manual (`read-only` sandbox, `on-request`, network off, web search off):
+ *   reads and commands run inside the read-only sandbox; an edit or anything
+ *   else the sandbox blocks is asked for.
+ * - Guided (`workspace-write`, `untrusted`, network off, cached web search):
+ *   Codex runs what it treats as trusted and asks about the rest.
+ * - Auto (`danger-full-access`, `never`, network on, live web search):
+ *   nothing asks.
+ *
+ * MCP tools follow Codex's separate App and MCP tool approval setting.
+ */
+const CODEX_PRESET_ACTIONS: Readonly<Record<ProviderModePresetId, readonly PresetAction[]>> = {
+  manual: [
+    own("read"),
+    asks("edit"),
+    { kind: "command", state: "sandbox", note: "beyondSandboxAsks" },
+    { kind: "web", state: "off" },
+  ],
+  guided: [own("read"), flagged("edit"), flagged("command"), own("web")],
+  auto: [own("read"), own("edit"), own("command"), own("web")],
+};
+
+/** Cursor, Kiro and OpenCode take one approval mode for every tool call. */
+const ACP_PRESET_ACTIONS: Readonly<Record<ProviderModePresetId, readonly PresetAction[]>> = {
+  manual: [asks("tools")],
+  // Only Cursor has Guided: its own auto-review classifier decides.
+  guided: [flagged("tools")],
+  auto: [own("tools")],
+};
+
+/**
+ * What a preset does on its own and what it asks about first, per kind of
+ * action, from the preset's real settings for that provider. Stave's own
+ * prompt-free tools and the user's trusted approvals are not listed: they
+ * apply under every preset. A preset the provider does not have lists
+ * nothing.
+ */
+export function describePresetActions(
+  providerId: ProviderId,
+  presetId: ProviderModePresetId,
+): readonly PresetAction[] {
+  switch (providerId) {
+    case "claude-code":
+      return CLAUDE_PRESET_ACTIONS[presetId];
+    case "codex":
+      return CODEX_PRESET_ACTIONS[presetId];
+    case "cursor":
+      return ACP_PRESET_ACTIONS[presetId];
+    case "kiro":
+    case "opencode":
+      return presetId === "guided" ? [] : ACP_PRESET_ACTIONS[presetId];
+  }
+}
+
+/**
+ * The actions that always ask whatever the preset. They exist only as
+ * Claude's guardrails (G1–G3) and only in Agent mode: each one the user left
+ * on. Other providers have none, and none are invented for them.
+ */
+export function describePresetLocks(
+  providerId: ProviderId,
+  enabledGuardrails: readonly ClaudeGuardrailId[],
+): readonly ClaudeGuardrailId[] {
+  if (providerId !== "claude-code") return [];
+  return (["G1", "G2", "G3"] as const).filter((id) => enabledGuardrails.includes(id));
 }

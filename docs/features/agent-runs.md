@@ -131,7 +131,9 @@ or pinned model would keep its helpers on its own provider.
    list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5 · Now: Run
    the checks** on the status line and Fleet, between turns too. Until the
    first plan arrives the line says **Planning…**. A single step counts.
-   **Progress** updates the checklist as the agent works and keeps the saved
+   **Progress** shows the plan with its count (`1 / 3`), marks the step in
+   progress as the current one, and tells a screen reader only what changed
+   after it first appears. It updates as the agent works and keeps the saved
    plan between turns; the report carries the final plan. Multi-step work uses
    the provider's plan tool when available, otherwise a short written plan.
    A missing plan tool does not block work, and a simple answer needs no plan.
@@ -237,6 +239,7 @@ their existing mapping.
 Approval cards keep their time limit: after 45 minutes Stave declines an
 unanswered approval and the turn continues. In a
 [delegated task](./delegated-tasks.md) the host declines it after a few minutes.
+The card shows the time it will be declined.
 
 A native question in a Run stays on the task until you answer it, including
 after its 45-minute callback timeout, a turn ending, or an app restart. The
@@ -285,10 +288,13 @@ agent run is going, between its turns included (see
   long, with the Run's badge, such as **Needs your answer · Approval · 8m**. A stage turn that stalls,
   steers, retries or fails says so instead, as the turn's line would:
   **Stalled · No updates for 2m** with how to stop or interrupt it.
-- The stage track, one line high: the stages behind the run fill it and the
-  head names the stage in progress and where it stands (`Verify 3/6`). When
+- The stage track, one line high: the stage in progress and where it stands
+  (`Verify 3/6`), then a progress bar the stages behind the run fill. When
   the composer is too narrow for the track, the line says `3/6` in words. A
-  hand marks a stage that asks you first.
+  hand marks a stage that asks you first, and a waiting, failed or finished
+  stage also wears its mark, so the bar's color is never the only signal.
+- How long the run has worked: its active time (see **Active for** below), so
+  a pause or a wait for your answer does not add to it.
 - **Take over** pauses the agent run so your replies are your own; **Resume**
   hands the task back. A reply without Take over guides the current stage and
   the agent run carries on.
@@ -328,7 +334,11 @@ agent run (a task without one shows its flow there):
   names the checks Stave saw pass, a workspace check by its action name.
 - The **Run** card's permissions line is short (**Auto permissions**); hover it
   for what Auto does on that provider.
-- **Stages** as a timeline. Open a stage for its summary, decisions with their
+- **Stages** as a timeline. Each row shows how long the stage took (**now**
+  for the one in progress) and what its turns spent over all its attempts:
+  the cost when the provider reports one (Claude), tokens otherwise (Codex),
+  and nothing until one of its turns has reported. The stage in progress
+  opens below its row. Open a stage for its summary, decisions with their
   reasons, evidence (**Verified by Stave** first, with **Show** to jump to the
   tool call in the transcript), links, and the instruction it ran with.
 - **Retry stage** and **Skip stage** on a blocked or stuck stage; **Pause**,
@@ -337,8 +347,13 @@ agent run (a task without one shows its flow there):
   the permissions — above its figures: **Turns** against the budget (the bar
   turns amber close to the limit, where the agent run halts), **Spent** (the
   cost and tokens the provider reported; tokens alone for a provider that
-  reports no cost), and how long it has been running. A note says when a
-  turn reported no usage.
+  reports no cost), and **Active for**: the time the run worked, with
+  **since 11:17 AM · pauses not counted** under it. Pauses, waits for your
+  answer, an approval or a sign-off, and the time Stave was closed are left
+  out; hover the figure for the time since the run started. Stave works the
+  time out from the run's recorded changes, so a restart keeps it. A run
+  read from an older Stave shows **Running for**, the time since it started.
+  A note says when a turn reported no usage.
 - The task's wake-up, the other thing that can start turns on the task.
 
 The task's subagents are in the **Subagents** tab next to it.
@@ -474,7 +489,7 @@ prepared.
 When an agent run ends, its report is shown in the Task panel's **Progress** tab
 and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
 starts collapsed so saved task answers stay easy to scan. The report contains
-outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
+outcome, figures (active time, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, any account-pool switches,
 every event wait (when it began, each wake, how it ended), and how much the
 agent run needed you. **Copy Markdown** and **Add to PR description** act on it, and
@@ -585,7 +600,14 @@ sample limits and examples of when each screen helps.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache
-  reads are part of the cost but not of the token count.
+  reads are part of the cost but not of the token count. A stage's row adds up
+  only the turns Stave started for that stage.
+- **Active for** stops while the run is paused, while it waits on you (an open
+  approval or question, or a stage's sign-off) and while Stave is closed. Stave
+  notices a wait within a few seconds. After Stave quit unexpectedly, the time
+  stops where Stave last recorded something for the run. Stave keeps a run's
+  pauses, waits and stops for its whole life, so a long run still leaves out
+  an early pause.
 - An agent run started at a later stage has no acceptance criteria from
   **Understand**, so its report shows only what the stages that ran reported.
 

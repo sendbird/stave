@@ -212,12 +212,13 @@ describe("agent run in the Progress tab", () => {
       stages: runs.working.stages.map((record) => ({ ...record, facts: { diff: null, commands: [], toolCalls: [], action: null, plan } })),
     };
     const html = panel(detail);
-    expect(html).toContain('aria-label="Plan"');
-    expect(html).toContain("1 of 2 done");
+    // The design system's Plan: named, counted, and the step in progress is the current one.
+    expect(html).toContain(">Plan<");
+    expect(html).toContain("1 / 2");
     expect(html).toContain("Reproduce on a narrow screen");
-    expect(html).toContain("Fix the table");
+    expect(html).toMatch(/<li aria-current="step"[^>]*>.*?Fix the table/);
     // No plan written yet: no empty section.
-    expect(panel(runs.working)).not.toContain('aria-label="Plan"');
+    expect(panel(runs.working)).not.toContain("steps complete");
   });
 
   test("a run with a workflow names it and lets you retry or skip a stuck stage", () => {

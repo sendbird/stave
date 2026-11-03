@@ -7,6 +7,7 @@ import {
   REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
   type RepositoryMemory,
 } from "@/lib/repository-memory";
+import { useAppStore } from "@/store/app.store";
 
 /**
  * The slice of `window.api` the plan and memory lists read.
@@ -79,52 +80,126 @@ export const PREVIEW_DOCUMENT_ACTIVITY = {
 
 const LEGACY_PLAN_FILES = [".stave/plans/0b91ff2c_20260901_initial-sweep.md"];
 
-let memories: RepositoryMemory[] = [
-  {
+const PREVIEW_REPOSITORY = "/tmp/stave-project";
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+const PREVIEW_SOURCE_TASK = { taskId: "10d53a9c", title: "Tighten the memory panel" };
+
+function previewMemory(
+  args: Pick<RepositoryMemory, "id" | "kind" | "recallMode" | "content"> & {
+    confirmedAgo: number;
+    fromPreviewTask?: boolean;
+  },
+): RepositoryMemory {
+  const confirmedAt = Date.now() - args.confirmedAgo;
+  return {
+    id: args.id,
+    repositoryPath: PREVIEW_REPOSITORY,
+    kind: args.kind,
+    recallMode: args.recallMode,
+    content: args.content,
+    sourceTaskId: args.fromPreviewTask ? PREVIEW_SOURCE_TASK.taskId : null,
+    sourceTurnId: args.fromPreviewTask ? "turn-1" : null,
+    confidence:
+      args.recallMode === "candidate"
+        ? REPOSITORY_MEMORY_AUTO_CONFIDENCE
+        : REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
+    createdAt: confirmedAt - DAY,
+    updatedAt: confirmedAt,
+    lastConfirmedAt: confirmedAt,
+    deletedAt: null,
+  };
+}
+
+/**
+ * Ten memories, past the list's filter threshold, in every kind. `&memories=few`
+ * keeps the first three, under it.
+ */
+const MEMORIES: RepositoryMemory[] = [
+  previewMemory({
     id: "mem-core",
-    repositoryPath: "/tmp/stave-project",
     kind: "convention",
     recallMode: "core",
     content: "Use Bun for install, test and build; use bunx --bun, never npx.",
-    sourceTaskId: null,
-    sourceTurnId: null,
-    confidence: REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
-    createdAt: Date.now() - 86_400_000 * 12,
-    updatedAt: Date.now() - 86_400_000 * 12,
-    lastConfirmedAt: Date.now() - 3_600_000,
-    deletedAt: null,
-  },
-  {
+    confirmedAgo: HOUR,
+  }),
+  previewMemory({
     id: "mem-contextual",
-    repositoryPath: "/tmp/stave-project",
     kind: "decision",
     recallMode: "contextual",
     content:
       "Author styles with stylex.create and compose before compiling. No Tailwind utility strings, no @apply, no CVA recipes anywhere under src/components/ui.",
-    sourceTaskId: null,
-    sourceTurnId: null,
-    confidence: REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
-    createdAt: Date.now() - 86_400_000 * 4,
-    updatedAt: Date.now() - 86_400_000 * 4,
-    lastConfirmedAt: Date.now() - 86_400_000,
-    deletedAt: null,
-  },
-  {
+    confirmedAgo: DAY,
+  }),
+  previewMemory({
     id: "mem-candidate",
-    repositoryPath: "/tmp/stave-project",
     kind: "gotcha",
     recallMode: "candidate",
     content:
       "The renderer's provider event schema and the main process copy have to move together.",
-    sourceTaskId: "10d53a9c",
-    sourceTurnId: "turn-1",
-    confidence: REPOSITORY_MEMORY_AUTO_CONFIDENCE,
-    createdAt: Date.now() - 3_600_000,
-    updatedAt: Date.now() - 3_600_000,
-    lastConfirmedAt: Date.now() - 86_400_000,
-    deletedAt: null,
-  },
+    confirmedAgo: DAY,
+    fromPreviewTask: true,
+  }),
+  previewMemory({
+    id: "mem-pages",
+    kind: "convention",
+    recallMode: "core",
+    content: "Run bun run build:pages before marking a PR ready, even when no docs changed.",
+    confirmedAgo: 3 * DAY,
+  }),
+  previewMemory({
+    id: "mem-bridge",
+    kind: "fact",
+    recallMode: "contextual",
+    content: "The browser dev bridge listens on 127.0.0.1:3001 and only serves a subset of the desktop API.",
+    confirmedAgo: 9 * DAY,
+    fromPreviewTask: true,
+  }),
+  previewMemory({
+    id: "mem-settings",
+    kind: "gotcha",
+    recallMode: "contextual",
+    content: "Settings dialog sections remount on tab change; keep their drafts in the store, not in component state.",
+    confirmedAgo: 6 * DAY,
+    fromPreviewTask: true,
+  }),
+  previewMemory({
+    id: "mem-toasts",
+    kind: "decision",
+    recallMode: "contextual",
+    content: "Toasts: one top-center host for notifications, bottom-right for workspace progress.",
+    confirmedAgo: 2 * DAY,
+  }),
+  previewMemory({
+    id: "mem-context",
+    kind: "gotcha",
+    recallMode: "candidate",
+    content: "One provider reports context usage only as a total, with no per-category breakdown.",
+    confirmedAgo: 4 * HOUR,
+  }),
+  previewMemory({
+    id: "mem-i18n",
+    kind: "convention",
+    recallMode: "contextual",
+    content: "Put every user-facing string in both the English and Korean catalogs in the same change.",
+    confirmedAgo: 12 * DAY,
+  }),
+  previewMemory({
+    id: "mem-scope",
+    kind: "fact",
+    recallMode: "contextual",
+    content: "Memory rows are scoped by project path and never read across projects.",
+    confirmedAgo: 20 * DAY,
+  }),
 ];
+
+function previewMemories() {
+  return new URLSearchParams(window.location.search).get("memories") === "few"
+    ? MEMORIES.slice(0, 3)
+    : MEMORIES;
+}
+
+let memories: RepositoryMemory[] = [];
 
 export function installInformationRowPreviewApi() {
   const existing = (window as unknown as { api?: Record<string, unknown> }).api;
@@ -144,8 +219,20 @@ export function installInformationRowPreviewApi() {
   };
 
   let settings = { ...DEFAULT_REPOSITORY_MEMORY_SETTINGS };
-  api.projectMemory = {
-    list: async () => ({ ok: true, items: memories }),
+  memories = previewMemories().map((memory) => ({ ...memory }));
+  // The bridge the Memory section reads. Forgetting is a soft delete, as in the
+  // store, so Undo can bring the row back.
+  api.repositoryMemory = {
+    list: async () => ({
+      ok: true,
+      items: memories.filter((item) => item.deletedAt === null),
+      sourceTasks: [
+        {
+          ...PREVIEW_SOURCE_TASK,
+          workspaceId: useAppStore.getState().activeWorkspaceId,
+        },
+      ],
+    }),
     update: async (patch: {
       id: string;
       content: string;
@@ -167,8 +254,23 @@ export function installInformationRowPreviewApi() {
       return { ok: true, memory: next.find((item) => item.id === patch.id)! };
     },
     delete: async (args: { id: string }) => {
-      memories = memories.filter((item) => item.id !== args.id);
-      return { ok: true };
+      const deletedAt = Date.now();
+      memories = memories.map((item) =>
+        item.id === args.id && item.deletedAt === null ? { ...item, deletedAt } : item,
+      );
+      return { ok: true, deleted: true };
+    },
+    restore: async (args: { id: string; repositoryPath: string }) => {
+      const target = memories.find(
+        (item) =>
+          item.id === args.id &&
+          item.repositoryPath === args.repositoryPath &&
+          item.deletedAt !== null,
+      );
+      if (!target) return { ok: true, memory: null };
+      const restored = { ...target, deletedAt: null };
+      memories = memories.map((item) => (item.id === args.id ? restored : item));
+      return { ok: true, memory: restored };
     },
     getSettings: async () => ({ ok: true, settings }),
     saveSettings: async (args: {

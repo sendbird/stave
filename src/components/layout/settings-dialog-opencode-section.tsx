@@ -6,6 +6,7 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
+import { PresetActionList } from "@/components/system/PresetActionList";
 import {
   ChoiceButtons,
   DraftInput,
@@ -58,6 +59,13 @@ export function SettingsOpenCodeSection() {
           />
           <p className={sx(sectionStyles.note)}>
             {t("settingsProviders:opencodeSection.approvalPreset.note")}</p>
+          <PresetActionList
+            placement="field"
+            presetId={opencodeApprovalMode}
+            presetLabel={OPENCODE_PROVIDER_MODE_PRESETS.find((preset) => preset.id === opencodeApprovalMode)?.label ?? ""}
+            providerId="opencode"
+            providerLabel="OpenCode"
+          />
         </LabeledField>
         <p className={sx(sectionStyles.note)}>
           {t("settingsProviders:opencodeSection.runtime.authentication")}</p>

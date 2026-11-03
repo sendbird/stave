@@ -19,12 +19,68 @@ export const workGraphTreeStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-semibold"],
     color: vars["--ads-color-text-muted"],
     margin: 0,
+    flexShrink: 0,
+  },
+  /* The heading and its counts share one baseline; the counts wrap under the
+     heading in a narrow rail rather than squeezing it. */
+  headingRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "baseline",
+    columnGap: vars["--ads-space-8"],
+    rowGap: vars["--ads-space-2"],
+    minWidth: 0,
+  },
+  summary: {
+    margin: 0,
+    minWidth: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "1rem",
+    fontVariantNumeric: "tabular-nums",
+    color: vars["--ads-color-text-muted"],
   },
   list: {
     marginTop: vars["--ads-space-4"],
+    marginBottom: 0,
+    marginInline: 0,
+    padding: 0,
+    listStyle: "none",
     display: "flex",
     minWidth: 0,
     flexDirection: "column",
+  },
+  rowRevealable: { cursor: "pointer" },
+  /* Same box as the status mark beside it (20px tall, centred), so the
+     chevron lines up with the label's first line however the copy wraps. */
+  disclosure: {
+    display: "flex",
+    height: 20,
+    width: vars["--ads-control-icon-size-sm"],
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    color: vars["--ads-color-text-muted"],
+  },
+  disclosureInteractive: { cursor: "pointer" },
+  disclosureIcon: {
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
+  },
+  /* "Show 2 subagents of …": the fold says what it hides, in the detail's
+     step, and opens the branch when pressed. */
+  foldHint: {
+    margin: 0,
+    width: "fit-content",
+    maxWidth: "100%",
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "1rem",
+    color: vars["--ads-color-text-muted"],
+    cursor: "pointer",
+    overflowWrap: "anywhere",
+    textDecorationLine: {
+      default: "none",
+      "@media (hover: hover)": { default: "none", ":hover": "underline" },
+    },
   },
   completedToggle: { marginTop: vars["--ads-space-4"], color: vars["--ads-color-text-muted"] },
   // Glyphs inside controls take the control-icon floor; the 12px marks left

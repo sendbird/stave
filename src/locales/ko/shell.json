@@ -379,7 +379,6 @@
     "thisTask": "이 작업",
     "archived": "보관됨",
     "markRead": "읽음 표시",
-    "deny": "거부",
     "thisTaskIsArchived": "이 작업은 보관되었습니다.",
     "restore": "복원",
     "cancel": "취소",
@@ -389,12 +388,14 @@
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "승인 및 입력 요청을 포함하여 현재 기록의 모든 알림을 영구 삭제합니다. 읽지 않은 알림은 유지합니다.",
     "loadMoreCount": "더 불러오기 ({{count}}개 남음)",
     "restoreTask": "{{title}} 작업을 복원하면 알림에서 다시 열 수 있습니다.",
-    "allowOnce": "한 번 허용",
     "all": "전체",
     "errors": "오류",
     "nothingInTheInbox": "받은 항목이 없습니다.",
     "noErrors": "오류가 없습니다.",
-    "failedRunsAndChecksWillAppear": "실패한 실행, 차단된 실행, 실패한 풀 리퀘스트 검사가 여기에 표시됩니다."
+    "failedRunsAndChecksWillAppear": "실패한 실행, 차단된 실행, 실패한 풀 리퀘스트 검사가 여기에 표시됩니다.",
+    "allowOnceFor": "{{title}} 작업의 요청 한 번 허용",
+    "denyFor": "{{title}} 작업의 요청 거부",
+    "viewSwitch": "알림 보기"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "독립 CLI — 설정에서 폴더 지정",
@@ -701,7 +702,8 @@
     "clickForTheirAPIValue": "클릭하여 API 가치 보기.",
     "sEstimateOfWhatTheseTurnsCost": "{{value1}} 프로바이더가 추정한 턴 비용입니다. 게이트웨이가 청구하며 실제 청구서가 최종 기준입니다.",
     "notBilledToYourSubscriptionEstimatesIt": "구독에 청구하지 않습니다. {{value1}} 프로바이더가 토큰 사용량과 API 가격으로 추정합니다.",
-    "tokensToday": "오늘 토큰 {{value1}}"
+    "tokensToday": "오늘 토큰 {{value1}}",
+    "windowUsedTitle": "{{title}} · {{percent}} 사용됨"
   },
   "statusBarUsageUtils": {
     "usageLimit": "사용량 한도",
@@ -987,12 +989,12 @@
         "description": "AI 사용량 화면을 닫고 워크스페이스로 돌아갑니다."
       },
       "fleetRowAllow": {
-        "title": "Fleet 요청 한 번 허용",
-        "description": "승인 요청이 있는 Fleet 행에 포커스가 있을 때 한 번 허용합니다."
+        "title": "요청 한 번 허용",
+        "description": "승인 요청이 있는 Fleet 행이나 알림 행에 포커스가 있을 때 한 번 허용합니다."
       },
       "fleetRowDeny": {
-        "title": "Fleet 요청 거부",
-        "description": "승인 요청이 있는 Fleet 행에 포커스가 있을 때 거부합니다."
+        "title": "요청 거부",
+        "description": "승인 요청이 있는 Fleet 행이나 알림 행에 포커스가 있을 때 거부합니다."
       },
       "fleetRowChoose": {
         "title": "Fleet 질문에 응답",
@@ -1021,6 +1023,18 @@
       "sideChatClose": {
         "title": "곁질문 패널 닫기",
         "description": "곁질문 패널을 닫습니다. 작업의 턴은 계속 실행됩니다."
+      },
+      "approvalAllowOnce": {
+        "title": "승인 요청 한 번 허용",
+        "description": "승인 카드에 포커스가 있을 때 그 요청을 한 번 허용합니다. Esc로는 요청을 거절하지 않습니다."
+      },
+      "reviewNext": {
+        "title": "다음 리뷰",
+        "description": "검토 화면에서 리뷰를 기다리는 다음 결과나 단계를 Fleet 순서대로 엽니다."
+      },
+      "reviewPrevious": {
+        "title": "이전 리뷰",
+        "description": "검토 화면에서 리뷰를 기다리는 이전 결과나 단계를 엽니다."
       }
     },
     "ui": {

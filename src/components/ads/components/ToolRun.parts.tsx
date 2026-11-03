@@ -9,7 +9,7 @@ import {
   agentStateLabel,
   agentStateTone,
   isQuietState,
-  type AgentRunState,
+  type AgentStepState,
   type AgentStatusTone,
 } from "./agent-state";
 import { Loader, type LoaderVariant } from "./Loader";
@@ -39,7 +39,7 @@ export { toolRunStyles };
  * counts as live — three questions that must not be able to answer
  * differently.
  */
-export function isLiveRunState(state: AgentRunState): boolean {
+export function isLiveRunState(state: AgentStepState): boolean {
   return (
     state === "running" ||
     state === "pending" ||
@@ -49,7 +49,7 @@ export function isLiveRunState(state: AgentRunState): boolean {
   );
 }
 
-function toolLoaderVariant(state: AgentRunState): LoaderVariant | null {
+function toolLoaderVariant(state: AgentStepState): LoaderVariant | null {
   switch (state) {
     case "pending":
       return "spinner";
@@ -74,14 +74,14 @@ function toolLoaderVariant(state: AgentRunState): LoaderVariant | null {
  * "what does the reader have to deal with first", so a gate waiting on a human
  * outranks a failure they can read at their leisure.
  */
-const ROLLUP_PRIORITY: AgentRunState[] = [
+const ROLLUP_PRIORITY: AgentStepState[] = [
   "approval",
   "error",
   "failed",
   "denied",
   "interrupted",
   "canceled",
-  // Host adaptation: `skipped` is a host-added `AgentRunState` (see
+  // Host adaptation: `skipped` is a host-added `AgentStepState` (see
   // `agent-state.ts`), so the roll-up has to rank it. It sits below the states
   // somebody has to deal with and above the ones still in flight.
   "skipped",
@@ -110,7 +110,7 @@ const ROLLUP_PRIORITY: AgentRunState[] = [
  * has to compete with it. Neutral for the expected outcome means color in this
  * family means *look at this*.
  */
-export function statusWordTone(state: AgentRunState): AgentStatusTone {
+export function statusWordTone(state: AgentStepState): AgentStatusTone {
   return state === "completed" || state === "done"
     ? "neutral"
     : agentStateTone[state];
@@ -118,12 +118,12 @@ export function statusWordTone(state: AgentRunState): AgentStatusTone {
 
 /** The one state that stands for a run of states. `null` for an empty run. */
 export function aggregateRunStatus(
-  states: AgentRunState[],
-): AgentRunState | null {
+  states: AgentStepState[],
+): AgentStepState | null {
   if (states.length === 0) return null;
   const present = new Set(states);
   // Host adaptation (`noUncheckedIndexedAccess`): `states[0]` is
-  // `AgentRunState | undefined` here, so state the `null` the signature above
+  // `AgentStepState | undefined` here, so state the `null` the signature above
   // already documents. Behaviour is identical — the empty case returned early.
   return (
     ROLLUP_PRIORITY.find((state) => present.has(state)) ?? states[0] ?? null
@@ -172,7 +172,7 @@ export type ToolRunSummaryProps = {
   count?: React.ReactNode;
   /** Already formatted by `formatElapsed`; `null` when nothing is known. */
   elapsedText?: string | null;
-  status: AgentRunState;
+  status: AgentStepState;
   /** Overrides the word. Defaults to `agentStateLabel[status]`. */
   statusLabel?: React.ReactNode;
   title: React.ReactNode;

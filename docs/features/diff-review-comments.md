@@ -41,11 +41,14 @@ resolve it.
 
 ## Limitations
 
-- Sent comments are kept for the current app session. Restarting Stave clears
-  them; pending comments are saved with the workspace.
+- Sent comments are kept across restarts on this computer until you resolve
+  them: the latest 50 per task, for the 200 tasks you sent comments to most
+  recently, for 30 days. Pending comments are saved with the workspace.
 - The check compares the commented line and its two neighbours with the file's
   current text, within three lines of where it was. A line that moved further
   reads as changed.
 - Screen readers do not reach the comment boxes inside the diff: the editor
   hides the layer they are drawn in from assistive technology. Review lists
-  the task's comments, not sent and sent, as text for that reason.
+  the task's comments, not sent and sent, for that reason, with the same
+  actions: a row opens its line, **Remove** deletes a pending comment, and a
+  sent one shows the marks above and **Resolve**.

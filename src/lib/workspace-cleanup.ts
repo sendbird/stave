@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type { AppState } from "@/store/app-store.types";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { isNotificationPendingAttention } from "@/lib/notifications/notification.types";
@@ -5,12 +6,12 @@ import { isNotificationPendingAttention } from "@/lib/notifications/notification
 export type CleanupState = Pick<AppState, "repositoryPath" | "workspaces" | "workspacePathById" | "workspaceDefaultById" | "activeWorkspaceId" | "activeTurnIdsByTask" | "taskWorkspaceIdById" | "notifications">;
 
 export function workspaceCleanupBlocker(state: CleanupState, repositoryPath: string, workspaceId: string, path: string): string | null {
-  if (state.repositoryPath !== repositoryPath || !state.workspaces.some((w) => w.id === workspaceId) || state.workspacePathById[workspaceId] !== path) return "Workspace changed";
-  if (state.workspaceDefaultById[workspaceId] || workspaceId === "base" || normalizeComparablePath(path) === normalizeComparablePath(repositoryPath)) return "Default workspace";
-  if (state.activeWorkspaceId === workspaceId) return "Current workspace";
-  if (!path) return "Path unavailable";
-  if (Object.entries(state.activeTurnIdsByTask).some(([taskId, turnId]) => turnId && state.taskWorkspaceIdById[taskId] === workspaceId)) return "Agent running";
-  if (state.notifications.some((n) => n.workspaceId === workspaceId && isNotificationPendingAttention(n))) return "Waiting for your response";
+  if (state.repositoryPath !== repositoryPath || !state.workspaces.some((w) => w.id === workspaceId) || state.workspacePathById[workspaceId] !== path) return i18n.t("workspace:workspaceCleanup.blocker.workspaceChanged");
+  if (state.workspaceDefaultById[workspaceId] || workspaceId === "base" || normalizeComparablePath(path) === normalizeComparablePath(repositoryPath)) return i18n.t("workspace:workspaceCleanup.blocker.defaultWorkspace");
+  if (state.activeWorkspaceId === workspaceId) return i18n.t("workspace:workspaceCleanup.blocker.currentWorkspace");
+  if (!path) return i18n.t("workspace:workspaceCleanup.blocker.pathUnavailable");
+  if (Object.entries(state.activeTurnIdsByTask).some(([taskId, turnId]) => turnId && state.taskWorkspaceIdById[taskId] === workspaceId)) return i18n.t("workspace:workspaceCleanup.blocker.agentRunning");
+  if (state.notifications.some((n) => n.workspaceId === workspaceId && isNotificationPendingAttention(n))) return i18n.t("workspace:workspaceCleanup.blocker.waitingForYou");
   return null;
 }
 
@@ -36,5 +37,5 @@ export function workspaceCleanupRecommendation(args: {
   if (!args.prCheckedAt || args.now - args.prCheckedAt > 5 * 60_000 || args.prCheckedAt > args.now) return null;
   const lastActive = args.lastActive ? Date.parse(args.lastActive) : NaN;
   if (!Number.isFinite(lastActive) || args.now - lastActive < 14 * 86400_000) return null;
-  return "PR merged · no unpushed commits · inactive for at least 14 days";
+  return i18n.t("workspace:workspaceCleanup.recommendation.mergedAndInactive");
 }

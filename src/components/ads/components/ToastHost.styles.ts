@@ -133,6 +133,7 @@ export const styles = stylex.create({
   // inline padding, aligned with the close button above it.
   actionRow: {
     display: "flex",
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-end",
     marginBlockStart: vars["--ads-space-12"],
   },

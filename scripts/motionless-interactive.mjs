@@ -220,7 +220,7 @@ function localBindings(consumer, module, sources) {
  *
  * The class channel of a composed control is a PROP, not a class:
  * `<ModelSelector triggerClassName={sx(styles.trigger)} />` and
- * `<ChoiceChips optionXstyle={…} />` hand their caller's paint arms to an ADS
+ * `<SegmentedControl xstyle={…} />` hand their caller's paint arms to an ADS
  * control one level down, so the caller's surface is animated even though
  * neither the caller nor `ModelSelector` itself says `transition` anywhere.
  * Without this hop those call sites are indistinguishable from a bare `<div>`,

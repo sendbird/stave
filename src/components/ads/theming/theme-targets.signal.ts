@@ -103,7 +103,7 @@ export const signalThemeTargets = {
      * hue on the container. Same constraint as `progress`.
      */
     axes: {
-      tone: ["accent", "danger", "info", "success", "warning", "warm"],
+      tone: ["accent", "danger", "info", "neutral", "success", "warning", "warm"],
     },
     exports: ["Meter"],
     properties: panel,
@@ -135,7 +135,7 @@ export const signalThemeTargets = {
      * container that frames it. Reflecting it anyway is what keeps the DOM
      * honest about which tone a caller asked for.
      */
-    axes: { tone: ["default", "info", "success", "warning", "danger"] },
+    axes: { tone: ["default", "info", "success", "warning", "danger", "neutral"] },
     exports: ["Progress"],
     properties: panel,
     root: "the `<div>` Base UI's progress root renders",

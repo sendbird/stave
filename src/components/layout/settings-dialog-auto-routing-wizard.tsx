@@ -13,6 +13,7 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { ActionButton } from "@/components/system/ActionButton";
+import { Stepper } from "@/components/ads/components/Stepper";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import {
   STANCE_DESCRIPTIONS,
@@ -233,6 +234,29 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
   const canVisit = (target: WizardStep) =>
     target === "scan" || (hasSamples && !scanning);
 
+  // A step change moves focus to the new step's heading; the first render
+  // does not, so opening the card leaves focus where the reader put it.
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const movedStep = useRef(false);
+  const goToStep = (target: WizardStep) => {
+    movedStep.current = true;
+    setStep(target);
+  };
+  useEffect(() => {
+    if (!movedStep.current) return;
+    movedStep.current = false;
+    stepHeadingRef.current?.focus();
+  }, [step]);
+
+  const stepDescription = (target: WizardStep) =>
+    target === "scan"
+      ? samples === null
+        ? t("settingsConnections:settingsDialogAutoRoutingWizard.scanDescription")
+        : t("settingsConnections:settingsDialogAutoRoutingWizard.promptsRead", { count: analysis.totalSamples })
+      : target === "review"
+        ? t("settingsConnections:settingsDialogAutoRoutingWizard.reviewDescription")
+        : t("settingsConnections:settingsDialogAutoRoutingWizard.applyDescription");
+
   const summary = hasAnythingToApply
     ? t(stanceChanges ? "settingsConnections:messages.applyWithStance" : "settingsConnections:messages.applyRules", { count: includedChanges.length, samples: analysis.totalSamples, stance: STANCE_LABELS[selectedStance] })
     : t("settingsConnections:settingsDialogAutoRoutingWizard.nothingSelectedIncludeAtLeastOne");
@@ -243,28 +267,47 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
       description={t("settingsConnections:settingsDialogAutoRoutingWizard.staveReadsWhichModelsYouActually")}
     >
       <div className={sx(styles.stack)}>
-        <ol className={sx(styles.stepper)} aria-label={t("settingsConnections:settingsDialogAutoRoutingWizard.setupSteps")}>
-          {STEPS.map((entry, index) => {
-            const active = entry.id === step;
-            const done = stepIndex(entry.id) < stepIndex(step);
-            return (
-              <li key={entry.id} className={sx(styles.stepItem)}>
-                {index > 0 ? <span aria-hidden className={sx(styles.stepConnector)} /> : null}
-                <ActionButton
-                  size="xs"
-                  weight={active ? "secondary" : "quiet"}
-                  aria-current={active ? "step" : undefined}
-                  disabled={!canVisit(entry.id)}
-                  className={sx(done && styles.stepButtonDone)}
-                  onClick={() => setStep(entry.id)}
-                >
-                  <span className={sx(styles.stepIndex)}>{index + 1}</span>
-                  {entry.label}
-                </ActionButton>
-              </li>
-            );
+        <div className={sx(styles.stepperRow)}>
+          <Stepper
+            label={t("settingsConnections:settingsDialogAutoRoutingWizard.setupSteps")}
+            // Navigation: a finished step is a button back to it. Each step's
+            // status line ("6 prompts read") shows under its name.
+            variant="navigation"
+            showDescriptions
+            size="sm"
+            distribution="fill"
+            xstyle={styles.stepper}
+            onStepChange={(index) => {
+              const target = STEPS[index]?.id;
+              if (target && target !== step && canVisit(target)) goToStep(target);
+            }}
+            steps={STEPS.map((entry) => ({
+              label: entry.label,
+              description: stepDescription(entry.id),
+              status:
+                entry.id === step
+                  ? "current"
+                  : stepIndex(entry.id) < stepIndex(step)
+                    ? "complete"
+                    : "pending",
+              disabled: entry.id !== step && !canVisit(entry.id),
+            }))}
+          />
+          <span className={sx(styles.stepCount)} aria-hidden>
+            {t("settingsConnections:settingsDialogAutoRoutingWizard.stepOf", { step: stepIndex(step) + 1, total: STEPS.length })}
+          </span>
+        </div>
+        {/*
+          The step's name, read when the step changes: focus moves here so the
+          reader starts at the new step instead of on the button that left it.
+        */}
+        <h4 ref={stepHeadingRef} tabIndex={-1} className={sx(styles.stepHeading)}>
+          {t("settingsConnections:settingsDialogAutoRoutingWizard.stepHeading", {
+            step: stepIndex(step) + 1,
+            total: STEPS.length,
+            name: STEPS[stepIndex(step)]?.label ?? "",
           })}
-        </ol>
+        </h4>
 
         {step === "scan" ? (
           <ScanStep
@@ -274,7 +317,7 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
             scanError={scanError}
             scanning={scanning}
             scanned={samples !== null}
-            onContinue={() => setStep("review")}
+            onContinue={() => goToStep("review")}
             onScan={() => void scan()}
           />
         ) : null}
@@ -285,8 +328,8 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
             excluded={excluded}
             recommendedStance={analysis.recommendedStance}
             selectedStance={selectedStance}
-            onBack={() => setStep("scan")}
-            onContinue={() => setStep("apply")}
+            onBack={() => goToStep("scan")}
+            onContinue={() => goToStep("apply")}
             onStanceChange={setStance}
             onToggle={toggleChange}
           />
@@ -302,7 +345,7 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
                 onClick={apply}
               >
                 {t("settingsConnections:settingsDialogAutoRoutingWizard.applyProfile")}</ActionButton>
-              <ActionButton weight="quiet" onClick={() => setStep("review")}>
+              <ActionButton weight="quiet" onClick={() => goToStep("review")}>
                 {t("common:actions.back")}</ActionButton>
               <ActionButton weight="quiet" onClick={startOver}>
                 {t("settingsConnections:settingsDialogAutoRoutingWizard.startOver")}</ActionButton>

@@ -96,13 +96,51 @@ says when it ended, with the exact time on hover), folds its answer under the
 row, and offers View activity (its answer, assignment and tool calls in a dialog
 over the current task), Open transcript and Stop.
 
+Each state has one mark and one word, the same in the Subagents tab, the
+Agents block in Turn Activity and the agent tree:
+
+| State | Mark | Means |
+| --- | --- | --- |
+| **Needs you** (확인 필요) | Hand | It asked a question or an approval, or its run waits for a person. It goes nowhere until someone answers. |
+| **Waiting** (대기 중) | Clock | It sits between turns on its own (an outside event, a usage reset) and carries on without you. |
+| **Running** / **Queued** | Moving ring / dashed circle | It is working, or about to start. |
+| **Returned** | Check | It finished and sent its answer back. |
+| **Failed** / **Timed out** | Cross | It ended without an answer. |
+| **Cancelled** | Square | It was stopped. |
+| **Unresolved** | Question circle | Its turn ended without saying how this subagent ended. |
+
 A child that waits on you comes first: one that asks a question or an
 approval, then a delegated task that failed (only you can open and retry it).
-Running subagents follow, then finished ones, newest first. A line above the
-list counts them (`1 needs you · 2 running · 3 done`) and opens the first child
-that waits on you in one click; the tab itself reads `2 · 1 needs you`. An
-in-turn subagent that failed is reported by the turn that called it, so it is
-listed with the finished ones.
+Running subagents follow, then finished ones, newest first.
+
+Above the list, the counts are filters: **All 6 · Needs you 2 · Failed 2 ·
+Running 1 · Done 1**. Select one to show only those subagents; select it again
+(or **All**) to show every one. Every subagent sits under exactly one filter, so
+a failed delegated task is counted under **Failed**, not under **Needs you**.
+When every subagent is in the same state the line is a sentence instead
+(`3 running`). The tab itself still reads `1 · 3 need you`, counting the open
+asks and the failed delegated tasks you can retry.
+
+**Retry failed (N)** appears when delegated tasks failed and can be retried. It
+asks once for retry instructions and retries each of those tasks in turn, each
+with its original model and permissions; a refusal shows on that task's row.
+An in-turn subagent that failed is reported and retried by the turn that called
+it, so it is never part of this retry. A managed task's subagents stay
+read-only. **Open {name}** opens the first child that waits on you in one click.
+
+**Shared files** appears under that line when two or more of the task's
+children write in worktrees of their own (a writer gets a new worktree by
+default; a child working in the parent's workspace is not compared). It lists
+every file that two or more of those worktrees changed since they left the
+default branch, committed or not, with a column per worktree naming its
+children and their state. A changed cell says how the file changed and opens
+that worktree's diff of the file, read-only, in the editor. The list is read
+when the tab opens and with its refresh button, never in the background; the
+merge-base is reused while a worktree's HEAD stays, and the file list is read
+again each time. A worktree Stave cannot find or read is named and left out.
+It compares files only: whether the same lines changed is not checked, and a
+child created from another branch than the default one counts that branch's
+earlier changes too.
 Turn Activity retains its compact child rows with follow-up, retry and release
 controls. Settings → Providers → Delegated tasks documents provider availability,
 per-call parameters and how many helper Agents one Agent run can call ([team limits](./agents.md#team-limits)).

@@ -133,9 +133,10 @@
     "localChangeReviewDialog34": "Review changes",
     "sentence25": "Use a commit, branch or range that starts with a letter or digit and uses only letters, digits and . _ / ~ ^ @ {{value1}} {{value2}} -.",
     "sentence26": "{{value1}} staged · {{value2}}{{value3}} unstaged · {{value4}} untracked {{value5}}",
-    "sentence27": "Add product intent, risk areas, or files that deserve special attention. {{value1}}",
     "sentence24_one": "{{value1}} changed file ",
-    "sentence24_other": "{{value1}} changed file s"
+    "sentence24_other": "{{value1}} changed file s",
+    "focusDescription": "Add product intent, risk areas, or files that deserve special attention.",
+    "focusDescriptionWithSavedInstructions": "Add product intent, risk areas, or files that deserve special attention. Your saved review instructions from Settings are included too."
   },
   "reviewDocumentPicker": {
     "trigger": "Load from a document",
@@ -252,7 +253,27 @@
     "promptInputContextMeter4": "Tokens",
     "promptInputContextMeter5": "Compacting…",
     "promptInputContextMeter6": "Compact context",
-    "promptInputContextMeter7": "This provider has no compact command."
+    "promptInputContextMeter7": "This provider has no compact command.",
+    "ariaLabelRemaining": "Conversation context {{percent}} used, {{remaining}} tokens left",
+    "announceWarning": "Conversation context is {{percent}} full.",
+    "announceDanger": "Conversation context is {{percent}} full and close to its limit."
+  },
+  "contextBreakdown": {
+    "title": "Composition",
+    "loading": "Measuring…",
+    "unavailable": "Couldn't measure what fills the context.",
+    "notReported": "This provider doesn't report what fills the context.",
+    "conversation": "Conversation (estimated)",
+    "note": "Fixed parts are measured from a new session in this folder. Conversation is the used tokens minus those parts.",
+    "category": {
+      "systemPrompt": "System prompt",
+      "systemTools": "Tools",
+      "mcpTools": "MCP tools",
+      "mcpInstructions": "MCP instructions",
+      "customAgents": "Custom agents",
+      "memoryFiles": "Memory files",
+      "skills": "Skills"
+    }
   },
   "promptInputControlMenu": {
     "toolbar": "Bar",
@@ -437,6 +458,7 @@
     "title": "Copy"
   },
   "userInputCard": {
+    "optionPreview": "Preview · {{label}}",
     "title": "Answered",
     "detail": "Your submitted answer is shown below.",
     "title2": "Answer declined",
@@ -484,11 +506,21 @@
     "ariaLabel4": "New findings",
     "ariaLabel5": "Send {{value1}}: {{value2}}",
     "title": "Send only the chosen findings with your next message",
-    "reviewFindingsPanel3": "Attach",
-    "reviewFindingsPanel4": "of",
     "title2": "Check whether each finding is fixed now, on the same model, without reviewing from scratch",
     "reviewFindingsPanel5": "Check fixes",
-    "sentence56": "Fix: {{value1}}"
+    "sentence56": "Fix: {{value1}}",
+    "severity": {
+      "critical": "Critical",
+      "major": "Major",
+      "minor": "Minor"
+    },
+    "status": {
+      "resolved": "Resolved",
+      "outdated": "Outdated",
+      "unresolved": "Unresolved",
+      "unchecked": "Unchecked"
+    },
+    "attachChosen": "Attach {{chosen}} of {{total}}"
   },
   "shelfQueue": {
     "ariaLabel": "Queued messages",
@@ -613,7 +645,8 @@
     "extraCopy171": "Resume continues the stopped turn, then sends {{value1}} queued.",
     "extraCopy172": "Resume continues the stopped turn where it left off.",
     "extraCopy173": "Resume sends {{value1}} queued in order.",
-    "extraCopy174": "{{value1}}\n\nThe reviewer's full instructions are the first message of the review task."
+    "extraCopy174": "{{value1}}\n\nThe reviewer's full instructions are the first message of the review task.",
+    "noUpdatesForAWhile": "No updates for a while"
   },
   "useShelfReviews": {
     "copy": "Could not attach the review",
@@ -760,5 +793,12 @@
     "hideDone": "Hide done",
     "showPlan": "Show plan",
     "hidePlan": "Hide plan"
+  },
+  "modelPrice": {
+    "perMTok": "{{price}} / MTok"
+  },
+  "fileDrop": {
+    "title": "Drop to attach",
+    "hint": "Images and files attach the same way as paste"
   }
 }

@@ -109,8 +109,8 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
   ];
   const delegatesNeedYou = [
     previewDelegate("review", "Reviewer", { status: "returned", progress: ["Reading the diff"], result: "No findings." }),
-    previewDelegate("docs", "Writer", { status: "running", needsUser: true, progress: ["Waiting for an approval"] }),
-    previewDelegate("ship", "Shipper", { status: "running", waiting: true }),
+    previewDelegate("docs", "Writer", { status: "needs_user", progress: ["Waiting for an approval"] }),
+    previewDelegate("ship", "Shipper", { status: "waiting" }),
   ];
   const delegatesFinished = [
     previewDelegate("review", "Reviewer", { status: "returned", result: "No findings." }, now - 3 * 60_000),

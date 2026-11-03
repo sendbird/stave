@@ -329,9 +329,11 @@ describe("Kiro ACP runtime", () => {
     if (approval.type !== "approval") {
       throw new Error("Expected an approval event.");
     }
-    // No advertised option means no button, and an `always` scope that arrives
-    // anyway must narrow to allow-once rather than stall the turn.
-    expect(approval.supportsAllowAlways).toBeUndefined();
+    // No advertised option means the agent keeps no rule: "Always allow" is
+    // Stave's trusted-tools entry instead, and the `always` scope that reaches
+    // the runtime narrows to allow-once rather than stall the turn.
+    expect(approval.supportsAllowAlways).toBe(true);
+    expect(approval.trustedToolEntry).toBeString();
     expect(
       responder?.({
         requestId: approval.requestId,

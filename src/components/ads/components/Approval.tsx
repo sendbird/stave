@@ -67,6 +67,14 @@ export type ApprovalProps = Omit<React.ComponentProps<"section">, "title"> & {
   allowAlways?: boolean;
   allowAlwaysLabel?: React.ReactNode;
   allowOnceLabel?: React.ReactNode;
+  /**
+   * Host extension. A keyboard shortcut for "Allow once" that is live only
+   * while focus is inside this decision: Enter with Ctrl or Cmd (the app-wide
+   * `mod`), never repeated or composed. `ariaKeyShortcuts` names it on the
+   * button and `hint` is the keycap drawn inside it. Escape is deliberately
+   * not bound: a refusal is never one stray key away.
+   */
+  allowOnceShortcut?: { ariaKeyShortcuts: string; hint: React.ReactNode };
   /** What is being approved, as `label → value` pairs. Rung 4. */
   arguments?: readonly ApprovalArgument[];
   /** A decision is being recorded. Blocks the controls without faking one. */
@@ -87,6 +95,12 @@ export type ApprovalProps = Omit<React.ComponentProps<"section">, "title"> & {
    * pending to resolved; `null`/`undefined` means "still waiting".
    */
   outcome?: ApprovalOutcome | null;
+  /**
+   * Host extension. What makes the request riskier than a routine call, read
+   * from the request itself, as a word before the status word. It is text in
+   * muted ink, not a colored badge: the status word stays the one signal.
+   */
+  risk?: React.ReactNode;
   title: React.ReactNode;
 } & XstyleProp;
 
@@ -141,6 +155,7 @@ export function Approval({
   allowAlways = true,
   allowAlwaysLabel = i18n.t("ui:approval.alwaysAllow"),
   allowOnceLabel = i18n.t("ui:approval.allowOnce"),
+  allowOnceShortcut,
   arguments: argumentRows,
   busy = false,
   className,
@@ -148,7 +163,9 @@ export function Approval({
   denyLabel = i18n.t("ui:approval.deny"),
   description,
   onDecide,
+  onKeyDown,
   outcome,
+  risk,
   title,
   xstyle,
   ...props
@@ -208,11 +225,61 @@ export function Approval({
 
   const theme = themeProps("approval");
   const compact = density === "compact";
+  const shortcutLive =
+    allowOnceShortcut != null && !resolved && !busy && onDecide != null;
+
+  // Bound on the decision itself, so the key only answers the request whose
+  // card holds focus; a press anywhere else never reaches this handler.
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    onKeyDown?.(event as React.KeyboardEvent<HTMLElement & HTMLDivElement>);
+    if (
+      event.defaultPrevented ||
+      !shortcutLive ||
+      event.key !== "Enter" ||
+      !(event.metaKey || event.ctrlKey) ||
+      event.altKey ||
+      event.shiftKey ||
+      event.repeat ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    decide("allow-once");
+  };
+
+  const statusWord = (
+    <span
+      aria-live="polite"
+      aria-describedby={audit ? auditId : undefined}
+      {...themeSlotProps("approval", "status")}
+      className={sx(
+        styles.status,
+        resolved ? decisionTone[outcome.decision] : agentStatusWord.warning,
+        focusRing.ring,
+        transition.colors,
+      )}
+      onBlur={() => {
+        // Once the reader leaves the durable status, a later network
+        // outcome belongs to the transcript rather than to their focus.
+        reclaimRef.current = false;
+      }}
+      ref={statusRef}
+      // Programmatic focus only — never a tab stop. It exists so the
+      // resolution has somewhere to land, not so readers have to pass
+      // through it on the way to the composer.
+      tabIndex={-1}
+    >
+      {word}
+    </span>
+  );
 
   return (
     <section
       {...props}
       {...theme}
+      onKeyDown={handleKeyDown}
       aria-busy={busy || undefined}
       aria-labelledby={titleId}
       className={cx(
@@ -233,29 +300,17 @@ export function Approval({
         >
           {title}
         </span>
-        <span
-          aria-live="polite"
-          aria-describedby={audit ? auditId : undefined}
-          {...themeSlotProps("approval", "status")}
-          className={sx(
-            styles.status,
-            resolved ? decisionTone[outcome.decision] : agentStatusWord.warning,
-            focusRing.ring,
-            transition.colors,
-          )}
-          onBlur={() => {
-            // Once the reader leaves the durable status, a later network
-            // outcome belongs to the transcript rather than to their focus.
-            reclaimRef.current = false;
-          }}
-          ref={statusRef}
-          // Programmatic focus only — never a tab stop. It exists so the
-          // resolution has somewhere to land, not so readers have to pass
-          // through it on the way to the composer.
-          tabIndex={-1}
-        >
-          {word}
-        </span>
+        {risk == null ? (
+          statusWord
+        ) : (
+          <span className={sx(styles.statusGroup)}>
+            <span className={sx(styles.risk)} data-approval-risk="">
+              {risk}
+              <span aria-hidden="true"> ·</span>
+            </span>
+            {statusWord}
+          </span>
+        )}
       </div>
 
       {description == null ? null : (
@@ -331,12 +386,14 @@ export function Approval({
           ref={actionsRef}
         >
           <Button
+            aria-keyshortcuts={shortcutLive ? allowOnceShortcut.ariaKeyShortcuts : undefined}
             disabled={busy || onDecide == null}
             onClick={() => decide("allow-once")}
             size="sm"
             variant="primary"
           >
             {allowOnceLabel}
+            {shortcutLive ? allowOnceShortcut.hint : null}
           </Button>
           {allowAlways ? (
             <Button
@@ -411,6 +468,19 @@ const styles = stylex.create({
     // surface loud.
     fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: vars["--ads-line-height-tight"],
+  },
+  // The risk word and the status word, kept together at the row's end.
+  statusGroup: {
+    alignItems: "baseline",
+    display: "inline-flex",
+    flex: "0 0 auto",
+    gap: vars["--ads-space-4"],
+  },
+  risk: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    whiteSpace: "nowrap",
   },
   status: {
     borderRadius: vars["--ads-radius-mark"],

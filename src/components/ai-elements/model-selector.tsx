@@ -31,7 +31,8 @@ import {
 } from "@/lib/providers/model-catalog";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { modelSelectorStyles as styles } from "./model-selector.styles";
-import { ChoiceChips } from "@/components/system/ChoiceChips";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { ModelPrice } from "./model-picker-options";
 import { ModelIcon } from "./model-icon";
 import {
   shouldOpenModelSelector,
@@ -177,7 +178,7 @@ export function ModelSelector(args: ModelSelectorProps) {
       )}
       <div className={sx(styles.optionBody)}>
         <span className={sx(styles.optionTitleRow)}>
-          <span className={sx(styles.optionLabel)}>{option.label}</span>
+          <span className={sx(styles.optionLabel)} data-model-option-label="">{option.label}</span>
           {option.isDefault ? (
             <span className={sx(styles.optionDefaultBadge)}>{i18n.t("composer:modelSelector.copy")}</span>
           ) : null}
@@ -185,8 +186,12 @@ export function ModelSelector(args: ModelSelectorProps) {
             <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
           ) : null}
         </span>
-        <span className={sx(styles.optionDescription)}>
-          {option.description || option.model}
+        {/* The price ends the id line, so it never takes the name's room. */}
+        <span className={sx(styles.optionDescriptionLine)}>
+          <span className={sx(styles.optionDescription)}>
+            {option.description || option.model}
+          </span>
+          {option.isAuto ? null : <ModelPrice model={option.model} xstyle={styles.optionPrice} />}
         </span>
       </div>
     </CommandItem>
@@ -299,8 +304,9 @@ export function ModelSelector(args: ModelSelectorProps) {
         {effortEnabled && effortOptions.length > 0 ? (
           <div className={sx(styles.effortRow)}>
             <p className={sx(styles.effortLabel)}>{i18n.t("composer:modelSelector.sentence28", { value1: value.label })}</p>
-            <ChoiceChips
-              label={i18n.t("composer:modelSelector.label", { value1: value.label })}
+            <SegmentedControl
+              aria-label={i18n.t("composer:modelSelector.label", { value1: value.label })}
+              fullWidth
               options={effortOptions}
               value={effort}
               disabled={disabled}

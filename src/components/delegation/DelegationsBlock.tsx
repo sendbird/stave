@@ -90,9 +90,11 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
         <div className={sx(styles.blockHeader)}>
           <h3 className={sx(styles.blockTitle)}>
             {props.title ?? i18n.t("agentRuns:delegationsBlock.delegationsBlock")}
-            {countsLabel ? (
-              <span className={sx(styles.blockCounts)}> · {countsLabel}</span>
-            ) : null}
+            {/* Polite, so a child that starts needing a person or fails is
+                announced without moving anyone's focus. */}
+            <span aria-live="polite" className={sx(styles.blockCounts)}>
+              {countsLabel ? ` · ${countsLabel}` : ""}
+            </span>
           </h3>
           {spanMs !== null ? (
             <span

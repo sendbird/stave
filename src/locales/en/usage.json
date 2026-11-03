@@ -48,7 +48,9 @@
     "historyDescription": "Newest first · {{zone}} · {{pageSize}} per page. Expand a turn for its account and token details. Running turns appear when they finish.",
     "noCompletedTurns": "No completed turns in this selection.",
     "historyMeasurements": "Tokens exclude cache reads. USD is provider-reported; missing measurements are not zero.",
-    "tokenCountingTitle": "How tokens are counted"
+    "tokenCountingTitle": "How tokens are counted",
+    "share": "Share",
+    "shareOf": "Share of tokens for {{name}}"
   },
   "usageQuota": {
     "accountQuota": "Account quota",
@@ -117,8 +119,6 @@
     "day": "Day",
     "hour": "Hour",
     "timezone": "Timezone",
-    "from": "From",
-    "through": "Through",
     "filtersOnlyChangeThisReport": "· filters only change this report",
     "model": "Model ·",
     "quotaRemainsAccountWide": "· quota remains account-wide",
@@ -185,5 +185,48 @@
     "daysHoursMinutes": "Resets in {{days}}d {{hours}}h {{minutes}}m",
     "missing": "Reset time not reported",
     "passed": "Reset time passed"
+  },
+  "dateRange": {
+    "label": "Dates",
+    "dialog": "Choose dates",
+    "presets": "Preset periods",
+    "pickEnd": "Choose an end date",
+    "tooLong_one": "Choose at most {{count}} day",
+    "tooLong_other": "Choose at most {{count}} days",
+    "summary_one": "{{range}} · {{count}} day · {{zone}}",
+    "summary_other": "{{range}} · {{count}} days · {{zone}}"
+  },
+  "compare": {
+    "sameChip": "±0%",
+    "fromZeroChip": "{{arrow}} from 0",
+    "underOnePercent": "<1%",
+    "same": "No change",
+    "upFromZero": "Up from 0",
+    "downToZero": "Down to 0",
+    "up": "Up {{percent}}",
+    "down": "Down {{percent}}",
+    "sentenceWithValue": "{{change}} vs {{period}} ({{previous}})",
+    "sentence": "{{change}} vs {{period}}",
+    "versusWithValue": "vs {{period}} ({{previous}})",
+    "versus": "vs {{period}}",
+    "notCompared": {
+      "noEarlierTurns": "Not compared · no turns in {{period}}",
+      "earlierNotReported": "Not compared · {{period}} not reported",
+      "notReported": "Not compared · not reported in this period"
+    }
+  },
+  "chart": {
+    "split": "Split",
+    "splitNone": "Total only",
+    "splitProvider": "Split by provider",
+    "legend": "Providers in the chart",
+    "providerValue": "{{provider}} {{value}}",
+    "barSplitLabel": "{{label}}. {{providers}}",
+    "readout_one": "{{value}} {{metric}} · {{count}} turn",
+    "readout_other": "{{value}} {{metric}} · {{count}} turns",
+    "hintDay": "← → move · Enter shows hours",
+    "hintHour": "← → move · Enter shows exact buckets",
+    "readoutNotReported_one": "{{metric}} not reported · {{count}} turn",
+    "readoutNotReported_other": "{{metric}} not reported · {{count}} turns"
   }
 }

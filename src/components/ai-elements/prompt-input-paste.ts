@@ -18,8 +18,10 @@ import type { PromptInputProps } from "./prompt-input.types";
 /**
  * Owns the composer's clipboard read queue and its paste handler: pasted
  * images become image attachments once they are read, and other pasted files
- * go to `onPasteFiles`. The queue is recreated (and the old one cancelled)
- * when the attachment scope or workspace changes.
+ * go to `onPasteFiles`. Files dropped on the composer take the same path
+ * (`attachTransfer`), so a drop attaches exactly what a paste would. The
+ * queue is recreated (and the old one cancelled) when the attachment scope or
+ * workspace changes.
  */
 export function usePromptInputClipboardPaste(args: {
   attachmentScopeId?: string;
@@ -34,16 +36,19 @@ export function usePromptInputClipboardPaste(args: {
   );
   useEffect(() => () => clipboardReadQueue.cancel(), [clipboardReadQueue]);
 
-  function handlePaste(event: ReactClipboardEvent<HTMLDivElement>) {
-    const clipboardData = event.clipboardData;
-    if (!clipboardData) {
-      return;
-    }
+  /** Whether this composer can take files at all (a drop is refused otherwise). */
+  const acceptsFiles = Boolean(onAttachmentsChange) || Boolean(onPasteFiles);
+
+  /**
+   * Attaches the files a clipboard or a drop carries; false when there is
+   * nothing this composer can take, so the caller leaves the event alone.
+   */
+  function attachTransfer(transfer: Pick<DataTransfer, "items" | "files">): boolean {
     const { imageFiles, nonImageFiles: pastedFiles } =
       partitionClipboardFiles(
         collectClipboardFiles({
-          items: clipboardData.items,
-          files: clipboardData.files,
+          items: transfer.items,
+          files: transfer.files,
         }),
       );
     const shouldHandleImages =
@@ -51,9 +56,8 @@ export function usePromptInputClipboardPaste(args: {
     const shouldHandleFiles =
       pastedFiles.length > 0 && Boolean(onPasteFiles);
     if (!shouldHandleImages && !shouldHandleFiles) {
-      return;
+      return false;
     }
-    event.preventDefault();
     if (shouldHandleFiles) {
       void onPasteFiles?.({ files: pastedFiles });
     }
@@ -99,7 +103,19 @@ export function usePromptInputClipboardPaste(args: {
           });
         });
     }
+    return true;
   }
 
-  return { clipboardReadQueue, handlePaste };
+  function handlePaste(event: ReactClipboardEvent<HTMLDivElement>) {
+    const clipboardData = event.clipboardData;
+    if (!clipboardData) {
+      return;
+    }
+    // Claim the event before the read starts, so the editor never pastes the files as text.
+    if (attachTransfer(clipboardData)) {
+      event.preventDefault();
+    }
+  }
+
+  return { clipboardReadQueue, handlePaste, attachTransfer, acceptsFiles };
 }

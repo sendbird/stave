@@ -40,6 +40,18 @@ export function formatDate(value: DateInput, options: Intl.DateTimeFormatOptions
   return formatDateTime(value, options);
 }
 
+/**
+ * Two dates as one range ("Sep 5 – Oct 4, 2026"): the parts both ends share
+ * are written once, in the display language's own order and separator.
+ */
+export function formatDateRange(start: DateInput, end: DateInput, options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" }): string {
+  const from = toDate(start);
+  const to = toDate(end);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
+  const formatter = cached("dt", options, (locale) => new Intl.DateTimeFormat(locale, options)) as Intl.DateTimeFormat;
+  return to.getTime() < from.getTime() ? formatter.formatRange(to, from) : formatter.formatRange(from, to);
+}
+
 export function formatTime(value: DateInput, options: Intl.DateTimeFormatOptions = { timeStyle: "short" }): string {
   return formatDateTime(value, options);
 }
@@ -221,6 +233,12 @@ export interface TokenCountFormatOptions {
    * a number someone set, such as a budget, which rounding would misstate.
    */
   exact?: boolean;
+  /**
+   * One decimal at every size (`3.1k`, `12.4k`, `44.9k`, `1.2M`), for parts
+   * listed against their total: whole units above ten (`12k`, `45k`) round
+   * each part by up to half a unit, so the parts stop adding up to it.
+   */
+  tenths?: boolean;
 }
 
 /**
@@ -234,6 +252,13 @@ export function formatTokenCount(count: number, options: TokenCountFormatOptions
     return tokens < 1_000_000
       ? `${formatNumber(tokens / 1_000, { maximumFractionDigits: 3 })}k`
       : `${formatNumber(tokens / 1_000_000, { maximumFractionDigits: 6 })}M`;
+  }
+  if (options.tenths) {
+    const tenth = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+    const shownThousands = Math.round(tokens / 100) / 10;
+    return shownThousands < 1_000
+      ? `${formatNumber(shownThousands, tenth)}k`
+      : `${formatNumber(Math.round(tokens / 100_000) / 10, tenth)}M`;
   }
   const thousands = tokens / 1_000;
   const shownThousands = thousands < 10 ? Math.round(thousands * 10) / 10 : Math.round(thousands);

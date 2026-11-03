@@ -103,6 +103,13 @@ const FLEET_ROW_ANSWER = [
   "src/components/layout/FleetAttentionInbox.tsx",
   "src/components/layout/FleetRowInlineAnswer.tsx",
 ] as const;
+/** Review moves between the reviews waiting on the user. */
+const REVIEW_SURFACE = "src/components/review/TaskReviewSurface.tsx";
+/** Approvals answer to the same keys in Fleet's rows and in the bell. */
+const APPROVAL_ROW_ANSWER = [
+  ...FLEET_ROW_ANSWER,
+  "src/components/layout/TopBarNotifications.tsx",
+] as const;
 
 /** A `Cmd/Ctrl+K` chord whose second key the user can change in Settings. */
 function appChord<TId extends AppShortcutCommandId>(
@@ -483,6 +490,23 @@ export const KEYBINDING_REGISTRY = [
     handledBy: ["src/components/session/ChatInputComposer.tsx"],
   },
   {
+    // Bound on the approval card itself (ADS `Approval`), so it answers only
+    // the request whose card holds focus: in the conversation, a Fleet panel
+    // or a delegated task's slot. Escape is deliberately never a denial.
+    id: "approval.allow-once",
+    keys: ["mod+enter"],
+    scope: "task-pane",
+    focus: true,
+    editable: "block",
+    titleKey: "shell:keybindings.entries.approvalAllowOnce.title",
+    descriptionKey: "shell:keybindings.entries.approvalAllowOnce.description",
+    section: "composer",
+    handledBy: [
+      "src/components/ads/components/Approval.tsx",
+      "src/components/session/ToolApprovalCard.tsx",
+    ],
+  },
+  {
     id: "approval.focus-guidance",
     keys: ["tab"],
     scope: "composer",
@@ -661,7 +685,7 @@ export const KEYBINDING_REGISTRY = [
   },
   {
     id: "fleet.next-row",
-    keys: ["arrowdown"],
+    keys: ["arrowdown", "j"],
     scope: "fleet",
     focus: true,
     editable: "block",
@@ -673,7 +697,7 @@ export const KEYBINDING_REGISTRY = [
   },
   {
     id: "fleet.previous-row",
-    keys: ["arrowup"],
+    keys: ["arrowup", "k"],
     scope: "fleet",
     focus: true,
     editable: "block",
@@ -705,7 +729,7 @@ export const KEYBINDING_REGISTRY = [
     titleKey: "shell:keybindings.entries.fleetRowAllow.title",
     descriptionKey: "shell:keybindings.entries.fleetRowAllow.description",
     section: "surfaces",
-    handledBy: FLEET_ROW_ANSWER,
+    handledBy: APPROVAL_ROW_ANSWER,
   },
   {
     id: "fleet.row-deny",
@@ -717,7 +741,7 @@ export const KEYBINDING_REGISTRY = [
     titleKey: "shell:keybindings.entries.fleetRowDeny.title",
     descriptionKey: "shell:keybindings.entries.fleetRowDeny.description",
     section: "surfaces",
-    handledBy: FLEET_ROW_ANSWER,
+    handledBy: APPROVAL_ROW_ANSWER,
   },
   {
     id: "fleet.row-choose-option",
@@ -730,6 +754,30 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:keybindings.entries.fleetRowChoose.description",
     section: "surfaces",
     handledBy: FLEET_ROW_ANSWER,
+  },
+  {
+    id: "review.next",
+    keys: ["j"],
+    scope: "task-pane",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.reviewNext.title",
+    descriptionKey: "shell:keybindings.entries.reviewNext.description",
+    section: "surfaces",
+    handledBy: [REVIEW_SURFACE],
+  },
+  {
+    id: "review.previous",
+    keys: ["k"],
+    scope: "task-pane",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.reviewPrevious.title",
+    descriptionKey: "shell:keybindings.entries.reviewPrevious.description",
+    section: "surfaces",
+    handledBy: [REVIEW_SURFACE],
   },
   {
     id: "issues.next",

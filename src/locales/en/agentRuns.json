@@ -81,9 +81,6 @@
     "agentRunOverview": " · Workflow: {{value1}}",
     "ariaLabel": "Done when",
     "agentRunOverview2": "Done when",
-    "ariaLabel2": "Plan",
-    "agentRunOverview5": "Plan",
-    "title": "Updated as the agent works",
     "ariaLabel3": "Stages",
     "agentRunOverview6": "Stages",
     "ariaLabel4": "Result",
@@ -114,12 +111,6 @@
     "sentence3": "Run · {{value1}}",
     "sentence4": "{{value1}} of {{value2}} met",
     "sentence5": "Signed off by you at {{value1}}"
-  },
-  "agentRunPlan": {
-    "label": "Done",
-    "label2": "Now",
-    "describePlanProgress": "{{value1}} of {{value2}} done",
-    "ariaLabel": "Plan"
   },
   "agentRunPrompt": {
     "label": "Full prompt sent to the agent",
@@ -158,7 +149,6 @@
     "description": "The agent posts the report once, as a reply, with your Slack tools. It changes no files.",
     "agentRunReportView9": "Cancel",
     "agentRunReportView10": "Share",
-    "sentence6": "Plan · {{value1}}",
     "extraCopy4": "Duration",
     "extraCopy5": "Stages",
     "extraCopy6": "Turns",
@@ -191,9 +181,6 @@
     "extraCopy10_other": "{{value1}} turns reported no usage, so the total may be low.",
     "startedAt": "since {{time}}",
     "fromStartedAt": "from {{time}}"
-  },
-  "ditherProgress": {
-    "ariaLabel": "Progress"
   },
   "evidenceList": {
     "ariaLabel": "Show \"{{value1}}\" in the transcript",
@@ -243,7 +230,8 @@
     "extraCopy11": "asks you first",
     "extraCopy13": "no repairs",
     "extraCopy12_one": "up to {{value1}} repair",
-    "extraCopy12_other": "up to {{value1}} repairs"
+    "extraCopy12_other": "up to {{value1}} repairs",
+    "now": "now"
   },
   "stageTrack": {
     "ariaLabel": "{{value1}} progress",
@@ -286,7 +274,9 @@
   "delegationsBlock": {
     "ariaLabel": "Agents",
     "delegationsBlock": "Agents",
-    "title": "Elapsed across delegations"
+    "title": "Elapsed across delegations",
+    "countNeedsYou_one": "{{count}} needs you",
+    "countNeedsYou_other": "{{count}} need you"
   },
   "exchangeDetail": {
     "auto": "Automatic routing",
@@ -317,12 +307,14 @@
     "label14": "the {{value1}}",
     "exchangeDetail4": "Assignment and execution details",
     "label15": "the assignment",
-    "sentence33": "Started {{value1}} {{value2}}",
     "sentence34": "asked by{{value1}} {{value2}}",
     "extraCopy75": "{{value1}} cache read",
     "extraCopy76": "{{value1}} cache write",
     "extraCopy77": "Requested or configured; runtime execution not reported",
-    "extraCopy81": "Not reported"
+    "extraCopy81": "Not reported",
+    "started": "Started {{start}}",
+    "startedEnded": "Started {{start}} · ended {{end}}",
+    "startedStillRunning": "Started {{start}} · still running"
   },
   "exchangeRow": {
     "exchangeRow": "elapsed"
@@ -641,7 +633,9 @@
       "completed": "completed",
       "skipped": "skipped",
       "cancelled": "cancelled"
-    }
+    },
+    "summaryActive_one": "{{outcome}} · {{duration}} active · {{count}} turn",
+    "summaryActive_other": "{{outcome}} · {{duration}} active · {{count}} turns"
   },
   "report": {
     "summary": "Blocked: {{value1}}",
@@ -679,7 +673,9 @@
     "label4": "Failed",
     "label5": "Cancelled",
     "label6": "Timed out",
-    "label7": "Unresolved"
+    "label7": "Unresolved",
+    "waiting": "Waiting",
+    "needsYou": "Needs you"
   },
   "automaticTurnOwner": {
     "aGENTRUNACTIVEWAKEUPDETAIL": "A run is running on this task. This schedule resumes when the run ends.",
@@ -820,7 +816,9 @@
       "failed_one": "{{count}} failed",
       "failed_other": "{{count}} failed",
       "stopped_one": "{{count}} stopped",
-      "stopped_other": "{{count}} stopped"
+      "stopped_other": "{{count}} stopped",
+      "unresolved_one": "{{count}} unresolved",
+      "unresolved_other": "{{count}} unresolved"
     }
   },
   "normalize": {
@@ -854,7 +852,6 @@
     "presentationCopy4": "attempt {{v1}}",
     "presentationCopy6": " for {{v1}}",
     "presentationCopy7": "Stave action: {{v1}}",
-    "presentationCopy266": " · ended {{v1}}",
     "presentationCopy402": "{{v1}} again",
     "presentationCopy414": "{{v1}} · running",
     "presentationCopy415": "{{v1}} · starting",
@@ -1076,8 +1073,6 @@
     "description": "Stave runs these action scripts itself on the final revision before the stage can finish.",
     "none": "None. The agent reports when this stage is done.",
     "add": "Add check",
-    "editScripts": "Edit scripts",
-    "editScriptsAria": "Edit scripts: {{check}}",
     "scriptsAria": "Scripts of {{check}}",
     "removeCheck": "Remove check: {{check}}",
     "removeScript": "Remove {{script}} from this check",
@@ -1167,5 +1162,16 @@
       "attachments_other": "Keeps {{count}} attachments",
       "filePaths": "Reads saved copies of attached files"
     }
+  },
+  "activeTime": {
+    "activeFor": "Active for",
+    "wasActive": "Active time",
+    "since": "since {{time}} · pauses not counted",
+    "from": "from {{time}} · pauses not counted",
+    "explain": "Counts only the time the run worked. Pauses, waits for your answer or sign-off, and time Stave was closed are left out.",
+    "wallClockSince": "{{explain}} It started {{duration}} ago.",
+    "wallClockTook": "{{explain}} It took {{duration}} from start to end.",
+    "soFar": "{{value1}} active so far",
+    "reportLabel": "Active"
   }
 }

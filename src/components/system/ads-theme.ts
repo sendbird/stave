@@ -128,6 +128,13 @@ const roles = {
   "--ads-color-scrollbar-thumb": "color-mix(in oklab, var(--foreground) 24%, transparent)",
   "--ads-color-scrollbar-thumb-hover":
     "color-mix(in oklab, var(--foreground) 48%, transparent)",
+  // Meter and Progress tracks: the 24% step of the same overlay, so a track is
+  // a shade of whatever card or panel it sits on. Aliasing `--muted` (via
+  // `colorCanvasSubtle`) drew no track at all on a `--muted` card. Measured on
+  // every built-in theme against background/card/popover/muted/sidebar: track
+  // 1.35:1 at the lowest (everforest-light), 1.5:1+ on 32 of 40 themes; every
+  // tone's fill stays 1.54:1+ from the track (`tests/theme-contrast.test.ts`).
+  "--ads-color-track": "color-mix(in oklab, var(--foreground) 24%, transparent)",
   // Inset hairline under recessed keycaps/chips; ink-on-light, light-on-dark.
   "--ads-color-inset-edge": "color-mix(in oklab, var(--foreground) 6%, transparent)",
   "--ads-z-index-sticky": "1",

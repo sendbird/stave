@@ -23,6 +23,7 @@ import type {
   TrackerIssueStartMode,
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { useAppStore } from "@/store/app.store";
 import {
   TRACKER_LINK_STATE_PRESENTATION,
@@ -194,30 +195,13 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
               className={sx(taskLayoutStyles.kickoffSectionHeading)}
             >
               {tI18n("issues:trackerIssueKickoffSheet.howItStarts")}</h3>
-            <div className={sx(taskLayoutStyles.kickoffModeList)}>
-              {START_MODE_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  size="sm"
-                  variant={
-                    draft.startMode === option.value ? "secondary" : "ghost"
-                  }
-                  aria-pressed={draft.startMode === option.value}
-                  xstyle={
-                    draft.startMode === option.value
-                      ? [
-                          taskLayoutStyles.kickoffMode,
-                          taskLayoutStyles.kickoffModeActive,
-                        ]
-                      : taskLayoutStyles.kickoffMode
-                  }
-                  onClick={() => draft.setStartMode(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
+            <SegmentedControl
+              aria-labelledby={`${ID_PREFIX}-start-heading`}
+              fullWidth
+              value={draft.startMode}
+              onValueChange={draft.setStartMode}
+              options={START_MODE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+            />
             <p className={sx(taskLayoutStyles.kickoffHint)}>
               {draft.startMode === "run"
                   ? tI18n("issues:trackerIssueKickoffSheet.theWorkspaceIsCreatedAndTheTurn")

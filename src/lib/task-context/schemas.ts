@@ -1,5 +1,5 @@
 import { QuestionReplySchema } from "@/lib/question-reply";
-import { ApprovalResolutionSchema } from "@/lib/approvals/approval-resolution";
+import { APPROVAL_RISKS, ApprovalResolutionSchema } from "@/lib/approvals/approval-resolution";
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
@@ -63,6 +63,8 @@ const ToolUsePartSchema = z.object({
   exitCode: z.number().int().nullable().optional(),
   mcpAppView: McpAppViewReferenceSchema.optional(),
   elapsedSeconds: z.number().optional(),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
   progressMessages: z.array(z.string()).optional(),
   state: z.union([
     z.literal("input-streaming"),
@@ -97,6 +99,10 @@ const ApprovalPartSchema = z.object({
   description: z.string(),
   input: z.string().optional(),
   supportsAllowAlways: z.boolean().optional(),
+  trustedToolEntry: z.string().optional(),
+  risk: z.enum(APPROVAL_RISKS).optional().catch(undefined),
+  ownerAgentId: z.string().optional(),
+  expiresAt: z.string().datetime().optional().catch(undefined),
   requestId: z.string(),
   state: z.union([
     z.literal("approval-requested"),
@@ -125,6 +131,7 @@ const UserInputPartSchema = z.object({
           description: z.string(),
           value: z.string().optional(),
           recommended: z.boolean().optional(),
+          preview: z.string().optional(),
         }),
       ),
       multiSelect: z.boolean().optional(),

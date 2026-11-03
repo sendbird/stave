@@ -40,6 +40,51 @@ export function usageRange(args: { period: UsagePeriod; start: string; end: stri
   if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from || to.getTime() - from.getTime() > 366 * 86_400_000) return null;
   return { from: from.toISOString(), to: to.toISOString() };
 }
+/** A calendar date range as `YYYY-MM-DD` keys, both ends inclusive; `end` is unset while it is being picked. */
+export interface UsageDateRange {
+  start?: string;
+  end?: string;
+}
+
+export type UsageRangePreset = { value: Exclude<UsagePeriod, "custom">; label: string; start: string; end: string };
+
+/**
+ * The Period menu's fixed periods as date ranges, in the menu's order and
+ * words, computed by the same `usageRange` the report reads with.
+ */
+export function usagePeriodPresets(now: Date, utc: boolean): UsageRangePreset[] {
+  return USAGE_PERIOD_OPTIONS.flatMap((option) => {
+    if (option.value === "custom") return [];
+    const range = usageRange({ period: option.value as UsagePeriod, start: "", end: "", utc, now });
+    if (!range) return [];
+    return [{ value: option.value as UsageRangePreset["value"], label: option.label,
+      start: dateInputValue(new Date(range.from), utc), end: dateInputValue(new Date(Date.parse(range.to) - 1), utc) }];
+  });
+}
+
+/**
+ * One click on a day: the first picks the start, the second the end. A
+ * second day before the start becomes the start, so the range is never
+ * backwards; a click after a finished range starts a new one.
+ */
+export function pickUsageRangeDay(draft: UsageDateRange, day: string): UsageDateRange {
+  if (!draft.start || draft.end) return { start: day };
+  if (day < draft.start) return { start: day, end: draft.start };
+  return { start: draft.start, end: day };
+}
+
+/** Days in a finished range, both ends counted. */
+export function usageRangeDayCount(range: UsageDateRange): number | null {
+  if (!range.start || !range.end) return null;
+  const start = Date.parse(`${range.start}T00:00:00Z`);
+  const end = Date.parse(`${range.end}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return Math.round((end - start) / 86_400_000) + 1;
+}
+
+/** The longest range one report reads; `usageRange` refuses anything longer. */
+export const USAGE_MAX_RANGE_DAYS = 366;
+
 export function usageAccountLabel(providerId: ProviderId, accountProfileId: string, profiles: readonly ProviderAccountProfile[]) {
   if (accountProfileId === UNATTRIBUTED_ACCOUNT_ID) return i18n.t("usage:usageViewUtils.unattributedHistory");
   if (accountProfileId === SYSTEM_ACCOUNT_PROFILE_ID) return i18n.t("usage:usageViewUtils.systemDefault");

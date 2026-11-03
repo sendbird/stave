@@ -3,9 +3,12 @@ import { describe, expect, test } from "bun:test";
 
 import { CommandResult } from "@/components/session/message/command-result";
 import {
+  countLines,
   ReasoningRow,
   TraceCitations,
+  TraceOutput,
 } from "@/components/session/message/turn-event-rows";
+import { TraceToolRun } from "@/components/session/message/turn-event-tool-runs";
 
 /**
  * The transcript's ADS-backed rows. These pin the two claims the adoption is
@@ -94,5 +97,48 @@ describe("TraceCitations", () => {
 
   test("renders nothing when the output cites nothing", () => {
     expect(renderToStaticMarkup(<TraceCitations output="no links" />)).toBe("");
+  });
+});
+
+describe("Tool call card values", () => {
+  test("caps a long output in the shared viewport and keeps its copy action", () => {
+    const longOutput = Array.from({ length: 500 }, (_, index) => `src/file-${index}.ts:1: match`).join("\n");
+    const markup = renderToStaticMarkup(<TraceOutput capped label="Output" linkify={false} text={longOutput} />);
+    expect(markup).toContain('data-trace-output-capped="true"');
+    expect(markup).toContain('role="log"');
+    expect(markup).toContain('aria-label="Output"');
+    expect(markup).toContain("--ads-capped-viewport-cap:220px");
+    expect(markup).toContain("src/file-499.ts:1: match");
+    expect(markup).toContain(">Copy<");
+    // The line count is measured in the browser once the box overflows.
+    expect(markup).not.toContain("trace-output-line-note");
+    expect(countLines(longOutput)).toBe(500);
+    expect(countLines(`${longOutput}\n`)).toBe(500);
+    expect(countLines("")).toBe(0);
+  });
+
+  test("gives the arguments the same copy action and cap as the output", () => {
+    const markup = renderToStaticMarkup(
+      <TraceToolRun
+        taskId="task-1"
+        part={{
+          type: "tool_use",
+          toolUseId: "toolu_grep",
+          toolName: "Grep",
+          input: JSON.stringify({ pattern: "traceStepEnter", path: "src", glob: "*.tsx" }),
+          output: "src/a.tsx:1: traceStepEnter",
+          state: "output-available",
+        }}
+      />,
+    );
+    expect(markup.match(/data-trace-output-capped="true"/g)).toHaveLength(2);
+    expect(markup).toContain('aria-label="Arguments"');
+    expect(markup.match(/>Copy</g)).toHaveLength(2);
+  });
+
+  test("an uncapped value keeps its plain layout", () => {
+    const markup = renderToStaticMarkup(<TraceOutput text="short" />);
+    expect(markup).not.toContain("data-trace-output-capped");
+    expect(markup).not.toContain('role="log"');
   });
 });

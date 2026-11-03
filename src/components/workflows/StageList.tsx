@@ -172,7 +172,7 @@ export function StageList<T extends StageListValue>(props: {
               ],
             },
             {
-              label: "Stave action",
+              label: i18n.t("agentRuns:stageRow.title2"),
               items: ACTION_TYPES.map((type) => {
                 const reason = explainActionUnavailable(workflow, type);
                 return {

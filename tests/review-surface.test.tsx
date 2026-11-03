@@ -20,7 +20,7 @@ afterEach(() => {
 
 /** The opening tags of the toggle buttons, with their labels. */
 function toggles(markup: string): Array<{ label: string; pressed: boolean }> {
-  return [...markup.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)].map((match) => ({
+  return [...markup.matchAll(/<(?:span|button)[^>]*role="radio"[^>]*aria-checked="(true|false)"[^>]*>(.*?)<\/(?:span|button)><input/g)].map((match) => ({
     label: match[2]!.replace(/<[^>]+>/g, "").trim(),
     pressed: match[1] === "true",
   }));

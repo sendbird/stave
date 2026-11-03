@@ -15,9 +15,11 @@ import type {
   TaskExecutionMetricProvenance,
   TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
+import { Meter } from "@/components/ads/components/Meter";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/ads/utils/tone";
+import { usageThresholdTone, type UsageThresholdKind } from "@/lib/usage/usage-thresholds";
 import { summaryStyles as styles } from "./task-execution-summary.styles";
 
 type MetricTone = Extract<Tone, "neutral" | "success" | "warning" | "danger">;
@@ -104,12 +106,6 @@ const PART_INK: Record<PartInk, StyleXValue> = {
   removed: styles.toneRemoved,
 };
 
-const METER_FILL: Record<MeterTone, StyleXValue> = {
-  neutral: styles.meterNeutral,
-  warning: styles.meterWarning,
-  danger: styles.meterDanger,
-};
-
 /**
  * Provenance moved from a third text line to a dot on the label row.
  *
@@ -137,23 +133,23 @@ function ProvenanceDot(args: { provenance: TaskExecutionMetricProvenance }) {
   );
 }
 
+/**
+ * A second reading of the figure above it: the design system's small meter,
+ * muted until the headroom is actually tight.
+ */
 function StatMeterBar(args: { meter: StatMeter }) {
   const clamped = Math.min(100, Math.max(0, args.meter.usedPercent));
   return (
-    <div
-      className={sx(styles.meterTrack)}
-      role="meter"
-      aria-label={args.meter.label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(clamped)}
-      aria-valuetext={args.meter.label}
-    >
-      <div
-        className={sx(styles.meterFill, METER_FILL[args.meter.tone])}
-        style={{ width: `${clamped}%` }}
-      />
-    </div>
+    <Meter
+      xstyle={styles.meter}
+      label={args.meter.label}
+      hideLabel
+      hideValue
+      size="sm"
+      tone={args.meter.tone}
+      value={Math.round(clamped)}
+      getAriaValueText={() => args.meter.label}
+    />
   );
 }
 
@@ -222,11 +218,18 @@ function joinDetails(parts: Array<string | undefined>) {
  * tiles they read as unrelated gauges, and they were the pair that pushed the
  * grid to an awkward seven.
  */
+/** A whole percent ("37%"), as account limits and cache rates are read. */
+function formatWholePercent(percent: number): string {
+  return formatPercent(percent / 100, { maximumFractionDigits: 0 });
+}
+
 function formatContextPercent(usedPercent: number): string {
   return formatPercent(usedPercent / 100, { minimumFractionDigits: usedPercent < 10 ? 1 : 0, maximumFractionDigits: usedPercent < 10 ? 1 : 0 });
 }
 
 interface HeadroomFact {
+  /** Which shared scale colours this reading: the context window or an account quota. */
+  kind: UsageThresholdKind;
   /** 0–1. Lower means less room, so the tighter fact becomes the hero. */
   remainingRatio: number | null;
   usedPercent: number | null;
@@ -236,16 +239,11 @@ interface HeadroomFact {
 }
 
 /**
- * One scale for both constraints: the bar and the number change together.
- * 75% used is the warning, 90% is the point where the run is about to stop.
+ * The bar and the number change together, on the same scale the composer
+ * context meter or the quota surfaces use for that reading.
  */
-const PRESSURE_THRESHOLDS = [
-  { from: 75, tone: "warning" },
-  { from: 90, tone: "danger" },
-] as const satisfies readonly ToneThreshold<MeterTone>[];
-
-function pressureTone(usedPercent: number): MeterTone {
-  return thresholdTone(usedPercent, PRESSURE_THRESHOLDS, "neutral");
+function pressureTone(kind: UsageThresholdKind, usedPercent: number): MeterTone {
+  return usageThresholdTone(kind, usedPercent, "neutral");
 }
 
 function contextHeadroomFact(
@@ -255,29 +253,32 @@ function contextHeadroomFact(
     const remainingRatio = headroom.remainingTokens / headroom.totalTokens;
     const usedPercent = (1 - remainingRatio) * 100;
     return {
+      kind: "context",
       remainingRatio,
       usedPercent,
-      figure: `${formatCount(headroom.remainingTokens)} ctx left`,
-      usedLabel: `${formatContextPercent(usedPercent)} used`,
+      figure: i18n.t("workspace:taskExecutionSummarySurface.contextLeft", { amount: formatCount(headroom.remainingTokens) }),
+      usedLabel: i18n.t("workspace:taskExecutionSummarySurface.percentUsed", { percent: formatContextPercent(usedPercent) }),
     };
   }
   if (headroom.remainingTokens !== undefined) {
     return {
+      kind: "context",
       remainingRatio: null,
       usedPercent: headroom.usedPercent ?? null,
-      figure: `${formatCount(headroom.remainingTokens)} ctx left`,
+      figure: i18n.t("workspace:taskExecutionSummarySurface.contextLeft", { amount: formatCount(headroom.remainingTokens) }),
       usedLabel:
         headroom.usedPercent !== undefined
-          ? `${formatContextPercent(headroom.usedPercent)} used`
+          ? i18n.t("workspace:taskExecutionSummarySurface.percentUsed", { percent: formatContextPercent(headroom.usedPercent) })
           : null,
     };
   }
   if (headroom.usedPercent !== undefined) {
     return {
+      kind: "context",
       remainingRatio: (100 - headroom.usedPercent) / 100,
       usedPercent: headroom.usedPercent,
-      figure: `${formatContextPercent(100 - headroom.usedPercent)} ctx left`,
-      usedLabel: `${formatContextPercent(headroom.usedPercent)} used`,
+      figure: i18n.t("workspace:taskExecutionSummarySurface.contextLeft", { amount: formatContextPercent(100 - headroom.usedPercent) }),
+      usedLabel: i18n.t("workspace:taskExecutionSummarySurface.percentUsed", { percent: formatContextPercent(headroom.usedPercent) }),
     };
   }
   return null;
@@ -289,10 +290,11 @@ function accountHeadroomFact(
   const used = Math.round(limit.usedPercent);
   const left = Math.max(0, 100 - used);
   return {
+    kind: "quota",
     remainingRatio: left / 100,
     usedPercent: used,
-    figure: `${left}% left`,
-    usedLabel: `${used}% used`,
+    figure: i18n.t("workspace:taskExecutionSummarySurface.percentLeft", { percent: formatWholePercent(left) }),
+    usedLabel: i18n.t("workspace:taskExecutionSummarySurface.percentUsed", { percent: formatWholePercent(used) }),
   };
 }
 
@@ -317,7 +319,7 @@ function buildHeadroomDescriptor(
     : "unavailable";
   const tone: MeterTone =
     primary?.usedPercent != null
-      ? pressureTone(primary.usedPercent)
+      ? pressureTone(primary.kind, primary.usedPercent)
       : "neutral";
   const parts: StatPart[] = [];
   if (primary?.usedLabel) {
@@ -338,7 +340,7 @@ function buildHeadroomDescriptor(
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Not reported";
+    : i18n.t("workspace:taskExecutionSummarySurface.notReported");
   return {
     key: "headroom",
     icon: Gauge,
@@ -397,13 +399,13 @@ function buildUsageReadout(
   // the uncached remainder, so the old sum silently omitted every cached
   // token — the bulk of a long task's prompt.
   const tokenLabel = hasTokens
-    ? `${formatCount(usage.promptTokens + usage.outputTokens)} tokens`
+    ? i18n.t("workspace:taskExecutionSummarySurface.tokenCount", { amount: formatCount(usage.promptTokens + usage.outputTokens) })
     : null;
   // Only over providers whose prompt convention is verified; see
   // `TaskExecutionUsage.cacheRatePromptTokens`.
   const cacheLabel =
     usage.cacheRatePromptTokens > 0 && usage.cacheRateCachedTokens > 0
-      ? `${Math.round((usage.cacheRateCachedTokens / usage.cacheRatePromptTokens) * 100)}% cached`
+      ? i18n.t("workspace:taskExecutionSummarySurface.percentCached", { percent: formatWholePercent(Math.round((usage.cacheRateCachedTokens / usage.cacheRatePromptTokens) * 100)) })
       : null;
   // A detail tile: spend to the hundredth of a cent.
   const costLabel =
@@ -425,7 +427,7 @@ function buildUsageReadout(
     parts,
     value:
       [tokenLabel, cacheLabel, costLabel].filter(Boolean).join(" · ") ||
-      "Not reported",
+      i18n.t("workspace:taskExecutionSummarySurface.notReported"),
   };
 }
 
@@ -439,7 +441,7 @@ function buildMetricDescriptors(
   const agents = summary.agents.value;
   const usageReadout = usage ? buildUsageReadout(usage) : null;
   const fileLabel = changes
-    ? `${changes.files.length} file${changes.files.length === 1 ? "" : "s"}`
+    ? i18n.t("workspace:taskExecutionSummarySurface.fileCount", { count: changes.files.length })
     : null;
   const diffParts: StatPart[] = [];
   if (changes && changes.additions != null && changes.deletions != null) {
@@ -456,12 +458,12 @@ function buildMetricDescriptors(
   const agentParts: StatPart[] = [];
   if (agents && agents.blockedCount > 0) {
     agentParts.push({
-      text: `${agents.blockedCount} blocked`,
+      text: i18n.t("workspace:taskExecutionSummarySurface.blockedCount", { count: agents.blockedCount }),
       tone: "warning",
     });
   }
   if (agents && agents.failedCount > 0) {
-    agentParts.push({ text: `${agents.failedCount} failed`, tone: "danger" });
+    agentParts.push({ text: i18n.t("workspace:taskExecutionSummarySurface.failedCount", { count: agents.failedCount }), tone: "danger" });
   }
   if (
     agents &&
@@ -485,7 +487,7 @@ function buildMetricDescriptors(
       parts: elapsed?.running ? [{ text: i18n.t("workspace:taskExecutionSummarySurface.running"), tone: "neutral" }] : [],
       value: elapsed
         ? elapsed.running ? i18n.t("workspace:taskExecutionSummarySurface.runningDuration", { duration: formatDuration(elapsed.milliseconds) }) : formatDuration(elapsed.milliseconds)
-        : "Not reported",
+        : i18n.t("workspace:taskExecutionSummarySurface.notReported"),
     },
     {
       key: "changes",
@@ -502,7 +504,7 @@ function buildMetricDescriptors(
               ? ` · +${formatCount(changes.additions)}/−${formatCount(changes.deletions)}`
               : ""
           }`
-        : "No diff reported",
+        : i18n.t("workspace:taskExecutionSummarySurface.noDiffReported"),
     },
     {
       key: "verification",
@@ -517,14 +519,14 @@ function buildMetricDescriptors(
       parts: verification
         ? [
             {
-              text: `${verification.executedEntries}/${verification.totalEntries} ran`,
+              text: i18n.t("workspace:taskExecutionSummarySurface.entriesRan", { executed: verification.executedEntries, total: verification.totalEntries }),
               tone: "neutral",
             },
           ]
         : [],
       value: verification
-        ? `${verification.status} · ${verification.executedEntries}/${verification.totalEntries}`
-        : "Not reported",
+        ? `${verificationOutcome(verification.status).label} · ${verification.executedEntries}/${verification.totalEntries}`
+        : i18n.t("workspace:taskExecutionSummarySurface.notReported"),
     },
     {
       key: "usage",
@@ -535,7 +537,7 @@ function buildMetricDescriptors(
       detail: summary.usage.detail,
       figure: usageReadout?.figure,
       parts: usageReadout?.parts ?? [],
-      value: usageReadout?.value ?? "Not reported",
+      value: usageReadout?.value ?? i18n.t("workspace:taskExecutionSummarySurface.notReported"),
     },
     {
       key: "agents",
@@ -545,10 +547,10 @@ function buildMetricDescriptors(
       provenance: summary.agents.provenance,
       detail: summary.agents.detail,
       figure: agents
-        ? `${agents.totalCount} ${agents.totalCount === 1 ? "agent" : "agents"}`
+        ? i18n.t("workspace:taskExecutionSummarySurface.agentCount", { count: agents.totalCount })
         : undefined,
       parts: agentParts,
-      value: agents ? agents.label : "Main loop only",
+      value: agents ? agents.label : i18n.t("workspace:taskExecutionSummarySurface.mainLoopOnly"),
     },
     buildHeadroomDescriptor(summary),
   ];

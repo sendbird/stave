@@ -87,7 +87,7 @@ export const stepperThemeTargets = {
   },
   stepper: {
     axes: {
-      size: ["sm", "md"],
+      size: ["xs", "sm", "md"],
       variant: ["navigation", "track"],
     },
     exports: [
@@ -135,7 +135,7 @@ export const stepperThemeTargets = {
   },
   "stepper-indicator": {
     axes: {
-      size: ["sm", "md"],
+      size: ["xs", "sm", "md"],
       /*
        * The step's `status`, which is what the marker's fill, border and ink
        * are entirely made of. Reflected as `tone` because that is the axis name
@@ -156,7 +156,7 @@ export const stepperThemeTargets = {
   },
   "stepper-trigger": {
     axes: {
-      size: ["sm", "md"],
+      size: ["xs", "sm", "md"],
       /* The step's `status`, as on `stepper-indicator`. */
       tone: ["complete", "current", "pending", "error"],
       variant: ["navigation", "track"],

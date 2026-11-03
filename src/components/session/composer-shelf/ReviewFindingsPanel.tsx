@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { ListChecks, Paperclip } from "lucide-react";
@@ -29,6 +29,20 @@ const STATUS_TONE: Record<PreviousFindingStatus, BadgeTone> = {
   unresolved: "danger",
   unchecked: "warning",
 };
+
+/** Severity and re-check state words; the enum values never reach the screen. */
+export const REVIEW_SEVERITY_LABEL_KEY = {
+  critical: "composer:reviewFindingsPanel.severity.critical",
+  major: "composer:reviewFindingsPanel.severity.major",
+  minor: "composer:reviewFindingsPanel.severity.minor",
+} as const satisfies Record<ReviewFindingSeverity, I18nKey>;
+
+export const PREVIOUS_FINDING_STATUS_LABEL_KEY = {
+  resolved: "composer:reviewFindingsPanel.status.resolved",
+  outdated: "composer:reviewFindingsPanel.status.outdated",
+  unresolved: "composer:reviewFindingsPanel.status.unresolved",
+  unchecked: "composer:reviewFindingsPanel.status.unchecked",
+} as const satisfies Record<PreviousFindingStatus, I18nKey>;
 
 const VERDICT_LABEL: Record<ReviewVerdict, string> = {
   get approve() { return i18n.t("composer:reviewFindingsPanel.approve"); },
@@ -91,7 +105,7 @@ export function ReviewFindingsPanel(props: {
         <ul className={sx(styles.list)} aria-label={i18n.t("composer:reviewFindingsPanel.ariaLabel3")}>
           {report.previous.map((check) => (
             <li key={check.id} className={sx(styles.row)}>
-              <Badge size="sm" tone={STATUS_TONE[check.status]}>{check.status}</Badge>
+              <Badge size="sm" tone={STATUS_TONE[check.status]}>{i18n.t(PREVIOUS_FINDING_STATUS_LABEL_KEY[check.status])}</Badge>
               <span className={sx(styles.text)}>
                 <span className={sx(styles.title)}>{check.id}</span>
                 {check.note ? <span className={sx(styles.detail)}>{check.note}</span> : null}
@@ -111,7 +125,7 @@ export function ReviewFindingsPanel(props: {
                   checked={selected.has(finding.id)}
                   onCheckedChange={() => toggle(finding.id)}
                 />
-                <Badge size="sm" tone={SEVERITY_TONE[finding.severity]}>{finding.severity}</Badge>
+                <Badge size="sm" tone={SEVERITY_TONE[finding.severity]}>{i18n.t(REVIEW_SEVERITY_LABEL_KEY[finding.severity])}</Badge>
                 <span className={sx(styles.text)}>
                   <span className={sx(styles.title)}>{finding.title}</span>
                   {finding.file ? (
@@ -137,7 +151,7 @@ export function ReviewFindingsPanel(props: {
             onClick={() => props.onAttachSelected(chosen)}
           >
             <Paperclip aria-hidden />
-            {i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel3")}{chosen.length} {i18n.t("composer:reviewFindingsPanel.reviewFindingsPanel4")}{report.findings.length}
+            {i18n.t("composer:reviewFindingsPanel.attachChosen", { chosen: chosen.length, total: report.findings.length })}
           </Button>
         ) : null}
         {props.onRecheck ? (

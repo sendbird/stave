@@ -1,19 +1,17 @@
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import * as stylex from "@stylexjs/stylex";
+import { useMemo } from "react";
 import { useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import {
-  Command, CommandEmpty, CommandInput, CommandItem, CommandList,
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/components/ui";
 import type { AgentConfig } from "@/lib/agents/schema";
 import { getAgentDisplayName, getAgentDisplayDescription } from "@/lib/agents/display";
+import { SearchablePicker, type SearchablePickerOption } from "./settings-searchable-picker";
 
-/** Shared by the source and review steps so agent search works in both. */
+const ME = "__stave_me__";
+
+/**
+ * Shared by the source and review steps so agent search works in both: "Me"
+ * first, then every agent with its avatar and description, searched by name
+ * and description, with the current choice checked.
+ */
 export function KickoffWhoPicker(props: {
   agents: readonly AgentConfig[];
   who: "me" | "agent";
@@ -25,65 +23,42 @@ export function KickoffWhoPicker(props: {
   "aria-labelledby"?: string;
 }) {
   const { t } = useTranslation(["kickoff"]);
-  const [open, setOpen] = useState(false);
-  const agent = props.who === "agent"
-    ? props.agents.find((candidate) => candidate.id === props.agentId)
-    : null;
+  const meLabel = t("kickoff:kickoffSourceWho.me");
+  const options = useMemo<SearchablePickerOption[]>(
+    () => [
+      { value: ME, label: meLabel },
+      ...props.agents.map((agent) => ({
+        value: agent.id,
+        label: getAgentDisplayName(agent),
+        detail: getAgentDisplayDescription(agent) || undefined,
+        icon: <AgentAvatar agent={agent} size="xs" aria-label={null} />,
+        keywords: [agent.name, agent.description ?? ""],
+      })),
+    ],
+    [meLabel, props.agents],
+  );
+  const current = props.who === "agent" && props.agents.some((agent) => agent.id === props.agentId)
+    ? (props.agentId ?? ME)
+    : ME;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={
-        <Button
-          variant="outline" fullWidth disabled={props.disabled}
-          aria-label={props["aria-label"]} aria-labelledby={props["aria-labelledby"]}
-          xstyle={styles.trigger}
-        />
-      }>
-        <span className={sx(styles.label)}>
-          {agent ? <AgentAvatar agent={agent} size="xs" aria-label={null} /> : null}
-          <span className={sx(styles.name)}>{agent ? getAgentDisplayName(agent) : t("kickoff:kickoffSourceWho.me")}</span>
-        </span>
-        <ChevronDown aria-hidden="true" className={sx(styles.chevron)} />
-      </PopoverTrigger>
-      <PopoverContent align="start" density="flush" xstyle={styles.popup}>
-        {open ? <Command>
-          <CommandInput autoFocus aria-label={t("kickoff:whoPicker.searchAgents")} placeholder={t("kickoff:whoPicker.searchAgents")} />
-          <CommandList className={sx(styles.list)}>
-            <CommandEmpty>{t("kickoff:whoPicker.noAgentsFound")}</CommandEmpty>
-            <CommandItem value="me" keywords={[t("kickoff:kickoffSourceWho.me")]} onSelect={() => {
-              props.onWhoChange("me");
-              setOpen(false);
-            }}>{t("kickoff:kickoffSourceWho.me")}</CommandItem>
-            {props.agents.map((candidate) => <CommandItem
-              key={candidate.id} value={candidate.id}
-              keywords={[candidate.name, candidate.description ?? "", getAgentDisplayName(candidate), getAgentDisplayDescription(candidate)]}
-              onSelect={() => {
-                props.onWhoChange("agent");
-                props.onAgentChange(candidate.id);
-                setOpen(false);
-              }}
-            >
-              <span className={sx(styles.label)}>
-                <AgentAvatar agent={candidate} size="xs" aria-label={null} />
-                <span className={sx(styles.optionCopy)}>
-                  <span>{getAgentDisplayName(candidate)}</span>
-                  {getAgentDisplayDescription(candidate) ? <span className={sx(styles.description)}>{getAgentDisplayDescription(candidate)}</span> : null}
-                </span>
-              </span>
-            </CommandItem>)}
-          </CommandList>
-        </Command> : null}
-      </PopoverContent>
-    </Popover>
+    <SearchablePicker
+      labelledBy={props["aria-labelledby"]}
+      aria-label={props["aria-label"]}
+      size="md"
+      value={current}
+      placeholder={meLabel}
+      options={options}
+      disabled={props.disabled}
+      searchPlaceholder={t("kickoff:whoPicker.searchAgents")}
+      emptyText={t("kickoff:whoPicker.noAgentsFound")}
+      onSelect={(value) => {
+        if (value === ME) {
+          props.onWhoChange("me");
+          return;
+        }
+        props.onWhoChange("agent");
+        props.onAgentChange(value);
+      }}
+    />
   );
 }
-
-const styles = stylex.create({
-  trigger: { justifyContent: "space-between", minWidth: 0 },
-  label: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0 },
-  name: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  chevron: { width: 16, height: 16, flexShrink: 0, color: vars["--ads-color-text-muted"] },
-  popup: { width: "var(--anchor-width)", maxWidth: "var(--available-width)", overflow: "hidden" },
-  list: { maxHeight: "min(17.5rem, calc(var(--available-height) - 4rem))" },
-  optionCopy: { display: "grid", gap: vars["--ads-space-4"], minWidth: 0, overflowWrap: "anywhere" },
-  description: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
-});

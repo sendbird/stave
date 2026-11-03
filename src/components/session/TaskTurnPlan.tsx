@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { i18n, useTranslation } from "@/i18n";
 import { Plan } from "@/components/ads/components/Plan";
+import { toPlanSteps } from "@/components/agent-runs/AgentRunPlan";
 import { parseTodoInput } from "@/lib/todo-progress";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
@@ -15,11 +16,8 @@ export function TaskTurnPlan({ taskId }: { taskId: string }) {
   const turnId = useAppStore((state) => state.activeTurnIdsByTask[taskId]);
   const steps = useMemo(() => {
     const part = findLatestTodoPart(messages, turnId);
-    return (part ? parseTodoInput({ input: part.input }).todos : []).map((item, index) => ({
-      id: `${index}:${item.content}`,
-      title: item.content,
-      status: item.status === "completed" ? "done" as const : item.status === "in_progress" && turnId ? "running" as const : "pending" as const,
-    }));
+    // The step in progress runs only while a turn does, as on every plan surface.
+    return toPlanSteps(part ? parseTodoInput({ input: part.input }).todos : [], Boolean(turnId));
   }, [messages, turnId]);
   return steps.length ? <Plan steps={steps} announce={false} title={i18n.t("ui:plan.plan")} /> : null;
 }

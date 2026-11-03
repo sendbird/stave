@@ -301,7 +301,9 @@ export function resolveTurnRunHeadline(args: {
       };
     case "stalled":
       return {
-        text: i18n.t("composer:composerShelfUtils.text4", { value1: args.idleLabel ?? "a while" }),
+        text: args.idleLabel
+          ? i18n.t("composer:composerShelfUtils.text4", { value1: args.idleLabel })
+          : i18n.t("composer:composerShelfUtils.noUpdatesForAWhile"),
         detail: i18n.t("composer:composerShelfUtils.detail"),
         live: false,
       };

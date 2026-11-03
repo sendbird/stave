@@ -239,7 +239,9 @@
   "providerAccountIdentity": {
     "checkingSignIn": "Checking sign-in…",
     "cliNotFound": "{{value1}} CLI not found",
-    "canTCheckSignIn": "Can't check sign-in"
+    "canTCheckSignIn": "Can't check sign-in",
+    "signedInAs": "Signed in as {{email}}",
+    "signedIn": "Signed in"
   },
   "providerAccountSetup": {
     "sharesYourFromSystemDefaultWith": "Shares your {{value1}} from System default with this account. {{value2}}",
@@ -389,7 +391,8 @@
     "uniqueModels": "Model IDs must be unique.",
     "customEndpoint": "A custom connection needs at least one endpoint.",
     "periodLimit": "Choose a period of at most 366 days.",
-    "accountProvider": "An account filter needs a provider."
+    "accountProvider": "An account filter needs a provider.",
+    "previousPeriod": "The comparison period must end before the report's period starts."
   },
   "agentHistory": {
     "message": "Message",
@@ -556,5 +559,38 @@
     "midTask": "Switch provider mid-task",
     "midTaskDescription": "Let provider rules, including the table above, move a task that has already started. Off, a task changes provider only on its first turn. A provider that cannot run the turn hands over either way.",
     "privacyNote": "Switching provider sends at most 12,000 characters of the conversation to the other provider, and that provider's own skills, hooks and MCP servers apply."
+  },
+  "codexModelCatalog": {
+    "listedByRuntime": "Listed by the current Codex runtime.",
+    "runtimeSupportUnconfirmed": "Runtime support unconfirmed."
+  },
+  "presetActions": {
+    "heading": "What {{provider}} does in {{preset}}",
+    "locksHeading": "In Agent mode, always asks before",
+    "kind": {
+      "read": "Reads workspace files",
+      "edit": "Edits files",
+      "command": "Runs commands",
+      "web": "Web tools",
+      "mcp": "MCP tools",
+      "tools": "Every tool call"
+    },
+    "state": {
+      "own": "On its own",
+      "sandbox": "In the sandbox",
+      "asks": "Asks first",
+      "flagged": "Asks if flagged",
+      "off": "Off",
+      "always": "Always asks"
+    },
+    "note": {
+      "someFileCommands": "Some file commands in the workspace run on their own",
+      "beyondSandboxAsks": "Asks before anything the read-only sandbox blocks"
+    },
+    "lock": {
+      "writesOutsideRepository": "Writes outside the repository · {{id}}",
+      "credentials": "Credential files and variables · {{id}}",
+      "remoteActions": "Irreversible remote actions · {{id}}"
+    }
   }
 }

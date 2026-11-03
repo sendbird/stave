@@ -36,9 +36,18 @@ const OUTCOME_TITLES: Record<AgentRunReport["outcome"], string> = {
 
 const CRITERION_MARKS = { met: "[x]", unmet: "[ ]", unverified: "[?]" } as const;
 
+/** How long the run worked: its active time from the host, else the span from its start to its end. */
+export function reportDurationMs(report: Pick<AgentRunReport, "activeMs" | "startedAt" | "endedAt">): number {
+  return report.activeMs ?? Math.max(0, Date.parse(report.endedAt) - Date.parse(report.startedAt));
+}
+
 export function describeReportTitle(report: AgentRunReport): string {
-  const duration = formatDuration(Date.parse(report.endedAt) - Date.parse(report.startedAt));
-  return i18n.t("agentRuns:reportMarkdown.summary", { outcome: OUTCOME_TITLES[report.outcome], duration, count: report.turnCount });
+  const duration = formatDuration(reportDurationMs(report));
+  return i18n.t(report.activeMs === undefined ? "agentRuns:reportMarkdown.summary" : "agentRuns:reportMarkdown.summaryActive", {
+    outcome: OUTCOME_TITLES[report.outcome],
+    duration,
+    count: report.turnCount,
+  });
 }
 
 export function formatAgentRunReportMarkdown(report: AgentRunReport): string {

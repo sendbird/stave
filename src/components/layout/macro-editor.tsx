@@ -3,14 +3,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Textarea,
 } from "@/components/ui";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   getDefaultModelForProvider,
   getProviderLabel,
@@ -42,6 +36,8 @@ import {
 } from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { macroEditorStyles as styles } from "./macro-editor.styles";
+import { SearchablePicker } from "./settings-searchable-picker";
+import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";
 import { useSettingsProviderIdsWithSaved } from "./settings-provider-visibility";
 
 /** Providers a macro can pin; each shows once it is set up. */
@@ -334,27 +330,18 @@ export function MacroEditor(props: MacroEditorProps) {
             title={t("settingsProviders:auxiliaryInference.model.title")}
             description={t("settings:macroEditor.theModelUsedWhenThisMacro")}
           >
-            <Select value={model} onValueChange={handleModelChange}>
-              <SelectTrigger className={sx(styles.modelTrigger)}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {modelOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    <span className={sx(styles.option)}>
-                      <ModelIcon
-                        providerId={providerId}
-                        model={option}
-                        className={sx(styles.optionIcon)}
-                      />
-                      <span className={sx(styles.optionLabel)}>
-                        {toHumanModelName({ model: option })}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchablePicker
+              aria-label={t("settingsProviders:auxiliaryInference.model.title")}
+              size="md"
+              value={model}
+              fallbackLabel={model ? toHumanModelName({ model }) : undefined}
+              placeholder={t("settings:macroEditor.chooseModel")}
+              options={modelPickerOptions({ providerId, models: modelOptions })}
+              onSelect={handleModelChange}
+              searchPlaceholder={t("settings:macroEditor.searchModels")}
+              emptyText={t("settings:macroEditor.noModelsMatch")}
+              triggerXstyle={styles.modelTrigger}
+            />
           </LabeledField>
           <SelectField
             title={t("settingsProviders:providersSection.claudeRuntime.effort.title")}

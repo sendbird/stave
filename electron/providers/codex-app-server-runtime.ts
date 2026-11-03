@@ -9,10 +9,8 @@ import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate"
 import { createCodexApprovalReviewTracker } from "./codex-approval-review";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
-import {
-  summarizeCodexAppServerDebugMessage,
-  extractCodexAppServerErrorMessage,
-} from "./codex-app-server-errors";
+import { summarizeCodexAppServerDebugMessage, extractCodexAppServerErrorMessage } from "./codex-app-server-errors";
+import { codexChildRequestOwner } from "./codex-request-owner";
 export { summarizeCodexAppServerDebugMessage } from "./codex-app-server-errors";
 import { CodexClientLifetime } from "./codex-thread-lifetime";
 import {
@@ -51,6 +49,7 @@ import {
 export { resolveCodexChatgptAuthTokensRefreshResponse };
 import { describeJsonRpcLinePrefix } from "../shared/json-rpc-line";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
+import { resolveApprovalExpiresAt } from "../../src/lib/approvals/approval-expiry";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
@@ -70,6 +69,7 @@ import {
   measureBridgeEventBytes,
   truncateBufferedText,
 } from "./provider-buffering";
+import { createToolTimingRecorder } from "./tool-timing";
 import { byteLengthUtf8 } from "../shared/bounded-text";
 import { Utf8LineBuffer } from "../shared/utf8-line-buffer";
 import { normalizeConnectedToolIds } from "../../src/lib/providers/connected-tool-status";
@@ -1992,7 +1992,9 @@ export async function streamCodexWithAppServer(
       });
       const events: BridgeEvent[] = eventCollector.events;
       let hasEmittedDone = false, awaitingQuestion = false;
-      const emitBridgeEvent = (event: BridgeEvent) => {
+      const toolTiming = createToolTimingRecorder(); // Observed tool start/end; every emitted event passes through it.
+      const emitBridgeEvent = (rawEvent: BridgeEvent) => {
+        let event = toolTiming.stamp(rawEvent);
         if (event.type === "done") {
           if (awaitingQuestion) event = { ...event, stop_reason: RUN_QUESTION_WAIT_STOP_REASON };
           hasEmittedDone = true;
@@ -2173,10 +2175,11 @@ export async function streamCodexWithAppServer(
           recoverable: true,
         };
       };
+      /** Starts the request's auto-decline timer and returns when it fires, for the card. */
       const scheduleApprovalAutoDecline = (args: {
         requestId: string;
         toolName: string;
-      }) => {
+      }): string | undefined => {
         const handle = setTimeout(() => {
           pendingApprovalAutoDeclineHandles.delete(args.requestId);
           const pending = pendingApprovalRequests.get(args.requestId);
@@ -2212,6 +2215,7 @@ export async function streamCodexWithAppServer(
             .finally(() => elicitationPauseController.end(args.requestId));
         }, codexApprovalDecisionTimeoutMs);
         pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+        return resolveApprovalExpiresAt({ timeoutMs: codexApprovalDecisionTimeoutMs });
       };
       const runStage = args.managedTask ? undefined : args.agentRunStage; // a managed run's controller answers; today's timeout stays
       const scheduleUserInputAutoDecline = (args: {
@@ -2482,6 +2486,7 @@ export async function streamCodexWithAppServer(
             params,
             requestId,
           });
+          const childRequestOwner = codexChildRequestOwner({ requestThreadId, threadId });
           if (
             message.method === "mcpServer/elicitation/request" &&
             presentation?.kind === "approval" &&
@@ -2513,11 +2518,8 @@ export async function streamCodexWithAppServer(
               ...presentation.pending,
             });
             void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({
-              requestId,
-              toolName: presentation.event.toolName,
-            });
-            emitBridgeEvent(presentation.event);
+            const expiresAt = scheduleApprovalAutoDecline({ requestId, toolName: presentation.event.toolName });
+            emitBridgeEvent({ ...presentation.event, ...childRequestOwner, ...(expiresAt ? { expiresAt } : {}) });
             return;
           }
           if (presentation?.kind === "user_input") {
@@ -2527,8 +2529,8 @@ export async function streamCodexWithAppServer(
               ...presentation.pending,
             });
             void elicitationPauseController.begin(scopedId);
-            scheduleUserInputAutoDecline({ event: { ...presentation.event, requestId: scopedId } });
-            emitBridgeEvent({ ...presentation.event, requestId: scopedId });
+            scheduleUserInputAutoDecline({ event: { ...presentation.event, requestId: scopedId, ...childRequestOwner } });
+            emitBridgeEvent({ ...presentation.event, requestId: scopedId, ...childRequestOwner });
             return;
           }
           if (presentation?.kind === "unrenderable") {

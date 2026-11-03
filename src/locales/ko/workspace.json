@@ -307,12 +307,30 @@
       "editTitle": "이 메모리 편집",
       "editAriaLabel": "메모리 편집: {{content}}",
       "forgetTitle": "이 메모리 삭제",
-      "forgetAriaLabel": "메모리 삭제: {{content}}"
+      "forgetAriaLabel": "메모리 삭제: {{content}}",
+      "confirmedAt": "<time/> 마지막 확인",
+      "sourceTask": "출처 작업",
+      "sourceTaskAriaLabel": "출처 작업 열기: {{title}}"
     },
-    "forgetDialog": {
-      "title": "이 메모리를 삭제하시겠습니까?",
-      "description": "\"{{content}}\" 항목이 이 저장소의 메모리에서 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
-      "confirm": "메모리 삭제"
+    "forgotten": {
+      "title": "메모리를 삭제했습니다.",
+      "restoreFailed": "메모리를 복원하지 못했습니다."
+    },
+    "filters": {
+      "searchLabel": "메모리 검색",
+      "searchPlaceholder": "메모리 내용 검색",
+      "clearSearch": "검색 지우기",
+      "kindLabel": "종류별 메모리 필터",
+      "all": "전체",
+      "kinds": {
+        "decision": "결정",
+        "convention": "규칙",
+        "gotcha": "주의점",
+        "fact": "사실"
+      },
+      "matchCount_other": "메모리 {{count}}개 중 {{matched}}개 일치",
+      "noMatch": "조건에 맞는 메모리가 없습니다.",
+      "clear": "필터 지우기"
     }
   },
   "repositoryMemory": {
@@ -412,7 +430,10 @@
     "addADesignBoardOrNodeUrl": "디자인, 보드 또는 노드 URL을 추가합니다.",
     "customField": "사용자 지정 필드",
     "addTypedRepositorySpecificContext": "유형을 지정한 저장소별 맥락을 추가합니다.",
-    "createItInWorkspaceAnd": "{{value1}} 워크스페이스에 만들고 이 일정에 첨부합니다."
+    "createItInWorkspaceAnd": "{{value1}} 워크스페이스에 만들고 이 일정에 첨부합니다.",
+    "jiraIssue": "Jira 이슈",
+    "confluencePage": "Confluence 페이지",
+    "slackThread": "Slack 스레드"
   },
   "repositoryWorkspaceSidebar": {
     "openRepository": "저장소 열기",
@@ -474,7 +495,10 @@
       "openSettings": "설정 열기"
     },
     "signOffNeeded": "단계 승인 필요",
-    "noUpdates": "업데이트 없음"
+    "noUpdates": "업데이트 없음",
+    "movedToPosition": "{{name}} 항목을 {{total}}개 중 {{position}}번째로 옮겼습니다.",
+    "repositoryFallbackName": "저장소",
+    "workspaceFallbackName": "워크스페이스"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "앱 메모리 사용량 {{value1}}",
@@ -504,6 +528,11 @@
     "lensVisibility": "Lens {{sessions}}개 · {{visible}}개 표시됨",
     "accessibility": {
       "meterValue": "{{value1}}, {{value2}}퍼센트, {{value3}}"
+    },
+    "level": {
+      "healthy": "정상",
+      "elevated": "높아짐",
+      "high": "높음"
     }
   },
   "resourceManagerOverview": {
@@ -549,7 +578,16 @@
     "changesCompareTheSamePidOverRecent": "변화는 최근 관측의 동일한 PID를 비교합니다. RSS 증가만으로 메모리 누수를 확인할 수 없습니다. 작업 완료 후 비교하고 진단에서 힙 사용량을 확인합니다.",
     "recentPageReleasesAndReopenings": "최근 페이지 해제 및 다시 열기",
     "releaseRequested": "해제 요청됨",
-    "reopened": "다시 열림"
+    "reopened": "다시 열림",
+    "keepActiveUnavailable": "활성 유지 설정을 사용할 수 없음",
+    "settingNotSaved": "설정을 저장하지 못했습니다",
+    "releaseUnavailable": "해제를 사용할 수 없음",
+    "releaseFailed": "해제하지 못했습니다",
+    "releasedObserved_other": "숨겨진 페이지 {{count}}개를 해제했습니다. 관측된 Electron RSS: {{before}} → {{after}}. 다른 활동도 이 변화에 영향을 줄 수 있습니다.",
+    "releasedUnobserved_other": "숨겨진 페이지 {{count}}개를 해제했습니다. 메모리 변화를 관측할 수 없습니다.",
+    "applicationGroup": "Stave 앱과 출처를 알 수 없는 프로세스",
+    "sharedGroup": "워크스페이스가 함께 쓰는 프로세스",
+    "shareOfMeasured": "{{name}}: 측정된 메모리 중 비중"
   },
   "resourcesPopover": {
     "resourceManager": "리소스 관리자",
@@ -627,7 +665,10 @@
     "processCount": "프로세스 ({{count}})",
     "accessibility": {
       "refreshMetrics": "리소스 사용량 새로 고침"
-    }
+    },
+    "reclaimed": "{{size}} 확보함",
+    "reclaimedWithErrors_other": "{{size}} 확보함, 오류 {{count}}개",
+    "cleanupUnavailable": "정리를 사용할 수 없음"
   },
   "taskExecutionSummarySurface": {
     "reported": "보고됨",
@@ -648,7 +689,20 @@
     "noActivityReported": "보고된 활동 없음",
     "taskExecutionSummary": "작업 실행 요약",
     "runningCount": "{{count}}개 실행 중",
-    "runningDuration": "{{duration}} · 실행 중"
+    "runningDuration": "{{duration}} · 실행 중",
+    "contextLeft": "컨텍스트 {{amount}} 남음",
+    "percentUsed": "{{percent}} 사용됨",
+    "percentLeft": "{{percent}} 남음",
+    "percentCached": "{{percent}} 캐시됨",
+    "notReported": "보고되지 않음",
+    "noDiffReported": "보고된 변경 내용 없음",
+    "mainLoopOnly": "메인 루프만",
+    "tokenCount": "토큰 {{amount}}",
+    "fileCount_other": "파일 {{count}}개",
+    "agentCount_other": "에이전트 {{count}}개",
+    "blockedCount": "{{count}}개 막힘",
+    "failedCount": "{{count}}개 실패",
+    "entriesRan": "{{executed}}/{{total}} 실행됨"
   },
   "workspaceChangesPanel": {
     "notRun": "실행 안 됨",
@@ -837,7 +891,9 @@
     "addCustomField": "사용자 지정 필드 추가",
     "noCustomFields": "사용자 지정 필드 없음",
     "label": "레이블",
-    "removeField": "필드 제거"
+    "removeField": "필드 제거",
+    "amplifyLinkFallback": "Amplify 링크",
+    "slackThreadFallback": "Slack 스레드"
   },
   "workspaceInformationSectionMenu": {
     "configureInformationPanelSections": "정보 패널 섹션 구성",
@@ -1220,7 +1276,11 @@
     "branchDeletionFailed": "브랜치 삭제 실패",
     "valueButCouldNotDeleteValue": "{{subject}}, {{branch}} 브랜치를 삭제하지 못했습니다.",
     "branchKept": "브랜치 유지됨",
-    "valueButCouldNotConfirmWhichBranch": "{{subject}}, Git 워크트리에 체크아웃한 브랜치를 확인하지 못해 브랜치를 삭제하지 않았습니다."
+    "valueButCouldNotConfirmWhichBranch": "{{subject}}, Git 워크트리에 체크아웃한 브랜치를 확인하지 못해 브랜치를 삭제하지 않았습니다.",
+    "archivedNamed": "{{name}} 워크스페이스를 보관했습니다",
+    "archivedWorkspace": "워크스페이스를 보관했습니다",
+    "branchNamed": "{{name}} 브랜치",
+    "itsBranch": "해당 브랜치"
   },
   "workspaceTurnSummaryRuntime": {
     "untitledTask": "제목 없는 작업"
@@ -1319,6 +1379,19 @@
       "removeAriaLabel": "첨부한 문서 {{title}} 제거",
       "removeTitle": "문서 제거",
       "couldNotOpen": "첨부한 문서를 열 수 없습니다."
+    }
+  },
+  "workspaceCleanup": {
+    "blocker": {
+      "workspaceChanged": "워크스페이스가 바뀜",
+      "defaultWorkspace": "기본 워크스페이스",
+      "currentWorkspace": "현재 워크스페이스",
+      "pathUnavailable": "경로를 사용할 수 없음",
+      "agentRunning": "에이전트 실행 중",
+      "waitingForYou": "응답을 기다리는 중"
+    },
+    "recommendation": {
+      "mergedAndInactive": "PR 병합됨 · 푸시하지 않은 커밋 없음 · 14일 이상 활동 없음"
     }
   }
 }

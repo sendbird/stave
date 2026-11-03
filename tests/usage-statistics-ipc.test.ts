@@ -58,3 +58,15 @@ test("model drilldown crosses preload and IPC without changing quota scope", asy
   const unknown = await bridge.usageStatistics({ ...args, providerId: "codex", modelId: null });
   expect(unknown.ok && unknown.report.turns.every((row) => row.modelId === null)).toBe(true);
 });
+
+test("a comparison period and the provider split cross preload and IPC; an overlapping one is refused", async () => {
+  store.beginTurn({ id: "earlier", providerId: "codex", accountProfileId: "system-default", createdAt: "2026-09-30T06:00:00.000Z" });
+  store.completeTurn("earlier", "2026-09-30T06:01:00.000Z", JSON.stringify({ inputTokens: 30, outputTokens: 5 }));
+  const result = await bridge.usageStatistics({ ...args, previous: { from: "2026-09-30T00:00:00.000Z", to: args.from } });
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  expect(result.report.previousTotals?.tokens).toBe(35);
+  expect(result.report.series[0]?.providers.codex?.turns).toBeGreaterThan(0);
+  const overlapping = await bridge.usageStatistics({ ...args, previous: { from: "2026-09-30T00:00:00.000Z", to: args.to } });
+  expect(overlapping.ok).toBe(false);
+});

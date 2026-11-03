@@ -95,6 +95,11 @@ export const vars = stylex.defineVars({
   "--ads-color-scrollbar-track": "oklch(0.275 0.007 89 / 0.06)",
   "--ads-color-scrollbar-thumb": "oklch(0.275 0.007 89 / 0.24)",
   "--ads-color-scrollbar-thumb-hover": "oklch(0.275 0.007 89 / 0.48)",
+  // The empty part of a Meter or Progress bar. An ink overlay at the 24% step
+  // of the overlay ramp, so it reads as a shade of whatever surface it sits on:
+  // `colorCanvasSubtle` is itself a surface, and on a card or panel painted
+  // that colour the track vanished and only a reading's fill or tick showed.
+  "--ads-color-track": "oklch(0.275 0.007 89 / 0.24)",
   "--ads-color-accent": "oklch(0.275 0.007 89)",
   // Neutral870. It shipped identical to `colorAccent`, so in light every
   // accent-filled control had a hover that changed nothing. Sized in OKLCH
@@ -332,6 +337,12 @@ export const vars = stylex.defineVars({
   // Lucide's default 2 and is not set by hand (sole exception: a check mark at
   // <=14px uses 3). Marks that track text rather than controls — StatusDot's
   // 6/8/12 — are off this scale on purpose.
+  // Control MARK scale: the painted box of a checkbox, radio, or step marker,
+  // 16/20/24. Not the glyph inside a control (`--ads-control-icon-size-*`) and
+  // not `space*`, which compact density remaps; a `size` prop owns these.
+  "--ads-control-mark-size-sm": "16px",
+  "--ads-control-mark-size-md": "20px",
+  "--ads-control-mark-size-lg": "24px",
   "--ads-control-icon-size-sm": "14px",
   "--ads-control-icon-size-md": "16px",
   "--ads-control-icon-size-lg": "18px",

@@ -273,6 +273,35 @@ export const AUTOMATION_RUN_FILTERS = [
 export type AutomationRunFilter =
   (typeof AUTOMATION_RUN_FILTERS)[number]["value"];
 
+/**
+ * The run-history filters that narrow it from its default (every status,
+ * every automation), as removable chips.
+ */
+export function automationRunAppliedFilters(args: {
+  status: AutomationRunFilter;
+  automationName: string | null;
+}): Array<{ id: "status" | "automation"; property: string; operator: string; value: string }> {
+  const filters: Array<{ id: "status" | "automation"; property: string; operator: string; value: string }> = [];
+  if (args.status !== "all") {
+    const option = AUTOMATION_RUN_FILTERS.find((candidate) => candidate.value === args.status);
+    filters.push({
+      id: "status",
+      property: i18n.t("automation:automationCenterView.appliedStatus"),
+      operator: i18n.t("automation:automationCenterView.appliedIs"),
+      value: option?.label ?? args.status,
+    });
+  }
+  if (args.automationName) {
+    filters.push({
+      id: "automation",
+      property: i18n.t("automation:automationCenterView.appliedAutomation"),
+      operator: i18n.t("automation:automationCenterView.appliedIs"),
+      value: args.automationName,
+    });
+  }
+  return filters;
+}
+
 export function matchesRunFilter(
   run: AutomationRun,
   filter: AutomationRunFilter,

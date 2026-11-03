@@ -234,38 +234,71 @@ export function buildHandoffSuggestions(facts: HandoffFacts, words: {
   return suggestions;
 }
 
+/** The lines Fill could not add, per section, in the order it offered them. */
+export type HandoffLeftOut = Partial<Record<HandoffSectionId, string[]>>;
+
 /**
  * Merge suggestions into a draft: lines a section does not already contain
  * are appended while the section stays within `HANDOFF_SECTION_MAX_CHARS`
  * (text set here is not bounded by the field's own limit). Returns the
  * sections that changed, so their author is Stave unless the user edits them
- * before saving, and per section how many lines did not fit.
+ * before saving, and per section the lines that did not fit, so the editor can
+ * show them and put one back.
  */
 export function mergeHandoffSuggestions(draft: HandoffDraft, suggestions: Partial<HandoffDraft>) {
   const next = { ...draft };
   const changed: HandoffSectionId[] = [];
-  const leftOut: Partial<Record<HandoffSectionId, number>> = {};
+  const leftOut: HandoffLeftOut = {};
   for (const id of HANDOFF_SECTION_IDS) {
     const lines = (suggestions[id] ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
     const existing = new Set(next[id].split("\n").map((line) => line.trim()));
     const added = lines.filter((line) => !existing.has(line));
     if (added.length === 0) continue;
     let text = next[id].trim();
-    let skipped = 0;
+    const skipped: string[] = [];
     for (const line of added) {
       const candidate = text ? `${text}\n${line}` : line;
       if (candidate.length > HANDOFF_SECTION_MAX_CHARS) {
-        skipped += 1;
+        skipped.push(line);
         continue;
       }
       text = candidate;
     }
-    if (skipped > 0) leftOut[id] = skipped;
-    if (skipped === added.length) continue;
+    if (skipped.length > 0) leftOut[id] = skipped;
+    if (skipped.length === added.length) continue;
     next[id] = text;
     changed.push(id);
   }
   return { draft: next, changed, leftOut };
+}
+
+/**
+ * A line Fill left out, put back at the end of its section. The section may
+ * then pass its limit; the editor says by how much and saves only once it is
+ * shortened.
+ */
+export function putBackHandoffLine(text: string, line: string): string {
+  const kept = text.trim();
+  return kept ? `${kept}\n${line}` : line;
+}
+
+/**
+ * Left-out lines from an earlier Fill and a new one, each line once, in order,
+ * without the ones the draft now holds (a later Fill found room for them).
+ */
+export function combineHandoffLeftOut(previous: HandoffLeftOut, next: HandoffLeftOut, draft: HandoffDraft): HandoffLeftOut {
+  const combined: HandoffLeftOut = {};
+  for (const id of HANDOFF_SECTION_IDS) {
+    const present = new Set(draft[id].split("\n").map((line) => line.trim()));
+    const lines = [...new Set([...(previous[id] ?? []), ...(next[id] ?? [])])].filter((line) => !present.has(line));
+    if (lines.length > 0) combined[id] = lines;
+  }
+  return combined;
+}
+
+/** How many characters a section's text is over its limit; 0 when it fits. */
+export function handoffSectionOverflow(text: string): number {
+  return Math.max(0, text.replace(/\r\n/g, "\n").trim().length - HANDOFF_SECTION_MAX_CHARS);
 }
 
 /** The fenced block an agent answers with when asked to update the record. */

@@ -649,6 +649,21 @@ with oversized files left path-backed for the agent's file tools. Kiro's legacy
 `content` compatibility key stays text-only so image bytes are not duplicated
 on the wire.
 
+## Tool call timing
+
+Neither provider reports when a tool call started or finished, so each runtime
+records it as it handles the provider's messages
+(`electron/providers/tool-timing.ts`, one recorder per turn in both
+`claude-sdk-runtime.ts` and `codex-app-server-runtime.ts`). Every `tool` event
+carries `startedAt` (epoch ms, the first time that `toolUseId` was seen) and,
+once the call is seen finished, `completedAt`; a non-partial `tool_result`
+carries `completedAt`. Later events for the same call repeat the first values,
+so a follow-up result such as a captured MCP App view does not move the end.
+The renderer stores them on the tool part as ISO strings and the work graph
+uses them instead of the time it folded the event. A call with no observed time
+(including every call saved before this) has none; nothing fills one in from
+another clock. The Activity tab's Timeline view reads these times.
+
 ## MCP App views
 
 A tool whose metadata names a `ui://` view (MCP Apps UI extension, spec
@@ -1591,7 +1606,8 @@ has room for every connected provider, a segment shows the full strip:
 
 - One entry per quota window: a ring, the percent used in bold, then the window
   and its countdown (`5h · resets 1h 7m`). The ring's arc is the share used,
-  toned at the shared thresholds (under 60% ok, under 85% warn, then danger).
+  toned at the shared quota thresholds the Usage view also uses (under 80% ok,
+  under 97% warn, then danger).
   Inside the ring is the time-left clock: its hand marks how far the window has
   run, so an arc past the hand is usage running ahead of time. Claude shows its
   5-hour, weekly and, when reported, weekly Fable windows; Codex shows its first
@@ -1903,6 +1919,10 @@ Native approvals and questions are synchronous provider callbacks, so both
 runtimes decline one nobody answers after the decision timeout (45 minutes;
 `STAVE_CLAUDE_APPROVAL_TIMEOUT_MS`, `STAVE_CODEX_APPROVAL_TIMEOUT_MS`) with a
 recoverable error, in an agent run stage turn exactly as in any other turn.
+Each runtime starts that timer as it raises an approval, so the `approval`
+event carries its deadline as `expiresAt` (ISO time); the ACP runtimes do the
+same with their own decision timeout, and a delegated task's host lowers it
+to its shorter timer. The card reads it as a wall-clock time.
 Claude denies the permission callback; Codex answers `decline`, or empty
 answers for a question. Stopping the turn releases pending requests on both
 providers. For an externally managed (delegated) task the host also denies an

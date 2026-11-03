@@ -418,13 +418,17 @@ export function KickoffDialog(props: {
   // Auto is routed past an unavailable provider, so only a pinned one blocks.
   const routedPerTurn = meAuto || (who === "agent" && agentRoute?.source === "stave-auto");
   const startBlocked = !repositoryPath
-    ? "Open a repository to start work."
+    ? tI18n("kickoff:kickoffDialog.openARepositoryToStart")
     : worksHere && !activeWorkspaceId
       ? tI18n("kickoff:kickoffDialog.openCurrentWorkspace")
       : !routedPerTurn && providerAvailability[effectiveFirstTaskProvider] === false
-        ? `${getProviderLabel({ providerId: effectiveFirstTaskProvider, variant: "short" })} is unavailable. ${
-            who === "agent" ? "Choose another provider under Runs on." : "Choose another model."
-          }`
+        ? who === "agent"
+          ? tI18n("kickoff:kickoffDialog.providerUnavailableChooseProvider", {
+              provider: getProviderLabel({ providerId: effectiveFirstTaskProvider, variant: "short" }),
+            })
+          : tI18n("kickoff:kickoffDialog.providerUnavailableChooseModel", {
+              provider: getProviderLabel({ providerId: effectiveFirstTaskProvider, variant: "short" }),
+            })
         : null;
   const busy = resolving || creating;
 
@@ -823,7 +827,7 @@ export function KickoffDialog(props: {
           <>
             <KickoffBusyState
               mode="resolving"
-              sourceType={classification.config?.label ?? "Free-form prompt"}
+              sourceType={classification.config?.label ?? tI18n("kickoff:kickoffDialog.freeFormPrompt")}
             />
             <DialogFooter className={sx(kickoffStyles.footer)}>
               <Button

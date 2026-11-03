@@ -120,6 +120,16 @@ export const modelSelectorStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   optionLabel: { fontWeight: vars["--ads-font-weight-medium"] },
+  // The published price ends the id line, muted, and drops below the id when
+  // both do not fit; absent for unpriced models.
+  optionPrice: { marginInlineStart: "auto" },
+  optionDescriptionLine: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "baseline",
+    columnGap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
   optionDefaultBadge: {
     flexShrink: 0,
     borderRadius: vars["--ads-radius-mark"],

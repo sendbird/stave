@@ -55,9 +55,26 @@ export const searchablePickerStyles = stylex.create({
     maxBlockSize: "min(20rem, calc(var(--available-height) - 4rem))",
   },
   item: {
-    alignItems: "flex-start",
+    alignItems: "start",
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
+  },
+  // The row's first grid track: mark, then copy.
+  itemMain: {
+    alignItems: "flex-start",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    minInlineSize: 0,
+  },
+  // A muted trailing value (a price, a count). It ends the line it sits on and
+  // drops below that line's text instead of truncating it.
+  itemMeta: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    marginInlineStart: "auto",
+    whiteSpace: "nowrap",
   },
   itemText: {
     display: "flex",
@@ -69,14 +86,23 @@ export const searchablePickerStyles = stylex.create({
     alignItems: "center",
     columnGap: vars["--ads-space-8"],
     display: "flex",
+    flexWrap: "wrap",
+    minInlineSize: 0,
+  },
+  itemDetailRow: {
+    alignItems: "baseline",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    flexWrap: "wrap",
     minInlineSize: 0,
   },
   badge: {
     alignSelf: "center",
     flexShrink: 0,
   },
+  // No ink of its own: the row's colour is the list's, so a chosen row reads in
+  // the accent like every other ADS picker, beside its check.
   itemLabel: {
-    color: vars["--ads-color-text"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -87,6 +113,14 @@ export const searchablePickerStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  // A chip for a chosen value no option lists: the warning rim and ink say
+  // "this no longer resolves" without hiding the value.
+  chipMissing: {
+    backgroundColor: "transparent",
+    borderColor: vars["--ads-color-warning-border"],
+    borderStyle: "dashed",
+    color: vars["--ads-color-warning-text"],
   },
   loading: {
     alignItems: "center",

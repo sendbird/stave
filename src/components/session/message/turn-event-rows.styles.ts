@@ -28,6 +28,19 @@ export const turnEventRowStyles = stylex.create({
   outputProse: {
     fontFamily: vars["--ads-font-sans"],
   },
+  /* The capped box takes the section's width, so the cut and its fade run
+     edge to edge whatever the longest line measures. */
+  capped: {
+    justifySelf: "stretch",
+    minInlineSize: 0,
+  },
+  lineNote: {
+    margin: 0,
+    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+  },
   copy: {
     justifySelf: "end",
   },
@@ -52,5 +65,9 @@ export const turnEventRowStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
+  },
+  /** The answer's sources sit one block below it, like the other end-of-turn blocks. */
+  turnSources: {
+    marginTop: vars["--ads-space-12"],
   },
 });

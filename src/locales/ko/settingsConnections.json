@@ -95,7 +95,13 @@
     "noClassOrSkillRepeatedOften": "규칙을 제안할 만큼 반복된 유형이나 스킬이 없습니다. 위의 방침만 변경됩니다.",
     "was": " · 이전: {{value1}}",
     "newRule": " · 새 규칙",
-    "now": " → 현재: {{value1}}"
+    "now": " → 현재: {{value1}}",
+    "scanDescription": "최근 프롬프트 읽기",
+    "promptsRead_other": "프롬프트 {{count}}개 읽음",
+    "reviewDescription": "규칙 고르기",
+    "applyDescription": "프로필 저장",
+    "stepOf": "{{total}}단계 중 {{step}}단계",
+    "stepHeading": "{{total}}단계 중 {{step}}단계: {{name}}"
   },
   "settingsDialogAutoRoutingSection": {
     "noEligibleRouteIsAvailable": "사용 가능한 적격 경로가 없습니다.",

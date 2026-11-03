@@ -4,41 +4,36 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 /** "Set up from my usage" wizard inside the Auto (Model Router) settings. */
 export const autoRoutingWizardStyles = stylex.create({
+  // The step rail and its "Step n of 3" count share one row; the rail fills
+  // what the count leaves.
+  stepperRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars["--ads-space-12"],
+    minInlineSize: 0,
+  },
+  stepper: { flex: "1 1 auto", minInlineSize: 0 },
+  stepCount: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "nowrap",
+  },
+  // Visually hidden until focused: the target a step change moves focus to.
+  stepHeading: {
+    blockSize: 1,
+    clipPath: "inset(50%)",
+    inlineSize: 1,
+    margin: 0,
+    overflow: "hidden",
+    position: "absolute",
+    whiteSpace: "nowrap",
+  },
   stack: {
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-16"],
-  },
-  stepper: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-  },
-  stepItem: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-  },
-  stepButtonDone: {
-    borderColor: vars["--ads-color-border-strong"],
-    color: vars["--ads-color-text"],
-  },
-  stepIndex: {
-    alignItems: "center",
-    borderRadius: vars["--ads-radius-full"],
-    display: "inline-flex",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    justifyContent: "center",
-    minInlineSize: "1.25rem",
-  },
-  stepConnector: {
-    backgroundColor: vars["--ads-color-border"],
-    blockSize: vars["--ads-border-width-hairline"],
-    inlineSize: vars["--ads-space-16"],
   },
   toolbar: {
     alignItems: "center",

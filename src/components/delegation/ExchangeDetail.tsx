@@ -12,6 +12,7 @@ import {
 import {
   describeAgentIdentity,
   describeDeadline,
+  isExchangeStatusLive,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
 import { DelegateRoute } from "./DelegateRoute";
@@ -89,9 +90,7 @@ function Section(props: { label: string; children: ReactNode; testId?: string })
 export function ExchangeDetail(props: ExchangeDetailProps) {
   useTranslation();
   const { exchange, nowMs } = props;
-  const live =
-    exchange.outcome.status === "running" ||
-    exchange.outcome.status === "queued";
+  const live = isExchangeStatusLive(exchange.outcome.status);
   const elapsedMs = resolveExchangeElapsedMs(exchange, nowMs);
   const deadline =
     live && exchange.timing.deadlineAt !== undefined
@@ -188,11 +187,16 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
               startedAt={exchange.timing.startedAt}
             />
           ) : (
-            <p className={sx(styles.meta)}>{i18n.t("agentRuns:exchangeDetail.sentence33", { value1: formatTime(new Date(exchange.timing.startedAt)), value2: exchange.timing.endedAt !== undefined
-                ? i18n.t("agentRuns:remaining.presentationCopy266", { v1: formatTime(new Date(exchange.timing.endedAt)) })
+            <p className={sx(styles.meta)}>
+              {exchange.timing.endedAt !== undefined
+                ? i18n.t("agentRuns:exchangeDetail.startedEnded", {
+                    start: formatTime(new Date(exchange.timing.startedAt)),
+                    end: formatTime(new Date(exchange.timing.endedAt)),
+                  })
                 : live
-                  ? " · still running"
-                  : "" })}</p>
+                  ? i18n.t("agentRuns:exchangeDetail.startedStillRunning", { start: formatTime(new Date(exchange.timing.startedAt)) })
+                  : i18n.t("agentRuns:exchangeDetail.started", { start: formatTime(new Date(exchange.timing.startedAt)) })}
+            </p>
           )}
         </Section>
       ) : null}

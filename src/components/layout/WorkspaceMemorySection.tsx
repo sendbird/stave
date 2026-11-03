@@ -1,8 +1,7 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Brain, Inbox, Pencil, Pin, Sparkles, Trash2 } from "lucide-react";
-import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
   Badge,
   Button,
@@ -14,15 +13,20 @@ import {
   Textarea,
   toast,
 } from "@/components/ui";
-import { i18n, useTranslation, type I18nKey } from "@/i18n";
+import { hostSurface } from "@/components/ui/host-surface.styles";
+import { RelativeTime } from "@/components/system/RelativeTime";
+import { SearchHighlight } from "@/components/system/SearchHighlight";
+import { i18n, Trans, useTranslation, type I18nKey } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   REPOSITORY_MEMORY_KINDS,
   REPOSITORY_MEMORY_RECALL_MODES,
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   type RepositoryMemory,
+  type RepositoryMemorySourceTask,
   type RepositoryMemoryUpdateArgs,
 } from "@/lib/repository-memory";
+import { useAppStore } from "@/store/app.store";
 import {
   RepositoryMemoryControls,
   REPOSITORY_MEMORY_CHANGED_EVENT,
@@ -31,6 +35,13 @@ import { informationRow } from "./information-row.styles";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
 import { MemoryCollectionInvitation } from "./MemoryCollectionInvitation";
 import { failureMessage } from "./workspace-information/failure-message";
+import { forgetMemoryWithUndo } from "./workspace-memory-forget";
+import { MemoryListFilters, MemoryListFilterStatus } from "./workspace-memory-filters";
+import {
+  selectMemoryListView,
+  shouldOfferMemoryFilters,
+  type MemoryKindFilter,
+} from "./workspace-memory-list-state";
 
 type RecallMode = (typeof REPOSITORY_MEMORY_RECALL_MODES)[number];
 type MemoryKind = (typeof REPOSITORY_MEMORY_KINDS)[number];
@@ -75,6 +86,20 @@ const RECALL_GLYPH = {
   core: Pin,
 } as const;
 
+const NO_SOURCE_TASKS: readonly RepositoryMemorySourceTask[] = [];
+
+function notifyMemoryChanged() {
+  window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
+}
+
+/** The task a memory came from, in its own workspace: the same way Fleet and a delegated child open one. */
+function openSourceTask(task: RepositoryMemorySourceTask, repositoryPath: string) {
+  void useAppStore.getState().focusTaskAttention({
+    taskId: task.taskId,
+    workspaceId: task.workspaceId,
+    repositoryPath,
+  });
+}
 
 export function WorkspaceMemorySection(props: {
   repositoryPath: string | null;
@@ -84,8 +109,20 @@ export function WorkspaceMemorySection(props: {
   const { repositoryPath, refreshKey, onEntriesChange } = props;
   const { t } = useTranslation(["workspace", "common"]);
   const [items, setItems] = useState<RepositoryMemory[]>([]);
+  const [sourceTasks, setSourceTasks] = useState(NO_SOURCE_TASKS);
   const [loading, setLoading] = useState(Boolean(repositoryPath));
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<MemoryKindFilter>("all");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  // Another repository's memory starts unfiltered.
+  const [filterScope, setFilterScope] = useState(repositoryPath);
+  if (filterScope !== repositoryPath) {
+    setFilterScope(repositoryPath);
+    setQuery("");
+    setKind("all");
+  }
   const generation = useRef(0);
   const reload = useCallback(async () => {
     const request = ++generation.current;
@@ -100,6 +137,7 @@ export function WorkspaceMemorySection(props: {
       if (!result.ok)
         throw new Error(result.message ?? "");
       setItems(result.items);
+      setSourceTasks(result.sourceTasks ?? NO_SOURCE_TASKS);
       setError("");
     } catch (err) {
       if (request === generation.current)
@@ -112,6 +150,7 @@ export function WorkspaceMemorySection(props: {
   }, [repositoryPath]);
   useEffect(() => {
     setItems([]);
+    setSourceTasks(NO_SOURCE_TASKS);
     void reload();
     const listener = () => {
       void reload();
@@ -135,7 +174,7 @@ export function WorkspaceMemorySection(props: {
       setItems((current) =>
         current.map((item) => (item.id === patch.id ? result.memory! : item)),
       );
-      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
+      notifyMemoryChanged();
       return true;
     } catch (err) {
       if (request === generation.current)
@@ -143,18 +182,34 @@ export function WorkspaceMemorySection(props: {
       return false;
     }
   };
-  const remove = async (id: string) => {
-    const request = generation.current;
-    try {
-      const result = await window.api?.repositoryMemory?.delete?.({ id });
-      if (request !== generation.current) return;
-      if (!result?.ok)
-        throw new Error(result?.message ?? "");
-      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
-    } catch (err) {
-      if (request === generation.current)
-        toast.error(failureMessage(t("memory.section.forgetFailed"), err));
-    }
+  // No confirmation: the row goes at once and the toast offers Undo.
+  const remove = async (memory: RepositoryMemory) => {
+    const forgotten = await forgetMemoryWithUndo(memory, {
+      api: window.api?.repositoryMemory,
+      onChanged: notifyMemoryChanged,
+    });
+    if (forgotten)
+      setItems((current) => current.filter((item) => item.id !== memory.id));
+    return forgotten;
+  };
+  const view = useMemo(
+    () => selectMemoryListView({ items, query, kind }),
+    [items, query, kind],
+  );
+  const sourceTaskById = useMemo(
+    () => new Map(sourceTasks.map((task) => [task.taskId, task])),
+    [sourceTasks],
+  );
+  const offerFilters = shouldOfferMemoryFilters({
+    total: items.length,
+    query,
+    kind,
+    focused: searchFocused,
+  });
+  const clearFilters = () => {
+    setQuery("");
+    setKind("all");
+    searchInputRef.current?.focus();
   };
   if (!repositoryPath)
     return (
@@ -194,14 +249,39 @@ export function WorkspaceMemorySection(props: {
           {t("memory.section.empty")}
         </p>
       )}
-      {items.length > 0 ? (
+      {offerFilters ? (
+        <MemoryListFilters
+          view={view}
+          query={query}
+          onQueryChange={setQuery}
+          onSearchFocusChange={setSearchFocused}
+          searchInputRef={searchInputRef}
+          kind={kind}
+          onKindChange={setKind}
+        />
+      ) : null}
+      {offerFilters && view.filtering ? (
+        <MemoryListFilterStatus
+          matched={view.rows.length}
+          total={view.total}
+          onClear={clearFilters}
+        />
+      ) : null}
+      {view.rows.length > 0 ? (
         <div className={sx(informationRow.list)}>
-          {items.map((memory) => (
+          {view.rows.map((memory) => (
             <MemoryRow
               key={memory.id}
               memory={memory}
+              query={query}
+              sourceTask={
+                memory.sourceTaskId
+                  ? sourceTaskById.get(memory.sourceTaskId)
+                  : undefined
+              }
+              onOpenSourceTask={(task) => openSourceTask(task, repositoryPath)}
               onSave={update}
-              onRemove={() => remove(memory.id)}
+              onRemove={() => remove(memory)}
             />
           ))}
         </div>
@@ -212,18 +292,43 @@ export function WorkspaceMemorySection(props: {
 
 export function MemoryRow(props: {
   memory: RepositoryMemory;
+  /** The list's search, marked in the memory text. */
+  query?: string;
+  /** The open task the memory came from, when it still exists. */
+  sourceTask?: RepositoryMemorySourceTask;
+  onOpenSourceTask?: (task: RepositoryMemorySourceTask) => void;
   onSave: (patch: RepositoryMemoryUpdateArgs) => Promise<boolean>;
-  onRemove: () => Promise<void>;
+  /** Resolves true once the memory is forgotten. */
+  onRemove: () => Promise<boolean>;
+  /** The relative time's reference; tests pin it. */
+  now?: Date;
 }) {
-  const { memory } = props;
+  const { memory, sourceTask } = props;
   const { t } = useTranslation(["workspace", "common"]);
   const [editing, setEditing] = useState(false);
-  const [confirmingForget, setConfirmingForget] = useState(false);
   const [draft, setDraft] = useState(memory.content);
   const [kind, setKind] = useState(memory.kind);
   const [mode, setMode] = useState(memory.recallMode);
   const [busy, setBusy] = useState(false);
   const editButton = useRef<HTMLButtonElement>(null);
+  const rowRef = useRef<HTMLElement>(null);
+  /*
+   * The row leaves as soon as the memory is forgotten. A keyboard reader who
+   * pressed Forget lands on the neighbouring row's first action instead of the
+   * page body, so forgetting several in turn stays in the list.
+   */
+  const forget = async () => {
+    const row = rowRef.current;
+    const hadFocus = Boolean(row?.contains(document.activeElement));
+    const neighbour = row?.nextElementSibling ?? row?.previousElementSibling ?? null;
+    setBusy(true);
+    try {
+      if ((await props.onRemove()) && hadFocus)
+        neighbour?.querySelector<HTMLElement>("[data-memory-row-actions] button")?.focus();
+    } finally {
+      setBusy(false);
+    }
+  };
   const finish = () => {
     setEditing(false);
     requestAnimationFrame(() => editButton.current?.focus());
@@ -355,109 +460,114 @@ export function MemoryRow(props: {
   }
 
   return (
-    <>
-      <article
-        className={sx(informationRow.root)}
-      >
-        <RecallGlyph
-          aria-hidden="true"
-          className={sx(
-            informationRow.mark,
-            memory.recallMode === "core"
-              ? styles.markCore
-              : memory.recallMode === "candidate"
-                ? styles.markCandidate
-                : styles.markContextual,
-          )}
-        />
-        <div className={sx(informationRow.body)}>
-          {/* The memory itself is the row's title — it is a sentence, so it
-              wraps to two lines rather than ellipsizing at the first word
-              boundary, and the full text stays available in the editor. */}
-          <p className={sx(styles.content)}>{memory.content}</p>
-          {/* Gap, not a separator glyph: the recall label already contains
-              a middot, and a wrapping meta row orphans a lone separator at the
-              end of the first line. The pull-request row above spaces its own
-              meta the same way. */}
-          <div className={sx(informationRow.meta)}>
-            {/* Kind is a category, so it takes the chip; recall mode is a
-                sentence about behaviour, so it stays text. Two bare words at a
-                6px gap read as one phrase — this is the same number/status/repo
-                rhythm the pull-request row uses. */}
-            <Badge variant="outline">{t(KIND_LABEL_KEYS[memory.kind])}</Badge>
-            <span className={sx(informationRow.metaText)}>
-              {t(RECALL_META_LABEL_KEYS[memory.recallMode])}
-            </span>
-          </div>
+    <article ref={rowRef} className={sx(informationRow.root)}>
+      <RecallGlyph
+        aria-hidden="true"
+        className={sx(
+          informationRow.mark,
+          memory.recallMode === "core"
+            ? styles.markCore
+            : memory.recallMode === "candidate"
+              ? styles.markCandidate
+              : styles.markContextual,
+        )}
+      />
+      <div className={sx(informationRow.body)}>
+        {/* The memory itself is the row's title — it is a sentence, so it
+            wraps to two lines rather than ellipsizing at the first word
+            boundary, and the full text stays available in the editor. */}
+        <p className={sx(styles.content)}>
+          <SearchHighlight text={memory.content} query={props.query ?? ""} />
+        </p>
+        {/* Gap, not a separator glyph: the recall label already contains
+            a middot, and a wrapping meta row orphans a lone separator at the
+            end of the first line. The pull-request row above spaces its own
+            meta the same way. */}
+        <div className={sx(informationRow.meta)}>
+          {/* Kind is a category, so it takes the chip; recall mode is a
+              sentence about behaviour, so it stays text. Two bare words at a
+              6px gap read as one phrase — this is the same number/status/repo
+              rhythm the pull-request row uses. */}
+          <Badge variant="outline">{t(KIND_LABEL_KEYS[memory.kind])}</Badge>
+          <span className={sx(informationRow.metaText)}>
+            {t(RECALL_META_LABEL_KEYS[memory.recallMode])}
+          </span>
         </div>
-        <div className={sx(informationRow.trail)}>
-          {memory.recallMode === "candidate" ? (
-            <Tooltip content={t("memory.row.promoteTitle")}>
+        {/* When it was last confirmed (saved, re-found or edited) and where
+            it came from: a second meta line, so a narrow rail never wraps
+            the kind chip away from its recall label. */}
+        <div className={sx(informationRow.meta)} data-memory-meta-provenance="">
+          <span className={sx(styles.metaTime)}>
+            <Trans
+              t={t}
+              i18nKey="workspace:memory.row.confirmedAt"
+              components={{
+                time: <RelativeTime date={memory.lastConfirmedAt} now={props.now} past />,
+              }}
+            />
+          </span>
+          {sourceTask && props.onOpenSourceTask ? (
+            <Tooltip content={sourceTask.title}>
               <AdsButton
                 layout="host"
                 type="button"
-                disabled={busy}
-                onClick={() => void promote()}
-                xstyle={styles.rowAction}
-                aria-label={t("memory.row.promoteAriaLabel", { content: memory.content })}
+                onClick={() => props.onOpenSourceTask?.(sourceTask)}
+                xstyle={[hostSurface.inertChrome, styles.sourceLink]}
+                aria-label={t("memory.row.sourceTaskAriaLabel", { title: sourceTask.title })}
+                data-memory-source-task=""
               >
-                <Sparkles className={sx(styles.rowActionIcon)} aria-hidden />
+                {t("memory.row.sourceTask")}
               </AdsButton>
             </Tooltip>
           ) : null}
-          <Tooltip content={t("memory.row.editTitle")}>
-            <AdsButton
-              ref={editButton}
-              layout="host"
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setDraft(memory.content);
-                setKind(memory.kind);
-                setMode(memory.recallMode);
-                setEditing(true);
-              }}
-              xstyle={styles.rowAction}
-              aria-label={t("memory.row.editAriaLabel", { content: memory.content })}
-            >
-              <Pencil className={sx(styles.rowActionIcon)} aria-hidden />
-            </AdsButton>
-          </Tooltip>
-          <Tooltip content={t("memory.row.forgetTitle")}>
-            <AdsButton
-              layout="host"
-              type="button"
-              disabled={busy}
-              onClick={() => setConfirmingForget(true)}
-              xstyle={[styles.rowAction, styles.rowActionDanger]}
-              aria-label={t("memory.row.forgetAriaLabel", { content: memory.content })}
-            >
-              <Trash2 className={sx(styles.rowActionIcon)} aria-hidden />
-            </AdsButton>
-          </Tooltip>
         </div>
-      </article>
-      {/* Forgetting is not undoable and the row it removes is one line of text,
-          so the old always-visible "Forget" button was one mis-click from
-          silent data loss. The saved-plan list next to it already gates its
-          delete this way. */}
-      <ConfirmDialog
-        open={confirmingForget}
-        title={t("memory.forgetDialog.title")}
-        description={t("memory.forgetDialog.description", { content: memory.content })}
-        confirmLabel={t("memory.forgetDialog.confirm")}
-        loading={busy}
-        onConfirm={async () => {
-          setBusy(true);
-          try {
-            await props.onRemove();
-            setConfirmingForget(false);
-          } finally {
-            setBusy(false);
-          }
-        }}
-        onCancel={() => setConfirmingForget(false)}
-      />
-    </>
+      </div>
+      <div className={sx(informationRow.trail)} data-memory-row-actions="">
+        {memory.recallMode === "candidate" ? (
+          <Tooltip content={t("memory.row.promoteTitle")}>
+            <AdsButton
+              layout="host"
+              type="button"
+              disabled={busy}
+              onClick={() => void promote()}
+              xstyle={styles.rowAction}
+              aria-label={t("memory.row.promoteAriaLabel", { content: memory.content })}
+            >
+              <Sparkles className={sx(styles.rowActionIcon)} aria-hidden />
+            </AdsButton>
+          </Tooltip>
+        ) : null}
+        <Tooltip content={t("memory.row.editTitle")}>
+          <AdsButton
+            ref={editButton}
+            layout="host"
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setDraft(memory.content);
+              setKind(memory.kind);
+              setMode(memory.recallMode);
+              setEditing(true);
+            }}
+            xstyle={styles.rowAction}
+            aria-label={t("memory.row.editAriaLabel", { content: memory.content })}
+          >
+            <Pencil className={sx(styles.rowActionIcon)} aria-hidden />
+          </AdsButton>
+        </Tooltip>
+        <Tooltip content={t("memory.row.forgetTitle")}>
+          <AdsButton
+            layout="host"
+            type="button"
+            disabled={busy}
+            onClick={() => void forget()}
+            xstyle={[styles.rowAction, styles.rowActionDanger]}
+            aria-label={t("memory.row.forgetAriaLabel", { content: memory.content })}
+          >
+            <Trash2 className={sx(styles.rowActionIcon)} aria-hidden />
+          </AdsButton>
+        </Tooltip>
+      </div>
+    </article>
   );
 }

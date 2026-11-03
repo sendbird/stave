@@ -179,10 +179,10 @@ test("the Fleet table lists 100 tasks of 30 workspaces with the oldest approval 
     .getByTestId("top-bar")
     .getByRole("button", { name: "Open Fleet View" })
     .click();
-  const layout = page.getByRole("group", { name: "Board layout" });
-  await layout.getByRole("button", { name: "Table" }).click();
-  await expect(layout.getByRole("button", { name: "Table" })).toHaveAttribute(
-    "aria-pressed",
+  const layout = page.getByRole("radiogroup", { name: "Board layout" });
+  await layout.getByRole("radio", { name: "Table" }).click();
+  await expect(layout.getByRole("radio", { name: "Table" })).toHaveAttribute(
+    "aria-checked",
     "true",
   );
 
@@ -196,11 +196,11 @@ test("the Fleet table lists 100 tasks of 30 workspaces with the oldest approval 
   await expect(rows.first()).toContainText("39m");
   await page.screenshot({ path: testInfo.outputPath("fleet-table.png") });
 
-  const filters = page.getByRole("button", { name: "Needs answer" });
+  const filters = page.getByRole("radio", { name: "Needs answer" });
   await filters.click();
   await expect(rows).toHaveCount(8);
 
-  await page.getByRole("button", { name: "No updates", exact: true }).click();
+  await page.getByRole("radio", { name: "No updates", exact: true }).click();
   await expect(rows).toHaveCount(2);
   for (const title of ["Task 0.0", "Task 3.0"]) {
     await expect(rows.filter({ hasText: title })).toContainText("No updates");
@@ -225,11 +225,11 @@ test("the Fleet table lists 100 tasks of 30 workspaces with the oldest approval 
     .getByTestId("top-bar")
     .getByRole("button", { name: "Open Fleet View" })
     .click();
-  await expect(layout.getByRole("button", { name: "Table" })).toHaveAttribute(
-    "aria-pressed",
+  await expect(layout.getByRole("radio", { name: "Table" })).toHaveAttribute(
+    "aria-checked",
     "true",
   );
   await expect(page.getByRole("region", { name: "Open tasks" })).toBeVisible();
-  await layout.getByRole("button", { name: "Cards" }).click();
+  await layout.getByRole("radio", { name: "Cards" }).click();
   await expect(page.getByRole("region", { name: "Open tasks" })).toHaveCount(0);
 });

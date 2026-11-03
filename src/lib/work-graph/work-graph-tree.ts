@@ -153,8 +153,22 @@ export interface WorkGraphSummary {
  * stuck on them. A blocked agent leads because it is the only state a person
  * can act on from the list.
  */
-export function summarizeWorkGraph(graph: WorkGraph): WorkGraphSummary {
-  const rows = buildWorkGraphTree(graph);
+export interface WorkGraphRowCounts {
+  runningCount: number;
+  blockedCount: number;
+  failedCount: number;
+  completedCount: number;
+  maxDepth: number;
+}
+
+/**
+ * How many rows are in flight, stuck on a person, failed, or finished. A
+ * blocked row counts as blocked only: the person is its critical path, so it
+ * is neither "running" nor anything else.
+ */
+export function countWorkGraphRows(
+  rows: readonly WorkGraphTreeRow[],
+): WorkGraphRowCounts {
   let running = 0;
   let blocked = 0;
   let failed = 0;
@@ -174,6 +188,69 @@ export function summarizeWorkGraph(graph: WorkGraph): WorkGraphSummary {
       running += 1;
     }
   }
+  return {
+    runningCount: running,
+    blockedCount: blocked,
+    failedCount: failed,
+    completedCount: completed,
+    maxDepth,
+  };
+}
+
+/** One node of the agent tree with its children, in display order. */
+export interface WorkGraphTreeBranch {
+  id: string;
+  /** Plain text for typeahead; the row draws its own label. */
+  label: string;
+  children?: WorkGraphTreeBranch[];
+}
+
+/**
+ * Nest the depth-first rows back into branches, for a tree widget that walks
+ * children itself. Rows arrive with each child right after its parent (see
+ * `buildWorkGraphTree`), so a stack of the open ancestors is enough; a depth
+ * that skips a level (a parent filtered out) attaches to the deepest open
+ * ancestor instead of vanishing.
+ */
+export function nestWorkGraphTreeRows(
+  rows: readonly WorkGraphTreeRow[],
+  labelOf: (row: WorkGraphTreeRow) => string,
+): WorkGraphTreeBranch[] {
+  const roots: WorkGraphTreeBranch[] = [];
+  const open: WorkGraphTreeBranch[] = [];
+  for (const row of rows) {
+    const depth = Math.min(row.depth, open.length);
+    open.length = depth;
+    const branch: WorkGraphTreeBranch = { id: row.key, label: labelOf(row) };
+    const parent = open[depth - 1];
+    if (parent) {
+      (parent.children ??= []).push(branch);
+    } else {
+      roots.push(branch);
+    }
+    open.push(branch);
+  }
+  return roots;
+}
+
+/** Every branch below `branch`, at any depth. */
+export function countWorkGraphDescendants(branch: WorkGraphTreeBranch): number {
+  let count = 0;
+  for (const child of branch.children ?? []) {
+    count += 1 + countWorkGraphDescendants(child);
+  }
+  return count;
+}
+
+export function summarizeWorkGraph(graph: WorkGraph): WorkGraphSummary {
+  const rows = buildWorkGraphTree(graph);
+  const {
+    runningCount: running,
+    blockedCount: blocked,
+    failedCount: failed,
+    completedCount: completed,
+    maxDepth,
+  } = countWorkGraphRows(rows);
   const totalCount = rows.length;
   const parts: string[] = [];
   if (totalCount > 0) {

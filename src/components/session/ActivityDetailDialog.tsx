@@ -12,7 +12,7 @@ import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import type { ChatMessage } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
-import { describeExchangeStatus } from "@/lib/delegation/format";
+import { describeExchangeStatus, isExchangeStatusLive } from "@/lib/delegation/format";
 import { TraceOutput } from "./message/turn-event-rows";
 import { activityDetailStyles as s } from "./activity-detail.styles";
 import {
@@ -125,7 +125,7 @@ export function ActivityDetailDialog(props: {
   const accountProfileId = owner?.nativeAccountProfileId ?? "system-default";
   const cursor = provider ? getProviderSessionCursor({ sessions, providerId: provider, accountProfileId }) : null;
   const sessionId = owner?.nativeProviderSessionId ?? cursor?.nativeSessionId;
-  const live = exchange ? ["running", "queued"].includes(exchange.outcome.status) : tool?.type === "tool_use" && ["input-streaming", "input-available"].includes(tool.state);
+  const live = exchange ? isExchangeStatusLive(exchange.outcome.status) : tool?.type === "tool_use" && ["input-streaming", "input-available"].includes(tool.state);
   const canReadProviderHistory = !delegatedTaskId && Boolean(
     agentId &&
     sessionId &&
@@ -327,7 +327,7 @@ export function ActivityDetailDialog(props: {
         {!live ? exchangeDetail : null}
         {live ? activityLog : <details><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog4")}</summary>{activityLog}</details>}
         {live ? exchangeDetail : null}
-        {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.sentence36", { value1: historyResponse.model ?? "Model not reported", value2: historyResponse.effort ?? "Effort not reported" })}</p> : null}
+        {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.sentence36", { value1: historyResponse.model ?? i18n.t("session:activityDetailDialog.modelNotReported"), value2: historyResponse.effort ?? i18n.t("session:activityDetailDialog.effortNotReported") })}</p> : null}
         {selection.detail ? <details><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog9")}</summary><TraceOutput text={selection.detail} /></details> : null}
         {tool?.type === "tool_use" ? <details className={sx(s.section)}><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog10")}</summary><p className={sx(s.subheading)}>{i18n.t("session:activityDetailDialog.activityDetailDialog11")}</p><TraceOutput text={tool.input} /><p className={sx(s.subheading)}>{i18n.t("session:activityDetailDialog.sentence37", { value1: tool.state })}</p><TraceOutput text={tool.output ?? i18n.t("session:activityDetailDialog.text")} /></details> : null}
       </div>

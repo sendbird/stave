@@ -55,7 +55,9 @@
     "sentence35": "Provider history · {{value1}}",
     "sentence36": "Thread configuration (may differ from execution): {{value1}} · {{value2}}. Current or last saved settings, not per-turn execution telemetry.",
     "sentence37": "Result · {{value1}}",
-    "extraCopy82": "Agent history is unavailable in this runtime."
+    "extraCopy82": "Agent history is unavailable in this runtime.",
+    "modelNotReported": "Model not reported",
+    "effortNotReported": "Effort not reported"
   },
   "agentAttachmentNotice": {
     "agentAttachmentNotice": "The Run keeps attached images and context through retries and continuations."
@@ -91,6 +93,16 @@
     "copy2": "Task control is now local",
     "description": "Crane is temporarily unreachable; its terminal status will retry in the background."
   },
+  "promptEnhancementDiff": {
+    "title": "Changes from Enhance",
+    "summary": "Removed words: {{removed}} · Added words: {{added}}",
+    "legend": "Removed words are struck through; added words are underlined.",
+    "diffLabel": "Word changes",
+    "removedMarker": "Removed:",
+    "addedMarker": "Added:",
+    "keep": "Keep",
+    "revert": "Revert to original"
+  },
   "chatInputComposer": {
     "submitInstantMacro": "Couldn't run the macro immediately",
     "description": "The prompt is in the composer. Finish the pending action and send it.",
@@ -99,6 +111,8 @@
     "handleEnhancePrompt2": "This prompt is already clear",
     "handlePromptEnhancementRevealComplete": "Prompt enhanced",
     "label": "Undo",
+    "viewEnhancementChanges": "View changes",
+    "enhancementChangesUnavailable": "The draft changed after Enhance, so there is nothing to compare.",
     "handleStartCompareRun": "Unable to start compare run",
     "handleStartCompareRun2": "Compare candidates are running separately",
     "description3": "A fresh-context judge will score the results after every candidate finishes.",
@@ -275,7 +289,9 @@
     "macroControl": "Macros",
     "macroControl2": "Insert a macro",
     "macroControl3": "No macros yet. Add one in Settings → Presets & Macros → Macros, or type ! in the composer after you create the first.",
-    "copy": "Instant"
+    "copy": "Instant",
+    "search": "Search macros",
+    "noMatch": "No macros match."
   },
   "macroQuickPicks": {
     "ariaLabel": "Run macro {{value1}}",
@@ -384,7 +400,28 @@
     "countRunning": "{{value}} running",
     "summaryLabel": "Subagent summary",
     "openFirstNeedsYou": "Open {{name}}",
-    "openFirstNeedsYouTitle": "{{name}}: {{reason}}"
+    "openFirstNeedsYouTitle": "{{name}}: {{reason}}",
+    "filterLabel": "Show subagents",
+    "filter": {
+      "all": "All",
+      "needsYou": "Needs you",
+      "failed": "Failed",
+      "running": "Running",
+      "done": "Done",
+      "stopped": "Stopped"
+    },
+    "retryFailed_one": "Retry failed ({{count}})",
+    "retryFailed_other": "Retry failed ({{count}})",
+    "retryFailedLabel": "Retry instructions",
+    "retryFailedPlaceholder": "What should each new attempt do?",
+    "retryFailedHint": "Each task retries with its original model and permissions.",
+    "retryFailedSubmit_one": "Retry {{count}} task",
+    "retryFailedSubmit_other": "Retry {{count}} tasks",
+    "retryFailedCancel": "Cancel",
+    "retryFailedStarted_one": "Retrying {{count}} failed task.",
+    "retryFailedStarted_other": "Retrying {{count}} failed tasks.",
+    "retryFailedRefused_one": "{{count}} could not be retried; its row says why.",
+    "retryFailedRefused_other": "{{count}} could not be retried; their rows say why."
   },
   "taskPanel": {
     "ariaLabel": "Task sections",
@@ -439,7 +476,8 @@
     "runCount_other": "{{count}} outputs",
     "agentRunReport": "Agent run report and actions",
     "markedReviewed": "Reviewed",
-    "review": "Review"
+    "review": "Review",
+    "filterLabel": "Which outputs to show"
   },
   "taskRunOverview": {
     "label": "Waiting",
@@ -533,15 +571,21 @@
     "workGraphTree": "Agent tree",
     "ariaLabel2": "{{value1}} {{value2}} completed agents",
     "workGraphTree2": "done",
-    "statusLabel": "Cancelled",
-    "label": "Cancelled",
     "body": "Needs you",
     "body2": "elapsed",
     "extraCopy130": "Hide",
     "extraCopy131": "Show",
     "extraCopy132": "view activity",
     "extraCopy133": "show in conversation",
-    "controlAgent": "{{control}} {{agent}}"
+    "controlAgent": "{{control}} {{agent}}",
+    "summaryRunning_one": "{{count}} running",
+    "summaryRunning_other": "{{count}} running",
+    "summaryNeedsYou_one": "{{count}} needs you",
+    "summaryNeedsYou_other": "{{count}} need you",
+    "summaryFailed_one": "{{count}} failed",
+    "summaryFailed_other": "{{count}} failed",
+    "showSubagents_one": "Show {{count}} subagent of {{label}}",
+    "showSubagents_other": "Show {{count}} subagents of {{label}}"
   },
   "activityDetailUtils": {
     "title": "Prompt",
@@ -573,7 +617,6 @@
     "chatInputApprovalQueue3": "Deny & guide",
     "chatInputApprovalQueue4": "Cancel",
     "chatInputApprovalQueue5": "guide instead",
-    "sentence54": "always allow {{value1}}",
     "extraCopy143": "Another decision is being delivered."
   },
   "composerApprovalRow": {
@@ -763,6 +806,14 @@
       "usedTools_one": "made {{count}} tool call",
       "usedTools_other": "made {{count}} tool calls",
       "clauseSeparator": ", "
+    },
+    "activity": {
+      "read": "Reading {{target}}",
+      "edit": "Editing {{target}}",
+      "command": "Running {{target}}",
+      "search": "Searching {{target}}",
+      "web": "Looking up {{target}}",
+      "tool": "Using {{tool}}"
     }
   },
   "commandResult": {
@@ -838,7 +889,9 @@
     "traceOutput": "Copied",
     "traceOutput2": "Copy",
     "label": "Reasoning trace",
-    "extraCopy197": "Reasoning"
+    "extraCopy197": "Reasoning",
+    "lineNote_one": "{{count}} line · scroll for more",
+    "lineNote_other": "{{count}} lines · scroll for more"
   },
   "taskPanelMarks": {
     "label": "Approval needed",
@@ -1231,7 +1284,14 @@
       "approval": "Approved: {{tool}}: {{description}}",
       "approvalTool": "Approved: {{tool}}",
       "plan": "Plan: {{path}}"
-    }
+    },
+    "leftOutTitle_one": "{{count}} line did not fit",
+    "leftOutTitle_other": "{{count}} lines did not fit",
+    "leftOutLimit": "{{section}} holds {{limit}} characters",
+    "leftOutLabel": "Left out:",
+    "putBack": "Put back",
+    "overLimit_one": "{{count}} character over the {{limit}}-character limit. Shorten it to save.",
+    "overLimit_other": "{{count}} characters over the {{limit}}-character limit. Shorten it to save."
   },
   "sideChat": {
     "title": "Side question",
@@ -1305,5 +1365,57 @@
     "actionHandoff": "Open handoff",
     "actionSideQuestion": "Ask a side question",
     "actionComposer": "Write a reply"
+  },
+  "userInputDelivery": {
+    "failedWithDetail": "User input delivery failed: {{detail}}",
+    "notAccepted": "User input delivery failed: the answer was not accepted. Retry from this question card."
+  },
+  "turnTrace": {
+    "viewLabel": "Activity view",
+    "viewList": "List",
+    "viewTimeline": "Timeline",
+    "label": "Turn timeline",
+    "turn": "Turn",
+    "reasoning": "Reasoning",
+    "tokens": "{{value}} tokens",
+    "slowest": "Slowest",
+    "usageNote": "Tokens and cost are reported for the whole turn only, not for each step.",
+    "notReported_one": "{{count}} step without a reported time",
+    "notReported_other": "{{count}} steps without a reported time",
+    "notReportedDetail": "Steps saved before Stave recorded times, and steps that ended without a result, are listed here instead of placed on the axis.",
+    "empty": "No steps with a reported time yet.",
+    "noTurn": "No turn to show yet.",
+    "legendLabel": "Timeline legend",
+    "legendTurn": "Turn",
+    "legendModel": "Reasoning",
+    "legendTool": "Tool",
+    "legendAgent": "Agent",
+    "legendNow": "Now"
+  },
+  "sharedFiles": {
+    "title": "Shared files",
+    "reading": "Reading what each worktree changed…",
+    "summary_one": "{{count}} file changed in more than one worktree",
+    "summary_other": "{{count}} files changed in more than one worktree",
+    "none": "No file changed in more than one worktree",
+    "refresh": "Read shared files again",
+    "file": "File",
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "change": {
+      "added": "Added",
+      "deleted": "Deleted",
+      "renamed": "Renamed",
+      "changed": "Changed"
+    },
+    "notChanged": "—",
+    "openDiff": "Open diff",
+    "openDiffLabel": "Open the diff of {{path}} from {{agent}}",
+    "openFailed": "The diff could not be opened.",
+    "binary": "This is a binary file; its diff is not shown.",
+    "unreadable_one": "Not compared: {{agents}}. Its worktree is not available or could not be read.",
+    "unreadable_other": "Not compared: {{agents}}. Their worktrees are not available or could not be read.",
+    "scope": "Since each worktree left the default branch · file level; overlapping lines are not checked.",
+    "notChangedSpoken": "Not changed"
   }
 }

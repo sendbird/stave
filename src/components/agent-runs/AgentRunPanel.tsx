@@ -225,7 +225,6 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         <StageTrack
           rows={rows}
           size="md"
-          live={active && !props.reducedMotion && agentRun.state === "running"}
           paused={agentRun.state === "paused"}
           tone={agentRun.state === "stopped" ? "attention" : undefined}
         />
@@ -252,10 +251,9 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
       ) : null}
 
       {plan ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel2")}>
-          <h3 className={sx(styles.sectionTitle)}>{i18n.t("ui:plan.plan")}</h3>
+        <div className={sx(styles.section, styles.sectionRule)}>
           <AgentRunPlan items={plan.items} live={Boolean(active && agentRun.state === "running")} />
-        </section>
+        </div>
       ) : null}
 
       {criteria.length > 0 ? (
@@ -324,7 +322,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
           <Gauge aria-hidden className={sx(styles.sectionIcon)} />
           <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView11")}</h3>
         </div>
-        <AgentRunSummary agentRun={agentRun} usage={detail.usage ?? null} active={active} now={now} formatClock={formatClock} />
+        <AgentRunSummary agentRun={agentRun} usage={detail.usage ?? null} active={active} activeTime={detail.activeTime ?? null} now={now} formatClock={formatClock} />
       </section>
     </section>
   );

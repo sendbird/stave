@@ -4,6 +4,15 @@ import { i18n, useTranslation } from "@/i18n";
 import { WorkspaceExecutionControls } from "./WorkspaceExecutionControls";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
+import { Meter } from "@/components/ads/components/Meter";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ads/components/Table";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -15,7 +24,6 @@ import {
 } from "@/lib/performance/resource-manager";
 import type { AppMetrics } from "./ResourcesPopover";
 import { managerStyles as styles } from "./resource-manager.styles";
-import { shareStyles } from "./resource-dashboard.styles";
 
 const labels = {
   main: "Main",
@@ -68,12 +76,12 @@ export function ResourceManagerOverview({
         keepActive,
       });
       if (!result?.ok)
-        throw new Error(result?.message ?? "Keep-active setting unavailable");
+        throw new Error(result?.message ?? tI18n("workspace:resourceManagerOverview.keepActiveUnavailable"));
       await refresh();
     } catch (error) {
       if (alive.current)
         setMessage(
-          error instanceof Error ? error.message : "Setting could not be saved",
+          error instanceof Error ? error.message : tI18n("workspace:resourceManagerOverview.settingNotSaved"),
         );
     } finally {
       operation.current = false;
@@ -195,7 +203,7 @@ export function ResourceManagerOverview({
         workspaceId,
       });
       if (!result?.ok)
-        throw new Error(result?.message ?? "Release unavailable");
+        throw new Error(result?.message ?? tI18n("workspace:resourceManagerOverview.releaseUnavailable"));
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const after = await window.api?.metrics?.getAppMetrics?.();
       if (!alive.current) return;
@@ -208,14 +216,18 @@ export function ResourceManagerOverview({
             cpu: null,
           })),
         ).reduce((sum, p) => sum + p.rssBytes, 0);
-      const observation =
+      setMessage(
         before && after
-          ? ` Electron RSS observed: ${formatResourceBytes(rss(before))} → ${formatResourceBytes(rss(after))}. Other activity can affect this change.`
-          : " Memory observation unavailable.";
-      setMessage(`${result.released} hidden page(s) released.${observation}`);
+          ? tI18n("workspace:resourceManagerOverview.releasedObserved", {
+              count: result.released,
+              before: formatResourceBytes(rss(before)),
+              after: formatResourceBytes(rss(after)),
+            })
+          : tI18n("workspace:resourceManagerOverview.releasedUnobserved", { count: result.released }),
+      );
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Release failed");
+      setMessage(error instanceof Error ? error.message : tI18n("workspace:resourceManagerOverview.releaseFailed"));
     } finally {
       operation.current = false;
       if (alive.current) {
@@ -243,16 +255,15 @@ export function ResourceManagerOverview({
       )}
       <h3 className={sx(styles.heading)}>{tI18n("workspace:resourceManagerOverview.workspaceMemory")}</h3>
       <div className={sx(styles.section)}>
-        <div className={sx(styles.tableScroll)}>
-          <table className={sx(styles.table)} aria-label={tI18n("workspace:resourceManagerOverview.workspaceMemory")}>
-            <thead>
-              <tr>
-                <th className={sx(styles.columnHeading)}>{tI18n("workspace:resourceManagerOverview.workspace")}</th>
-                <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.attributedRss")}</th>
-                <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.sharedRss")}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Table density="compact" minInlineSize={0} role="region" aria-label={tI18n("workspace:resourceManagerOverview.workspaceMemory")} data-resource-table="workspaces">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{tI18n("workspace:resourceManagerOverview.workspace")}</TableHead>
+                <TableHead align="end">{tI18n("workspace:resourceManagerOverview.attributedRss")}</TableHead>
+                <TableHead align="end">{tI18n("workspace:resourceManagerOverview.sharedRss")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {[...names]
                 .filter(([id]) =>
                   shouldShowResourceWorkspace({
@@ -277,36 +288,37 @@ export function ResourceManagerOverview({
                   const sum = (items: ResourceProcess[]) =>
                     items.reduce((total, p) => total + p.rssBytes, 0);
                   const attributed = own ? sum(own) : 0;
+                  const share = total > 0 ? Math.min(attributed / total, 1) : 0;
                   return (
-                    <tr key={id} className={sx(styles.dataRow)}>
-                      <th scope="row" className={sx(styles.identityCell)}>
+                    <TableRow key={id}>
+                      <TableHead scope="row" xstyle={styles.rowHeading}>
                         {name}
                         {/*
                         Magnitude, so one hue for every row: a ramp keyed to
                         size would re-encode the bar length as color and spend
                         the only free channel on what the bar already says.
                       */}
-                        <div className={sx(shareStyles.track)} aria-hidden>
-                          <div
-                            className={sx(shareStyles.fill)}
-                            style={{
-                              width: `${total > 0 ? Math.min((attributed / total) * 100, 100) : 0}%`,
-                            }}
-                          />
-                        </div>
-                      </th>
-                      <td className={sx(styles.numericCell)}>
+                        <Meter
+                          xstyle={styles.shareMeter}
+                          label={tI18n("workspace:resourceManagerOverview.shareOfMeasured", { name })}
+                          hideLabel
+                          hideValue
+                          size="sm"
+                          value={share * 100}
+                          getAriaValueText={() => formatPercent(share)}
+                        />
+                      </TableHead>
+                      <TableCell align="end" xstyle={styles.numericCell}>
                         {own ? formatResourceBytes(attributed) : "—"}
-                      </td>
-                      <td className={sx(styles.numericCell)}>
+                      </TableCell>
+                      <TableCell align="end" xstyle={styles.numericCell}>
                         {shared.length ? formatResourceBytes(sum(shared)) : "—"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+        </Table>
         <span className={sx(styles.muted)}>
           {tI18n("workspace:resourceManagerOverview.onlyTheCurrentWorkspaceAndWorkspacesWith")}</span>
       </div>
@@ -333,9 +345,9 @@ export function ResourceManagerOverview({
             );
           const name =
             owner === "application"
-              ? "Stave app and unattributed processes"
+              ? tI18n("workspace:resourceManagerOverview.applicationGroup")
               : owner === "shared"
-                ? "Processes shared across workspaces"
+                ? tI18n("workspace:resourceManagerOverview.sharedGroup")
                 : (names.get(owner) ?? owner);
           return (
             <section key={owner} className={sx(styles.group)}>
@@ -361,27 +373,29 @@ export function ResourceManagerOverview({
                 )}
               </div>
               <div className={sx(styles.detail)}>
-                <div className={sx(styles.tableScroll)}>
-                  <table
-                    className={sx(styles.table)}
-                    aria-label={tI18n("workspace:resourceManagerOverview.valueProcesses", { name: name })}
-                  >
-                    <thead>
-                      <tr>
-                        <th className={sx(styles.columnHeading)}>
-                          {tI18n("workspace:resourceManagerOverview.processTask")}</th>
-                        <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.rss")}</th>
-                        <th className={sx(styles.numericHeading)}>{tI18n("workspace:resourceManagerOverview.cpu")}</th>
-                        <th className={sx(styles.numericHeading)}>
-                          {tI18n("workspace:resourceManagerOverview.rssChange")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <Table
+                  density="compact"
+                  minInlineSize={0}
+                  role="region"
+                  aria-label={tI18n("workspace:resourceManagerOverview.valueProcesses", { name: name })}
+                  data-resource-table="processes"
+                >
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          {tI18n("workspace:resourceManagerOverview.processTask")}</TableHead>
+                        <TableHead align="end">{tI18n("workspace:resourceManagerOverview.rss")}</TableHead>
+                        <TableHead align="end">{tI18n("workspace:resourceManagerOverview.cpu")}</TableHead>
+                        <TableHead align="end">
+                          {tI18n("workspace:resourceManagerOverview.rssChange")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {group
                         .sort((a, b) => b.rssBytes - a.rssBytes)
                         .map((p) => (
-                          <tr key={p.pid} className={sx(styles.dataRow)}>
-                            <th scope="row" className={sx(styles.identityCell)}>
+                          <TableRow key={p.pid}>
+                            <TableHead scope="row" xstyle={styles.rowHeading}>
                               <div className={sx(styles.processIdentity)}>
                                 <span className={sx(styles.processTitle)}>
                                   {p.label}
@@ -425,14 +439,14 @@ export function ResourceManagerOverview({
                                   </span>
                                 )}
                               </div>
-                            </th>
-                            <td className={sx(styles.numericCell)}>
+                            </TableHead>
+                            <TableCell align="end" xstyle={styles.numericCell}>
                               {formatResourceBytes(p.rssBytes)}
-                            </td>
-                            <td className={sx(styles.numericCell)}>
+                            </TableCell>
+                            <TableCell align="end" xstyle={styles.numericCell}>
                               {p.cpu === null ? "—" : formatPercent(p.cpu / 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-                            </td>
-                            <td className={sx(styles.numericCell)}>
+                            </TableCell>
+                            <TableCell align="end" xstyle={styles.numericCell}>
                               {history[0]?.processes.has(p.pid) ? (
                                 <span className={sx(styles.muted)}>
                                   {p.rssBytes >=
@@ -449,12 +463,11 @@ export function ResourceManagerOverview({
                               ) : (
                                 "—"
                               )}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </TableBody>
+                </Table>
                 {guests.map((guest) => (
                   <div
                     key={`${guest.workspaceId}:${guest.lensSessionId}`}

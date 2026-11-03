@@ -277,7 +277,6 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     lastBranchDriftWarningRef.current = warningKey;
     toast.warning(i18n.t("shell:topBarBranchDropdown.defaultWorkspaceChangedBranches"), {
       description: i18n.t("shell:topBarBranchDropdown.gitIsOnOpenTheBranch", { value1: branchDrift.actualBranch, value2: branchDrift.expectedBranch }),
-      position: "bottom-right",
     });
   }, [activeWorkspaceId, branchDrift]);
 

@@ -304,7 +304,10 @@ test("Fleet View exposes its operating model at a glance", async ({
     ).toBeVisible();
   }
 
-  // Work is presented as agent-workspace cards, not full-width task rows.
+  // Work opens on the Tree layout; the agent-workspace cards are one choice away.
+  const layout = page.getByRole("radiogroup", { name: "Board layout" });
+  await expect(layout.getByRole("radio", { name: "Tree" })).toHaveAttribute("aria-checked", "true");
+  await layout.getByRole("radio", { name: "Cards" }).click();
   await expect(page.getByRole("article").first()).toBeVisible();
 
   await page.screenshot({
@@ -439,7 +442,7 @@ test("Compare owns its preparation action and recent run history", async ({
 
   await search.fill("");
   await historyDialog
-    .getByRole("button", { name: "Failed 1", exact: true })
+    .getByRole("radio", { name: "Failed 1", exact: true })
     .click();
   await expect(historyDialog.getByText("Run failed")).toBeVisible();
 });
@@ -475,7 +478,9 @@ test("Compare Runs explains the prepare, run, judge, review, and keep decision",
   await expect(
     page.getByRole("button", { name: "Open candidate" }),
   ).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "Keep" })).toHaveCount(2);
+  await expect(
+    page.getByRole("radiogroup", { name: "Keep one candidate" }).getByRole("radio"),
+  ).toHaveCount(2);
 
   await page.screenshot({
     path: testInfo.outputPath("compare-candidates.png"),

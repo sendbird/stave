@@ -3,6 +3,7 @@ import { formatDuration, formatCost, formatTokenCount } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
+import { Meter } from "@/components/ads/components/Meter";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { thresholdTone, type Tone } from "@/components/ads/utils/tone";
@@ -10,6 +11,7 @@ import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { AgentRun } from "@/lib/agent-runs/domain";
 import { describeAgentRunPermissions, explainAgentRunPermissions } from "@/lib/agent-runs/agent-run-view";
 import type { AgentRunUsage } from "@/lib/agent-runs/usage";
+import { activeMsAt, type AgentRunActiveTime } from "@/lib/agent-runs/active-time";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { ElapsedClock } from "./ElapsedClock";
@@ -28,6 +30,11 @@ export interface AgentRunSummaryProps {
   usage: AgentRunUsage | null;
   /** Running agent runs count their time up to now; ended ones up to their end. */
   active: boolean;
+  /**
+   * The run's active time from the host: shown as the run's time, its pauses
+   * and waits left out. Without it (an older host) the time since the start.
+   */
+  activeTime?: AgentRunActiveTime | null;
   now: number;
   formatClock: (iso: string) => string;
 }
@@ -37,6 +44,8 @@ interface Metric {
   value: ReactNode;
   unit?: string;
   detail: string | null;
+  /** Said on hover: how the figure is counted. */
+  title?: string;
   tone?: Extract<Tone, "warning">;
   /** 0..1, drawn as a thin budget bar under the value. */
   meter?: number;
@@ -84,6 +93,8 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
   );
   const nearLimit = turnTone === "warning";
   const startedAt = Date.parse(agentRun.createdAt);
+  const endedAt = Date.parse(agentRun.updatedAt);
+  const { activeTime } = props;
   const unmeasured = usage ? usage.turns - usage.measuredTurns : 0;
   const model = describeRunModel(providerId, agentRun.fingerprint.model);
 
@@ -97,14 +108,29 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
       ...(turnTone === "warning" ? { tone: turnTone } : {}),
     },
     spendMetric(usage),
-    {
-      label: props.active ? i18n.t("agentRuns:agentRunSummary.label5") : i18n.t("agentRuns:agentRunSummary.label6"),
-      // A running run's time counts on its own clock, so only the figure re-renders.
-      value: props.active ? (
-        <ElapsedClock live now={props.now}>{(clock) => formatDuration(clock - startedAt)}</ElapsedClock>
-      ) : formatDuration(Date.parse(agentRun.updatedAt) - startedAt),
-      detail: i18n.t(props.active ? "agentRuns:agentRunSummary.startedAt" : "agentRuns:agentRunSummary.fromStartedAt", { time: props.formatClock(agentRun.createdAt) }),
-    },
+    activeTime
+      ? {
+          label: props.active ? i18n.t("agentRuns:activeTime.activeFor") : i18n.t("agentRuns:activeTime.wasActive"),
+          // A counting span ticks on the shared clock, so only the figure re-renders; a pause or a wait holds it still.
+          value: (
+            <ElapsedClock live={activeTime.activeSince !== null} now={props.now}>
+              {(clock) => formatDuration(activeMsAt(activeTime, clock))}
+            </ElapsedClock>
+          ),
+          detail: i18n.t(props.active ? "agentRuns:activeTime.since" : "agentRuns:activeTime.from", { time: props.formatClock(agentRun.createdAt) }),
+          // The wall-clock span stays one hover away.
+          title: props.active
+            ? i18n.t("agentRuns:activeTime.wallClockSince", { explain: i18n.t("agentRuns:activeTime.explain"), duration: formatDuration(Math.max(0, props.now - startedAt)) })
+            : i18n.t("agentRuns:activeTime.wallClockTook", { explain: i18n.t("agentRuns:activeTime.explain"), duration: formatDuration(Math.max(0, endedAt - startedAt)) }),
+        }
+      : {
+          label: props.active ? i18n.t("agentRuns:agentRunSummary.label5") : i18n.t("agentRuns:agentRunSummary.label6"),
+          // A running run's time counts on its own clock, so only the figure re-renders.
+          value: props.active ? (
+            <ElapsedClock live now={props.now}>{(clock) => formatDuration(clock - startedAt)}</ElapsedClock>
+          ) : formatDuration(endedAt - startedAt),
+          detail: i18n.t(props.active ? "agentRuns:agentRunSummary.startedAt" : "agentRuns:agentRunSummary.fromStartedAt", { time: props.formatClock(agentRun.createdAt) }),
+        },
   ];
 
   const notes = [
@@ -140,7 +166,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
       </div>
       <dl className={sx(styles.metrics)} aria-label={i18n.t("agentRuns:agentRunSummary.ariaLabel")}>
         {metrics.map((metric) => (
-          <div key={metric.label} className={sx(styles.metric)}>
+          <div key={metric.label} className={sx(styles.metric)} title={metric.title}>
             <dt className={sx(styles.metricLabel)}>{metric.label}</dt>
             <dd className={sx(styles.metricBody)}>
               <span className={sx(styles.metricValue, metric.tone === "warning" && styles.warning)}>
@@ -148,12 +174,15 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
                 {metric.unit ? <span className={sx(styles.metricUnit)}> {metric.unit}</span> : null}
               </span>
               {metric.meter !== undefined ? (
-                <span className={sx(styles.meter)} aria-hidden>
-                  <span
-                    className={sx(styles.meterFill, metric.tone === "warning" && styles.meterWarning)}
-                    style={{ width: `${Math.round(metric.meter * 100)}%` }}
-                  />
-                </span>
+                <Meter
+                  label={metric.label}
+                  hideLabel
+                  hideValue
+                  size="sm"
+                  tone={metric.tone === "warning" ? "warning" : "neutral"}
+                  value={Math.round(metric.meter * 100)}
+                  getAriaValueText={() => [metric.value, metric.unit].filter(Boolean).join(" ")}
+                />
               ) : null}
               {metric.detail ? <span className={sx(styles.metricDetail)}>{metric.detail}</span> : null}
             </dd>
@@ -270,24 +299,14 @@ const styles = stylex.create({
     fontWeight: vars["--ads-font-weight-regular"],
     color: vars["--ads-color-text-muted"],
   },
+  // A detail wraps rather than cut its qualifier ("pauses not counted") in a narrow panel.
   metricDetail: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
   warning: { color: vars["--ads-color-warning-text"] },
-  meter: {
-    display: "block",
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: vars["--ads-color-border-subtle"],
-    overflow: "hidden",
-  },
-  meterFill: { display: "block", height: "100%", borderRadius: 999, backgroundColor: vars["--ads-color-text-muted"] },
-  meterWarning: { backgroundColor: vars["--ads-color-warning-text"] },
   notes: {
     display: "flex",
     flexDirection: "column",

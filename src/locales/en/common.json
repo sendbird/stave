@@ -140,5 +140,9 @@
     "errorTitle": "Couldn't load this",
     "refreshFailed": "Couldn't refresh",
     "staleNotice": "Showing the last result that loaded."
+  },
+  "clipboard": {
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy to the clipboard"
   }
 }

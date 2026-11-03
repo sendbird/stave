@@ -8,6 +8,7 @@ import {
   filterTrackerIssues,
   projectFilterKeyForTask,
   projectFilterLabelForTask,
+  trackerIssueUpdatedSinceMs,
   type TrackerIssueFilter,
 } from "@/lib/tracker-issues/filter";
 import type {
@@ -305,6 +306,39 @@ describe("filterTrackerIssues chips", () => {
     ).toEqual(["PLAT-1", "WEB-2", "MISC-3"]);
   });
 
+  it("filters by the last update, in local calendar periods", () => {
+    // Local noon, so "today" and the day boundaries do not depend on the zone
+    // the suite runs in.
+    const now = new Date(2026, 2, 10, 12, 0, 0);
+    const at = (days: number, hour = 9) => new Date(2026, 2, 10 - days, hour, 0, 0).toISOString();
+    const pool = [
+      makeItem({ key: "TODAY-1", updatedAt: at(0) }),
+      makeItem({ key: "YESTERDAY-2", updatedAt: at(1) }),
+      makeItem({ key: "SIX-3", updatedAt: at(6) }),
+      makeItem({ key: "SEVEN-4", updatedAt: at(7) }),
+      makeItem({ key: "MONTH-5", updatedAt: at(9) }),
+      makeItem({ key: "OLD-6", updatedAt: at(40) }),
+    ];
+    const keep = (updated: TrackerIssueFilter["updated"]) =>
+      keysOf(filterTrackerIssues(pool, filterWith({ updated }), { now }));
+    expect(keep("any")).toEqual(["TODAY-1", "YESTERDAY-2", "SIX-3", "SEVEN-4", "MONTH-5", "OLD-6"]);
+    expect(keep("today")).toEqual(["TODAY-1"]);
+    // Seven days counting today: the sixth day back is in, the seventh is not.
+    expect(keep("7")).toEqual(["TODAY-1", "YESTERDAY-2", "SIX-3"]);
+    expect(keep("30")).toEqual(["TODAY-1", "YESTERDAY-2", "SIX-3", "SEVEN-4", "MONTH-5"]);
+    // March 10: this month starts on March 1.
+    expect(keep("month")).toEqual(["TODAY-1", "YESTERDAY-2", "SIX-3", "SEVEN-4", "MONTH-5"]);
+    expect(trackerIssueUpdatedSinceMs("any", now)).toBeNull();
+    expect(trackerIssueUpdatedSinceMs("today", now)).toBe(new Date(2026, 2, 10).getTime());
+    expect(trackerIssueUpdatedSinceMs("90", now)).toBe(new Date(2026, 2, 10 - 89).getTime());
+  });
+
+  it("drops a row whose update time does not parse once a window is set", () => {
+    const pool = [makeItem({ key: "BAD-1", updatedAt: "not a time" }), makeItem({ key: "OK-2" })];
+    expect(keysOf(filterTrackerIssues(pool, filterWith({ updated: "30" }), { now: NOW }))).toEqual(["OK-2"]);
+    expect(keysOf(filterTrackerIssues(pool, filterWith({}), { now: NOW }))).toEqual(["BAD-1", "OK-2"]);
+  });
+
   it("preserves input order", () => {
     const result = filterTrackerIssues(
       items,
@@ -441,10 +475,11 @@ describe("countActiveTrackerIssueFilters", () => {
           projectKeys: ["p"],
           labels: ["l"],
           linked: "linked",
+          updated: "30",
           query: "x",
         }),
       ),
-    ).toBe(7);
+    ).toBe(8);
   });
 
   it("does not count a whitespace-only query", () => {

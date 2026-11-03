@@ -1,6 +1,7 @@
 import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Loader } from "@/components/ui";
+import { Meter } from "@/components/ads/components/Meter";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import {
@@ -33,12 +34,6 @@ import type {
  * segment owns the popover itself; this file only lays out what it says.
  */
 
-const TONE_FILL = {
-  success: statusBarUsageStyles.toneOk,
-  warning: statusBarUsageStyles.toneWarn,
-  danger: statusBarUsageStyles.toneDanger,
-} as const;
-
 function formatCredits(value: number): string {
   return formatNumber(Math.round(value));
 }
@@ -69,21 +64,16 @@ function UsageWindowRow({
         <span className={sx(statusBarUsageStyles.windowLabel)}>{label}</span>
         <span className={sx(statusBarUsageStyles.windowValue)}>{value}</span>
       </div>
-      <div
-        role="progressbar"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(normalizedPercent)}
-        aria-valuetext={value}
-        className={sx(statusBarUsageStyles.meterTrack)}
-      >
-        <div
-          aria-hidden="true"
-          className={sx(statusBarUsageStyles.meterFill, TONE_FILL[usageTone(normalizedPercent)])}
-          style={{ width: `${normalizedPercent}%` }}
-        />
-      </div>
+      {/* A quota window is a measurement against a known limit, so it is a meter, not task progress. */}
+      <Meter
+        label={label}
+        hideLabel
+        hideValue
+        size="sm"
+        tone={usageTone(normalizedPercent)}
+        value={normalizedPercent}
+        getAriaValueText={() => value}
+      />
       {note ? <p className={sx(statusBarUsageStyles.noteFaint)}>{note}</p> : null}
     </div>
   );

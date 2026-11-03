@@ -20,7 +20,7 @@ import type {
   TrackerIssueListItem,
   TrackerIssueStaveLink,
 } from "@/lib/tracker-issues/types";
-import type { TrackerIssueFilterOption } from "./TrackerIssueFilterChip";
+import type { TrackerIssueFilterOption } from "./issue-filter-model";
 
 export interface TrackerIssueListPipeline {
   /** Rows with the freshest link set folded in, before filtering. */

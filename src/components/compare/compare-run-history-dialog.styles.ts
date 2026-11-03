@@ -85,27 +85,6 @@ export const compareRunHistoryDialogStyles = stylex.create({
     height: 36,
     paddingInlineStart: vars["--ads-space-32"],
   },
-  filterGroup: {
-    display: "flex",
-    gap: vars["--ads-space-4"],
-    overflowX: "auto",
-    paddingBottom: 2,
-  },
-  filterButton: {
-    flexShrink: 0,
-    gap: 6,
-    height: 28,
-    paddingInline: 10,
-    fontSize: vars["--ads-font-size-caption"],
-  },
-  filterButtonActive: {
-    color: vars["--ads-color-text"],
-  },
-  filterCount: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontVariantNumeric: "tabular-nums",
-  },
 
   list: {
     flex: 1,

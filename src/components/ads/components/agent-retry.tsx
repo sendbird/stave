@@ -5,7 +5,7 @@ import type * as React from "react";
 import { controlIconSizes } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { sx } from "../utils/stylex";
-import type { AgentRunState } from "./agent-state";
+import type { AgentStepState } from "./agent-state";
 import { Button } from "./Button";
 
 /** The shared recovery contract for agent surfaces with a retryable failure. */
@@ -44,6 +44,6 @@ export function AgentRetryButton({
 }
 
 /** Only failed tool runs expose retry; live and settled states do not. */
-export function isRetryableAgentState(status: AgentRunState): boolean {
+export function isRetryableAgentState(status: AgentStepState): boolean {
   return status === "error" || status === "failed";
 }

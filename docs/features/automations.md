@@ -6,7 +6,9 @@
   in one list: **Start a task** (this page: a repository, an agent, a prompt and
   a cadence) and **Check back on a task** (see [Check-back schedules](wake-ups.md)).
 - Each row shows name, agent, cadence, last result and next run, with `Run now`
-  and `Pause` on the row. A check-back has no `Run now`.
+  and `Pause` on the row. A check-back has no `Run now`. The last result carries
+  the same state mark as Fleet and the task panel (for example a crossed circle
+  for a failed run and a dashed circle before the first run).
 - A start-a-task run creates a normal task conversation, so you can inspect the
   result, answer an approval request, or continue the work manually.
 - Underneath, a start-a-task schedule is still an automation record, and a
@@ -38,7 +40,9 @@
 7. Use `Add Information resource`, choose a resource type, and enter the new
    resource that each run should receive.
 8. Select `Save`, then use `Run now` to test the schedule.
-9. Switch to the `Run history` tab and select a run to inspect its full result.
+9. Switch to `Run history` (the switch shows how many schedules and runs there
+   are) and select a run to inspect its full result. Filter runs by status
+   and by schedule; the active filters show as chips with `Clear all`.
 
 ## Interface Walkthrough
 
@@ -75,8 +79,9 @@ workflows live on their own **Agents** surface (see [Playbooks (retired)](playbo
 - `View run history`: switches to the `Run history` tab pre-filtered to the
   selected schedule.
 - `Pause schedule` / `Enable schedule`: stops or restores scheduled runs without
-  deleting the schedule. A paused schedule still runs from `Run now`, and is
-  shown as `Manual only`.
+  deleting the schedule. A paused schedule still runs from `Run now`. Its row
+  reads `Off` next to a `Turn on` toggle, and the detail pane's status reads
+  `Off · Manual runs only` (`On · Runs on its schedule` while it is on).
 - `Delete`: removes an idle schedule and its run-history entries. Task
   conversations created by earlier runs remain in their workspaces.
 - `Open task`: opens the task conversation created for that run.

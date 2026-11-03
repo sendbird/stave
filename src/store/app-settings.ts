@@ -150,7 +150,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * value — the sidebar reopens in whatever you last switched to.
    */
   sidebarNavView: SidebarNavView;
-  /** Fleet View's board: workspace cards, or one table of every open task. */
+  /**
+   * Fleet View's board: every open task as an agent with its subagents (the
+   * default), workspace cards, or one table of every open task.
+   */
   fleetBoardLayout: FleetBoardLayout;
   /** Work queue: settle a workspace once its PR merges after your last message. */
   workQueueSettleOnMerge: boolean;
@@ -674,13 +677,14 @@ export function normalizeSidebarNavView(value: unknown): SidebarNavView {
 }
 
 /**
- * Fleet View's board layout: `cards` (one card per workspace) or `table` (one
- * row per open task across every workspace, longest wait first).
+ * Fleet View's board layout: `tree` (every open task as a main agent with its
+ * subagent tree, the default), `cards` (one card per workspace) or `table`
+ * (one row per open task across every workspace, longest wait first).
  */
-export type FleetBoardLayout = "cards" | "table";
+export type FleetBoardLayout = "tree" | "cards" | "table";
 
 export function normalizeFleetBoardLayout(value: unknown): FleetBoardLayout {
-  return value === "table" ? "table" : "cards";
+  return value === "cards" || value === "table" ? value : "tree";
 }
 
 export type UiDensity = "regular" | "compact";
@@ -698,7 +702,7 @@ export const defaultSettings: AppSettings = {
   sidebarShowAgents: true,
   sidebarShowAiUsage: true,
   sidebarNavView: "projects",
-  fleetBoardLayout: "cards",
+  fleetBoardLayout: "tree",
   workQueueSettleOnMerge: true,
   workQueueSettleAfterDays: DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS,
   userCustomThemes: [],

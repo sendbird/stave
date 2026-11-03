@@ -128,6 +128,7 @@ import {
   resolveManagedTaskRuntimeOptions,
   userSettingsPermissionOptions,
 } from "../../src/lib/providers/managed-task-runtime";
+import { withManagedApprovalDeadline } from "./managed-approval-deadline";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { recordTurnWorkspaceDocuments } from "./turn-workspace-documents";
 import {
@@ -1308,10 +1309,14 @@ async function handleProviderEvent(args: {
     session,
   });
   const residentMessagesBeforeEvent = session.messagesByTask[args.taskId] ?? [];
+  const event = withManagedApprovalDeadline(
+    args.event,
+    session.tasks.find((candidate) => candidate.id === args.taskId),
+  );
   localMcpTurnJournal.append({
     turnId: args.turnId,
     sequence: args.sequence,
-    event: args.event,
+    event,
   });
   if (args.event.type === "usage") {
     latestTurnUsageById.delete(args.turnId);
@@ -1341,7 +1346,7 @@ async function handleProviderEvent(args: {
   const applied = applyProviderEventsToWorkspaceSession({
     session,
     taskId: args.taskId,
-    events: [args.event as NormalizedProviderEvent],
+    events: [event as NormalizedProviderEvent],
     provider: args.provider,
     model: args.model,
     turnId: args.turnId,
@@ -1380,12 +1385,12 @@ async function handleProviderEvent(args: {
     persisted: true,
   });
 
-  if (args.event.type === "approval") {
+  if (event.type === "approval") {
     scheduleManagedApprovalAutoDeny({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       turnId: args.turnId,
-      event: args.event,
+      event,
       session: appliedSession,
     });
     await persistApprovalNotification({
@@ -1393,7 +1398,7 @@ async function handleProviderEvent(args: {
       taskId: args.taskId,
       turnId: args.turnId,
       provider: args.provider,
-      event: args.event,
+      event,
       session: appliedSession,
     });
   }

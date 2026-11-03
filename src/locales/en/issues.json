@@ -52,7 +52,6 @@
     "board": "Board",
     "groupTickets": "Group tickets",
     "sortTickets": "Sort tickets",
-    "reset": "Reset",
     "assignedToMe": "Assigned to me",
     "allOpen": "All open",
     "recentlyDone": "Recently done",
@@ -65,7 +64,32 @@
     "sortKey": "Sort: Key",
     "any": "Any",
     "notInStave": "Not in Stave",
-    "resetCount": "Reset {{count}}"
+    "operatorIs": "is",
+    "operatorIsAnyOf": "is any of",
+    "staveRuns": "Stave runs",
+    "filter": "Filter",
+    "filterCount": "Filter, {{count}} active",
+    "searchFilterValues": "Search status, priority, project, label…",
+    "searchFilterValuesLabel": "Search filter values",
+    "noFilterValues": "No matching values.",
+    "appliedFilters": "Applied filters",
+    "clearAll": "Clear all",
+    "resultSummary_one": "{{filters}} · {{count}} issue",
+    "resultSummary_other": "{{filters}} · {{count}} issues",
+    "filterTotal_one": "{{count}} filter",
+    "filterTotal_other": "{{count}} filters",
+    "searchChip": "Search",
+    "operatorContains": "contains",
+    "updated": "Updated",
+    "updatedTrigger": "Updated: {{window}}",
+    "filterByUpdated": "Filter by last update",
+    "operatorWithin": "within",
+    "updatedAny": "Any time",
+    "updatedToday": "Today",
+    "updatedLast7": "Last 7 days",
+    "updatedLast30": "Last 30 days",
+    "updatedLast90": "Last 90 days",
+    "updatedThisMonth": "This month"
   },
   "issuesView": {
     "ticket": "Ticket",
@@ -94,10 +118,6 @@
     "theDescriptionCouldNotBeLoaded": "The description could not be loaded.",
     "staveState": "{{state}} in Stave",
     "commentCount": "Comments ({{count}})"
-  },
-  "trackerIssueFilterChip": {
-    "filterValue": "Filter {{value1}}",
-    "nothingToFilterByYet": "Nothing to filter by yet."
   },
   "trackerIssueKickoffSheet": {
     "ticket": "ticket",
@@ -158,7 +178,8 @@
     "ticketLink": "ticket link",
     "copyLink": "Copy link",
     "attachToValue": "Attach to {{value1}}",
-    "attachToCurrentWorkspace": "Attach to current workspace"
+    "attachToCurrentWorkspace": "Attach to current workspace",
+    "mirrorsJiraIssue": "Mirrors a Jira issue"
   },
   "trackerIssuesEmptyState": {
     "issuesNeedsTheDesktopApp": "Issues needs the desktop app",
@@ -257,7 +278,9 @@
     "craneSentATicketPageStaveCould": "Crane sent a ticket page Stave could not read. This is a host problem, not your pairing.",
     "theTrackerRouteStaveAskedForDoes": "The tracker route Stave asked for does not exist.",
     "thisCraneInstallationDoesNotServeThe": "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
-    "thisCraneInstallationHasTheTaskList": "This Crane installation has the task list turned off. Dispatched jobs still work."
+    "thisCraneInstallationHasTheTaskList": "This Crane installation has the task list turned off. Dispatched jobs still work.",
+    "didNotSync": "Did not sync",
+    "unavailable": "Unavailable"
   },
   "group": {
     "inProgress": "In progress",

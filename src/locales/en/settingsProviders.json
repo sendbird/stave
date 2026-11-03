@@ -13,7 +13,7 @@
     },
     "trustedApprovals": {
       "title": "Trusted Approvals",
-      "description": "Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command.",
+      "description": "Approvals marked as always allowed. A Bash entry trusts that command, also with more arguments, but never one chained, piped or redirected into another command.",
       "empty": "No trusted approvals yet. Use always allow from an approval prompt to add one."
     },
     "tabsAriaLabel": "Provider settings",

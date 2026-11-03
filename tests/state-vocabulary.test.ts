@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CircleAlert, CircleCheck, CircleDashed, CircleHelp, CircleMinus, CirclePause, CircleX, Clock, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
-import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentRunState } from "../src/components/ads/components/agent-state";
+import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentStepState } from "../src/components/ads/components/agent-state";
 import { StateMark } from "../src/components/ads/components/StateMark";
 import { StatusDot, statusDotWorkState } from "../src/components/ads/components/StatusDot";
 import { WORK_STATE, WORK_STATES } from "../src/components/ads/components/state-vocabulary";
@@ -39,7 +39,7 @@ describe("work state vocabulary", () => {
       const html = renderToStaticMarkup(createElement(StatusDot, { status: status as keyof typeof statusDotWorkState }));
       expect(html).toContain(`aria-label="${WORK_STATE[state].label}"`);
     }
-    for (const [state, work] of Object.entries(agentStateWorkState) as Array<[AgentRunState, keyof typeof WORK_STATE]>) {
+    for (const [state, work] of Object.entries(agentStateWorkState) as Array<[AgentStepState, keyof typeof WORK_STATE]>) {
       expect(agentStateTone[state]).toBe(WORK_STATE[work].tone as never);
       expect(agentStateDotTone[state]).toBe(WORK_STATE[work].tone);
     }

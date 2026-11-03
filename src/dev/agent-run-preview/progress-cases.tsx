@@ -17,7 +17,7 @@ export type ProgressCase = readonly [label: string, detail: AgentRunDetail, tone
 function Track({ detail, tone, now, size }: { detail: AgentRunDetail; tone?: StageState; now: number; size: "sm" | "md" }) {
   const rows = projectAgentRunStages(detail, new Date(now));
   const { state } = detail.agentRun;
-  return <StageTrack rows={rows} size={size} live={state === "running"} paused={state === "paused"} tone={tone} />;
+  return <StageTrack rows={rows} size={size} paused={state === "paused"} tone={tone} />;
 }
 
 export function StageProgressCases(props: {

@@ -19,11 +19,15 @@ import {
   describePullRequestWatchLastSeen,
   describePullRequestWatchTarget,
 } from "./supervision/pull-request-watch-view";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 
 export type ScheduleKind = "start" | "check-back";
-export type ScheduleState = "on" | "paused" | "stopped" | "manual";
-export type ScheduleTone = Extract<Tone, "neutral" | "accent" | "warning" | "success" | "danger">;
+/**
+ * `off` is a start-a-task schedule that is turned off: it runs only when
+ * started by hand, and its toggle reads "Turn on". A check-back that is
+ * turned off is `paused` and resumes instead.
+ */
+export type ScheduleState = "on" | "paused" | "stopped" | "off";
 
 export const SCHEDULE_KIND_LABEL: Record<ScheduleKind, string> = {
   get start() { return i18n.t("automation:scheduleRows.startATask"); },
@@ -34,12 +38,13 @@ export const SCHEDULE_STATE_LABEL: Record<ScheduleState, string> = {
   get on() { return i18n.t("automation:scheduleRows.on"); },
   get paused() { return i18n.t("automation:scheduleRows.paused"); },
   get stopped() { return i18n.t("automation:scheduleRows.stopped"); },
-  get manual() { return i18n.t("automation:scheduleRows.manual"); },
+  get off() { return i18n.t("automation:scheduleRows.off"); },
 };
 
 export interface ScheduleLastResult {
   label: string;
-  tone: ScheduleTone;
+  /** The outcome as a shared work state, drawn with `StateMark`. */
+  state: WorkState;
   /** ISO instant the result is from, when there is one. */
   at: string | null;
 }
@@ -67,12 +72,12 @@ export interface ScheduleRow {
   toggle: "pause" | "resume" | null;
 }
 
-const RUN_RESULT: Record<AutomationRun["status"], { label: string; tone: ScheduleTone }> = {
-  running: { get label() { return i18n.t("automation:scheduleRows.running"); }, tone: "accent" },
-  waiting: { get label() { return i18n.t("automation:scheduleRows.waiting"); }, tone: "warning" },
-  completed: { get label() { return i18n.t("automation:scheduleRows.done"); }, tone: "success" },
-  failed: { get label() { return i18n.t("automation:scheduleRows.failed"); }, tone: "danger" },
-  skipped: { get label() { return i18n.t("automation:scheduleRows.skipped"); }, tone: "neutral" },
+const RUN_RESULT: Record<AutomationRun["status"], { label: string; state: WorkState }> = {
+  running: { get label() { return i18n.t("automation:scheduleRows.running"); }, state: "working" },
+  waiting: { get label() { return i18n.t("automation:scheduleRows.waiting"); }, state: "waiting" },
+  completed: { get label() { return i18n.t("automation:scheduleRows.done"); }, state: "ready" },
+  failed: { get label() { return i18n.t("automation:scheduleRows.failed"); }, state: "failed" },
+  skipped: { get label() { return i18n.t("automation:scheduleRows.skipped"); }, state: "skipped" },
 };
 
 /** "Every 1 hour" reads as "Every hour". */
@@ -99,10 +104,10 @@ export function automationScheduleRow(
     detail: automation.environment.label,
     agent: automation.runtime.model,
     cadence: automation.enabled ? formatScheduleCadence(automation.schedule) : null,
-    state: automation.enabled ? "on" : "manual",
+    state: automation.enabled ? "on" : "off",
     lastResult: latestRun
       ? { ...(result ?? RUN_RESULT.running), at: latestRun.completedAt ?? latestRun.startedAt }
-      : { label: i18n.t("automation:scheduleRows.notRunYet"), tone: "neutral", at: null },
+      : { label: i18n.t("automation:scheduleRows.notRunYet"), state: "idle", at: null },
     nextRunAt: automation.enabled ? automation.nextRunAt : null,
     nextNote: null,
     canRunNow: true,
@@ -139,10 +144,10 @@ function pullRequestWatchScheduleRow(
       wakeUp.occurrenceCount > 0
         ? {
             label: i18n.t("automation:pullRequestWatch.woke", { count: wakeUp.occurrenceCount }),
-            tone: "accent",
+            state: "ready",
             at: wakeUp.lastOccurrenceAt,
           }
-        : { label: seen.text, tone: seen.tone, at: seen.at },
+        : { label: seen.text, state: seen.state, at: seen.at },
     nextRunAt: null,
     // The list does not render `detail`; this is where it says what is watched.
     nextNote: describePullRequestWatchTarget(watch),
@@ -169,17 +174,19 @@ export function wakeUpScheduleRow(
     kind: "check-back",
     kindLabel: SCHEDULE_KIND_LABEL["check-back"],
     id: wakeUp.id,
-    name: taskTitle ? `Check back on ${taskTitle}` : firstLine(wakeUp.prompt, 60),
+    name: taskTitle
+      ? i18n.t("automation:scheduleRows.checkBackOnTask", { task: taskTitle })
+      : firstLine(wakeUp.prompt, 60),
     detail: taskTitle ? firstLine(wakeUp.prompt) : null,
     agent: wakeUp.fingerprint.model,
     cadence:
       wakeUp.trigger.kind === "schedule"
         ? formatScheduleCadence(wakeUp.trigger.schedule)
-        : "When subagents finish",
+        : i18n.t("automation:checkBackEditor.whenSubagentsFinish"),
     state,
     lastResult: wakeUp.lastOccurrenceAt
-      ? { label: i18n.t("automation:scheduleRows.checkedValue", { checked: checked }), tone: "success", at: wakeUp.lastOccurrenceAt }
-      : { label: i18n.t("automation:scheduleRows.notYet"), tone: "neutral", at: null },
+      ? { label: i18n.t("automation:scheduleRows.checkedValue", { checked: checked }), state: "ready", at: wakeUp.lastOccurrenceAt }
+      : { label: i18n.t("automation:scheduleRows.notYet"), state: "idle", at: null },
     nextRunAt: wakeUp.state === "scheduled" && !completion ? (summary?.nextRunAt ?? wakeUp.nextRunAt) : null,
     nextNote,
     canRunNow: false,

@@ -129,7 +129,7 @@ export function Thinking({
   now,
   onOpenChange,
   open: openProp,
-  phase = "Thinking",
+  phase = i18n.t("ui:thinking.thinking"),
   settledAt,
   settledLabel,
   startedAt,

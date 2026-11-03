@@ -1,12 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
-import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Archive, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
-import { useRef, useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  Badge,
   Button,
   Popover,
   PopoverContent,
@@ -26,6 +24,7 @@ import {
   shouldShowNotificationApprovalActions,
 } from "@/components/layout/top-bar-notifications.utils";
 import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
+import { ApprovalRowButtons, resolveApprovalRowKey } from "@/components/layout/FleetRowInlineAnswer";
 import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import { inboxRowStyles as rowStyles } from "@/components/layout/inbox-row.styles";
 import { describeFleetAttentionPrimaryAction } from "@/lib/fleet/fleet-vocabulary";
@@ -39,6 +38,7 @@ import { isNotificationUnread } from "@/lib/notifications/notification.types";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { sx } from "@/components/ads/utils/stylex";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { notificationsStyles } from "./top-bar-notifications.styles";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -311,14 +311,38 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
       ? (archivedPrompt?.taskTitle ?? entry.title ?? i18n.t("shell:topBarNotifications.thisTask"))
       : null;
 
+    // A focused row with an approval answers to A / D, as Fleet's rows do.
+    const handleRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+      if (event.defaultPrevented || busy || !approvalNotification) {
+        return;
+      }
+      const approved = resolveApprovalRowKey({
+        key: event.key,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        repeat: event.repeat,
+        isComposing: event.nativeEvent.isComposing,
+        target: event.target,
+      });
+      if (approved === null) {
+        return;
+      }
+      event.preventDefault();
+      void handleResolveApproval(entry, approvalNotification.id, approved);
+    };
+
     return (
       <InboxRow
         key={entry.id}
         entry={entry}
         triggerId={`notification-entry-${entry.id}`}
         triggerLabel={describeInboxEntryLabel(entry)}
+        triggerProps={approvalNotification ? { "aria-keyshortcuts": "A D" } : undefined}
         busy={busy}
         onActivate={() => void handleOpenEntry(entry)}
+        onKeyDown={handleRowKeyDown}
         supplement={
           taskIsArchived ? (
             <span className={sx(rowStyles.archivedChip)}>
@@ -330,33 +354,15 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
         actions={
           entry.unread || approvalNotification ? (
             <>
-              {/* The approval card's decision words, allow first. */}
+              {/* Fleet's decision words and keys, allow first. */}
               {approvalNotification ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    xstyle={rowStyles.rowAction}
-                    disabled={busy}
-                    onClick={() =>
-                      void handleResolveApproval(entry, approvalNotification.id, true)
-                    }
-                  >
-                    {i18n.t("shell:topBarNotifications.allowOnce")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    xstyle={rowStyles.rowAction}
-                    disabled={busy}
-                    onClick={() =>
-                      void handleResolveApproval(entry, approvalNotification.id, false)
-                    }
-                  >
-                    {i18n.t("shell:topBarNotifications.deny")}
-                  </Button>
-                </>
+                <ApprovalRowButtons
+                  allowLabel={i18n.t("shell:topBarNotifications.allowOnceFor", { title: entry.title })}
+                  denyLabel={i18n.t("shell:topBarNotifications.denyFor", { title: entry.title })}
+                  disabled={busy}
+                  onAllow={() => void handleResolveApproval(entry, approvalNotification.id, true)}
+                  onDeny={() => void handleResolveApproval(entry, approvalNotification.id, false)}
+                />
               ) : null}
               {entry.unread ? (
                 <Button
@@ -541,32 +547,18 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 </Button>
               </div>
             ) : null}
-            <div className={sx(notificationsStyles.viewSwitch)}>
-              {(["all", "unread", "errors", "history"] as const).map((option) => (
-                <AdsButton
-                  key={option}
-                  layout="host"
-                  type="button"
-                  xstyle={[
-                    notificationsStyles.viewTab,
-                    view === option
-                      ? notificationsStyles.viewTabActive
-                      : notificationsStyles.viewTabIdle,
-                  ]}
-                  aria-pressed={view === option}
-                  onClick={() => setView(option)}
-                >
-                  <span className={sx(notificationsStyles.viewTabLabel)}>
-                    {i18n.t(VIEW_LABEL_KEY[option])}
-                  </span>
-                  {/* Always `outline`: a ring reads the same on the raised
-                      active tab and on the track behind the idle ones. */}
-                  <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
-                    {viewCount[option]}
-                  </Badge>
-                </AdsButton>
-              ))}
-            </div>
+            <SegmentedControl
+              aria-label={i18n.t("shell:topBarNotifications.viewSwitch")}
+              fullWidth
+              xstyle={notificationsStyles.viewSwitch}
+              value={view}
+              onValueChange={setView}
+              options={(["all", "unread", "errors", "history"] as const).map((option) => ({
+                value: option,
+                label: i18n.t(VIEW_LABEL_KEY[option]),
+                count: viewCount[option],
+              }))}
+            />
           </PopoverHeader>
           <div className={sx(notificationsStyles.scroller)}>
             <AsyncBoundary

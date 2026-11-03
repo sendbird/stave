@@ -39,8 +39,7 @@ import {
   type PromptLexicalEditorHandle,
 } from "./prompt-lexical-editor";
 import { hasPromptSubmitPayload } from "./prompt-input-submit";
-import { readDroppedTask } from "./prompt-input-mentions";
-import { TASK_DRAG_MIME } from "@/lib/task-context/attached-task-context";
+import { PromptInputFileDropOverlay, usePromptInputDrop } from "./prompt-input-file-drop";
 import { isReviewTaskDelegationAvailable } from "@/store/review-task-runtime";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ComposerFrame } from "./composer-frame";
@@ -181,7 +180,7 @@ export function PromptInput(args: PromptInputProps) {
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
-  const { clipboardReadQueue, handlePaste } = usePromptInputClipboardPaste({
+  const { clipboardReadQueue, handlePaste, attachTransfer, acceptsFiles } = usePromptInputClipboardPaste({
     attachmentScopeId: args.attachmentScopeId,
     workspaceCwd: args.workspaceCwd,
     onAttachmentsChange,
@@ -204,7 +203,7 @@ export function PromptInput(args: PromptInputProps) {
     attachedFilePaths,
     promptBatch,
   });
-  const [taskDropActive, setTaskDropActive] = useState(false);
+
   const [imagePreviewSrc, setImagePreviewSrc] = useState<{
     dataUrl: string;
     label: string;
@@ -221,6 +220,7 @@ export function PromptInput(args: PromptInputProps) {
     (state) => state.settings.modelVisibility,
   );
   const interactionsDisabled = Boolean(disabled);
+  const drop = usePromptInputDrop({ onAttachTask, acceptsFiles: acceptsFiles && !interactionsDisabled, attachTransfer });
   const promptEnhancementBusy =
     promptEnhancementPending || promptEnhancementRevealing;
   const promptEnhancementState = promptEnhancementPending
@@ -524,32 +524,10 @@ export function PromptInput(args: PromptInputProps) {
       >
         <form
           data-prompt-input-root
-          data-task-drop={taskDropActive ? "" : undefined}
+          data-task-drop={drop.taskDropActive ? "" : undefined}
+          data-file-drop={drop.fileDropActive ? "" : undefined}
           onSubmit={handleSubmit}
-          onDragOverCapture={(event) => {
-            if (!onAttachTask || !event.dataTransfer.types.includes(TASK_DRAG_MIME)) {
-              return;
-            }
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "copy";
-            setTaskDropActive(true);
-          }}
-          onDragLeave={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-              setTaskDropActive(false);
-            }
-          }}
-          onDropCapture={(event) => {
-            const task = onAttachTask ? readDroppedTask(event.dataTransfer) : null;
-            setTaskDropActive(false);
-            if (!task) {
-              return;
-            }
-            // The editor would otherwise insert the payload as text.
-            event.preventDefault();
-            event.stopPropagation();
-            onAttachTask?.(task);
-          }}
+          {...drop.formProps}
           onFocusCapture={syncComposerFocus}
           onBlurCapture={() => {
             window.requestAnimationFrame(syncComposerFocus);
@@ -557,9 +535,10 @@ export function PromptInput(args: PromptInputProps) {
           className={sx(
             promptInputStyles.formBase,
             minimal ? promptInputStyles.formMinimal : promptInputStyles.formDefault,
-            taskDropActive && promptInputStyles.formTaskDrop,
+            (drop.taskDropActive || drop.fileDropActive) && promptInputStyles.formTaskDrop,
           )}
         >
+          {drop.fileDropActive ? <PromptInputFileDropOverlay /> : null}
           {goalStatus ? (
             <PromptInputGoalStatusStrip status={goalStatus} compact={minimal} />
           ) : null}

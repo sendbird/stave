@@ -13,11 +13,32 @@ account-quota view directly.
 ## Browse an account
 
 Choose a provider, account, period and daily or hourly grouping. Presets cover
-today, 7/30/90 calendar days and this month. Custom dates include the final date
-and span at most 366 days. Your local timezone or UTC controls both date
+today, 7/30/90 calendar days and this month. **Custom dates** adds one **Dates**
+field that starts from the period you were viewing. It opens the same presets
+beside a two-month calendar: select a start day, then an end day, and
+**Apply**. **Cancel**, Escape or a click outside leaves the applied dates as
+they were. The footer names the range, its number of days and the time zone.
+Custom dates include the final date, cannot pass today and span at most 366
+days. Your local timezone or UTC controls both date
 boundaries and grouping; repeated daylight-saving hours retain their UTC offset.
-Selecting a daily bar opens that day's hourly report. Tables expose exact
-bucket values. Turn history groups records by date in the selected timezone,
+The bars of **Usage over time** are one Tab stop: the arrow keys, Home and End
+move between them, and Enter (or a click) on a daily bar opens that day's
+hourly report. The line above the bars reads the bar under the pointer or
+keyboard focus: its date, value and turns. **Split by provider** stacks each
+bar by the provider that ran the turns, and the line names each provider's
+value; the legend buttons show or hide a provider. Tables expose exact bucket
+values.
+
+Each figure at the top compares itself with the period of equal length just
+before the selected one (for **Last 30 days**, the 30 days before it), under
+the same filters: an arrow and a percent, the earlier dates and, for a single
+value, the earlier value. The comparison is neutral; more tokens or spend is
+not marked good or bad. A figure that either period did not measure says
+**Not compared** and why, instead of a percentage.
+
+**By account** and **By model** show each row's **Share** of the measured
+tokens as a small bar and a percent; a row that reported no tokens shows a
+dash. Turn history groups records by date in the selected timezone,
 with time, model, tokens and reported cost visible in each summary. Expand a
 turn for its account, exact start time, input/output and cache counters.
 Turn history shows the most recent records first, up to 20 per page. Use
@@ -64,7 +85,10 @@ their execution account. A partial Claude update records only the window it
 observed; other cached windows keep their earlier times. Codex native-cache
 reads keep the original observation time instead of recording another sample.
 Each account groups its windows together and shows the last observed remaining
-percentage and time until reset. Within a provider, accounts with the soonest
+percentage and time until reset. A window is coloured as worth watching from
+80% used and as about to bind from 97%; the status bar ring and strip read the
+same quota thresholds (`src/lib/usage/usage-thresholds.ts`), so one reading
+has one colour everywhere. Within a provider, accounts with the soonest
 upcoming reset appear first. Expired readings remain marked older, and registered
 accounts with no quota observations display **No saved quota** instead of zero.
 

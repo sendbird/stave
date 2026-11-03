@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import { asyncQuestionTextSegmentId } from "@/lib/async-question-answer";
+import { resolveApprovalRequesterName } from "@/lib/approvals/approval-requester";
 import { resolveToolTitle } from "@/lib/providers/subagent-identity";
 import {
   getRenderableMessageParts,
@@ -59,7 +60,13 @@ export type AssistantTraceEntry =
   | { kind: "tool"; id: string; part: ToolUsePart }
   | { kind: "subagent"; id: string; part: ToolUsePart }
   | { kind: "todo"; id: string; part: ToolUsePart; title: string }
-  | { kind: "approval"; id: string; part: ApprovalPart }
+  | {
+      kind: "approval";
+      id: string;
+      part: ApprovalPart;
+      /** The subagent that asked, when the starting call is in this message. */
+      requestedBy?: string;
+    }
   | { kind: "user_input"; id: string; part: UserInputPart }
   | { kind: "diff"; id: string; parts: CodeDiffPart[] }
   | { kind: "system"; id: string; part: SystemEventPart };
@@ -184,7 +191,10 @@ export function buildAssistantTrace(args: {
       }
       case "approval":
         // A request nobody was asked lives in the approval record, not the trace.
-        if (part.prompted !== false) entries.push({ kind: "approval", id: `approval-${index}`, part });
+        if (part.prompted !== false) {
+          const requestedBy = resolveApprovalRequesterName({ parts: renderableParts, ownerAgentId: part.ownerAgentId });
+          entries.push({ kind: "approval", id: `approval-${index}`, part, ...(requestedBy ? { requestedBy } : {}) });
+        }
         return;
       case "user_input":
         entries.push({ kind: "user_input", id: `user-input-${index}`, part });

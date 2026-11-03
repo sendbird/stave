@@ -232,13 +232,19 @@ S --> U: Reply · changed files · summary
 @caption A simplified turn. The approval step may not appear, depending on the permission preset.
 ```
 
-**Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. Its disclosure adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**.
+**Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
+
+**Progress line**: while a turn runs, the line above its steps shows a playful status phrase, the step in progress (for example **Reading search.ts**) and the elapsed time. Once the turn ends it becomes the turn's title. A turn that searched or fetched the web ends with **Sources** and a count under the answer; open it to list each page once.
+
+**Questions**: when the AI asks a question with choices, the number keys pick an option. A Claude option can carry a preview, such as a code snippet; it shows under the options while that option has focus or the pointer.
 
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.
 
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
+
+**Activity tab**: the Task panel's **Activity** tab lists the turn's steps. The **List | Timeline** switch draws the same turn on a time axis labelled in seconds or minutes (0s, 30s, 1m): the turn row with its tokens and cost, tool calls and subagents as bars, a **Now** line while it runs, and a **Slowest** tag on the longest step. Steps without a recorded time are listed under the axis instead. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
 
 ## 4. Check the changes and open a PR
 
@@ -272,13 +278,13 @@ edge memory -> turn
 
 | Method                  | How                                                          | Worth knowing                                                                |
 | ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Files and images        | The paperclip in the composer (**Attach files**); paste images | Dropping files onto the composer does not attach them                      |
+| Files and images        | The paperclip in the composer (**Attach files**); paste or drop files on the composer | A drop shows **Drop to attach** and attaches the way a paste does |
 | Other tasks             | `@` and part of a task title, or drag a task from the sidebar | Choose **Latest reply** or **Recent conversation**; up to 5 per message     |
 | Skills                  | Type `$` and pick one                                        | The skill's whole SKILL.md goes with the message                             |
 | `@web`                  | Write `@web` in the message                                  | Uses the provider's Chrome integration; scope in Settings > Browser > Mentions |
 | Information panel       | Keep notes, todos and links there                            | Jira and PR links pasted into a prompt are added to the panel automatically  |
 | Repository instructions | Settings > Projects > Repository > **Repository Instructions** | Included in every Claude and Codex turn in this repository                 |
-| Repository memory       | Information > **Memory**                                     | Collection is off by default; 280 characters per entry, up to 6 per turn     |
+| Repository memory       | Information > **Memory**                                     | Collection is off by default; 280 characters per entry, up to 6 per turn. Forgetting asks nothing; **Undo** in the notice that follows restores the entry. Search and kind chips appear from 8 entries |
 
 ```callout note "For the Information panel to reach the AI"
 The Information panel, task context and the latest turn summary are attached to a turn only while **Settings > MCP > Local MCP Server** is on. If the AI seems unaware of your notes or links, check this first.
@@ -288,9 +294,10 @@ The Information panel, task context and the latest turn summary are attached to 
 
 - **Side question**: **Side question** in the composer toolbar, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Welcome back**: after you have been away for more than 15 minutes, a card summarizes what happened and the last decision.
-- **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task.
-- **Enhance prompt**: the wand icon in the composer rewrites your request.
-- **Compact context**: in the context meter, shortens a long conversation.
+- **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
+- **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
+- **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation.
+- **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
 
 @page safety | Working | Permissions and safety | guide
 @lead Each provider has a Mode Preset that sets what the AI may do without asking. New installs start every provider on the widest preset, **Auto**, so check it once at the start.
@@ -310,6 +317,8 @@ Screens: [Settings > Providers](https://github.com/sendbird/stave/blob/main/docs
 | Cursor   | Asks before every tool call                    | Cursor's own auto-review                   | Runs every tool call and trusts MCP servers              |
 | Kiro     | Asks before every tool call                    | None                                       | Approves everything                                      |
 | OpenCode | Asks every time, reads included; no subagents  | None                                       | Approves every request; your OpenCode `deny` rules still apply |
+
+The composer's preset menu and **Settings > Providers** list, under the selected preset, what it does on its own and what it asks about first, one row per kind of action (reading files, editing files, running commands, web tools, MCP tools and so on). For Claude the list also shows the guardrails you left on (G1–G3), which always ask in Agent mode whatever the preset. Other providers have no such fixed rows.
 
 Changing an individual field turns the preset into **Custom**. The runtime chip in the composer shows the current state as **Safe**, **Custom** or **Elevated**.
 
@@ -398,6 +407,8 @@ edge halted -> stopped dashed : stop
 | Completed         | The done-when conditions are met                                                   | Read the run report in Outputs            |
 | Stopped           | Cancelled, or ended with a reason card                                             | **Retry** or **Take control**             |
 
+A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Progress** shows what its turns spent: a cost for Claude, tokens for Codex.
+
 The run line above the composer shows the buttons that fit: **Retry**, **Extend (+10 turns)**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model).
 Task panel > **Progress** shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
 Each done-when condition shows **Met · checked by Stave**, **Met · agent reported**, **Not met** or **Not verified**.
@@ -432,6 +443,10 @@ Screens: [Review mode](https://github.com/sendbird/stave/blob/main/docs/screensh
 2. Send them all at once with **Send review to agent** (Cmd/Ctrl+Alt+Enter).
 3. Review again after the agent fixes them, and **Sign off** when it is good enough.
 
+Review's **Diff comments** list opens each comment's line when selected. Remove a comment before sending it; a sent one says whether its lines changed since and offers **Resolve**. Sent comments stay after a restart until you resolve them.
+
+**Mark reviewed** shows a notice with **Undo** for a moment. Once a review is decided, the main button becomes **Next review**, the next result or sign-off waiting in Fleet View; in Review, J and K move to the next and previous waiting review.
+
 ## AI review
 
 An AI review runs as a read-only child task in the same workspace for one turn, and returns approve, approve with changes, or request changes.
@@ -440,7 +455,10 @@ Its progress shows on the shelf. When it is done, attach or view the result, run
 ## Delegated tasks
 
 An agent can hand part of its work to another agent. A delegated task is a real task under the parent task.
-The **Subagents** tab shows whether each is running, waiting, completed or failed, and lets you view activity, open the transcript, or stop it.
+The **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view activity, open the transcript, or stop it.
+**Needs you** means it asked a question or an approval and waits for a person; **Waiting** means it sits between turns on its own.
+The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
+When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
 
 @page automation | Automation | Schedules, check-backs and Fleet | guide
@@ -453,10 +471,10 @@ When a delegated agent waits for a person, the shelf tells you; answer in that t
 | What it does | Creates and runs a new task in a repository each time | Adds a turn to one existing task to wake it again           |
 | Where        | Top bar **Schedules** > **New schedule** > **New task in a repository** | **Check back…** in the task tab menu, or **New schedule** > **An existing task** |
 | When         | A set time or cadence, or **Run now**             | **On a cadence**, **When subagents finish**, **When its pull request needs fixing** |
-| States       | On, Paused, Stopped, Manual                       | On, Paused, Stopped                                             |
+| States       | On, Off (runs only from **Run now**)              | On, Paused, Stopped                                             |
 | Limits       | 1 to 8 concurrent runs (default 1)                | One per task. Claude and Codex only. Pauses while that task has an active agent run |
 
-Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start paused; check them, then turn them on.
+Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
 ## Fleet View
@@ -478,13 +496,16 @@ Idle | Tasks with nothing to do right now
 | In review       | Tasks with a ready result, a PR, or no updates for a while           |
 | Idle            | Tasks with nothing to do                                             |
 
-Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze.
+Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you". J and K move between rows like the arrow keys. A wait's age turns to the warning color after an hour and the failed color after a day.
+Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
+
+Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. A task whose Subagents tab you opened also counts the files its subagents changed in common. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task; select a column header to sort by it (again to reverse, a third time for the Work queue order). If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
 Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/fleet.png)
 
 ## Notifications and issues
 
-- **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed.
-- **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**.
+- **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View. New notices also show as toasts in one stack at the bottom-right, above the composer and the status bar.
+- **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.
 
 @page tools | Tools | Workspace tools | reference
 @lead Tools you use outside the conversation. Most open from a right-panel button or Cmd/Ctrl+K followed by one letter.
@@ -544,7 +565,7 @@ macOS uses Cmd; Windows and Linux use Ctrl. See the full list with Cmd/Ctrl+/.
 | Stopped by a usage limit                   | **Resume at reset** or **Resume now**. With several accounts, turn on the run's account pool |
 | Create PR or the PR status is missing      | Run `gh auth login` in a terminal                                                           |
 | A closed task tab is gone from the list    | Closing is not archiving. Reopen it from Task History                                       |
-| A dropped file was not attached            | Use the paperclip or paste                                                                  |
+| A dropped folder was not attached          | Drop or pick its files; attachments are files, not folders                                  |
 | The Lens button is disabled                | It works only in the desktop app; also check that a repository is open                      |
 
 ## More documentation

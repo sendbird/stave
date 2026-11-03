@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { GitCompareArrows, MessageSquare } from "lucide-react";
-import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
@@ -38,12 +38,11 @@ export function TaskPaneHeaderActions(props: {
       data-compact={props.compact ? "true" : undefined}
       data-testid="pane-header-mode-switch"
     >
-      <ToggleGroup
+      <SegmentedControl<TaskSurfaceMode>
         aria-label={i18n.t("review:mode.switchLabel")}
-        density="compact"
         iconOnly={props.compact}
-        value={[mode]}
-        items={[
+        value={mode}
+        options={[
           {
             value: "conversation",
             icon: <MessageSquare aria-hidden />,
@@ -66,10 +65,7 @@ export function TaskPaneHeaderActions(props: {
               ) : reviewLabel,
           },
         ]}
-        onValueChange={(next) => {
-          const target = next[0] as TaskSurfaceMode | undefined;
-          // Pressing the shown mode again keeps it: a switch is never empty.
-          if (!target || target === mode) return;
+        onValueChange={(target) => {
           if (target === "review") openTaskReview(props.taskId);
           else showTaskConversation(props.taskId);
         }}

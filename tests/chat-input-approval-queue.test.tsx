@@ -67,22 +67,54 @@ describe("ChatInputApprovalQueue", () => {
     expect(html).toContain("Open .env");
   });
 
-  test("offers Always allow only when the runtime advertised it", () => {
+  test("offers Always allow on the row whenever the runtime honors it, as the card does", () => {
+    const always = { ...BASH, part: { ...BASH.part, supportsAllowAlways: true, trustedToolEntry: "bash:npm test" } };
     const withSupport = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
-      approvals: [{ ...BASH, part: { ...BASH.part, supportsAllowAlways: true } }],
+      approvals: [always],
       onResolveApproval: () => {},
-      onTrustAndApprove: () => {},
+      onDraftGuidance: () => {},
     }));
     const withoutSupport = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
       approvals: [BASH],
       onResolveApproval: () => {},
-      onTrustAndApprove: () => {},
+    }));
+    // Answered through the host, which keeps no grant: not offered.
+    const throughHost = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [always],
+      allowAlways: false,
+      onResolveApproval: () => {},
     }));
 
+    // A button beside Allow once, with the details still folded: never a
+    // link hidden behind the disclosure.
     expect(withSupport).toContain(">Always allow<");
+    expect(withSupport).toContain('aria-expanded="false"');
+    expect(withSupport).not.toMatch(/always allow Bash/i);
     expect(withoutSupport).not.toContain(">Always allow<");
+    expect(throughHost).not.toContain(">Always allow<");
     // A single request has no position to step through.
     expect(withSupport).not.toContain("1 of 1");
+  });
+
+  test("names the risk the request reported on the row, and keeps who asked for the details", () => {
+    const html = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [{
+        ...BASH,
+        requestedBy: "Explore",
+        part: { ...BASH.part, risk: "network-access" as const, ownerAgentId: "agent-1" },
+      }],
+      onResolveApproval: () => {},
+    }));
+    expect(html).toMatch(/data-approval-risk="" title="Network access">Network access</);
+    // The row keeps its width for the command; the asking subagent is named
+    // in the folded details.
+    expect(html).not.toContain("requested by");
+    // A request without a risk shows none.
+    const plain = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [BASH],
+      onResolveApproval: () => {},
+    }));
+    expect(plain).not.toContain("data-approval-risk");
   });
 
   test("omits the keyboard hint when disabled and says why", () => {

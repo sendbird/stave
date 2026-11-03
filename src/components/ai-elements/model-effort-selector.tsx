@@ -39,6 +39,7 @@ import { SelectionRail } from "@/components/system/SelectionRail";
 import { AgentRouteRow } from "./agent-route-row";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
+import { ModelPrice } from "./model-picker-options";
 import { ModelEffortGrid } from "./model-effort-grid";
 import { ModelGroupEditButton, ModelPickerAccountFooter } from "./model-picker-account-actions";
 import { isModelSelectorOpenRequestReady, type ModelSelectorOpenRequest } from "./model-selector-open-request";
@@ -267,6 +268,7 @@ function ModelOnlyList(args: {
                   </span>
                 ) : null}
               </span>
+              {/* The price ends the second line, so it never takes the name's room. */}
               {presentation.capabilities.length > 0 ? (
                 <span className={sx(styles.modelRowCapabilities)}>
                   {presentation.capabilities.map((capability) => (
@@ -277,10 +279,14 @@ function ModelOnlyList(args: {
                       {capability}
                     </span>
                   ))}
+                  <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
                 </span>
               ) : (
-                <span className={sx(styles.modelRowDescription)}>
-                  {option.description || option.model}
+                <span className={sx(styles.modelRowDescriptionLine)}>
+                  <span className={sx(styles.modelRowDescription)}>
+                    {option.description || option.model}
+                  </span>
+                  <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
                 </span>
               )}
             </span>

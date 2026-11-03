@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
@@ -18,7 +18,7 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { FLEET_TASK_WORK_STATE } from "@/components/layout/fleet-attention-marks";
+import { fleetStatusToWorkState } from "@/lib/fleet/task-status";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import {
   FleetProviderIcon,
@@ -41,6 +41,12 @@ import {
   fleetSearchMatches,
   normalizeFleetSearchQuery,
 } from "@/lib/fleet/card-task-rows";
+import {
+  nextFleetTaskSort,
+  sortFleetTaskRows,
+  type FleetTaskSort,
+  type FleetTaskSortKey,
+} from "@/lib/fleet/task-table-sort";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import {
@@ -186,6 +192,94 @@ export function createFleetTaskRowsSelector(args: {
 }
 
 /**
+ * The rows Fleet's task layouts (the table and the tree) draw, with their
+ * whole data path: unopened workspaces read their stored task lists once,
+ * from the cache the workspace cards share; rows are built and shared across
+ * streamed chunks; the filter and search narrow them. `load` says which
+ * unopened workspaces are still being read or failed, and `retry` reads the
+ * failed ones again.
+ */
+export function useFleetTaskRows(args: {
+  repositories: readonly FleetTaskTableRepository[];
+  filter: FleetTaskTableFilter;
+  searchQuery: string;
+  nowMs: number;
+}) {
+  // References that hold while a turn streams (the snapshot shares them).
+  const attentionItems = useFleetAttention((snapshot) => snapshot.items);
+  const attentionItemsByWorkspaceId = useFleetAttention(
+    (snapshot) => snapshot.attentionItemsByWorkspaceId,
+  );
+
+  // Workspaces with no live session read their stored task lists once, from
+  // the cache the workspace cards share. A string, so streaming leaves it be.
+  const coldKey = useAppStore((state) =>
+    listColdWorkspaceIds(state, args.repositories).join("\u0000"),
+  );
+  const coldWorkspaces = useMemo(() => {
+    const cold = new Set(coldKey ? coldKey.split("\u0000") : []);
+    return args.repositories.flatMap((repository) =>
+      repository.workspaces
+        .filter((workspace) => cold.has(workspace.id))
+        .map((workspace) => ({
+          workspaceId: workspace.id,
+          workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
+        })),
+    );
+  }, [coldKey, args.repositories]);
+  const coldWorkspaceIds = useMemo(
+    () => coldWorkspaces.map((workspace) => workspace.workspaceId),
+    [coldWorkspaces],
+  );
+  const shells = useFleetWorkspaceShells(coldWorkspaceIds);
+  const load = summarizeFleetTaskTableLoad({ coldWorkspaces, shells });
+
+  const previousRows = useRef<FleetTaskRow[]>(EMPTY_ROWS);
+  const selectRows = useMemo(
+    () =>
+      createFleetTaskRowsSelector({
+        repositories: args.repositories,
+        nowMs: args.nowMs,
+        attentionItems,
+        attentionItemsByWorkspaceId,
+        shells,
+        previous: previousRows,
+      }),
+    [attentionItems, attentionItemsByWorkspaceId, args.nowMs, args.repositories, shells],
+  );
+  const rows = useAppStore(selectRows);
+
+  const query = normalizeFleetSearchQuery(args.searchQuery);
+  const shownRows = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          matchesFleetTaskTableFilter(row, args.filter) &&
+          fleetSearchMatches(fleetTaskRowSearchText(row), query),
+      ),
+    [args.filter, query, rows],
+  );
+  const retry = () => retryFleetWorkspaceShells(load.failedWorkspaceIds);
+  return { rows, shownRows, load, retry };
+}
+
+/** Reports the header's counts for the shown rows, as the cards count them. */
+export function useFleetTaskRowsSummary(
+  shownRows: readonly FleetTaskRow[],
+  onSummaryChange: ((summary: FleetTaskTableSummary) => void) | undefined,
+) {
+  // Shown workspaces with a turn in flight.
+  const liveWorkspaceCount = new Set(
+    shownRows
+      .filter((row) => row.workspaceActivity === "live")
+      .map((row) => JSON.stringify([row.repositoryPath, row.workspaceId])),
+  ).size;
+  useEffect(() => {
+    onSummaryChange?.({ liveWorkspaceCount, shownRowCount: shownRows.length });
+  }, [liveWorkspaceCount, onSummaryChange, shownRows.length]);
+}
+
+/**
  * Every open task of every workspace in one table: the task, its workspace,
  * its state, what it needs from you, how long that has waited, and what its
  * running turn last did. Rows come in the Work queue's lanes with the longest
@@ -200,77 +294,15 @@ export function FleetTaskTable(props: {
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
   onSummaryChange?: (summary: FleetTaskTableSummary) => void;
 }) {
-  // References that hold while a turn streams (the snapshot shares them).
-  const attentionItems = useFleetAttention((snapshot) => snapshot.items);
-  const attentionItemsByWorkspaceId = useFleetAttention(
-    (snapshot) => snapshot.attentionItemsByWorkspaceId,
-  );
-
-  // Workspaces with no live session read their stored task lists once, from
-  // the cache the workspace cards share. A string, so streaming leaves it be.
-  const coldKey = useAppStore((state) =>
-    listColdWorkspaceIds(state, props.repositories).join("\u0000"),
-  );
-  const coldWorkspaces = useMemo(() => {
-    const cold = new Set(coldKey ? coldKey.split("\u0000") : []);
-    return props.repositories.flatMap((repository) =>
-      repository.workspaces
-        .filter((workspace) => cold.has(workspace.id))
-        .map((workspace) => ({
-          workspaceId: workspace.id,
-          workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
-        })),
-    );
-  }, [coldKey, props.repositories]);
-  const coldWorkspaceIds = useMemo(
-    () => coldWorkspaces.map((workspace) => workspace.workspaceId),
-    [coldWorkspaces],
-  );
-  const shells = useFleetWorkspaceShells(coldWorkspaceIds);
-  const load = summarizeFleetTaskTableLoad({ coldWorkspaces, shells });
-
-  const previousRows = useRef<FleetTaskRow[]>(EMPTY_ROWS);
-  const selectRows = useMemo(
-    () =>
-      createFleetTaskRowsSelector({
-        repositories: props.repositories,
-        nowMs: props.nowMs,
-        attentionItems,
-        attentionItemsByWorkspaceId,
-        shells,
-        previous: previousRows,
-      }),
-    [attentionItems, attentionItemsByWorkspaceId, props.nowMs, props.repositories, shells],
-  );
-  const rows = useAppStore(selectRows);
-
-  const query = normalizeFleetSearchQuery(props.searchQuery);
-  const shownRows = useMemo(
-    () =>
-      rows.filter(
-        (row) =>
-          matchesFleetTaskTableFilter(row, props.filter) &&
-          fleetSearchMatches(fleetTaskRowSearchText(row), query),
-      ),
-    [props.filter, query, rows],
-  );
-  // As the cards count it: shown workspaces with a turn in flight.
-  const liveWorkspaceCount = new Set(
-    shownRows
-      .filter((row) => row.workspaceActivity === "live")
-      .map((row) => JSON.stringify([row.repositoryPath, row.workspaceId])),
-  ).size;
-  const { onSummaryChange } = props;
-  useEffect(() => {
-    onSummaryChange?.({ liveWorkspaceCount, shownRowCount: shownRows.length });
-  }, [liveWorkspaceCount, onSummaryChange, shownRows.length]);
+  const { rows, shownRows, load, retry } = useFleetTaskRows(props);
+  useFleetTaskRowsSummary(shownRows, props.onSummaryChange);
 
   return (
     <FleetTaskTableView
       rows={shownRows}
       hasRows={rows.length > 0}
       load={load}
-      onRetry={() => retryFleetWorkspaceShells(load.failedWorkspaceIds)}
+      onRetry={retry}
       nowMs={props.nowMs}
       onOpenTask={props.onOpenTask}
     />
@@ -292,6 +324,11 @@ export function FleetTaskTableView(props: {
   onRetry?: () => void;
   nowMs: number;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
+  /**
+   * Draws the shown rows in place of the table: another layout over the same
+   * rows, under the same loading, failure and incomplete-list states.
+   */
+  renderRows?: (rows: readonly FleetTaskRow[]) => ReactNode;
 }) {
   const { t } = useTranslation(["fleet"]);
   const pending = props.load?.pending ?? [];
@@ -334,6 +371,8 @@ export function FleetTaskTableView(props: {
       <p className={sx(styles.empty)} role="status">
         {t("fleet:taskTable.noTasks")}
       </p>
+    ) : props.renderRows ? (
+      props.renderRows(props.rows)
     ) : (
       <FleetTaskRowsTable rows={props.rows} nowMs={props.nowMs} onOpenTask={props.onOpenTask} />
     );
@@ -363,12 +402,29 @@ export function FleetTaskTableView(props: {
   );
 }
 
+/** The table's columns, in order, each a sort key. */
+const FLEET_TASK_COLUMNS = [
+  { key: "task", label: "fleet:taskTable.task" },
+  { key: "workspace", label: "fleet:taskTable.workspace" },
+  { key: "state", label: "fleet:taskTable.state" },
+  { key: "needs", label: "fleet:taskTable.needs" },
+  { key: "waiting", label: "fleet:taskTable.waiting" },
+  { key: "activity", label: "fleet:taskTable.activity" },
+] as const satisfies ReadonlyArray<{ key: FleetTaskSortKey; label: string }>;
+
 function FleetTaskRowsTable(props: {
   rows: readonly FleetTaskRow[];
   nowMs: number;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
+  // Unsorted is the rows' own order (the Work queue's lanes); a header press cycles ascending, descending, unsorted.
+  const [sort, setSort] = useState<FleetTaskSort>(null);
+  const untitled = t("fleet:fleetWorkspaceCard.untitledTask");
+  const rows = useMemo(
+    () => sortFleetTaskRows(props.rows, sort, { nowMs: props.nowMs, untitled }),
+    [props.rows, sort, props.nowMs, untitled],
+  );
   return (
     <Table
       density="compact"
@@ -379,16 +435,20 @@ function FleetTaskRowsTable(props: {
     >
       <TableHeader sticky>
         <TableRow>
-          <TableHead>{t("fleet:taskTable.task")}</TableHead>
-          <TableHead>{t("fleet:taskTable.workspace")}</TableHead>
-          <TableHead>{t("fleet:taskTable.state")}</TableHead>
-          <TableHead>{t("fleet:taskTable.needs")}</TableHead>
-          <TableHead>{t("fleet:taskTable.waiting")}</TableHead>
-          <TableHead>{t("fleet:taskTable.activity")}</TableHead>
+          {FLEET_TASK_COLUMNS.map((column) => (
+            <TableHead
+              key={column.key}
+              data-fleet-task-column={column.key}
+              sortDirection={sort?.key === column.key ? sort.direction : null}
+              onSort={() => setSort((current) => nextFleetTaskSort(current, column.key))}
+            >
+              {t(column.label)}
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {props.rows.map((row) => (
+        {rows.map((row) => (
           <FleetTaskTableRow
             key={row.key}
             nowMs={props.nowMs}
@@ -415,7 +475,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
     row.activeTurnId ? state.providerTurnActivityByTask[row.task.id] : undefined,
   );
   const activity = snapshot && snapshot.turnId === row.activeTurnId ? snapshot : null;
-  const state = FLEET_TASK_WORK_STATE[row.status];
+  const state = fleetStatusToWorkState(row.status);
   const stateLabel =
     row.status === "stalled"
       ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]

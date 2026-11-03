@@ -5,6 +5,7 @@ import { formatNumber } from "@/i18n/format";
 import type { AgentResourceSnapshot } from "@/lib/agent-runs/resources";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { Button } from "@/components/ads/components/Button";
+import { Meter } from "@/components/ads/components/Meter";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
@@ -23,10 +24,11 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
   // Near the limit means spent turns: a helper's held start turns are not used up.
   const nearLimit = resources.teamTurns - resources.spent <= resources.teamTurns * 0.2;
   const segments = [
-    { key: "used" as const, value: resources.spent, style: metrics.used },
-    { key: "reserved" as const, value: resources.reserved, style: metrics.reserved },
-    { key: "remaining" as const, value: resources.remaining, style: metrics.available },
+    { key: "used" as const, style: nearLimit ? metrics.warning : metrics.used },
+    { key: "reserved" as const, style: metrics.reserved },
+    { key: "remaining" as const, style: metrics.available },
   ];
+  const share = (value: number) => resources.teamTurns > 0 ? Math.min(100, Math.max(0, value / resources.teamTurns * 100)) : 0;
   return <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:teamLimits.title")}>
     <div className={sx(styles.sectionHeader)}>
       <Gauge aria-hidden className={sx(styles.sectionIcon)} />
@@ -35,16 +37,18 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
         {i18n.t("agentRuns:teamLimits.available", values)}
       </span>
     </div>
-    <div className={sx(metrics.track)} role="meter" aria-label={i18n.t("agentRuns:teamLimits.sharedTurns")}
-      aria-valuemin={0} aria-valuemax={resources.teamTurns} aria-valuenow={resources.spent}
-      aria-valuetext={i18n.t("agentRuns:teamLimits.budget", values)}>
-      {segments.map(({ key, value, style }) => <span key={key} aria-hidden
-        className={sx(metrics.segment, style, nearLimit && key === "used" && metrics.warning)}
-        style={{ width: `${value / resources.teamTurns * 100}%` }} />)}
+    {/* The meter's value is the spent turns; the reserved turns ride after them as an overlay on the same track,
+        and the track itself is what remains. The legend below names all three in words. */}
+    <div className={sx(metrics.frame)} data-team-turn-meter="">
+      <Meter label={i18n.t("agentRuns:teamLimits.sharedTurns")} hideLabel hideValue size="sm"
+        tone={nearLimit ? "warning" : "neutral"} min={0} max={Math.max(1, resources.teamTurns)} value={Math.min(resources.spent, Math.max(1, resources.teamTurns))}
+        getAriaValueText={() => i18n.t("agentRuns:teamLimits.budget", values)} />
+      {resources.reserved > 0 ? <span aria-hidden className={sx(metrics.reservedOverlay)}
+        style={{ insetInlineStart: `${share(resources.spent)}%`, inlineSize: `${share(resources.reserved)}%` }} /> : null}
     </div>
     <dl className={sx(metrics.legend)}>
       {segments.map(({ key, style }) => <div key={key} className={sx(metrics.stat)}>
-        <dt className={sx(metrics.label)}><span aria-hidden className={sx(metrics.swatch, style, nearLimit && key === "used" && metrics.warning)} />
+        <dt className={sx(metrics.label)}><span aria-hidden className={sx(metrics.swatch, style)} />
           {i18n.t(`agentRuns:teamLimits.${key}`)}</dt>
         <dd className={sx(metrics.value)}>{values[key]}</dd>
       </div>)}
@@ -81,12 +85,16 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
 
 const metrics = stylex.create({
   headroom: { flexShrink: 0, fontSize: vars["--ads-font-size-caption"], fontVariantNumeric: "tabular-nums", color: vars["--ads-color-text-muted"] },
-  track: { display: "flex", height: vars["--ads-space-8"], borderRadius: vars["--ads-radius-full"], overflow: "hidden" },
-  segment: { height: "100%", flexShrink: 0 },
+  /** Clips the reserved overlay to the meter track's rounded ends. */
+  frame: { position: "relative", borderRadius: vars["--ads-radius-full"], overflow: "hidden" },
+  /** Held, not spent: the reserved turns are striped so they never read as the solid spent fill, even near the limit. */
+  reservedOverlay: { position: "absolute", insetBlock: 0, pointerEvents: "none",
+    backgroundImage: `repeating-linear-gradient(135deg, ${vars["--ads-color-warning"]} 0 2px, transparent 2px 4px)` },
+  /** Legend swatches in the meter's own inks: the neutral fill, the reserved overlay and the bare track. */
   used: { backgroundColor: vars["--ads-color-text-muted"] },
-  reserved: { backgroundColor: vars["--ads-color-warning"] },
-  available: { backgroundColor: vars["--ads-color-border"] },
-  warning: { backgroundColor: vars["--ads-color-warning-text"] },
+  reserved: { backgroundImage: `repeating-linear-gradient(135deg, ${vars["--ads-color-warning"]} 0 2px, transparent 2px 4px)` },
+  available: { backgroundColor: vars["--ads-color-canvas-subtle"], boxShadow: `inset 0 0 0 ${vars["--ads-border-width-hairline"]} ${vars["--ads-color-border"]}` },
+  warning: { backgroundColor: vars["--ads-color-warning"] },
   legend: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: vars["--ads-space-8"], margin: 0 },
   helpers: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: vars["--ads-space-8"], margin: 0 },
   stat: { minWidth: 0 },

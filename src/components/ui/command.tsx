@@ -23,11 +23,34 @@ type CommandContextValue = {
   query: string;
   setQuery: (query: string) => void;
   selected?: string;
+  shouldFilter: boolean;
+  /** Item values the children walk found this render. */
+  walked: ReadonlySet<string>;
+  /** An item the walk could not see (rendered inside a wrapper) adds itself. */
+  register: (value: string) => () => void;
 };
 const CommandContext = React.createContext<CommandContextValue>({
   query: "",
   setQuery: () => {},
+  shouldFilter: false,
+  walked: new Set(),
+  register: () => () => {},
 });
+
+/**
+ * Whether a row matches the typed query: every word appears in its value or
+ * one of its keywords, case-insensitively. The one rule both the children walk
+ * and each `CommandItem` apply, so a row inside a wrapper filters the same way.
+ */
+export function commandItemMatches(query: string, value: string, keywords: readonly string[] = []) {
+  const words = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const searchable = [value, ...keywords].join(" ").toLocaleLowerCase();
+  return words.every((word) => searchable.includes(word));
+}
+
+/** Adapter parts that never render an item; the walk can skip them. */
+const NON_ITEM_PARTS = new Set<unknown>();
 
 type CommandProps = React.ComponentProps<"div"> & {
   shouldFilter?: boolean;
@@ -36,7 +59,15 @@ type CommandProps = React.ComponentProps<"div"> & {
   onValueChange?: (value: string) => void;
 };
 
-/** Adapt the host's compound children; ADS owns keyboard and option behavior. */
+/**
+ * Adapt the host's compound children; ADS owns keyboard and option behavior.
+ *
+ * Prefer passing `CommandItem`s as direct (or group-nested) children: the walk
+ * below reads them to keep empty groups out and to list the items for the
+ * keyboard. An item rendered inside a wrapper component is invisible to that
+ * walk, so it filters itself and registers its value through context instead,
+ * and a group holding such a wrapper is never pruned as empty.
+ */
 function Command({
   className,
   children,
@@ -49,7 +80,14 @@ function Command({
   useTranslation();
   const [query, setQuery] = React.useState("");
   const [highlighted, setHighlighted] = React.useState<string>();
+  const [registered, setRegistered] = React.useState<readonly string[]>([]);
+  const register = React.useCallback((itemValue: string) => {
+    setRegistered((current) => (current.includes(itemValue) ? current : [...current, itemValue]));
+    return () => setRegistered((current) => current.filter((entry) => entry !== itemValue));
+  }, []);
   const items: string[] = [];
+  // Wrapper components the walk cannot look inside; each may render items.
+  let opaque = 0;
   function filterChildren(nodes: React.ReactNode): React.ReactNode {
     return React.Children.map(nodes, (node): React.ReactNode => {
       if (
@@ -62,41 +100,38 @@ function Command({
         return node;
       if (node.type === CommandItem) {
         const itemValue = node.props.value ?? "";
-        const searchable = [itemValue, ...(node.props.keywords ?? [])]
-          .join(" ")
-          .toLocaleLowerCase();
-        if (
-          shouldFilter &&
-          !query
-            .toLocaleLowerCase()
-            .split(/\s+/)
-            .every((word) => searchable.includes(word))
-        )
+        if (shouldFilter && !commandItemMatches(query, itemValue, node.props.keywords))
           return null;
         items.push(itemValue);
         return node;
       }
-      if (node.props.children === undefined) return node;
+      if (node.props.children === undefined) {
+        if (typeof node.type !== "string" && !NON_ITEM_PARTS.has(node.type)) opaque += 1;
+        return node;
+      }
       const before = items.length;
+      const opaqueBefore = opaque;
       const nested = filterChildren(node.props.children);
-      if (node.type === CommandGroup && items.length === before) return null;
+      if (node.type === CommandGroup && items.length === before && opaque === opaqueBefore) return null;
       return React.cloneElement(node, {}, nested);
     });
   }
   const content = filterChildren(children);
+  const walked = new Set(items);
+  const allItems = [...items, ...registered.filter((entry) => !walked.has(entry))];
   return (
     <CommandContext.Provider
-      value={{ query, setQuery, selected: value ?? highlighted }}
+      value={{ query, setQuery, selected: value ?? highlighted, shouldFilter, walked, register }}
     >
       <AdsCommand.Root
-        items={items}
+        items={allItems}
         mode="none"
         keepHighlight
         loopFocus={loop}
         value={query}
         onValueChange={setQuery}
         onItemHighlighted={(item, details) => {
-          if (details.reason === "none" && value && items.includes(value))
+          if (details.reason === "none" && value && allItems.includes(value))
             return;
           setHighlighted(item);
           onValueChange?.(item ?? "");
@@ -258,7 +293,7 @@ function CommandItem({
   children,
   value,
   onSelect,
-  keywords: _keywords,
+  keywords,
   ...props
 }: Omit<React.ComponentProps<"div">, "onSelect"> & {
   value?: string;
@@ -268,6 +303,15 @@ function CommandItem({
 }) {
   useTranslation();
   const context = React.useContext(CommandContext);
+  const itemValue = value ?? "";
+  const hidden = context.shouldFilter && !commandItemMatches(context.query, itemValue, keywords);
+  const unseen = !context.walked.has(itemValue);
+  const { register } = context;
+  React.useLayoutEffect(
+    () => (unseen && !hidden ? register(itemValue) : undefined),
+    [hidden, itemValue, register, unseen],
+  );
+  if (hidden) return null;
   return (
     <AdsCommand.Item
       data-slot="command-item"
@@ -305,6 +349,8 @@ function CommandShortcut({
     </span>
   );
 }
+
+for (const part of [CommandInput, CommandEmpty, CommandSeparator, CommandShortcut]) NON_ITEM_PARTS.add(part);
 
 export {
   Command,

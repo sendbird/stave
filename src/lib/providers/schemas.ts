@@ -1,5 +1,5 @@
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
-import { ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
+import { APPROVAL_RISKS, ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
 import { CODEX_APPROVAL_POLICIES, CODEX_APPROVALS_REVIEWERS } from "@/lib/providers/codex-runtime-options";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
@@ -170,6 +170,9 @@ const ToolStateSchema = z.union([
   z.literal("output-error"),
 ]);
 
+/** An epoch-ms moment a runtime observed; see `tool.startedAt`. */
+const ObservedAtSchema = z.number().nonnegative();
+
 const ToolEventSchema = z.object({
   type: z.literal("tool"),
   toolUseId: z.string().optional(),
@@ -180,6 +183,8 @@ const ToolEventSchema = z.object({
   agentId: z.string().optional(),
   ownerAgentId: z.string().optional(),
   parentToolUseId: z.string().optional(),
+  startedAt: ObservedAtSchema.optional(),
+  completedAt: ObservedAtSchema.optional(),
 });
 
 const ToolResultEventSchema = z.object({
@@ -188,6 +193,7 @@ const ToolResultEventSchema = z.object({
   output: z.string(),
   isError: z.boolean().optional(),
   isPartial: z.boolean().optional(),
+  completedAt: ObservedAtSchema.optional(),
   exitCode: z.number().int().nullable().optional(),
   mcpAppView: McpAppViewReferenceSchema.optional(),
 });
@@ -226,7 +232,12 @@ const ApprovalEventSchema = z.object({
   description: z.string(),
   input: z.string().optional(),
   supportsAllowAlways: z.boolean().optional(),
+  trustedToolEntry: z.string().optional(),
+  // An unknown risk from a newer build reads as absent instead of dropping the request.
+  risk: z.enum(APPROVAL_RISKS).optional().catch(undefined),
   ownerAgentId: z.string().optional(),
+  // A malformed deadline reads as absent: the request still has to be shown.
+  expiresAt: z.string().datetime().optional().catch(undefined),
 });
 
 const UserInputQuestionSchema = z.object({
@@ -240,6 +251,7 @@ const UserInputQuestionSchema = z.object({
         description: z.string().optional(),
         value: z.string().optional(),
         recommended: z.boolean().optional(),
+        preview: z.string().optional(),
       })
       // `description` is optional on the wire; backfill it from the label so a
       // valid question is never dropped in validation just for missing it.
@@ -250,6 +262,7 @@ const UserInputQuestionSchema = z.object({
           : option.label,
         ...(option.value ? { value: option.value } : {}),
         ...(option.recommended ? { recommended: true } : {}),
+        ...(option.preview?.trim() ? { preview: option.preview } : {}),
       })),
   ),
   multiSelect: z.boolean().optional(),

@@ -2914,6 +2914,10 @@ export class SqliteStore {
     return this.repositoryMemories.softDelete({ id });
   }
 
+  restoreRepositoryMemory(args: { id: string; repositoryPath: string }) {
+    return this.repositoryMemories.restore(args);
+  }
+
   recallRepositoryMemories(args: {
     repositoryPath: string;
     query?: string | null;

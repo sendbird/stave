@@ -26,7 +26,7 @@ test("both locales show the shared budget, the frozen helper limits and member p
       // The meter's value is the spent turns; held start turns are in its text.
       expect(html).toContain('aria-valuenow="3"');
       // Reservations occupy half the extended budget; they are not spent turns.
-      expect(html).toContain('width:50%');
+      expect(html).toContain('inline-size:50%');
       expect(html).toContain(locale === "en" ? "pinned" : "고정");
       expect(html).not.toContain("Auto adjust");
     }

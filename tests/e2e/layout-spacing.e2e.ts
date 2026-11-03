@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { mountSegmented, segmentGeometry } from "./segmented-mount";
 
 // Use actual product markup and resolved tokens; compact density changes the
 // 12-step padding, so a hardcoded pixel assertion would encode the wrong rule.
@@ -54,6 +55,30 @@ for (const locale of ["en", "ko"] as const) {
               Math.max(0, textBox.right - box.right, action.right - box.right),
             );
           })).toBeLessThanOrEqual(0.5);
+        }
+      });
+    }
+  }
+}
+
+// A segmented choice: every segment is the xs control rung (28px at regular
+// density), and its icon, label and count share one centre line with a
+// token gap before the count, in both languages, themes and densities.
+for (const locale of ["en", "ko"] as const) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const density of ["regular", "compact"] as const) {
+      test(`segmented control geometry: ${locale}/${theme}/${density}`, async ({ page }) => {
+        await mountSegmented(page, { density, count: true, icons: true, locale, theme });
+        const { expectedHeight, segments } = await segmentGeometry(page);
+        if (density === "regular") expect(expectedHeight).toBe(28);
+        expect(segments).toHaveLength(4);
+        for (const segment of segments) {
+          expect(segment.height).toBeCloseTo(expectedHeight, 0);
+          expect(segment.labelOffset).toBeLessThanOrEqual(1);
+          expect(segment.badgeOffset).toBeLessThanOrEqual(1);
+          expect(segment.iconOffset).toBeLessThanOrEqual(1);
+          expect(segment.badgeGapDelta).toBeLessThanOrEqual(0.5);
+          expect(segment.badgeInside).toBe(true);
         }
       });
     }

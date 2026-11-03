@@ -52,33 +52,6 @@ export const settingsScopeStyles = stylex.create({
     inlineSize: "20rem",
     padding: vars["--ads-space-0"],
   },
-  item: {
-    alignItems: "flex-start",
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-  },
-  list: {
-    maxBlockSize: "min(20rem, calc(var(--available-height) - 4rem))",
-  },
-  itemText: {
-    display: "flex",
-    flex: 1,
-    flexDirection: "column",
-    minInlineSize: 0,
-  },
-  itemLabel: {
-    color: vars["--ads-color-text"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  itemDetail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
   notice: {
     alignItems: "flex-start",
     backgroundColor: vars["--ads-color-canvas-subtle"],

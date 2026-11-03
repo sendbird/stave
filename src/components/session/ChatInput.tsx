@@ -714,6 +714,7 @@ function BaseChatInput() {
       if (activeProvider === "claude-code") {
         return {
           providerLabel: "Claude",
+          providerId: "claude-code",
           ...resolveClaudeProviderModePresentation({
             settings: {
               claudePermissionMode,
@@ -728,6 +729,7 @@ function BaseChatInput() {
       if (activeProvider === "codex") {
         return {
           providerLabel: "Codex",
+          providerId: "codex",
           ...resolveCodexProviderModePresentation({
             settings: {
               codexFileAccess,
@@ -742,6 +744,7 @@ function BaseChatInput() {
       if (activeProvider === "cursor") {
         return {
           providerLabel: "Cursor",
+          providerId: "cursor",
           ...resolveCursorProviderModePresentation({
             settings: { cursorApprovalMode },
           }),
@@ -751,6 +754,7 @@ function BaseChatInput() {
       if (activeProvider === "kiro") {
         return {
           providerLabel: "Kiro",
+          providerId: "kiro",
           ...resolveKiroProviderModePresentation({
             settings: { kiroApprovalMode },
           }),
@@ -760,6 +764,7 @@ function BaseChatInput() {
       if (activeProvider === "opencode") {
         return {
           providerLabel: "OpenCode",
+          providerId: "opencode",
           ...resolveOpenCodeProviderModePresentation({
             settings: { opencodeApprovalMode },
           }),

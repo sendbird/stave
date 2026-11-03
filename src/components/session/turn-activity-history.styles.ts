@@ -29,6 +29,20 @@ export const turnActivityHistoryStyles = stylex.create({
     margin: 0,
     minWidth: 0,
   },
+  /* List | Timeline on the left, the timeline's legend on the right; the
+     legend wraps under the switch in a narrow rail. */
+  viewBar: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    columnGap: vars["--ads-space-12"],
+    rowGap: vars["--ads-space-4"],
+    minWidth: 0,
+    paddingBlockEnd: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
+  },
   body: {
     display: "flex",
     flex: 1,

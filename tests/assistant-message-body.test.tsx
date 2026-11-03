@@ -565,7 +565,7 @@ describe("AssistantMessageBody", () => {
    * on the rail — not the host `ChainOfThoughtStep` it used to be, which put
    * its chevron on the trailing edge and sized its glyph in `em`. These pin the
    * two halves of that: the ADS row anatomy is present, and the pending /
-   * rejected state is reported through `AgentRunState` rather than a local
+   * rejected state is reported through `AgentStepState` rather than a local
    * open flag, so `isActionRequiredState` decides which rows stay open.
    */
   test("renders a changed file as an ADS tool run row awaiting approval", async () => {

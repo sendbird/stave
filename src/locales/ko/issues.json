@@ -51,7 +51,6 @@
     "board": "보드",
     "groupTickets": "티켓 그룹화",
     "sortTickets": "티켓 정렬",
-    "reset": "초기화",
     "assignedToMe": "나에게 할당됨",
     "allOpen": "모든 열린 항목",
     "recentlyDone": "최근 완료됨",
@@ -64,7 +63,30 @@
     "sortKey": "정렬: 키",
     "any": "모든 항목",
     "notInStave": "Stave 작업 없음",
-    "resetCount": "{{count}}개 초기화"
+    "operatorIs": "일치",
+    "operatorIsAnyOf": "중 하나",
+    "staveRuns": "Stave 실행",
+    "filter": "필터",
+    "filterCount": "필터, {{count}}개 적용 중",
+    "searchFilterValues": "상태, 우선순위, 프로젝트, 레이블 검색…",
+    "searchFilterValuesLabel": "필터 값 검색",
+    "noFilterValues": "일치하는 값이 없습니다.",
+    "appliedFilters": "적용된 필터",
+    "clearAll": "모두 지우기",
+    "resultSummary_other": "{{filters}} · 이슈 {{count}}개",
+    "filterTotal_other": "필터 {{count}}개",
+    "searchChip": "검색어",
+    "operatorContains": "포함",
+    "updated": "업데이트",
+    "updatedTrigger": "업데이트: {{window}}",
+    "filterByUpdated": "마지막 업데이트로 필터링",
+    "operatorWithin": "기간",
+    "updatedAny": "전체 기간",
+    "updatedToday": "오늘",
+    "updatedLast7": "최근 7일",
+    "updatedLast30": "최근 30일",
+    "updatedLast90": "최근 90일",
+    "updatedThisMonth": "이번 달"
   },
   "issuesView": {
     "ticket": "티켓",
@@ -93,10 +115,6 @@
     "theDescriptionCouldNotBeLoaded": "설명을 불러오지 못했습니다.",
     "staveState": "Stave 상태: {{state}}",
     "commentCount": "댓글 ({{count}})"
-  },
-  "trackerIssueFilterChip": {
-    "filterValue": "{{value1}} 필터링",
-    "nothingToFilterByYet": "아직 필터링할 항목이 없습니다."
   },
   "trackerIssueKickoffSheet": {
     "ticket": "티켓",
@@ -157,7 +175,8 @@
     "ticketLink": "티켓 링크",
     "copyLink": "링크 복사",
     "attachToValue": "{{value1}}에 첨부",
-    "attachToCurrentWorkspace": "현재 워크스페이스에 첨부"
+    "attachToCurrentWorkspace": "현재 워크스페이스에 첨부",
+    "mirrorsJiraIssue": "Jira 이슈 반영"
   },
   "trackerIssuesEmptyState": {
     "issuesNeedsTheDesktopApp": "이슈 기능에는 데스크톱 앱이 필요합니다",
@@ -256,7 +275,9 @@
     "craneSentATicketPageStaveCould": "Crane이 Stave에서 읽을 수 없는 티켓 페이지를 보냈습니다. 연결 문제가 아닌 호스트 문제입니다.",
     "theTrackerRouteStaveAskedForDoes": "Stave가 요청한 트래커 경로가 없습니다.",
     "thisCraneInstallationDoesNotServeThe": "이 Crane 설치는 아직 작업 목록을 제공하지 않아 전송된 작업만 사용할 수 있습니다. 연결에는 문제가 없습니다.",
-    "thisCraneInstallationHasTheTaskList": "이 Crane 설치에서 작업 목록이 비활성화돼 있습니다. 전송된 작업은 계속 사용할 수 있습니다."
+    "thisCraneInstallationHasTheTaskList": "이 Crane 설치에서 작업 목록이 비활성화돼 있습니다. 전송된 작업은 계속 사용할 수 있습니다.",
+    "didNotSync": "동기화하지 못함",
+    "unavailable": "사용할 수 없음"
   },
   "group": {
     "inProgress": "진행 중",

@@ -11,7 +11,6 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
-import { FLEET_TASK_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
@@ -32,8 +31,8 @@ import { cardStyles as styles } from "./fleet-workspace-card.styles";
 import {
   normalizeFleetSearchQuery,
   orderFleetCardTaskRows,
-  splitFleetSearchMatch,
 } from "@/lib/fleet/card-task-rows";
+import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { WorkspaceShellSummary } from "@/lib/db/workspaces.db";
 import {
@@ -46,6 +45,7 @@ import {
   classifyTaskStatus,
   resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
+  fleetStatusToWorkState,
   type FleetDisplayStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
@@ -581,8 +581,8 @@ export function FleetWorkspaceCard(args: {
         ) : (
           <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
-              const state = FLEET_TASK_WORK_STATE[row.status];
-              // A quiet turn borrows the stopped-short glyph, but its word is
+              const state = fleetStatusToWorkState(row.status);
+              // A quiet turn keeps the working glyph, but its word is
               // the attention kind's: it has stopped reporting, not halted.
               const statusLabel =
                 row.status === "stalled"
@@ -626,7 +626,7 @@ export function FleetWorkspaceCard(args: {
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskDetails)}>
                       <span className={sx(styles.taskTitle)}>
-                        <FleetSearchHighlight text={taskTitle} normalizedQuery={normalizedQuery} />
+                        <SearchHighlight text={taskTitle} query={normalizedQuery} />
                       </span>
                       {/* A task in a live turn says what it last did and for how
                           long; any other task keeps its last update. */}
@@ -754,21 +754,6 @@ export function FleetWorkspaceCard(args: {
         </Button>
       </div>
     </article>
-  );
-}
-
-/** The task title with the active search match marked. */
-function FleetSearchHighlight(props: { text: string; normalizedQuery: string }) {
-  const parts = splitFleetSearchMatch(props.text, props.normalizedQuery);
-  if (!parts) {
-    return props.text;
-  }
-  return (
-    <>
-      {parts.before}
-      <mark className={sx(styles.searchMatch)}>{parts.match}</mark>
-      {parts.after}
-    </>
   );
 }
 

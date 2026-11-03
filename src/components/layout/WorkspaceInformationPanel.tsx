@@ -1822,7 +1822,7 @@ export function WorkspaceInformationPanel() {
                         formatWorkspaceInfoHostLabel(link.url);
                       const label =
                         link.label.trim() ||
-                        (amplifyRef ? amplifyRef.branch : "Amplify link");
+                        (amplifyRef ? amplifyRef.branch : i18n.t("workspace:workspaceInformationPanel.amplifyLinkFallback"));
 
                       if (!isWorkspaceInfoUrl(link.url)) {
                         return (
@@ -1909,7 +1909,7 @@ export function WorkspaceInformationPanel() {
                         formatWorkspaceInfoHostLabel(thread.url);
                       const label =
                         thread.channelName.trim() ||
-                        (slackRef ? `#${slackRef.channelId}` : "Slack thread");
+                        (slackRef ? `#${slackRef.channelId}` : i18n.t("workspace:workspaceInformationPanel.slackThreadFallback"));
 
                       if (!isWorkspaceInfoUrl(thread.url)) {
                         return (

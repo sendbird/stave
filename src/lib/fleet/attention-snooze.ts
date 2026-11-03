@@ -64,9 +64,11 @@ export type ClearFleetAttentionSnoozesArgs = z.infer<
   typeof ClearFleetAttentionSnoozesArgsSchema
 >;
 
+export type FleetAttentionSnoozeDurationId = "1h" | "4h" | "1d" | "1w";
+
+/** A snooze length. Its words live in `FLEET_SNOOZE_DURATION_LABEL_KEY`. */
 export interface FleetAttentionSnoozeDuration {
-  id: string;
-  label: string;
+  id: FleetAttentionSnoozeDurationId;
   ms: number;
 }
 
@@ -77,10 +79,10 @@ export interface FleetAttentionSnoozeDuration {
  */
 export const FLEET_ATTENTION_SNOOZE_DURATIONS: readonly FleetAttentionSnoozeDuration[] =
   [
-    { id: "1h", label: "1 hour", ms: 60 * 60 * 1000 },
-    { id: "4h", label: "4 hours", ms: 4 * 60 * 60 * 1000 },
-    { id: "1d", label: "1 day", ms: 24 * 60 * 60 * 1000 },
-    { id: "1w", label: "1 week", ms: 7 * 24 * 60 * 60 * 1000 },
+    { id: "1h", ms: 60 * 60 * 1000 },
+    { id: "4h", ms: 4 * 60 * 60 * 1000 },
+    { id: "1d", ms: 24 * 60 * 60 * 1000 },
+    { id: "1w", ms: 7 * 24 * 60 * 60 * 1000 },
   ];
 
 /** The duration a bulk `Clear` applies to rows that cannot be marked reviewed. */

@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import {
   LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
   buildLocalChangeReviewPrompt,
@@ -437,6 +438,14 @@ export function buildReviewDelegateArgs(args: {
 // ── Composer shelf ─────────────────────────────────────────────────────────
 
 export type ReviewShelfStatus = "running" | "ready" | "failed" | "stopped";
+
+/** Each review shelf state as a shared work state, for `StateMark`. */
+export const REVIEW_SHELF_WORK_STATE: Record<ReviewShelfStatus, WorkState> = {
+  running: "working",
+  ready: "ready",
+  failed: "failed",
+  stopped: "stopped",
+};
 
 export interface ReviewShelfItem {
   child: DelegatedTaskSummary;

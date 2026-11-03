@@ -4,7 +4,7 @@ import {
   markRecommendedUserInputOptions,
   optionLabelHasRecommendedSuffix,
   readQuestionRecommendPointer,
-  readRawOptionRecommended,
+  readRawOptionPreview, readRawOptionRecommended,
   recommendedOptionDefaultValue,
 } from "../../src/lib/user-input-options";
 
@@ -55,6 +55,7 @@ export function parseClaudeQuestionList(args: {
             {
               label,
               description,
+              ...readRawOptionPreview(option),
               ...(readRawOptionRecommended(option) ||
               optionLabelHasRecommendedSuffix(label)
                 ? { recommended: true }

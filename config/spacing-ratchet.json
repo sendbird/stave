@@ -1,7 +1,7 @@
 {
   "version": 2,
   "description": "Existing literal spacing declarations. New or changed declarations must use ADS space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
-  "total": 746,
+  "total": 712,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
       "styles.identityText.gap = 2": 1,
@@ -30,10 +30,6 @@
       "agentRunStyles.decision.gap = 2": 1,
       "agentRunStyles.statTile.gap = 4": 1
     },
-    "src/components/agent-runs/dither-progress.styles.ts": {
-      "ditherProgressStyles.head.gap = 3": 1,
-      "ditherProgressStyles.head.paddingInline = 6": 1
-    },
     "src/components/agents/FlowPanel.tsx": {
       "styles.receivedList.gap = 2": 1,
       "styles.rail.paddingTop = 5": 1,
@@ -58,7 +54,6 @@
       "autoRoutingProfileListStyles.check.marginBlockStart = \"0.3125rem\"": 1
     },
     "src/components/ai-elements/chain-of-thought.styles.ts": {
-      "chainOfThoughtStyles.streamingLabel.gap = \"0.5em\"": 1,
       "chainOfThoughtStyles.summary.columnGap = \"0.6em\"": 1,
       "chainOfThoughtStyles.summaryItem.gap = \"0.3em\"": 1,
       "chainOfThoughtStyles.disclosure.gap = \"0.35em\"": 1,
@@ -226,9 +221,6 @@
     "src/components/compare/compare-run-history-dialog.styles.ts": {
       "compareRunHistoryDialogStyles.headerMark.marginTop = 2": 1,
       "compareRunHistoryDialogStyles.headerText.gap = 6": 1,
-      "compareRunHistoryDialogStyles.filterGroup.paddingBottom = 2": 1,
-      "compareRunHistoryDialogStyles.filterButton.gap = 6": 1,
-      "compareRunHistoryDialogStyles.filterButton.paddingInline = 10": 1,
       "compareRunHistoryDialogStyles.rowMark.marginTop = 2": 1
     },
     "src/components/compare/compare-run-panel.styles.ts": {
@@ -237,8 +229,6 @@
       "compareRunPanelStyles.noticeDescription.marginTop = 2": 1,
       "compareRunPanelStyles.judgeMark.marginTop = 1": 1,
       "compareRunPanelStyles.reviewCriterion.gap = 6": 1,
-      "compareRunPanelStyles.statusChip.paddingBlock = 2": 1,
-      "compareRunPanelStyles.statusChip.paddingInline = 6": 1,
       "compareRunPanelStyles.criteriaRationale.marginTop = 2": 1,
       "compareRunPanelStyles.variantFooter.paddingBlock = 10": 1
     },
@@ -332,8 +322,6 @@
       "centerStyles.detailValue.marginBlockStart = 2": 1,
       "centerStyles.headerActions.gap = 6": 1,
       "centerStyles.headerButton.gap = 6": 1,
-      "centerStyles.filterGroup.gap = 2": 1,
-      "centerStyles.filterGroup.padding = 2": 1,
       "centerStyles.errorIcon.marginBlockStart = 2": 1,
       "centerStyles.automationCard.padding = 10": 1,
       "centerStyles.detailActions.gap = 6": 1,
@@ -372,7 +360,6 @@
       "runDetailStyles.headerButton.gap = 6": 1
     },
     "src/components/layout/automation-center/schedule-rows.styles.ts": {
-      "scheduleRowStyles.resultDot.marginInlineEnd = 4": 1,
       "scheduleRowStyles.select.padding = 10": 1,
       "scheduleRowStyles.meta.rowGap = 2": 1,
       "scheduleRowStyles.action.gap = 6": 1
@@ -451,10 +438,7 @@
       "informationRow.trail.paddingBlockStart = 2": 1
     },
     "src/components/layout/issues/issues-layout.stylex.ts": {
-      "taskLayoutStyles.tabList.gap = 2": 1,
-      "taskLayoutStyles.tabList.padding = 2": 1,
       "taskLayoutStyles.searchInput.paddingInlineStart = \"2rem\"": 1,
-      "taskLayoutStyles.segmented.padding = 2": 1,
       "taskLayoutStyles.boardLabel.paddingBlock = 2": 1,
       "taskLayoutStyles.peekActions.gap = 2": 1,
       "taskLayoutStyles.metaGrid.rowGap = \"0.625rem\"": 1,
@@ -463,9 +447,7 @@
       "taskLayoutStyles.detailLink.padding = \"0.625rem\"": 1,
       "taskLayoutStyles.detailComment.gap = 2": 1,
       "taskLayoutStyles.kickoffHeader.paddingInlineEnd = \"3rem\"": 1,
-      "taskLayoutStyles.kickoffTicketMeta.marginTop = 2": 1,
-      "taskLayoutStyles.kickoffModeList.gap = 2": 1,
-      "taskLayoutStyles.kickoffModeList.padding = 2": 1
+      "taskLayoutStyles.kickoffTicketMeta.marginTop = 2": 1
     },
     "src/components/layout/issues/issues-row.styles.ts": {
       "taskRowStyles.row.paddingBlock = 10": 1,
@@ -551,18 +533,9 @@
       "dashboardStyles.meters.columnGap = 16": 1,
       "dashboardStyles.meterRow.columnGap = 10": 1,
       "dashboardStyles.meterRow.rowGap = 5": 1,
-      "dashboardStyles.meterLabel.gap = 5": 1,
-      "shareStyles.track.marginBlockStart = 6": 1
+      "dashboardStyles.meterLabel.gap = 5": 1
     },
     "src/components/layout/resource-manager.styles.ts": {
-      "managerStyles.columnHeading.paddingBlock = 8": 1,
-      "managerStyles.columnHeading.paddingInline = 10": 1,
-      "managerStyles.numericHeading.paddingBlock = 8": 1,
-      "managerStyles.numericHeading.paddingInline = 10": 1,
-      "managerStyles.identityCell.paddingBlock = 12": 1,
-      "managerStyles.identityCell.paddingInline = 10": 1,
-      "managerStyles.numericCell.paddingBlock = 12": 1,
-      "managerStyles.numericCell.paddingInline = 10": 1,
       "managerStyles.processTitle.gap = 10": 1,
       "managerStyles.pageRow.gap = 8": 1,
       "managerStyles.pageRow.padding = 10": 1,
@@ -575,8 +548,6 @@
       "managerStyles.processIdentity.gap = 4": 1,
       "managerStyles.section.gap = 10": 1,
       "managerStyles.toolbar.gap = 12": 1,
-      "managerStyles.segmented.gap = 2": 1,
-      "managerStyles.segmented.padding = 2": 1,
       "managerStyles.row.gap = 10": 1,
       "managerStyles.row.paddingBlock = 10": 1,
       "managerStyles.row.paddingInline = 4": 1,
@@ -640,10 +611,6 @@
     },
     "src/components/layout/top-bar-file-search.styles.ts": {
       "fileSearchStyles.panelHeader.paddingBlock = \"0.625rem\"": 1
-    },
-    "src/components/layout/top-bar-notifications.styles.ts": {
-      "notificationsStyles.viewTab.paddingInline = 10": 1,
-      "notificationsStyles.viewTabCount.paddingInline = 6": 1
     },
     "src/components/layout/top-bar-open-pr.styles.ts": {
       "openPrStyles.statusMenuLabel.gap = 2": 1,
@@ -902,9 +869,6 @@
     "src/components/session/failed-outgoing-messages.styles.ts": {
       "failedOutgoingMessagesStyles.statusRow.gap = 6": 1
     },
-    "src/components/session/macro-control.styles.ts": {
-      "macroControlStyles.itemTitleRow.gap = 6": 1
-    },
     "src/components/session/message-usage-summary.styles.ts": {
       "messageUsageSummaryStyles.metricsGrid.rowGap = \"0.125rem\"": 1,
       "messageUsageSummaryStyles.trigger.gap = \"0.375rem\"": 1,
@@ -971,9 +935,6 @@
       "workGraphTreeStyles.content.gap = \"0.625rem\"": 1,
       "workGraphTreeStyles.content.paddingBlock = \"0.375rem\"": 1
     },
-    "src/components/system/ChoiceChips.tsx": {
-      "styles.choice.paddingInline = 8": 1
-    },
     "src/components/system/SelectionRail.tsx": {
       "styles.rail.padding = 4": 1,
       "styles.rail.gap = 4": 1,
@@ -1017,12 +978,7 @@
       "sheetLayout.header.gap = 6": 1
     },
     "src/components/usage/usage.styles.ts": {
-      "usageStyles.elapsedMarker.marginInlineStart = -1": 1,
-      "usageStyles.chart.gap = 4": 1
-    },
-    "src/components/workflows/Segmented.tsx": {
-      "styles.root.gap = 2": 1,
-      "styles.root.padding = 2": 1
+      "usageStyles.elapsedMarker.marginInlineStart = -1": 1
     },
     "src/components/workflows/workflows.styles.ts": {
       "workflowStyles.list.gap = 2": 1,

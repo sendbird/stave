@@ -2,11 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   REPOSITORY_MEMORY_INJECTION_MAX_CHARS,
   REPOSITORY_MEMORY_INJECTION_MAX_ITEMS,
+  REPOSITORY_MEMORY_RESTORE_WINDOW_MS,
   REPOSITORY_MEMORY_STALE_AFTER_MS,
   RepositoryMemoryFactInputSchema,
   capRepositoryMemoriesForInjection,
   extractRepositoryMemoryQueryTerms,
   isRepositoryMemoryDuplicate,
+  isRepositoryMemoryRestorable,
   isRepositoryMemoryStale,
   orderRepositoryMemoriesForInjection,
   repositoryMemorySimilarity,
@@ -162,6 +164,39 @@ describe("project memory domain rules", () => {
     expect(full!.content.length).toBeLessThanOrEqual(
       REPOSITORY_MEMORY_INJECTION_MAX_CHARS,
     );
+  });
+
+  test("a forgotten row is never rendered into the injected block", () => {
+    const part = buildRepositoryMemoryRetrievedContextPart({
+      memories: [
+        memory({ id: "1", kind: "convention", content: "Use Bun." }),
+        memory({ id: "2", kind: "decision", content: "Forgotten decision.", deletedAt: NOW }),
+      ],
+    });
+    expect(part?.content).toContain("- (convention) Use Bun.");
+    expect(part?.content).not.toContain("Forgotten decision.");
+    expect(
+      buildRepositoryMemoryRetrievedContextPart({
+        memories: [memory({ id: "2", content: "Forgotten decision.", deletedAt: NOW })],
+      }),
+    ).toBeNull();
+  });
+
+  test("a forgotten row stays restorable for the window and not a moment longer", () => {
+    expect(isRepositoryMemoryRestorable({ memory: { deletedAt: null }, now: NOW })).toBe(false);
+    expect(isRepositoryMemoryRestorable({ memory: { deletedAt: NOW }, now: NOW })).toBe(true);
+    expect(
+      isRepositoryMemoryRestorable({
+        memory: { deletedAt: NOW },
+        now: NOW + REPOSITORY_MEMORY_RESTORE_WINDOW_MS,
+      }),
+    ).toBe(true);
+    expect(
+      isRepositoryMemoryRestorable({
+        memory: { deletedAt: NOW },
+        now: NOW + REPOSITORY_MEMORY_RESTORE_WINDOW_MS + 1,
+      }),
+    ).toBe(false);
   });
 
   test("recall follows current work, with recent context for short continuations", () => {

@@ -13,7 +13,7 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
-import type { AgentRunState } from "@/components/ads/components/agent-state";
+import type { AgentStepState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { ToolRun } from "@/components/ads/components/ToolRun";
 import {
@@ -65,8 +65,9 @@ import {
 } from "./assistant-trace-builder";
 import { TraceApproval, TraceClarification } from "./turn-event-decisions";
 import { TraceSystemNotice } from "./turn-event-notice";
-import { ReasoningRow } from "./turn-event-rows";
-import { toMeasuredDurationMs } from "./turn-event-state";
+import { resolveTraceActivity } from "./trace-activity";
+import { ReasoningRow, TurnSources } from "./turn-event-rows";
+import { collectTurnWebSources, toMeasuredDurationMs } from "./turn-event-state";
 import {
   TRACE_GLYPH_SIZE,
   TraceSubagentRun,
@@ -235,6 +236,7 @@ function AssistantTraceEntryView(args: {
               getReasoningDurationSeconds(entry.parts) ?? undefined,
             )}
             isStreaming={entry.isStreaming}
+            startedAt={toEpochMilliseconds(entry.parts[0]?.startedAt) ?? undefined}
             text={joinReasoningText(entry.parts)}
           />
         </StepRail.Step>
@@ -307,14 +309,14 @@ function AssistantTraceEntryView(args: {
      * they did not. Nothing about a diff asked for that; it was just the row it
      * was built on.
      *
-     * The pending/rejected states are reported through `AgentRunState` rather
+     * The pending/rejected states are reported through `AgentStepState` rather
      * than a local `defaultOpen`: `approval` is what "waiting for accept or
      * reject" is called everywhere else in this family, and `isAttentionState`
      * then keeps exactly those rows open without this call site re-deriving the
      * rule.
      */
     case "diff": {
-      const diffStatus: AgentRunState = entry.parts.some(
+      const diffStatus: AgentStepState = entry.parts.some(
         (part) => part.status === "pending",
       )
         ? "approval"
@@ -365,6 +367,7 @@ function AssistantTraceEntryView(args: {
           <TraceApproval
             messageId={messageId}
             part={entry.part}
+            requestedBy={entry.requestedBy}
             taskId={taskId}
           />
         </StepRail.Step>
@@ -492,6 +495,7 @@ export function AssistantMessageBody(args: {
     | "isStreaming"
     | "terminalStopReason"
     | "role"
+    | "startedAt"
   >;
   taskId: string;
   messageId: string;
@@ -569,6 +573,16 @@ export function AssistantMessageBody(args: {
             t,
           }),
     [categoryCounts, isStreaming, trace.responseParts, t],
+  );
+  /* Once the turn ends: the web sources its searches and fetches returned. */
+  const turnSources = useMemo(
+    () => (isStreaming ? [] : collectTurnWebSources(message.parts)),
+    [isStreaming, message.parts],
+  );
+  /* While the turn runs: the newest step still in progress, for the header. */
+  const streamingActivity = useMemo(
+    () => (isStreaming ? resolveTraceActivity(trace.entries, t) : null),
+    [isStreaming, trace.entries, t],
   );
   /* Total reasoning time for the turn, shown next to the collapsed title
      ("12s"). Only meaningful once the turn has finished. */
@@ -679,6 +693,8 @@ export function AssistantMessageBody(args: {
                 ? i18n.t("session:assistantTrace.completionLabel")
                 : completedTitle
             }
+            streamingActivity={streamingActivity}
+            streamingStartedAt={message.startedAt}
           />
           {trace.entries.length > 0 ? (
             <ChainOfThoughtContent>
@@ -753,6 +769,8 @@ export function AssistantMessageBody(args: {
           ))}
         </div>
       ) : null}
+
+      {turnSources.length > 0 ? <TurnSources urls={turnSources} /> : null}
 
       {showDiffResults ? (
         <div className={sx(styles.spacedTop)}>

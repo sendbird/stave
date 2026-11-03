@@ -124,7 +124,7 @@
       "legacyRecipeCount": 0,
       "requiresCanonicalSource": true
     },
-    "src/components/system/ChoiceChips.tsx": {
+    "src/components/system/SegmentedControl.tsx": {
       "legacyRecipeCount": 0,
       "requiresCanonicalSource": true
     },

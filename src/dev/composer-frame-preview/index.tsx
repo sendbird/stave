@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import {
   buildModelPickerAgents,
@@ -55,7 +55,9 @@ const PREVIEW_DOCUMENT_CATALOG: readonly WorkspaceDocumentCatalogEntry[] = [
   },
 ];
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
-import { TooltipProvider } from "@/components/ui";
+import { Popover, PopoverAnchor, Toaster, TooltipProvider, toast } from "@/components/ui";
+import { PromptEnhancementDiffPopover } from "@/components/session/prompt-enhancement-diff";
+import { i18n } from "@/i18n";
 import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
 import { SecretRequestCard } from "@/components/session/secret-request-card";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
@@ -89,12 +91,16 @@ import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles
 import {
   PREVIEW_CHILD_APPROVAL,
   PREVIEW_CHILD_QUESTION,
+  PREVIEW_CHILD_QUESTION_WITH_PREVIEW,
+  PREVIEW_CLAUDE_CONTEXT_USAGE,
   PREVIEW_MACROS,
   PREVIEW_MODEL,
   PREVIEW_REVIEW_CODEX_MODEL,
   PREVIEW_SECRET_REQUEST,
   PREVIEW_SECRET_REQUEST_EXISTING,
 } from "./fixtures";
+import { readClaudeContextUsageCached } from "@/lib/providers/claude-context-breakdown";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   caseHasQueue,
   isShelfCaseTurnLive,
@@ -129,7 +135,7 @@ import {
  * `&attachments=all` attaches one Information item, one task and one document,
  * so the three context chips render side by side; `&partial=1` attaches a task
  * whose reply is still streaming.
- * `&childRequest=question|approval` shows a delegated task's request above the
+ * `&childRequest=question|preview|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
  * `&draft=empty` starts with an empty draft, so the placeholder shows. With
  * `&case=needs-input` the composer stays usable and sending redirects the agent;
@@ -211,8 +217,33 @@ function installAgentsBridge(initial: AgentConfig | null) {
   };
 }
 const INITIAL_AGENT = previewAgent();
+/**
+ * `&contextProvider=codex` shows the meter for a provider that reports only a
+ * total. The Claude read is a fake host call that counts itself on
+ * `window.__contextBreakdownLoads`, behind the real short cache.
+ */
+/**
+ * `&enhanceDiff=1` shows Enhance's finished state: the rewritten draft and the
+ * real "Prompt enhanced" toast with View changes and Undo, wired the way
+ * `ChatInputComposer` wires them.
+ */
+const ENHANCE_DIFF = previewParams.get("enhanceDiff") === "1";
+const PREVIEW_ENHANCE_SOURCE = "fix the bug in login where users end up on the wrong page";
+const PREVIEW_ENHANCED_PROMPT =
+  "Fix the login redirect bug: after sign-in, users land on /home instead of the page they requested. Add a regression test.";
+const CONTEXT_PROVIDER: ProviderId =
+  previewParams.get("contextProvider") === "codex" ? "codex" : "claude-code";
+function loadPreviewContextBreakdown() {
+  return readClaudeContextUsageCached("composer-frame-preview", async () => {
+    const host = window as { __contextBreakdownLoads?: number };
+    host.__contextBreakdownLoads = (host.__contextBreakdownLoads ?? 0) + 1;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return { ok: true, detail: "preview", usage: PREVIEW_CLAUDE_CONTEXT_USAGE };
+  });
+}
 const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
   question: PREVIEW_CHILD_QUESTION,
+  preview: PREVIEW_CHILD_QUESTION_WITH_PREVIEW,
   approval: PREVIEW_CHILD_APPROVAL,
 };
 const CHILD_REQUEST = CHILD_REQUESTS[previewParams.get("childRequest") ?? ""] ?? null;
@@ -245,10 +276,29 @@ export function ComposerFramePreviewApp() {
     useComposerFrameFits();
   const framed = layoutPreference === "framed" && composerFrameFits;
   const [draft, setDraft] = useState(
-    previewParams.get("draft") === "empty"
-      ? ""
-      : "Tighten the four-bar composer so the side shelves match the input card height.",
+    ENHANCE_DIFF
+      ? PREVIEW_ENHANCED_PROMPT
+      : previewParams.get("draft") === "empty"
+        ? ""
+        : "Tighten the four-bar composer so the side shelves match the input card height.",
   );
+  const [enhanceDiffOpen, setEnhanceDiffOpen] = useState(false);
+  const enhanceToastShown = useRef(false);
+  useEffect(() => {
+    if (!ENHANCE_DIFF || enhanceToastShown.current) return;
+    enhanceToastShown.current = true;
+    toast.success(i18n.t("session:chatInputComposer.handlePromptEnhancementRevealComplete"), {
+      duration: 0,
+      secondaryAction: {
+        label: i18n.t("session:chatInputComposer.viewEnhancementChanges"),
+        onClick: () => setEnhanceDiffOpen(true),
+      },
+      action: {
+        label: i18n.t("session:chatInputComposer.label"),
+        onClick: () => setDraft(PREVIEW_ENHANCE_SOURCE),
+      },
+    });
+  }, []);
   const [thinkingMode, setThinkingMode] = useState<
     "adaptive" | "enabled" | "disabled"
   >("enabled");
@@ -369,6 +419,8 @@ export function ComposerFramePreviewApp() {
     return {
       ...presentation,
       providerLabel: "Claude",
+      // Lists what the chosen preset does on its own, as the app does.
+      providerId: "claude-code" as const,
     };
   }, [providerMode]);
 
@@ -470,6 +522,12 @@ export function ComposerFramePreviewApp() {
           </div>
 
           <div className={sx(f.composerDock)}>
+            <Popover
+              open={enhanceDiffOpen}
+              onOpenChange={(open) => {
+                if (!open) setEnhanceDiffOpen(false);
+              }}
+            >
             <div className={sx(f.composerPad)}>
               <div
                 ref={composerMeasureRef}
@@ -480,12 +538,16 @@ export function ComposerFramePreviewApp() {
                   squeezed ? f.composerMeasureSqueezed : f.composerMeasureWide,
                 )}
               >
+                {/* The composer measure's top edge, where `ChatInputComposer`
+                    anchors the Enhance diff. */}
+                {ENHANCE_DIFF ? (
+                  <PopoverAnchor render={<div className={sx(f.enhanceAnchor)} />} />
+                ) : null}
                 {caseId === "needs-input" ? (
                   <ChatInputApprovalQueue
                     approvals={PREVIEW_APPROVALS}
                     onDraftGuidance={() => {}}
                     onResolveApproval={() => {}}
-                    onTrustAndApprove={() => {}}
                   />
                 ) : null}
                 {framed ? null : shelf}
@@ -599,6 +661,8 @@ export function ComposerFramePreviewApp() {
                       compactAvailable
                       compactDisabled={false}
                       onCompact={() => {}}
+                      providerId={CONTEXT_PROVIDER}
+                      loadBreakdown={CONTEXT_PROVIDER === "claude-code" ? loadPreviewContextBreakdown : undefined}
                     />
                   }
                   frameTop={framed ? shelf : undefined}
@@ -620,6 +684,18 @@ export function ComposerFramePreviewApp() {
                 />
               </div>
             </div>
+            {ENHANCE_DIFF ? (
+              <PromptEnhancementDiffPopover
+                enhancedPrompt={PREVIEW_ENHANCED_PROMPT}
+                sourceText={PREVIEW_ENHANCE_SOURCE}
+                onKeep={() => setEnhanceDiffOpen(false)}
+                onRevert={() => {
+                  setEnhanceDiffOpen(false);
+                  setDraft(PREVIEW_ENHANCE_SOURCE);
+                }}
+              />
+            ) : null}
+            </Popover>
           </div>
         </div>
         {showPanel ? (
@@ -630,6 +706,7 @@ export function ComposerFramePreviewApp() {
         </div>
       </div>
       </TaskScopeProvider>
+      {ENHANCE_DIFF ? <Toaster /> : null}
     </TooltipProvider>
   );
 }

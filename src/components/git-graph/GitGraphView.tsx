@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import {
   useCallback,
   useEffect,
@@ -792,7 +793,12 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
       <CommitContextMenu
         anchor={commitMenu}
         onClose={() => setCommitMenu(null)}
-        onCopyHash={(hash) => void navigator.clipboard.writeText(hash)}
+        onCopyHash={(hash) =>
+          void copyTextWithToasts(
+            hash,
+            i18n.t("gitGraph:commitDetailPanel.copied", { value1: i18n.t("gitGraph:commitDetailPanel.commitHash") }),
+          )
+        }
         onCheckout={(hash) => {
           if (workspaceCwd) {
             void runMutation(i18n.t("gitGraph:gitGraphView.checkedOutCommit"), () =>
@@ -905,7 +911,10 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
           }
         }}
         onCopyName={(graphRef) =>
-          void navigator.clipboard.writeText(graphRef.name)
+          void copyTextWithToasts(
+            graphRef.name,
+            i18n.t("gitGraph:commitDetailPanel.copied", { value1: graphRef.name }),
+          )
         }
       />
     </div>

@@ -135,7 +135,10 @@
     "startInCurrentWorkspace": "현재 워크스페이스에서 작업을 시작합니다",
     "startInNewWorkspace": "새 워크스페이스를 만들고 작업을 시작합니다",
     "createTask": "작업 만들기",
-    "currentWorkspaceDetails": "새 작업은 현재 워크스페이스와 공유 컨텍스트를 사용합니다."
+    "currentWorkspaceDetails": "새 작업은 현재 워크스페이스와 공유 컨텍스트를 사용합니다.",
+    "openARepositoryToStart": "작업을 시작하려면 저장소를 여세요.",
+    "providerUnavailableChooseProvider": "{{provider}}을(를) 사용할 수 없습니다. 실행 위치에서 다른 프로바이더를 고르세요.",
+    "providerUnavailableChooseModel": "{{provider}}을(를) 사용할 수 없습니다. 다른 모델을 고르세요."
   },
   "kickoffSourceWho": {
     "who": "담당자",
@@ -194,7 +197,16 @@
     "openARepositoryBeforeResolvingAKickoff": "킥오프 소스를 확인하려면 저장소를 엽니다.",
     "kickoffResolutionWasCancelled": "킥오프 소스 확인이 취소되었습니다.",
     "openTheWorkspaceThisAgentWorksIn": "이 에이전트가 작업하는 워크스페이스를 연 뒤 다시 시작합니다.",
-    "theTaskCouldNotBeCreated": "작업을 만들지 못했습니다."
+    "theTaskCouldNotBeCreated": "작업을 만들지 못했습니다.",
+    "aiTimedOut": "AI 해석 시간이 초과되었습니다. 시작하기 전에 작업을 검토하세요.",
+    "aiUnusableProposal": "AI가 사용할 수 없는 제안을 반환했습니다. 시작하기 전에 작업을 검토하세요.",
+    "createdTask": "작업을 만들었습니다.",
+    "createdWorkspace": "워크스페이스를 만들었습니다.",
+    "reviewSavedPrompt": "시작하기 전에 작업을 열어 저장된 프롬프트를 검토하세요.",
+    "agentNotRecorded": "작업의 에이전트를 기록하지 못해, 시작하는 대신 입력창에 프롬프트를 준비해 두었습니다.",
+    "firstTaskNotStarted": "첫 작업을 시작하지 못했습니다. 다시 시도하기 전에 저장된 프롬프트를 검토하세요.",
+    "startupUnconfirmed": "시작 여부를 확인하지 못했습니다. 다시 보내기 전에 작업의 메시지를 확인하세요.",
+    "startupUnconfirmedCheckPrompt": "시작 여부를 확인하지 못했습니다. 다시 보내기 전에 작업의 메시지와 저장된 프롬프트를 확인하세요."
   },
   "proposal": {
     "fallbackSource": "워크스페이스 킥오프",

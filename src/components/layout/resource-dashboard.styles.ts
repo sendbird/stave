@@ -161,15 +161,8 @@ export const dashboardStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     whiteSpace: "nowrap",
   },
-  track: {
-    gridColumn: "1 / -1",
-    height: 6,
-    width: "100%",
-    overflow: "hidden",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-  },
-  fill: { height: "100%", borderRadius: vars["--ads-radius-full"] },
+  /** The ADS meter spans the row under its label and reading. */
+  meter: { gridColumn: "1 / -1" },
   sectionLabel: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
@@ -177,33 +170,9 @@ export const dashboardStyles = stylex.create({
   },
 });
 
-/** Status ramp. Never applied without an adjacent icon and word. */
-export const levelFillStyles = stylex.create({
-  healthy: { backgroundColor: vars["--ads-color-success"] },
-  elevated: { backgroundColor: vars["--ads-color-warning"] },
-  high: { backgroundColor: vars["--ads-color-danger"] },
-});
-
+/** Status ink. Never applied without an adjacent icon and word. */
 export const levelTextStyles = stylex.create({
   healthy: { color: vars["--ads-color-text-muted"] },
   elevated: { color: vars["--ads-color-warning-text"] },
   high: { color: vars["--ads-color-danger-text"] },
-});
-
-/** Magnitude, not identity: one hue for every share bar in the dialog. */
-export const shareStyles = stylex.create({
-  track: {
-    height: 4,
-    width: "100%",
-    minWidth: 48,
-    marginBlockStart: 6,
-    overflow: "hidden",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-  },
-  fill: {
-    height: "100%",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-accent"],
-  },
 });

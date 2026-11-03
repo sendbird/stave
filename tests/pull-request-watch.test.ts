@@ -292,11 +292,11 @@ describe("pull request watch surfaces", () => {
     expect(describeWakeUpStatus(summary, NOW.getTime()).text).toBe("Watching its pull request");
     expect(describeWakeUpHistory(summary)).toBe("Woke the task 2 times");
     expect(describePullRequestWatchTarget(created.pullRequestWatch)).toBe("Waiting for a pull request on the task's branch");
-    expect(describePullRequestWatchLastSeen(created.pullRequestWatch)).toEqual({ text: "Not checked yet", tone: "neutral", at: null });
+    expect(describePullRequestWatchLastSeen(created.pullRequestWatch)).toEqual({ text: "Not checked yet", tone: "neutral", state: "idle", at: null });
     const failed = advancePullRequestWatchState({ previous: created.pullRequestWatch, read: { ok: false, error: "gh: offline" }, now: NOW });
-    expect(describePullRequestWatchLastSeen(failed)).toMatchObject({ text: "Couldn't read GitHub: gh: offline", tone: "warning" });
+    expect(describePullRequestWatchLastSeen(failed)).toMatchObject({ text: "Couldn't read GitHub: gh: offline", tone: "warning", state: "halted" });
     const clean = advancePullRequestWatchState({ previous: failed, read: { ok: true, pullRequest: snapshot() }, now: NOW });
-    expect(describePullRequestWatchLastSeen(clean)).toMatchObject({ text: "Nothing to fix", tone: "success" });
+    expect(describePullRequestWatchLastSeen(clean)).toMatchObject({ text: "Nothing to fix", tone: "success", state: "ready" });
     expect(describePullRequestWatchTarget(clean)).toBe("PR #42 · feat: add uploads");
   });
 });

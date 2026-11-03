@@ -76,7 +76,8 @@ export const editorReviewPanelStyles = stylex.create({
   sentRow: { alignItems: "center" },
   sentBody: { display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 1, gap: 2, minWidth: 0 },
   sentState: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"] },
-  sentStateChanged: { color: vars["--ads-color-info-text"] },
+  // Same ink as Review's comment list, which says the same words.
+  sentStateChanged: { color: vars["--ads-color-success-text"] },
   resolveButton: { flexShrink: 0 },
   commentRow: {
     alignItems: "flex-start",

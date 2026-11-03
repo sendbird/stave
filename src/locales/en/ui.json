@@ -114,7 +114,22 @@
     "deny": "Deny",
     "byAuthor": "by <author/>",
     "recordingdecision": "Recording decision",
-    "needsyourapproval": "Needs your approval"
+    "needsyourapproval": "Needs your approval",
+    "autoDeniesAt": "Auto-denies at <time/> if nobody answers",
+    "risk": {
+      "networkAccess": "Network access",
+      "fileSystemAccess": "File access outside the sandbox",
+      "writeOutsideRepository": "Writes outside the repository",
+      "credentialAccess": "Credential access",
+      "irreversibleRemote": "Irreversible remote action"
+    },
+    "requestedBy": "· requested by <agent/>",
+    "requestedByPlain": "· requested by {{agent}}",
+    "requestedBySubagent": "· requested by a subagent",
+    "trusted": "Trusted: <entry/>",
+    "removeTrusted": "Remove",
+    "removeTrustedLabel": "Remove {{entry}} from trusted approvals",
+    "trustedRemoved": "Removed from trusted approvals"
   },
   "commandParts": {
     "navigate": "navigate",
@@ -333,6 +348,109 @@
       "idle": "Idle",
       "offline": "Offline",
       "online": "Online"
+    }
+  },
+  "combobox": {
+    "noMatches": "No matching options.",
+    "loadingOptions": "Loading options…",
+    "search": "Search",
+    "clearSelection": "Clear selection",
+    "openOptions": "Open options",
+    "removeOption": "Remove {{label}}",
+    "create": "Create “{{query}}”",
+    "retry": "Retry",
+    "loadingMore": "Loading more…",
+    "loadMore": "Load more"
+  },
+  "appliedFilters": {
+    "removeNamed": "Remove filter: {{property}} {{operator}} {{value}}",
+    "remove": "Remove filter",
+    "clearAll": "Clear all",
+    "label": "Filters"
+  },
+  "stepper": {
+    "progress": "Progress",
+    "statusSuffix": ", {{status}}",
+    "statusUnavailable": ", {{status}}, unavailable",
+    "status": {
+      "complete": "complete",
+      "current": "current step",
+      "error": "error",
+      "pending": "pending"
+    }
+  },
+  "agentFleet": {
+    "title": "Agents",
+    "totals": {
+      "agents_one": "{{count}} agent",
+      "agents_other": "{{count}} agents",
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "needsYou_one": "{{count}} needs you",
+      "needsYou_other": "{{count}} need you",
+      "cost": "{{cost}} total"
+    },
+    "empty": {
+      "title": "No agents",
+      "description": "Open tasks appear here as agents."
+    },
+    "status": {
+      "done": "Done"
+    },
+    "runningTime": "Running time",
+    "tools": "Tools: {{tools}}",
+    "moreTools_one": "+{{count}}",
+    "moreTools_other": "+{{count}}",
+    "subagents_one": "{{count}} subagent",
+    "subagents_other": "{{count}} subagents",
+    "needYou_one": "{{count}} needs you",
+    "needYou_other": "{{count}} need you",
+    "failedCount_one": "{{count}} failed",
+    "failedCount_other": "{{count}} failed",
+    "treeLabel": "Subagents of {{name}}",
+    "loadingSubagents": "Loading subagents…",
+    "noSubagents": "No subagents yet.",
+    "subagentsFailed": "Subagents could not be read: {{error}}",
+    "stepsTitle": "Tasks of {{name}}",
+    "closeSteps": "Close tasks",
+    "sharedFiles_one": "{{count}} shared file",
+    "sharedFiles_other": "{{count}} shared files"
+  },
+  "tree": {
+    "rename": "Rename",
+    "movedUp": "{{name}} moved up.",
+    "movedDown": "{{name}} moved down.",
+    "movedInto": "{{name}} moved into {{parent}}.",
+    "movedOut": "{{name}} moved out of its folder.",
+    "itemMoved": "Item moved."
+  },
+  "disclosureGroup": {
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
+  },
+  "traceWaterfall": {
+    "label": "Trace waterfall",
+    "summary_one": "<strong>{{count}}</strong> span<dot>·</dot>{{duration}}",
+    "summary_other": "<strong>{{count}}</strong> spans<dot>·</dot>{{duration}}",
+    "expand": "Expand {{name}}",
+    "collapse": "Collapse {{name}}"
+  },
+  "progress": {
+    "indeterminate": "In progress, amount not known",
+    "syncing": "Working"
+  },
+  "fileUpload": {
+    "label": "Drag files here or browse",
+    "uploadFailed": "Upload failed",
+    "removeAttachment": "Remove attachment",
+    "cancel": "Cancel upload of {{name}}",
+    "remove": "Remove {{name}}",
+    "uploaded": "{{name}} uploaded",
+    "uploading": "Uploading {{name}}",
+    "status": {
+      "queued": "Queued",
+      "uploading": "Uploading",
+      "uploaded": "Uploaded"
     }
   }
 }

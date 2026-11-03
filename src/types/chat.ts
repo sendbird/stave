@@ -245,6 +245,13 @@ export interface ToolUsePart extends MessagePartBase {
   state:
     "input-streaming" | "input-available" | "output-available" | "output-error";
   elapsedSeconds?: number;
+  /**
+   * When the runtime first saw the call and first saw it finished (ISO). Absent
+   * when the runtime did not observe it, including every call saved before
+   * runtimes stamped tool events; nothing fills it in from another clock.
+   */
+  startedAt?: string;
+  completedAt?: string;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
 }
@@ -270,8 +277,20 @@ export interface ApprovalPart extends MessagePartBase {
   toolName: string;
   description: string;
   input?: string;
-  /** See the `approval` provider event: an allow-always option exists. */
+  /** See the `approval` provider event: "Always allow" is honored on later calls. */
   supportsAllowAlways?: boolean;
+  /**
+   * See the `approval` provider event: the trusted-tools entry "Always allow"
+   * adds. Its presence is what lets the resolved card name the rule and
+   * remove it again.
+   */
+  trustedToolEntry?: string;
+  /** See `ApprovalRisk`: set only when the request itself says so. */
+  risk?: import("@/lib/approvals/approval-resolution").ApprovalRisk;
+  /** See the `approval` provider event: the subagent that asked; absent for the main loop. */
+  ownerAgentId?: string;
+  /** See the `approval` provider event: when the runtime denies it if nobody answers. */
+  expiresAt?: string;
   requestId: string;
   state:
     | "approval-requested"
@@ -297,6 +316,13 @@ export interface UserInputOption {
   description: string;
   value?: string;
   recommended?: boolean;
+  /**
+   * What choosing the option would look like (a snippet, a mockup in text),
+   * shown while the option has focus or the pointer. Claude's
+   * `AskUserQuestion` reports it; Codex and Cursor questions have no such
+   * field. Plain text, never rendered as markdown.
+   */
+  preview?: string;
 }
 
 export interface UserInputQuestion {

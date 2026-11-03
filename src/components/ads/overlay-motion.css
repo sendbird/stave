@@ -248,6 +248,13 @@
  * down behind the front one. Expanded: they fan out to their natural stacked
  * positions at full scale. New toasts slide up from below.
  */
+/* The newest toast (index 0) paints in front; collapsed, the older ones peek
+   out behind it instead of covering it. */
+.atelier-toast-stack,
+.atelier-toast-stack-top {
+  z-index: calc(1000 - var(--toast-index));
+}
+
 .atelier-toast-stack {
   transform: translateX(var(--toast-swipe-movement-x))
     translateY(

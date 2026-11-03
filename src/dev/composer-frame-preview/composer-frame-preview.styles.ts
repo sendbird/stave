@@ -132,6 +132,10 @@ export const composerFramePreviewStyles = stylex.create({
   composerMeasure: {
     marginInline: "auto",
   },
+  enhanceAnchor: {
+    blockSize: 0,
+    inlineSize: "100%",
+  },
   composerMeasureWide: {
     maxWidth: "72rem",
   },

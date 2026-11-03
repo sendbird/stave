@@ -27,8 +27,6 @@ export const taskRowStyles = stylex.create({
   danger: { color: vars["--ads-color-danger-text"] },
   warning: { color: vars["--ads-color-warning-text"] },
   transparent: { color: "transparent" },
-  visible: { opacity: 1 },
-  hidden: { opacity: 0 },
   sourceIcon: {
     display: "flex",
     alignItems: "center",
@@ -211,36 +209,6 @@ export const taskRowStyles = stylex.create({
     paddingInline: 10,
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-normal"],
-  },
-  filterActive: {
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface"],
-  },
-  filterSummary: {
-    maxWidth: "7rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    color: vars["--ads-color-text"],
-  },
-  filterChevron: { width: 14, height: 14, color: vars["--ads-color-text-muted"] },
-  filterPopup: { width: "14rem", padding: 0 },
-  commandItem: {
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-  },
-  commandCheck: { width: 14, height: 14 },
-  commandOption: {
-    minWidth: 0,
-    flex: 1,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  optionCount: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text-muted"],
   },
 });
 

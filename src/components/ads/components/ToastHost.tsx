@@ -6,7 +6,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type * as React from "react";
 
 import {
@@ -33,8 +33,10 @@ import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { cx, sx } from "../utils/stylex";
 import { Button } from "./Button";
 import { Loader } from "./Loader";
+import { useToastAvoidance } from "./ToastHost.avoid";
 import { runToastPromise, type ToastPromiseApi } from "./ToastHost.promise";
 import { styles, toneIconStyles } from "./ToastHost.styles";
+import { vars } from "../tokens/tokens.stylex";
 
 export type ToastTone =
   | "danger"
@@ -53,6 +55,13 @@ export type ToastPosition =
   | "top-right";
 
 export type ToastHostProps = {
+  /**
+   * Host extension: a selector for product chrome a bottom-anchored stack must
+   * stay above (a composer, a status bar). While a toast is open, a visible
+   * match in the stack's column lifts it clear; see `ToastHost.avoid.ts`.
+   * Ignored for top positions.
+   */
+  avoid?: string;
   children?: React.ReactNode;
   /** Max stacked toasts before older ones fold away. @default 3 */
   limit?: ToastProviderProps["limit"];
@@ -68,6 +77,23 @@ export type ToastHostProps = {
   /** Default auto-dismiss delay in ms (`0` disables). @default 5000 */
   timeout?: ToastProviderProps["timeout"];
 };
+
+/**
+ * Host extension: a second, lesser action, carried on the toast's `data`
+ * because the Base UI toast has one action slot. It renders before the
+ * primary action, in the same placement, and is responsible for closing the
+ * toast itself (the facade wraps it to do so).
+ */
+export type ToastSecondaryAction = {
+  label: React.ReactNode;
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
+};
+
+function readSecondaryAction(data: unknown): ToastSecondaryAction | null {
+  if (!data || typeof data !== "object" || !("secondaryAction" in data)) return null;
+  const action = (data as { secondaryAction?: ToastSecondaryAction }).secondaryAction;
+  return action && typeof action.onClick === "function" ? action : null;
+}
 
 export type ToastOptions = {
   /** Action button label; composes `Button` size `sm`. */
@@ -237,14 +263,37 @@ function resolvePosition(position: ToastPosition) {
  * placement).
  */
 export function ToastHost({
+  avoid,
   children,
   limit = 3,
   position = "bottom-right",
   timeout = DEFAULT_TOAST_TIMEOUT_MS,
   toastManager,
 }: ToastHostProps) {
+  return (
+    <ToastProvider limit={limit} timeout={timeout} toastManager={toastManager}>
+      {children}
+      <ToastHostViewport avoid={avoid} position={position} />
+    </ToastProvider>
+  );
+}
+
+function ToastHostViewport({
+  avoid,
+  position,
+}: {
+  avoid: string | undefined;
+  position: ToastPosition;
+}) {
   useTranslation();
   const { horizontal, isTop, swipe } = resolvePosition(position);
+  const { toasts } = useToastManager();
+  const [viewport, setViewport] = useState<HTMLElement | null>(null);
+  const lift = useToastAvoidance(
+    viewport,
+    isTop ? undefined : avoid,
+    toasts.length > 0,
+  );
   // The stack leaves the host's DOM subtree through the portal, so it carries
   // the brand with it. `@scope` is a fact about the DOM tree and a portal is
   // exactly where the DOM tree and the React tree disagree — without this, a
@@ -252,26 +301,31 @@ export function ToastHost({
   const portalTheme = usePortalProductThemeProps();
 
   return (
-    <ToastProvider limit={limit} timeout={timeout} toastManager={toastManager}>
-      {children}
-      <ToastPortal>
-        <PortalProductThemeScope>
-          <ToastViewport
-            {...portalTheme}
-            aria-label={i18n.t("ui:toastHost.notifications")}
-            className={sx(
-              styles.viewport,
-              isTop ? styles.viewportTop : styles.viewportBottom,
-              horizontal === "left" && styles.viewportLeft,
-              horizontal === "center" && styles.viewportCenter,
-              horizontal === "right" && styles.viewportRight,
-            )}
-          >
-            <ToastHostList isTop={isTop} swipe={swipe} />
-          </ToastViewport>
-        </PortalProductThemeScope>
-      </ToastPortal>
-    </ToastProvider>
+    <ToastPortal>
+      <PortalProductThemeScope>
+        <ToastViewport
+          {...portalTheme}
+          ref={setViewport}
+          aria-label={i18n.t("ui:toastHost.notifications")}
+          className={sx(
+            styles.viewport,
+            isTop ? styles.viewportTop : styles.viewportBottom,
+            horizontal === "left" && styles.viewportLeft,
+            horizontal === "center" && styles.viewportCenter,
+            horizontal === "right" && styles.viewportRight,
+          )}
+          // The lift keeps the stack's usual gap, measured from the top of the
+          // chrome it clears instead of from the window's bottom edge.
+          style={
+            lift > 0
+              ? { insetBlockEnd: `calc(${lift}px + ${vars["--ads-space-20"]})` }
+              : undefined
+          }
+        >
+          <ToastHostList isTop={isTop} swipe={swipe} />
+        </ToastViewport>
+      </PortalProductThemeScope>
+    </ToastPortal>
   );
 }
 
@@ -295,9 +349,16 @@ function ToastHostList({
     // the whole row — including the trailing close column — so it never floats
     // mid-card and its trailing edge lines up with the close button's, flush
     // to the card's inline padding rather than inset by a close-button width.
+    // Two actions take that row too: inline they would squeeze the title.
     const hasAction = Boolean(toast.actionProps);
     const hasDescription = Boolean(toast.description);
-    const inlineAction = hasAction && !hasDescription;
+    const secondaryAction = hasAction ? readSecondaryAction(toast.data) : null;
+    const inlineAction = hasAction && !hasDescription && !secondaryAction;
+    const secondaryButton = secondaryAction ? (
+      <Button size="sm" variant="secondary" onClick={secondaryAction.onClick}>
+        {secondaryAction.label}
+      </Button>
+    ) : null;
 
     const theme = themeProps("toast", { tone });
 
@@ -389,8 +450,9 @@ function ToastHostList({
               <X aria-hidden />
             </ToastClose>
           </div>
-          {hasAction && hasDescription ? (
+          {hasAction && !inlineAction ? (
             <div className={sx(styles.actionRow)}>
+              {secondaryButton}
               <ToastAction render={<Button size="sm" variant="secondary" />} />
             </div>
           ) : null}

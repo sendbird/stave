@@ -7,7 +7,6 @@ import { AgentRunDoneWhen } from "@/components/agent-runs/AgentRunDoneWhen";
 import { ApprovalRecordView } from "@/components/approvals/ApprovalRecord";
 import { describeLensReviewVerdict, LensReviewRecordView } from "@/components/panes/surfaces/lens/LensReviewRecordView";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
-import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { describeAgentRunResult } from "@/lib/agent-runs/agent-run-status";
 import type { LensReviewRecord } from "@/lib/lens/lens-review-record";
@@ -17,12 +16,10 @@ import type { AgentRunStageRecord } from "@/lib/agent-runs/domain";
 import type { AsyncState } from "@/components/ads/utils/async";
 import { useTaskApprovals, useTurnApprovals, useWindowApprovals, type ReviewApprovals as ReviewApprovalsData } from "./useReviewApprovals";
 import { useAppStore } from "@/store/app.store";
-import { EMPTY_SENT_REVIEW_COMMENTS, useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import type { ChatMessage } from "@/types/chat";
 import type { ReviewComment } from "@/types/review";
+import { ReviewComments, type ReviewLoadedFile } from "./ReviewComments";
 import { reviewStyles as styles } from "./review.styles";
-
-const NO_COMMENTS: readonly ReviewComment[] = [];
 
 /**
  * What Review weighs besides the diff: the completion checks Stave ran, the
@@ -30,14 +27,22 @@ const NO_COMMENTS: readonly ReviewComment[] = [];
  * kept for the task, and the diff comments, pending and sent. Each says what
  * it is, so passing checks never read as a review.
  */
-export function ReviewInspector(props: { taskId: string; workspaceId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
+export function ReviewInspector(props: {
+  taskId: string;
+  workspaceId: string;
+  scope: ReviewScope;
+  detail: AgentRunDetail | undefined;
+  /** Opens a comment's file at its line. */
+  onJumpToComment?: (comment: ReviewComment) => void;
+  loadedFile?: ReviewLoadedFile | null;
+}) {
   useTranslation();
   return (
     <div className={sx(styles.section)}>
       <ReviewChecks detail={props.detail} />
       <ReviewApprovals taskId={props.taskId} workspaceId={props.workspaceId} scope={props.scope} detail={props.detail} />
       <ReviewLensRecords taskId={props.taskId} />
-      <ReviewComments taskId={props.taskId} />
+      <ReviewComments taskId={props.taskId} onJump={props.onJumpToComment} loadedFile={props.loadedFile} />
     </div>
   );
 }
@@ -168,41 +173,3 @@ function ReviewLensComparison(props: { record: LensReviewRecord; original?: stri
   );
 }
 
-function ReviewComments(props: { taskId: string }) {
-  useTranslation();
-  const pending = useAppStore((state) => state.reviewCommentsByTask[props.taskId] ?? NO_COMMENTS);
-  const sent = useSentReviewCommentsStore((state) => state.byTask[props.taskId] ?? EMPTY_SENT_REVIEW_COMMENTS);
-  const where = (comment: ReviewComment) => comment.line ? i18n.t("review:comments.where", { path: comment.filePath, line: comment.line }) : comment.filePath;
-  return (
-    <section className={sx(styles.section)} aria-label={i18n.t("review:comments.title")}>
-      <h3 className={sx(styles.sectionTitle)}>{i18n.t("review:comments.title")}</h3>
-      {pending.length === 0 && sent.length === 0 ? <p className={sx(styles.note)}>{i18n.t("review:comments.none")}</p> : null}
-      {pending.length ? (
-        <>
-        <h4 className={sx(styles.groupTitle)}>{i18n.t("review:comments.pending", { count: pending.length })}</h4>
-        <ul className={sx(styles.list)}>
-          {pending.map((comment) => (
-            <li key={comment.id} className={sx(styles.comment)}>
-              <span className={sx(styles.commentWhere)}>{where(comment)}</span>
-              <p className={sx(styles.commentBody)}>{comment.body}</p>
-            </li>
-          ))}
-        </ul>
-        </>
-      ) : null}
-      {sent.length ? (
-        <>
-        <h4 className={sx(styles.groupTitle)}>{i18n.t("review:comments.sent", { count: sent.length })}</h4>
-        <ul className={sx(styles.list)}>
-          {sent.map((entry) => (
-            <li key={entry.comment.id} className={sx(styles.comment)}>
-              <span className={sx(styles.commentWhere)}>{i18n.t("review:comments.sentWhere", { where: where(entry.comment), time: formatDateTime(entry.sentAt) })}</span>
-              <p className={sx(styles.commentBody)}>{entry.comment.body}</p>
-            </li>
-          ))}
-        </ul>
-        </>
-      ) : null}
-    </section>
-  );
-}

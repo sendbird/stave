@@ -96,11 +96,11 @@ export function buildWorkspaceArchivePreservationToast(args: {
   workspaceBranch?: string;
 }): { title: string; description: string } {
   const subject = args.workspaceName
-    ? `Archived ${JSON.stringify(args.workspaceName)}`
-    : "Archived the workspace";
+    ? i18n.t("workspace:workspaceArchiveCleanup.archivedNamed", { name: JSON.stringify(args.workspaceName) })
+    : i18n.t("workspace:workspaceArchiveCleanup.archivedWorkspace");
   const branch = args.workspaceBranch
-    ? `branch ${JSON.stringify(args.workspaceBranch)}`
-    : "its branch";
+    ? i18n.t("workspace:workspaceArchiveCleanup.branchNamed", { name: JSON.stringify(args.workspaceBranch) })
+    : i18n.t("workspace:workspaceArchiveCleanup.itsBranch");
   switch (args.reason) {
     case "dirty-worktree":
       return {

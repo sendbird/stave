@@ -1,9 +1,10 @@
-import type { AgentRunState } from "@/components/ads/components/agent-state";
+import type { AgentStepState } from "@/components/ads/components/agent-state";
 import type { FileChangeStatus } from "@/components/session/chat-panel.utils";
-import type { CodeDiffPart, ToolUsePart } from "@/types/chat";
+import type { CodeDiffPart, MessagePart, ToolUsePart } from "@/types/chat";
+import { normalizeTraceToolName } from "./assistant-trace.utils";
 
 /**
- * The one place a Stave tool-part state becomes an ADS `AgentRunState`.
+ * The one place a Stave tool-part state becomes an ADS `AgentStepState`.
  *
  * ADS shares one lifecycle union across every agent surface precisely so that
  * two components cannot name the same state differently, and that guarantee
@@ -17,7 +18,7 @@ import type { CodeDiffPart, ToolUsePart } from "@/types/chat";
  * something a reader can act on, and ADS's `running` already carries the live
  * clock and the open payload that both need.
  */
-export function toAgentRunState(state?: ToolUsePart["state"]): AgentRunState {
+export function toAgentStepState(state?: ToolUsePart["state"]): AgentStepState {
   switch (state) {
     case "input-streaming":
     case "input-available":
@@ -36,7 +37,7 @@ export function toAgentRunState(state?: ToolUsePart["state"]): AgentRunState {
  * change that landed, `rejected` one a human refused, and `pending` one still
  * waiting on that decision.
  */
-export function toDiffRunState(status: CodeDiffPart["status"]): AgentRunState {
+export function toDiffRunState(status: CodeDiffPart["status"]): AgentStepState {
   switch (status) {
     case "accepted":
       return "done";
@@ -54,7 +55,7 @@ export function toDiffRunState(status: CodeDiffPart["status"]): AgentRunState {
  * `skipped` means the inline diff was omitted (binary, too large, outside the
  * workspace, or the snapshot never covered it). It is not a cancelled run.
  */
-export function toFileChangeRunState(status: FileChangeStatus): AgentRunState {
+export function toFileChangeRunState(status: FileChangeStatus): AgentStepState {
   switch (status) {
     case "applied":
       return "done";
@@ -94,6 +95,22 @@ export function extractOutputUrls(output?: string): string[] {
     // that genuinely ends in a period.
     const url = match[0].replace(/[.,;:!?]+$/, "");
     if (url.length > 0) seen.add(url);
+  }
+  return [...seen];
+}
+
+/**
+ * Every URL the turn's web searches and fetches returned, once each, in the
+ * order they first appeared: the sources the answer could have used. Failed
+ * calls are skipped; nothing is inferred about which sentence cites which.
+ */
+export function collectTurnWebSources(parts: readonly MessagePart[]): string[] {
+  const seen = new Set<string>();
+  for (const part of parts) {
+    if (part.type !== "tool_use" || part.state === "output-error") continue;
+    const tool = normalizeTraceToolName(part.toolName);
+    if (tool !== "websearch" && tool !== "webfetch") continue;
+    for (const url of extractOutputUrls(part.output)) seen.add(url);
   }
   return [...seen];
 }

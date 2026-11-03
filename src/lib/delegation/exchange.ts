@@ -55,6 +55,11 @@ export interface DelegationSpend {
 }
 
 export interface DelegationOutcome {
+  /**
+   * Where the delegate stands. A delegate stopped on a person reads
+   * `needs_user` and one between turns on its own reads `waiting`; both are
+   * live (`isExchangeStatusLive`).
+   */
   status: ExchangeStatus;
   /** What came back: the subagent's answer or reason. */
   result?: string;
@@ -62,10 +67,6 @@ export interface DelegationOutcome {
   spend?: DelegationSpend;
   /** Progress narration the delegate reported while running, oldest first. */
   progress?: readonly string[];
-  /** Set while the delegate waits for a person (a question, an approval, a halted run). */
-  needsUser?: true;
-  /** Set while a live delegate sits between turns on its own (an event, a usage reset): live, not working. */
-  waiting?: true;
 }
 
 export interface DelegationStage {
@@ -166,7 +167,7 @@ export function fromDelegatedTask(
   opts?: { blockedKind?: DelegatedTaskBlockedKind | null; prompt?: string },
 ): DelegationExchange {
   const phase = describeDelegatedTaskPhase(child, opts?.blockedKind ?? null);
-  const status: ExchangeStatus = exchangeStatusFromDelegatedTaskPhase(child.phase);
+  const status: ExchangeStatus = exchangeStatusFromDelegatedTaskPhase(child.phase, { blocked: phase.blocked });
   const failed = status === "failed" || status === "cancelled";
   const actions: DelegationAction[] = [{ id: "open", label: i18n.t("agentRuns:exchange.label") }];
   const live = child.phase === "pending" || child.phase === "running" || child.phase === "waiting";
@@ -200,7 +201,8 @@ export function fromDelegatedTask(
         : child.result || child.reason
           ? { result: child.result ?? child.reason! }
           : {}),
-      ...(phase.blocked ? { progress: [phase.label], needsUser: true as const } : child.phase === "waiting" ? { waiting: true as const } : {}),
+      // What the delegate waits on, in the words its own row uses.
+      ...(status === "needs_user" ? { progress: [phase.label] } : {}),
     },
     timing: {
       startedAt,
@@ -221,11 +223,25 @@ export function fromDelegatedTask(
   };
 }
 
+/** True while the graph holds an unanswered approval or question raised by this node. */
+function isWorkGraphNodeBlocked(
+  node: AgentNode,
+  graph: Partial<Pick<WorkGraph, "interactionsById">> | null | undefined,
+): boolean {
+  if (!graph?.interactionsById) return false;
+  for (const interaction of Object.values(graph.interactionsById)) {
+    if (interaction.nodeKey === node.key && !interaction.resolvedAt) return true;
+  }
+  return false;
+}
+
 export function fromWorkGraphNode(
   node: AgentNode,
-  graph?: Pick<WorkGraph, "providerId"> | null,
+  graph?: (Pick<WorkGraph, "providerId"> & Partial<Pick<WorkGraph, "interactionsById">>) | null,
 ): DelegationExchange {
-  const status = exchangeStatusFromWorkGraphStatus(node.status);
+  const status = exchangeStatusFromWorkGraphStatus(node.status, {
+    blocked: isWorkGraphNodeBlocked(node, graph),
+  });
   return {
     id: `subagent:${node.key}`,
     kind: "subagent",
@@ -368,22 +384,29 @@ export function resolveExchangeElapsedMs(
 }
 
 export interface DelegationCounts {
+  /** Live and stopped on a person. */
+  needsYou: number;
+  /** Live and not waiting on anyone: working, queued or between turns. */
   running: number;
   done: number;
+  /** Ended without returning: failed, timed out, cancelled or unresolved. */
   failed: number;
   total: number;
 }
 
-/** `Agents · 1 running · 2 done · 1 failed` — counts for a block header. */
+/** `Agents · 1 needs you · 1 running · 2 done · 1 failed` — counts for a block header. */
 export function countDelegationExchanges(
   exchanges: readonly DelegationExchange[],
 ): DelegationCounts {
+  let needsYou = 0;
   let running = 0;
   let done = 0;
   let failed = 0;
   for (const exchange of exchanges) {
     const status = exchange.outcome.status;
-    if (status === "running" || status === "queued") {
+    if (status === "needs_user") {
+      needsYou += 1;
+    } else if (isExchangeStatusLive(status)) {
       running += 1;
     } else if (status === "returned") {
       done += 1;
@@ -391,11 +414,12 @@ export function countDelegationExchanges(
       failed += 1;
     }
   }
-  return { running, done, failed, total: exchanges.length };
+  return { needsYou, running, done, failed, total: exchanges.length };
 }
 
 export function formatDelegationCounts(counts: DelegationCounts): string {
   return [
+    counts.needsYou > 0 ? i18n.t("agentRuns:delegationsBlock.countNeedsYou", { count: counts.needsYou }) : null,
     counts.running > 0 ? i18n.t("agentRuns:remaining.presentationCopy506", { v1: counts.running }) : null,
     counts.done > 0 ? i18n.t("agentRuns:remaining.presentationCopy507", { v1: counts.done }) : null,
     counts.failed > 0 ? i18n.t("agentRuns:remaining.presentationCopy508", { v1: counts.failed }) : null,

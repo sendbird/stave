@@ -1,27 +1,35 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { useState } from "react";
+import { RotateCcw } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
 import { StateMark } from "@/components/ads/components/StateMark";
+import { Textarea } from "@/components/ads/components/Textarea";
+import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
-import { ExchangeStatusBadge } from "@/components/delegation/ExchangeStatusBadge";
 import { ActionButton } from "@/components/system/ActionButton";
 import { RelativeTime } from "@/components/system/RelativeTime";
-import { formatDuration } from "@/i18n/format";
+import { formatDuration, formatNumber } from "@/i18n/format";
+import type { I18nKey } from "@/i18n/runtime";
 import {
   isDelegationExchangeLive,
   resolveExchangeElapsedMs,
   type DelegationExchange,
 } from "@/lib/delegation/exchange";
+import { describeExchangeStatus } from "@/lib/delegation/format";
 import {
-  countSubagentList,
-  SUBAGENT_LIST_WORK_STATE,
+  countSubagentFilters,
+  SUBAGENT_FILTER_WORK_STATE,
+  SUBAGENT_FILTERS,
+  subagentFilterOf,
   subagentNeedsUser,
+  type SubagentFilter,
 } from "@/lib/delegation/subagent-list";
-import { subagentLineState, subagentResultLine } from "@/lib/delegation/subagent-summary";
+import { subagentResultLine, subagentWorkState } from "@/lib/delegation/subagent-summary";
 
 /** One row of the Subagents list, already resolved by its container. */
 export interface SubagentListItem {
@@ -36,22 +44,52 @@ export interface SubagentListItem {
   onOpen?: () => void;
   onStop?: () => void;
   onView?: () => void;
+  /**
+   * Starts a new attempt with these instructions and settles `false` when the
+   * retry was refused (the row shows why). Set only on a failed delegated task
+   * the user may retry; an in-turn subagent is retried by the turn that called
+   * it, and a managed task's subagents are read-only.
+   */
+  onRetry?: (prompt: string) => boolean | Promise<boolean>;
 }
 
+type SubagentListFilter = "all" | SubagentFilter;
+
+const FILTER_LABEL_KEYS = {
+  "needs-you": "session:subagentsSection.filter.needsYou",
+  failed: "session:subagentsSection.filter.failed",
+  running: "session:subagentsSection.filter.running",
+  done: "session:subagentsSection.filter.done",
+  stopped: "session:subagentsSection.filter.stopped",
+} as const satisfies Record<SubagentFilter, I18nKey>;
+
 /**
- * The Subagents list, free of the store so a test can render it: a summary
- * that opens the first child waiting on the user in one click, then the rows
- * in the order `orderSubagentList` gives them (children that need the user
- * first). `nowMs` fixes the clock for a deterministic render; live rows
- * otherwise tick their elapsed time each second.
+ * The Subagents list, free of the store so a test can render it: a tray that
+ * counts the children by state and filters the list by one of them, retries
+ * every failed delegated task at once and opens the first child waiting on
+ * the user in one click; then the rows in the order `orderSubagentList` gives
+ * them (children that need the user first). `nowMs` fixes the clock for a
+ * deterministic render; live rows otherwise tick their elapsed time each
+ * second.
  */
-export function SubagentsList(props: { items: readonly SubagentListItem[]; nowMs?: number }) {
+export function SubagentsList(props: {
+  items: readonly SubagentListItem[];
+  nowMs?: number;
+  /** Shown between the summary tray and the rows, such as the files children share. */
+  afterTray?: ReactNode;
+}) {
   useTranslation();
+  const [selected, setSelected] = useState<SubagentListFilter>("all");
+  const counts = countSubagentFilters(props.items.map((item) => item.exchange));
+  // A filter whose last row moved on falls back to every row, never an empty list.
+  const filter: SubagentListFilter = selected !== "all" && counts[selected] === 0 ? "all" : selected;
+  const shown = filter === "all" ? props.items : props.items.filter((item) => subagentFilterOf(item.exchange) === filter);
   return (
     <>
-      <SubagentsSummary items={props.items} />
+      <SubagentsTray items={props.items} counts={counts} filter={filter} onFilter={setSelected} />
+      {props.afterTray}
       <ul aria-label={i18n.t("session:subagentsSection.ariaLabel")} className={sx(styles.list)} data-testid="subagents-list">
-        {props.items.map((item) => (
+        {shown.map((item) => (
           <SubagentRow key={item.exchange.id} item={item} nowMs={props.nowMs} />
         ))}
       </ul>
@@ -60,26 +98,187 @@ export function SubagentsList(props: { items: readonly SubagentListItem[]; nowMs
 }
 
 /**
- * The parent's view of its children in one line, `1 needs you · 3 running ·
- * 2 done`, with the first child that waits on the user one click away.
+ * The parent's view of its children: `All 6 · Needs you 1 · Failed 2 ·
+ * Running 2 · Done 1` as one pressed filter, `Retry failed (1)` for the failed
+ * delegated tasks, and the first child that waits on the user one click away.
+ * With every child in one state the counts are a sentence, not a filter.
  */
-function SubagentsSummary(props: { items: readonly SubagentListItem[] }) {
+function SubagentsTray(props: {
+  items: readonly SubagentListItem[];
+  counts: Record<SubagentFilter, number>;
+  filter: SubagentListFilter;
+  onFilter: (filter: SubagentListFilter) => void;
+}) {
   useTranslation();
-  const counts = countSubagentList(props.items.map((item) => item.exchange));
-  const segments = [
-    counts.needsYou > 0 ? i18n.t("session:subagentsSection.countNeedsYou", { count: counts.needsYou }) : null,
-    counts.running > 0 ? i18n.t("session:subagentsSection.countRunning", { value: counts.running }) : null,
-    counts.done > 0 ? i18n.t("agentRuns:subagentSummary.folded.done", { count: counts.done }) : null,
-    counts.failed > 0 ? i18n.t("agentRuns:subagentSummary.folded.failed", { count: counts.failed }) : null,
-    counts.stopped > 0 ? i18n.t("agentRuns:subagentSummary.folded.stopped", { count: counts.stopped }) : null,
-  ].filter((segment): segment is string => segment !== null);
-  if (segments.length === 0) return null;
+  const { counts } = props;
+  // What the last "Retry failed" did, said once; it outlives the button, which
+  // goes away when nothing is left to retry.
+  const [notice, setNotice] = useState<{ started: number; refused: number } | null>(null);
+  const present = SUBAGENT_FILTERS.filter((filter) => counts[filter] > 0);
+  if (present.length === 0) return null;
   const first = props.items.find((item) => item.onOpen && subagentNeedsUser(item.exchange));
+  const retryable = props.items.filter((item) => item.onRetry && subagentFilterOf(item.exchange) === "failed");
   return (
-    <div role="group" aria-label={i18n.t("session:subagentsSection.summaryLabel")} className={sx(styles.summary)}>
-      <p className={sx(styles.summaryText)}>{segments.join(" · ")}</p>
-      {first ? <OpenFirstNeedsYou item={first} /> : null}
+    <div className={sx(styles.tray)}>
+      {present.length > 1 ? (
+        <ToggleGroup
+          aria-label={i18n.t("session:subagentsSection.filterLabel")}
+          density="compact"
+          data-testid="subagents-filter"
+          value={[props.filter]}
+          items={[
+            { value: "all", label: <FilterLabel label={i18n.t("session:subagentsSection.filter.all")} count={props.items.length} /> },
+            ...present.map((filter) => ({
+              value: filter,
+              icon: <StateMark state={SUBAGENT_FILTER_WORK_STATE[filter]} motion="still" />,
+              label: <FilterLabel label={i18n.t(FILTER_LABEL_KEYS[filter])} count={counts[filter]} />,
+            })),
+          ]}
+          onValueChange={(next) => {
+            // Pressing the pressed filter again shows every row.
+            const value = next[0] as SubagentListFilter | undefined;
+            props.onFilter(value ?? "all");
+          }}
+        />
+      ) : (
+        <p className={sx(styles.summaryText)}>{describeFilterCount(present[0]!, counts[present[0]!])}</p>
+      )}
+      {retryable.length > 0 || first ? (
+        <SubagentsTrayActions retryable={retryable} first={first} onRetried={setNotice} onRetryOpen={() => setNotice(null)} />
+      ) : null}
+      <VisuallyHidden role="status" aria-live="polite">
+        {notice ? describeRetryNotice(notice) : ""}
+      </VisuallyHidden>
     </div>
+  );
+}
+
+/** `Retrying 2 failed tasks. 1 could not be retried; its row says why.` */
+function describeRetryNotice(notice: { started: number; refused: number }): string {
+  return [
+    notice.started > 0 ? i18n.t("session:subagentsSection.retryFailedStarted", { count: notice.started }) : null,
+    notice.refused > 0 ? i18n.t("session:subagentsSection.retryFailedRefused", { count: notice.refused }) : null,
+  ].filter((part): part is string => part !== null).join(" ");
+}
+
+/** `3 running`: the tray's sentence when every child is in one state. */
+function describeFilterCount(filter: SubagentFilter, count: number): string {
+  switch (filter) {
+    case "needs-you": return i18n.t("session:subagentsSection.countNeedsYou", { count });
+    case "failed": return i18n.t("agentRuns:subagentSummary.folded.failed", { count });
+    case "running": return i18n.t("session:subagentsSection.countRunning", { value: count });
+    case "done": return i18n.t("agentRuns:subagentSummary.folded.done", { count });
+    case "stopped": return i18n.t("agentRuns:subagentSummary.folded.stopped", { count });
+  }
+}
+
+/** A filter's word and how many rows it holds, read as one name (`Failed 2`). */
+function FilterLabel(props: { label: string; count: number }) {
+  return (
+    <>
+      {props.label}
+      {" "}
+      <span className={sx(styles.filterCount)}>{formatNumber(props.count)}</span>
+    </>
+  );
+}
+
+/**
+ * `Retry failed (N)` opens one set of instructions for every failed delegated
+ * task, then starts their retries one after another through the same path a
+ * row's own Retry takes; refusals land on the rows they belong to.
+ */
+function SubagentsTrayActions(props: {
+  retryable: readonly SubagentListItem[];
+  first?: SubagentListItem;
+  onRetried: (notice: { started: number; refused: number }) => void;
+  onRetryOpen: () => void;
+}) {
+  useTranslation();
+  const [composing, setComposing] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [running, setRunning] = useState(false);
+  const composerId = useId();
+  const count = props.retryable.length;
+  const submit = async () => {
+    const trimmed = prompt.trim();
+    if (!trimmed || running || count === 0) return;
+    const targets = [...props.retryable];
+    setRunning(true);
+    let started = 0;
+    try {
+      for (const item of targets) {
+        if ((await item.onRetry?.(trimmed)) !== false) started += 1;
+      }
+    } finally {
+      setRunning(false);
+      setComposing(false);
+      setPrompt("");
+      props.onRetried({ started, refused: targets.length - started });
+    }
+  };
+  return (
+    <>
+      <div className={sx(styles.trayActions)}>
+        {count > 0 ? (
+          <ActionButton
+            size="md"
+            weight="secondary"
+            xstyle={styles.target}
+            aria-expanded={composing}
+            aria-controls={composing ? composerId : undefined}
+            disabled={running}
+            data-testid="subagents-retry-failed"
+            onClick={() => {
+              setComposing((open) => !open);
+              props.onRetryOpen();
+            }}
+          >
+            <RotateCcw aria-hidden />
+            {i18n.t("session:subagentsSection.retryFailed", { count })}
+          </ActionButton>
+        ) : null}
+        {props.first ? <OpenFirstNeedsYou item={props.first} /> : null}
+      </div>
+      {composing && count > 0 ? (
+        <form
+          id={composerId}
+          className={sx(styles.composer)}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submit();
+          }}
+        >
+          <Textarea
+            autoFocus
+            size="sm"
+            label={i18n.t("session:subagentsSection.retryFailedLabel")}
+            description={i18n.t("session:subagentsSection.retryFailedHint")}
+            placeholder={i18n.t("session:subagentsSection.retryFailedPlaceholder")}
+            value={prompt}
+            disabled={running}
+            onChange={(event) => setPrompt(event.target.value)}
+          />
+          <div className={sx(styles.composerActions)}>
+            <ActionButton type="submit" size="md" weight="primary" xstyle={styles.target} disabled={running || !prompt.trim()}>
+              {i18n.t("session:subagentsSection.retryFailedSubmit", { count })}
+            </ActionButton>
+            <ActionButton
+              type="button"
+              size="md"
+              weight="quiet"
+              xstyle={styles.target}
+              onClick={() => {
+                setComposing(false);
+                setPrompt("");
+              }}
+            >
+              {i18n.t("session:subagentsSection.retryFailedCancel")}
+            </ActionButton>
+          </div>
+        </form>
+      ) : null}
+    </>
   );
 }
 
@@ -87,7 +286,7 @@ function SubagentsSummary(props: { items: readonly SubagentListItem[] }) {
 function OpenFirstNeedsYou(props: { item: SubagentListItem }) {
   useTranslation();
   const { item } = props;
-  const state = SUBAGENT_LIST_WORK_STATE[subagentLineState(item.exchange)];
+  const state = subagentWorkState(item.exchange);
   const reason = item.exchange.outcome.progress?.at(-1) ?? item.exchange.outcome.error ?? WORK_STATE[state].label;
   return (
     <ActionButton
@@ -124,19 +323,26 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
   const now = props.nowMs ?? clock;
   const elapsedMs = resolveExchangeElapsedMs(exchange, now);
   const needsUser = subagentNeedsUser(exchange);
-  const workState = SUBAGENT_LIST_WORK_STATE[subagentLineState(exchange)];
+  const workState = subagentWorkState(exchange);
+  const status = describeExchangeStatus(exchange.outcome.status);
   // The answer renders like the conversation, and only once it is opened, so
   // a long list never parses every answer it folds away.
   const [answerOpen, setAnswerOpen] = useState(false);
   return (
-    <li className={sx(styles.row)} data-subagent-kind={exchange.kind} data-needs-user={needsUser ? "true" : undefined}>
+    <li
+      className={sx(styles.row)}
+      data-subagent-kind={exchange.kind}
+      data-subagent-state={workState}
+      data-needs-user={needsUser ? "true" : undefined}
+    >
       <div className={sx(styles.head)}>
-        {needsUser ? <StateMark state={workState} size="xs" label={WORK_STATE[workState].label} /> : null}
         <span className={sx(styles.who)}>{item.who}</span>
-        <ExchangeStatusBadge
-          status={exchange.outcome.status}
-          suffix={elapsedMs === null ? undefined : formatDuration(elapsedMs)}
-        />
+        <span className={sx(styles.status)} data-exchange-status={exchange.outcome.status}>
+          <StateMark state={workState} size="xs" showLabel label={status.label} motion={live ? "moving" : "still"} />
+          {elapsedMs === null ? null : (
+            <span className={sx(styles.elapsed)}>{` · ${formatDuration(elapsedMs)}`}</span>
+          )}
+        </span>
         {endedAt !== undefined ? (
           <span className={sx(styles.when)}>
             <RelativeTime date={endedAt} now={new Date(now)} past />
@@ -185,21 +391,43 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
 }
 
 const styles = stylex.create({
-  summary: {
-    alignItems: "center",
+  tray: {
     display: "flex",
-    flexWrap: "wrap",
+    flexDirection: "column",
     gap: vars["--ads-space-8"],
     marginBlockEnd: vars["--ads-space-8"],
     minWidth: 0,
   },
   summaryText: {
     color: vars["--ads-color-text-muted"],
-    flex: "1 1 auto",
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     minWidth: 0,
+  },
+  filterCount: {
+    color: vars["--ads-color-text-muted"],
+    fontVariantNumeric: "tabular-nums",
+  },
+  trayActions: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+    justifyContent: "flex-end",
+    minWidth: 0,
+  },
+  composer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
+  composerActions: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
   },
   summaryOpen: { gap: vars["--ads-space-4"], maxWidth: "100%" },
   summaryOpenLabel: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
@@ -236,6 +464,19 @@ const styles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-text"],
+  },
+  status: {
+    alignItems: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    minWidth: 0,
+    whiteSpace: "nowrap",
+  },
+  elapsed: {
+    color: vars["--ads-color-text-muted"],
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "pre",
   },
   when: {
     flexShrink: 0,

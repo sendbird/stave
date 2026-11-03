@@ -10,7 +10,7 @@
  * working. Dedup compares exact normalized text so the
  * rule is identical on both index paths and unit-testable without SQLite.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { RepositoryMemorySettingsStore } from "./repository-memory-settings-store";
 import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
@@ -19,10 +19,12 @@ import {
   REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS,
   REPOSITORY_MEMORY_STALE_AFTER_MS,
   REPOSITORY_MEMORY_STALE_CONFIDENCE_FLOOR,
+  REPOSITORY_MEMORY_RESTORE_WINDOW_MS,
   RepositoryMemoryKindSchema,
   RepositoryMemoryRecallModeSchema,
   RepositoryMemorySearchOptionsSchema,
   isSameRepositoryMemoryContent,
+  isRepositoryMemoryRestorable,
   extractRepositoryMemoryQueryTerms,
   normalizeRepositoryMemoryContent,
   type RepositoryMemory,
@@ -112,6 +114,22 @@ function assertContent(value: string) {
   return content;
 }
 
+/**
+ * What a purged row keeps instead of its text: a one-way fingerprint of the
+ * normalized content. Dedup matches it too, so a fact the user forgot stays
+ * forgotten after its text is gone. A purged row is deleted, so it is never
+ * listed, recalled or restored.
+ */
+const FORGOTTEN_CONTENT_PREFIX = "stave-forgotten:sha256:";
+
+function forgottenFingerprint(content: string) {
+  return `${FORGOTTEN_CONTENT_PREFIX}${createHash("sha256").update(content).digest("hex")}`;
+}
+
+function isPurgedContent(content: string) {
+  return content.startsWith(FORGOTTEN_CONTENT_PREFIX);
+}
+
 function escapeFtsTerm(term: string) {
   return `"${term.replaceAll('"', '""')}"`;
 }
@@ -178,6 +196,7 @@ export class RepositoryMemoryStore {
           AND recall_mode = 'core' AND deleted_at IS NULL AND id != new.id) >= ${REPOSITORY_MEMORY_CORE_MAX_ITEMS}
         BEGIN SELECT RAISE(ABORT, 'Core memory is full; consolidate or unpin an existing memory first.'); END;`);
     }
+    this.purgeForgotten();
   }
 
   /**
@@ -378,7 +397,7 @@ export class RepositoryMemoryStore {
          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
          WHERE (? != 'candidate' OR (SELECT count(*) FROM repository_memories
            WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate') < ${REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS})
-         AND NOT EXISTS (SELECT 1 FROM repository_memories WHERE project_path = ? AND kind = ? AND content = ?)
+         AND NOT EXISTS (SELECT 1 FROM repository_memories WHERE project_path = ? AND kind = ? AND content IN (?, ?))
          AND (? = 0 OR COALESCE((SELECT revision FROM repository_memory_settings WHERE project_path = ?), 0) = ?)`,
       )
       .run(
@@ -398,6 +417,7 @@ export class RepositoryMemoryStore {
         memory.repositoryPath,
         memory.kind,
         memory.content,
+        forgottenFingerprint(memory.content),
         Number(automatic),
         args.repositoryPath,
         policy.revision,
@@ -406,16 +426,16 @@ export class RepositoryMemoryStore {
     return { memory, outcome: "inserted" };
   }
 
-  /** Stored content is normalized at every write; exact lookup includes tombstones. */
+  /** Stored content is normalized at every write; exact lookup includes tombstones, purged ones by fingerprint. */
   private dedupCandidates(args: {
     repositoryPath: string;
     kind: RepositoryMemoryKind;
     content: string;
   }): RepositoryMemory[] {
     const rows = this.db.prepare(`SELECT ${COLUMNS} FROM repository_memories
-      WHERE project_path = ? AND kind = ? AND content = ?
+      WHERE project_path = ? AND kind = ? AND content IN (?, ?)
       ORDER BY deleted_at IS NOT NULL, id ASC LIMIT 1`)
-      .all(args.repositoryPath, args.kind, args.content) as RepositoryMemoryRow[];
+      .all(args.repositoryPath, args.kind, args.content, forgottenFingerprint(args.content)) as RepositoryMemoryRow[];
     return rows.map(parseRow);
   }
 
@@ -457,7 +477,10 @@ export class RepositoryMemoryStore {
     }
   }
 
-  /** Soft delete. Returns false when the row is unknown or already deleted. */
+  /**
+   * Soft delete. Returns false when the row is unknown or already deleted.
+   * Rows forgotten longer ago than the restore window are purged on the way.
+   */
   softDelete(args: { id: string; now?: number }) {
     const now = args.now ?? Date.now();
     const result = this.db
@@ -467,7 +490,66 @@ export class RepositoryMemoryStore {
          WHERE id = ? AND deleted_at IS NULL`,
       )
       .run(now, now, args.id);
+    this.purgeForgotten({ now });
     return Number(result.changes ?? 0) > 0;
+  }
+
+  /**
+   * Undo a forget: the row comes back exactly as it was. Only a row of
+   * `repositoryPath`, forgotten within the restore window and not yet purged,
+   * is restored; anything else returns null. A restored core memory still
+   * counts against the core limit.
+   */
+  restore(args: { id: string; repositoryPath: string; now?: number }): RepositoryMemory | null {
+    const now = args.now ?? Date.now();
+    const current = this.get(args.id);
+    if (
+      !current ||
+      current.repositoryPath !== args.repositoryPath ||
+      isPurgedContent(current.content) ||
+      !isRepositoryMemoryRestorable({ memory: current, now })
+    ) {
+      return null;
+    }
+    this.assertCoreCapacity(current.repositoryPath, current.recallMode, current.id);
+    const restored = this.db
+      .prepare(
+        `UPDATE repository_memories
+         SET deleted_at = NULL, updated_at = ?
+         WHERE id = ? AND project_path = ? AND deleted_at = ? AND content = ?`,
+      )
+      .run(now, current.id, current.repositoryPath, current.deletedAt, current.content);
+    if (Number(restored.changes ?? 0) === 0) return null;
+    return { ...current, deletedAt: null, updatedAt: now };
+  }
+
+  /**
+   * Erase the text and provenance of rows forgotten longer ago than the
+   * restore window, keeping kind, timestamps and a content fingerprint so the
+   * tombstone still blocks re-extraction. Idempotent; main and host-service
+   * may both run it. Returns how many rows were purged.
+   */
+  purgeForgotten(args: { now?: number } = {}) {
+    const cutoff = (args.now ?? Date.now()) - REPOSITORY_MEMORY_RESTORE_WINDOW_MS;
+    const rows = this.db
+      .prepare(
+        `SELECT id, content FROM repository_memories
+         WHERE deleted_at IS NOT NULL AND deleted_at < ? AND substr(content, 1, ?) != ?`,
+      )
+      .all(cutoff, FORGOTTEN_CONTENT_PREFIX.length, FORGOTTEN_CONTENT_PREFIX) as Array<{ id: string; content: string }>;
+    const purge = this.db.prepare(
+      `UPDATE repository_memories
+       SET content = ?, source_task_id = NULL, source_turn_id = NULL
+       WHERE id = ? AND content = ? AND deleted_at IS NOT NULL AND deleted_at < ?`,
+    );
+    let purged = 0;
+    for (const row of rows) {
+      // `changes` also counts the FTS trigger's writes; only zero vs. some matters.
+      if (Number(purge.run(forgottenFingerprint(row.content), row.id, row.content, cutoff).changes ?? 0) > 0) {
+        purged += 1;
+      }
+    }
+    return purged;
   }
 
   /**

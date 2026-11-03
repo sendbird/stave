@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { notificationToastManager } from "@/lib/notifications/toast";
+import { toastManager } from "@/lib/notifications/toast";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import {
   buildTaskTurnCompletedNotificationInput,
@@ -178,9 +178,9 @@ describe("showNotificationToast", () => {
 
   test("makes the completed notification toast open its task", () => {
     const onOpen = mock(() => {});
-    const add = mock(notificationToastManager.add);
-    const originalAdd = notificationToastManager.add;
-    notificationToastManager.add = add;
+    const add = mock(toastManager.add);
+    const originalAdd = toastManager.add;
+    toastManager.add = add;
     try {
       showNotificationToast(buildCompletedNotification(), { onOpen });
       const notice = add.mock.calls[0]?.[0];
@@ -188,7 +188,7 @@ describe("showNotificationToast", () => {
       expect(notice?.actionProps?.children).toBe("Open task");
       notice?.actionProps?.onClick?.({ defaultPrevented: false } as never);
     } finally {
-      notificationToastManager.add = originalAdd;
+      toastManager.add = originalAdd;
     }
     expect(onOpen).toHaveBeenCalledTimes(1);
   });

@@ -81,9 +81,6 @@
     "agentRunOverview": " · 워크플로: {{value1}}",
     "ariaLabel": "완료 조건",
     "agentRunOverview2": "완료 조건",
-    "ariaLabel2": "계획",
-    "agentRunOverview5": "계획",
-    "title": "에이전트 작업에 따라 갱신됩니다",
     "ariaLabel3": "단계",
     "agentRunOverview6": "단계",
     "ariaLabel4": "결과",
@@ -114,12 +111,6 @@
     "sentence3": "실행 · {{value1}}",
     "sentence4": "{{value2}}개 중 {{value1}}개 충족됨",
     "sentence5": "{{value1}}에 직접 승인함"
-  },
-  "agentRunPlan": {
-    "label": "완료됨",
-    "label2": "현재",
-    "describePlanProgress": "{{value1}} / {{value2}} 완료됨",
-    "ariaLabel": "계획"
   },
   "agentRunPrompt": {
     "label": "에이전트에 보낸 전체 프롬프트",
@@ -158,7 +149,6 @@
     "description": "에이전트가 Slack 도구로 보고서를 답글 한 번으로 게시합니다. 파일은 변경하지 않습니다.",
     "agentRunReportView9": "취소",
     "agentRunReportView10": "공유",
-    "sentence6": "계획 · {{value1}}",
     "extraCopy4": "소요 시간",
     "extraCopy5": "단계",
     "extraCopy6": "턴",
@@ -190,9 +180,6 @@
     "extraCopy10_other": "{{value1}} 턴에서 사용량을 보고하지 않아 합계가 적게 표시될 수 있습니다.",
     "startedAt": "{{time}}부터",
     "fromStartedAt": "{{time}}부터"
-  },
-  "ditherProgress": {
-    "ariaLabel": "진행 상황"
   },
   "evidenceList": {
     "ariaLabel": "대화에서 “{{value1}}” 표시",
@@ -241,7 +228,8 @@
     "sentence8": "진행 중{{value1}}. 에이전트가 완료를 보고하면 단계 보고서가 여기에 표시됩니다.",
     "extraCopy11": "먼저 확인합니다",
     "extraCopy13": "수정 시도 없음",
-    "extraCopy12_other": "최대 {{value1}} 회 수정"
+    "extraCopy12_other": "최대 {{value1}} 회 수정",
+    "now": "진행 중"
   },
   "stageTrack": {
     "ariaLabel": "{{value1}} 진행 상황",
@@ -284,7 +272,8 @@
   "delegationsBlock": {
     "ariaLabel": "에이전트",
     "delegationsBlock": "에이전트",
-    "title": "위임 전체 경과 시간"
+    "title": "위임 전체 경과 시간",
+    "countNeedsYou_other": "{{count}}개 확인 필요"
   },
   "exchangeDetail": {
     "auto": "자동 라우팅",
@@ -315,12 +304,14 @@
     "label14": "{{value1}} 항목",
     "exchangeDetail4": "과제 및 실행 세부 사항",
     "label15": "과제",
-    "sentence33": "{{value1}}에 시작됨 {{value2}}",
     "sentence34": "{{value1}}{{value2}}에서 요청함",
     "extraCopy75": "캐시 읽기 {{value1}}",
     "extraCopy76": "캐시 쓰기 {{value1}}",
     "extraCopy77": "요청 또는 설정됨; 실제 런타임 실행 보고 안 됨",
-    "extraCopy81": "보고되지 않음"
+    "extraCopy81": "보고되지 않음",
+    "started": "{{start}}에 시작됨",
+    "startedEnded": "{{start}}에 시작됨 · {{end}} 종료",
+    "startedStillRunning": "{{start}}에 시작됨 · 아직 실행 중"
   },
   "exchangeRow": {
     "exchangeRow": "경과 시간"
@@ -632,7 +623,8 @@
       "completed": "완료",
       "skipped": "건너뜀",
       "cancelled": "취소됨"
-    }
+    },
+    "summaryActive_other": "{{outcome}} · 활성 {{duration}} · {{count}}턴"
   },
   "report": {
     "summary": "차단됨: {{value1}}",
@@ -669,7 +661,9 @@
     "label4": "실패함",
     "label5": "취소됨",
     "label6": "시간 초과됨",
-    "label7": "미해결"
+    "label7": "미해결",
+    "waiting": "대기 중",
+    "needsYou": "확인 필요"
   },
   "automaticTurnOwner": {
     "aGENTRUNACTIVEWAKEUPDETAIL": "이 작업에서 실행이 진행 중입니다. 실행이 종료되면 이 일정을 재개합니다.",
@@ -801,7 +795,8 @@
     "folded": {
       "done_other": "{{count}}개 완료",
       "failed_other": "{{count}}개 실패",
-      "stopped_other": "{{count}}개 중지됨"
+      "stopped_other": "{{count}}개 중지됨",
+      "unresolved_other": "{{count}}개 확인 안 됨"
     }
   },
   "normalize": {
@@ -833,7 +828,6 @@
     "presentationCopy4": "{{v1}}회 시도",
     "presentationCopy6": "{{v1}} 동안",
     "presentationCopy7": "Stave 동작: {{v1}}",
-    "presentationCopy266": " · {{v1}} 종료",
     "presentationCopy402": "{{v1}} 다시",
     "presentationCopy414": "{{v1}} · 실행 중",
     "presentationCopy415": "{{v1}} · 시작 중",
@@ -1046,8 +1040,6 @@
     "description": "단계를 끝내기 전에 Stave가 최종 리비전에서 이 액션 스크립트를 직접 실행합니다.",
     "none": "없음. 이 단계의 완료는 에이전트가 보고합니다.",
     "add": "검사 추가",
-    "editScripts": "스크립트 편집",
-    "editScriptsAria": "스크립트 편집: {{check}}",
     "scriptsAria": "{{check}}의 스크립트",
     "removeCheck": "검사 제거: {{check}}",
     "removeScript": "이 검사에서 {{script}} 제거",
@@ -1133,5 +1125,16 @@
       "attachments_other": "첨부 {{count}}개 유지",
       "filePaths": "첨부 파일은 저장본을 읽음"
     }
+  },
+  "activeTime": {
+    "activeFor": "활성 시간",
+    "wasActive": "총 활성 시간",
+    "since": "{{time}}부터 · 일시 중지 제외",
+    "from": "{{time}}부터 · 일시 중지 제외",
+    "explain": "실행이 작업한 시간만 셉니다. 일시 중지, 답변이나 승인을 기다린 시간, Stave가 꺼져 있던 시간은 빼고 셉니다.",
+    "wallClockSince": "{{explain}} 시작한 지 {{duration}} 지났습니다.",
+    "wallClockTook": "{{explain}} 시작부터 끝까지 {{duration}} 걸렸습니다.",
+    "soFar": "현재까지 활성 {{value1}}",
+    "reportLabel": "활성 시간"
   }
 }

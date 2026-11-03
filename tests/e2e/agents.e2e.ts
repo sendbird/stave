@@ -38,12 +38,12 @@ test.describe("agents", () => {
 
   test("the Agents surface shows Agents and My standards, and no Workflows tab", async ({ page }) => {
     await page.goto("/?stavePreview=agents&surface=1");
-    const tabs = page.getByRole("navigation", { name: "Agents views" });
-    await expect(tabs.getByRole("button", { name: "Agents", exact: true })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: "Workflows", exact: true })).toHaveCount(0);
-    await expect(tabs.getByRole("button", { name: "My standards", exact: true })).toBeVisible();
+    const tabs = page.getByRole("radiogroup", { name: "Agents views" });
+    await expect(tabs.getByRole("radio", { name: "Agents", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("radio", { name: "Workflows", exact: true })).toHaveCount(0);
+    await expect(tabs.getByRole("radio", { name: "My standards", exact: true })).toBeVisible();
     await expect(page.getByTestId("agents-tab")).toBeVisible();
-    await tabs.getByRole("button", { name: "My standards", exact: true }).click();
+    await tabs.getByRole("radio", { name: "My standards", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "My standards" })).toBeVisible();
   });
 

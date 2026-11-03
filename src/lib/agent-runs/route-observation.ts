@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { buildAgentRunTurnOutcomeKey, type AgentRunEvent, type AgentRunStageRecord, type StageStatus } from "./domain";
-import type { TurnUsageSample } from "./usage";
+import { sumTurnUsage, type AgentRunUsage, type TurnUsageSample } from "./usage";
 import { RoutingDecisionObservationSchema, type RoutingDecisionObservation } from "../providers/routing-decision";
 
 const RouteModelSchema = z.object({
@@ -114,4 +114,22 @@ export function projectAgentRunRoutes(args: {
     observations.push(observation);
   }
   return observations;
+}
+
+/**
+ * What each stage's turns spent, by stage id: the provider-reported usage of
+ * every turn the host started for it, over all its attempts. Only a turn the
+ * host linked counts, and a turn that has not ended yet counts as one that
+ * reported nothing. Claude reports a cost with each turn; Codex reports
+ * tokens only. A stage with no turn has no entry.
+ */
+export function projectStageSpend(routing: readonly AgentRunRouteObservation[] | null | undefined): Map<string, AgentRunUsage> {
+  const samples = new Map<string, Array<TurnUsageSample | null>>();
+  for (const observation of routing ?? []) {
+    if (!observation.stageId || !observation.turnId) continue;
+    const list = samples.get(observation.stageId) ?? [];
+    list.push(observation.usage);
+    samples.set(observation.stageId, list);
+  }
+  return new Map([...samples].map(([stageId, list]) => [stageId, sumTurnUsage(list)] as const));
 }

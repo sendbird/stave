@@ -186,9 +186,9 @@ test("Tasks board, reader, and kickoff sheet preserve desktop geometry", async (
   await seedTasks(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
-  await page.getByRole("button", { name: "open-tasks" }).click();
+  await page.getByRole("button", { name: "Open Issues" }).click();
   await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
-  await page.getByRole("button", { name: "Board" }).click();
+  await page.getByRole("radio", { name: "Board" }).click();
   const board = page.locator('[data-stave-tasks-board=""]');
   await expect(board).toBeVisible();
   await expect(board.locator("[data-board-column]")).toHaveCount(5);
@@ -234,4 +234,83 @@ test("Tasks board, reader, and kickoff sheet preserve desktop geometry", async (
   expect(sheetBox!.width).toBeGreaterThan(400);
   expect(sheetBox!.x + sheetBox!.width).toBeLessThanOrEqual(1440);
   await page.screenshot({ path: testInfo.outputPath("tasks-board-peek.png") });
+});
+
+test("one searchable Filter list, applied chips with per-chip remove and Clear all on their own row", async ({ page }) => {
+  await seedTasks(page);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Issues" }).click();
+  await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
+  await page.getByRole("radio", { name: /All open/ }).click();
+  const filter = page.getByRole("combobox", { name: "Filter", exact: true });
+  await filter.click();
+  const search = page.getByRole("combobox", { name: "Search filter values" });
+  await expect(search).toBeFocused();
+  await search.fill("progress");
+  await expect(page.getByRole("option", { name: "In progress", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: "To do", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Enter");
+  await search.fill("design");
+  await page.getByRole("listbox").filter({ has: page.getByRole("group", { name: "Label" }) }).getByRole("option", { name: /^design/ }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("combobox", { name: "Search filter values" })).toHaveCount(0);
+  const applied = page.getByRole("group", { name: "Applied filters" }).or(page.getByRole("region", { name: "Applied filters" })).or(page.getByLabel("Applied filters"));
+  await expect(applied.first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove filter: Status is In progress" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /2 filters · 1 issue/ })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Filter, 2 active" })).toBeVisible();
+  // Clear all sits in the applied row at the inline start of the toolbar,
+  // not at the end of the wrapped display-controls row.
+  const clearAll = page.getByRole("button", { name: "Clear all" });
+  const firstChip = page.getByRole("button", { name: "Remove filter: Status is In progress" });
+  const clearBox = (await clearAll.boundingBox())!;
+  const chipBox = (await firstChip.boundingBox())!;
+  const filterBox = (await page.getByRole("combobox", { name: "Filter, 2 active" }).boundingBox())!;
+  expect(Math.abs(clearBox.y + clearBox.height / 2 - (chipBox.y + chipBox.height / 2))).toBeLessThanOrEqual(2);
+  expect(chipBox.y).toBeGreaterThan(filterBox.y + filterBox.height);
+  await page.screenshot({ path: test.info().outputPath("issues-applied-filters.png") });
+  await firstChip.click();
+  await expect(page.getByRole("button", { name: /Remove filter: Status/ })).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: /1 filter · / })).toBeVisible();
+  await clearAll.click();
+  await expect(page.getByRole("button", { name: /Remove filter/ })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Filter", exact: true })).toBeVisible();
+});
+
+test("the Updated quick filter narrows by last update and reads as a removable chip", async ({ page }) => {
+  // The seeded tickets were last updated on September 2.
+  await page.clock.setFixedTime(new Date("2026-09-10T12:00:00"));
+  await seedTasks(page);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Issues" }).click();
+  await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
+  await page.getByRole("radio", { name: /All open/ }).click();
+
+  const updated = page.getByRole("combobox", { name: "Filter by last update" });
+  await expect(updated).toHaveText(/Updated: Any time/);
+  // It sits in the quick-filter row beside the Stave-runs filter, unclipped.
+  const linkedBox = (await page.getByRole("combobox", { name: "Filter by Stave runs" }).boundingBox())!;
+  const updatedBox = (await updated.boundingBox())!;
+  expect(Math.abs(updatedBox.y - linkedBox.y)).toBeLessThanOrEqual(1);
+  expect(updatedBox.x).toBeGreaterThan(linkedBox.x + linkedBox.width);
+  expect(await updated.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+
+  await updated.click();
+  await page.getByRole("option", { name: "Last 7 days", exact: true }).click();
+  await expect(updated).toHaveText(/Updated: Last 7 days/);
+  await expect(page.getByRole("button", { name: "Remove filter: Updated within Last 7 days" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /1 filter · 0 issues/ })).toBeVisible();
+
+  await updated.click();
+  await page.getByRole("option", { name: "Last 30 days", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: /1 filter · 2 issues/ })).toBeVisible();
+  // The period list has closed before the capture.
+  await expect(page.getByRole("option", { name: "Last 90 days", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("issues-updated-filter.png") });
+
+  await page.getByRole("button", { name: "Remove filter: Updated within Last 30 days" }).click();
+  await expect(updated).toHaveText(/Updated: Any time/);
+  await expect(page.getByRole("button", { name: /Remove filter/ })).toHaveCount(0);
 });

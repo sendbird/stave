@@ -83,8 +83,8 @@ test("tabs are named by task, provider and status, with a 24px close target", as
 test("the narrow header keeps one line and names the overflowed tabs", async ({ page }) => {
   await seedNarrowPane(page);
   const modeSwitch = page.getByTestId("pane-header-mode-switch");
-  await expect(modeSwitch.getByRole("button", { name: "Conversation" })).toBeVisible();
-  await expect(modeSwitch.getByRole("button", { name: "Review" })).toBeVisible();
+  await expect(modeSwitch.getByRole("radio", { name: "Conversation" })).toBeVisible();
+  await expect(modeSwitch.getByRole("radio", { name: "Review" })).toBeVisible();
   expect((await modeSwitch.boundingBox())!.height).toBeLessThanOrEqual(36);
   // The pane's own actions stay inside the pane.
   const paneOptions = page.getByRole("button", { name: "Pane options" }).first();

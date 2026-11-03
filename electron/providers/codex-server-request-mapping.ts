@@ -1,4 +1,5 @@
 import type { BridgeEvent } from "./types";
+import { resolveCodexApprovalExtras } from "./approval-allow-always";
 import {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -17,12 +18,7 @@ type ApprovalPresentation = {
   kind: "approval";
   event: Extract<BridgeEvent, { type: "approval" }>;
   pending: {
-    responseKind:
-      | "review"
-      | "commandExecution"
-      | "fileChange"
-      | "permissions"
-      | "elicitation";
+    responseKind: "review" | "commandExecution" | "fileChange" | "permissions" | "elicitation";
     permissions?: { network?: unknown; fileSystem?: unknown } | null;
   };
 };
@@ -143,6 +139,7 @@ export function mapCodexServerRequestPresentation(args: {
         requestId,
         description: buildApprovalDescription({ method, params }),
         ...(approvalInput ? { input: approvalInput } : {}),
+        ...resolveCodexApprovalExtras({ method, params, toolName: mapApprovalToolName(method), input: approvalInput }),
       },
     };
   }

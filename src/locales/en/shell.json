@@ -382,7 +382,6 @@
     "thisTask": "this task",
     "archived": "Archived",
     "markRead": "Mark read",
-    "deny": "Deny",
     "thisTaskIsArchived": "This task is archived.",
     "restore": "Restore",
     "cancel": "Cancel",
@@ -392,12 +391,14 @@
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "This permanently removes every notification currently in History, including approval and input requests. Unread notifications remain available.",
     "loadMoreCount": "Load more ({{count}} remaining)",
     "restoreTask": "Restore {{title}} to reopen it from notifications.",
-    "allowOnce": "Allow once",
     "all": "All",
     "errors": "Errors",
     "nothingInTheInbox": "Nothing in the inbox.",
     "noErrors": "No errors.",
-    "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here."
+    "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here.",
+    "allowOnceFor": "Allow the request in {{title}} once",
+    "denyFor": "Deny the request in {{title}}",
+    "viewSwitch": "Notification view"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "Standalone CLI — set a folder in Settings",
@@ -705,7 +706,8 @@
     "clickForTheirAPIValue": "Click for their API value.",
     "sEstimateOfWhatTheseTurnsCost": "{{value1}}'s estimate of what these turns cost. Your gateway bills them, and its invoice is final.",
     "notBilledToYourSubscriptionEstimatesIt": "Not billed to your subscription. {{value1}} estimates it from token use at API prices.",
-    "tokensToday": "{{value1}} tokens today"
+    "tokensToday": "{{value1}} tokens today",
+    "windowUsedTitle": "{{title}} · {{percent}} used"
   },
   "statusBarUsageUtils": {
     "usageLimit": "Usage limit",
@@ -993,12 +995,12 @@
         "description": "Close AI usage and return to the workspace."
       },
       "fleetRowAllow": {
-        "title": "Allow a Fleet request once",
-        "description": "In a focused Fleet row with an approval, allow it once."
+        "title": "Allow a request once",
+        "description": "In a focused Fleet or notification row with an approval, allow it once."
       },
       "fleetRowDeny": {
-        "title": "Deny a Fleet request",
-        "description": "In a focused Fleet row with an approval, deny it."
+        "title": "Deny a request",
+        "description": "In a focused Fleet or notification row with an approval, deny it."
       },
       "fleetRowChoose": {
         "title": "Answer a Fleet question",
@@ -1027,6 +1029,18 @@
       "sideChatClose": {
         "title": "Close the side question panel",
         "description": "Close the side question panel; the task's turn keeps running."
+      },
+      "approvalAllowOnce": {
+        "title": "Allow an approval once",
+        "description": "With focus in an approval card, allow its request once. Esc never denies a request."
+      },
+      "reviewNext": {
+        "title": "Next review",
+        "description": "In Review, open the next result or stage waiting for your review, in Fleet's order."
+      },
+      "reviewPrevious": {
+        "title": "Previous review",
+        "description": "In Review, open the previous result or stage waiting for your review."
       }
     },
     "ui": {

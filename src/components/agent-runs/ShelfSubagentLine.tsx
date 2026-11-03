@@ -11,20 +11,8 @@ import {
   describeSubagentState,
   planSubagentLine,
   subagentCurrentStep,
-  subagentLineState,
-  type SubagentLineState,
+  subagentWorkState,
 } from "@/lib/delegation/subagent-summary";
-
-/** Each delegate state as a shared work state, for `StateMark`. */
-const SUBAGENT_WORK_STATE: Record<SubagentLineState, WorkState> = {
-  working: "working",
-  queued: "queued",
-  done: "ready",
-  failed: "failed",
-  stopped: "stopped",
-  "needs-you": "needs-you",
-  waiting: "waiting",
-};
 
 /**
  * The run's delegates under its shelf line: `✋ Writer needs you · ● Reviewer
@@ -51,7 +39,7 @@ export function ShelfSubagentLine(props: {
   return (
     <p className={sx(shelfStyles.text, shelfStyles.subagents)} data-testid="shelf-subagents" title={summary}>
       {shown.map((row, index) => {
-        const state = subagentLineState(row);
+        const state = subagentWorkState(row);
         const step = subagentCurrentStep(row);
         const working = state === "working" && props.moving;
         return (
@@ -77,10 +65,10 @@ export function ShelfSubagentLine(props: {
 }
 
 /** A working delegate turns its ring; while the run's own line moves it holds still in the working color. */
-function SubagentMark(props: { state: SubagentLineState; moving: boolean }) {
+function SubagentMark(props: { state: WorkState; moving: boolean }) {
   return (
     <StateMark
-      state={SUBAGENT_WORK_STATE[props.state]}
+      state={props.state}
       size="xs"
       motion={props.state === "working" && props.moving ? "moving" : "still"}
       xstyle={styles.mark}

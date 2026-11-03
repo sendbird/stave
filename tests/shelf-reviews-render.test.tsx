@@ -82,6 +82,14 @@ describe("review lines on the composer shelf", () => {
     expect(html).toContain("The workspace HEAD moved.");
     expect(html).toContain('aria-label="Dismiss"');
   });
+
+  test("a settled review draws its state with the shared work-state mark", () => {
+    expect(render([review("ready")])).toContain('data-state="ready"');
+    expect(render([review("failed")])).toContain('data-state="failed"');
+    expect(render([review("stopped")])).toContain('data-state="stopped"');
+    // The running review keeps the verify loader instead of a state mark.
+    expect(render([review("running")])).not.toContain("data-state=");
+  });
 });
 
 describe("viewing a review", () => {

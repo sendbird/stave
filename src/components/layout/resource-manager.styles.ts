@@ -2,58 +2,29 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 export const managerStyles = stylex.create({
-  tableScroll: { overflowX: "auto", minWidth: 0 },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
+  /**
+   * A body row's heading cell (the workspace or process it measures): the
+   * ADS table's head cell keeps its padding and rule, and reads as body text.
+   */
+  rowHeading: {
+    color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-caption"],
-  },
-  columnHeading: {
-    textAlign: "start",
-    fontWeight: 500,
-    color: vars["--ads-color-text-muted"],
-    paddingBlock: 8,
-    paddingInline: 10,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
-  },
-  numericHeading: {
-    textAlign: "end",
-    fontWeight: 500,
-    color: vars["--ads-color-text-muted"],
-    paddingBlock: 8,
-    paddingInline: 10,
-    whiteSpace: "nowrap",
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
-  },
-  identityCell: {
-    textAlign: "start",
-    fontWeight: 400,
-    paddingBlock: 12,
-    paddingInline: 10,
+    fontWeight: vars["--ads-font-weight-regular"],
+    lineHeight: vars["--ads-line-height-normal"],
+    minWidth: "10rem",
     overflowWrap: "anywhere",
-    minWidth: 160,
     verticalAlign: "top",
+    whiteSpace: "normal",
   },
   numericCell: {
-    textAlign: "end",
     fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
     width: "1%",
-    paddingBlock: 12,
-    paddingInline: 10,
     verticalAlign: "top",
   },
-  dataRow: {
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
-    ":last-child": { borderBottomWidth: 0 },
-  },
+  shareMeter: { marginBlockStart: vars["--ads-space-4"] },
   processTitle: {
     display: "flex",
     alignItems: "baseline",
@@ -105,27 +76,6 @@ export const managerStyles = stylex.create({
     gap: 12,
     flexWrap: "wrap",
   },
-  /**
-   * The view switcher's track. Without it the selected view and the actions
-   * beside it were the same filled button, so "Workspaces and processes" and
-   * "Clean up workspaces" read as two items of one kind. The track says the
-   * buttons inside it pick a view; the actions outside it stay `outline`, so
-   * "which one changes what I am looking at" is answered by the container
-   * rather than by reading the labels.
-   */
-  segmented: {
-    display: "flex",
-    alignItems: "center",
-    gap: 2,
-    padding: 2,
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-  },
-  /** Flat inside the track: an elevated tab would fight the track's own edge. */
-  segment: { boxShadow: "none" },
   muted: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],

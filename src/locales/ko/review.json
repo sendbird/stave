@@ -92,7 +92,10 @@
     "pending_other": "보내지 않음 ({{count}})",
     "sent_other": "보냄 ({{count}})",
     "where": "{{path}}:{{line}}",
-    "sentWhere": "{{where}} · {{time}}에 보냄"
+    "jump": "diff에서 {{where}} 보기",
+    "remove": "{{where}}의 코멘트 삭제",
+    "resolve": "{{where}}의 보낸 코멘트 해결",
+    "sentAt": "<time/>에 보냄"
   },
   "outputs": {
     "title": "결과",
@@ -137,10 +140,18 @@
       "noResult": "검토할 저장된 결과가 아직 없음",
       "unsent_other": "보내지 않은 코멘트 {{count}}개",
       "markFailed": "검토 표시를 저장하지 못했습니다. 다시 시도하세요.",
-      "sendFailed": "코멘트를 보내지 못했습니다. 현재 턴이 끝난 뒤 다시 시도하세요."
+      "sendFailed": "코멘트를 보내지 못했습니다. 현재 턴이 끝난 뒤 다시 시도하세요.",
+      "markedToast": "검토 완료로 표시했습니다",
+      "undo": "실행 취소",
+      "undoChangedElsewhere": "그 뒤 다른 곳에서 검토 표시가 바뀌어 그대로 두었습니다.",
+      "undoFailed": "검토 표시를 되돌리지 못했습니다. 다시 시도하세요."
     }
   },
   "approvals": {
     "readFailed": "승인 요청을 읽지 못했습니다."
+  },
+  "queue": {
+    "hint_other": "다음 / 이전 리뷰 · {{count}}개 남음",
+    "next": "다음 리뷰 · {{title}}"
   }
 }

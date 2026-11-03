@@ -573,7 +573,7 @@ export const workspaceInformationPanelStyles = stylex.create({
     paddingInline: 2,
   },
   todoProgressTrack: {
-    backgroundColor: vars["--ads-color-surface-tint"],
+    backgroundColor: vars["--ads-color-track"],
     borderRadius: vars["--ads-radius-full"],
     flex: 1,
     height: 4,

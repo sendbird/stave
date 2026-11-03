@@ -158,7 +158,7 @@ function ChecksTabContent(props: {
   onSelectDiff: (path: string) => Promise<void>;
   onFixVerificationWithAgent?: (args?: { scriptId?: string }) => void;
 }) {
-  const { t: tI18n } = useTranslation(["workspace"]);
+  const { t: tI18n } = useTranslation(["workspace", "sourceControl"]);
   const verification = props.verification ?? null;
   const intent = props.intentCompliance ?? null;
   const { stagedCount, workingTreeCount, conflictCount } =
@@ -306,7 +306,7 @@ function ChecksTabContent(props: {
                 >
                   <span className={sx(changesStyles.findingHead)}>
                     <span className={sx(changesStyles.findingSeverity)}>
-                      {finding.severity}
+                      {tI18n(`sourceControl:findingKinds.${finding.severity}`)}
                     </span>
                     <span className={sx(changesStyles.truncate)}>
                       {finding.file}
@@ -648,7 +648,7 @@ export function WorkspaceChangesPanel(props: {
     file: GitHubPrFile;
   }) => Promise<void>;
 }) {
-  const { t: tI18n } = useTranslation(["workspace"]);
+  const { t: tI18n } = useTranslation(["workspace", "sourceControl"]);
   const [mode, setMode] = useState<SourceControlPanelMode>("workspace");
   const [view, setView] = useState<SourceControlPanelView>("changes");
   const verificationFailureCount = props.verification?.failures.length ?? 0;
@@ -939,7 +939,7 @@ export function WorkspaceChangesPanel(props: {
                               <span
                                 className={sx(changesStyles.findingSeverity)}
                               >
-                                {finding.severity}
+                                {tI18n(`sourceControl:findingKinds.${finding.severity}`)}
                               </span>
                               <span className={sx(changesStyles.truncate)}>
                                 {finding.file}

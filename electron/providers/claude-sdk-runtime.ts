@@ -24,6 +24,7 @@ import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./cl
 import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-stop-reason";
 import { resolveClaudeTurnGuardrail, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
+import { resolveClaudeApprovalExtras } from "./approval-allow-always";
 import {
   buildClaudeApprovalDecisionEvent, CLAUDE_HANDOFF_ALLOW_DECIDERS, CLAUDE_HANDOFF_ALLOW_MESSAGES, resolveClaudeHandoffDecision,
   type ClaudeApprovalDecider,
@@ -49,10 +50,7 @@ import { buildClaudeSystemPrompt } from "./claude-system-prompt";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import { claudeFastModeEnabled, claudeModelForcesAdaptiveThinking } from "../../src/lib/providers/claude-model-requirements";
-import {
-  DEFAULT_CLAUDE_HAIKU_MODEL,
-  resolveDefaultClaudeFallbackModel,
-} from "../../src/lib/providers/model-catalog";
+import { DEFAULT_CLAUDE_HAIKU_MODEL, resolveDefaultClaudeFallbackModel } from "../../src/lib/providers/model-catalog";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -181,6 +179,7 @@ import {
 } from "./claude-plugin-config";
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
+import { createToolTimingRecorder } from "./tool-timing";
 import {
   isClaudeChromeToolName,
   isPlainWebFetchToolName,
@@ -188,7 +187,6 @@ import {
   parseProviderBrowserDomains,
   shouldActivateProviderBrowser,
 } from "../../src/lib/provider-browser";
-
 
 const CLAUDE_EVENT_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const CLAUDE_OVERFLOW_TAIL_EVENTS: BridgeEvent[] = [
@@ -3144,6 +3142,7 @@ export async function streamClaudeWithSdk(
       reserveTailBytes: CLAUDE_OVERFLOW_TAIL_BYTES,
     });
     const events = eventCollector.events;
+    const toolTiming = createToolTimingRecorder(); // Observed tool start/end; every tool event passes through it.
     const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
     args.registerApprovalResponder?.(({ requestId, approved }) => {
       const resolver = pendingApprovalResolvers.get(requestId);
@@ -3693,6 +3692,7 @@ export async function streamClaudeWithSdk(
               blockedPath: options.blockedPath,
             }),
             ...(trustedApprovalInput ? { input: trustedApprovalInput } : {}),
+            ...resolveClaudeApprovalExtras({ toolName, trustedApprovalInput, guardrail, timeoutMs: approvalDecisionTimeoutMs }),
             // `agentID` is set only when the call came from inside a subagent,
             // which is exactly when the work graph needs it: it names the one
             // worker of the fan-out whose progress this prompt is holding up.
@@ -3868,7 +3868,7 @@ export async function streamClaudeWithSdk(
     const mcpAppViews = createClaudeMcpAppViewCapture({
       enabled: args.runtimeOptions?.mcpAppViews === true && !secondaryReadOnly,
       workspaceId: args.workspaceId ?? null, taskId: args.taskId ?? null, getQuery: () => stream,
-      emit: (event) => { eventCollector.append(event); args.onEvent?.(event); },
+      emit: (event) => { const stamped = toolTiming.stamp(event); eventCollector.append(stamped); args.onEvent?.(stamped); },
     });
     // The CLI can keep the stream open after `result` for background shells;
     // see `claude-background-hold.ts`.
@@ -4025,7 +4025,7 @@ export async function streamClaudeWithSdk(
         }
         emittedToolUseIds.add(event.toolUseId);
         return true;
-      });
+      }).map(toolTiming.stamp);
       // Let the subagent tracker observe tool starts / completions.
       for (const event of normalizedEvents) {
         subagentTracker.trackEvent(event);

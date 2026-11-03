@@ -75,13 +75,13 @@ const RESOURCE_TYPES: ResourceTypeDefinition[] = [
   },
   {
     kind: "jira",
-    label: "Jira issue",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.jiraIssue"); },
     get description() { return i18n.t("workspace:automationInformationResourceCreator.addAnIssueUrlAndOptionalStatus"); },
     icon: TicketCheck,
   },
   {
     kind: "confluence",
-    label: "Confluence page",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.confluencePage"); },
     get description() { return i18n.t("workspace:automationInformationResourceCreator.addAPageUrlAndSpaceKey"); },
     icon: BookOpen,
   },
@@ -99,7 +99,7 @@ const RESOURCE_TYPES: ResourceTypeDefinition[] = [
   },
   {
     kind: "slack",
-    label: "Slack thread",
+    get label() { return i18n.t("workspace:automationInformationResourceCreator.slackThread"); },
     get description() { return i18n.t("workspace:automationInformationResourceCreator.addASlackMessagePermalink"); },
     icon: MessageSquare,
   },

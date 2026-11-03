@@ -163,7 +163,8 @@
     "closeAll": "모두 닫기",
     "copyPath": "경로 복사",
     "copyRelativePath": "상대 경로 복사",
-    "copyBreadcrumbsPath": "탐색 경로 복사"
+    "copyBreadcrumbsPath": "탐색 경로 복사",
+    "diffLayout": "변경 사항 보기 방식"
   },
   "paneTabChip.closeNamed": "{{title}} 패널 닫기",
   "terminalSurfacePanel.clear": "터미널 지우기"

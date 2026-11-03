@@ -58,11 +58,17 @@ export function QuestionOptionRow(args: {
   disabled?: boolean;
   readOnly?: boolean;
   onChange?: () => void;
+  /** The row took focus or the pointer: show its preview. */
+  onPreview?: (source: "focus" | "pointer") => void;
 }) {
   const { t } = useTranslation(["composer"]);
   const { row, kind, readOnly = false, disabled = false } = args;
+  const onPreview = args.onPreview;
   return (
     <label
+      data-option-value={row.value}
+      onFocus={onPreview ? () => onPreview("focus") : undefined}
+      onPointerEnter={onPreview ? () => onPreview("pointer") : undefined}
       className={sx(
         styles.row,
         args.divided && styles.rowDivided,

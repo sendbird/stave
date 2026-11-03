@@ -24,6 +24,8 @@ import {
   type AgentRunStageRecord,
 } from "@/lib/agent-runs/domain";
 import { buildAgentRunReport } from "@/lib/agent-runs/report";
+import { projectAgentRunActiveTime } from "@/lib/agent-runs/active-time";
+import type { AgentRunRouteObservation } from "@/lib/agent-runs/route-observation";
 import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
@@ -142,6 +144,35 @@ function detail(
 }
 
 const live = detail(2, { status: "running" });
+
+/** A host-observed turn of a stage, with the usage it reported. */
+function routed(stageId: string, turnId: string, costUsd: number, tokens: number): AgentRunRouteObservation {
+  return {
+    decisionId: `decision-${turnId}`, turnId, stageId, attempt: 1, selection: null, providerChanged: null,
+    effectiveModel: null, effectiveEffort: null, turnOutcome: "completed", attemptStatus: null, latestInAttempt: true,
+    usage: { inputTokens: Math.round(tokens * 0.87), outputTokens: Math.round(tokens * 0.13), totalCostUsd: costUsd },
+    reportedCostUsd: costUsd,
+  };
+}
+const clockEvent = (sequence: number, kind: AgentRunEvent["kind"], minutes: number): AgentRunEvent => ({
+  id: `clock-${sequence}`, agentRunId: "agent-run-preview", sequence, kind, idempotencyKey: null, detail: {}, createdAt: at(minutes),
+});
+/**
+ * The live run as a current host reports it: paused for four minutes and
+ * waiting on an approval for two, so its active time is shorter than its age,
+ * and each stage's turns with what they reported.
+ */
+const liveWithHostClock: AgentRunDetail = {
+  ...live,
+  activeTime: projectAgentRunActiveTime(live.agentRun, [
+    clockEvent(1, "agent-run-started", 0),
+    clockEvent(2, "paused", 5),
+    clockEvent(3, "resumed", 9),
+    clockEvent(4, "user-wait-started", 15),
+    clockEvent(5, "user-wait-ended", 17),
+  ]),
+  routing: [routed("understand", "turn-1", 0.12, 24_000), routed("build", "turn-2", 0.51, 102_000), routed("verify", "turn-5", 0.21, 43_400)],
+};
 const takenOver = detail(2, { status: "running" }, {
   state: "paused",
   pauseReason: "taken-over",
@@ -431,6 +462,10 @@ export function AgentRunPreview() {
             <div data-testid="agent-run-panel-frame">
               <AgentRunDetailView detail={live} now={now} onCommand={noop} onShowTool={() => {}} />
             </div>
+          </section>
+          <section className={sx(styles.case, styles.rail)} data-preview-case="Panel active time">
+            <p className={sx(styles.caption)}>Progress tab · active time and stage spend from the host</p>
+            <AgentRunDetailView detail={liveWithHostClock} now={now} onCommand={noop} onShowTool={() => {}} />
           </section>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Panel blocked">
             <p className={sx(styles.caption)}>Progress tab · run blocked</p>

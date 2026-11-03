@@ -18,6 +18,7 @@ import {
   readUserInputAnswer,
 } from "@/lib/user-input-answers";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
@@ -65,6 +66,14 @@ interface QuestionSelection {
 }
 
 const EMPTY_SELECTION: QuestionSelection = { selected: [], custom: "" };
+
+interface PreviewTarget {
+  questionKey: string;
+  value: string;
+}
+
+/** A preview is a snippet to compare, so it stays short and scrolls. */
+const OPTION_PREVIEW_MAX_BLOCK_SIZE = 200;
 
 /**
  * A single-choice pick moves to the next question after this pause, so the
@@ -227,9 +236,17 @@ export function UserInputCard(args: UserInputCardProps) {
   // when the request itself changes, not when the parent re-renders.
   const questionSetKey = questions.map(getQuestionKey).join("\u0000");
   const [activeIndex, setActiveIndex] = useState(0);
+  // The option whose preview shows: the hovered one, else the focused one.
+  // Focus stays the anchor when it moves into the preview to scroll it.
+  const [focusedOption, setFocusedOption] = useState<PreviewTarget | null>(null);
+  const [hoveredOption, setHoveredOption] = useState<PreviewTarget | null>(null);
   useEffect(() => {
     setActiveIndex(0);
+    setFocusedOption(null);
+    setHoveredOption(null);
   }, [questionSetKey]);
+
+  const previewIdPrefix = useId();
 
   const formRef = useRef<HTMLElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -607,6 +624,27 @@ export function UserInputCard(args: UserInputCardProps) {
             // Number keys pick only on the visible, answerable question.
             const showShortcuts =
               !readOnly && questionIndex === currentIndex;
+            const optionRows = hasOptions
+              ? buildQuestionOptionRows({
+                  question,
+                  selectedValues: selection.selected,
+                  showShortcuts,
+                })
+              : [];
+            const hasPreviews =
+              !readOnly && optionRows.some((row) => row.preview !== null);
+            const previewTarget =
+              hoveredOption?.questionKey === questionKey
+                ? hoveredOption
+                : focusedOption?.questionKey === questionKey
+                  ? focusedOption
+                  : null;
+            const previewRow = hasPreviews
+              ? optionRows.find(
+                  (row) => row.value === previewTarget?.value && row.preview,
+                )
+              : undefined;
+            const previewLabelId = `${previewIdPrefix}-preview-${questionIndex}`;
             const customLabel = i18n.t("composer:userInputCard.ariaLabel", {
               value1: question.question,
             });
@@ -680,12 +718,11 @@ export function UserInputCard(args: UserInputCardProps) {
                         questionOptionRowStyles.list,
                         styles.optionList,
                       )}
+                      onPointerLeave={
+                        hasPreviews ? () => setHoveredOption(null) : undefined
+                      }
                     >
-                      {buildQuestionOptionRows({
-                        question,
-                        selectedValues: selection.selected,
-                        showShortcuts,
-                      }).map((row, optionIndex) => (
+                      {optionRows.map((row, optionIndex) => (
                         <QuestionOptionRow
                           key={row.value}
                           row={row}
@@ -694,6 +731,21 @@ export function UserInputCard(args: UserInputCardProps) {
                           divided={optionIndex > 0}
                           disabled={disabled}
                           readOnly={readOnly}
+                          onPreview={
+                            hasPreviews
+                              ? (source) => {
+                                  const target = { questionKey, value: row.value };
+                                  // The latest move wins: a keyboard step
+                                  // replaces a resting pointer's row.
+                                  if (source === "pointer") {
+                                    setHoveredOption(target);
+                                  } else {
+                                    setFocusedOption(target);
+                                    setHoveredOption(null);
+                                  }
+                                }
+                              : undefined
+                          }
                           onChange={() => {
                             const autoAdvance = !arrowNavigationRef.current;
                             arrowNavigationRef.current = false;
@@ -758,6 +810,36 @@ export function UserInputCard(args: UserInputCardProps) {
                           )}
                         </QuestionOptionTextRow>
                       ) : null}
+                    </div>
+                  ) : null}
+
+                  {previewRow?.preview ? (
+                    <div
+                      className={sx(styles.optionPreview)}
+                      data-option-preview={previewRow.value}
+                    >
+                      <span
+                        className={sx(styles.optionPreviewLabel)}
+                        id={previewLabelId}
+                      >
+                        {i18n.t("composer:userInputCard.optionPreview", {
+                          label: previewRow.label,
+                        })}
+                      </span>
+                      {/* A region, not a log: the text swaps as focus moves
+                          between options and must not be announced. It takes
+                          focus so a long preview scrolls from the keyboard. */}
+                      <CappedViewport
+                        aria-labelledby={previewLabelId}
+                        maxBlockSize={OPTION_PREVIEW_MAX_BLOCK_SIZE}
+                        role="region"
+                        tabIndex={0}
+                        xstyle={[styles.optionPreviewViewport, focusRing.ring]}
+                      >
+                        <pre className={sx(styles.optionPreviewText)}>
+                          {previewRow.preview}
+                        </pre>
+                      </CappedViewport>
                     </div>
                   ) : null}
 

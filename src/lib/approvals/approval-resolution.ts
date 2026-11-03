@@ -38,6 +38,27 @@ export type ApprovalDecisionReason = (typeof APPROVAL_DECISION_REASONS)[number];
 export const APPROVAL_SCOPES = ["once", "always"] as const;
 export type ApprovalScope = (typeof APPROVAL_SCOPES)[number];
 
+/**
+ * What makes a permission request riskier than a routine call, read from the
+ * request itself and never guessed. A runtime sets one only when the request
+ * says so: Claude from the Stave guardrail (G1–G3) that stopped the call,
+ * Codex from a managed-network approval or a request for extra permissions.
+ * ACP runtimes report none.
+ */
+export const APPROVAL_RISKS = [
+  /** The command needs network access the sandbox does not grant. */
+  "network-access",
+  /** The agent asks for file-system access beyond its sandbox. */
+  "file-system-access",
+  /** G1: a write outside the task's repository. */
+  "write-outside-repository",
+  /** G2: a protected credential path or variable. */
+  "credential-access",
+  /** G3: an irreversible remote effect. */
+  "irreversible-remote",
+] as const;
+export type ApprovalRisk = (typeof APPROVAL_RISKS)[number];
+
 /** A Stave rule answering a shown request through the same path a person uses. */
 export interface ApprovalRuleDecider {
   source: "rule";

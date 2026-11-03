@@ -3,6 +3,10 @@ import { formatDuration } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
+import {
+  formatElapsed,
+  useMeasuredElapsed,
+} from "@/components/ads/components/Thinking.parts";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { agentSurface } from "@/components/ads/recipes/agent-surface";
 import {
@@ -270,11 +274,79 @@ export function ChainOfThought({
   );
 }
 
+/* ─── Streaming header label ──────────────────────────────────────── */
+
+/**
+ * The running turn's header on one line: the rotating status phrase, the
+ * newest step still in progress, and how long the turn has run —
+ * "Farming XP · Reading search.ts · 12s". With no step in progress it is the
+ * phrase and the clock alone.
+ *
+ * Nothing here is a live region. The phrase rotates and the activity changes
+ * with every step; announcing either would talk over the reader. The trigger
+ * is a button, so its text is read when it takes focus.
+ */
+function StreamingTraceLabel(props: {
+  activity?: string | null;
+  startedAt?: string | number;
+}) {
+  useTranslation();
+  return (
+    <span className={sx(s.streamingLabel)} data-trace-streaming-label="">
+      <span className={sx(s.streamingPhrase)} data-trace-streaming-part="phrase">
+        <ThinkingPhraseLabel active />
+      </span>
+      {props.activity ? (
+        <span
+          className={sx(s.streamingActivity)}
+          data-trace-streaming-part="activity"
+          title={props.activity}
+        >
+          <span aria-hidden="true" className={sx(s.streamingSeparator)}>
+            ·
+          </span>
+          {props.activity}
+        </span>
+      ) : null}
+      {props.startedAt !== undefined ? (
+        <StreamingElapsed startedAt={props.startedAt} />
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * The turn's measured run time, ticking off the design system's shared
+ * one-second clock so only this span re-renders. Spelled the way every
+ * `Thinking` and `ToolRun` row on the rail spells a live duration.
+ */
+function StreamingElapsed(props: { startedAt: string | number }) {
+  useTranslation();
+  const startedAt =
+    typeof props.startedAt === "string"
+      ? Date.parse(props.startedAt)
+      : props.startedAt;
+  const elapsedMs = useMeasuredElapsed({ startedAt }, true);
+  if (elapsedMs === null) return null;
+  return (
+    <span className={sx(s.streamingElapsed)} data-trace-streaming-part="elapsed">
+      <span aria-hidden="true" className={sx(s.summaryDivider)}>
+        ·
+      </span>
+      <span className={sx(agentSurface.meta, s.durationLabel)}>
+        {formatElapsed(elapsedMs)}
+      </span>
+    </span>
+  );
+}
+
 /* ─── Trigger ─────────────────────────────────────────────────────── */
 
 export function ChainOfThoughtTrigger(
   {
     completionLabel,
+    streamingActivity,
+    streamingStartedAt,
     className,
     ...args
   }: ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -283,6 +355,10 @@ export function ChainOfThoughtTrigger(
      * While the turn runs, the header shows a rotating playful status instead.
      */
     completionLabel?: string;
+    /** While streaming: the title of the newest step still in progress. */
+    streamingActivity?: string | null;
+    /** While streaming: when the turn started, for the elapsed readout. */
+    streamingStartedAt?: string | number;
   },
 ) {
   useTranslation();
@@ -337,9 +413,10 @@ export function ChainOfThoughtTrigger(
     >
       <InlineDisclosureIcon open={open}>{glyph}</InlineDisclosureIcon>
       {isStreaming ? (
-        <span className={sx(s.streamingLabel)}>
-          <ThinkingPhraseLabel active={isStreaming} />
-        </span>
+        <StreamingTraceLabel
+          activity={streamingActivity}
+          startedAt={streamingStartedAt}
+        />
       ) : (
         <>
           <span className={sx(s.completionLabel)}>

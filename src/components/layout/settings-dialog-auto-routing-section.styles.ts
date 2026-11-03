@@ -80,6 +80,22 @@ export const autoRoutingSectionStyles = stylex.create({
     textAlign: "start",
     verticalAlign: "top",
   },
+  /**
+   * The provider-strengths table's row heading on the ADS table: the head
+   * cell keeps its padding and rule, and reads as the row's text.
+   */
+  strengthName: {
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: "inherit",
+    lineHeight: vars["--ads-line-height-normal"],
+    verticalAlign: "top",
+    whiteSpace: "normal",
+  },
+  strengthCell: {
+    inlineSize: "45%",
+    verticalAlign: "top",
+  },
   levelLabel: {
     color: vars["--ads-color-text"],
     fontWeight: vars["--ads-font-weight-medium"],

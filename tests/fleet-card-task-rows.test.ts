@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  orderFleetCardTaskRows,
-  splitFleetSearchMatch,
-} from "@/lib/fleet/card-task-rows";
+import { orderFleetCardTaskRows } from "@/lib/fleet/card-task-rows";
 
 type Row = { id: string; title: string; agent?: string };
 
@@ -69,25 +66,5 @@ describe("orderFleetCardTaskRows", () => {
   test("never claims more visible rows than the card has", () => {
     const result = order("fix", ROWS.slice(0, 2));
     expect(result.collapsedCount).toBe(2);
-  });
-});
-
-describe("splitFleetSearchMatch", () => {
-  test("splits around the first case-insensitive match, keeping original case", () => {
-    expect(splitFleetSearchMatch("Checkout Timeout", "timeout")).toEqual({
-      before: "Checkout ",
-      match: "Timeout",
-      after: "",
-    });
-  });
-
-  test("returns null for no query or no match", () => {
-    expect(splitFleetSearchMatch("Checkout", "")).toBeNull();
-    expect(splitFleetSearchMatch("Checkout", "deploy")).toBeNull();
-  });
-
-  test("skips the highlight when lowercasing changes the text length", () => {
-    // "İ" lowercases to two code units, which would shift every offset.
-    expect(splitFleetSearchMatch("İstanbul deploy", "deploy")).toBeNull();
   });
 });

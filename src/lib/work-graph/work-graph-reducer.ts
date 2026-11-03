@@ -539,7 +539,7 @@ function upsertWorkItem(
     status,
     completedAt:
       isTerminalWorkGraphStatus(status) && !existing.completedAt
-        ? now
+        ? (item.completedAt ?? now)
         : existing.completedAt,
     updatedAt: now,
   };
@@ -959,7 +959,8 @@ export function reduceWorkGraphEvent(
             status,
             title: next.nodesByKey[nodeKey]?.label ?? ("Delegated work" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
             toolUseId: event.toolUseId,
-            startedAt: now,
+            startedAt: event.startedAt ?? now,
+            ...(event.completedAt !== undefined ? { completedAt: event.completedAt } : {}),
           },
           now,
         );
@@ -985,6 +986,10 @@ export function reduceWorkGraphEvent(
               badge: resolveSubagentBadge(event.input),
               ...resolveAgentExecution(event),
               status,
+              // The runtime's observed start, so a replayed or late-folded
+              // spawn does not restart the agent's clock at fold time. Only a
+              // new node reads it; an existing node keeps its start.
+              ...(event.startedAt !== undefined ? { startedAt: event.startedAt } : {}),
             },
             now,
           );
@@ -998,7 +1003,8 @@ export function reduceWorkGraphEvent(
               status,
               title: next.nodesByKey[spawned.key]?.label ?? ("Delegated work" /* i18n-ignore: canonical persisted work-graph fallback; translated by the presentation layer */),
               toolUseId: event.toolUseId,
-              startedAt: now,
+              startedAt: event.startedAt ?? now,
+              ...(event.completedAt !== undefined ? { completedAt: event.completedAt } : {}),
             },
             now,
           );
@@ -1021,7 +1027,8 @@ export function reduceWorkGraphEvent(
           ),
           toolUseId: event.toolUseId,
           ...(targetNodeKeys ? { targetNodeKeys } : {}),
-          startedAt: now,
+          startedAt: event.startedAt ?? now,
+          ...(event.completedAt !== undefined ? { completedAt: event.completedAt } : {}),
         },
         now,
       );
@@ -1037,7 +1044,15 @@ export function reduceWorkGraphEvent(
       let next = graph;
       const item = next.workItemsById[`tool:${event.tool_use_id}`];
       if (item) {
-        next = upsertWorkItem(next, { ...item, status }, now);
+        next = upsertWorkItem(
+          next,
+          {
+            ...item,
+            status,
+            ...(event.completedAt !== undefined ? { completedAt: event.completedAt } : {}),
+          },
+          now,
+        );
       }
       const spawnedKey = next.nodeKeyBySpawnToolUseId[event.tool_use_id];
       const spawned = spawnedKey ? next.nodesByKey[spawnedKey] : undefined;
@@ -1076,6 +1091,10 @@ export function reduceWorkGraphEvent(
           ...(status === "failed" &&
           !isTerminalWorkGraphStatus(spawned.status)
             ? { reason: truncateWorkText(event.output) }
+            : {}),
+          // The runtime's observed end, when this result is what ends it.
+          ...(event.completedAt !== undefined && !spawned.completedAt
+            ? { completedAt: event.completedAt }
             : {}),
         },
         now,

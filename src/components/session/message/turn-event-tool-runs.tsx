@@ -1,19 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import {
-  Bot,
-  FileText,
-  Globe,
-  ListTodo,
-  Pencil,
-  Search,
-  Terminal,
-  Wrench,
-} from "lucide-react";
-import { StaveIcon } from "@/components/brand-icons";
+import { Bot, ListTodo } from "lucide-react";
 import { ToolRun } from "@/components/ads/components/ToolRun";
-import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
-import { sx } from "@/components/ads/utils/stylex";
 import { parseFileChangeToolInput } from "@/components/session/chat-panel.utils";
 import {
   isInlineRenderToolName,
@@ -21,10 +9,8 @@ import {
 } from "@/lib/inline-render/inline-render";
 import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
 import { parseSubagentToolInput } from "@/lib/subagent-tool-input";
-import { isStaveToolName } from "@/lib/tool-display-name";
 import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
 import type { ToolUsePart } from "@/types/chat";
-import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import {
   deriveTraceToolSummary,
   getResidualToolInput,
@@ -40,7 +26,8 @@ import {
   TraceCitations,
   TraceOutput,
 } from "./turn-event-rows";
-import { toAgentRunState, toMeasuredDurationMs } from "./turn-event-state";
+import { toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
+import { getToolIcon, TRACE_GLYPH_SIZE } from "./tool-icon";
 
 /**
  * The one tool-call renderer. A tool call is drawn as an ADS `ToolRun` whether
@@ -50,38 +37,7 @@ import { toAgentRunState, toMeasuredDurationMs } from "./turn-event-state";
  * the display list renders them bare.
  */
 
-/**
- * The object glyph's box. `controlIconSizes.md` is what ADS `ToolRun` sizes its
- * own glyph slot to, and passing it explicitly is what keeps a lucide icon from
- * falling back to its 24px default inside the row.
- */
-export const TRACE_GLYPH_SIZE = controlIconSizes.md;
-
-export function getToolIcon(toolName: string): ReactNode {
-  if (isStaveToolName(toolName)) {
-    return <StaveIcon className={sx(styles.glyphEm)} />;
-  }
-
-  switch (normalizeTraceToolName(toolName)) {
-    case "bash":
-      return <Terminal size={TRACE_GLYPH_SIZE} />;
-    case "read":
-    case "write":
-      return <FileText size={TRACE_GLYPH_SIZE} />;
-    case "edit":
-      return <Pencil size={TRACE_GLYPH_SIZE} />;
-    case "glob":
-    case "grep":
-    /* ACP `search` kind — the canonical name ACP providers map onto. */
-    case "search":
-      return <Search size={TRACE_GLYPH_SIZE} />;
-    case "websearch":
-    case "webfetch":
-      return <Globe size={TRACE_GLYPH_SIZE} />;
-    default:
-      return <Wrench size={TRACE_GLYPH_SIZE} />;
-  }
-}
+export { getToolIcon, TRACE_GLYPH_SIZE } from "./tool-icon";
 
 /** A tool call: command, file, search, web or any other tool. */
 export function TraceToolRun(args: {
@@ -158,11 +114,17 @@ export function TraceToolRun(args: {
       durationMs={toMeasuredDurationMs(part.elapsedSeconds)}
       error={
         isError && !isCommand && output ? (
-          <TraceOutput linkify={false} text={output} />
+          <TraceOutput capped label={i18n.t("ui:toolrun.error")} linkify={false} text={output} />
         ) : undefined
       }
       icon={getToolIcon(part.toolName)}
-      input={residualInput || undefined}
+      /* Arguments get the output's copy action and cap: a long JSON payload
+         is copied as often as a result is, and grows as tall. */
+      input={
+        residualInput ? (
+          <TraceOutput capped label={i18n.t("ui:toolrun.arguments")} linkify={false} text={residualInput} />
+        ) : undefined
+      }
       defaultOpen={mcpAppView ? true : undefined}
       output={
         mcpAppView ? (
@@ -172,11 +134,11 @@ export function TraceToolRun(args: {
             toolUseId={part.toolUseId}
           />
         ) : !isError && !isCommand && output ? (
-          <TraceOutput linkify={!streamingInput} text={output} />
+          <TraceOutput capped label={i18n.t("ui:toolrun.output")} linkify={!streamingInput} text={output} />
         ) : undefined
       }
       outputLabel={args.outputLabel}
-      status={toAgentRunState(part.state)}
+      status={toAgentStepState(part.state)}
       title={getToolTitle(part.toolName)}
       tool={toolSummary?.text}
     >
@@ -210,18 +172,30 @@ export function TraceSubagentRun(args: { part: ToolUsePart }) {
       durationMs={toMeasuredDurationMs(part.elapsedSeconds)}
       error={
         isError && output ? (
-          <TraceOutput linkify={false} text={output} />
+          <TraceOutput capped label={i18n.t("ui:toolrun.error")} linkify={false} text={output} />
         ) : undefined
       }
       icon={<Bot size={TRACE_GLYPH_SIZE} />}
       /* The chip carries only the type, so the prompt is still new information
          and stays visible. */
-      input={parsed.prompt ?? parsed.raw}
+      input={
+        parsed.prompt ?? parsed.raw ? (
+          <TraceOutput
+            capped
+            label={i18n.t("session:assistantTrace.inputLabel")}
+            linkify={false}
+            prose
+            text={parsed.prompt ?? parsed.raw ?? ""}
+          />
+        ) : undefined
+      }
       inputLabel={i18n.t("session:assistantTrace.inputLabel")}
       output={
-        !isError && output ? <TraceOutput prose text={output} /> : undefined
+        !isError && output ? (
+          <TraceOutput capped label={i18n.t("ui:toolrun.output")} prose text={output} />
+        ) : undefined
       }
-      status={toAgentRunState(part.state)}
+      status={toAgentStepState(part.state)}
       title={
         parsed.description ??
         parsed.subagentType ??
@@ -251,7 +225,7 @@ export function TraceTodoRun(args: { part: ToolUsePart; title: string }) {
     <ToolRun
       count={planProgressCount(part.input)}
       icon={<ListTodo size={TRACE_GLYPH_SIZE} />}
-      status={toAgentRunState(part.state)}
+      status={toAgentStepState(part.state)}
       title={args.title}
     >
       <TracePlan input={part.input} state={part.state} />

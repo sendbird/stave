@@ -10,6 +10,7 @@ import {
   findLatestPendingUserInput,
 } from "@/store/provider-message.utils";
 import type { ChatMessage, Task } from "@/types/chat";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 
 /**
  * `stalled` is a running turn that has reported nothing for the stall
@@ -26,6 +27,25 @@ export type FleetTaskStatus =
   | "idle";
 
 export type FleetDisplayStatus = FleetTaskStatus | "unknown";
+
+/**
+ * Each Fleet task status as the shared work state, the one mapping every
+ * Fleet board row, table row and sidebar task row draws its `StateMark` from.
+ * A quiet active turn is still working; silence does not establish a stop.
+ */
+const FLEET_STATUS_WORK_STATE: Readonly<Record<FleetDisplayStatus, WorkState>> = {
+  "waiting-input": "needs-you",
+  "waiting-approval": "approval",
+  error: "failed",
+  stalled: "working",
+  running: "working",
+  idle: "idle",
+  unknown: "unknown",
+};
+
+export function fleetStatusToWorkState(status: FleetDisplayStatus): WorkState {
+  return FLEET_STATUS_WORK_STATE[status];
+}
 
 export type FleetTaskFilter =
   "all" | "attention" | "running" | "error" | "idle";

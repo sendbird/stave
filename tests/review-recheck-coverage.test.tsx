@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { applyAppLocale } from "../src/i18n";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -109,12 +110,54 @@ describe("re-check request coverage", () => {
       findings, attachedFindingIds: null, onAttachSelected: () => {}, onRecheck: () => {}, recheckBusy: false,
     }));
     expect(html).toContain("1 of 3 fixed · 1 outdated · 1 unchecked");
-    expect(html).toContain(">outdated<");
-    expect(html).toContain(">unchecked<");
+    expect(html).toContain(">Outdated<");
+    expect(html).toContain(">Unchecked<");
     expect(html).toContain("Check fixes");
     const shelf = describeReviewShelfFindings(findings);
     expect(shelf).toMatchObject({ recheck: true, incomplete: true, blocking: true });
     const item = { status: "ready", child: { requestedModel: "model" } } as ReviewShelfItem;
     expect(describeReviewShelfLine({ item, now: 0, findings: shelf })).toMatchObject({ label: "Fix checks incomplete", tone: "danger" });
+  });
+});
+
+describe("review findings panel copy", () => {
+  afterEach(() => {
+    applyAppLocale("en");
+  });
+
+  const renderPanel = (report: ReviewFindingsReport) =>
+    renderToStaticMarkup(createElement(ReviewFindingsPanel, {
+      findings: { ok: true as const, report }, attachedFindingIds: null,
+      onAttachSelected: () => {}, onRecheck: null, recheckBusy: false,
+    }));
+  const report: ReviewFindingsReport = {
+    verdict: "request-changes",
+    previous: [{ id: "F0", status: "unresolved", note: null }],
+    findings: [
+      { id: "F1", severity: "critical", title: "A", file: null, line: null, detail: null, fix: null },
+      { id: "F2", severity: "major", title: "B", file: null, line: null, detail: null, fix: null },
+      { id: "F3", severity: "minor", title: "C", file: null, line: null, detail: null, fix: null },
+    ],
+  };
+
+  test("severity and re-check state are words, and the attach count reads as one sentence", () => {
+    const html = renderPanel(report);
+    expect(html).toContain(">Critical<");
+    expect(html).toContain(">Major<");
+    expect(html).toContain(">Minor<");
+    expect(html).toContain(">Unresolved<");
+    expect(html).toContain("Attach 3 of 3");
+    expect(html).not.toContain("Attach3");
+  });
+
+  test("Korean shows translated severity, state and a natural attach order", () => {
+    applyAppLocale("ko");
+    const html = renderPanel(report);
+    for (const raw of [">critical<", ">major<", ">minor<", ">unresolved<"]) expect(html).not.toContain(raw);
+    expect(html).toContain(">심각<");
+    expect(html).toContain(">중요<");
+    expect(html).toContain(">경미<");
+    expect(html).toContain(">미해결<");
+    expect(html).toContain("3개 중 3개 첨부");
   });
 });

@@ -120,11 +120,6 @@ export const cardStyles = stylex.create({
     paddingInline: vars["--ads-space-16"],
   },
   // The search-hit tint the Explorer and Git graph use.
-  searchMatch: {
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-warning"]} 30%, transparent)`,
-    borderRadius: vars["--ads-radius-mark"],
-    color: "inherit",
-  },
   list: {
     minWidth: 0,
   },
@@ -234,7 +229,7 @@ export const cardStyles = stylex.create({
     gap: 6,
   },
   todoTrack: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
+    backgroundColor: vars["--ads-color-track"],
     borderRadius: vars["--ads-radius-full"],
     height: 4,
     overflow: "hidden",

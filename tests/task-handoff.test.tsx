@@ -5,7 +5,7 @@ import { Database } from "bun:sqlite";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
 import { TaskHandoffStore } from "../electron/persistence/task-handoff-store";
 import { taskHandoffPreload } from "../electron/persistence/task-handoff-preload";
-import { findHandoffProposal, TaskHandoffEditor } from "@/components/session/TaskHandoffPanel";
+import { findHandoffProposal, HandoffDraftFields, TaskHandoffEditor } from "@/components/session/TaskHandoffPanel";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import { buildProviderTurnPrompt } from "@/lib/providers/provider-request-translators";
 import {
@@ -17,10 +17,14 @@ import {
   HANDOFF_PROPOSAL_FENCE,
   HANDOFF_SECTION_IDS,
   HANDOFF_SECTION_MAX_CHARS,
+  combineHandoffLeftOut,
+  handoffSectionOverflow,
   mergeHandoffSuggestions,
+  putBackHandoffLine,
   parseHandoffProposal,
   resolveHandoffCommit,
   type HandoffDraft,
+  type HandoffLeftOut,
   type TaskHandoffRecord,
 } from "@/lib/task-context/handoff-record";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -118,14 +122,15 @@ describe("handoff record rules", () => {
     expect(merged.draft.decisions).toBe("- approved Run command: bun run migrate");
   });
 
-  test("Fill keeps each section within its limit and counts the lines that did not fit", () => {
+  test("Fill keeps each section within its limit and returns the lines that did not fit", () => {
     const nearlyFull = "x".repeat(HANDOFF_SECTION_MAX_CHARS - 40);
+    const tooLong = `- ${"y".repeat(HANDOFF_SECTION_MAX_CHARS)}`;
     const merged = mergeHandoffSuggestions(
       { ...EMPTY_DRAFT, verified: nearlyFull, cautions: "- watch the cache" },
       {
         decisions: "- approved bun run migrate",
         verified: "- short line that fits\n- a second line that is too long to fit in what is left",
-        cautions: `- ${"y".repeat(HANDOFF_SECTION_MAX_CHARS)}`,
+        cautions: tooLong,
       },
     );
     for (const id of HANDOFF_SECTION_IDS) {
@@ -134,7 +139,50 @@ describe("handoff record rules", () => {
     expect(merged.draft.verified).toBe(`${nearlyFull}\n- short line that fits`);
     expect(merged.draft.cautions).toBe("- watch the cache");
     expect(merged.changed).toEqual(["decisions", "verified"]);
-    expect(merged.leftOut).toEqual({ verified: 1, cautions: 1 });
+    // The lines themselves, not a count: the editor lists them and can put one back.
+    expect(merged.leftOut).toEqual({
+      verified: ["- a second line that is too long to fit in what is left"],
+      cautions: [tooLong],
+    });
+  });
+
+  test("a left-out line is shown, struck through with a label, and Put back adds it to the draft", () => {
+    const nearlyFull = `- ${"x".repeat(HANDOFF_SECTION_MAX_CHARS - 30)}`;
+    const dropped = "- Lint warns on the unused sidebarGap token in settings-sidebar.tsx";
+    const merged = mergeHandoffSuggestions({ ...EMPTY_DRAFT, cautions: nearlyFull }, { cautions: dropped });
+    expect(merged.changed).toEqual([]);
+    expect(merged.leftOut).toEqual({ cautions: [dropped] });
+    const render = (draft: HandoffDraft, leftOut: HandoffLeftOut) => renderToStaticMarkup(createElement(HandoffDraftFields, {
+      fieldId: "handoff", draft, reviewing: true, leftOut, onChange: () => {}, onPutBack: () => {},
+    }));
+    const listed = render(merged.draft, merged.leftOut);
+    expect(listed).toContain('data-handoff-left-out="cautions"');
+    expect(listed).toContain("1 line did not fit");
+    expect(listed).toContain("Cautions holds 2,000 characters");
+    // The strike is never the only cue: the line reads as left out.
+    expect(listed).toContain(`Left out: </span><s>${dropped}</s>`);
+    expect(listed).toContain(">Put back<");
+    // Put back: the line joins the draft and leaves the list; past the limit, the field says by how much.
+    const draft = { ...merged.draft, cautions: putBackHandoffLine(merged.draft.cautions, dropped) };
+    expect(draft.cautions).toBe(`${nearlyFull}\n${dropped}`);
+    const over = handoffSectionOverflow(draft.cautions);
+    expect(over).toBe(draft.cautions.length - HANDOFF_SECTION_MAX_CHARS);
+    const putBack = render(draft, combineHandoffLeftOut(merged.leftOut, {}, draft));
+    expect(putBack).not.toContain("data-handoff-left-out");
+    expect(putBack).toContain(`${over} characters over the 2,000-character limit. Shorten it to save.`);
+    expect(putBack).toContain('aria-invalid="true"');
+    // Trimmed back under the limit, the warning goes.
+    const trimmed = { ...draft, cautions: draft.cautions.slice(over + 2) };
+    expect(handoffSectionOverflow(trimmed.cautions)).toBe(0);
+    expect(render(trimmed, {})).not.toContain("over the 2,000-character limit");
+  });
+
+  test("a second Fill keeps the lines still left out once and drops those that now fit", () => {
+    const previous: HandoffLeftOut = { cautions: ["- a", "- b"] };
+    expect(combineHandoffLeftOut(previous, { cautions: ["- b", "- c"], verified: ["- d"] }, { ...EMPTY_DRAFT, cautions: "- a" })).toEqual({
+      cautions: ["- b", "- c"],
+      verified: ["- d"],
+    });
   });
 
   test("the Handoff tab says which sections had lines left out, in English and Korean", async () => {
@@ -143,16 +191,21 @@ describe("handoff record rules", () => {
     try {
       expect(describeHandoffLeftOut({})).toBeNull();
       applyAppLocale("en");
-      expect(describeHandoffLeftOut({ verified: 1 })).toBe(
+      expect(describeHandoffLeftOut({ verified: ["- a"] })).toBe(
         "1 line did not fit in Verified results and was left out. Each section holds up to 2,000 characters.",
       );
-      expect(describeHandoffLeftOut({ verified: 1, cautions: 2 })).toBe(
+      expect(describeHandoffLeftOut({ verified: ["- a"], cautions: ["- b", "- c"] })).toBe(
         "3 lines did not fit in Verified results and Cautions and were left out. Each section holds up to 2,000 characters.",
       );
       applyAppLocale("ko");
-      expect(describeHandoffLeftOut({ verified: 1, cautions: 2 })).toBe(
+      expect(describeHandoffLeftOut({ verified: ["- a"], cautions: ["- b", "- c"] })).toBe(
         "검증된 결과 및 주의 사항에 들어가지 않아 3줄을 넣지 않았습니다. 섹션마다 최대 2,000자까지 담을 수 있습니다.",
       );
+      const html = renderToStaticMarkup(createElement(HandoffDraftFields, {
+        fieldId: "handoff", draft: EMPTY_DRAFT, reviewing: false, leftOut: { cautions: ["- b", "- c"] }, onChange: () => {}, onPutBack: () => {},
+      }));
+      expect(html).toContain("2줄이 들어가지 못했습니다");
+      expect(html).toContain(">다시 넣기<");
     } finally {
       applyAppLocale("en");
     }

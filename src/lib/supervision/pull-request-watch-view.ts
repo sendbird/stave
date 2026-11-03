@@ -14,6 +14,7 @@ import {
   type PullRequestWatchState,
 } from "./pull-request-watch";
 import type { Tone } from "@/components/ads/utils/tone";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 
 const EVENT_LABEL = {
   checks_failed: "automation:pullRequestWatch.eventChecksFailed",
@@ -44,6 +45,8 @@ export function describePullRequestWatchTarget(state: PullRequestWatchState | nu
 export interface PullRequestWatchCheckLine {
   text: string;
   tone: Extract<Tone, "neutral" | "success" | "warning" | "danger">;
+  /** The same outcome as a shared work state, for `StateMark`. */
+  state: WorkState;
   /** When the line is from; null before the first check. */
   at: string | null;
 }
@@ -53,22 +56,23 @@ export function describePullRequestWatchLastSeen(
   state: PullRequestWatchState | null,
 ): PullRequestWatchCheckLine {
   if (!state?.lastCheckedAt) {
-    return { text: i18n.t("automation:pullRequestWatch.notCheckedYet"), tone: "neutral", at: null };
+    return { text: i18n.t("automation:pullRequestWatch.notCheckedYet"), tone: "neutral", state: "idle", at: null };
   }
   const at = state.lastCheckedAt;
   if (state.lastReadError) {
     return {
       text: i18n.t("automation:pullRequestWatch.readFailed", { error: state.lastReadError }),
       tone: "warning",
+      state: "halted",
       at,
     };
   }
   const seen = state.lastSeen;
   if (!seen) {
-    return { text: i18n.t("automation:pullRequestWatch.noPullRequestYet"), tone: "neutral", at };
+    return { text: i18n.t("automation:pullRequestWatch.noPullRequestYet"), tone: "neutral", state: "idle", at };
   }
-  if (seen.state === "MERGED") return { text: i18n.t("automation:pullRequestWatch.merged"), tone: "success", at };
-  if (seen.state === "CLOSED") return { text: i18n.t("automation:pullRequestWatch.closed"), tone: "neutral", at };
+  if (seen.state === "MERGED") return { text: i18n.t("automation:pullRequestWatch.merged"), tone: "success", state: "ready", at };
+  if (seen.state === "CLOSED") return { text: i18n.t("automation:pullRequestWatch.closed"), tone: "neutral", state: "stopped", at };
   const problems = [
     ...(seen.failingChecks > 0
       ? [i18n.t("automation:pullRequestWatch.failingChecks", { count: seen.failingChecks })]
@@ -78,9 +82,9 @@ export function describePullRequestWatchLastSeen(
       ? [i18n.t("automation:pullRequestWatch.openComments", { count: seen.reviewComments })]
       : []),
   ];
-  if (problems.length > 0) return { text: problems.join(" · "), tone: "danger", at };
-  if (seen.checksPending) return { text: i18n.t("automation:pullRequestWatch.checksRunning"), tone: "neutral", at };
-  return { text: i18n.t("automation:pullRequestWatch.allClear"), tone: "success", at };
+  if (problems.length > 0) return { text: problems.join(" · "), tone: "danger", state: "failed", at };
+  if (seen.checksPending) return { text: i18n.t("automation:pullRequestWatch.checksRunning"), tone: "neutral", state: "waiting", at };
+  return { text: i18n.t("automation:pullRequestWatch.allClear"), tone: "success", state: "ready", at };
 }
 
 /** "2 minutes ago · 1 failing check" for the detail pane. */

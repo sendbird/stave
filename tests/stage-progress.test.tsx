@@ -2,17 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StageTrack } from "../src/components/agent-runs/StageTrack";
-import {
-  BAYER_8,
-  ditherDensity,
-  ditherThreshold,
-  easeStandard,
-  isCellLit,
-  shimmerOffset,
-} from "../src/components/agent-runs/dither-progress.paint";
 import type { StageStatus } from "../src/lib/agent-runs/domain";
 import type { AgentRunStageRow } from "../src/lib/agent-runs/agent-run-view";
-import { clampHeadLabel, projectStageProgress, stageTicks } from "../src/lib/agent-runs/stage-progress";
+import { projectStageProgress, stageTicks } from "../src/lib/agent-runs/stage-progress";
 import type { WorkflowStage } from "../src/lib/workflows/schema";
 
 const TITLES = ["Understand", "Build", "Verify", "Open draft PR", "Ready for review"];
@@ -97,75 +89,10 @@ describe("stage progress", () => {
     expect(stageTicks(2)).toEqual([0.5]);
     expect(stageTicks(1)).toEqual([]);
   });
-
-  test("the head label starts at the head and stays inside the track", () => {
-    expect(clampHeadLabel(0, 80, 300)).toBe(0);
-    expect(clampHeadLabel(120, 80, 300)).toBe(120);
-    expect(clampHeadLabel(260, 80, 300)).toBe(220);
-    expect(clampHeadLabel(300, 80, 300)).toBe(220);
-    // Wider than the track: it starts at zero rather than off the left edge.
-    expect(clampHeadLabel(150, 340, 300)).toBe(0);
-  });
-});
-
-describe("dither", () => {
-  test("the Bayer matrix holds every threshold once", () => {
-    expect([...BAYER_8.flat()].sort((a, b) => a - b)).toEqual(Array.from({ length: 64 }, (_, index) => index));
-  });
-
-  test("thresholds are deterministic and tile every 8 cells", () => {
-    expect(ditherThreshold(3, 5)).toBe(ditherThreshold(3, 5));
-    expect(ditherThreshold(3, 5)).toBe(ditherThreshold(11, 13));
-    expect(ditherThreshold(-1, -1)).toBe(ditherThreshold(7, 7));
-    expect(ditherThreshold(0, 0)).toBe(0.5 / 64);
-    expect(ditherThreshold(0, 7)).toBe(63.5 / 64);
-  });
-
-  test("a density lights that share of every 8×8 block", () => {
-    const lit = (density: number, originColumn = 0, originRow = 0) => {
-      let count = 0;
-      for (let row = 0; row < 8; row += 1)
-        for (let column = 0; column < 8; column += 1)
-          if (isCellLit(originColumn + column, originRow + row, density)) count += 1;
-      return count;
-    };
-    expect(lit(0.5)).toBe(32);
-    expect(lit(0.5, 24, 8)).toBe(32);
-    expect(lit(0.25)).toBe(16);
-    expect(lit(0)).toBe(0);
-    expect(lit(1)).toBe(64);
-  });
-
-  test("the fill is sparse at its start and dense at its head", () => {
-    const ramp = [0, 0.25, 0.5, 0.75, 1].map(ditherDensity);
-    expect(ramp[0]).toBeGreaterThan(0);
-    expect(ramp[4]).toBeLessThan(1);
-    for (let index = 1; index < ramp.length; index += 1) expect(ramp[index]!).toBeGreaterThan(ramp[index - 1]!);
-    expect(ramp[4]! - ramp[0]!).toBeGreaterThan(0.6);
-  });
-
-  test("only the newest cells shimmer", () => {
-    expect(shimmerOffset(4, 2, 40, 1_000)).toBe(0);
-    const near = [0, 300, 600, 900].map((time) => shimmerOffset(4, 2, 2, time));
-    expect(new Set(near).size).toBeGreaterThan(1);
-    for (const offset of near) expect(Math.abs(offset)).toBeLessThanOrEqual(0.12);
-  });
-
-  test("the fill eases out on the standard curve", () => {
-    expect(easeStandard(0)).toBe(0);
-    expect(easeStandard(1)).toBe(1);
-    expect(easeStandard(0.5)).toBeGreaterThan(0.75);
-    let previous = 0;
-    for (let step = 1; step <= 20; step += 1) {
-      const value = easeStandard(step / 20);
-      expect(value).toBeGreaterThanOrEqual(previous);
-      previous = value;
-    }
-  });
 });
 
 describe("stage track", () => {
-  test("is a progressbar with its value in words, plus every stage as a list", () => {
+  test("is a determinate progressbar with its value in words, the stage and count beside it, plus every stage as a list", () => {
     const html = renderToStaticMarkup(
       createElement(StageTrack, { rows: rows(["completed", "completed", "running", "pending", "pending"], 2) }),
     );
@@ -174,7 +101,10 @@ describe("stage track", () => {
     expect(html).toContain('aria-valuemax="100"');
     expect(html).toContain('aria-valuenow="40"');
     expect(html).toContain('aria-valuetext="Stage 3 of 5, Verify, running"');
-    expect(html).toMatch(/<canvas aria-hidden="true"/);
+    expect(html).not.toContain("<canvas");
+    expect(html).toContain('data-stage-tone="active"');
+    expect(html).toContain(">Verify</span>");
+    expect(html).toContain(">3/5</span>");
     expect(html).toContain("<ol");
     expect(html.match(/aria-current="step"/g)).toHaveLength(1);
     expect(html).toContain("3. Verify — Running");

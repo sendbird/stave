@@ -29,7 +29,7 @@ for (const lang of ["en", "ko"] as const) {
       await page.goto(`/?stavePreview=task-panel&tab=results&panelWidth=320&lang=${lang}&theme=${theme}`);
       const outputs = page.getByRole("region", { name: ko ? "작업 산출물" : "Task outputs" });
       await expect(page.getByRole("tab", { name: ko ? /^산출물/ : /^Outputs/ })).toHaveAttribute("aria-selected", "true");
-      await expect(outputs.getByRole("button", { name: ko ? "전체 산출물" : "All outputs", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(outputs.getByRole("radio", { name: ko ? "전체 산출물" : "All outputs", exact: true })).toHaveAttribute("aria-checked", "true");
       const check = outputs.getByRole("button", { name: ko ? "읽음 표시" : "Mark read", exact: true });
       await expect(check).toBeHidden();
       await outputs.getByText(summary, { exact: true }).click();

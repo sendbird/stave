@@ -5,7 +5,7 @@ import { i18n } from "@/i18n/runtime";
  * assistive technology reads. The Agent run bar, the agent run bar, the Progress
  * tab and Fleet cards draw the same projection, so they agree on the number.
  *
- * Pure. The drawing lives in `src/components/agent-runs/DitherProgress.tsx`.
+ * Pure. The drawing lives in `src/components/agent-runs/StageTrack.tsx`.
  */
 import type { StageStatus } from "./domain";
 import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow, type StageState } from "./agent-run-view";
@@ -73,13 +73,4 @@ export function stageTicks(total: number): number[] {
   const ticks: number[] = [];
   for (let index = 1; index < total; index += 1) ticks.push(index / total);
   return ticks;
-}
-
-/**
- * Where the head label sits: its leading edge on the fill head, so it covers
- * the stage in progress and never the work already done, held inside the
- * track at both ends. A label wider than the track starts at zero.
- */
-export function clampHeadLabel(head: number, labelWidth: number, trackWidth: number): number {
-  return Math.max(0, Math.min(head, trackWidth - labelWidth));
 }

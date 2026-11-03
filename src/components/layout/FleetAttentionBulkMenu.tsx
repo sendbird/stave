@@ -22,6 +22,7 @@ import {
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
+import { FLEET_SNOOZE_DURATION_LABEL_KEY } from "@/lib/fleet/fleet-vocabulary";
 import { inboxRowStyles as rowStyles } from "./inbox-row.styles";
 
 /** Shared by Fleet and the bell: read outcomes, or temporarily hide any need. */
@@ -77,7 +78,7 @@ export function FleetAttentionBulkMenu(props: {
           >
             {t("fleet:bulkAttention.snoozeFor", {
               count: total,
-              duration: t(DURATION_LABEL_KEY[duration.id as keyof typeof DURATION_LABEL_KEY]),
+              duration: t(FLEET_SNOOZE_DURATION_LABEL_KEY[duration.id]),
             })}
           </DropdownMenuItem>
         ))}
@@ -89,13 +90,6 @@ export function FleetAttentionBulkMenu(props: {
     </DropdownMenu>
   );
 }
-
-const DURATION_LABEL_KEY = {
-  "1h": "fleet:bulkAttention.oneHour",
-  "4h": "fleet:bulkAttention.fourHours",
-  "1d": "fleet:bulkAttention.oneDay",
-  "1w": "fleet:bulkAttention.oneWeek",
-} as const;
 
 const BULK_EFFECT_LABEL_KEY = {
   "review-results": "fleet:bulkAttention.readResults",

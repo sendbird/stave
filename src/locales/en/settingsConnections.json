@@ -95,7 +95,14 @@
     "noClassOrSkillRepeatedOften": "No class or skill repeated often enough to propose a rule. The stance above is the only change.",
     "was": " · was: {{value1}}",
     "newRule": " · new rule",
-    "now": " → now: {{value1}}"
+    "now": " → now: {{value1}}",
+    "scanDescription": "Read your recent prompts",
+    "promptsRead_one": "{{count}} prompt read",
+    "promptsRead_other": "{{count}} prompts read",
+    "reviewDescription": "Choose the rules",
+    "applyDescription": "Save the profile",
+    "stepOf": "Step {{step}} of {{total}}",
+    "stepHeading": "Step {{step}} of {{total}}: {{name}}"
   },
   "settingsDialogAutoRoutingSection": {
     "noEligibleRouteIsAvailable": "No eligible route is available.",

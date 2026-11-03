@@ -40,7 +40,9 @@ Stave keeps the 50 most recent notifications and deletes older ones automaticall
 You do not have to scroll back through the task chat to approve or deny a tool call.
 
 - Open the bell and find the approval entry.
-- Choose `Allow once` or `Deny` directly from the notification.
+- Choose `Allow` or `Deny` directly from the notification, or focus the row and
+  press `A` or `D`, the same words and keys as Fleet View's rows. `Allow`
+  allows that request once.
 - The change is reflected back in the task immediately.
 
 If you prefer, the task itself also shows the pending approval as a row above the composer.
@@ -50,6 +52,15 @@ If you prefer, the task itself also shows the pending approval as a row above th
 - Click a notification.
 - Stave switches to the right repository, workspace, and task.
 - If the task was archived, Stave asks you to restore it before reopening.
+
+## In-App Toasts
+
+- Notices that need a glance — a finished turn, an approval request, a
+  workspace result, a failed save — appear as toasts in one stack at the
+  bottom-right of the window.
+- The stack shows up to three toasts at once; older ones fold behind the newest.
+- It sits above the composer and the status bar instead of covering them, and
+  moves up as the composer grows.
 
 ## System Notifications
 
@@ -64,7 +75,7 @@ One short sound plays when a task turn finishes and when the AI is waiting on yo
 
 1. Open `Settings > General`.
 2. Find `Notification Sound`.
-3. Enable it, choose a preset or upload your own audio, and set the volume.
+3. Enable it, choose a preset or your own audio, and set the volume. For your own audio, drop an MP3, WAV, OGG, M4A or WebM file (up to 500 KB) on the row, or select **Choose file**. A file of another type or a larger one stays listed with the reason it was refused until you dismiss it.
 4. Click `Preview` to hear it.
 
 ## Run Sign-off Reminders

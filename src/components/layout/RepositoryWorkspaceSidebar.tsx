@@ -514,9 +514,13 @@ export function RepositoryWorkspaceSidebar(args: {
       for (let step = 0; step < steps; step += 1) {
         moveRepositoryInList({ repositoryPath: sourceId, direction });
       }
-      const repositoryName = repositories[fromIndex]?.repositoryName ?? "Repository";
+      const repositoryName = repositories[fromIndex]?.repositoryName ?? i18n.t("workspace:repositoryWorkspaceSidebar.repositoryFallbackName");
       setReorderAnnouncement(
-        `${repositoryName} moved to position ${destinationIndex + 1} of ${repositories.length}.`,
+        i18n.t("workspace:repositoryWorkspaceSidebar.movedToPosition", {
+          name: repositoryName,
+          position: destinationIndex + 1,
+          total: repositories.length,
+        }),
       );
       suppressNextRowClick();
     },
@@ -557,9 +561,13 @@ export function RepositoryWorkspaceSidebar(args: {
           direction,
         });
       }
-      const workspaceName = repository.workspaces[fromIndex]?.name ?? "Workspace";
+      const workspaceName = repository.workspaces[fromIndex]?.name ?? i18n.t("workspace:repositoryWorkspaceSidebar.workspaceFallbackName");
       setReorderAnnouncement(
-        `${workspaceName} moved to position ${destinationIndex + 1} of ${repository.workspaces.length}.`,
+        i18n.t("workspace:repositoryWorkspaceSidebar.movedToPosition", {
+          name: workspaceName,
+          position: destinationIndex + 1,
+          total: repository.workspaces.length,
+        }),
       );
       suppressNextRowClick();
     },
@@ -1128,7 +1136,11 @@ export function RepositoryWorkspaceSidebar(args: {
                                             direction,
                                           });
                                           setReorderAnnouncement(
-                                            `${repository.repositoryName} moved to position ${nextIndex + 1} of ${repositories.length}.`,
+                                            i18n.t("workspace:repositoryWorkspaceSidebar.movedToPosition", {
+                                              name: repository.repositoryName,
+                                              position: nextIndex + 1,
+                                              total: repositories.length,
+                                            }),
                                           );
                                         }
                                       : undefined
@@ -1504,7 +1516,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       }
                                                       role="button"
                                                       tabIndex={0}
-                                                      aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? "Default" : workspace.name })}
+                                                      aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name })}
                                                       aria-keyshortcuts={
                                                         !workspaceReorderingDisabled
                                                           ? "Alt+ArrowUp Alt+ArrowDown"
@@ -1588,7 +1600,11 @@ export function RepositoryWorkspaceSidebar(args: {
                                                             },
                                                           );
                                                           setReorderAnnouncement(
-                                                            `${workspace.isDefault ? "Default" : workspace.name} moved to position ${nextIndex + 1} of ${repository.workspaces.length}.`,
+                                                            i18n.t("workspace:repositoryWorkspaceSidebar.movedToPosition", {
+                                                              name: workspace.isDefault ? i18n.t("workspace:repositoryWorkspaceSidebar.default") : workspace.name,
+                                                              position: nextIndex + 1,
+                                                              total: repository.workspaces.length,
+                                                            }),
                                                           );
                                                           return;
                                                         }

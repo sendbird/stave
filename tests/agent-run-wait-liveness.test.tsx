@@ -20,7 +20,7 @@ import {
   describeSubagentSummary,
   planSubagentLine,
   subagentCurrentStep,
-  subagentLineState,
+  subagentWorkState,
 } from "../src/lib/delegation/subagent-summary";
 import type { DelegatedTaskSummary } from "../src/lib/runs/delegated-task";
 import { applyRuntimeLocale } from "@/i18n/runtime";
@@ -125,9 +125,9 @@ describe("what the delegates say about the wait", () => {
   const delegatedWait = { ...baseWait, kind: "delegated_completion" as const, target: null, since: iso(NOW - 10 * MINUTE) };
 
   test("a delegate that needs the user is said whatever the run waits for", () => {
-    expect(describeDelegatedWait({ wait: null, rows: [delegate("Writer", { status: "running", needsUser: true })], now: NOW }))
+    expect(describeDelegatedWait({ wait: null, rows: [delegate("Writer", { status: "needs_user" })], now: NOW }))
       .toEqual({ text: "Writer needs you", tone: "warning" });
-    expect(describeDelegatedWait({ wait: baseWait, rows: [delegate("A", { status: "running", needsUser: true }), delegate("B", { status: "running", needsUser: true })], now: NOW })?.text)
+    expect(describeDelegatedWait({ wait: baseWait, rows: [delegate("A", { status: "needs_user" }), delegate("B", { status: "needs_user" })], now: NOW })?.text)
       .toBe("A, B need you");
   });
 
@@ -199,7 +199,7 @@ describe("what the delegates say about the wait", () => {
     const liveness = describeRunWaitLiveness({
       eventWait: delegatedWait,
       observedAt: iso(NOW - 5_000),
-      delegates: { rows: [delegate("Writer", { status: "running", needsUser: true })] },
+      delegates: { rows: [delegate("Writer", { status: "needs_user" })] },
       now: NOW,
     });
     expect(liveness.notes.map((note) => note.tone)).toEqual(["warning", "muted"]);
@@ -223,11 +223,11 @@ describe("the delegates under the run line", () => {
 
   test("a delegate sitting between turns on its own is waiting, not working", () => {
     const waiting = fromDelegatedTask(child("waiting"));
-    expect(waiting.outcome).toMatchObject({ status: "running", waiting: true });
-    expect(subagentLineState(waiting)).toBe("waiting");
+    expect(waiting.outcome).toMatchObject({ status: "waiting" });
+    expect(subagentWorkState(waiting)).toBe("waiting");
     expect(describeSubagentState(waiting)).toBe("waiting");
     expect(subagentCurrentStep({ ...waiting, outcome: { ...waiting.outcome, progress: ["old step"] } })).toBeNull();
-    expect(subagentLineState(fromDelegatedTask(child("running")))).toBe("working");
+    expect(subagentWorkState(fromDelegatedTask(child("running")))).toBe("working");
     applyRuntimeLocale("ko");
     expect(describeSubagentState(waiting)).toBe("대기 중");
     expect(describeSubagentState(fromDelegatedTask(child("pending")))).toBe("시작 전");
@@ -239,7 +239,7 @@ describe("the delegates under the run line", () => {
       delegate("b", { status: "queued" }),
       delegate("c", { status: "returned" }),
       delegate("d", { status: "running" }),
-      delegate("e", { status: "running", needsUser: true }),
+      delegate("e", { status: "needs_user" }),
       delegate("f", { status: "failed" }),
     ]);
     expect(plan.shown.map((row) => row.title)).toEqual(["e", "d", "b"]);
@@ -259,7 +259,7 @@ describe("the delegates under the run line", () => {
     expect(html).toContain('data-subagent-state="working"');
     expect(subagentLine(html)).toContain('data-motion="moving"');
     expect(html).toContain('data-subagent-state="queued"');
-    expect(html).not.toContain('data-subagent-state="done"');
+    expect(html).not.toContain('data-subagent-state="ready"');
     expect(html).toContain("1 done");
     expect(html).toContain("Reading the diff");
     // The paragraph is plain text: no name ARIA prohibits on it.
@@ -277,7 +277,7 @@ describe("the delegates under the run line", () => {
   });
 
   test("a delegate that needs the user is lifted onto the run line in the warning ink", () => {
-    const html = bar(withWait({ kind: "delegated_completion", target: null }), [delegate("Writer", { status: "running", needsUser: true })]);
+    const html = bar(withWait({ kind: "delegated_completion", target: null }), [delegate("Writer", { status: "needs_user" })]);
     expect(html).toContain('data-testid="agent-run-note-delegate"');
     expect(html).toContain("Writer needs you");
     expect(html).toContain('data-subagent-state="needs-you"');

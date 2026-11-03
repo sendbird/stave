@@ -2,9 +2,10 @@ import { formatDateTime, formatDuration, formatNumber, formatPercent, formatTime
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Button } from "@/components/ads/components/Button";
+import { Meter, type MeterTone } from "@/components/ads/components/Meter";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import type { QuotaObservation, UsageStatisticsReport } from "@/lib/providers/usage-statistics";
@@ -18,12 +19,8 @@ import { NotReported, UsageInfo } from "./UsageInfo";
 
 const identity = (row: QuotaObservation) => `${row.providerId}:${row.accountProfileId}:${row.windowId}`;
 const percent = (value: number) => `${formatNumber(value, { maximumFractionDigits: 1 })}%`;
-/** A saved window is worth watching from 80% used and about to bind from 97%. */
-const QUOTA_FILL_THRESHOLDS = [
-  { from: 80, tone: "warning" },
-  { from: 97, tone: "danger" },
-] as const satisfies readonly ToneThreshold<Extract<Tone, "warning" | "danger">>[];
-const QUOTA_FILL = { neutral: null, warning: styles.warning, danger: styles.danger } as const;
+/** An ordinary reading keeps the accent fill; the shared quota thresholds turn it warning, then danger. */
+const QUOTA_FILL: Record<"neutral" | "warning" | "danger", MeterTone> = { neutral: "accent", warning: "warning", danger: "danger" };
 
 export function UsageQuota(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string;
   canRefresh: boolean; reading: boolean; error: string | null; onRefresh: () => void; now: number; apiBilling: boolean;
@@ -107,7 +104,7 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
   </section>;
 }
 
-const fillTone = (usedPercent: number) => QUOTA_FILL[thresholdTone(usedPercent, QUOTA_FILL_THRESHOLDS, "neutral")];
+const fillTone = (usedPercent: number) => QUOTA_FILL[usageThresholdTone("quota", usedPercent, "neutral")];
 const TEXT_TONE = { neutral: null, warning: styles.warningText, danger: styles.dangerText } as const;
 const resetTime = (resetsAt: number, timeZone: string) => formatDateTime(resetsAt * 1000,
   { timeZone, month: "short", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -140,14 +137,16 @@ function paceText(state: QuotaWindowState, row: QuotaObservation, timeZone: stri
   return { tone: "neutral" as const, text: i18n.t("usage:usageQuota.paceLasts", { percent: percent(Math.round(pace.projectedPercent)) }) };
 }
 
+/** The window's fill as a meter; the pace tick rides above the track as an overlay, outside the meter's value. */
 function QuotaMeter(props: { row: QuotaObservation; state: QuotaWindowState; label: string }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { row, state } = props;
   const key = state.expired ? "usage:messages.quotaUsedExpired" : state.stale ? "usage:messages.quotaUsedStale" : "usage:messages.quotaUsed";
-  return <div role="meter" aria-label={props.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, row.usedPercent)}
-    aria-valuetext={t(key, { percent: percent(row.usedPercent) })} className={sx(styles.track)}>
-    <div className={sx(styles.fill, fillTone(row.usedPercent))} style={{ width: `${Math.min(100, row.usedPercent)}%` }} />
-    {state.elapsedRatio !== null ? <div aria-hidden="true" className={sx(styles.elapsedMarker)} style={{ insetInlineStart: `${state.elapsedRatio * 100}%` }} /> : null}
+  const valueText = t(key, { percent: percent(row.usedPercent) });
+  return <div className={sx(styles.meterFrame)} data-usage-quota-meter="">
+    <Meter label={props.label} hideLabel hideValue size="sm" tone={fillTone(row.usedPercent)}
+      value={Math.max(0, Math.min(100, row.usedPercent))} getAriaValueText={() => valueText} />
+    {state.elapsedRatio !== null ? <div aria-hidden="true" data-usage-quota-elapsed="" className={sx(styles.elapsedMarker)} style={{ insetInlineStart: `${state.elapsedRatio * 100}%` }} /> : null}
   </div>;
 }
 
@@ -155,7 +154,7 @@ function QuotaWindow(props: { row: QuotaObservation; profiles: readonly Provider
   const { t } = useTranslation(I18N_NAMESPACES);
   const { row } = props;
   const state = quotaWindowState(row, props.now);
-  const tone = state.stale || state.expired ? "neutral" : thresholdTone(row.usedPercent, QUOTA_FILL_THRESHOLDS, "neutral");
+  const tone = state.stale || state.expired ? "neutral" : usageThresholdTone("quota", row.usedPercent, "neutral");
   const pace = paceText(state, row, props.timeZone);
   return <div className={sx(styles.quotaWindow)}>
     <div className={sx(styles.quotaWindowHead)}><span>{row.label}</span>
@@ -172,7 +171,7 @@ function QuotaWindow(props: { row: QuotaObservation; profiles: readonly Provider
 function QuotaHeadline(props: { row: QuotaObservation; state: QuotaWindowState; profiles: readonly ProviderAccountProfile[]; timeZone: string; now: number }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { row, state } = props;
-  const tone = thresholdTone(row.usedPercent, QUOTA_FILL_THRESHOLDS, "neutral");
+  const tone = usageThresholdTone("quota", row.usedPercent, "neutral");
   const pace = paceText(state, row, props.timeZone);
   const scope = `${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}`;
   return <section className={sx(styles.quotaHeadline)} aria-label={t("usage:usageQuota.tightestLimit")}>

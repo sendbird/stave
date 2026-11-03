@@ -185,38 +185,9 @@ export const summaryStyles = stylex.create({
   toneRemoved: {
     color: vars["--ads-color-diff-removed-text"],
   },
-  // A hairline meter, not a progress bar: it sits under the figure as a
-  // second reading of the same number and stays in the text color until
-  // the headroom is actually tight.
-  meterTrack: {
-    backgroundColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-full"],
-    height: 2,
+  // The meter sits under the figure as a second reading of the same number.
+  meter: {
     marginTop: vars["--ads-space-2"],
-    overflow: "hidden",
-    width: "100%",
-  },
-  meterFill: {
-    borderRadius: vars["--ads-radius-full"],
-    height: "100%",
-  },
-  meterNeutral: {
-    backgroundColor: {
-      default: vars["--ads-color-text-muted"],
-      "@media (forced-colors: active)": "CanvasText",
-    },
-  },
-  meterWarning: {
-    backgroundColor: {
-      default: vars["--ads-color-warning"],
-      "@media (forced-colors: active)": "CanvasText",
-    },
-  },
-  meterDanger: {
-    backgroundColor: {
-      default: vars["--ads-color-danger"],
-      "@media (forced-colors: active)": "CanvasText",
-    },
   },
   provenanceDot: {
     borderRadius: vars["--ads-radius-full"],

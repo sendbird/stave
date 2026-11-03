@@ -222,7 +222,8 @@ describe("the table", () => {
   test("names each column, the state, the need and how long it has waited", () => {
     const html = render(fixture());
     for (const column of ["Task", "Workspace", "State", "Needs", "Waiting", "Activity"]) {
-      expect(html).toContain(`>${column}</th>`);
+      // Each header is a sort button: the label is its text, the direction an icon beside it.
+      expect(html).toContain(`>${column}</span>`);
     }
     expect(html.match(/data-fleet-task-table-row=/g)).toHaveLength(6);
     expect(html).toContain('aria-label="Open approve-old in ws-cold"');
@@ -237,7 +238,7 @@ describe("the table", () => {
     expect(render([])).toContain("No tasks match this filter.");
     applyAppLocale("ko");
     expect(render([])).toContain("이 필터에 맞는 작업이 없습니다.");
-    expect(render(fixture())).toContain(">대기 시간</th>");
+    expect(render(fixture())).toContain(">대기 시간</span>");
   });
 });
 
@@ -395,7 +396,7 @@ describe("unopened workspaces' task lists", () => {
   });
 });
 
-describe("the Cards/Table choice", () => {
+describe("the board layout choice", () => {
   const initial = useAppStore.getInitialState();
   // Restored exactly: later files tell a bridge-less test run by the key's absence.
   const globalWithWindow = globalThis as { window?: unknown };
@@ -410,10 +411,11 @@ describe("the Cards/Table choice", () => {
     else delete globalWithWindow.window;
   });
 
-  test("defaults to cards, persists table, and reads anything else as cards", () => {
-    expect(initial.settings.fleetBoardLayout).toBe("cards");
+  test("defaults to tree, persists table, and reads anything else as tree", () => {
+    expect(initial.settings.fleetBoardLayout).toBe("tree");
     expect(normalizeFleetBoardLayout("table")).toBe("table");
-    expect(normalizeFleetBoardLayout("grid")).toBe("cards");
+    expect(normalizeFleetBoardLayout("cards")).toBe("cards");
+    expect(normalizeFleetBoardLayout("grid")).toBe("tree");
     useAppStore.getState().updateSettings({ patch: { fleetBoardLayout: "table" } });
     expect(useAppStore.getState().settings.fleetBoardLayout).toBe("table");
 
@@ -425,7 +427,7 @@ describe("the Cards/Table choice", () => {
     };
     const written = options.partialize(useAppStore.getState());
     expect(restore(JSON.parse(JSON.stringify(written.settings))).settings.fleetBoardLayout).toBe("table");
-    expect(restore({ fleetBoardLayout: 3 }).settings.fleetBoardLayout).toBe("cards");
-    expect(restore({}).settings.fleetBoardLayout).toBe("cards");
+    expect(restore({ fleetBoardLayout: 3 }).settings.fleetBoardLayout).toBe("tree");
+    expect(restore({}).settings.fleetBoardLayout).toBe("tree");
   });
 });

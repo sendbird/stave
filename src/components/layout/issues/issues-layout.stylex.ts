@@ -156,25 +156,6 @@ export const taskLayoutStyles = stylex.create({
     flexWrap: "wrap",
     gap: vars["--ads-space-8"],
   },
-  tabList: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    gap: 2,
-    padding: 2,
-  },
-  activeTab: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    boxShadow: vars["--ads-elevation-raised"],
-  },
-  tab: {
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
-    height: 32,
-    paddingInline: vars["--ads-space-8"],
-  },
   search: { marginInlineStart: "auto", position: "relative" },
   searchIcon: {
     color: vars["--ads-color-text-muted"],
@@ -192,25 +173,38 @@ export const taskLayoutStyles = stylex.create({
     paddingInlineStart: "2rem",
     width: "16rem",
   },
+  // Applied filters and the result count. Kept mounted (and collapsed while
+  // nothing narrows the list) so the count's live region announces changes.
+  appliedRow: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+    minInlineSize: 0,
+  },
+  appliedRowEmpty: { display: "none" },
+  // Sized to its chips, so Clear all follows the last chip and the count
+  // takes the end of the row.
+  appliedChips: { flex: "0 1 auto", inlineSize: "auto", minInlineSize: 0 },
+  appliedSummary: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    marginInlineStart: "auto",
+    whiteSpace: "nowrap",
+  },
+  filterPopup: { inlineSize: "20rem" },
   toolbarActions: {
     alignItems: "center",
     display: "flex",
     gap: vars["--ads-space-8"],
     marginInlineStart: "auto",
   },
-  segmented: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    borderStyle: "solid",
-    borderWidth: 1,
-    display: "flex",
-    padding: 2,
-  },
   selectSmall: { fontSize: vars["--ads-font-size-caption"], height: 32 },
   selectMedium: { fontSize: vars["--ads-font-size-caption"], height: 32, width: "10rem" },
   selectShort: { fontSize: vars["--ads-font-size-caption"], height: 32, width: "9rem" },
+  // Sized by its words: "Updated: Last 30 days" and its Korean reading differ.
+  selectUpdated: { fontSize: vars["--ads-font-size-caption"], height: 32, width: "auto", minWidth: "9rem" },
   // The columns row. `scrollbarColor` opts out of overlay scrollbars and the
   // inline-end fade turns a clipped column into "the row continues here":
   // without either, a board wider than the pane reads as if it ended.
@@ -798,19 +792,6 @@ export const taskLayoutStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-normal"],
-  },
-  kickoffModeList: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    gap: 2,
-    padding: 2,
-  },
-  kickoffMode: { flex: 1, fontSize: vars["--ads-font-size-caption"], height: 28 },
-  kickoffModeActive: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
   },
   kickoffReset: { gap: vars["--ads-space-4"] },
   icon14: { height: 14, width: 14 },

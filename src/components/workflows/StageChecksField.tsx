@@ -1,19 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useState, type ReactNode } from "react";
-import { ListChecks, Plus, Trash2, X } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { AsyncBoundary } from "@/components/system/AsyncBoundary";
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui";
+import { SearchableMultiPicker, type SearchablePickerOption } from "@/components/layout/settings-searchable-picker";
 import type { AiStage, WorkflowStage, WorkspaceCheckMode } from "@/lib/workflows/schema";
 import {
   addStageCheck,
@@ -24,8 +14,8 @@ import {
   type StageCheck,
 } from "@/lib/workflows/stage-checks";
 import { workspaceCheckMode } from "@/lib/agent-runs/workspace-check";
-import { Segmented } from "./Segmented";
-import { readyWorkspaceScripts, useWorkspaceScriptActions, type WorkspaceScriptActions, type WorkspaceScriptOption } from "./useWorkspaceScriptActions";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { readyWorkspaceScripts, useWorkspaceScriptActions, type WorkspaceScriptActions } from "./useWorkspaceScriptActions";
 import { stageCheckStyles as styles } from "./stage-checks.styles";
 import { workflowStyles } from "./workflows.styles";
 
@@ -84,20 +74,15 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
   useTranslation();
   const { check, stage } = props;
   const ids = check.criterion.scriptIds ?? [];
-  const known = new Map(readyWorkspaceScripts(props.scripts).map((script) => [script.id, script]));
+  // A saved ID the ready workspace does not list: kept as a chip, marked, so
+  // the reader sees why a run here would refuse to start.
+  const settled = props.scripts.available && props.scripts.state.status === "ready";
   const mode = workspaceCheckMode(check.criterion);
   const name = check.criterion.text;
   return (
     <li className={sx(styles.check)} aria-label={name}>
       <div className={sx(styles.head)}>
         <span className={sx(styles.name)}>{name}</span>
-        <ScriptPicker
-          scripts={props.scripts}
-          selected={ids}
-          onToggle={(scriptId) => props.onChange(toggleStageCheckScript(stage, check.index, scriptId))}
-          trigger={<><ListChecks aria-hidden />{i18n.t("agentRuns:stageChecks.editScripts")}</>}
-          triggerLabel={i18n.t("agentRuns:stageChecks.editScriptsAria", { check: name })}
-        />
         <Button
           variant="quiet"
           size="xs"
@@ -108,42 +93,36 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
           <Trash2 aria-hidden />
         </Button>
       </div>
-      {ids.length ? (
-        <ul className={sx(styles.scripts)} aria-label={i18n.t("agentRuns:stageChecks.scriptsAria", { check: name })}>
-          {ids.map((id) => {
-            const script = known.get(id);
-            const unknown = props.scripts.available && props.scripts.state.status === "ready" && !script;
-            return (
-              <li key={id} className={sx(styles.script, unknown && styles.scriptUnknown)} title={unknown ? i18n.t("agentRuns:stageChecks.unknownScript") : script?.description || id}>
-                <span className={sx(styles.scriptLabel)}>
-                  {unknown ? i18n.t("agentRuns:stageChecks.unknownScriptLabel", { script: id }) : script?.label ?? id}
-                </span>
-                <Button
-                  variant="quiet"
-                  size="xs"
-                  iconOnly
-                  press="none"
-                  xstyle={styles.removeScript}
-                  aria-label={i18n.t("agentRuns:stageChecks.removeScript", { script: script?.label ?? id })}
-                  onClick={() => props.onChange(toggleStageCheckScript(stage, check.index, id))}
-                >
-                  <X aria-hidden />
-                </Button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      {/* The check's scripts are chips in a field: remove one with its own
+          button or Backspace, search and add more in place. */}
+      <ScriptPicker
+        scripts={props.scripts}
+        selected={ids}
+        fieldLabel={i18n.t("agentRuns:stageChecks.scriptsAria", { check: name })}
+        missingOption={(id) =>
+          settled
+            ? { value: id, label: i18n.t("agentRuns:stageChecks.unknownScriptLabel", { script: id }), detail: i18n.t("agentRuns:stageChecks.unknownScript"), stale: true }
+            : { value: id, label: id }
+        }
+        onSet={(next) => {
+          // Apply every difference in turn, additions first: removing the last
+          // script removes the check (as the trash button does), so nothing
+          // may follow that on the same index.
+          let nextStage = stage;
+          const changed = [...next.filter((id) => !ids.includes(id)), ...ids.filter((id) => !next.includes(id))];
+          for (const id of changed) nextStage = toggleStageCheckScript(nextStage, check.index, id);
+          if (changed.length) props.onChange(nextStage);
+        }}
+      />
       {ids.length > 1 ? (
-        <Segmented<WorkspaceCheckMode>
+        <SegmentedControl<WorkspaceCheckMode>
           aria-label={i18n.t("agentRuns:stageChecks.modeAria", { check: name })}
-          size="xs"
           value={mode}
           options={[
-            { value: "all", label: i18n.t("agentRuns:stageChecks.modeAll"), description: i18n.t("agentRuns:stageChecks.modeAllDescription") },
-            { value: "any", label: i18n.t("agentRuns:stageChecks.modeAny"), description: i18n.t("agentRuns:stageChecks.modeAnyDescription") },
+            { value: "all", label: i18n.t("agentRuns:stageChecks.modeAll"), title: i18n.t("agentRuns:stageChecks.modeAllDescription") },
+            { value: "any", label: i18n.t("agentRuns:stageChecks.modeAny"), title: i18n.t("agentRuns:stageChecks.modeAnyDescription") },
           ]}
-          onChange={(next) => props.onChange(setStageCheckMode(stage, check.index, next))}
+          onValueChange={(next) => props.onChange(setStageCheckMode(stage, check.index, next))}
         />
       ) : null}
       {check.criterion.required === false ? <p className={sx(workflowStyles.hint)}>{i18n.t("agentRuns:stageChecks.optional")}</p> : null}
@@ -151,74 +130,71 @@ function StageCheckRow(props: { check: StageCheck; stage: AiStage; scripts: Work
   );
 }
 
-/** A searchable multi-select of the workspace's action scripts; picking keeps the list open. */
+/**
+ * A searchable multi-select of the workspace's action scripts; picking keeps
+ * the list open. With `trigger` it opens from that button (adding a check);
+ * without it the chosen scripts are chips in the field (editing a check).
+ */
 function ScriptPicker(props: {
   scripts: WorkspaceScriptActions;
   selected: readonly string[];
-  onToggle: (scriptId: string) => void;
+  /** Trigger form: one pick or unpick at a time. */
+  onToggle?: (scriptId: string) => void;
+  /** Chip field form: the whole new set, so Clear can empty it at once. */
+  onSet?: (scriptIds: string[]) => void;
   onClose?: () => void;
-  trigger: ReactNode;
+  trigger?: ReactNode;
   /** An accessible name that starts with the visible label, when the label alone is ambiguous. */
   triggerLabel?: string;
+  /** Chip field: what the field holds, read with its input. */
+  fieldLabel?: string;
+  missingOption?: (scriptId: string) => SearchablePickerOption & { stale?: boolean };
 }) {
   useTranslation();
-  const [open, setOpen] = useState(false);
+  const state = props.scripts.available ? props.scripts.state : null;
+  const list = readyWorkspaceScripts(props.scripts);
+  const options = list.map((script) => ({
+    value: script.id,
+    label: script.label,
+    detail: [script.label !== script.id ? script.id : null, script.description || null].filter(Boolean).join(" · ") || undefined,
+    keywords: [script.id, script.description],
+  }));
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) props.onClose?.();
+    <SearchableMultiPicker
+      trigger={props.trigger ? <Button variant="quiet" size="xs" /> : undefined}
+      triggerContent={props.trigger}
+      aria-label={props.trigger ? props.triggerLabel : props.fieldLabel}
+      options={options}
+      selected={props.selected}
+      onChange={(next) => {
+        if (props.onSet) {
+          props.onSet(next);
+          return;
+        }
+        // One pick or unpick at a time: hand the changed script back.
+        const changed = next.find((id) => !props.selected.includes(id))
+          ?? props.selected.find((id) => !next.includes(id));
+        if (changed) props.onToggle?.(changed);
       }}
-    >
-      <PopoverTrigger render={<Button variant="quiet" size="xs" aria-label={props.triggerLabel} />}>{props.trigger}</PopoverTrigger>
-      <PopoverContent align="start" density="flush" xstyle={styles.popup}>
-        {open ? <ScriptOptions {...props} /> : null}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function ScriptOptions(props: { scripts: WorkspaceScriptActions; selected: readonly string[]; onToggle: (scriptId: string) => void }) {
-  useTranslation();
-  if (!props.scripts.available) return <p role="status" className={sx(styles.note)}>{i18n.t("agentRuns:stageChecks.noWorkspace")}</p>;
-  return (
-    <div className={sx(styles.boundary)}>
-      <AsyncBoundary
-        state={props.scripts.state}
-        onRetry={props.scripts.refresh}
-        describeError={() => i18n.t("agentRuns:stageChecks.readFailed")}
-        isEmpty={(list: WorkspaceScriptOption[]) => list.length === 0}
-        empty={<p role="status" className={sx(styles.note)}>{i18n.t("agentRuns:stageChecks.noScripts")}</p>}
-      >
-        {(list) => (
-          <Command>
-            <CommandInput autoFocus aria-label={i18n.t("agentRuns:stageChecks.search")} placeholder={i18n.t("agentRuns:stageChecks.search")} />
-            <CommandList className={sx(styles.options)}>
-              <CommandEmpty>{i18n.t("agentRuns:stageChecks.noMatch")}</CommandEmpty>
-              {list.map((script) => {
-                const checked = props.selected.includes(script.id);
-                return (
-                  <CommandItem
-                    key={script.id}
-                    value={script.id}
-                    keywords={[script.label, script.id, script.description]}
-                    data-checked={checked}
-                    aria-checked={checked}
-                    onSelect={() => props.onToggle(script.id)}
-                  >
-                    <span className={sx(styles.option)}>
-                      <span>{script.label}</span>
-                      {script.label !== script.id ? <span className={sx(styles.optionDetail)}>{script.id}</span> : null}
-                      {script.description ? <span className={sx(styles.optionDetail)}>{script.description}</span> : null}
-                    </span>
-                  </CommandItem>
-                );
-              })}
-            </CommandList>
-          </Command>
-        )}
-      </AsyncBoundary>
-    </div>
+      missingOption={props.missingOption}
+      removeLabel={(script) => i18n.t("agentRuns:stageChecks.removeScript", { script })}
+      // A list opened from a small button gets its own width; a chip field's
+      // list follows the field.
+      popupXstyle={props.trigger ? styles.popup : undefined}
+      onOpenChange={(open) => {
+        if (!open) props.onClose?.();
+      }}
+      loading={state?.status === "pending"}
+      searchPlaceholder={i18n.t("agentRuns:stageChecks.search")}
+      emptyText={
+        !state
+          ? i18n.t("agentRuns:stageChecks.noWorkspace")
+          : state.status === "error"
+            ? i18n.t("agentRuns:stageChecks.readFailed")
+            : list.length === 0
+              ? i18n.t("agentRuns:stageChecks.noScripts")
+              : i18n.t("agentRuns:stageChecks.noMatch")
+      }
+    />
   );
 }

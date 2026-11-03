@@ -281,6 +281,7 @@ export function IssuesView(props: { onClose: () => void }) {
         projectOptions={pipeline.projectOptions}
         labelOptions={pipeline.labelOptions}
         viewCounts={pipeline.viewCounts}
+        resultCount={boardItems.length}
         searchInputRef={searchInputRef}
       />
       <TrackerSourceStatusStrip

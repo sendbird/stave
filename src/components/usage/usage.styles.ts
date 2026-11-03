@@ -16,7 +16,6 @@ export const usageStyles = stylex.create({
   viewTabs: { alignSelf: "start", maxInlineSize: "100%" },
   row: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], flexWrap: "wrap" },
   filters: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: vars["--ads-space-12"], alignItems: "end" },
-  field: { display: "grid", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   figures: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: vars["--ads-space-16"], paddingBlock: vars["--ads-space-16"],
     borderBlockWidth: vars["--ads-border-width-hairline"], borderBlockStyle: "solid", borderBlockColor: vars["--ads-color-border"] },
   figure: { display: "grid", alignContent: "start", gap: vars["--ads-space-8"], minInlineSize: 0 },
@@ -37,12 +36,10 @@ export const usageStyles = stylex.create({
     borderWidth: vars["--ads-border-width-hairline"], borderStyle: "solid", borderColor: vars["--ads-color-border"], borderRadius: vars["--ads-radius-panel"] },
   quotaHeadlineScope: { minInlineSize: 0, overflowWrap: "anywhere", fontWeight: vars["--ads-font-weight-medium"] },
   headlinePace: { margin: 0, fontSize: vars["--ads-font-size-body"], lineHeight: vars["--ads-line-height-normal"] },
-  track: { position: "relative", blockSize: 8, backgroundColor: vars["--ads-color-border"], borderRadius: vars["--ads-radius-full"], overflow: "hidden" },
+  /** Positions the pace tick over the meter's track; the meter is the frame's only in-flow child. */
+  meterFrame: { position: "relative", minInlineSize: 0 },
   /** Where the window's clock is now: usage left of it is on pace, past it is ahead of pace. */
-  elapsedMarker: { position: "absolute", insetBlock: 0, inlineSize: 2, marginInlineStart: -1, backgroundColor: vars["--ads-color-text"], opacity: 0.6 },
-  fill: { blockSize: "100%", backgroundColor: vars["--ads-color-accent"], borderRadius: vars["--ads-radius-full"] },
-  warning: { backgroundColor: vars["--ads-color-warning"] },
-  danger: { backgroundColor: vars["--ads-color-danger"] },
+  elapsedMarker: { position: "absolute", insetBlock: 0, inlineSize: 2, marginInlineStart: -1, backgroundColor: vars["--ads-color-text"], opacity: 0.6, pointerEvents: "none" },
   // Negative block margin keeps the icon button from making its caption row taller than its neighbours'.
   infoTrigger: { marginBlock: `calc(${vars["--ads-space-4"]} * -1)`, color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] } },
   infoIcon: { blockSize: vars["--ads-control-icon-size-sm"], inlineSize: vars["--ads-control-icon-size-sm"] },
@@ -78,7 +75,7 @@ export const usageStyles = stylex.create({
     margin: 0, paddingInline: vars["--ads-space-8"], paddingBlockEnd: vars["--ads-space-16"] },
   historyDetailValue: { margin: 0, overflowWrap: "anywhere", fontVariantNumeric: "tabular-nums" },
   chartScroll: { overflowX: "auto", minInlineSize: 0, paddingBlockEnd: vars["--ads-space-8"] },
-  chart: { display: "flex", alignItems: "end", gap: 4, blockSize: 180, minInlineSize: "100%", borderBlockEndWidth: vars["--ads-border-width-hairline"], borderBlockEndStyle: "solid", borderBlockEndColor: vars["--ads-color-border"] },
+  chart: { display: "flex", alignItems: "end", gap: vars["--ads-space-4"], blockSize: 180, minInlineSize: "100%", borderBlockEndWidth: vars["--ads-border-width-hairline"], borderBlockEndStyle: "solid", borderBlockEndColor: vars["--ads-color-border"] },
   bar: { flex: "1 0 12px", minInlineSize: 12, minBlockSize: 3, padding: 0, borderWidth: 0, borderRadius: vars["--ads-radius-mark"], backgroundColor: vars["--ads-color-accent"],
     cursor: "pointer", opacity: { default: 0.85, ":hover": 1, ":focus-visible": 1 } },
   barEmpty: { backgroundColor: vars["--ads-color-border"] },

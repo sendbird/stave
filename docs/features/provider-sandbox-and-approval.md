@@ -41,6 +41,12 @@ You can also confirm the effective state from the runtime chips near the compose
   `Settings > Providers > Claude > Thinking Mode`, and the menu says so.
 - **Runtime** names the profile in use (`Safe`, `Custom` or `Elevated`) in its
   side-wing label; open it for the details behind that profile.
+- The **permission preset** (`Auto`, `Guided`, `Manual`) opens its presets as
+  one radio group under what the checked preset does on its own and asks
+  first. Tab reaches the checked preset; the arrow keys move between presets
+  and the list follows, without changing the preset. A click, Space or Enter
+  applies the preset and closes the menu; Esc or a click elsewhere leaves it
+  as it was.
 - In the classic composer the controls stay on one row at any width. When
   they do not fit, the side question first shows only its icon, then the
   others move into the row's **⋯** menu, Stave's own tools first and the
@@ -160,14 +166,84 @@ How firmly each provider holds them:
 
 While the conversation is shown, the current task's pending approval appears
 once, as a row attached above the composer: the tool, the command, file or
-pattern it would run, **Allow once** (Enter), **Always allow** when the
-provider can keep the grant, and **Deny**. The disclosure at the end of the
-row shows the description and the full input, Stave's own trusted-tools
-allow for providers that cannot keep a grant, and **guide instead** (Tab).
-When several requests wait, the row reads **1 of N**; step through them
-with the arrows, and Enter and Tab act on the request the row shows. The
-task's attention summary above the conversation does not repeat these
-requests; in Review, where the composer is hidden, it lists them.
+pattern it would run, **Allow once** (Enter), **Always allow** and **Deny**.
+The disclosure at the end of the row shows the description, the full input
+and **guide instead** (Tab). An unanswered request is denied automatically
+after a time limit (45 minutes; a few minutes in a delegated task); the
+approval card says when, beside its decisions (**Auto-denies at 16:24 if
+nobody answers**), and so does the row's disclosure. Claude, Codex, Cursor,
+Kiro and OpenCode all report this time. When several requests wait, the row reads
+**1 of N**; step through them with the arrows, and Enter and Tab act on the
+request the row shows. The task's attention summary above the conversation
+does not repeat these requests; in Review, where the composer is hidden, it
+lists them.
+
+### Always allow
+
+**Always allow** follows one rule on every surface (the composer row, the
+approval card in the conversation and the Fleet panel): it appears whenever
+the grant is honored on later calls, and nowhere else.
+
+- **Claude and Codex** keep it in **Settings > Providers > Trusted
+  Approvals**. The entry is the tool, or for a command the exact command line;
+  a later request that matches it is answered without asking. A Bash entry
+  also covers the same command with more arguments, but never one chained,
+  piped or redirected into another command. Claude does not offer it for a
+  call that crossed a guardrail (G1–G3), because no rule answers those.
+  Codex offers it for commands and for edits inside the workspace, not for
+  input to a running terminal, a request for a write root outside the
+  workspace, a request for extra permissions or an MCP tool approval. Codex's
+  own session grants are not used: Stave could not show or remove them.
+- No trusted entry answers a request that reaches beyond the workspace: a
+  Claude call that crossed a guardrail, a Codex edit that asks for a write
+  root outside the workspace (it reads **Writes outside the repository**), or
+  a request for file access outside the sandbox. These always ask, even when
+  an entry names the same tool. A trusted command that only needs network
+  access is still answered by its entry.
+- **Cursor, Kiro and OpenCode** use the agent's own `allow_always` when it
+  offers one; otherwise the grant is a trusted-approvals entry as above.
+- A task an external host manages, a turn the host runs, and a delegated
+  task's slot answer through the host, which keeps no grant, so they offer
+  only **Allow once** and **Deny**.
+
+After **Always allow**, the answered card shows **Trusted: <entry> ·
+Remove**. **Remove** takes the entry out of Trusted Approvals right there; a
+Claude turn already running keeps the list it started with until it ends.
+
+### Keys, risk and who asked
+
+- With focus anywhere in an approval card, **Cmd/Ctrl+Enter** allows the
+  request once. **Esc** never denies a request.
+- A request that reports a risk shows it as a word before the status:
+  **Network access**, **File access outside the sandbox** or **Writes outside
+  the repository** for Codex, and
+  the guardrail a Claude call crossed (**Writes outside the repository**,
+  **Credential access**, **Irreversible remote action**). Cursor, Kiro and
+  OpenCode report none.
+- A request a subagent made says so after the tool on the card, and first in
+  the composer row's details, with the subagent's name when the call that
+  started it is in the same reply. The composer row keeps its width for the
+  command and shows the risk word beside it.
+- Requests carry no expiry from the provider, so the card shows no deadline.
+
+## What A Preset Does On Its Own
+
+The composer's preset menu and each provider's preset in **Settings >
+Providers** list, under the selected preset, what it does on its own and
+what it asks about first, one row per kind of action. The rows come from the
+preset's real settings:
+
+| Provider | Manual | Guided | Auto |
+| --- | --- | --- | --- |
+| Claude | Reads workspace files on its own; edits, web tools and MCP tools ask; commands run in the sandbox | Reads and edits on its own; commands ask (some file commands in the workspace run); web and MCP tools ask | Reads, edits and web tools on its own; commands and MCP tools ask if Claude's check flags them |
+| Codex | Reads on its own; edits ask; commands run in the read-only sandbox and ask for anything more; web search off | Reads and cached web search on its own; edits and commands ask if Codex does not trust them | Everything on its own |
+| Cursor | Every tool call asks | Cursor's own review decides | Every tool call on its own |
+| Kiro, OpenCode | Every tool call asks | None | Every tool call on its own |
+
+Codex MCP tools follow the separate App and MCP tool approval setting, so
+the Codex list leaves them out. For Claude, the list ends with the guardrails
+you left on: in Agent mode they always ask, whatever the preset. No other
+provider has rows like these.
 
 ## Who Decided Each Approval
 

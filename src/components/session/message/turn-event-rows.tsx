@@ -1,8 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ads/components/Button";
+import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { Citation } from "@/components/ads/components/Citation";
 import type { CitationSource } from "@/components/ads/components/Citation.parts";
 import { Thinking } from "@/components/ads/components/Thinking";
@@ -13,9 +14,39 @@ import { cx, sx } from "@/components/ads/utils/stylex";
 
 import { extractOutputUrls, toUrlSource } from "./turn-event-state";
 import { turnEventRowStyles as styles } from "./turn-event-rows.styles";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 
 /** How long the copy action stays acknowledged before returning to rest. */
 const COPIED_MS = 1600;
+
+/** Lines as written: a trailing newline does not add an empty last line. */
+export function countLines(text: string) {
+  if (text.length === 0) return 0;
+  return text.replace(/\n$/, "").split("\n").length;
+}
+
+/**
+ * Whether a capped box is cutting its content off right now. Measured, not
+ * guessed from the line count: wrapping decides how tall a line is.
+ */
+function useOverflowing(enabled: boolean) {
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    if (!enabled || !element) return;
+    const measure = () => {
+      setOverflowing(element.scrollHeight > element.clientHeight + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    for (const child of element.children) observer.observe(child);
+    return () => observer.disconnect();
+  }, [element, enabled]);
+  return { ref: setElement, overflowing: enabled && overflowing };
+}
 
 /**
  * Tool output for one of `ToolRun`'s labelled sections.
@@ -32,36 +63,50 @@ export function TraceOutput(args: {
   /** Prose rather than machine output — a subagent's report, not stdout. */
   prose?: boolean;
   text: string;
+  /**
+   * Hold the value to the shared 220px cap (ADS `CappedViewport`): a long
+   * result scrolls inside its section, with a fade at the cut and a line count
+   * under it, instead of pushing the conversation down.
+   */
+  capped?: boolean;
+  /** Names the capped region, e.g. "Arguments" or "Output". */
+  label?: string;
 }) {
   useTranslation();
-  const { linkify = true, prose = false, text } = args;
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
+  const { capped = false, label, linkify = true, prose = false, text } = args;
+  const { status, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
   const copy = useCallback(() => {
-    void navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), COPIED_MS);
-    });
-  }, [text]);
+    void copyText(text);
+  }, [copyText, text]);
+  const { ref: viewportRef, overflowing } = useOverflowing(capped);
+  const lineCount = useMemo(() => (capped ? countLines(text) : 0), [capped, text]);
 
   const textClass = sx(styles.outputText, prose && styles.outputProse);
+  const body = linkify ? (
+    <LinkifiedText as="pre" className={textClass} text={text} />
+  ) : (
+    <pre className={textClass}>{text}</pre>
+  );
 
   return (
     <div className={sx(styles.output)}>
-      {linkify ? (
-        <LinkifiedText as="pre" className={textClass} text={text} />
+      {capped ? (
+        <CappedViewport
+          ref={viewportRef}
+          label={label}
+          data-trace-output-capped="true"
+          xstyle={styles.capped}
+        >
+          {body}
+        </CappedViewport>
       ) : (
-        <pre className={textClass}>{text}</pre>
+        body
       )}
+      {capped && overflowing ? (
+        <p className={sx(styles.lineNote)} data-testid="trace-output-line-note">
+          {i18n.t("session:turnEventRows.lineNote", { count: lineCount })}
+        </p>
+      ) : null}
       <Button
         onClick={copy}
         size="xs"
@@ -71,6 +116,7 @@ export function TraceOutput(args: {
       >
         {copied ? i18n.t("session:turnEventRows.traceOutput") : i18n.t("session:turnEventRows.traceOutput2")}
       </Button>
+      <ClipboardCopyAnnouncement status={status} />
     </div>
   );
 }
@@ -87,22 +133,44 @@ export function TraceOutput(args: {
  */
 export function TraceCitations(args: { output?: string }) {
   useTranslation();
-  const sources = useMemo<CitationSource[]>(
-    () =>
-      extractOutputUrls(args.output).map((url, position) => ({
-        href: url,
-        id: url,
-        index: position + 1,
-        source: toUrlSource(url),
-        title: url,
-      })),
-    [args.output],
-  );
+  const sources = useMemo(() => toCitationSources(extractOutputUrls(args.output)), [args.output]);
 
   if (sources.length === 0) return null;
 
   // i18n-ignore: component presentation enum, not visible text
   return <Citation.List detail="compact" sources={sources} />;
+}
+
+function toCitationSources(urls: readonly string[]): CitationSource[] {
+  return urls.map((url, position) => ({
+    href: url,
+    id: url,
+    index: position + 1,
+    source: toUrlSource(url),
+    title: url,
+  }));
+}
+
+/**
+ * The turn's web sources under its answer: one "Sources N" line that opens to
+ * the URLs every web search and fetch in the turn returned (see
+ * `collectTurnWebSources`). The trace keeps each call's own list; this one is
+ * for the reader who never opens the trace. No marks go into the answer text:
+ * nothing reports which sentence came from which page.
+ */
+export function TurnSources(args: { urls: readonly string[] }) {
+  useTranslation();
+  const sources = useMemo(() => toCitationSources(args.urls), [args.urls]);
+  if (sources.length === 0) return null;
+  return (
+    <Citation.List
+      data-turn-sources=""
+      // i18n-ignore: component presentation enum, not visible text
+      detail="compact"
+      sources={sources}
+      xstyle={styles.turnSources}
+    />
+  );
 }
 
 /**
@@ -124,18 +192,24 @@ export function TraceCitations(args: { output?: string }) {
 export function ReasoningRow(args: {
   durationMs?: number;
   isStreaming: boolean;
+  /**
+   * When the pass started, epoch ms. Used only while it streams, so the live
+   * header ticks; a settled pass keeps reporting only the measured duration.
+   */
+  startedAt?: number;
   text: string;
 }) {
   useTranslation();
-  const { durationMs, isStreaming, text } = args;
+  const { durationMs, isStreaming, startedAt, text } = args;
   const body = text.trim();
 
   return (
     <Thinking
       durationMs={durationMs}
+      startedAt={isStreaming && startedAt !== undefined && Number.isFinite(startedAt) ? startedAt : undefined}
       label={i18n.t("session:turnEventRows.label")}
       loaderVariant="think"
-      phase={isStreaming ? "Thinking" : i18n.t("session:turnEventRows.extraCopy197")}
+      phase={isStreaming ? i18n.t("ui:thinking.thinking") : i18n.t("session:turnEventRows.extraCopy197")}
       status={isStreaming ? "thinking" : "settled"}
     >
       {body.length === 0 ? null : isStreaming ? (

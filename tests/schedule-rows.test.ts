@@ -1,8 +1,10 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { applyAppLocale } from "../src/i18n";
 import type { AutomationRun, AutomationSpec } from "../src/lib/automations";
 import {
   buildScheduleRows,
   formatScheduleCadence,
+  SCHEDULE_STATE_LABEL,
   resolveScheduleSelection,
   scheduleListState,
 } from "../src/lib/schedule-rows";
@@ -69,7 +71,7 @@ describe("schedule rows", () => {
     });
     expect(rows.map((row) => row.kind)).toEqual(["check-back", "start"]);
     const start = rows.find((row) => row.kind === "start")!;
-    expect(start.lastResult).toMatchObject({ label: "Failed", tone: "danger" });
+    expect(start.lastResult).toMatchObject({ label: "Failed", state: "failed" });
     expect(start.agent).toBe("sonnet");
     expect(start.canRunNow).toBe(true);
     expect(start.toggle).toBe("pause");
@@ -80,7 +82,7 @@ describe("schedule rows", () => {
     expect(checkBack.nextRunAt).toBe("2026-10-02T11:00:00.000Z");
   });
 
-  test("an automation that has not run says so, and a manual one says Manual once", () => {
+  test("an automation that has not run says so, and a turned-off one says Off once", () => {
     const [row] = buildScheduleRows({
       automations: [automation({ enabled: false })],
       runs: [],
@@ -88,12 +90,13 @@ describe("schedule rows", () => {
       summaries: [],
       taskTitleById: new Map(),
     });
-    expect(row?.lastResult.label).toBe("Not run yet");
-    // The state reads "Manual"; no cadence or next-run note repeats it.
+    expect(row?.lastResult).toMatchObject({ label: "Not run yet", state: "idle" });
+    // The state reads "Off"; no cadence or next-run note repeats it.
     expect(row?.cadence).toBeNull();
     expect(row?.nextNote).toBeNull();
     expect(row?.nextRunAt).toBeNull();
-    expect(row?.state).toBe("manual");
+    expect(row?.state).toBe("off");
+    expect(SCHEDULE_STATE_LABEL[row!.state]).toBe("Off");
     expect(row?.toggle).toBe("resume");
   });
 
@@ -109,7 +112,7 @@ describe("schedule rows", () => {
     expect(row?.cadence).toBe("When subagents finish");
     expect(row?.nextRunAt).toBeNull();
     expect(row?.nextNote).toBe("Waiting");
-    expect(row?.lastResult.label).toBe("Checked 2×");
+    expect(row?.lastResult).toMatchObject({ label: "Checked 2×", state: "ready" });
   });
 
   test("a pull request watch says what it watches, what it wakes on and what the last check saw", () => {
@@ -139,7 +142,7 @@ describe("schedule rows", () => {
     expect(row?.name).toBe("Watch the pull request of Add uploads");
     expect(row?.cadence).toBe("On failing checks or merge conflicts");
     expect(row?.nextNote).toBe("PR #7 · feat: uploads");
-    expect(row?.lastResult).toEqual({ label: "2 failing checks · Conflicts with base", tone: "danger", at: "2026-10-02T09:58:00.000Z" });
+    expect(row?.lastResult).toEqual({ label: "2 failing checks · Conflicts with base", state: "failed", at: "2026-10-02T09:58:00.000Z" });
     expect(row?.toggle).toBe("pause");
 
     const [woken] = buildScheduleRows({
@@ -157,7 +160,7 @@ describe("schedule rows", () => {
       summaries: [],
       taskTitleById: new Map(),
     });
-    expect(woken?.lastResult).toMatchObject({ label: "Woke the task 2 times", tone: "accent" });
+    expect(woken?.lastResult).toMatchObject({ label: "Woke the task 2 times", state: "ready" });
     expect(woken?.nextNote).toBe("Waiting for a pull request on the task's branch");
   });
 
@@ -177,6 +180,38 @@ describe("schedule rows", () => {
     expect(rows.map((row) => row.toggle)).toEqual(["pause", "resume", null]);
     // The state already says Paused / Stopped, so the next-run slot stays empty.
     expect(rows.map((row) => row.nextNote)).toEqual([null, null, null]);
+  });
+});
+
+describe("schedule rows in Korean", () => {
+  afterEach(() => {
+    applyAppLocale("en");
+  });
+
+  test("names a check-back and its completion cadence in the app language", () => {
+    applyAppLocale("ko");
+    const [row] = buildScheduleRows({
+      automations: [],
+      runs: [],
+      wakeUps: [wakeUp({ trigger: { kind: "completion" }, nextRunAt: null })],
+      summaries: [summary({ triggerKind: "completion" })],
+      taskTitleById: new Map([["task-1", "Fix flaky test"]]),
+    });
+    expect(row?.name).toBe("Fix flaky test 작업 다시 확인");
+    expect(row?.cadence).toBe("하위 에이전트가 완료되면");
+  });
+
+  test("a turned-off automation reads Off, the opposite of its Turn on toggle", () => {
+    applyAppLocale("ko");
+    const [row] = buildScheduleRows({
+      automations: [automation({ enabled: false })],
+      runs: [],
+      wakeUps: [],
+      summaries: [],
+      taskTitleById: new Map(),
+    });
+    expect(SCHEDULE_STATE_LABEL[row!.state]).toBe("꺼짐");
+    expect(SCHEDULE_STATE_LABEL.on).toBe("켜짐");
   });
 });
 

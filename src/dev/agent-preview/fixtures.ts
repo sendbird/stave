@@ -14,6 +14,7 @@ export type PreviewMessage = Pick<
   | "displayParts"
   | "isStreaming"
   | "role"
+  | "startedAt"
 >;
 
 const REASONING_TEXT = [
@@ -46,7 +47,10 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       type: "thinking",
       text: REASONING_TEXT,
       isStreaming: args.reasoningStreaming,
-      startedAt: "2026-01-01T00:00:00.000Z",
+      /* A live pass ticks from its start, so it starts 30s before mount. */
+      startedAt: args.reasoningStreaming
+        ? new Date(Date.now() - 30_000).toISOString()
+        : "2026-01-01T00:00:00.000Z",
       completedAt: args.reasoningStreaming
         ? undefined
         : "2026-01-01T00:00:12.000Z",
@@ -71,6 +75,24 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       }),
       output:
         "src/components/ai-elements/chain-of-thought.tsx:332\nsrc/components/session/message/assistant-trace.tsx:465",
+      state: "output-available",
+    },
+    {
+      /* Two web lookups that share a page: the finished turn lists two sources. */
+      type: "tool_use",
+      toolUseId: "tool-web-search",
+      toolName: "WebSearch",
+      input: JSON.stringify({ query: "prefers-reduced-motion animation" }),
+      output:
+        "1. https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion\n2. https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions",
+      state: "output-available",
+    },
+    {
+      type: "tool_use",
+      toolUseId: "tool-web-fetch",
+      toolName: "WebFetch",
+      input: JSON.stringify({ url: "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions" }),
+      output: "Fetched https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions",
       state: "output-available",
     },
     {
@@ -212,6 +234,8 @@ export function createStreamingPreviewMessage(): PreviewMessage {
       },
     ],
     isStreaming: true,
+    /* The header's clock reads the turn start; 42s ago at mount. */
+    startedAt: new Date(Date.now() - 42_000).toISOString(),
   };
 }
 

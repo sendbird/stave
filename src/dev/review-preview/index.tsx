@@ -4,6 +4,10 @@ import { applyAppLocale } from "@/i18n";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
+import { Toaster } from "@/components/ui";
+import { compareFleetAttentionItems, FLEET_ATTENTION_PRIORITY, type FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
+import { useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
 import type { ReviewScope } from "@/lib/review/review-scope";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
@@ -17,6 +21,8 @@ import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
  * agent run waiting for sign-off after its Reproduce stage.
  * `&scope=turn|stage|branch|uncommitted` opens that scope (default: turn),
  * `&diff=error|empty` makes the change read fail or come back empty,
+ * `&queue=1` adds two more reviews waiting in Fleet, `&comments=1` adds a
+ * second pending comment and two sent ones,
  * `&theme=dark` or `&theme=<built-in theme id>` and `&lang=ko` apply.
  */
 const params = new URLSearchParams(window.location.search);
@@ -26,7 +32,20 @@ const START = new Date("2026-10-22T09:00:00.000Z");
 const STAGE_START = "3f2a9c1d0b8e7f6a5c4d3e2f1a0b9c8d7e6f5a4b";
 const HEAD = "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d";
 
-const TABLE_BEFORE = "export function BillingTable() {\n  return <table style={{ minWidth: 960 }}>{rows}</table>;\n}\n";
+/**
+ * `&queue=1`: two more tasks wait for review in Fleet, one before this task
+ * and one after it, so Next review and J / K have somewhere to go.
+ */
+const COMMENTS = params.get("comments") === "1";
+const PREVIEW_TASKS = [
+  { id: TASK_ID, title: "Fix the billing table overflow", turnId: "turn-2", createdAt: "2026-10-22T09:20:00.000Z", summary: "Replaced the fixed minimum width with a scroll container and added a 600px test." },
+  ...(params.get("queue") === "1" ? [
+    { id: "preview-task-earlier", title: "Tidy the invoice export", turnId: "turn-earlier", createdAt: "2026-10-22T08:40:00.000Z", summary: "Renamed the export columns." },
+    { id: "preview-task-later", title: "Audit the settings sidebar", turnId: "turn-later", createdAt: "2026-10-22T09:50:00.000Z", summary: "Listed the sidebar spacing issues." },
+  ] : []),
+];
+
+const TABLE_BEFORE ="export function BillingTable() {\n  return <table style={{ minWidth: 960 }}>{rows}</table>;\n}\n";
 const TABLE_AFTER = "export function BillingTable() {\n  return (\n    <div className={styles.scroll}>\n      <table>{rows}</table>\n    </div>\n  );\n}\n";
 const TEST_AFTER = "test(\"the table scrolls at 600px\", () => {\n  render(<BillingTable />, { width: 600 });\n  expect(screen.getByRole(\"table\")).toBeVisible();\n});\n";
 
@@ -51,18 +70,35 @@ function installBridgeStubs() {
       stderr: "",
     }),
   };
+  // One saved result per task, written by Mark reviewed and its Undo the way
+  // the desktop store writes them (a mark also reads; taking it back keeps the read).
+  const results = new Map(PREVIEW_TASKS.map((task) => [task.id, {
+    repositoryPath: "/tmp/preview-repo", workspaceId: WORKSPACE_ID, taskId: task.id, turnId: task.turnId, id: `result-${task.id}`,
+    repositoryName: "preview-repo", workspaceName: "Preview", taskTitle: task.title, outcome: "completed", summary: task.summary,
+    createdAt: task.createdAt, reviewedAt: null as string | null, markedReviewedAt: null as string | null,
+  }]));
+  const writes: unknown[] = [];
+  (window as { __staveResultWrites?: unknown[] }).__staveResultWrites = writes;
   api.persistence = {
     ...(api.persistence as object | undefined),
-    listResultReviews: async () => ({
-      ok: true,
-      results: [{ repositoryPath: "/tmp/preview-repo", workspaceId: WORKSPACE_ID, taskId: TASK_ID, turnId: "turn-2", id: "result-1", taskTitle: "Fix the billing table overflow", outcome: "completed", summary: "Replaced the fixed minimum width with a scroll container and added a 600px test.", createdAt: "2026-10-22T09:20:00.000Z", reviewedAt: null }],
-      total: 1,
-      hasMore: false,
-    }),
-    setResultMarkedReviewed: async (args: Record<string, unknown>) => ({
-      ok: true,
-      result: { ...args, id: "result-1", repositoryName: "preview-repo", workspaceName: "Preview", taskTitle: "Fix the billing table overflow", outcome: "completed", summary: "Done.", createdAt: "2026-10-22T09:20:00.000Z", reviewedAt: "2026-10-22T09:21:00.000Z", markedReviewedAt: new Date().toISOString() },
-    }),
+    listResultReviews: async (args: { taskId?: string; turnId?: string }) => {
+      const rows = [...results.values()].filter((row) => (!args.taskId || row.taskId === args.taskId) && (!args.turnId || row.turnId === args.turnId));
+      return { ok: true, results: rows.map((row) => ({ ...row })), total: rows.length, hasMore: false };
+    },
+    setResultMarkedReviewed: async (args: { taskId: string; markedReviewed: boolean }) => {
+      writes.push({ kind: "marked", ...args });
+      const row = results.get(args.taskId)!;
+      const now = new Date().toISOString();
+      if (args.markedReviewed) Object.assign(row, { markedReviewedAt: row.markedReviewedAt ?? now, reviewedAt: row.reviewedAt ?? now });
+      else row.markedReviewedAt = null;
+      return { ok: true, result: { ...row } };
+    },
+    setResultReviewed: async (args: { taskId: string; reviewed: boolean }) => {
+      writes.push({ kind: "read", ...args });
+      const row = results.get(args.taskId)!;
+      row.reviewedAt = args.reviewed ? (row.reviewedAt ?? new Date().toISOString()) : null;
+      return { ok: true, result: { ...row } };
+    },
   };
   api.lens = {
     ...(api.lens as object | undefined),
@@ -92,13 +128,19 @@ function seed() {
     agentRunIdByTask: { [agentRunTaskKey(WORKSPACE_ID, TASK_ID)]: detail.agentRun.id },
     agentRunIdsByTask: { [agentRunTaskKey(WORKSPACE_ID, TASK_ID)]: [detail.agentRun.id] },
   } as never);
+  const others = PREVIEW_TASKS.filter((task) => task.id !== TASK_ID);
   useAppStore.setState({
     repositoryPath: "/tmp/preview-repo",
     activeWorkspaceId: WORKSPACE_ID,
     activeTaskId: TASK_ID,
     workspacePathById: { [WORKSPACE_ID]: "/tmp/preview-repo" },
-    tasks: [{ id: TASK_ID, title: "Fix the billing table overflow", provider: "claude-code", updatedAt: "2026-10-22T09:20:00.000Z", unread: false }],
+    tasks: PREVIEW_TASKS.map((task) => ({ id: task.id, title: task.title, provider: "claude-code", updatedAt: task.createdAt, unread: false })),
+    taskWorkspaceIdById: Object.fromEntries(PREVIEW_TASKS.map((task) => [task.id, WORKSPACE_ID])),
     messagesByTask: {
+      ...Object.fromEntries(others.map((task) => [task.id, [
+        { id: `${task.id}-user`, role: "user", model: "user", providerId: "user", content: task.title, parts: [{ type: "text", text: task.title }] },
+        { id: `${task.id}-answer`, role: "assistant", model: "claude", providerId: "claude-code", content: task.summary, turnId: task.turnId, startedAt: task.createdAt, completedAt: task.createdAt, parts: [{ type: "text", text: task.summary }] },
+      ]])),
       [TASK_ID]: [
         { id: "m1", role: "user", model: "user", providerId: "user", content: "Fix the billing table overflow on narrow screens.", parts: [{ type: "text", text: "Fix the billing table overflow on narrow screens." }] },
         { id: "m2", role: "assistant", model: "claude", providerId: "claude-code", content: "Done.", turnId: "turn-2", startedAt: "2026-10-22T09:01:00.000Z", parts: [
@@ -113,13 +155,38 @@ function seed() {
         ] },
       ],
     },
-    messageCountByTask: { [TASK_ID]: 2 },
-    reviewCommentsByTask: { [TASK_ID]: [{ id: "c1", filePath: "src/billing/BillingTable.tsx", line: 3, side: "modified", body: "Keep the header row sticky while it scrolls.", createdAt: "2026-10-22T09:31:00.000Z" }] },
+    messageCountByTask: Object.fromEntries(PREVIEW_TASKS.map((task) => [task.id, 2])),
+    reviewCommentsByTask: { [TASK_ID]: [
+      { id: "c1", filePath: "src/billing/BillingTable.tsx", line: 3, side: "modified", body: "Keep the header row sticky while it scrolls.", createdAt: "2026-10-22T09:31:00.000Z" },
+      ...(COMMENTS ? [{ id: "c2", filePath: "src/billing/billing-table.test.tsx", line: 2, side: "modified", body: "Also cover 375px so the phone layout is checked.", createdAt: "2026-10-22T09:32:00.000Z" }] : []),
+    ] },
   } as never);
+  // `&comments=1`: two comments already sent on the table, one whose lines
+  // still read as sent and one whose lines the agent changed since.
+  useSentReviewCommentsStore.setState({ byTask: COMMENTS ? { [TASK_ID]: [
+    {
+      comment: { id: "s1", filePath: "src/billing/BillingTable.tsx", line: 4, side: "modified", body: "Use the shared scroll container instead of a new div.", createdAt: "2026-10-22T09:10:00.000Z" },
+      sentAt: "2026-10-22T09:12:00.000Z",
+      anchor: ["    <div className={styles.scroll}>", "      <table>{rows}</table>", "    </div>"],
+    },
+    {
+      comment: { id: "s2", filePath: "src/billing/BillingTable.tsx", line: 2, side: "modified", body: "Assert the scroll width, not only visibility.", createdAt: "2026-10-22T09:11:00.000Z" },
+      sentAt: "2026-10-22T09:12:00.000Z",
+      anchor: ["export function BillingTable() {", "  return <table style={{ minWidth: 960 }}>{rows}</table>;", "}"],
+    },
+  ] } : {} });
   const scope = params.get("scope");
   const chosen: ReviewScope | undefined = scope === "stage" ? { kind: "stage", agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: 1 }
     : scope === "branch" ? { kind: "branch" } : scope === "uncommitted" ? { kind: "uncommitted" } : undefined;
   useTaskReviewModeStore.getState().openReview(TASK_ID, chosen);
+  // Fleet's snapshot as its producer would publish it: each task's result
+  // waits for review, oldest first.
+  const items = PREVIEW_TASKS.map((task): FleetAttentionItem => ({
+    id: `result-ready:${task.id}`, kind: "result-ready", priority: FLEET_ATTENTION_PRIORITY["result-ready"], source: "result",
+    repositoryPath: "/tmp/preview-repo", repositoryName: "preview-repo", workspaceId: WORKSPACE_ID, workspaceName: "Preview",
+    taskId: task.id, taskTitle: task.title, turnId: task.turnId, createdAt: task.createdAt, waitingSince: task.createdAt,
+  })).sort(compareFleetAttentionItems);
+  useFleetAttentionStore.setState({ snapshot: { ...EMPTY_FLEET_ATTENTION, items, count: items.length, reviewItems: items } });
 }
 
 export function ReviewPreview() {
@@ -135,9 +202,16 @@ export function ReviewPreview() {
     setSeeded(true);
   }, [theme, builtinTheme]);
   if (!seeded) return null;
+  return <ReviewPreviewSurface />;
+}
+
+/** The active task's Review, as the task pane shows it; Next review and J / K change the task. */
+function ReviewPreviewSurface() {
+  const taskId = useAppStore((state) => state.activeTaskId) || TASK_ID;
   return (
-    <main className={sx(styles.page)}>
-      <TaskReviewSurface taskId={TASK_ID} />
+    <main className={sx(styles.page)} data-task-id={taskId}>
+      <TaskReviewSurface key={taskId} taskId={taskId} />
+      <Toaster />
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
-import type { ApprovalResolvedEvent } from "../../src/lib/approvals/approval-resolution";
+import type { ApprovalResolvedEvent, ApprovalRisk } from "../../src/lib/approvals/approval-resolution";
 import type { CodexApprovalsAppliedEvent } from "../../src/lib/providers/codex-runtime-options";
 import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
@@ -234,6 +234,16 @@ export type BridgeEvent =
        * "unknown parent" — the graph leaves such nodes attached to the turn.
        */
       parentToolUseId?: string;
+      /**
+       * When the runtime first saw this call, in epoch ms, carried unchanged on
+       * every later event for the same `toolUseId`. Stamped by the runtime as
+       * events arrive (`tool-timing.ts`), so a replayed or late-processed
+       * event keeps the time the call actually started. Absent means the
+       * start was not observed, never "now".
+       */
+      startedAt?: number;
+      /** When the call was first seen finished, on a terminal `state`. */
+      completedAt?: number;
     }
   | {
       type: "tool_result";
@@ -241,6 +251,11 @@ export type BridgeEvent =
       output: string;
       isError?: boolean;
       isPartial?: boolean;
+      /**
+       * When the runtime first saw the call finished, in epoch ms (see
+       * `tool.startedAt`). Absent on partial results and when not observed.
+       */
+      completedAt?: number;
       exitCode?: number | null;
       /** The MCP App view this call produced; see `src/lib/mcp-app`. */
       mcpAppView?: McpAppViewReference;
@@ -259,16 +274,33 @@ export type BridgeEvent =
       description: string;
       input?: string;
       /**
-       * The runtime advertised an "allow always" option, so answering can also
-       * persist a rule in the provider's own permission store instead of only
-       * unblocking this one call.
+       * An "Always allow" answer is honored on later calls, so every surface
+       * offers it. Either the provider keeps the rule itself (ACP runtimes
+       * that advertise `allow_always`), or Stave keeps it in the user's
+       * trusted tools and the runtime answers matching calls from that list
+       * (Claude, Codex; see `trustedToolEntry`).
        */
       supportsAllowAlways?: boolean;
+      /**
+       * The trusted-tools entry an "Always allow" answer adds, exactly as the
+       * runtime matches it on later calls. Set only with `supportsAllowAlways`
+       * by runtimes that answer from Stave's trusted tools; absent where the
+       * provider keeps the rule.
+       */
+      trustedToolEntry?: string;
+      /** See `ApprovalRisk`: set only when the request itself says so. */
+      risk?: ApprovalRisk;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.
        */
       ownerAgentId?: string;
+      /**
+       * ISO time the runtime denies the request if nobody answers, from the
+       * auto-decline timer it started as it raised the request (see
+       * `resolveApprovalExpiresAt`). Absent when no timer runs.
+       */
+      expiresAt?: string;
     }
   /** A request decided without a person; see `ApprovalResolvedEvent`. */
   | ApprovalResolvedEvent

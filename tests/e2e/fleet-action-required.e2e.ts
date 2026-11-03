@@ -215,7 +215,12 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await reviewToggle.click();
   await expect(items).toHaveCount(1);
 
-  // The board renders the workspace as a card, not a full-width row.
+  // Fleet opens on the Tree layout; the workspace cards are one choice away.
+  const layout = page.getByRole("radiogroup", { name: "Board layout" });
+  await expect(layout.getByRole("radio", { name: "Tree" })).toHaveAttribute("aria-checked", "true");
+  await layout.getByRole("radio", { name: "Cards" }).click();
+
+  // The cards board renders the workspace as a card, not a full-width row.
   const workspaceCard = page.getByRole("article", {
     name: /fleet-needs workspace in stave-fleet-needs/,
   });
@@ -606,7 +611,7 @@ test("answers a question and two approvals across three workspaces from Fleet ro
   });
   // Decisions on top, bounded; the board's toolbar and cards below them.
   const band = await page.locator("[data-fleet-inbox-band]").boundingBox();
-  const boardFilter = await page.getByRole("button", { name: "Running", exact: true }).boundingBox();
+  const boardFilter = await page.getByRole("radio", { name: "Running", exact: true }).boundingBox();
   expect(band).not.toBeNull();
   expect(boardFilter).not.toBeNull();
   expect(band!.y + band!.height).toBeLessThanOrEqual(boardFilter!.y);

@@ -37,6 +37,24 @@ test.describe("run surfaces", () => {
     await expect(panel).toContainText("Done when: The relevant checks pass");
   });
 
+  test("the run's time leaves out its pauses and each stage says what it spent", async ({ page }) => {
+    await page.goto("/?stavePreview=agent-run");
+    const panel = page.locator('[data-preview-case="Panel active time"]').getByTestId("agent-run-panel");
+    const figures = panel.locator('dl[aria-label="Run figures"]');
+    await expect(figures).toContainText("Active for");
+    await expect(figures).toContainText("pauses not counted");
+    // 22 minutes since the start, 4 paused and 2 waiting on you: 16 active.
+    await expect(figures.locator("dd").last()).toContainText(/^16m/);
+    await expect(panel.getByRole("button", { name: /^Understand/ })).toContainText("$0.12");
+    await expect(panel.getByRole("button", { name: /^Build/ })).toContainText("$0.51");
+    await expect(panel.getByRole("button", { name: /^Verify/ })).toContainText("now · $0.21");
+    // The stage the run is on keeps its well open, below its row.
+    await expect(panel.locator('[role="listitem"][aria-current="step"]')).toContainText("In progress");
+    // A run from an older host still reads its age, as before.
+    const older = page.locator('[data-preview-case="Panel"]').getByTestId("agent-run-panel");
+    await expect(older.locator('dl[aria-label="Run figures"]')).toContainText("Running for");
+  });
+
   test("the report leads with the outcome and offers its actions", async ({ page }) => {
     await page.goto("/?stavePreview=agent-run");
     const report = page.locator('[data-preview-case="Report only"]').getByTestId("agent-run-report");

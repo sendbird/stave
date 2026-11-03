@@ -4,11 +4,13 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useAsync } from "@/components/ads/utils/async";
 import { sx } from "@/components/ads/utils/stylex";
 import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { listTaskTurnHistory } from "@/lib/db/turn-history.db";
 import { useAppStore } from "@/store/app.store";
 import { TurnActivity } from "./TurnActivity";
 import { TurnApprovalRecord } from "./TurnApprovalRecord";
 import { TurnRecordView } from "./TurnRecordView";
+import { LiveTurnTraceTimeline, TurnTraceLegend } from "./TurnTraceTimeline";
 import { SideChatActivityButton } from "./side-chat/SideChatActivityButton";
 import {
   buildTurnPickerOptions,
@@ -32,6 +34,8 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
     (state) => state.retainedTurnActivityByTask[taskId]?.snapshot.turnId ?? null,
   );
   const [selected, setSelected] = useState<string | null>(null);
+  // The list stays the default; the choice lasts while the task stays open.
+  const [activityView, setActivityView] = useState<"list" | "timeline">("list");
   const history = useAsync(
     () => listTaskTurnHistory({ workspaceId, taskId }),
     [workspaceId, taskId],
@@ -101,6 +105,23 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
           <SideChatActivityButton taskId={taskId} />
         </div>
       ) : null}
+      {shownTurnId ? (
+        <div className={sx(styles.viewBar)} data-testid="turn-activity-view-bar">
+          <SegmentedControl
+            aria-label={i18n.t("session:turnTrace.viewLabel")}
+            value={activityView}
+            onValueChange={setActivityView}
+            options={[
+              { value: "list", label: i18n.t("session:turnTrace.viewList"), testId: "turn-activity-view-list" },
+              { value: "timeline", label: i18n.t("session:turnTrace.viewTimeline"), testId: "turn-activity-view-timeline" },
+            ]}
+            testId="turn-activity-view"
+          />
+          {activityView === "timeline" ? (
+            <TurnTraceLegend live={view.kind !== "record" && Boolean(liveTurnId)} />
+          ) : null}
+        </div>
+      ) : null}
       <div className={sx(styles.body)}>
         {view.kind === "record" ? (
           <TurnRecordView
@@ -108,9 +129,15 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
             workspaceId={workspaceId}
             taskId={taskId}
             turnId={view.turnId}
+            view={activityView}
           />
         ) : (
-          <TurnActivity host="panel" />
+          <TurnActivity
+            host="panel"
+            listReplacement={
+              activityView === "timeline" ? <LiveTurnTraceTimeline taskId={taskId} /> : undefined
+            }
+          />
         )}
       </div>
       {/* Under the list: the approval record of the turn shown. */}

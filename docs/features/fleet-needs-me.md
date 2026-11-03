@@ -61,15 +61,51 @@ Fleet item, and the task records the answer the same way.
   the board. It stays put while board filters change, is bounded so the board
   always keeps room, and scrolls inside itself; on wide screens its decisions
   sit side by side. Opening a row's control panel lets the band grow, still
-  bounded. Below it, the board shows workspace cards or one table of tasks
-  (the `Cards` and `Table` switch, kept between sessions), with activity
-  filters (`Active`, `Running`, `Action required`, and `All`) rather than a
-  task timeline.
+  bounded. Below it, the board shows every open task as an agent with its
+  subagents, workspace cards, or one table of tasks (the `Tree`, `Cards` and
+  `Table` switch, kept between sessions), with activity filters (`Active`,
+  `Running`, `Action required`, and `All`) rather than a task timeline.
+  Each switch is one control: Tab reaches it once and the arrow keys move the
+  choice. While a filter other than `Active` or a search narrows the board,
+  the applied filters show as chips under the toolbar, each removable on its
+  own, with `Clear all` to return to `Active` and no search.
+- `Tree` is the default layout. A profile that was on `Cards` before the Tree
+  layout existed moves to `Tree` once after the update; choosing `Cards` or
+  `Table` again is kept from then on.
+- `Tree` draws each open task as a main agent card, in the same rows, order,
+  filters and search as `Table` (including `Needs answer` and `No updates`,
+  and the same reading, incomplete-list and `Retry` states for workspaces you
+  have not opened). A totals line above the cards counts agents, running
+  ones, the ones that need you, and the cost their turns reported (left out
+  when none reported one); screen readers hear it change. A card shows a
+  status ring and the status in words, the task, the model, up to three tool
+  icons (named for screen readers, then `+N`), and what the turn last did or
+  what the task needs. A third line shows cost, running time and subagents
+  when there are any, and how many files its subagents' worktrees changed in
+  common once its Subagents tab has read them (`2 shared files`); without
+  them the card is two lines tall. Cards only
+  ever take one of those two heights, so a status change never shifts the
+  list unpredictably. A task in a workspace you have not opened reads
+  `Unknown`, or `Needs you` while a request for it waits.
+- Selecting a main card (or `Enter`/`Space` on it) opens its subagents beside
+  the list, or under the card on a narrow board: its delegated tasks and its
+  turn's own subagents, each with its status, time and cost when reported. A
+  subagent's task line is left out when it only repeats the name. A waiting
+  delegated task offers `Answer` and a failed one `Open`; both open the child
+  task. An in-turn subagent opens a `Tasks of <name>` window listing its
+  steps. On a wide board the tree stops at a reading width and the rest stays
+  empty. `↑`/`↓` move between main cards, `Home`/`End` jump, `Tab` goes into
+  the open tree, `Esc` there returns to its card, and `Esc` closes the steps
+  window back to the subagent that opened it.
 - `Table` lists every open task of every workspace in one place, one row per
   task: the task, its workspace, its state, what it needs from you, how long it
   has waited, and what its running turn last did. Rows follow the Work queue
   lanes, and inside a lane the longest wait comes first, so the oldest approval
-  and the quiet turns are on top without expanding a card. Two more filters
+  and the quiet turns are on top without expanding a card. Every column
+  header sorts the rows: select it once for ascending order, again for
+  descending, and a third time to return to the Work queue order. The sorted
+  header shows its direction with an arrow and the others a dimmed double
+  arrow; rows without a value (no wait, no need) stay last. Two more filters
   apply only here: `Needs answer` (approvals, questions and sign-offs) and
   `No updates` (quiet turns). A task's name opens it; with the name focused,
   `Enter` does the same. A workspace you have not opened since starting Stave
@@ -95,7 +131,8 @@ Fleet item, and the task records the answer the same way.
   A stopped turn's reason remains discoverable there after reading its global
   reminder. Starting a new turn replaces that failure.
 - A workspace running an agent run shows an agent run strip on its card: the stage
-  track, where the agent run stands, its stage position and what it has spent.
+  track, where the agent run stands, its stage position, how long it has worked
+  (pauses and waits for you not counted) and what it has spent.
   Clicking the strip opens the lead task.
 
 ### Key Controls
@@ -104,14 +141,22 @@ Fleet item, and the task records the answer the same way.
 - `Allow once`, `Always allow` and `Deny`: an approval is answered in its row,
   without opening the task. The row draws the same approval card as the
   conversation and the composer, with the tool and the command it would run;
-  `Always allow` appears only when the provider can keep the grant, and not for
-  a task an external host manages.
+  `Always allow` follows the same rule as everywhere else (it appears whenever
+  the provider or your trusted approvals keep the grant), and not for a task
+  an external host manages or a turn the host runs. With focus in the card,
+  `Cmd/Ctrl+Enter` allows the request once; `Esc` never denies it.
 - A short question (one question, one choice, two to six options) is answered
   in its row by picking an option. Longer forms, free text, numbers and links
   are answered in the task: the row says so and `Open` takes you there.
 - With a row focused, `A` allows the approval once, `D` denies it, and `1`–`9`
   picks a short question's option. `Enter` still opens the row's control panel.
-  After an answer, focus moves to the next row.
+  After an answer, focus moves to the next row. When `Snooze`, `Dismiss` or
+  `Mark read` takes a row away, focus moves to the row that took its place (the
+  row before it when it was the last one), unless you already moved focus
+  elsewhere.
+- The `Action required` heading says its count as a sentence ("2 waiting on
+  you") in a polite live region, so a screen reader hears what the number
+  counts when it changes.
 - An answer is sent only if the task still shows that exact request (same
   workspace, task, turn and request); otherwise the row says why. A question
   that did not pause its turn can still be answered after the turn ends, in
@@ -127,8 +172,13 @@ Fleet item, and the task records the answer the same way.
 - A dot marks an item whose notification you have not read, the same in the
   bell. Opening an item with `Open`, here or in the bell, reads it; expanding
   its row to see its controls does not.
-- With a row focused, `ArrowUp` and `ArrowDown` move between rows and `Enter`
-  opens the row's control panel. `Esc` steps back one level at a time: it
+- With a row focused, `ArrowUp` and `ArrowDown` (or `K` and `J`) move between
+  rows and `Enter` opens the row's control panel. The bell's list takes the same
+  keys.
+- A row in `Action required` whose wait began at a known time colors its age:
+  quiet under an hour, the needs-answer color from an hour, and the failed
+  color from a day. The age text still says how long; the color only repeats
+  it. Rows with no recorded start (pull request rows) stay quiet. `Esc` steps back one level at a time: it
   closes an open panel, then leaves the focused row, then clears the search,
   and only then closes Fleet View.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs

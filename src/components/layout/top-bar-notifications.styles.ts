@@ -57,69 +57,9 @@ export const notificationsStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     marginTop: vars["--ads-space-4"],
   },
-  /*
-   * A segmented switch is one row by definition — the track, its radius and
-   * its inset frame all describe a single line of choices, and a wrapped
-   * second row leaves the active tab's raised pill floating inside a
-   * two-line box. `flexWrap: "wrap"` let exactly that happen as soon as the
-   * two nowrap tabs (each widened by its own count badge) outgrew the
-   * shrinking title column. The row now holds, and the tabs absorb the
-   * pressure instead (see `viewTab`).
-   */
-  viewSwitch: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    display: "inline-flex",
-    flexWrap: "nowrap",
-    marginTop: vars["--ads-space-12"],
-    maxInlineSize: "100%",
-    padding: vars["--ads-space-4"],
-  },
-  /*
-   * `minInlineSize: 0` is what makes the strip's `nowrap` safe: a flex item
-   * keeps `min-width: auto` by default, so a tab could not shrink below the
-   * min-content width of its label plus its badge and would have overflowed
-   * the track instead of wrapping. With the floor removed the label is the
-   * part that gives (`viewTabLabel`), and the badge — which is a count and
-   * cannot be abbreviated — keeps its size.
-   */
-  viewTab: {
-    alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
-    color: vars["--ads-color-text-muted"],
-    display: "inline-flex",
-    flexShrink: 1,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-8"],
-    minInlineSize: 0,
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: 10,
-  },
-  viewTabLabel: {
-    minInlineSize: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  viewTabActive: {
-    backgroundColor: vars["--ads-color-canvas"],
-    boxShadow: vars["--ads-elevation-raised"],
-    color: vars["--ads-color-text"],
-  },
-  viewTabIdle: {
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-  },
-  viewTabCount: {
-    borderRadius: vars["--ads-radius-full"],
-    fontSize: vars["--ads-font-size-micro"],
-    minHeight: 16,
-    minWidth: 16,
-    paddingInline: 6,
-  },
+  // The view switch spans the header under the title; its segments share the
+  // width and their labels give before the counts do.
+  viewSwitch: { marginTop: vars["--ads-space-12"] },
   headerActions: {
     alignItems: "center",
     display: "flex",

@@ -97,7 +97,10 @@
     "sent_one": "Sent ({{count}})",
     "sent_other": "Sent ({{count}})",
     "where": "{{path}}:{{line}}",
-    "sentWhere": "{{where}} · sent {{time}}"
+    "jump": "Show {{where}} in the diff",
+    "remove": "Remove the comment on {{where}}",
+    "resolve": "Resolve the sent comment on {{where}}",
+    "sentAt": "sent <time/>"
   },
   "outputs": {
     "title": "Output",
@@ -144,10 +147,19 @@
       "unsent_one": "{{count}} comment not sent",
       "unsent_other": "{{count}} comments not sent",
       "markFailed": "The review mark was not saved. Try again.",
-      "sendFailed": "The comments were not sent. Wait for the current turn to finish and try again."
+      "sendFailed": "The comments were not sent. Wait for the current turn to finish and try again.",
+      "markedToast": "Marked reviewed",
+      "undo": "Undo",
+      "undoChangedElsewhere": "The review mark changed elsewhere since, so it was left as it is.",
+      "undoFailed": "The review mark could not be taken back. Try again."
     }
   },
   "approvals": {
     "readFailed": "The approval requests could not be read."
+  },
+  "queue": {
+    "hint_one": "Next / previous review · {{count}} left",
+    "hint_other": "Next / previous review · {{count}} left",
+    "next": "Next review · {{title}}"
   }
 }

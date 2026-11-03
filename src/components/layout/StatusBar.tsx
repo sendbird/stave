@@ -239,6 +239,8 @@ export function StatusBar() {
   return (
     <footer
       aria-label={t("shell:statusBar.label")}
+      // The toast stack sits above the bar, never on its meters.
+      data-toast-avoid=""
       {...stylex.props(layoutShellStyles.statusBar)}
     >
       <div {...stylex.props(usageStripStyles.container)}>

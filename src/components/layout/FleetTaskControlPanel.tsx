@@ -38,6 +38,7 @@ import { fleetInteractionOutlivesTurn } from "@/lib/fleet/interaction-respond";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
+import { resolveApprovalRequesterName } from "@/lib/approvals/approval-requester";
 import { sx } from "@/components/ads/utils/stylex";
 import { controlPanelStyles as styles } from "./fleet-task-control-panel.styles";
 import { useAppStore } from "@/store/app.store";
@@ -193,6 +194,13 @@ export function FleetTaskControlPanel(args: {
   const activeTurnId = currentTurnIdsByTask[args.target.taskId] ?? null;
   const expectedTurnId = args.target.turnId ?? activeTurnId;
   const managed = isTaskManaged(task);
+  // A host-owned turn answers through the host, like a managed task.
+  const hostOwnedTurn = useAppStore(
+    (state) =>
+      activeTurnId != null &&
+      state.hostOwnedTurnIdsByTask[args.target.taskId] === activeTurnId,
+  );
+  const answersThroughHost = managed || hostOwnedTurn;
   const pendingInteraction = useMemo(() => {
     if (args.expectedInteraction?.kind === "approval") {
       return findPendingApprovalMessageByRequestId({
@@ -219,6 +227,13 @@ export function FleetTaskControlPanel(args: {
   const pendingPart = interactionTurnMatches && interactionMessageMatches
     ? (pendingInteraction?.part ?? null)
     : null;
+  const pendingRequester =
+    pendingPart?.type === "approval" && pendingPart.ownerAgentId
+      ? resolveApprovalRequesterName({
+          parts: messages.find((message) => message.id === pendingInteraction?.messageId)?.parts,
+          ownerAgentId: pendingPart.ownerAgentId,
+        })
+      : null;
   // A request in a workspace nobody has opened yet is not "answered": its task
   // is read on demand (open repository only) before anything is judged stale.
   const taskLoaded = Boolean(task) && messagesByTask[args.target.taskId] !== undefined;
@@ -628,10 +643,11 @@ export function FleetTaskControlPanel(args: {
 
       {pendingPart?.type === "approval" ? (
         <div className={sx(styles.section)}>
-          {/* A managed task answers through its host, which keeps no
-              standing grant, so it is not offered "Always allow". */}
+          {/* A managed task or a host-owned turn answers through the host,
+              which keeps no standing grant, so it is not offered "Always
+              allow" (the same rule as the transcript and the composer). */}
           <ToolApprovalCard
-            allowAlways={!managed}
+            allowAlways={!answersThroughHost}
             busy={busyAction === "approval"}
             density="compact"
             disabled={busyAction != null}
@@ -650,6 +666,7 @@ export function FleetTaskControlPanel(args: {
               })
             }
             part={pendingPart}
+            requestedBy={pendingRequester ?? undefined}
           />
         </div>
       ) : null}

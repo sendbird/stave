@@ -41,6 +41,19 @@
       "tests": [
         "tests/atelier-retired-host-migration.test.ts"
       ]
+    },
+    {
+      "id": "fleet-tree-default",
+      "description": "Through 0.29.2 Fleet View opened on workspace cards and every profile saved fleetBoardLayout: cards, so a saved cards cannot tell a choice from the old default. After 0.29.2 the Tree layout is the default. Settings rehydration moves a saved cards (or a profile saved without the key) to tree once, keeps table, and writes the fleetTreeDefaultApplied marker so a later choice of Cards is kept; it runs only while the marker is absent. At expiry, delete the marked blocks; a profile that skipped these releases keeps its saved cards, and the leftover marker key is ignored.",
+      "introducedAfter": "0.29.2",
+      "removeInVersion": "0.32.0",
+      "files": [
+        "src/lib/fleet/fleet-tree-default-migration.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/fleet-tree-default-migration.test.ts"
+      ]
     }
   ]
 }

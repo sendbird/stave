@@ -41,9 +41,19 @@ Host modifications are intentional and retained when refreshing the bundle:
   and the display language's locale).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
+- Plan takes three optional props the host needs to draw every plan on it (the
+  Agent run Progress tab and report, the composer shelf, the task's turn plan):
+  `actions` (controls at the end of the header after the count, such as the
+  shelf's fold toggle), `count` (the whole plan's count when `steps` is a
+  folded part of it, or `false` where a neighbour already states the count)
+  and `PlanStepItem.current` (`aria-current="step"`, which stays on the step a
+  stopped plan stands on). Omitting them keeps the bundle's behavior.
+
 - Small informational text reads `colorTextMuted`, not `colorTextSubtle`. Subtle is a 3:1 tier, under the 4.5:1 floor that 12px text needs, so the group labels, section labels, footers and shortcut hints in `Command`, `menu`, `listbox` and `select-styles`, the sidebar description and search shortcut, the calendar weekday row, activity and relative-time stamps, the clarification answer label, the diff viewer's line numbers, the file-change directory and `agentSurface.meta` use muted. Subtle stays on icons, disabled items and text at 14px and above.
 
-Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
+Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary), `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors) and `components/AgentFleet.tsx` with `components/AgentFleet.model.ts` and `components/AgentFleet.styles.ts` (main agents with their subagent trees, for Fleet's Tree layout; it composes the bundle's `Button`, `Dialog`, `DurationTimer`, `EmptyState`, `LoadingSurface` and `StateMark`). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
+
+`agent-state.ts` names its lifecycle union `AgentStepState` (the bundle calls it `AgentRunState`), and every consumer here follows. The host already has an `AgentRunState`: the state of a supervised agent run (`src/lib/agent-runs/domain.ts`). One name for two different unions let a tool row's state read as a run's, so the bundle's union takes the name of what it describes, one step of agent work. Keep the rename when refreshing the bundle.
 
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.
 
@@ -92,6 +102,13 @@ Further host extensions:
   exports are unchanged.
 - ToastHost accepts an external canonical toast manager for store-originated
   notifications. Task navigation is an explicit visible action.
+- ToastHost `avoid` (host extension, `ToastHost.avoid.ts`): a selector for
+  product chrome a bottom-anchored stack must stay above. While a toast is
+  open, a visible match that shares the stack's column lifts the viewport so
+  its `--ads-space-20` gap is measured from the match's top edge; matches
+  beside the column leave it in place, and nothing is observed while the stack
+  is empty. Top positions ignore it. The product's single bottom-right host
+  passes `[data-toast-avoid]` (the chat composer column and the status bar).
 - Lightbox accepts host overlay layering, accessible title, close label, and a
   test marker; canonical focus management, zoom, and pan remain authoritative.
 
@@ -193,6 +210,15 @@ Further host extensions:
   compact surfaces answer a request the same way. Stave reaches it only through
   `src/components/session/ToolApprovalCard.tsx`, which also passes
   `allowAlways` explicitly instead of relying on the `true` default.
+
+  Two more host extensions, both optional and additive:
+  `allowOnceShortcut` (`{ ariaKeyShortcuts, hint }`) makes Enter with Ctrl or
+  Cmd allow once while focus is inside that one decision, puts
+  `aria-keyshortcuts` and the keycap hint on the Allow once button, and
+  deliberately binds no Escape-to-deny; `risk` renders a word in muted ink
+  before the status word (the status word stays the one colored signal). The
+  root composes a caller's `onKeyDown` before its own. Without either prop the
+  component renders and behaves exactly as installed.
 
   `Checkpoint` is installed but not yet wired: Stave's compaction-boundary
   restore runs a destructive `git restore --worktree` behind a
@@ -471,7 +497,7 @@ Further host extensions:
   an uncommitted upstream working-tree state, so no pristine baseline exists in
   either repository and a mechanical three-way merge is impossible. It starts
   from upstream with three known host deltas re-applied and nothing else:
-  `"skipped"` in `ROLLUP_PRIORITY` (a host-added `AgentRunState`),
+  `"skipped"` in `ROLLUP_PRIORITY` (a host-added `AgentStepState`),
   `?? null` on `aggregateRunStatus`'s result (the strict indexed-access
   adaptation recorded above), and `agentSurface.rowLabel` on the title.
 
@@ -712,3 +738,175 @@ Further host extensions:
   wrong base and drop host work. Files those manifests SHARE with
   `.ads-source.json` were re-synced and did advance. Re-syncing those two
   closures is the remaining ADS parity work.
+
+- **The selection family (`.ads-source-selection.json`).** `Combobox` (its
+  array and compound halves, `FieldTrigger`, chips, paging and create rows,
+  `headless/combobox` and the `field-shell` recipe), `Stepper` (root, items,
+  `Flow`/`Panel`) and `AppliedFilters` were installed from the ADS source
+  bundle on 2026-11-03 for Stave's pickers, the auto-routing wizard and the
+  applied-filter rows. Only the 25 files absent from this copy were written;
+  every file the bundle shares with an older closure kept its host version, and
+  the bundle's newer `Tooltip.base`, `shortcut-keys`, CSS sheets and
+  theme-target files were not installed because nothing installed here imports
+  them. The manifest's integrity values are the PRISTINE upstream hashes.
+  `FilterBar` and `DatePicker` were not installed: their closure brings a
+  rule-builder query editor, a number field and a second calendar the host has
+  no consumer for yet.
+
+  Host modifications, kept when refreshing:
+
+  - Every English default (empty, loading, search placeholder, clear, open,
+    remove-chip, create, retry, load-more, applied-filter and stepper status
+    copy) reads `i18n.t("ui:combobox.*" | "ui:appliedFilters.*" |
+    "ui:stepper.*")` instead of a literal, and the array components call
+    `useTranslation()` so a language switch re-renders them. Stepper's
+    `statusLabels` holds translation keys rather than words.
+  - `Combobox.loadMore`'s retry button uses the installed Button's `outline`
+    variant name (the bundle calls it `outlined`).
+  - Stepper `showDescriptions` (host extension on `Stepper.Root` and the array
+    `Stepper`, carried on `StepperRootContext`, default `false`): a
+    `navigation` step renders its `Description` on screen, one tight muted
+    line under the title on the title's left edge (`descriptionNavigationShown`
+    in `Stepper.styles.ts`), instead of upstream's visually hidden text. The
+    variant, its connectors and its triggers are otherwise unchanged; the
+    `track` variant was not used because its horizontal list stacks into a
+    column below a 640px container, which the wizard's rail is. The usage
+    wizard turns it on so each step's status ("6 prompts read") reads under
+    its name.
+  - Comments naming other internal products and their tracker numbers were
+    generalized.
+
+  `ToggleGroup.tsx` (byte-identical to upstream until then) now also exports
+  its styles as `toggleGroupStyles`, the same canonical-style export Toggle,
+  Slider and Tooltip carry, so the host `SegmentedControl`
+  (`src/components/system/SegmentedControl.tsx`) draws its single-choice
+  radiogroup with the group's track, gliding chip and 28px item instead of a
+  second copy.
+
+  Additive forward-ports the closure needed from newer upstream versions of
+  host-modified files, each a strict addition: `useFieldDisabled` and
+  `FieldsetDisabledProvider` in `field-anatomy.tsx`, the exported
+  `InputGroupContext` in `InputGroup.tsx`, `controlChrome.fieldTriggerBorder`
+  in `recipes/control-chrome.ts`, the `--ads-control-mark-size-sm|md|lg` scale
+  in `tokens.stylex.ts` (size tokens, not colors, so no theme carries them),
+  and the `xs` size rung on the `stepper`, `stepper-indicator` and
+  `stepper-trigger` theme targets.
+
+- **Tree and TraceWaterfall (`.ads-source-selection.json`).** `Tree` (root,
+  `Tree.model`, `Tree.keyboard`, `Tree.row`, `Tree.dnd`, `Tree.parts`, the
+  `tree-styles`, `disclosure-chevron` and `selection-mark` recipes and
+  `utils/tree-selection`) and `TraceWaterfall` (with `TraceWaterfall.styles`,
+  `disclosure-group-toggle` and `utils/disclosure-group`) were installed from
+  the ADS source bundle on 2026-11-03 and added to the selection manifest, whose
+  `bundleIntegrity` is now the five-entrypoint bundle's. Before installing,
+  `check_source_updates` against the unchanged selection manifest reported the
+  same `sourceRevision`, 11 files current and 14 host-modified (the i18n
+  changes above), so nothing upstream had moved. As with the rest of the
+  family, only the 14 files absent from this copy were written; shared files
+  kept their host versions, and the bundle's newer CSS sheets, `Menu` parts,
+  `shortcut-keys` and theme-target files were not installed because nothing
+  installed here imports them. Integrity values are PRISTINE upstream hashes.
+
+  The agent tree (`src/components/session/WorkGraphTree.tsx`) is a treeview
+  built on `Tree.model`'s `flattenVisibleTree`, `Tree.keyboard`'s key map and
+  the `disclosure-chevron` recipe rather than on the `Tree` root: an agent row
+  is a two-line card with its own controls, which the fixed-height,
+  single-line `Tree.row` cannot hold. The Activity tab's Timeline view
+  (`src/components/session/TurnTraceTimeline.tsx`) renders `TraceWaterfall`.
+
+  Host modifications, kept when refreshing:
+
+  - Every English string reads `i18n.t("ui:tree.*" | "ui:disclosureGroup.*" |
+    "ui:traceWaterfall.*")`: the rename input's name and the move
+    announcements in `Tree.parts`, `Tree.keyboard` and `Tree.dnd`, the
+    expand/collapse-all control, and the waterfall's default label, span
+    summary and expand/collapse names.
+  - `TraceWaterfall` formats durations with the host's `formatDuration`
+    (tenths under ten seconds), so a span reads like every other clock here.
+  - `TraceWaterfall`'s rows are subgrids of the root's three columns. Each row
+    used to be its own grid with a `max-content` trailing column, so a longer
+    duration on one row narrowed that row's track and moved its bar off the
+    shared axis.
+  - `TraceWaterfall` gains three additive span/prop fields: `tone` (the bar's
+    data-ink series: `chart1` default, `chart2`, `chart4` or `neutral`;
+    `error` still wins), `trailing` (content before the duration figure) and
+    `markerMs` (a vertical "now" line in `colorInfo` through every track; the
+    axis stretches to include it). It sets `aria-pressed` only when the caller
+    keeps a selection, and tags rows, names, bars and the marker with
+    `data-trace-*` attributes for geometry tests.
+  - `axisTicks` (host addition, off by default): a labelled time axis above
+    the rows and a dashed rule through every track at each tick. The axis is
+    a row of the same subgrid, so a label's x is the x its rule and any bar
+    starting then are drawn at. `resolveTraceTicks` (`TraceWaterfall.ticks.ts`,
+    re-exported) picks the smallest step on a readable ladder (0.1s … 30s, 1m,
+    2m, 5m … 1h, then whole hours) that keeps four labels or fewer; labels use
+    the same `formatDuration` as the spans. The Activity tab's Timeline turns
+    it on.
+  - A span's name keeps its room and its muted `meta` shrinks first; upstream
+    held the meta at full width, so a long path cut the name to a letter.
+  - The axis and bar math moved into exported `resolveTraceAxis` and
+    `layoutTraceBar`, which the component calls and the host tests; the
+    minimum bar width no longer runs a bar past the end of its track.
+  - Comments naming other products, a parity claim and a tracker number in
+    `Tree`, `Tree.row` and `TraceWaterfall.styles` were generalized.
+  - Forward-port: the `head`, `summary` and `toggle` slots on the
+    `trace-waterfall` theme target (`theme-targets.insight.ts`), a strict
+    addition the newer upstream target carries and `TraceWaterfall` reads.
+
+- **Meter, Progress and FileUpload (`.ads-source-selection.json`).** `Meter`
+  and `Progress` (with their `headless/meter` and `headless/progress`
+  primitives) and `FileUpload` (with `Attachment`, the row it lists files in)
+  were installed from the ADS source bundle on 2026-11-03 and added to the
+  selection manifest, whose `bundleIntegrity` is now the eight-entrypoint
+  bundle's. The bundle reported the same `sourceRevision` as the installed
+  selection, so nothing upstream had moved. Only the six files absent here were
+  written; the rest of the closure (`agent-retry`, `agent-surface`,
+  `surface-chrome`, `focus-ring`, `VisuallyHidden`, the theme props and the
+  `meter`, `progress`, `file-upload` and `attachment` theme targets) already
+  existed and kept its host versions. The bundle's CSS sheets and the
+  `editing` and `graph` theme-target files were not installed because nothing
+  installed here imports them. Integrity values are PRISTINE upstream hashes.
+
+  `DatePicker` was evaluated in the same pass and not installed: its closure
+  replaces this copy's host-modified `Calendar` with the newer split calendar
+  (`Calendar.grid`, `Calendar.month`, `Calendar.nav`, `Calendar.nights`) and
+  adds `Tooltip.base` and `native-select`. The usage view's range field
+  (`src/components/usage/UsageDateRangeField.tsx`) composes the installed
+  `Calendar` and the host popover instead.
+
+  Host modifications, kept when refreshing:
+
+  - `Meter` and `Progress` take a required `label` (the bundle defaulted to the
+    English words "Meter" and "Progress"), and `Progress` reads its
+    indeterminate value text and caption from `ui:progress.*`.
+  - Both gain `size` (`md` default, the bundle's 10px and 8px tracks; `sm` a
+    6px track for a table cell or a one-line row) and `hideValue` (the value
+    stays in `aria-valuetext`, the visible figure goes, for a caller that
+    prints the reading beside the bar). `Progress` gains `hideLabel`, the same
+    clipped label `Meter` already had; with both hidden the header row is not
+    rendered, so the bar is the whole surface.
+  - `Meter` and `Progress` gain a `neutral` tone (the muted ink): a reading
+    that is not yet a concern, or work that stopped without failing (a
+    cancelled stage). The `meter` and `progress` theme targets' `tone` axes
+    list it.
+  - Both fills set `forced-color-adjust: none`, so forced colors do not paint
+    the fill as Canvas and empty the track.
+  - `FileUpload` and `Attachment` read every English default from
+    `ui:fileUpload.*` (retry reads `ui:agentRetry.retry`), and `FileUpload`
+    gains `actionLabel`: a "Choose file" affordance drawn inside the compact
+    picker button, so it joins that button's name and Enter or Space on the
+    row still opens the picker. The copy slot grows so the affordance sits at
+    the row's end.
+
+- `Table` gains two host extensions. `minInlineSize` (the table's width floor
+  inside its frame; the bundle hard-codes 560px, and a narrow dialog or panel
+  passes 0) forward-ports the newer upstream prop of the same name.
+  `TableHead` gains `onSort` and `sortDirection`: with `onSort` the header's
+  label becomes a button with a direction icon (both arrows dimmed while
+  another column or none sorts, one arrow for the sorted column), and the
+  cell states `aria-sort` (`none` until it is the sorted column). The caller
+  owns the order and the cycle, so a table keeps its own unsorted order (the
+  Fleet table's lanes) as the third state. The rest of the sort contract
+  follows the ADS `DataTable`'s sortable header; `DataTable` itself is not
+  installed because its closure needs a windowing package the host does not
+  ship.

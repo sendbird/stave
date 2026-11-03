@@ -1,12 +1,14 @@
-import { useRef, useState } from "react";
-import { FileAudio, Upload, X } from "lucide-react";
+import { useState } from "react";
+import { FileAudio, X } from "lucide-react";
 import { Badge, Slider } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
+import { FileUpload, type FileUploadItem } from "@/components/ads/components/FileUpload";
+import { acceptAttribute } from "@/lib/files/file-drop";
 import { sx } from "@/components/ads/utils/stylex";
 import { useTranslation, type I18nKey } from "@/i18n";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
-  CUSTOM_AUDIO_ACCEPTED_TYPES,
+  CUSTOM_AUDIO_ACCEPT,
   CUSTOM_AUDIO_MAX_SIZE_BYTES,
   NOTIFICATION_SOUND_PRESETS,
   readFileAsDataUrl,
@@ -14,6 +16,9 @@ import {
   type NotificationSoundPreset,
 } from "@/lib/notifications/notification-sound";
 import { ChoiceButtons, LabeledField, SwitchField } from "../settings-dialog.shared";
+
+const NO_FILES: File[] = [];
+const NO_UPLOADS: FileUploadItem[] = [];
 
 const NOTIFICATION_SOUND_PRESET_LABEL_KEYS = {
   chime: "settings:general.soundControls.presets.chime",
@@ -71,15 +76,17 @@ export function NotificationSoundControls({
   };
 }) {
   const { t } = useTranslation(["settings", "common"]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  // A refused or unreadable file stays as a row that says why, until dismissed or replaced.
+  const [rejected, setRejected] = useState<{ file: File; reason: string } | null>(null);
   const volumePercent = Math.round(value.volume * 100);
+  const maxKb = CUSTOM_AUDIO_MAX_SIZE_BYTES / 1024;
 
-  const handleCustomAudioUpload = async (file: File) => {
-    setUploadError(null);
-    const error = validateCustomAudioFile(file);
-    if (error) {
-      setUploadError(error);
+  const handleCustomAudioUpload = async (file: File | undefined) => {
+    setRejected(null);
+    if (!file) return;
+    const refusal = validateCustomAudioFile(file);
+    if (refusal) {
+      setRejected({ file, reason: refusal === "type" ? t("general.soundControls.wrongType") : t("general.soundControls.tooLarge", { maxKb }) });
       return;
     }
     try {
@@ -90,12 +97,12 @@ export function NotificationSoundControls({
         customAudioName: file.name,
       });
     } catch {
-      setUploadError(t("general.soundControls.readFailed"));
+      setRejected({ file, reason: t("general.soundControls.readFailed") });
     }
   };
 
   const handleRemoveCustomAudio = () => {
-    setUploadError(null);
+    setRejected(null);
     onPatch({
       mode: "preset",
       customAudioData: null,
@@ -166,20 +173,6 @@ export function NotificationSoundControls({
               })}
             >
               <div className={sx(styles.stackSm)}>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept={CUSTOM_AUDIO_ACCEPTED_TYPES.join(",")}
-                  className={sx(styles.hiddenInput)}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      void handleCustomAudioUpload(file);
-                    }
-                    // Reset so the same file can be re-selected
-                    e.target.value = "";
-                  }}
-                />
                 {value.customAudioName ? (
                   <div className={sx(styles.audioNameRow)}>
                     <div className={sx(styles.audioNameChip)}>
@@ -191,33 +184,26 @@ export function NotificationSoundControls({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className={sx(styles.buttonIconLeading)} />
-                      {t("general.soundControls.replace")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
                       onClick={handleRemoveCustomAudio}
                     >
                       <X className={sx(styles.buttonIconLeading)} />
                       {t("common:actions.remove")}
                     </Button>
                   </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className={sx(styles.buttonIconLeading)} />
-                    {t("general.soundControls.upload")}
-                  </Button>
-                )}
-                {uploadError ? (
-                  <p className={sx(styles.errorText)}>{uploadError}</p>
                 ) : null}
+                <FileUpload
+                  variant="compact"
+                  accept={acceptAttribute(CUSTOM_AUDIO_ACCEPT)}
+                  files={NO_FILES}
+                  label={t("general.soundControls.dropLabel")}
+                  description={t("general.soundControls.dropHint", { maxKb })}
+                  actionLabel={value.customAudioName ? t("general.soundControls.replace") : t("general.soundControls.choose")}
+                  uploads={rejected ? [{ id: "rejected", file: rejected.file, status: "failed", error: rejected.reason }] : NO_UPLOADS}
+                  removeLabel={(name) => t("general.soundControls.dismiss", { name })}
+                  onRemove={() => setRejected(null)}
+                  onChange={(files) => void handleCustomAudioUpload(files[0])}
+                  data-notification-sound-import=""
+                />
               </div>
             </LabeledField>
           )}

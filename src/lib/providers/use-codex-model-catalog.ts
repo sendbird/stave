@@ -109,7 +109,12 @@ async function loadCodexModelCatalog(args: {
       });
       const visibleEntries = result.models.filter((model) => !model.hidden).map(entry => ({
         ...entry,
-        description: [result.ok ? "Listed by the current Codex runtime." : "Runtime support unconfirmed.", entry.description].filter(Boolean).join(" "),
+        description: [
+          result.ok
+            ? i18n.t("providers:codexModelCatalog.listedByRuntime")
+            : i18n.t("providers:codexModelCatalog.runtimeSupportUnconfirmed"),
+          entry.description,
+        ].filter(Boolean).join(" "),
       }));
       const models = visibleEntries
         .map((model) => model.model.trim())

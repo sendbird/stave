@@ -66,7 +66,16 @@
     "judge": "평가",
     "freshContextScoringAndRecommendation": "새 컨텍스트에서 점수를 매기고 추천합니다.",
     "inspectEvidenceAgainstOneRubric": "하나의 평가 기준에 따라 근거를 검토합니다.",
-    "preserveOneWorkspaceDiscardTheRest": "작업 공간 하나를 유지하고 나머지는 삭제합니다."
+    "preserveOneWorkspaceDiscardTheRest": "작업 공간 하나를 유지하고 나머지는 삭제합니다.",
+    "keepGroup": "후보 하나 유지",
+    "keepThisOne": "이 후보 유지",
+    "keptThisOne": "유지됨",
+    "keepWhenFinished": "끝나면 유지 가능",
+    "keepRadio": "{{action}}: {{title}}",
+    "keepRadioScored": "{{action}}: {{title}}, 점수 {{score}}",
+    "elapsedSoFar": "지금까지 {{duration}}",
+    "tokens_other": "토큰 {{value}}개",
+    "now": "지금: {{activity}}"
   },
   "compareRunPrepareDialog": {
     "candidateA": "후보 A",
@@ -236,6 +245,7 @@
     "costLimit": "보고된 비용 합계에는 비용을 알 수 있는 실패·취소 실행도 포함됩니다. 미보고 비용은 제외하므로 전체 청구액이나 프로바이더 간 가격 비교 기준으로 사용할 수 없습니다.",
     "emptyTitle": "집계할 종료된 에이전트 실행이 없습니다",
     "emptyDescription": "입력창이나 에이전트 화면에서 작업을 위임하거나, 다른 기간을 선택하세요. 일반 대화의 답변은 작업 패널의 산출물 탭에 저장됩니다.",
-    "refresh": "에이전트 성과 새로고침"
+    "refresh": "에이전트 성과 새로고침",
+    "reasonShare_other": "실행 {{total}}개 중 {{count}}개, {{percent}}"
   }
 }

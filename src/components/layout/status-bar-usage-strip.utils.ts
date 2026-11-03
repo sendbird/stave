@@ -1,5 +1,6 @@
 import { i18n, getIntlLocale } from "@/i18n";
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/ads/utils/tone";
+import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { providerReportsQuota } from "@/lib/providers/account-usage-block";
 import type { ApiConnectionCreditsView } from "@/lib/providers/use-api-connection-credits";
@@ -26,14 +27,9 @@ export function clampUsagePercent(usedPercent: number): number {
   return Math.min(100, Math.max(0, usedPercent));
 }
 
-/** The meters' shared thresholds: under 60% is fine, under 85% is worth watching. */
-export const USAGE_TONE_THRESHOLDS = [
-  { from: 60, tone: "warning" },
-  { from: 85, tone: "danger" },
-] as const satisfies readonly ToneThreshold<UsageTone>[];
-
+/** Quota tone on the shared quota scale, so the strip matches the Usage view. */
 export function usageTone(usedPercent: number): UsageTone {
-  return thresholdTone(clampUsagePercent(usedPercent), USAGE_TONE_THRESHOLDS, "success");
+  return usageThresholdTone("quota", clampUsagePercent(usedPercent), "success");
 }
 
 export function formatUsagePercent(usedPercent: number): string {
@@ -168,7 +164,7 @@ export function describeUsageWindow(args: {
     ? i18n.t("shell:statusBarUsageStripUtils.at100StaveHoldsNewTurnsUntil", { value1: providerName })
     : i18n.t("shell:statusBarUsageStripUtils.at100StaveKeepsSendingTurnsBecause", { value1: providerName });
   return {
-    title: `${window.title} · ${formatUsagePercent(window.usedPercent)} used`,
+    title: i18n.t("shell:statusBarUsageStripUtils.windowUsedTitle", { title: window.title, percent: formatUsagePercent(window.usedPercent) }),
     lines: [...(window.note ? [window.note] : []), reset, atLimit],
   };
 }

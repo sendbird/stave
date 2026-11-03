@@ -451,48 +451,10 @@ export const compareRunPanelStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  statusChip: {
-    alignItems: "center",
-    borderRadius: "0.3rem",
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    display: "inline-flex",
+  /** The candidate's state: the shared mark and word, never a color of its own. */
+  variantState: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-4"],
-    paddingBlock: 2,
-    paddingInline: 6,
-  },
-  statusFailed: {
-    backgroundColor: vars["--ads-color-danger-soft"],
-    borderColor: vars["--ads-color-danger-border"],
-    color: vars["--ads-color-danger-text"],
-  },
-  statusMuted: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text-muted"],
-  },
-  statusKept: {
-    backgroundColor: vars["--ads-color-success-soft"],
-    borderColor: vars["--ads-color-success-border"],
-    color: vars["--ads-color-success-text"],
-  },
-  statusCompleted: {
-    backgroundColor: vars["--ads-color-success-soft"],
-    borderColor: vars["--ads-color-success-border"],
-    color: vars["--ads-color-success-text"],
-  },
-  statusRunning: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    color: vars["--ads-color-warning-text"],
-  },
-  statusPending: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   recommendedTag: {
     alignItems: "center",
@@ -539,6 +501,16 @@ export const compareRunPanelStyles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     gap: vars["--ads-space-4"],
+  },
+  /** What a running candidate does now, under its meta line. */
+  variantNow: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    marginBottom: 0,
+    marginTop: vars["--ads-space-4"],
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   variantConflicts: {
     color: vars["--ads-color-danger"],

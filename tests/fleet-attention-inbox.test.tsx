@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { FleetAttentionInbox, AgentRunSignOffControl } from "@/components/layout/FleetAttentionInbox";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { applyAppLocale } from "@/i18n";
+import { nextFocusAfterLeaving } from "@/lib/fleet/inbox-focus";
 
 function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetAttentionItem {
   return {
@@ -137,6 +138,23 @@ describe("FleetAttentionInbox", () => {
     }
   });
 
+  test("the live region says what the count counts, in a sentence", () => {
+    const second = buildAttentionItem({ id: "interaction:user-input:workspace-1:task-2:request-2", taskId: "task-2", requestId: "request-2" });
+    const liveRegion = (markup: string) => markup.match(/data-testid="fleet-attention-count"[^>]*>(.*?)<\/span>/)?.[1] ?? "";
+    const markup = renderInbox([buildAttentionItem(), second]);
+    expect(markup).toMatch(/aria-live="polite"[^>]*data-testid="fleet-attention-count"/);
+    expect(liveRegion(markup)).toBe("2 waiting on you");
+    expect(liveRegion(renderInbox([buildAttentionItem()]))).toBe("1 waiting on you");
+    // With nothing waiting the empty state says so; the region only announces it.
+    expect(renderInbox([])).toContain("Nothing is waiting on you");
+    applyAppLocale("ko");
+    try {
+      expect(liveRegion(renderInbox([buildAttentionItem(), second]))).toBe("2개가 기다리는 중");
+    } finally {
+      applyAppLocale("en");
+    }
+  });
+
   test("accounts for snoozed rows and offers to restore them", () => {
     const markup = renderInbox([buildAttentionItem()], { snoozedCount: 3 });
     expect(markup).toContain("3 snoozed");
@@ -157,5 +175,25 @@ describe("FleetAttentionInbox", () => {
     expect(failed).toMatch(/role="alert"[^>]*>gh is signed out\.</);
     expect(failed).not.toContain('title="gh is signed out."');
     expect(render(null)).not.toContain('role="alert"');
+  });
+});
+
+describe("focus after a row leaves the inbox", () => {
+  test("goes to the row that followed it", () => {
+    expect(nextFocusAfterLeaving(["a", "b", "c"], "b", ["a", "c"])).toBe("c");
+  });
+
+  test("goes back to the row before it when it was last", () => {
+    expect(nextFocusAfterLeaving(["a", "b", "c"], "c", ["a", "b"])).toBe("b");
+  });
+
+  test("skips rows that left with it", () => {
+    expect(nextFocusAfterLeaving(["a", "b", "c", "d"], "b", ["a", "d"])).toBe("d");
+    expect(nextFocusAfterLeaving(["a", "b", "c"], "c", ["a"])).toBe("a");
+  });
+
+  test("has nowhere to go when no row is left or the row was never shown", () => {
+    expect(nextFocusAfterLeaving(["a"], "a", [])).toBeNull();
+    expect(nextFocusAfterLeaving(["a", "b"], "x", ["a", "b"])).toBeNull();
   });
 });

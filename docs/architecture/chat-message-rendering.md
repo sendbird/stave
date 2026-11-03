@@ -103,7 +103,12 @@ The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as p
   and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box
   brings its padding, `controlHeightSm`, radius, hover wash and focus ring with it. Its ink is
   body ink — one step darker than the `agentSurface.rowLabel` its rows use.
-  While the turn runs, the label is a rotating playful status phrase with a shimmer gradient animation.
+  While the turn runs, the label is a rotating playful status phrase with a shimmer gradient animation,
+  followed by the title of the newest step still in progress ("Reading search.ts", "Running bun test")
+  and the turn's elapsed time: `phrase · activity · 12s`. With no step in progress it is the phrase
+  and the time alone. On a short row the activity ellipsizes first, then the phrase; the time never
+  truncates. None of it is a live region, so the rotating phrase and the changing activity are not
+  announced. A streaming reasoning row inside the trace ticks its own elapsed time the same way.
   The rotating phrase swap animation is user-selectable in Settings → Chat, with a soft fade as the default.
   Once the turn finishes, the title says what it did, from data the turn already has (no model call):
   the first sentence of the reply that names the work (at least three words, markdown stripped),

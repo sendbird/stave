@@ -154,6 +154,18 @@ describe("formatTokenCount", () => {
     expect(formatTokenCount(1_250_000, { exact: true })).toBe("1.25M");
     expect(formatTokenCount(-20)).toBe("0");
   });
+
+  test("tenths keep one decimal at every size, so listed parts add up to their total", () => {
+    expect(formatTokenCount(950, { tenths: true })).toBe("950");
+    expect(formatTokenCount(3_120, { tenths: true })).toBe("3.1k");
+    expect(formatTokenCount(12_400, { tenths: true })).toBe("12.4k");
+    expect(formatTokenCount(12_000, { tenths: true })).toBe("12.0k");
+    expect(formatTokenCount(44_900, { tenths: true })).toBe("44.9k");
+    expect(formatTokenCount(999_960, { tenths: true })).toBe("1.0M");
+    expect(formatTokenCount(1_234_567, { tenths: true })).toBe("1.2M");
+    applyAppLocale("ko");
+    expect(formatTokenCount(12_400, { tenths: true })).toBe("12.4k");
+  });
 });
 
 describe("formatCost", () => {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_OPTION_PREVIEW_LENGTH } from "../../../src/lib/user-input-options";
 import {
   ProviderIdSchema,
   RuntimeOptionsSchema,
@@ -10,6 +11,7 @@ const UserInputOptionSchema = z
     description: z.string().max(5000),
     value: z.string().max(500).optional(),
     recommended: z.boolean().optional(),
+    preview: z.string().max(MAX_OPTION_PREVIEW_LENGTH).optional(),
   })
   .strict();
 

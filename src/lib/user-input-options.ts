@@ -37,6 +37,19 @@ export function readRawOptionRecommended(raw: {
   );
 }
 
+/** The IPC schemas' bound for an option preview. */
+export const MAX_OPTION_PREVIEW_LENGTH = 20_000;
+
+/**
+ * An option's `preview` as the provider wrote it (whitespace and all), when it
+ * sent a non-blank one: `{ preview }` to spread into the option, else `{}`.
+ */
+export function readRawOptionPreview(raw: { preview?: unknown }): { preview?: string } {
+  return typeof raw.preview === "string" && raw.preview.trim()
+    ? { preview: raw.preview.slice(0, MAX_OPTION_PREVIEW_LENGTH) }
+    : {};
+}
+
 export function readQuestionRecommendPointer(question: {
   recommended?: unknown;
   recommend?: unknown;

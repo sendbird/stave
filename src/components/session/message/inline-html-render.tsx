@@ -33,6 +33,8 @@ import { layers } from "@/lib/ui-layers.stylex";
 import { useAppStore } from "@/store/app.store";
 import { inlineRenderContextRuntime } from "@/store/inline-render-context-runtime";
 import { expandedNoDragStyle, inlineHtmlRenderStyles as styles } from "./inline-html-render.styles";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { InlineRenderMessageConfirmDialog } from "./inline-render-message-confirm";
 import { useInlineRenderTheme } from "./inline-render-theme";
 import { useInlineRenderFrameBridge, useInlineRenderFrameSlot } from "./use-inline-render-frame";
@@ -221,22 +223,11 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
     });
   }, [bridge, fallbackHtml, reference.renderId, source]);
 
-  const [copied, setCopied] = useState(false);
-  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-    },
-    [],
-  );
+  const { status: copyStatus, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
   const copySource = useCallback(() => {
     if (!source) return;
-    void navigator.clipboard?.writeText(source).then(() => {
-      setCopied(true);
-      if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), COPIED_MS);
-    });
-  }, [source]);
+    void copyText(source);
+  }, [copyText, source]);
 
   const save = useCallback(() => {
     if (!bridge) return;
@@ -375,6 +366,7 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
                 {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
                 {copied ? i18n.t("session:inlineRender.copied") : i18n.t("session:inlineRender.copy")}
               </Button>
+              <ClipboardCopyAnnouncement status={copyStatus} />
             </div>
           ) : null}
         </div>

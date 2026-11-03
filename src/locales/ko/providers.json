@@ -239,7 +239,9 @@
   "providerAccountIdentity": {
     "checkingSignIn": "로그인 확인 중…",
     "cliNotFound": "{{value1}} CLI를 찾지 못했습니다.",
-    "canTCheckSignIn": "로그인을 확인하지 못했습니다."
+    "canTCheckSignIn": "로그인을 확인하지 못했습니다.",
+    "signedInAs": "{{email}}(으)로 로그인됨",
+    "signedIn": "로그인됨"
   },
   "providerAccountSetup": {
     "sharesYourFromSystemDefaultWith": "시스템 기본 계정의 {{value1}} 항목을 이 계정에 공유합니다. {{value2}}",
@@ -384,7 +386,8 @@
     "uniqueModels": "모델 ID는 중복될 수 없습니다.",
     "customEndpoint": "사용자 지정 연결에는 엔드포인트가 하나 이상 필요합니다.",
     "periodLimit": "기간은 최대 366일까지 선택하세요.",
-    "accountProvider": "계정 필터를 사용하려면 제공자를 선택하세요."
+    "accountProvider": "계정 필터를 사용하려면 제공자를 선택하세요.",
+    "previousPeriod": "비교 기간은 보고 기간이 시작되기 전에 끝나야 합니다."
   },
   "agentHistory": {
     "message": "메시지",
@@ -551,5 +554,38 @@
     "midTask": "작업 도중 프로바이더 전환",
     "midTaskDescription": "위 표를 포함한 프로바이더 규칙이 이미 시작한 작업도 다른 프로바이더로 옮길 수 있게 합니다. 끄면 작업의 첫 턴에서만 프로바이더가 바뀝니다. 어느 경우든 턴을 실행할 수 없는 프로바이더는 작업을 넘깁니다.",
     "privacyNote": "프로바이더를 바꾸면 대화 중 최대 12,000자가 다른 프로바이더로 전달되고, 그 프로바이더의 skill·hook·MCP 서버 설정이 적용됩니다."
+  },
+  "codexModelCatalog": {
+    "listedByRuntime": "현재 Codex 런타임이 제공하는 모델입니다.",
+    "runtimeSupportUnconfirmed": "런타임 지원을 확인하지 못했습니다."
+  },
+  "presetActions": {
+    "heading": "{{preset}}에서 {{provider}}의 동작",
+    "locksHeading": "에이전트 모드에서는 항상 먼저 물어봄",
+    "kind": {
+      "read": "워크스페이스 파일 읽기",
+      "edit": "파일 편집",
+      "command": "명령 실행",
+      "web": "웹 도구",
+      "mcp": "MCP 도구",
+      "tools": "모든 도구 호출"
+    },
+    "state": {
+      "own": "바로 실행",
+      "sandbox": "샌드박스 안에서 실행",
+      "asks": "먼저 물어봄",
+      "flagged": "검토 후 물어봄",
+      "off": "꺼짐",
+      "always": "항상 물어봄"
+    },
+    "note": {
+      "someFileCommands": "워크스페이스 안의 일부 파일 명령은 바로 실행합니다",
+      "beyondSandboxAsks": "읽기 전용 샌드박스가 막는 작업은 먼저 물어봅니다"
+    },
+    "lock": {
+      "writesOutsideRepository": "저장소 밖 쓰기 · {{id}}",
+      "credentials": "자격 증명 파일과 변수 · {{id}}",
+      "remoteActions": "되돌릴 수 없는 원격 작업 · {{id}}"
+    }
   }
 }

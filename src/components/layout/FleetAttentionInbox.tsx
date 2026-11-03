@@ -7,7 +7,8 @@ import {
   Clock,
   Inbox,
 } from "lucide-react";
-import { useCallback, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
@@ -18,6 +19,7 @@ import {
   resolveFleetRowKey,
 } from "@/components/layout/FleetRowInlineAnswer";
 import { useFleetRowInteraction } from "@/components/layout/useFleetRowInteraction";
+import { nextFocusAfterLeaving } from "@/lib/fleet/inbox-focus";
 import { FleetQuietDuration } from "@/components/layout/FleetTaskActivityLine";
 import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
 import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
@@ -42,7 +44,9 @@ import {
 } from "@/lib/fleet/attention-projection";
 import {
   describeFleetAttentionPrimaryAction,
+  describeFleetWaitingCount,
   FLEET_ATTENTION_KIND_LABEL,
+  FLEET_SNOOZE_DURATION_LABEL_KEY,
   FLEET_TIER_LABEL,
 } from "@/lib/fleet/fleet-vocabulary";
 import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
@@ -301,7 +305,7 @@ function FleetNeedRow(args: {
                   key={duration.id}
                   onSelect={() => args.onSnooze(item, duration.ms)}
                 >
-                  {duration.label}
+                  {tI18n(FLEET_SNOOZE_DURATION_LABEL_KEY[duration.id])}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -431,6 +435,66 @@ export function FleetAttentionInbox(args: {
     [visibleRowKey],
   );
 
+  // Snooze, Dismiss and Mark read take a row away once their write lands,
+  // which can be after the row's own controls were disabled or its menu
+  // returned focus to a control that is gone. Remember which row the action
+  // left and the order around it, and when the row is gone hand focus to the
+  // row that took its place, unless focus has moved elsewhere on purpose.
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const leavingRowRef = useRef<{ id: string; order: readonly string[] } | null>(null);
+  const handFocusOnFrom = useCallback(
+    (item: FleetAttentionItem) => {
+      leavingRowRef.current = { id: item.id, order: visibleRowKey.split("\u0000") };
+    },
+    [visibleRowKey],
+  );
+  useEffect(() => {
+    const leaving = leavingRowRef.current;
+    if (!leaving) {
+      return;
+    }
+    const ids = visibleRowKey.split("\u0000");
+    if (ids.includes(leaving.id)) {
+      return;
+    }
+    leavingRowRef.current = null;
+    const nextId = nextFocusAfterLeaving(leaving.order, leaving.id, ids);
+    if (!nextId) {
+      return;
+    }
+    // Not cancelled when the list changes again within the frame: the handoff
+    // is already decided, and a row that is gone by then is simply not found.
+    window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body && !sectionRef.current?.contains(active)) {
+        return;
+      }
+      document.getElementById(`fleet-attention-trigger-${nextId}`)?.focus();
+    });
+  }, [visibleRowKey]);
+  const { onSnooze, onDismiss, onMarkRead } = args;
+  const snoozeRow = useCallback(
+    (item: FleetAttentionItem, durationMs: number) => {
+      handFocusOnFrom(item);
+      onSnooze(item, durationMs);
+    },
+    [handFocusOnFrom, onSnooze],
+  );
+  const dismissRow = useCallback(
+    (item: FleetAttentionItem) => {
+      handFocusOnFrom(item);
+      onDismiss(item);
+    },
+    [handFocusOnFrom, onDismiss],
+  );
+  const markRowRead = useCallback(
+    (item: FleetAttentionItem) => {
+      handFocusOnFrom(item);
+      onMarkRead(item);
+    },
+    [handFocusOnFrom, onMarkRead],
+  );
+
   const entryByItemId = useFleetAttention((snapshot) => snapshot.inbox.entryByItemId);
   const { onOpenTask } = args;
   const openItemTask = useCallback(
@@ -457,9 +521,9 @@ export function FleetAttentionInbox(args: {
       onOpen={args.onOpen}
       onOpenEntry={args.onOpenEntry ?? openItemTask}
       onOpenTask={args.onOpenTask}
-      onMarkRead={args.onMarkRead}
-      onDismiss={args.onDismiss}
-      onSnooze={args.onSnooze}
+      onMarkRead={markRowRead}
+      onDismiss={dismissRow}
+      onSnooze={snoozeRow}
       onOpenPr={args.onOpenPr}
       onAnswered={focusNextRow}
     />
@@ -467,12 +531,18 @@ export function FleetAttentionInbox(args: {
 
   return (
     <section
+      ref={sectionRef}
       className={sx(styles.root)}
       aria-labelledby="fleet-attention-heading"
     >
       <div className={sx(styles.header)}>
         <h2 id="fleet-attention-heading" className={sx(styles.groupHeading)}>
           {FLEET_TIER_LABEL.blocking}</h2>
+        {/*
+          A live region that says what the number counts. With nothing
+          waiting, the empty state below says so on screen and only the
+          announcement remains.
+        */}
         <span
           className={sx(
             styles.count,
@@ -480,8 +550,13 @@ export function FleetAttentionInbox(args: {
           )}
           aria-live="polite"
           aria-atomic="true"
+          data-testid="fleet-attention-count"
         >
-          {blocking.length}
+          {blocking.length > 0 ? (
+            describeFleetWaitingCount(blocking.length)
+          ) : (
+            <VisuallyHidden>{describeFleetWaitingCount(0)}</VisuallyHidden>
+          )}
         </span>
         <FleetAttentionBulkMenu
           items={args.items}

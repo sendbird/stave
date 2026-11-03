@@ -147,6 +147,7 @@ import {
 } from "../../../src/lib/agent-runs/report-markdown";
 import { sumTurnUsage, type AgentRunUsage, type TurnUsageSample } from "../../../src/lib/agent-runs/usage";
 import { AgentRunRouteSelectionSchema, projectAgentRunRoutes, type AgentRunRouteSelection, type AgentRunRouteTurnFacts } from "../../../src/lib/agent-runs/route-observation";
+import { AGENT_RUN_CLOCK_EVENT_KINDS, projectAgentRunActiveTime, type AgentRunUserWaitReason } from "../../../src/lib/agent-runs/active-time";
 import { aggregateAgentRunInsights, countRunEvents, type AgentRunInsights } from "../../../src/lib/agent-runs/insights";
 import { agentRunEndCause, extractRunAssignment, hasAgentOrigin } from "../../../src/lib/agent-runs/agent-run";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions, RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
@@ -491,6 +492,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   /** A queued control already withdraws this run's permission to admit more work. */
   const pendingInterruptions = new Map<string, number>();
   let stopGeneration = 0;
+  /** Set between `start` and `stop`: the host's own lifetime, which the run clocks follow. */
+  let hostStarted = false;
   /** The pull request read a waiting run has out, per agent run. */
   const pullRequestReads = new Map<string, PendingPullRequestRead>();
   /**
@@ -499,6 +502,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * the run's saved shape stays readable by older builds.
    */
   const waitObservations = new Map<string, { waitId: string; observedAt: number; announcedAt: number }>();
+  /**
+   * Whether each active run was last recorded waiting on the user, so a tick
+   * writes `user-wait-started`/`-ended` only when that changes. Hydrated from
+   * the run's events, so a restarted host continues where they left off.
+   */
+  const userWaits = new Map<string, boolean>();
 
   /** Aborts a run's read: its result, if it ever lands, is never applied. */
   function dropPullRequestRead(agentRunId: string) {
@@ -710,6 +719,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     interruptedTurnIds.delete(agentRunId);
     userTurnIds.delete(agentRunId);
     userTurnIntents.delete(agentRunId);
+    userWaits.delete(agentRunId);
     const attemptPrefix = `${agentRunId}:`;
     for (const key of [...factsCollectedThrough.keys()]) if (key.startsWith(attemptPrefix)) factsCollectedThrough.delete(key);
     for (const key of [...actionOutcomes.keys()]) if (key.startsWith(attemptPrefix)) actionOutcomes.delete(key);
@@ -829,12 +839,15 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       stages: aggregate.stages,
       turns,
     });
+    // Read from every retained transition, not the window the detail carries.
+    const activeTime = projectAgentRunActiveTime(aggregate.agentRun, store.listEventsByKind(agentRunId, AGENT_RUN_CLOCK_EVENT_KINDS));
     return {
       agentRun: aggregate.agentRun,
       stages: aggregate.stages,
       events: store.listRecentEvents(agentRunId, DETAIL_EVENT_LIMIT),
-      report: report ? { ...report, routing, ...(usage ? { usage } : {}) } : null,
+      report: report ? { ...report, routing, activeMs: activeTime.activeMs, ...(usage ? { usage } : {}) } : null,
       routing,
+      activeTime,
       ...(store.readResources?.(agentRunId) ? { resources: store.readResources!(agentRunId)! } : {}),
       ...(usage ? { usage } : {}),
       ...eventWaitObservationOf(aggregate.agentRun),
@@ -1081,6 +1094,34 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       });
     pullRequestReads.set(agentRun.id, entry);
     return undefined;
+  }
+
+  /**
+   * Records when the run starts or stops waiting on the user, for its active
+   * time: an approval or question its lead task holds open, or the current
+   * stage waiting for its sign-off. Written on the change only, at the tick
+   * that sees it; the policy never reads these events.
+   */
+  function observeUserWait(aggregate: AgentRunAggregate, observation: AgentRunObservation) {
+    const { agentRun } = aggregate;
+    const lead = observation.leadTask;
+    // An unreadable task says nothing about its cards; the run pauses or stops on its own.
+    if (!lead.taskExists) return;
+    const reason: AgentRunUserWaitReason | null = lead.pendingApprovalCount > 0
+      ? "approval"
+      : lead.pendingUserInputCount > 0
+        ? "question"
+        : currentStageRecord(aggregate).status === "awaiting-sign-off" ? "sign-off" : null;
+    let recorded = userWaits.get(agentRun.id);
+    if (recorded === undefined) {
+      recorded = store.listEventsByKind(agentRun.id, ["user-wait-started", "user-wait-ended"]).at(-1)?.kind === "user-wait-started";
+      userWaits.set(agentRun.id, recorded);
+    }
+    if ((reason !== null) === recorded) return;
+    recordEvent(agentRun, reason
+      ? { kind: "user-wait-started", idempotencyKey: null, detail: { reason } }
+      : { kind: "user-wait-ended", idempotencyKey: null, detail: {} });
+    userWaits.set(agentRun.id, reason !== null);
   }
 
   /**
@@ -1593,6 +1634,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       signal.throwIfAborted();
       const { observation, turns } = await observe(aggregate, signal);
       signal.throwIfAborted();
+      observeUserWait(aggregate, observation);
       const waiting = aggregate.agentRun.usageLimit;
       const limited = observation.lastEndedTurn?.usageLimited;
       const due = aggregate.agentRun.state === "paused" && aggregate.agentRun.pauseReason === "usage-limit" &&
@@ -1819,6 +1861,34 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   /**
+   * The host is up again for an active run, for its active time. After a clean
+   * stop the clock simply goes on; after a crash it stops where the host was
+   * last seen alive: the run's newest event or change.
+   */
+  function recordHostStarted(agentRun: AgentRun) {
+    const last = store.listEventsByKind(agentRun.id, ["host-stopped", "host-started"]).at(-1);
+    const lastSeenAt = [store.listRecentEvents(agentRun.id, 1).at(-1)?.createdAt, agentRun.updatedAt]
+      .filter((value): value is string => Boolean(value))
+      .reduce((latest, value) => (Date.parse(value) > Date.parse(latest) ? value : latest));
+    store.recordEvent(agentRun.id, {
+      kind: "host-started",
+      idempotencyKey: null,
+      detail: last?.kind === "host-stopped" ? {} : { lastSeenAt },
+    }, now());
+  }
+
+  /** The host is stopping: every active run's clock stands until it starts again. */
+  function recordHostStopped() {
+    for (const agentRun of store.listActiveAgentRuns()) {
+      try {
+        store.recordEvent(agentRun.id, { kind: "host-stopped", idempotencyKey: null, detail: {} }, now());
+      } catch (error) {
+        console.error("[agent-runs] failed to record the host stop", error, { agentRunId: agentRun.id });
+      }
+    }
+  }
+
+  /**
    * Boot sweep. The host stopped, so no agent run turn is running: the latest
    * one is closed if it was left open, and a start that was recorded but never
    * reached a turn is reported and marks its stage stuck. It is never
@@ -1829,6 +1899,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   async function reconcileInterruptedStarts() {
     const interrupted: Array<{ agentRun: AgentRun; orphans: AgentRunEvent[] }> = [];
     for (const agentRun of store.listActiveAgentRuns()) {
+      try {
+        // Before this sweep records anything at the boot's time.
+        recordHostStarted(agentRun);
+      } catch (error) {
+        console.error("[agent-runs] failed to record the host start", error, { agentRunId: agentRun.id });
+      }
       try {
         const orphans = closeInterruptedTurns(agentRun);
         if (orphans.length > 0) interrupted.push({ agentRun, orphans });
@@ -1851,6 +1927,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
 
   function start() {
     if (intervalHandle) return;
+    hostStarted = true;
     void enqueue(reconcileInterruptedStarts).catch((error) => {
       console.error("[agent-runs] boot reconciliation failed", error);
     });
@@ -1859,6 +1936,15 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   function stop() {
+    // Only a runtime that started owns the host's lifetime.
+    if (hostStarted) {
+      hostStarted = false;
+      try {
+        recordHostStopped();
+      } catch (error) {
+        console.error("[agent-runs] failed to record the host stop", error);
+      }
+    }
     stopGeneration += 1;
     for (const controller of evaluationControllers.values()) controller.abort();
     scriptRunner.stop();

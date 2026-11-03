@@ -1,7 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatList, formatNumber, formatTimeAgo } from "@/i18n/format";
 import { useEffect, useId, useMemo, useState } from "react";
+import { CircleAlert } from "lucide-react";
 import { Banner } from "@/components/ads/components/Banner";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { useAsync } from "@/components/ads/utils/async";
 import { sx } from "@/components/ads/utils/stylex";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
@@ -12,8 +14,10 @@ import {
   HANDOFF_SECTION_IDS,
   HANDOFF_SECTION_MAX_CHARS,
   handoffRecordToDraft,
+  handoffSectionOverflow,
   parseHandoffProposal,
   type HandoffDraft,
+  type HandoffLeftOut,
   type HandoffSectionId,
   type TaskHandoffRecord,
 } from "@/lib/task-context/handoff-record";
@@ -98,11 +102,11 @@ export function TaskHandoffPanel(props: { workspaceId: string; taskId: string })
 }
 
 /** What Fill could not add because a section would pass its limit, or null when everything fit. */
-export function describeHandoffLeftOut(leftOut: Partial<Record<HandoffSectionId, number>>) {
-  const sections = HANDOFF_SECTION_IDS.filter((id) => (leftOut[id] ?? 0) > 0);
+export function describeHandoffLeftOut(leftOut: HandoffLeftOut) {
+  const sections = HANDOFF_SECTION_IDS.filter((id) => (leftOut[id]?.length ?? 0) > 0);
   if (sections.length === 0) return null;
   return i18n.t("session:handoff.fillLeftOut", {
-    count: sections.reduce((total, id) => total + (leftOut[id] ?? 0), 0),
+    count: sections.reduce((total, id) => total + (leftOut[id]?.length ?? 0), 0),
     sections: formatList(sections.map((id) => i18n.t(SECTION_TITLE_KEYS[id]))),
     limit: formatNumber(HANDOFF_SECTION_MAX_CHARS),
   });
@@ -233,7 +237,9 @@ export function TaskHandoffEditor(props: {
           fieldId={fieldId}
           draft={editor.draft}
           reviewing={Object.values(editor.authors).some((author) => author !== "user")}
+          leftOut={editor.leftOut}
           onChange={editor.updateSection}
+          onPutBack={editor.putBack}
         />
       ) : (
         <dl className={sx(styles.sections)}>
@@ -282,7 +288,7 @@ export function TaskHandoffEditor(props: {
           <Button size="sm" variant="ghost" onClick={editor.cancel}>
             {i18n.t("common:actions.cancel")}
           </Button>
-          <Button size="sm" disabled={editor.saving || editor.conflict !== null} onClick={() => void save(editor.commit)}>
+          <Button size="sm" disabled={editor.saving || editor.conflict !== null || editor.overLimit} onClick={() => void save(editor.commit)}>
             {i18n.t("common:actions.save")}
           </Button>
         </div>
@@ -291,31 +297,90 @@ export function TaskHandoffEditor(props: {
   );
 }
 
-function HandoffDraftFields(props: {
+/** The editor's fields, each with what Fill left out of it and how far past its limit it is. */
+export function HandoffDraftFields(props: {
   fieldId: string;
   draft: HandoffDraft;
   reviewing: boolean;
+  leftOut: HandoffLeftOut;
   onChange: (id: HandoffSectionId, text: string) => void;
+  onPutBack: (id: HandoffSectionId, line: string) => void;
 }) {
   useTranslation();
   return (
     <div className={sx(styles.sections)}>
       {props.reviewing ? <p className={sx(styles.intro)}>{i18n.t("session:handoff.reviewing")}</p> : null}
-      {HANDOFF_SECTION_IDS.map((id) => (
-        <div key={id} className={sx(styles.section)}>
-          <label htmlFor={`${props.fieldId}-${id}`} className={sx(styles.sectionTitle)}>
-            {i18n.t(SECTION_TITLE_KEYS[id])}
-          </label>
-          <Textarea
-            id={`${props.fieldId}-${id}`}
-            value={props.draft[id]}
-            maxLength={HANDOFF_SECTION_MAX_CHARS}
-            placeholder={i18n.t(SECTION_HINT_KEYS[id])}
-            onChange={(event) => props.onChange(id, event.target.value)}
-            xstyle={styles.textarea}
-          />
-        </div>
-      ))}
+      {HANDOFF_SECTION_IDS.map((id) => {
+        const fieldId = `${props.fieldId}-${id}`;
+        const overflow = handoffSectionOverflow(props.draft[id]);
+        const lines = props.leftOut[id] ?? [];
+        return (
+          <div key={id} className={sx(styles.section)}>
+            <label htmlFor={fieldId} className={sx(styles.sectionTitle)}>
+              {i18n.t(SECTION_TITLE_KEYS[id])}
+            </label>
+            <Textarea
+              id={fieldId}
+              value={props.draft[id]}
+              maxLength={HANDOFF_SECTION_MAX_CHARS}
+              placeholder={i18n.t(SECTION_HINT_KEYS[id])}
+              aria-invalid={overflow > 0 || undefined}
+              aria-describedby={overflow > 0 ? `${fieldId}-over` : undefined}
+              onChange={(event) => props.onChange(id, event.target.value)}
+              xstyle={styles.textarea}
+            />
+            {overflow > 0 ? (
+              <p id={`${fieldId}-over`} className={sx(styles.overLimit)}>
+                {i18n.t("session:handoff.overLimit", { count: overflow, limit: formatNumber(HANDOFF_SECTION_MAX_CHARS) })}
+              </p>
+            ) : null}
+            {lines.length > 0 ? (
+              <HandoffLeftOutLines id={id} fieldId={fieldId} lines={lines} onPutBack={(line) => props.onPutBack(id, line)} />
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The lines Fill could not fit in a section, struck through and labelled so
+ * the strike is never the only cue, each with Put back. A put-back line may
+ * take the section past its limit; the field then says by how much.
+ */
+function HandoffLeftOutLines(props: { id: HandoffSectionId; fieldId: string; lines: readonly string[]; onPutBack: (line: string) => void }) {
+  useTranslation();
+  const headingId = `${props.fieldId}-left-out`;
+  return (
+    <div className={sx(styles.leftOut)} role="group" aria-labelledby={headingId} data-handoff-left-out={props.id}>
+      <p id={headingId} className={sx(styles.leftOutHead)}>
+        <CircleAlert aria-hidden className={sx(styles.leftOutIcon)} />
+        <span className={sx(styles.leftOutTitle)}>{i18n.t("session:handoff.leftOutTitle", { count: props.lines.length })}</span>
+        <span aria-hidden className={sx(styles.leftOutSeparator)}>·</span>
+        <span className={sx(styles.leftOutLimit)}>
+          {i18n.t("session:handoff.leftOutLimit", {
+            section: i18n.t(SECTION_TITLE_KEYS[props.id]),
+            limit: formatNumber(HANDOFF_SECTION_MAX_CHARS),
+          })}
+        </span>
+      </p>
+      <ul className={sx(styles.leftOutList)}>
+        {props.lines.map((line, index) => {
+          const lineId = `${props.fieldId}-left-out-${index}`;
+          return (
+            <li key={line} className={sx(styles.leftOutRow)}>
+              <span id={lineId} className={sx(styles.leftOutText)} title={line}>
+                <VisuallyHidden>{`${i18n.t("session:handoff.leftOutLabel")} `}</VisuallyHidden>
+                <s>{line}</s>
+              </span>
+              <Button size="xs" variant="ghost" aria-describedby={lineId} onClick={() => props.onPutBack(line)} xstyle={styles.leftOutAction}>
+                {i18n.t("session:handoff.putBack")}
+              </Button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

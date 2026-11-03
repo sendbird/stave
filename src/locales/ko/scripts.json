@@ -269,10 +269,11 @@
   },
   "verification": {
     "verificationPassedValueValueChecks": "검증 통과 — 검사 {{value2}}개 중 {{value1}}개",
-    "verificationValueValue": "검증 {{verb}}: {{names}}",
     "verificationPassed": "검증 통과",
     "verificationWarnings": "검증 경고",
-    "verificationFailed": "검증 실패"
+    "verificationFailed": "검증 실패",
+    "failedNames": "검증 실패: {{names}}",
+    "warnedNames": "검증 경고: {{names}}"
   },
   "workspaceToolsPresentation": {
     "value1ProcessRunning": "{{value1}}, 프로세스 1개 실행 중",

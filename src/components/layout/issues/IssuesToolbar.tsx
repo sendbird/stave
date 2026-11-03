@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
-import { trackerVisualStyles } from "./tracker-visual.styles";
 import type { RefObject } from "react";
-import { LayoutGrid, LayoutList, Search, X } from "lucide-react";
+import { LayoutGrid, LayoutList, ListFilter, Search } from "lucide-react";
 
+import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
+import { Button } from "@/components/ads/components/Button";
 import {
-  Button,
   Input,
   Select,
   SelectContent,
@@ -13,11 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui";
 import {
+  TRACKER_ISSUE_UPDATED_WINDOWS,
   TRACKER_ISSUE_VIEWS,
   countActiveTrackerIssueFilters,
   createTrackerIssueFilter,
   type TrackerIssueFilter,
   type TrackerIssueLinkedFilter,
+  type TrackerIssueUpdatedWindow,
   type TrackerIssueView,
 } from "@/lib/tracker-issues/filter";
 import {
@@ -29,24 +31,20 @@ import {
   TRACKER_ISSUE_SORTS,
   type TrackerIssueSort,
 } from "@/lib/tracker-issues/sort";
-import {
-  TRACKER_PRIORITY_PRESENTATION,
-  TRACKER_STATUS_PRESENTATION,
-} from "@/lib/tracker-issues/presentation";
-import {
-  TRACKER_PRIORITY_LEVELS,
-  TRACKER_SOURCE_IDS,
-  TRACKER_STATUS_CATEGORIES,
-  type TrackerPriorityLevel,
-  type TrackerSourceId,
-  type TrackerStatusCategory,
-} from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
+import { CountBadge } from "@/components/system/CountBadge";
+import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { SearchableMultiPicker } from "@/components/layout/settings-searchable-picker";
 import {
-  TrackerIssueFilterChip,
+  applyIssueFilterValues,
+  clearIssueFilters,
+  issueAppliedFilters,
+  issueFilterPickerOptions,
+  removeIssueAppliedFilter,
+  selectedIssueFilterValues,
+  type IssueAppliedFilter,
   type TrackerIssueFilterOption,
-} from "./TrackerIssueFilterChip";
-import { TRACKER_SOURCE_LABELS } from "./tracker-issue-ui";
+} from "./issue-filter-model";
 import { taskLayoutStyles } from "./issues-layout.stylex";
 
 const VIEW_LABELS: Record<TrackerIssueView, string> = {
@@ -74,24 +72,14 @@ const LINKED_LABELS: Record<TrackerIssueLinkedFilter, string> = {
   get unlinked() { return i18n.t("issues:issuesToolbar.notInStave"); },
 };
 
-const SOURCE_OPTIONS: TrackerIssueFilterOption[] = TRACKER_SOURCE_IDS.map(
-  (source) => ({ value: source, label: TRACKER_SOURCE_LABELS[source] }),
-);
-
-const STATUS_OPTIONS: TrackerIssueFilterOption[] = TRACKER_STATUS_CATEGORIES.map(
-  (category) => ({
-    value: category,
-    label: TRACKER_STATUS_PRESENTATION[category].label,
-  }),
-);
-
-// Urgent first, so the chip list reads in the same order as the sorted list.
-const PRIORITY_OPTIONS: TrackerIssueFilterOption[] = [...TRACKER_PRIORITY_LEVELS]
-  .reverse()
-  .map((level) => ({
-    value: level,
-    label: TRACKER_PRIORITY_PRESENTATION[level].label,
-  }));
+const UPDATED_LABELS: Record<TrackerIssueUpdatedWindow, string> = {
+  get any() { return i18n.t("issues:issuesToolbar.updatedAny"); },
+  get today() { return i18n.t("issues:issuesToolbar.updatedToday"); },
+  get "7"() { return i18n.t("issues:issuesToolbar.updatedLast7"); },
+  get "30"() { return i18n.t("issues:issuesToolbar.updatedLast30"); },
+  get "90"() { return i18n.t("issues:issuesToolbar.updatedLast90"); },
+  get month() { return i18n.t("issues:issuesToolbar.updatedThisMonth"); },
+};
 
 export interface IssuesToolbarProps {
   filter: TrackerIssueFilter;
@@ -105,15 +93,31 @@ export interface IssuesToolbarProps {
   /** Derived from the loaded rows by the view, not from settings. */
   projectOptions: readonly TrackerIssueFilterOption[];
   labelOptions: readonly TrackerIssueFilterOption[];
-  /** Row counts per view tab, so an empty tab is visible before it is opened. */
+  /** Row counts per view, so an empty view is visible before it is opened. */
   viewCounts: Record<TrackerIssueView, number>;
+  /** Rows the current view and filters leave, announced as filters change. */
+  resultCount: number;
   searchInputRef: RefObject<HTMLInputElement | null>;
 }
 
+/**
+ * The Issues toolbar: views and search, then one Filter list (every property's
+ * values, searchable) beside the Stave-runs quick filter and the display
+ * controls, then, while anything narrows the list, the applied filters as
+ * removable chips with Clear all and a spoken result count.
+ */
 export function IssuesToolbar(props: IssuesToolbarProps) {
   const { t: tI18n } = useTranslation(["issues"]);
   const { filter } = props;
   const activeFilterCount = countActiveTrackerIssueFilters(filter);
+  const selectedValues = selectedIssueFilterValues(filter);
+  const chips = issueAppliedFilters({
+    filter,
+    projectOptions: props.projectOptions,
+    labelOptions: props.labelOptions,
+    linkedLabel: (linked) => LINKED_LABELS[linked],
+    updatedLabel: (updated) => UPDATED_LABELS[updated],
+  });
 
   const patch = (changes: Partial<TrackerIssueFilter>) => {
     props.onFilterChange({ ...filter, ...changes });
@@ -122,38 +126,20 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
   return (
     <div className={sx(taskLayoutStyles.toolbar)}>
       <div className={sx(taskLayoutStyles.toolbarRow)}>
-        <div
-          className={sx(taskLayoutStyles.tabList)}
-          role="tablist"
+        <SegmentedControl
           aria-label={tI18n("issues:issuesToolbar.trackerIssueViews")}
-        >
-          {TRACKER_ISSUE_VIEWS.map((view) => {
-            const selected = filter.view === view;
-            return (
-              <Button
-                key={view}
-                type="button"
-                size="sm"
-                role="tab"
-                aria-selected={selected}
-                variant={selected ? "secondary" : "ghost"}
-                xstyle={[
-                  taskLayoutStyles.tab,
-                  selected && taskLayoutStyles.activeTab,
-                ]}
-                // Switching tabs starts a clean filter: the chips answer a
-                // different question in each view, and carrying them across is
-                // how a tab looks broken on arrival.
-                onClick={() => props.onFilterChange(createTrackerIssueFilter(view))}
-              >
-                {VIEW_LABELS[view]}
-                <span className={sx(trackerVisualStyles.count)}>
-                  {props.viewCounts[view]}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
+          density="regular"
+          value={filter.view}
+          // Switching views starts a clean filter: the filters answer a
+          // different question in each view, and carrying them across is how
+          // a view looks broken on arrival.
+          onValueChange={(view) => props.onFilterChange(createTrackerIssueFilter(view))}
+          options={TRACKER_ISSUE_VIEWS.map((view) => ({
+            value: view,
+            label: VIEW_LABELS[view],
+            count: props.viewCounts[view],
+          }))}
+        />
 
         <div className={sx(taskLayoutStyles.search)}>
           <Search className={sx(taskLayoutStyles.searchIcon)} />
@@ -169,44 +155,30 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
       </div>
 
       <div className={sx(taskLayoutStyles.toolbarRow)}>
-        <TrackerIssueFilterChip
-          label={tI18n("issues:issuesToolbar.source")}
-          searchable={false}
-          options={SOURCE_OPTIONS}
-          selected={filter.sources}
-          onChange={(next) => patch({ sources: next as TrackerSourceId[] })}
-        />
-        <TrackerIssueFilterChip
-          label={tI18n("issues:issuesToolbar.status")}
-          searchable={false}
-          options={STATUS_OPTIONS}
-          selected={filter.statusCategories}
-          onChange={(next) =>
-            patch({ statusCategories: next as TrackerStatusCategory[] })
+        <SearchableMultiPicker
+          trigger={<Button size="sm" variant={selectedValues.length > 0 ? "secondary" : "outline"} />}
+          triggerContent={
+            <>
+              <ListFilter aria-hidden />
+              {tI18n("issues:issuesToolbar.filter")}
+              {selectedValues.length > 0 ? <CountBadge count={selectedValues.length} tone="neutral" /> : null}
+            </>
           }
-        />
-        <TrackerIssueFilterChip
-          label={tI18n("issues:issuesToolbar.priority")}
-          searchable={false}
-          options={PRIORITY_OPTIONS}
-          selected={filter.priorities}
-          onChange={(next) =>
-            patch({ priorities: next as TrackerPriorityLevel[] })
+          aria-label={
+            selectedValues.length > 0
+              ? tI18n("issues:issuesToolbar.filterCount", { count: selectedValues.length })
+              : tI18n("issues:issuesToolbar.filter")
           }
-        />
-        <TrackerIssueFilterChip
-          label={tI18n("issues:issuesToolbar.project")}
-          options={props.projectOptions}
-          selected={filter.projectKeys}
-          onChange={(next) => patch({ projectKeys: next })}
-          emptyMessage={tI18n("issues:issuesToolbar.noProjectsOnTheLoadedTickets")}
-        />
-        <TrackerIssueFilterChip
-          label={tI18n("issues:issuesToolbar.label")}
-          options={props.labelOptions}
-          selected={filter.labels}
-          onChange={(next) => patch({ labels: next })}
-          emptyMessage={tI18n("issues:issuesToolbar.noLabelsOnTheLoadedTickets")}
+          options={issueFilterPickerOptions({
+            projectOptions: props.projectOptions,
+            labelOptions: props.labelOptions,
+          })}
+          selected={selectedValues}
+          onChange={(values) => props.onFilterChange(applyIssueFilterValues(filter, values))}
+          searchPlaceholder={tI18n("issues:issuesToolbar.searchFilterValues")}
+          searchLabel={tI18n("issues:issuesToolbar.searchFilterValuesLabel")}
+          emptyText={tI18n("issues:issuesToolbar.noFilterValues")}
+          popupXstyle={taskLayoutStyles.filterPopup}
         />
 
         <Select
@@ -232,33 +204,44 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
           </SelectContent>
         </Select>
 
-        <div className={sx(taskLayoutStyles.toolbarActions)}>
-          <div
-            className={sx(taskLayoutStyles.segmented)}
-            role="group"
-            aria-label={tI18n("issues:issuesToolbar.ticketLayout")}
+        {/* Quick filter on the last update, in the usage report's periods. */}
+        <Select
+          value={filter.updated}
+          onValueChange={(value) =>
+            patch({ updated: value as TrackerIssueUpdatedWindow })
+          }
+        >
+          <SelectTrigger
+            className={sx(taskLayoutStyles.selectUpdated)}
+            aria-label={tI18n("issues:issuesToolbar.filterByUpdated")}
+            data-issues-updated-filter=""
           >
-            <Button
-              type="button"
-              size="sm"
-              variant={props.layout === "list" ? "secondary" : "ghost"}
-              aria-pressed={props.layout === "list"}
-              xstyle={taskLayoutStyles.tab}
-              onClick={() => props.onLayoutChange("list")}
-            >
-              <LayoutList className={sx(trackerVisualStyles.icon)} />
-              {tI18n("issues:issuesToolbar.list")}</Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={props.layout === "board" ? "secondary" : "ghost"}
-              aria-pressed={props.layout === "board"}
-              xstyle={taskLayoutStyles.tab}
-              onClick={() => props.onLayoutChange("board")}
-            >
-              <LayoutGrid className={sx(trackerVisualStyles.icon)} />
-              {tI18n("issues:issuesToolbar.board")}</Button>
-          </div>
+            <SelectValue>
+              {(value: TrackerIssueUpdatedWindow) =>
+                tI18n("issues:issuesToolbar.updatedTrigger", { window: UPDATED_LABELS[value] })
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {TRACKER_ISSUE_UPDATED_WINDOWS.map((value) => (
+              <SelectItem key={value} value={value}>
+                {UPDATED_LABELS[value]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className={sx(taskLayoutStyles.toolbarActions)}>
+          <SegmentedControl
+            aria-label={tI18n("issues:issuesToolbar.ticketLayout")}
+            density="regular"
+            value={props.layout}
+            onValueChange={props.onLayoutChange}
+            options={[
+              { value: "list", label: tI18n("issues:issuesToolbar.list"), icon: <LayoutList aria-hidden /> },
+              { value: "board", label: tI18n("issues:issuesToolbar.board"), icon: <LayoutGrid aria-hidden /> },
+            ]}
+          />
           {props.layout === "list" ? (
             <Select
               value={props.group}
@@ -301,23 +284,34 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
               ))}
             </SelectContent>
           </Select>
-          {activeFilterCount > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              xstyle={taskLayoutStyles.tab}
-              // The view is preserved: Reset clears chips, it does not bounce
-              // the reader out of the list they are in.
-              onClick={() =>
-                props.onFilterChange(createTrackerIssueFilter(filter.view))
-              }
-            >
-              <X className={sx(trackerVisualStyles.icon)} />
-              {tI18n("issues:issuesToolbar.resetCount", { count: activeFilterCount })}
-            </Button>
-          ) : null}
         </div>
+      </div>
+
+      {/*
+        The applied filters start their own row at the inline start, so Clear
+        all sits with the chips it clears instead of at the end of a wrapped
+        line of display controls. The count stays mounted so every change is
+        announced, not only the first one.
+      */}
+      <div className={sx(taskLayoutStyles.appliedRow, activeFilterCount === 0 && taskLayoutStyles.appliedRowEmpty)}>
+        {chips.length > 0 ? (
+          <AppliedFilters
+            xstyle={taskLayoutStyles.appliedChips}
+            label={tI18n("issues:issuesToolbar.appliedFilters")}
+            clearAllLabel={tI18n("issues:issuesToolbar.clearAll")}
+            filters={chips}
+            onRemove={(id) => props.onFilterChange(removeIssueAppliedFilter(filter, id as IssueAppliedFilter["id"]))}
+            onClearAll={() => props.onFilterChange(clearIssueFilters(filter))}
+          />
+        ) : null}
+        <span role="status" aria-live="polite" className={sx(taskLayoutStyles.appliedSummary)}>
+          {activeFilterCount > 0
+            ? tI18n("issues:issuesToolbar.resultSummary", {
+                filters: tI18n("issues:issuesToolbar.filterTotal", { count: activeFilterCount }),
+                count: props.resultCount,
+              })
+            : ""}
+        </span>
       </div>
     </div>
   );

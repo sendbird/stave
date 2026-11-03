@@ -5,6 +5,7 @@ import {
   buildCursorProviderModeSettingsPatch,
 } from "@/lib/providers/provider-mode-presets";
 import { useAppStore } from "@/store/app.store";
+import { PresetActionList } from "@/components/system/PresetActionList";
 import { sx } from "@/components/ads/utils/stylex";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -93,6 +94,13 @@ export function SettingsCursorSection() {
           />
           <p className={sx(cursorSectionStyles.note)}>
             {t("settingsProviders:cursorSection.approvalPreset.note")}</p>
+          <PresetActionList
+            placement="field"
+            presetId={cursorApprovalMode}
+            presetLabel={CURSOR_PROVIDER_MODE_PRESETS.find((preset) => preset.id === cursorApprovalMode)?.label ?? ""}
+            providerId="cursor"
+            providerLabel="Cursor"
+          />
         </LabeledField>
         <ScopeLocked>
         <SwitchField

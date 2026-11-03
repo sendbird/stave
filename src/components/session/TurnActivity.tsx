@@ -195,16 +195,20 @@ function getCurrentTurnWorkItems(args: {
  *
  * The inline (`docked`) list is drawn by the shelf itself.
  */
-export function TurnActivity(props: { host: "floating" | "panel" }) {
+export function TurnActivity(props: {
+  host: "floating" | "panel";
+  /** Panel only: the Timeline view, drawn in the steps' place. */
+  listReplacement?: ReactNode;
+}) {
   useTranslation();
   return props.host === "panel" ? (
-    <PanelTurnActivity />
+    <PanelTurnActivity listReplacement={props.listReplacement} />
   ) : (
     <FloatingTurnActivity />
   );
 }
 
-function PanelTurnActivity() {
+function PanelTurnActivity(props: { listReplacement?: ReactNode }) {
   useTranslation();
   const model = useTurnActivityModel({ host: "panel", detail: true });
   if (!model.props) {
@@ -226,6 +230,7 @@ function PanelTurnActivity() {
       isLeaving={model.isLeaving}
       variant="panel"
       chrome={model.props.replayOutcome ? "header" : "list"}
+      listReplacement={props.listReplacement}
     />
   );
 }
@@ -900,6 +905,11 @@ export interface TurnActivitySurfaceProps {
   /** Pointer handlers that make the header a drag handle (floating variant). */
   dragHandleProps?: HTMLAttributes<HTMLDivElement>;
   /**
+   * Drawn where the steps and the Agents block go: the Activity tab's
+   * Timeline view. The header, route and pinned summary stay as they are.
+   */
+  listReplacement?: ReactNode;
+  /**
    * When the shelf sits in the composer frame's top slot, the frame owns the
    * tuck under the raised card. Drop the standalone docked inset and use the
    * shared peek surface so all four bars share one edge treatment.
@@ -1197,7 +1207,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       hasWorkGraphRows ||
       hasDelegationRows ||
       props.autoRouting != null ||
-      props.executionSummary != null) &&
+      props.executionSummary != null ||
+      props.listReplacement != null) &&
     !interactionCardOwnsFocus;
   // `0/4` says nothing, so the ratio only appears once work has landed.
   const showProgress =
@@ -1400,6 +1411,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   data-testid="turn-activity-route"
                 />
               ) : null}
+              {props.listReplacement ?? (<>
               {visibleActivityItems.map((item) => (
                 <TurnActivityRow
                   key={item.id}
@@ -1445,6 +1457,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   />
                 ) : null}
               </DelegationsBlock>
+              </>)}
               {/* Docked and floating keep the tiles in the scrolling list.
                   The panel pins them to the rail floor below. */}
               {variant !== "panel" && props.executionSummary ? (

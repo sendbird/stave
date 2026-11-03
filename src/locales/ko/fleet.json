@@ -75,7 +75,6 @@
     "findWorkspaceBranchOrTask": "워크스페이스, 브랜치 또는 작업 검색…",
     "searchWorkspacesBranchesOrTasks": "워크스페이스, 브랜치 또는 작업 검색",
     "clearSearch": "검색 지우기",
-    "reset": "초기화",
     "noWorkspaces": "워크스페이스 없음",
     "openARepositoryOrWorkspaceToSee": "에이전트 활동을 보려면 저장소 또는 워크스페이스를 엽니다.",
     "nothingActive": "활성 항목 없음",
@@ -95,9 +94,17 @@
     "expandRepository": "{{name}} 펼치기",
     "collapseRepository": "{{name}} 접기",
     "layoutLabel": "보드 레이아웃",
+    "tree": "트리",
     "cards": "카드",
     "table": "표",
-    "valueTasksShown_other": " · 작업 {{count}}개 표시됨"
+    "valueTasksShown_other": " · 작업 {{count}}개 표시됨",
+    "filterLabel": "보드 필터",
+    "appliedFilters": "적용된 필터",
+    "clearAllFilters": "모두 지우기",
+    "appliedStatus": "상태",
+    "appliedIs": "일치",
+    "appliedSearch": "검색어",
+    "appliedContains": "포함"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "기본 · {{branchLabel}}",
@@ -211,7 +218,9 @@
       "openTurn": "멈춘 턴 열기"
     },
     "actionRequiredCount_other": "조치 필요 {{count}}개",
-    "inReviewCount_other": "리뷰 대기 {{count}}개"
+    "inReviewCount_other": "리뷰 대기 {{count}}개",
+    "waitingOnYou_other": "{{count}}개가 기다리는 중",
+    "nothingWaitingOnYou": "기다리는 항목 없음"
   },
   "inlineAnswer": {
     "otherRepository": "이 요청은 다른 저장소에 있습니다. 작업을 열어 응답하세요.",
@@ -295,10 +304,6 @@
     "snoozeLabel_other": "항목 {{count}}개 모두 알림 미루기",
     "snoozeFor_other": "항목 {{count}}개 {{duration}} 동안 미루기",
     "requestsUnanswered": "대기 중인 요청에 응답하지 않습니다.",
-    "oneHour": "1시간",
-    "fourHours": "4시간",
-    "oneDay": "1일",
-    "oneWeek": "1주일",
     "snoozed_other": "항목 {{count}}개 알림을 미뤘습니다",
     "scope_other": "전체 워크스페이스·필터 대상 · 확인이 필요한 요청 {{count}}개 포함"
   },
@@ -323,5 +328,16 @@
     },
     "openFailed": "요청을 열지 못했습니다. 다시 시도해 주세요.",
     "recentFailure_other": "최근 중단 원인 ({{count}})"
+  },
+  "snoozeDuration": {
+    "oneHour": "1시간",
+    "fourHours": "4시간",
+    "oneDay": "1일",
+    "oneWeek": "1주일"
+  },
+  "agentTree": {
+    "answer": "답변",
+    "open": "열기",
+    "openTask": "작업 열기"
   }
 }

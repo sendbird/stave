@@ -408,3 +408,10 @@ const iconDensityStyles = {
   compact: styles.iconCompact,
   regular: styles.iconRegular,
 } as const;
+
+/**
+ * Host extension: `SegmentedControl` (`src/components/system/SegmentedControl.tsx`)
+ * draws a single-choice radiogroup with this exact track, chip and item, so
+ * the two never drift into two visual languages.
+ */
+export { styles as toggleGroupStyles };

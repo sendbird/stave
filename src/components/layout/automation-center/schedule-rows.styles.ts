@@ -8,7 +8,13 @@ const accent = (percent: number) =>
 /** One Schedules row: a select target plus its own Run now / Pause actions. */
 export const scheduleRowStyles = stylex.create({
   list: { display: "grid", gap: vars["--ads-space-8"], listStyle: "none", margin: 0, padding: 0 },
-  resultDot: { display: "inline-block", marginInlineEnd: 4 },
+  /** The last result: its state mark centered on the single-line label. */
+  result: {
+    alignItems: "center",
+    columnGap: vars["--ads-space-4"],
+    display: "inline-flex",
+    minInlineSize: 0,
+  },
   row: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     borderColor: vars["--ads-color-border-subtle"],

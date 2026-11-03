@@ -44,7 +44,7 @@ Bun tests compile this layer with the same StyleX compiler through
 | SectionTabs      | Controlled selection, arrow-key navigation, named tablist, inactive panels unmounted unless an editable draft explicitly requires retention, horizontal overflow within narrow panes |
 | WorkspaceSurface | Heading, purpose, actions, body; wrapping header and bounded parent scrolling                                                                                                        |
 | StatusBadge      | Text labels plus semantic tone; never color-only state                                                                                                                               |
-| ChoiceChips      | One exclusive choice, one Tab entry, arrow-key selection, visible theme focus, wrapping options and disabled semantics; preserves default/undefined domain values                    |
+| SegmentedControl | One exclusive choice of two to six: `radiogroup`, one Tab entry, arrow keys move and select (Home/End, disabled skipped), 28px items, optional count; preserves default/undefined domain values |
 | SelectionRail    | Vertical category tabs inside the existing Base UI tab root; accessible labels, counts, keyboard navigation and compact icon treatment                                               |
 
 Use 4/8/12/16/24 px spacing roles. Keep existing custom theme semantics, contrast
@@ -147,7 +147,7 @@ models, automatic routing, and keyboard shortcuts retain their contracts.
 Provider selection colors resolve through existing theme tokens. Model, Fast,
 and expanded-context controls remain separate buttons in their existing lane.
 
-Effort rows share `ChoiceChips`; model rows share `ComposerOptionModelRow`.
+Effort rows share `SegmentedControl`; model rows share `ComposerOptionModelRow`.
 The general-purpose model dialog uses the same effort choice.
 Higher effort allows more reasoning and can take longer; the interface does not
 promise better results from that setting alone. Selecting a model never sends

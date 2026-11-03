@@ -85,8 +85,6 @@ export const resultsStyles = stylex.create({
   runText: { display: "flex", flexDirection: "column", minInlineSize: 0, gap: vars["--ads-space-4"] },
   reasons: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"], margin: 0, padding: 0, listStyle: "none" },
   reason: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minInlineSize: 0 },
-  track: { blockSize: 4, borderRadius: vars["--ads-radius-full"], backgroundColor: vars["--ads-color-canvas-subtle"], overflow: "hidden" },
-  fill: { display: "block", blockSize: "100%", borderRadius: vars["--ads-radius-full"], backgroundColor: vars["--ads-color-text-muted"] },
 
   /* Agents */
   agents: { display: "flex", flexDirection: "column", margin: 0, padding: 0, listStyle: "none" },

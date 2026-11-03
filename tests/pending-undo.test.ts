@@ -7,7 +7,7 @@ import {
   runPendingUndo,
   withdrawPendingUndo,
 } from "@/lib/notifications/pending-undo";
-import { notificationToastManager } from "@/lib/notifications/toast";
+import { toastManager } from "@/lib/notifications/toast";
 
 afterEach(() => clearPendingUndos());
 
@@ -38,7 +38,7 @@ describe("pending undo", () => {
 
   test("an undo toast registers, undoes once, and closes", () => {
     const events: Array<{ action: string; options: { id?: string } }> = [];
-    const unsubscribe = notificationToastManager[" subscribe"]((event) =>
+    const unsubscribe = toastManager[" subscribe"]((event) =>
       events.push(event),
     );
     let undone = 0;

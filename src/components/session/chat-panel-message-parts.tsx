@@ -18,7 +18,8 @@ import {
   formatInlineSystemEventContent,
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
 import { sx } from "@/components/ads/utils/stylex";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
@@ -43,28 +44,30 @@ import {
 export { toToolDisplayName } from "@/lib/tool-display-name";
 export { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 
+/**
+ * Copies a message. A refused clipboard is reported with an error toast, and
+ * either outcome is announced politely beside the button.
+ */
 export function CopyButton({ text }: { text: string }) {
   useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { status, copied, copy } = useClipboardCopy();
   return (
-    <MessageAction
-      label={i18n.t("session:chatPanelMessageParts.label")}
-      tooltip={i18n.t("session:chatPanelMessageParts.tooltip")}
-      onClick={() => {
-        void copyTextToClipboard(text)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          })
-          .catch(() => {});
-      }}
-    >
-      {copied ? (
-        <Check className={sx(chatPanelMessagePartsStyles.copyIconActive)} />
-      ) : (
-        <Copy className={sx(chatPanelMessagePartsStyles.copyIcon)} />
-      )}
-    </MessageAction>
+    <>
+      <MessageAction
+        label={i18n.t("session:chatPanelMessageParts.label")}
+        tooltip={i18n.t("session:chatPanelMessageParts.tooltip")}
+        onClick={() => {
+          void copy(text);
+        }}
+      >
+        {copied ? (
+          <Check className={sx(chatPanelMessagePartsStyles.copyIconActive)} />
+        ) : (
+          <Copy className={sx(chatPanelMessagePartsStyles.copyIcon)} />
+        )}
+      </MessageAction>
+      <ClipboardCopyAnnouncement status={status} />
+    </>
   );
 }
 

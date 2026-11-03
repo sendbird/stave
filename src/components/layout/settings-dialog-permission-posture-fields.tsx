@@ -14,6 +14,7 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
+import { PresetActionList } from "@/components/system/PresetActionList";
 import {
   ChoiceButtons,
   LabeledField,
@@ -297,6 +298,15 @@ export function ClaudePermissionPostureFields(args: { children?: ReactNode }) {
             ? t("settingsProviders:providersSection.claudeRuntime.modePreset.active", { preset: posture.label, detail: posture.detail })
             : t("settingsProviders:providersSection.claudeRuntime.modePreset.custom", { detail: posture.detail })}
         </p>
+        {posture.presetId ? (
+          <PresetActionList
+            placement="field"
+            presetId={posture.presetId}
+            presetLabel={posture.label}
+            providerId="claude-code"
+            providerLabel="Claude"
+          />
+        ) : null}
       </LabeledField>
       <CustomizePermissions
         fieldId={PROVIDER_PERMISSIONS_FIELD_ID["claude-code"]}
@@ -441,6 +451,15 @@ export function CodexPermissionPostureFields(args: { children?: ReactNode }) {
             ? t("settingsProviders:providersSection.codexRuntime.modePreset.active", { preset: posture.label, detail: posture.detail })
             : t("settingsProviders:providersSection.codexRuntime.modePreset.custom", { detail: posture.detail })}
         </p>
+        {posture.presetId ? (
+          <PresetActionList
+            placement="field"
+            presetId={posture.presetId}
+            presetLabel={posture.label}
+            providerId="codex"
+            providerLabel="Codex"
+          />
+        ) : null}
       </LabeledField>
       <CustomizePermissions
         fieldId={PROVIDER_PERMISSIONS_FIELD_ID.codex}

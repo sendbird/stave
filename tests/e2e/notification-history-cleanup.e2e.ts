@@ -169,7 +169,7 @@ test("notification history cleanup confirms and removes unresolved attention", a
   await page.goto("/");
 
   await page.getByRole("button", { name: "notifications" }).click();
-  await page.getByRole("button", { name: /History/ }).click();
+  await page.getByRole("radio", { name: /History/ }).click();
   await expect(page.getByText("Finished run", { exact: true })).toBeVisible();
   await expect(
     page.getByText("Approval required", { exact: true }),
@@ -206,7 +206,7 @@ test("notification history cleanup confirms and removes unresolved attention", a
   await cleanupDialog.getByRole("button", { name: "Clear history" }).click();
 
   await page.getByRole("button", { name: "notifications" }).click();
-  await page.getByRole("button", { name: /History/ }).click();
+  await page.getByRole("radio", { name: /History/ }).click();
   await expect(page.getByText("Finished run", { exact: true })).toHaveCount(0);
   await expect(
     page.getByText("Approval required", { exact: true }),

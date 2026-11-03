@@ -182,9 +182,11 @@ Watch checks → Ready for review) come with a workflow.
 - **Workspace checks** (AI stages): **Add check** opens a searchable list of
   the workspace's action scripts; pick one or more, and choose **All must
   pass** (the default) or **Any one passes**. Stave runs them itself on the
-  final revision before the stage can finish. A saved check whose script is not
-  in the current workspace is marked, because a run there would refuse to
-  start. See [Agent runs](agent-runs.md) for how checks are judged.
+  final revision before the stage can finish. A check's scripts are chips in a
+  field: type in it to find and add more, remove one with its **×** or
+  Backspace, or clear them all (which removes the check). A saved check whose
+  script is not in the current workspace keeps it as a marked chip, because a
+  run there would refuse to start. See [Agent runs](agent-runs.md) for how checks are judged.
 - **Check in with me** (with two or more stages): **Only when stuck**
   (default), **Before publishing** or **Every stage**. A stage's hand toggle
   makes that one stage ask, or not.

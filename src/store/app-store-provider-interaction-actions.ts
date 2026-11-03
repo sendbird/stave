@@ -24,6 +24,7 @@ import {
 } from "@/store/chat-state-helpers";
 import { applyApprovalState, applyUserInputState } from "@/store/editor.utils";
 import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
+import { addTrustedToolEntry } from "@/lib/providers/trusted-tools";
 import {
   buildManagedTaskTurnInterruptionPatch,
   requestManagedTaskStop,
@@ -541,6 +542,19 @@ export function createProviderInteractionActions(args: {
               return fail(result.message ?? "unknown");
             }
             applyApprovalResponse(approvalPart.requestId, grant);
+            // Stave keeps this grant: the entry joins the trusted tools, and
+            // every later request it matches is answered from that list.
+            if (grant && approvalPart.trustedToolEntry) {
+              const settings = get().settings;
+              get().updateSettings({
+                patch: {
+                  trustedTools: addTrustedToolEntry({
+                    entries: settings.trustedTools,
+                    entry: approvalPart.trustedToolEntry,
+                  }),
+                },
+              });
+            }
             return { status: "delivered" };
           } catch (error) {
             return fail(String(error));
@@ -846,8 +860,8 @@ export function createProviderInteractionActions(args: {
           }
           appendUserInputFailure(
             "message" in result && result.message
-              ? `User input delivery failed: ${result.message}`
-              : "User input delivery failed: the answer was not accepted. Retry from this question card.",
+              ? i18n.t("session:userInputDelivery.failedWithDetail", { detail: result.message })
+              : i18n.t("session:userInputDelivery.notAccepted"),
           );
         })()
           .catch((error) =>

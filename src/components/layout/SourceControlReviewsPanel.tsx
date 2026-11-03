@@ -1,4 +1,4 @@
-import { formatTimeAgo } from "@/i18n/format";
+import { formatDateTime, formatTimeAgo } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -43,6 +43,14 @@ type ReviewDetailTab = "files" | "conversation" | "checks";
 
 function formatRelativeTime(value: string) {
   return formatTimeAgo(value) || i18n.t("sourceControl:sourceControlReviewsPanel.unknownActivity");
+}
+
+/** A relative time, carrying the instant it stands for when it is a real date. */
+function RelativeTime(props: { value: string }) {
+  const text = formatRelativeTime(props.value);
+  return Number.isFinite(Date.parse(props.value))
+    ? <time dateTime={props.value} title={formatDateTime(props.value)}>{text}</time>
+    : <span>{text}</span>;
 }
 
 function reviewDecisionLabel(value: string) {
@@ -113,7 +121,7 @@ function InboxRow(props: {
                 ? i18n.t("sourceControl:sourceControlReviewsPanel.reviewRequestedBy", { value1: props.item.authorLogin || "unknown" })
                 : i18n.t("sourceControl:sourceControlReviewsPanel.comments", { value1: props.item.commentsCount })}
             </span>
-            <span>{formatRelativeTime(props.item.updatedAt)}</span>
+            <RelativeTime value={props.item.updatedAt} />
           </span>
         </span>
       </AdsButton>
@@ -260,7 +268,7 @@ function ConversationView(props: { detail: GitHubPrReviewDetail }) {
                     @{item.authorLogin || i18n.t("sourceControl:sourceControlReviewsPanel.unknown")}
                   </span>
                   <span>{reviewDecisionLabel(item.state)}</span>
-                  <span>{formatRelativeTime(item.createdAt)}</span>
+                  <RelativeTime value={item.createdAt} />
                 </div>
                 {item.body ? (
                   <p className={sx(reviewsStyles.timelineBody)}>

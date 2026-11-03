@@ -7,7 +7,6 @@ import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Select } from "@/components/ads/components/Select";
 import { Tabs } from "@/components/ads/components/Tabs";
 import { EmptyState } from "@/components/ads/components/EmptyState";
-import { Input } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
@@ -18,6 +17,8 @@ import { useAppStore } from "@/store/app.store";
 import { UsageBreakdowns, UsageFigures, UsageTimeline, UsageTurnHistory } from "./UsageParts";
 import { UsageQuota } from "./UsageQuota";
 import { UsageInfo } from "./UsageInfo";
+import { UsageDateRangeField } from "./UsageDateRangeField";
+import { previousUsageRange } from "./usage-compare";
 import { dateInputValue, loadUsageStatistics, USAGE_PERIOD_OPTIONS, USAGE_TURN_PAGE_SIZE, usageAccountLabel, usageRange, type UsagePeriod, type UsageStatisticsLoader } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
 import { readQuota, type QuotaReader } from "./quota-read-feedback";
@@ -62,10 +63,12 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const load = props.load ?? loadUsageStatistics;
   const utc = zone === "UTC";
   const range = usageRange({ period, start, end, utc, now: new Date(now) });
+  // The report also totals the period of equal length before it, so each figure can say how it moved.
   const args = useMemo<UsageStatisticsArgs | null>(() => range ? ({ ...range, timeZone: zone, granularity,
     ...(provider !== ALL ? { providerId: provider } : {}), ...(provider !== ALL && account !== ALL ? { accountProfileId: account } : {}),
     ...(modelId !== undefined ? { modelId } : {}),
-    limit: USAGE_TURN_PAGE_SIZE, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, modelId, offset]);
+    previous: previousUsageRange(range, utc),
+    limit: USAGE_TURN_PAGE_SIZE, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, modelId, offset, utc]);
 
   useEffect(() => {
     if (!args) return;
@@ -143,7 +146,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       </Tabs.Panel>
       <Tabs.Panel value="tokens" xstyle={styles.section}>
       {report.totals.turns === 0 ? <EmptyState title={i18n.t("usage:usageView.noCompletedTurnsInThisSelection")} description={i18n.t("usage:usageView.chooseAnotherAccountModelOrPeriod")} /> : <>
-        <UsageFigures totals={report.totals} />
+        <UsageFigures totals={report.totals} previousTotals={report.previousTotals} previous={args.previous ?? null} timeZone={zone} />
         <UsageTimeline report={report} granularity={granularity} timeZone={zone} onDay={(day) => { setStart(day); setEnd(day); setPeriod("custom"); setGranularity("hour"); setOffset(0); }} />
         <UsageBreakdowns report={report} profiles={profiles} onAccount={selectAccount} onModel={selectModel} />
       </>}
@@ -167,11 +170,16 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       <Select label={t("settingsProviders:mcpConfigEditor.editor.provider")} size="sm" value={provider} options={[{ value: ALL, label: t("usage:usageView.allProviders") }, ...Object.entries(USAGE_PROVIDER_NAMES).map(([value, label]) => ({ value, label }))]}
         onValueChange={(value) => { if (value) { setProvider(value as ProviderId | typeof ALL); setAccount(ALL); setModelId(undefined); setOffset(0); } }} />
       <Select label={t("settingsProviders:codexOverviewTab.runtime.account")} size="sm" value={account} options={options} disabled={provider === ALL} onValueChange={(value) => { if (typeof value === "string") { setAccount(value); setOffset(0); } }} />
-      <Select label={t("compare:resultsView.period")} size="sm" value={period} options={USAGE_PERIOD_OPTIONS} onValueChange={(value) => { if (value) { setPeriod(value as UsagePeriod); setOffset(0); } }} />
+      <Select label={t("compare:resultsView.period")} size="sm" value={period} options={USAGE_PERIOD_OPTIONS} onValueChange={(value) => {
+        if (!value) return;
+        // Custom dates start from the period being left, so the range field continues what was on screen.
+        if (value === "custom" && period !== "custom" && range) { setStart(dateInputValue(new Date(range.from), utc)); setEnd(dateInputValue(new Date(Date.parse(range.to) - 1), utc)); }
+        setPeriod(value as UsagePeriod); setOffset(0);
+      }} />
       {view === "tokens" ? <Select label={t("usage:usageView.groupBy")} size="sm" value={granularity} options={[{ value: "day", label: t("usage:usageView.day") }, { value: "hour", label: t("usage:usageView.hour") }]} onValueChange={(value) => { if (value) setGranularity(value as "day" | "hour"); }} /> : null}
       <Select label={t("usage:usageView.timezone")} size="sm" value={zone} options={localTimeZone() === "UTC" ? [{ value: "UTC", label: "UTC" }] : [{ value: localTimeZone(), label: localTimeZone() }, { value: "UTC", label: "UTC" }]} onValueChange={(value) => { if (typeof value === "string") { setZone(value); setOffset(0); } }} />
-      {period === "custom" ? <><label className={sx(styles.field)}>{t("usage:usageView.from")}<Input type="date" value={start} onChange={(event) => { setStart(event.target.value); setOffset(0); }} /></label>
-        <label className={sx(styles.field)}>{t("usage:usageView.through")}<Input type="date" value={end} onChange={(event) => { setEnd(event.target.value); setOffset(0); }} /></label></> : null}
+      {period === "custom" ? <UsageDateRangeField start={start} end={end} timeZone={zone} utc={utc} now={now}
+        onApply={(next) => { setStart(next.start); setEnd(next.end); setOffset(0); }} /> : null}
     </div>
     {range ? <p className={sx(styles.note)}>{t(view === "quota" ? "usage:messages.quotaPeriod" : "usage:messages.reportPeriod", { from: dateInputValue(new Date(range.from), utc), to: dateInputValue(new Date(Date.parse(range.to) - 1), utc), zone: zone })}</p> : null}
     {modelId !== undefined ? <div className={sx(styles.row)}><span className={sx(styles.note)}>{t("usage:messages.selectedModel", { model: modelId ?? t("usage:usageParts.modelNotRecorded") })}</span>

@@ -64,7 +64,9 @@ The palette is global. You do not need to focus the chat composer first.
 
 1. Press `Cmd/Ctrl+Shift+P`.
 2. Type a few words that describe the action you want, such as `terminal`, `settings`, `task`, or `workspace`.
-3. Use the arrow keys to move through the results.
+3. Use the arrow keys to move through the results. The characters your
+   words matched are marked in each result's name and description, and the
+   result count is read out by screen readers as it changes.
 4. Press `Enter` to run the selected action.
 
 ## How To Use It Well
@@ -119,7 +121,8 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 
 ### Find A Task In Any Repository
 
-The row under the search field sets where the palette looks for tasks:
+The switch under the search field sets where the palette looks for tasks (Tab
+reaches it once, the arrow keys change it, and clicking it keeps you typing):
 
 - **This workspace** (the default) lists the open workspace's tasks.
 - **All repositories** searches every task of every registered repository and

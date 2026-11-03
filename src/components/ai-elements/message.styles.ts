@@ -63,33 +63,6 @@ export const messageStyles = stylex.create({
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
 
-  branchSelector: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: vars["--ads-space-4"],
-    borderRadius: vars["--ads-radius-mark"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    paddingInline: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-2"],
-  },
-  branchSelectorUser: { alignSelf: "flex-end" },
-  branchSelectorAssistant: { alignSelf: "flex-start" },
-  branchArrow: {
-    borderRadius: vars["--ads-radius-mark"],
-    padding: vars["--ads-space-2"],
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-selection-fill"]} 70%, transparent)`,
-    },
-  },
-  branchArrowIcon: { width: 12, height: 12 },
-  branchPage: {
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
-  },
-
   attachments: {
     marginBottom: vars["--ads-space-8"],
     display: "flex",

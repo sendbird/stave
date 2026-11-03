@@ -3113,3 +3113,127 @@ describe("primary write run workspace checks", () => {
   });
 
 });
+
+describe("run runtime: active time", () => {
+  const MIN = 60_000;
+  const started = Date.parse(START);
+
+  test("the detail counts the run's time without its pause", async () => {
+    const h = createHarness();
+    const id = await startedAgentRun(h);
+    h.advance(10 * MIN);
+    await h.runtime.pause({ agentRunId: id });
+    const pausedAt = Date.parse(h.aggregate(id).agentRun.updatedAt);
+    h.advance(30 * MIN);
+    const paused = await h.runtime.get({ agentRunId: id });
+    expect(paused.activeTime).toEqual({ activeMs: pausedAt - started, activeSince: null });
+    await h.runtime.resume({ agentRunId: id });
+    const resumedAt = h.aggregate(id).agentRun.updatedAt;
+    const resumed = await h.runtime.get({ agentRunId: id });
+    // The 30 paused minutes are left out; the clock goes on from the resume.
+    expect(resumed.activeTime).toEqual({ activeMs: pausedAt - started, activeSince: resumedAt });
+  });
+
+  test("an approval the lead task holds open stops the clock until it is answered", async () => {
+    const h = createHarness();
+    const id = await startedAgentRun(h);
+    h.advance(4 * MIN);
+    h.setSnapshot({ pendingApprovalCount: 1 });
+    await h.tick();
+    const waits = () => h.store.listEventsByKind(id, ["user-wait-started", "user-wait-ended"]);
+    expect(waits().map((event) => [event.kind, event.detail])).toEqual([["user-wait-started", { reason: "approval" }]]);
+    const waitingAt = Date.parse(waits()[0]!.createdAt);
+    // Further ticks while it waits record nothing new.
+    h.advance(20 * MIN);
+    await h.tick();
+    expect(waits()).toHaveLength(1);
+    expect((await h.runtime.get({ agentRunId: id })).activeTime).toEqual({ activeMs: waitingAt - started, activeSince: null });
+    h.setSnapshot({ pendingApprovalCount: 0 });
+    await h.tick();
+    expect(waits().map((event) => event.kind)).toEqual(["user-wait-started", "user-wait-ended"]);
+    const answered = await h.runtime.get({ agentRunId: id });
+    expect(answered.activeTime).toEqual({ activeMs: waitingAt - started, activeSince: waits()[1]!.createdAt });
+  });
+
+  test("a question and a stage's sign-off are waits on the user too", async () => {
+    const h = createHarness();
+    const id = await startedAgentRun(h, startInput({ workflow: workflow([DRAFT, { ...POLISH, signOff: "ask" }]) }));
+    h.setSnapshot({ pendingUserInputCount: 1 });
+    await h.tick();
+    h.setSnapshot({ pendingUserInputCount: 0 });
+    await h.tick();
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+    h.endTurn("turn-1");
+    await h.tick();
+    expect(h.current(id)).toMatchObject({ stageId: "polish", status: "awaiting-sign-off" });
+    h.advance(15 * MIN);
+    await h.runtime.signOff({ agentRunId: id, stageId: "polish", attempt: 1 });
+    await h.tick();
+    expect(h.store.listEventsByKind(id, ["user-wait-started", "user-wait-ended"]).map((event) => [event.kind, event.detail])).toEqual([
+      ["user-wait-started", { reason: "question" }],
+      ["user-wait-ended", {}],
+      ["user-wait-started", { reason: "sign-off" }],
+      ["user-wait-ended", {}],
+    ]);
+    // The 15 minutes at the sign-off card are not active time.
+    const detail = await h.runtime.get({ agentRunId: id });
+    const [, , signOffAsked, signedOff] = h.store.listEventsByKind(id, ["user-wait-started", "user-wait-ended"]);
+    expect(Date.parse(signedOff!.createdAt) - Date.parse(signOffAsked!.createdAt)).toBeGreaterThanOrEqual(15 * MIN);
+    expect(detail.activeTime!.activeMs).toBeLessThan(15 * MIN);
+  });
+
+  test("a completed run keeps its active time, stops counting and reports it", async () => {
+    const h = createHarness();
+    const id = await startedAgentRun(h, startInput({ workflow: workflow([DRAFT]) }));
+    h.advance(6 * MIN);
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+    h.endTurn("turn-1");
+    await h.tick();
+    const detail = await h.runtime.get({ agentRunId: id });
+    expect(detail.agentRun.state).toBe("completed");
+    const endedAt = Date.parse(h.store.listEventsByKind(id, ["agent-run-ended"])[0]!.createdAt);
+    expect(detail.activeTime).toEqual({ activeMs: endedAt - started, activeSince: null });
+    expect(detail.report?.activeMs).toBe(endedAt - started);
+  });
+
+  test("a clean restart leaves out the time the host was stopped", async () => {
+    const store = new AgentRunStore(new Database(":memory:"));
+    const turns: AgentRunTurnRow[] = [];
+    const first = createHarness({ store, turns });
+    first.runtime.start();
+    const id = await startedAgentRun(first);
+    first.advance(10 * MIN);
+    first.runtime.stop();
+    const stoppedAt = Date.parse(store.listEventsByKind(id, ["host-stopped"])[0]!.createdAt);
+    expect(stoppedAt - started).toBeGreaterThanOrEqual(10 * MIN);
+
+    const restarted = createHarness({ store, turns, turnPrefix: "after" });
+    restarted.advance(2 * 60 * MIN);
+    restarted.runtime.start();
+    await restarted.tick();
+    const back = store.listEventsByKind(id, ["host-started"]).at(-1)!;
+    expect(back.detail).toEqual({});
+    const detail = await restarted.runtime.get({ agentRunId: id });
+    expect(detail.activeTime).toEqual({ activeMs: stoppedAt - started, activeSince: back.createdAt });
+    restarted.runtime.stop();
+  });
+
+  test("after a crash the clock stops where the host was last seen", async () => {
+    const store = new AgentRunStore(new Database(":memory:"));
+    const turns: AgentRunTurnRow[] = [];
+    const crashed = createHarness({ store, turns });
+    const id = await startedAgentRun(crashed);
+    const lastSeen = [store.listRecentEvents(id, 1).at(-1)!.createdAt, crashed.aggregate(id).agentRun.updatedAt]
+      .reduce((latest, value) => (Date.parse(value) > Date.parse(latest) ? value : latest));
+
+    const restarted = createHarness({ store, turns, turnPrefix: "after" });
+    restarted.advance(3 * 60 * MIN);
+    restarted.runtime.start();
+    await restarted.tick();
+    const back = store.listEventsByKind(id, ["host-started"])[0]!;
+    expect(back.detail).toEqual({ lastSeenAt: lastSeen });
+    const detail = await restarted.runtime.get({ agentRunId: id });
+    expect(detail.activeTime).toEqual({ activeMs: Date.parse(lastSeen) - started, activeSince: back.createdAt });
+    restarted.runtime.stop();
+  });
+});
