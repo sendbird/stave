@@ -267,8 +267,8 @@ function ModelOnlyList(args: {
                     {option.badge}
                   </span>
                 ) : null}
-                <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
               </span>
+              {/* The price ends the second line, so it never takes the name's room. */}
               {presentation.capabilities.length > 0 ? (
                 <span className={sx(styles.modelRowCapabilities)}>
                   {presentation.capabilities.map((capability) => (
@@ -279,10 +279,14 @@ function ModelOnlyList(args: {
                       {capability}
                     </span>
                   ))}
+                  <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
                 </span>
               ) : (
-                <span className={sx(styles.modelRowDescription)}>
-                  {option.description || option.model}
+                <span className={sx(styles.modelRowDescriptionLine)}>
+                  <span className={sx(styles.modelRowDescription)}>
+                    {option.description || option.model}
+                  </span>
+                  <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
                 </span>
               )}
             </span>

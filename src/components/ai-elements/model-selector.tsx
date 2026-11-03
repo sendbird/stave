@@ -178,17 +178,20 @@ export function ModelSelector(args: ModelSelectorProps) {
       )}
       <div className={sx(styles.optionBody)}>
         <span className={sx(styles.optionTitleRow)}>
-          <span className={sx(styles.optionLabel)}>{option.label}</span>
+          <span className={sx(styles.optionLabel)} data-model-option-label="">{option.label}</span>
           {option.isDefault ? (
             <span className={sx(styles.optionDefaultBadge)}>{i18n.t("composer:modelSelector.copy")}</span>
           ) : null}
           {option.badge ? (
             <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
           ) : null}
-          {option.isAuto ? null : <ModelPrice model={option.model} xstyle={styles.optionPrice} />}
         </span>
-        <span className={sx(styles.optionDescription)}>
-          {option.description || option.model}
+        {/* The price ends the id line, so it never takes the name's room. */}
+        <span className={sx(styles.optionDescriptionLine)}>
+          <span className={sx(styles.optionDescription)}>
+            {option.description || option.model}
+          </span>
+          {option.isAuto ? null : <ModelPrice model={option.model} xstyle={styles.optionPrice} />}
         </span>
       </div>
     </CommandItem>

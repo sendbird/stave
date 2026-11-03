@@ -1,5 +1,5 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
-import { useId, useMemo, useState, type ReactElement, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Combobox } from "@/components/ads/components/Combobox";
 import { groupOptions, type OptionGroup } from "@/components/ads/components/Combobox.options";
@@ -29,26 +29,51 @@ function OptionBadge(props: { label?: string }) {
   ) : null;
 }
 
+/**
+ * The label owns its line, so a trailing value (a price, a count) never
+ * truncates it: the value ends the row's last line — the detail line when
+ * there is one — and drops below that line's text when both do not fit.
+ */
 function OptionRow(props: { option: SearchablePickerOption }) {
   const { option } = props;
+  const detail = option.detail && option.detail !== option.label ? option.detail : undefined;
+  const meta = option.meta ? <span className={sx(styles.itemMeta)} data-option-meta="">{option.meta}</span> : null;
   return (
     <Combobox.Item value={option} size="md" xstyle={styles.item}>
       <span className={sx(styles.itemMain)}>
         {option.icon ? <span aria-hidden className={sx(styles.icon, styles.itemIcon)}>{option.icon}</span> : null}
         <span className={sx(styles.itemText)}>
           <span className={sx(styles.itemLabelRow)}>
-            <span className={sx(styles.itemLabel)}>{option.label}</span>
+            <span className={sx(styles.itemLabel)} data-option-label="">{option.label}</span>
             <OptionBadge label={option.badge} />
+            {detail ? null : meta}
           </span>
-          {option.detail && option.detail !== option.label ? (
-            <span className={sx(styles.itemDetail)}>{option.detail}</span>
+          {detail ? (
+            <span className={sx(styles.itemDetailRow)}>
+              <span className={sx(styles.itemDetail)} data-option-detail="">{detail}</span>
+              {meta}
+            </span>
           ) : null}
         </span>
-        {option.meta ? <span className={sx(styles.itemMeta)}>{option.meta}</span> : null}
       </span>
       <Combobox.ItemIndicator />
     </Combobox.Item>
   );
+}
+
+/**
+ * Room below the trigger that still shows the search and about three rows.
+ * With at least this much, the list opens below and scrolls; it flips above
+ * only when below cannot show a usable list, so it does not cover the fields
+ * above a picker that had room.
+ */
+const MIN_ROOM_BELOW_REM = 13;
+
+function hasUsableRoomBelow(trigger: HTMLElement | null): boolean {
+  if (!trigger) return false;
+  const rootFontSize = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const roomBelow = window.innerHeight - trigger.getBoundingClientRect().bottom;
+  return roomBelow >= MIN_ROOM_BELOW_REM * rootFontSize;
 }
 
 /** The list body shared by the single and multiple pickers: status, empty, rows, sections. */
@@ -161,6 +186,8 @@ export function SearchablePicker(props: {
   const valueId = useId();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [opensBelow, setOpensBelow] = useState(false);
   const { grouped, items } = usePickerItems(props.options);
   const current = props.options.find((option) => option.value === props.value) ?? null;
   const label = current?.label ?? props.fallbackLabel;
@@ -190,6 +217,7 @@ export function SearchablePicker(props: {
       onInputValueChange={setQuery}
       open={open}
       onOpenChange={(next) => {
+        if (next) setOpensBelow(hasUsableRoomBelow(triggerRef.current));
         setOpen(next);
         // Reset the search when the list opens, not as it closes: changing
         // the input's text during the close reads as typing and reopens it.
@@ -204,6 +232,7 @@ export function SearchablePicker(props: {
     >
       {props.trigger ? (
         <Combobox.Trigger
+          ref={triggerRef}
           variant="unstyled"
           shape="content"
           render={props.trigger}
@@ -214,6 +243,7 @@ export function SearchablePicker(props: {
         </Combobox.Trigger>
       ) : (
         <Combobox.FieldTrigger
+          ref={triggerRef}
           size={size}
           aria-label={props.labelledBy ? undefined : props["aria-label"]}
           aria-labelledby={props.labelledBy ? `${props.labelledBy} ${valueId}` : undefined}
@@ -224,7 +254,7 @@ export function SearchablePicker(props: {
         </Combobox.FieldTrigger>
       )}
       <Combobox.Portal>
-        <Combobox.Positioner>
+        <Combobox.Positioner collisionAvoidance={opensBelow ? { side: "none" } : undefined}>
           <Combobox.Popup xstyle={[styles.popup, props.popupXstyle]}>
             {props.header}
             <PickerSearch placeholder={props.searchPlaceholder} label={props.searchLabel} onEscape={() => setOpen(false)} />
@@ -263,6 +293,8 @@ export function SearchableMultiPicker(props: {
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [opensBelow, setOpensBelow] = useState(false);
   const { grouped, items } = usePickerItems(props.options);
   const chosen = props.options.filter((option) => props.selected.includes(option.value));
   return (
@@ -275,6 +307,7 @@ export function SearchableMultiPicker(props: {
       onInputValueChange={setQuery}
       open={open}
       onOpenChange={(next) => {
+        if (next) setOpensBelow(hasUsableRoomBelow(triggerRef.current));
         setOpen(next);
         if (next) setQuery("");
         props.onOpenChange?.(next);
@@ -287,6 +320,7 @@ export function SearchableMultiPicker(props: {
       autoHighlight
     >
       <Combobox.Trigger
+        ref={triggerRef}
         variant="unstyled"
         shape="content"
         render={props.trigger}
@@ -295,7 +329,7 @@ export function SearchableMultiPicker(props: {
         {props.triggerContent}
       </Combobox.Trigger>
       <Combobox.Portal>
-        <Combobox.Positioner>
+        <Combobox.Positioner collisionAvoidance={opensBelow ? { side: "none" } : undefined}>
           <Combobox.Popup xstyle={[styles.popup, props.popupXstyle]}>
             {props.children}
             <PickerSearch

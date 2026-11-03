@@ -59,20 +59,22 @@ export const searchablePickerStyles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
   },
-  // The row's first grid track: mark, copy, then any muted trailing value.
+  // The row's first grid track: mark, then copy.
   itemMain: {
     alignItems: "flex-start",
     columnGap: vars["--ads-space-8"],
     display: "flex",
     minInlineSize: 0,
   },
+  // A muted trailing value (a price, a count). It ends the line it sits on and
+  // drops below that line's text instead of truncating it.
   itemMeta: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-normal"]})`,
     marginInlineStart: "auto",
+    whiteSpace: "nowrap",
   },
   itemText: {
     display: "flex",
@@ -84,14 +86,23 @@ export const searchablePickerStyles = stylex.create({
     alignItems: "center",
     columnGap: vars["--ads-space-8"],
     display: "flex",
+    flexWrap: "wrap",
+    minInlineSize: 0,
+  },
+  itemDetailRow: {
+    alignItems: "baseline",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    flexWrap: "wrap",
     minInlineSize: 0,
   },
   badge: {
     alignSelf: "center",
     flexShrink: 0,
   },
+  // No ink of its own: the row's colour is the list's, so a chosen row reads in
+  // the accent like every other ADS picker, beside its check.
   itemLabel: {
-    color: vars["--ads-color-text"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

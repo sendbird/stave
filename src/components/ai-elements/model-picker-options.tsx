@@ -40,7 +40,7 @@ export function modelPickerOptions(args: {
 /** The price as a muted trailing mark, or nothing for an unpriced model. */
 export function ModelPrice(props: { model: string; xstyle?: StyleXValue }) {
   const label = modelPriceLabel(props.model);
-  return label ? <span className={sx(styles.price, props.xstyle)}>{label}</span> : null;
+  return label ? <span className={sx(styles.price, props.xstyle)} data-model-price="">{label}</span> : null;
 }
 
 const styles = stylex.create({
