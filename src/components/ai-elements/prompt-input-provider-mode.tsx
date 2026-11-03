@@ -6,7 +6,9 @@ import {
   Shield,
   SlidersHorizontal,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import { PresetActionList } from "@/components/system/PresetActionList";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   Button,
   Popover,
@@ -33,6 +35,8 @@ import { providerModeStyles } from "./prompt-input-provider-mode.styles";
 
 export type PromptInputProviderModeStatus = ProviderModePresentation & {
   providerLabel: string;
+  /** Names the provider whose preset actions the open menu lists. */
+  providerId?: ProviderId;
 };
 
 function modeIconToneStyle(status: Pick<PromptInputProviderModeStatus, "id">) {
@@ -165,10 +169,11 @@ export function PromptInputProviderModePill(args: {
               const { icon: PresetIcon, summary: presetSummary } =
                 modeVisual(presetStatus);
               const isActive = args.activePresetId === preset.id;
+              const providerId = args.status.providerId;
 
               return (
+                <Fragment key={preset.id}>
                 <ComposerOptionCard
-                  key={preset.id}
                   label={preset.label}
                   summary={presetSummary}
                   description={preset.description}
@@ -188,6 +193,19 @@ export function PromptInputProviderModePill(args: {
                     setOpen(false);
                   }}
                 />
+                {/* What the selected preset does on its own and what it
+                    asks about, so the choice is not prose alone. */}
+                {isActive && providerId ? (
+                  <div className={sx(providerModeStyles.presetActions)}>
+                    <PresetActionList
+                      presetId={preset.id}
+                      presetLabel={preset.label}
+                      providerId={providerId}
+                      providerLabel={args.status.providerLabel}
+                    />
+                  </div>
+                ) : null}
+                </Fragment>
               );
             })}
           </div>

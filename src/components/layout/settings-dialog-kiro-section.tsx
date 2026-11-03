@@ -6,6 +6,7 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
+import { PresetActionList } from "@/components/system/PresetActionList";
 import {
   ChoiceButtons,
   DraftInput,
@@ -56,6 +57,12 @@ export function SettingsKiroSection() {
           />
           <p className={sx(kiroSectionStyles.note)}>
             {t("settingsProviders:kiroSection.approvalPreset.note")}</p>
+          <PresetActionList
+            presetId={kiroApprovalMode}
+            presetLabel={KIRO_PROVIDER_MODE_PRESETS.find((preset) => preset.id === kiroApprovalMode)?.label ?? ""}
+            providerId="kiro"
+            providerLabel="Kiro"
+          />
         </LabeledField>
       </SettingsCard>
       <ScopeLocked>

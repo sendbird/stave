@@ -562,5 +562,34 @@
   "codexModelCatalog": {
     "listedByRuntime": "Listed by the current Codex runtime.",
     "runtimeSupportUnconfirmed": "Runtime support unconfirmed."
+  },
+  "presetActions": {
+    "heading": "What {{provider}} does in {{preset}}",
+    "locksHeading": "In Agent mode, always asks before",
+    "kind": {
+      "read": "Reads workspace files",
+      "edit": "Edits files",
+      "command": "Runs commands",
+      "web": "Web tools",
+      "mcp": "MCP tools",
+      "tools": "Every tool call"
+    },
+    "state": {
+      "own": "On its own",
+      "sandbox": "In the sandbox",
+      "asks": "Asks first",
+      "flagged": "Asks if flagged",
+      "off": "Off",
+      "always": "Always asks"
+    },
+    "note": {
+      "someFileCommands": "Some file commands in the workspace run on their own",
+      "beyondSandboxAsks": "Asks before anything the read-only sandbox blocks"
+    },
+    "lock": {
+      "writesOutsideRepository": "Writes outside the repository · {{id}}",
+      "credentials": "Credential files and variables · {{id}}",
+      "remoteActions": "Irreversible remote actions · {{id}}"
+    }
   }
 }

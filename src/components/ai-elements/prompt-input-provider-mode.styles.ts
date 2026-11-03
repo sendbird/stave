@@ -61,4 +61,10 @@ export const providerModeStyles = stylex.create({
     flexDirection: "column",
     gap: vars["--ads-space-4"],
   },
+  // The selected preset's action list, on the option rows' text inset so it
+  // reads as part of that option rather than a new section.
+  presetActions: {
+    paddingBlockEnd: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+  },
 });

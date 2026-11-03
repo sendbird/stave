@@ -557,5 +557,34 @@
   "codexModelCatalog": {
     "listedByRuntime": "현재 Codex 런타임이 제공하는 모델입니다.",
     "runtimeSupportUnconfirmed": "런타임 지원을 확인하지 못했습니다."
+  },
+  "presetActions": {
+    "heading": "{{preset}}에서 {{provider}}의 동작",
+    "locksHeading": "에이전트 모드에서는 항상 먼저 물어봄",
+    "kind": {
+      "read": "워크스페이스 파일 읽기",
+      "edit": "파일 편집",
+      "command": "명령 실행",
+      "web": "웹 도구",
+      "mcp": "MCP 도구",
+      "tools": "모든 도구 호출"
+    },
+    "state": {
+      "own": "바로 실행",
+      "sandbox": "샌드박스 안에서 실행",
+      "asks": "먼저 물어봄",
+      "flagged": "검토 후 물어봄",
+      "off": "꺼짐",
+      "always": "항상 물어봄"
+    },
+    "note": {
+      "someFileCommands": "워크스페이스 안의 일부 파일 명령은 바로 실행합니다",
+      "beyondSandboxAsks": "읽기 전용 샌드박스가 막는 작업은 먼저 물어봅니다"
+    },
+    "lock": {
+      "writesOutsideRepository": "저장소 밖 쓰기 · {{id}}",
+      "credentials": "자격 증명 파일과 변수 · {{id}}",
+      "remoteActions": "되돌릴 수 없는 원격 작업 · {{id}}"
+    }
   }
 }
