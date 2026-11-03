@@ -234,6 +234,16 @@ export type BridgeEvent =
        * "unknown parent" — the graph leaves such nodes attached to the turn.
        */
       parentToolUseId?: string;
+      /**
+       * When the runtime first saw this call, in epoch ms, carried unchanged on
+       * every later event for the same `toolUseId`. Stamped by the runtime as
+       * events arrive (`tool-timing.ts`), so a replayed or late-processed
+       * event keeps the time the call actually started. Absent means the
+       * start was not observed, never "now".
+       */
+      startedAt?: number;
+      /** When the call was first seen finished, on a terminal `state`. */
+      completedAt?: number;
     }
   | {
       type: "tool_result";
@@ -241,6 +251,11 @@ export type BridgeEvent =
       output: string;
       isError?: boolean;
       isPartial?: boolean;
+      /**
+       * When the runtime first saw the call finished, in epoch ms (see
+       * `tool.startedAt`). Absent on partial results and when not observed.
+       */
+      completedAt?: number;
       exitCode?: number | null;
       /** The MCP App view this call produced; see `src/lib/mcp-app`. */
       mcpAppView?: McpAppViewReference;

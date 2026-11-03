@@ -63,6 +63,8 @@ const ToolUsePartSchema = z.object({
   exitCode: z.number().int().nullable().optional(),
   mcpAppView: McpAppViewReferenceSchema.optional(),
   elapsedSeconds: z.number().optional(),
+  startedAt: z.string().optional(),
+  completedAt: z.string().optional(),
   progressMessages: z.array(z.string()).optional(),
   state: z.union([
     z.literal("input-streaming"),

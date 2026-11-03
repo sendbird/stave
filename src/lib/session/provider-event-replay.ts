@@ -92,6 +92,13 @@ function createThinkingPart(args: {
   });
 }
 
+/** An epoch-ms time a runtime observed, as the ISO string parts store. */
+function toObservedIso(value: number | undefined): string | undefined {
+  return value !== undefined && Number.isFinite(value) && value >= 0
+    ? new Date(value).toISOString()
+    : undefined;
+}
+
 function createToolPart(args: {
   agentId?: string;
   ownerAgentId?: string;
@@ -101,7 +108,11 @@ function createToolPart(args: {
   input: string;
   output?: string;
   state: ToolUsePart["state"];
+  startedAt?: number;
+  completedAt?: number;
 }): ToolUsePart {
+  const startedAt = toObservedIso(args.startedAt);
+  const completedAt = toObservedIso(args.completedAt);
   return sanitizeMessagePartPayload({
     type: "tool_use",
     agentId: args.agentId,
@@ -112,7 +123,27 @@ function createToolPart(args: {
     input: args.input,
     output: args.output,
     state: args.state,
+    ...(startedAt ? { startedAt } : {}),
+    ...(completedAt ? { completedAt } : {}),
   });
+}
+
+/**
+ * A repeated `tool` event replaces its part whole. The times stay: a start or
+ * end the earlier event recorded must not vanish because a later emission
+ * (or an older runtime) did not repeat it.
+ */
+function carryToolTiming(previous: ToolUsePart, next: ToolUsePart): ToolUsePart {
+  const startedAt = previous.startedAt ?? next.startedAt;
+  const completedAt = previous.completedAt ?? next.completedAt;
+  if (startedAt === next.startedAt && completedAt === next.completedAt) {
+    return next;
+  }
+  return {
+    ...next,
+    ...(startedAt ? { startedAt } : {}),
+    ...(completedAt ? { completedAt } : {}),
+  };
 }
 
 function createDiffPart(args: {
@@ -379,6 +410,8 @@ function normalizeEventToPart(args: {
         input: event.input,
         output: event.output,
         state: event.state,
+        startedAt: event.startedAt,
+        completedAt: event.completedAt,
       });
     case "diff":
       return createDiffPart({
@@ -904,8 +937,9 @@ function appendProviderEventContentToAssistant(args: {
         break;
       }
     }
-    if (existingIdx !== -1) {
-      nextParts[existingIdx] = part;
+    const existing = existingIdx === -1 ? undefined : nextParts[existingIdx];
+    if (existing?.type === "tool_use") {
+      nextParts[existingIdx] = carryToolTiming(existing, part);
     } else {
       nextParts.push(part);
     }

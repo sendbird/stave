@@ -16,6 +16,8 @@ type ToolResultEvent = {
   isPartial?: boolean;
   exitCode?: number | null;
   mcpAppView?: ToolUsePart["mcpAppView"];
+  /** The runtime's observed end, epoch ms. */
+  completedAt?: number;
 };
 
 /**
@@ -87,12 +89,21 @@ export function mergeToolResultIntoPart(args: {
     return part;
   }
 
+  // The first observed end stays; a follow-up result (a captured view) or a
+  // partial chunk never moves it.
+  const observedEnd =
+    !event.isPartial && !part.completedAt && event.completedAt !== undefined
+      && Number.isFinite(event.completedAt) && event.completedAt >= 0
+      ? { completedAt: new Date(event.completedAt).toISOString() }
+      : {};
+
   if (event.isError) {
     return {
       ...part,
       output: capToolResultOutput(event.output),
       state: "output-error",
       ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
+      ...observedEnd,
     };
   }
   // The runtime attaches a captured view in a follow-up result for the same call.
@@ -108,6 +119,7 @@ export function mergeToolResultIntoPart(args: {
     state: nextState,
     ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
     ...(mcpAppView ? { mcpAppView } : {}),
+    ...observedEnd,
   };
 }
 

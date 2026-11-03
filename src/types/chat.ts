@@ -245,6 +245,13 @@ export interface ToolUsePart extends MessagePartBase {
   state:
     "input-streaming" | "input-available" | "output-available" | "output-error";
   elapsedSeconds?: number;
+  /**
+   * When the runtime first saw the call and first saw it finished (ISO). Absent
+   * when the runtime did not observe it, including every call saved before
+   * runtimes stamped tool events; nothing fills it in from another clock.
+   */
+  startedAt?: string;
+  completedAt?: string;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
 }

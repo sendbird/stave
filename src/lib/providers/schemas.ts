@@ -170,6 +170,9 @@ const ToolStateSchema = z.union([
   z.literal("output-error"),
 ]);
 
+/** An epoch-ms moment a runtime observed; see `tool.startedAt`. */
+const ObservedAtSchema = z.number().nonnegative();
+
 const ToolEventSchema = z.object({
   type: z.literal("tool"),
   toolUseId: z.string().optional(),
@@ -180,6 +183,8 @@ const ToolEventSchema = z.object({
   agentId: z.string().optional(),
   ownerAgentId: z.string().optional(),
   parentToolUseId: z.string().optional(),
+  startedAt: ObservedAtSchema.optional(),
+  completedAt: ObservedAtSchema.optional(),
 });
 
 const ToolResultEventSchema = z.object({
@@ -188,6 +193,7 @@ const ToolResultEventSchema = z.object({
   output: z.string(),
   isError: z.boolean().optional(),
   isPartial: z.boolean().optional(),
+  completedAt: ObservedAtSchema.optional(),
   exitCode: z.number().int().nullable().optional(),
   mcpAppView: McpAppViewReferenceSchema.optional(),
 });

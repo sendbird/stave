@@ -70,6 +70,7 @@ import {
   measureBridgeEventBytes,
   truncateBufferedText,
 } from "./provider-buffering";
+import { createToolTimingRecorder } from "./tool-timing";
 import { byteLengthUtf8 } from "../shared/bounded-text";
 import { Utf8LineBuffer } from "../shared/utf8-line-buffer";
 import { normalizeConnectedToolIds } from "../../src/lib/providers/connected-tool-status";
@@ -1992,7 +1993,9 @@ export async function streamCodexWithAppServer(
       });
       const events: BridgeEvent[] = eventCollector.events;
       let hasEmittedDone = false, awaitingQuestion = false;
-      const emitBridgeEvent = (event: BridgeEvent) => {
+      const toolTiming = createToolTimingRecorder(); // Observed tool start/end; every emitted event passes through it.
+      const emitBridgeEvent = (rawEvent: BridgeEvent) => {
+        let event = toolTiming.stamp(rawEvent);
         if (event.type === "done") {
           if (awaitingQuestion) event = { ...event, stop_reason: RUN_QUESTION_WAIT_STOP_REASON };
           hasEmittedDone = true;

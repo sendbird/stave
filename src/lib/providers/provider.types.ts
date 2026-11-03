@@ -1023,6 +1023,14 @@ export type NormalizedProviderEvent =
        * "unknown parent" — the graph leaves such nodes attached to the turn.
        */
       parentToolUseId?: string;
+      /**
+       * When the runtime first saw this call, in epoch ms, carried unchanged on
+       * every later event for the same `toolUseId`. Absent means the start
+       * was not observed — a consumer must not substitute its own clock.
+       */
+      startedAt?: number;
+      /** When the call was first seen finished, on a terminal `state`. */
+      completedAt?: number;
     }
   | {
       type: "tool_progress";
@@ -1036,6 +1044,8 @@ export type NormalizedProviderEvent =
       output: string;
       isError?: boolean;
       isPartial?: boolean;
+      /** When the runtime first saw the call finished, in epoch ms. */
+      completedAt?: number;
       /** Explicit process status from a structured provider command result. */
       exitCode?: number | null;
       /** The MCP App view this call produced; see `src/lib/mcp-app`. */

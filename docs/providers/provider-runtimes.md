@@ -649,6 +649,21 @@ with oversized files left path-backed for the agent's file tools. Kiro's legacy
 `content` compatibility key stays text-only so image bytes are not duplicated
 on the wire.
 
+## Tool call timing
+
+Neither provider reports when a tool call started or finished, so each runtime
+records it as it handles the provider's messages
+(`electron/providers/tool-timing.ts`, one recorder per turn in both
+`claude-sdk-runtime.ts` and `codex-app-server-runtime.ts`). Every `tool` event
+carries `startedAt` (epoch ms, the first time that `toolUseId` was seen) and,
+once the call is seen finished, `completedAt`; a non-partial `tool_result`
+carries `completedAt`. Later events for the same call repeat the first values,
+so a follow-up result such as a captured MCP App view does not move the end.
+The renderer stores them on the tool part as ISO strings and the work graph
+uses them instead of the time it folded the event. A call with no observed time
+(including every call saved before this) has none; nothing fills one in from
+another clock. The Activity tab's Timeline view reads these times.
+
 ## MCP App views
 
 A tool whose metadata names a `ui://` view (MCP Apps UI extension, spec
