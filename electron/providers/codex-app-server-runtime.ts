@@ -2482,6 +2482,13 @@ export async function streamCodexWithAppServer(
             params,
             requestId,
           });
+          // A request raised on a worker's own thread names that worker, the
+          // same id its tool events carry as `ownerAgentId` (symmetric with
+          // Claude's `agentID`); the turn's own thread names nobody.
+          const childRequestOwner =
+            requestThreadId && threadId && requestThreadId !== threadId
+              ? { ownerAgentId: requestThreadId }
+              : {};
           if (
             message.method === "mcpServer/elicitation/request" &&
             presentation?.kind === "approval" &&
@@ -2517,7 +2524,7 @@ export async function streamCodexWithAppServer(
               requestId,
               toolName: presentation.event.toolName,
             });
-            emitBridgeEvent(presentation.event);
+            emitBridgeEvent({ ...presentation.event, ...childRequestOwner });
             return;
           }
           if (presentation?.kind === "user_input") {
@@ -2527,8 +2534,8 @@ export async function streamCodexWithAppServer(
               ...presentation.pending,
             });
             void elicitationPauseController.begin(scopedId);
-            scheduleUserInputAutoDecline({ event: { ...presentation.event, requestId: scopedId } });
-            emitBridgeEvent({ ...presentation.event, requestId: scopedId });
+            scheduleUserInputAutoDecline({ event: { ...presentation.event, requestId: scopedId, ...childRequestOwner } });
+            emitBridgeEvent({ ...presentation.event, requestId: scopedId, ...childRequestOwner });
             return;
           }
           if (presentation?.kind === "unrenderable") {

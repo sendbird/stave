@@ -24,6 +24,7 @@ import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./cl
 import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-stop-reason";
 import { resolveClaudeTurnGuardrail, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
+import { resolveClaudeApprovalAllowAlways, resolveClaudeApprovalRisk } from "./approval-allow-always";
 import {
   buildClaudeApprovalDecisionEvent, CLAUDE_HANDOFF_ALLOW_DECIDERS, CLAUDE_HANDOFF_ALLOW_MESSAGES, resolveClaudeHandoffDecision,
   type ClaudeApprovalDecider,
@@ -3693,6 +3694,8 @@ export async function streamClaudeWithSdk(
               blockedPath: options.blockedPath,
             }),
             ...(trustedApprovalInput ? { input: trustedApprovalInput } : {}),
+            ...resolveClaudeApprovalAllowAlways({ toolName, trustedApprovalInput, guardrail }),
+            ...(guardrail ? { risk: resolveClaudeApprovalRisk(guardrail) } : {}),
             // `agentID` is set only when the call came from inside a subagent,
             // which is exactly when the work graph needs it: it names the one
             // worker of the fan-out whose progress this prompt is holding up.

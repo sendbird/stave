@@ -1,4 +1,5 @@
 import type { BridgeEvent } from "./types";
+import { resolveCodexApprovalAllowAlways, resolveCodexApprovalRisk } from "./approval-allow-always";
 import {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -124,6 +125,8 @@ export function mapCodexServerRequestPresentation(args: {
       method === "execCommandApproval"
         ? buildApprovalInput(params)
         : undefined;
+    const toolName = mapApprovalToolName(method);
+    const risk = resolveCodexApprovalRisk({ method, params });
     return {
       kind: "approval",
       pending: {
@@ -139,10 +142,12 @@ export function mapCodexServerRequestPresentation(args: {
       },
       event: {
         type: "approval",
-        toolName: mapApprovalToolName(method),
+        toolName,
         requestId,
         description: buildApprovalDescription({ method, params }),
         ...(approvalInput ? { input: approvalInput } : {}),
+        ...resolveCodexApprovalAllowAlways({ method, params, toolName, input: approvalInput }),
+        ...(risk ? { risk } : {}),
       },
     };
   }

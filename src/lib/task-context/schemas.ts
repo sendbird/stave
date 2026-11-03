@@ -1,5 +1,5 @@
 import { QuestionReplySchema } from "@/lib/question-reply";
-import { ApprovalResolutionSchema } from "@/lib/approvals/approval-resolution";
+import { APPROVAL_RISKS, ApprovalResolutionSchema } from "@/lib/approvals/approval-resolution";
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
@@ -97,6 +97,9 @@ const ApprovalPartSchema = z.object({
   description: z.string(),
   input: z.string().optional(),
   supportsAllowAlways: z.boolean().optional(),
+  trustedToolEntry: z.string().optional(),
+  risk: z.enum(APPROVAL_RISKS).optional().catch(undefined),
+  ownerAgentId: z.string().optional(),
   requestId: z.string(),
   state: z.union([
     z.literal("approval-requested"),

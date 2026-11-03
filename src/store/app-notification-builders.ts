@@ -30,7 +30,7 @@ import {
   buildTaskExecutionSummary,
   buildTaskReviewArtifact,
 } from "@/lib/fleet/task-execution-summary";
-import { isTrustedApproval } from "@/lib/providers/trusted-tools";
+import { isTrustedApprovalRequest } from "@/lib/providers/trusted-tools";
 import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
@@ -277,11 +277,7 @@ export function buildApprovalNotificationInputs(args: {
   const approvalEvents = args.events.filter(
     (event): event is Extract<NormalizedProviderEvent, { type: "approval" }> =>
       event.type === "approval" &&
-      !isTrustedApproval({
-        trustedTools: args.trustedTools,
-        toolName: event.toolName,
-        input: event.input,
-      }),
+      !isTrustedApprovalRequest({ trustedTools: args.trustedTools, request: event }),
   );
   if (approvalEvents.length === 0) {
     return [];
@@ -360,13 +356,10 @@ export function findTrustedApprovalResponses(args: {
 }) {
   const taskMessages = args.session.messagesByTask[args.taskId] ?? [];
   return args.events.flatMap((event) => {
+    // A request that crossed a guardrail always reaches the user.
     if (
       event.type !== "approval" ||
-      !isTrustedApproval({
-        trustedTools: args.trustedTools,
-        toolName: event.toolName,
-        input: event.input,
-      })
+      !isTrustedApprovalRequest({ trustedTools: args.trustedTools, request: event })
     ) {
       return [];
     }

@@ -270,8 +270,18 @@ export interface ApprovalPart extends MessagePartBase {
   toolName: string;
   description: string;
   input?: string;
-  /** See the `approval` provider event: an allow-always option exists. */
+  /** See the `approval` provider event: "Always allow" is honored on later calls. */
   supportsAllowAlways?: boolean;
+  /**
+   * See the `approval` provider event: the trusted-tools entry "Always allow"
+   * adds. Its presence is what lets the resolved card name the rule and
+   * remove it again.
+   */
+  trustedToolEntry?: string;
+  /** See `ApprovalRisk`: set only when the request itself says so. */
+  risk?: import("@/lib/approvals/approval-resolution").ApprovalRisk;
+  /** See the `approval` provider event: the subagent that asked; absent for the main loop. */
+  ownerAgentId?: string;
   requestId: string;
   state:
     | "approval-requested"

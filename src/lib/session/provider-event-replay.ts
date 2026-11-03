@@ -136,6 +136,9 @@ function createApprovalPart(args: {
   description: string;
   input?: string;
   supportsAllowAlways?: boolean;
+  trustedToolEntry?: string;
+  risk?: ApprovalPart["risk"];
+  ownerAgentId?: string;
 }): ApprovalPart {
   return sanitizeMessagePartPayload({
     type: "approval",
@@ -144,6 +147,10 @@ function createApprovalPart(args: {
     description: args.description,
     ...(args.input ? { input: args.input } : {}),
     ...(args.supportsAllowAlways ? { supportsAllowAlways: true } : {}),
+    // The entry only means something where "Always allow" is offered.
+    ...(args.supportsAllowAlways && args.trustedToolEntry ? { trustedToolEntry: args.trustedToolEntry } : {}),
+    ...(args.risk ? { risk: args.risk } : {}),
+    ...(args.ownerAgentId ? { ownerAgentId: args.ownerAgentId } : {}),
     state: "approval-requested",
   });
 }
@@ -387,6 +394,9 @@ function normalizeEventToPart(args: {
         description: event.description,
         input: event.input,
         supportsAllowAlways: event.supportsAllowAlways,
+        trustedToolEntry: event.trustedToolEntry,
+        risk: event.risk,
+        ownerAgentId: event.ownerAgentId,
       });
     case "user_input":
       return createUserInputPart({

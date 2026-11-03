@@ -421,6 +421,8 @@ describe("Cursor ACP runtime", () => {
     }
     // The card can only offer the button when the runtime advertised the option.
     expect(approval.supportsAllowAlways).toBe(true);
+    // Cursor keeps that rule itself, so Stave records no trusted entry for it.
+    expect(approval.trustedToolEntry).toBeUndefined();
     // Two independent changes meet in this one handler: the canonical tool name
     // comes from the ACP tool-naming split, `supportsAllowAlways` from the
     // approval-scope work. Assert them on the same event so a future merge

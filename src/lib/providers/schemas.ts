@@ -1,5 +1,5 @@
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
-import { ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
+import { APPROVAL_RISKS, ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
 import { CODEX_APPROVAL_POLICIES, CODEX_APPROVALS_REVIEWERS } from "@/lib/providers/codex-runtime-options";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
@@ -226,6 +226,9 @@ const ApprovalEventSchema = z.object({
   description: z.string(),
   input: z.string().optional(),
   supportsAllowAlways: z.boolean().optional(),
+  trustedToolEntry: z.string().optional(),
+  // An unknown risk from a newer build reads as absent instead of dropping the request.
+  risk: z.enum(APPROVAL_RISKS).optional().catch(undefined),
   ownerAgentId: z.string().optional(),
 });
 

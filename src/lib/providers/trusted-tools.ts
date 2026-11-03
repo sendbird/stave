@@ -1,3 +1,5 @@
+import type { ApprovalRisk } from "@/lib/approvals/approval-resolution";
+
 const BASH_TRUST_PREFIX = "bash:";
 const MAX_TRUSTED_TOOL_ENTRY_LENGTH = 500;
 const MAX_CLAUDE_ALLOWED_TOOL_LENGTH = 200;
@@ -76,6 +78,29 @@ export function formatTrustedToolEntry(entry: string) {
   return entry.trim();
 }
 
+/**
+ * Shell syntax that chains, pipes, redirects or substitutes another command.
+ * Arguments appended to a trusted command may not carry any of it, so trusting
+ * `git status` never also trusts `git status; rm -rf ~`.
+ */
+const SHELL_CONTROL_PATTERN = /[;&|<>`$(){}\n\r]/;
+
+/**
+ * Whether `command` is the trusted command itself, or that command with more
+ * plain arguments. The match ends at a word boundary (`bun test` does not
+ * trust `bun testing`) and the added arguments hold no shell control syntax.
+ */
+export function matchesTrustedBashCommand(prefix: string, command: string) {
+  if (!prefix || !command.startsWith(prefix)) {
+    return false;
+  }
+  const rest = command.slice(prefix.length);
+  if (rest.length === 0) {
+    return true;
+  }
+  return /^\s/.test(rest) && !SHELL_CONTROL_PATTERN.test(rest);
+}
+
 export function isTrustedApproval(args: {
   trustedTools?: readonly string[] | null;
   toolName: string;
@@ -94,7 +119,7 @@ export function isTrustedApproval(args: {
     }
     return entries.some((entry) => {
       const prefix = resolveTrustedBashCommandPrefix(entry);
-      return prefix ? command.startsWith(prefix) : false;
+      return prefix ? matchesTrustedBashCommand(prefix, command) : false;
     });
   }
 
@@ -104,6 +129,47 @@ export function isTrustedApproval(args: {
     }
     return normalizeTrustedToolName(entry) === normalizedToolName;
   });
+}
+
+/**
+ * Risks of a request that crossed a Stave guardrail (Claude G1–G3). Such a
+ * request always reaches the user: no trusted entry answers it.
+ */
+const GUARDRAIL_RISKS: ReadonlySet<ApprovalRisk> = new Set([
+  "write-outside-repository",
+  "credential-access",
+  "irreversible-remote",
+]);
+
+export function isGuardrailApprovalRisk(risk: ApprovalRisk | undefined) {
+  return risk !== undefined && GUARDRAIL_RISKS.has(risk);
+}
+
+/**
+ * Whether the user's trusted tools answer this request without asking: the
+ * request matches an entry and did not cross a guardrail.
+ */
+export function isTrustedApprovalRequest(args: {
+  trustedTools?: readonly string[] | null;
+  request: { toolName: string; input?: string; risk?: ApprovalRisk };
+}) {
+  return (
+    !isGuardrailApprovalRisk(args.request.risk) &&
+    isTrustedApproval({
+      trustedTools: args.trustedTools,
+      toolName: args.request.toolName,
+      input: args.request.input,
+    })
+  );
+}
+
+/** Whether `entry` is still among the trusted tools (case-insensitive, as stored). */
+export function hasTrustedToolEntry(args: {
+  entries?: readonly string[] | null;
+  entry: string;
+}) {
+  const key = args.entry.trim().toLowerCase();
+  return Boolean(key) && (args.entries ?? []).some((entry) => entry.trim().toLowerCase() === key);
 }
 
 export function addTrustedToolEntry(args: {

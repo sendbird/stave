@@ -1,5 +1,5 @@
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
-import type { ApprovalResolvedEvent } from "../../src/lib/approvals/approval-resolution";
+import type { ApprovalResolvedEvent, ApprovalRisk } from "../../src/lib/approvals/approval-resolution";
 import type { CodexApprovalsAppliedEvent } from "../../src/lib/providers/codex-runtime-options";
 import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
@@ -259,11 +259,22 @@ export type BridgeEvent =
       description: string;
       input?: string;
       /**
-       * The runtime advertised an "allow always" option, so answering can also
-       * persist a rule in the provider's own permission store instead of only
-       * unblocking this one call.
+       * An "Always allow" answer is honored on later calls, so every surface
+       * offers it. Either the provider keeps the rule itself (ACP runtimes
+       * that advertise `allow_always`), or Stave keeps it in the user's
+       * trusted tools and the runtime answers matching calls from that list
+       * (Claude, Codex; see `trustedToolEntry`).
        */
       supportsAllowAlways?: boolean;
+      /**
+       * The trusted-tools entry an "Always allow" answer adds, exactly as the
+       * runtime matches it on later calls. Set only with `supportsAllowAlways`
+       * by runtimes that answer from Stave's trusted tools; absent where the
+       * provider keeps the rule.
+       */
+      trustedToolEntry?: string;
+      /** See `ApprovalRisk`: set only when the request itself says so. */
+      risk?: ApprovalRisk;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.

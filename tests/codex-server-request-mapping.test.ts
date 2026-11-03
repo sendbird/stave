@@ -18,8 +18,68 @@ describe("Codex server request presentation", () => {
         requestId: "42",
         description: "bun test\n\nRequires network access",
         input: "bun test",
+        // Stave keeps "Always allow" as a trusted entry for the exact command.
+        supportsAllowAlways: true,
+        trustedToolEntry: "bash:bun test",
       },
     });
+  });
+
+  test("names a managed-network command's risk from the request, not its reason text", () => {
+    const withContext = mapCodexServerRequestPresentation({
+      method: "item/commandExecution/requestApproval",
+      requestId: "net-1",
+      params: { command: "curl https://example.test", networkApprovalContext: { host: "example.test", protocol: "https" } },
+    });
+    expect(withContext?.kind === "approval" ? withContext.event.risk : null).toBe("network-access");
+    const reasonOnly = mapCodexServerRequestPresentation({
+      method: "item/commandExecution/requestApproval",
+      requestId: "net-2",
+      params: { command: "bun test", reason: "Requires network access" },
+    });
+    expect(reasonOnly?.kind === "approval" ? reasonOnly.event.risk : null).toBeUndefined();
+  });
+
+  test("offers no Always allow for terminal input, extra write roots, permissions or MCP elicitation", () => {
+    const events = [
+      mapCodexServerRequestPresentation({
+        method: "item/commandExecution/requestApproval",
+        requestId: "stdin-1",
+        params: { kind: "writeStdin", command: "y" },
+      }),
+      mapCodexServerRequestPresentation({
+        method: "item/fileChange/requestApproval",
+        requestId: "file-2",
+        params: { grantRoot: "/tmp/elsewhere" },
+      }),
+      mapCodexServerRequestPresentation({
+        method: "item/permissions/requestApproval",
+        requestId: "permission-2",
+        params: { permissions: { network: { enabled: true } } },
+      }),
+      mapCodexServerRequestPresentation({
+        method: "mcpServer/elicitation/request",
+        requestId: "mcp-2",
+        params: {
+          mode: "form",
+          message: 'Allow tool "stave_list_repositories"?',
+          requestedSchema: { type: "object", properties: {} },
+          _meta: { codex_approval_kind: "mcp_tool_call" },
+        },
+      }),
+    ];
+    for (const mapped of events) {
+      expect(mapped?.kind).toBe("approval");
+      if (mapped?.kind !== "approval") continue;
+      expect(mapped.event.supportsAllowAlways).toBeUndefined();
+      expect(mapped.event.trustedToolEntry).toBeUndefined();
+    }
+    const patch = mapCodexServerRequestPresentation({
+      method: "item/fileChange/requestApproval",
+      requestId: "file-3",
+      params: { reason: "Edit a source file" },
+    });
+    expect(patch?.kind === "approval" ? patch.event.trustedToolEntry : null).toBe("apply_patch");
   });
 
   test("keeps file grant root and permissions payload distinct", () => {
@@ -57,6 +117,7 @@ describe("Codex server request presentation", () => {
         requestId: "permission-1",
         description:
           "Codex requested approval for item/permissions/requestApproval.",
+        risk: "network-access",
       },
     });
   });

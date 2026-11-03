@@ -12,6 +12,7 @@ import {
   isNeverAutoApprovedStaveLocalMcpTool,
 } from "../stave-local-mcp-approval";
 import { createBoundedBridgeEventCollector } from "../provider-buffering";
+import { resolveAcpApprovalAllowAlways } from "../approval-allow-always";
 import { buildProviderFailureContinuationPrompt } from "../../../src/lib/providers/provider-error-recovery";
 import { PROVIDER_STEER_ACK_TIMEOUT_MS } from "../../../src/lib/providers/steer-delivery";
 import type {
@@ -436,7 +437,11 @@ export async function streamAcpProviderTurn(args: {
             parsed.data.toolCall.title?.trim() ||
             `${profile.displayName} requests permission.`,
           ...(input ? { input } : {}),
-          ...(allowAlwaysOption ? { supportsAllowAlways: true } : {}),
+          ...resolveAcpApprovalAllowAlways({
+            nativeAllowAlways: Boolean(allowAlwaysOption),
+            toolName: presentation.toolName,
+            input,
+          }),
         });
       } catch (error) {
         // Nothing can answer an approval nobody was told about, so drop the

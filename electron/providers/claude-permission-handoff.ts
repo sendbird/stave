@@ -8,6 +8,7 @@ import {
 } from "../../src/lib/approvals/approval-resolution";
 import { isTrustedApproval } from "../../src/lib/providers/trusted-tools";
 import { shouldAllowClaudeAutonomousCall, type ClaudeGuardrailHit } from "./claude-guardrail-hook";
+import { isNeverAutoApprovedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 import {
   resolveClaudePermissionModeDecision,
   resolveTrustedApprovalInput,
@@ -84,7 +85,8 @@ export type ClaudeHandoffDecision =
  * 4. A guardrail call always asks; nothing below can approve it.
  * 5. Stave's blanket autonomy, except on an Agent Run stage turn in Claude's
  *    native Auto, whose handoffs belong to the user.
- * 6. A tool or Bash prefix the user trusted.
+ * 6. A tool or Bash command the user trusted, except a Stave tool that
+ *    answers another task's prompt.
  * 7. Otherwise the user is asked.
  */
 export function resolveClaudeHandoffDecision(args: {
@@ -116,7 +118,8 @@ export function resolveClaudeHandoffDecision(args: {
   if (shouldAllowClaudeAutonomousCall({ policy: args.turnPolicy, toolName: args.toolName, matchedAskRule: args.matchedAskRule, nativeAuto })) {
     return { action: "allow", source: "autonomy" };
   }
-  if (isTrustedApproval({
+  // A Stave tool that answers another task's prompt always reaches the user.
+  if (!isNeverAutoApprovedStaveLocalMcpTool(args.toolName) && isTrustedApproval({
     trustedTools: args.trustedTools,
     toolName: args.toolName,
     input: resolveTrustedApprovalInput({ toolName: args.toolName, input: args.input }),

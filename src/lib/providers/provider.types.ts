@@ -1,5 +1,5 @@
 import type { McpAppViewReference } from "@/lib/mcp-app/mcp-app-view";
-import type { ApprovalResolvedEvent } from "@/lib/approvals/approval-resolution";
+import type { ApprovalResolvedEvent, ApprovalRisk } from "@/lib/approvals/approval-resolution";
 import type { CodexApprovalsAppliedEvent } from "@/lib/providers/codex-runtime-options";
 import type { AgentTurnProvenance } from "../agents/turn-provenance";
 import type { ModelExecution } from "./model-execution";
@@ -1054,8 +1054,12 @@ export type NormalizedProviderEvent =
       requestId: string;
       description: string;
       input?: string;
-      /** See the main-process `approval` event: an allow-always option exists. */
+      /** See the main-process `approval` event: "Always allow" is honored on later calls. */
       supportsAllowAlways?: boolean;
+      /** See the main-process `approval` event: the trusted-tools entry "Always allow" adds. */
+      trustedToolEntry?: string;
+      /** See `ApprovalRisk`: set only when the request itself says so. */
+      risk?: ApprovalRisk;
       /**
        * See `tool.ownerAgentId`: the subagent whose work is stopped until this
        * is answered. Absent means the main loop asked.
