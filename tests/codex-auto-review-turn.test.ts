@@ -205,6 +205,22 @@ test("a delegated (managed) run's question keeps today's timeout decline", async
   expect(replayed.messages.flatMap(message => message.parts).filter(part => part.type === "user_input")[0]).toMatchObject({ state: "input-interrupted" });
 }, 10_000);
 
+test("a Codex approval says when its auto-decline timer denies it", async () => {
+  process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS = "60000";
+  const server = fakeServer("0.162.1");
+  const turn = startTurn(server, { taskId: "task-expiry" });
+  const before = Date.now();
+  await turn.asked();
+  const after = Date.now();
+  const approval = turn.events.find((event) => event.type === "approval") as Extract<BridgeEvent, { type: "approval" }>;
+  expect(typeof approval.expiresAt).toBe("string");
+  const deadline = Date.parse(approval.expiresAt!);
+  expect(deadline).toBeGreaterThanOrEqual(before + 60_000);
+  expect(deadline).toBeLessThanOrEqual(after + 60_000);
+  turn.responders.approval?.({ requestId: approval.requestId, approved: false });
+  await turn.work;
+}, 10_000);
+
 test("an agent run question answered in time reaches Codex", async () => {
   process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS = "60000";
   const server = fakeServer("0.162.1", { request: "user_input" });

@@ -170,6 +170,7 @@ function createApprovalPart(args: {
   trustedToolEntry?: string;
   risk?: ApprovalPart["risk"];
   ownerAgentId?: string;
+  expiresAt?: string;
 }): ApprovalPart {
   return sanitizeMessagePartPayload({
     type: "approval",
@@ -182,6 +183,7 @@ function createApprovalPart(args: {
     ...(args.supportsAllowAlways && args.trustedToolEntry ? { trustedToolEntry: args.trustedToolEntry } : {}),
     ...(args.risk ? { risk: args.risk } : {}),
     ...(args.ownerAgentId ? { ownerAgentId: args.ownerAgentId } : {}),
+    ...(args.expiresAt ? { expiresAt: args.expiresAt } : {}),
     state: "approval-requested",
   });
 }
@@ -430,6 +432,7 @@ function normalizeEventToPart(args: {
         trustedToolEntry: event.trustedToolEntry,
         risk: event.risk,
         ownerAgentId: event.ownerAgentId,
+        expiresAt: event.expiresAt,
       });
     case "user_input":
       return createUserInputPart({

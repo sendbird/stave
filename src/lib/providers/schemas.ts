@@ -236,6 +236,8 @@ const ApprovalEventSchema = z.object({
   // An unknown risk from a newer build reads as absent instead of dropping the request.
   risk: z.enum(APPROVAL_RISKS).optional().catch(undefined),
   ownerAgentId: z.string().optional(),
+  // A malformed deadline reads as absent: the request still has to be shown.
+  expiresAt: z.string().datetime().optional().catch(undefined),
 });
 
 const UserInputQuestionSchema = z.object({

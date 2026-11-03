@@ -49,6 +49,7 @@ import {
 export { resolveCodexChatgptAuthTokensRefreshResponse };
 import { describeJsonRpcLinePrefix } from "../shared/json-rpc-line";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
+import { resolveApprovalExpiresAt } from "../../src/lib/approvals/approval-expiry";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
@@ -2174,10 +2175,12 @@ export async function streamCodexWithAppServer(
           recoverable: true,
         };
       };
+      /** Starts the request's auto-decline timer and returns when it fires, for the card. */
       const scheduleApprovalAutoDecline = (args: {
         requestId: string;
         toolName: string;
-      }) => {
+      }): string | undefined => {
+        const expiresAt = resolveApprovalExpiresAt({ timeoutMs: codexApprovalDecisionTimeoutMs });
         const handle = setTimeout(() => {
           pendingApprovalAutoDeclineHandles.delete(args.requestId);
           const pending = pendingApprovalRequests.get(args.requestId);
@@ -2213,6 +2216,7 @@ export async function streamCodexWithAppServer(
             .finally(() => elicitationPauseController.end(args.requestId));
         }, codexApprovalDecisionTimeoutMs);
         pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+        return expiresAt;
       };
       const runStage = args.managedTask ? undefined : args.agentRunStage; // a managed run's controller answers; today's timeout stays
       const scheduleUserInputAutoDecline = (args: {
@@ -2515,11 +2519,11 @@ export async function streamCodexWithAppServer(
               ...presentation.pending,
             });
             void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({
+            const expiresAt = scheduleApprovalAutoDecline({
               requestId,
               toolName: presentation.event.toolName,
             });
-            emitBridgeEvent({ ...presentation.event, ...childRequestOwner });
+            emitBridgeEvent({ ...presentation.event, ...childRequestOwner, ...(expiresAt ? { expiresAt } : {}) });
             return;
           }
           if (presentation?.kind === "user_input") {

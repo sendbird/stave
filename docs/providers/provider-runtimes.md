@@ -1919,6 +1919,10 @@ Native approvals and questions are synchronous provider callbacks, so both
 runtimes decline one nobody answers after the decision timeout (45 minutes;
 `STAVE_CLAUDE_APPROVAL_TIMEOUT_MS`, `STAVE_CODEX_APPROVAL_TIMEOUT_MS`) with a
 recoverable error, in an agent run stage turn exactly as in any other turn.
+Each runtime starts that timer as it raises an approval, so the `approval`
+event carries its deadline as `expiresAt` (ISO time); the ACP runtimes do the
+same with their own decision timeout, and a delegated task's host lowers it
+to its shorter timer. The card reads it as a wall-clock time.
 Claude denies the permission callback; Codex answers `decline`, or empty
 answers for a question. Stopping the turn releases pending requests on both
 providers. For an externally managed (delegated) task the host also denies an

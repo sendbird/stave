@@ -1079,6 +1079,8 @@ export type NormalizedProviderEvent =
        * six is waiting on a person looks identical to one where all six are.
        */
       ownerAgentId?: string;
+      /** See the main-process `approval` event: when the runtime denies an unanswered request. */
+      expiresAt?: string;
     }
   | ApprovalResolvedEvent
   | CodexApprovalsAppliedEvent

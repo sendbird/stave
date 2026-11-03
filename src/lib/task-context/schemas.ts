@@ -102,6 +102,7 @@ const ApprovalPartSchema = z.object({
   trustedToolEntry: z.string().optional(),
   risk: z.enum(APPROVAL_RISKS).optional().catch(undefined),
   ownerAgentId: z.string().optional(),
+  expiresAt: z.string().datetime().optional().catch(undefined),
   requestId: z.string(),
   state: z.union([
     z.literal("approval-requested"),

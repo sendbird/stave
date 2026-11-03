@@ -128,6 +128,7 @@ import {
   resolveManagedTaskRuntimeOptions,
   userSettingsPermissionOptions,
 } from "../../src/lib/providers/managed-task-runtime";
+import { earlierApprovalDeadline } from "../../src/lib/approvals/approval-expiry";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import { recordTurnWorkspaceDocuments } from "./turn-workspace-documents";
 import {
@@ -1117,6 +1118,25 @@ function clearManagedApprovalAutoDeny(args: {
   }
 }
 
+/**
+ * A delegated task's host denies an unanswered approval (below) before the
+ * runtime's own timer would, so the request carries the deadline that
+ * actually applies and its card does not promise a later one.
+ */
+function withManagedApprovalDeadline(
+  event: BridgeEvent,
+  task: Pick<Task, "controlMode" | "controlOwner"> | null | undefined,
+): BridgeEvent {
+  if (event.type !== "approval" || !isExternallyManagedTask(task)) {
+    return event;
+  }
+  const expiresAt = earlierApprovalDeadline({
+    expiresAt: event.expiresAt,
+    timeoutMs: MANAGED_TASK_APPROVAL_TIMEOUT_MS,
+  });
+  return expiresAt ? { ...event, expiresAt } : event;
+}
+
 /** A managed approval expires if neither the user nor controller answers. */
 function scheduleManagedApprovalAutoDeny(args: {
   workspaceId: string;
@@ -1308,10 +1328,14 @@ async function handleProviderEvent(args: {
     session,
   });
   const residentMessagesBeforeEvent = session.messagesByTask[args.taskId] ?? [];
+  const event = withManagedApprovalDeadline(
+    args.event,
+    session.tasks.find((candidate) => candidate.id === args.taskId),
+  );
   localMcpTurnJournal.append({
     turnId: args.turnId,
     sequence: args.sequence,
-    event: args.event,
+    event,
   });
   if (args.event.type === "usage") {
     latestTurnUsageById.delete(args.turnId);
@@ -1341,7 +1365,7 @@ async function handleProviderEvent(args: {
   const applied = applyProviderEventsToWorkspaceSession({
     session,
     taskId: args.taskId,
-    events: [args.event as NormalizedProviderEvent],
+    events: [event as NormalizedProviderEvent],
     provider: args.provider,
     model: args.model,
     turnId: args.turnId,
@@ -1380,12 +1404,12 @@ async function handleProviderEvent(args: {
     persisted: true,
   });
 
-  if (args.event.type === "approval") {
+  if (event.type === "approval") {
     scheduleManagedApprovalAutoDeny({
       workspaceId: args.workspaceId,
       taskId: args.taskId,
       turnId: args.turnId,
-      event: args.event,
+      event,
       session: appliedSession,
     });
     await persistApprovalNotification({
@@ -1393,7 +1417,7 @@ async function handleProviderEvent(args: {
       taskId: args.taskId,
       turnId: args.turnId,
       provider: args.provider,
-      event: args.event,
+      event,
       session: appliedSession,
     });
   }

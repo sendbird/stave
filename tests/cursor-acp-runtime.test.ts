@@ -365,6 +365,7 @@ describe("Cursor ACP runtime", () => {
         }) => ProviderResponderResult)
       | undefined;
     let turn!: Promise<BridgeEvent[]>;
+    const before = Date.now();
     const approval = await waitForEvent(
       (onEvent) => {
         turn = streamCursorWithAcp({
@@ -377,10 +378,16 @@ describe("Cursor ACP runtime", () => {
       },
       (event) => event.type === "approval",
     );
+    const after = Date.now();
     expect(approval.type).toBe("approval");
     if (approval.type !== "approval") {
       throw new Error("Expected an approval event.");
     }
+    // The ACP runtime's decision timer (45 minutes by default) is the
+    // request's deadline.
+    const deadline = Date.parse(approval.expiresAt ?? "");
+    expect(deadline).toBeGreaterThanOrEqual(before + 45 * 60_000);
+    expect(deadline).toBeLessThanOrEqual(after + 45 * 60_000);
     expect(
       responder?.({ requestId: approval.requestId, approved: true }),
     ).toEqual({ ok: true });

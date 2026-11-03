@@ -289,6 +289,8 @@ export interface ApprovalPart extends MessagePartBase {
   risk?: import("@/lib/approvals/approval-resolution").ApprovalRisk;
   /** See the `approval` provider event: the subagent that asked; absent for the main loop. */
   ownerAgentId?: string;
+  /** See the `approval` provider event: when the runtime denies it if nobody answers. */
+  expiresAt?: string;
   requestId: string;
   state:
     | "approval-requested"

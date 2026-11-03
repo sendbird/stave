@@ -62,6 +62,15 @@ for (const agentRunStage of [{ agentRunId: "run", stageId: "work", attempt: 1 },
       onEvent: (event) => { events.push(event); },
     });
     expect(events.filter((event) => event.type === "approval")).toHaveLength(1);
+    // The request says when the decision timer denies it.
+    const approval = events.find((event) => event.type === "approval");
+    const timeoutAt = events.findIndex((event) => event.type === "error");
+    expect(approval?.type === "approval" && typeof approval.expiresAt).toBe("string");
+    if (approval?.type === "approval" && approval.expiresAt) {
+      expect(Date.parse(approval.expiresAt)).toBeLessThanOrEqual(Date.now());
+      expect(Date.parse(approval.expiresAt)).toBeGreaterThan(Date.now() - 5_000);
+    }
+    expect(timeoutAt).toBeGreaterThan(-1);
     expect(decisions).toEqual([expect.objectContaining({ behavior: "deny", message: expect.stringContaining("Denied automatically") })]);
     expect(events.some((event) => event.type === "error" && event.message.includes("did not receive"))).toBe(true);
     // The approval record says the shown request was denied by Stave's timeout, not by a person.

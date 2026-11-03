@@ -15,6 +15,7 @@ import { createBoundedBridgeEventCollector } from "../provider-buffering";
 import { resolveAcpApprovalAllowAlways } from "../approval-allow-always";
 import { buildProviderFailureContinuationPrompt } from "../../../src/lib/providers/provider-error-recovery";
 import { PROVIDER_STEER_ACK_TIMEOUT_MS } from "../../../src/lib/providers/steer-delivery";
+import { resolveApprovalExpiresAt } from "../../../src/lib/approvals/approval-expiry";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -399,6 +400,8 @@ export async function streamAcpProviderTurn(args: {
     );
     const input = serializeApprovalInput(presentation.input);
     return await new Promise<unknown>((resolve, reject) => {
+      // The card says when this timer denies an unanswered request.
+      const expiresAt = resolveApprovalExpiresAt({ timeoutMs: profile.decisionTimeoutMs });
       const timer = createDecisionTimer(() => {
         if (rejectOption) {
           settlePermission(id, {
@@ -442,6 +445,7 @@ export async function streamAcpProviderTurn(args: {
             toolName: presentation.toolName,
             input,
           }),
+          ...(expiresAt ? { expiresAt } : {}),
         });
       } catch (error) {
         // Nothing can answer an approval nobody was told about, so drop the

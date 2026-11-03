@@ -295,6 +295,12 @@ export type BridgeEvent =
        * is answered. Absent means the main loop asked.
        */
       ownerAgentId?: string;
+      /**
+       * ISO time the runtime denies the request if nobody answers, from the
+       * auto-decline timer it started as it raised the request (see
+       * `resolveApprovalExpiresAt`). Absent when no timer runs.
+       */
+      expiresAt?: string;
     }
   /** A request decided without a person; see `ApprovalResolvedEvent`. */
   | ApprovalResolvedEvent
