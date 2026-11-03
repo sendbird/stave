@@ -1,8 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ads/components/Button";
+import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { Citation } from "@/components/ads/components/Citation";
 import type { CitationSource } from "@/components/ads/components/Citation.parts";
 import { Thinking } from "@/components/ads/components/Thinking";
@@ -19,6 +20,34 @@ import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 /** How long the copy action stays acknowledged before returning to rest. */
 const COPIED_MS = 1600;
 
+/** Lines as written: a trailing newline does not add an empty last line. */
+export function countLines(text: string) {
+  if (text.length === 0) return 0;
+  return text.replace(/\n$/, "").split("\n").length;
+}
+
+/**
+ * Whether a capped box is cutting its content off right now. Measured, not
+ * guessed from the line count: wrapping decides how tall a line is.
+ */
+function useOverflowing(enabled: boolean) {
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    if (!enabled || !element) return;
+    const measure = () => {
+      setOverflowing(element.scrollHeight > element.clientHeight + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    for (const child of element.children) observer.observe(child);
+    return () => observer.disconnect();
+  }, [element, enabled]);
+  return { ref: setElement, overflowing: enabled && overflowing };
+}
+
 /**
  * Tool output for one of `ToolRun`'s labelled sections.
  *
@@ -34,23 +63,50 @@ export function TraceOutput(args: {
   /** Prose rather than machine output — a subagent's report, not stdout. */
   prose?: boolean;
   text: string;
+  /**
+   * Hold the value to the shared 220px cap (ADS `CappedViewport`): a long
+   * result scrolls inside its section, with a fade at the cut and a line count
+   * under it, instead of pushing the conversation down.
+   */
+  capped?: boolean;
+  /** Names the capped region, e.g. "Arguments" or "Output". */
+  label?: string;
 }) {
   useTranslation();
-  const { linkify = true, prose = false, text } = args;
+  const { capped = false, label, linkify = true, prose = false, text } = args;
   const { status, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
   const copy = useCallback(() => {
     void copyText(text);
   }, [copyText, text]);
+  const { ref: viewportRef, overflowing } = useOverflowing(capped);
+  const lineCount = useMemo(() => (capped ? countLines(text) : 0), [capped, text]);
 
   const textClass = sx(styles.outputText, prose && styles.outputProse);
+  const body = linkify ? (
+    <LinkifiedText as="pre" className={textClass} text={text} />
+  ) : (
+    <pre className={textClass}>{text}</pre>
+  );
 
   return (
     <div className={sx(styles.output)}>
-      {linkify ? (
-        <LinkifiedText as="pre" className={textClass} text={text} />
+      {capped ? (
+        <CappedViewport
+          ref={viewportRef}
+          label={label}
+          data-trace-output-capped="true"
+          xstyle={styles.capped}
+        >
+          {body}
+        </CappedViewport>
       ) : (
-        <pre className={textClass}>{text}</pre>
+        body
       )}
+      {capped && overflowing ? (
+        <p className={sx(styles.lineNote)} data-testid="trace-output-line-note">
+          {i18n.t("session:turnEventRows.lineNote", { count: lineCount })}
+        </p>
+      ) : null}
       <Button
         onClick={copy}
         size="xs"

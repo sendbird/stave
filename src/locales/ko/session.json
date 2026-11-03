@@ -837,7 +837,8 @@
     "traceOutput": "복사됨",
     "traceOutput2": "복사",
     "label": "추론 기록",
-    "extraCopy197": "추론"
+    "extraCopy197": "추론",
+    "lineNote_other": "{{count}}줄 · 스크롤해서 더 보기"
   },
   "taskPanelMarks": {
     "label": "승인 필요",

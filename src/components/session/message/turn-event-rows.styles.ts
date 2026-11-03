@@ -28,6 +28,19 @@ export const turnEventRowStyles = stylex.create({
   outputProse: {
     fontFamily: vars["--ads-font-sans"],
   },
+  /* The capped box takes the section's width, so the cut and its fade run
+     edge to edge whatever the longest line measures. */
+  capped: {
+    justifySelf: "stretch",
+    minInlineSize: 0,
+  },
+  lineNote: {
+    margin: 0,
+    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+  },
   copy: {
     justifySelf: "end",
   },

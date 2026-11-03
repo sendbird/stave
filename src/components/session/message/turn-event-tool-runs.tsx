@@ -114,11 +114,17 @@ export function TraceToolRun(args: {
       durationMs={toMeasuredDurationMs(part.elapsedSeconds)}
       error={
         isError && !isCommand && output ? (
-          <TraceOutput linkify={false} text={output} />
+          <TraceOutput capped label={i18n.t("ui:toolrun.error")} linkify={false} text={output} />
         ) : undefined
       }
       icon={getToolIcon(part.toolName)}
-      input={residualInput || undefined}
+      /* Arguments get the output's copy action and cap: a long JSON payload
+         is copied as often as a result is, and grows as tall. */
+      input={
+        residualInput ? (
+          <TraceOutput capped label={i18n.t("ui:toolrun.arguments")} linkify={false} text={residualInput} />
+        ) : undefined
+      }
       defaultOpen={mcpAppView ? true : undefined}
       output={
         mcpAppView ? (
@@ -128,7 +134,7 @@ export function TraceToolRun(args: {
             toolUseId={part.toolUseId}
           />
         ) : !isError && !isCommand && output ? (
-          <TraceOutput linkify={!streamingInput} text={output} />
+          <TraceOutput capped label={i18n.t("ui:toolrun.output")} linkify={!streamingInput} text={output} />
         ) : undefined
       }
       outputLabel={args.outputLabel}
@@ -166,16 +172,28 @@ export function TraceSubagentRun(args: { part: ToolUsePart }) {
       durationMs={toMeasuredDurationMs(part.elapsedSeconds)}
       error={
         isError && output ? (
-          <TraceOutput linkify={false} text={output} />
+          <TraceOutput capped label={i18n.t("ui:toolrun.error")} linkify={false} text={output} />
         ) : undefined
       }
       icon={<Bot size={TRACE_GLYPH_SIZE} />}
       /* The chip carries only the type, so the prompt is still new information
          and stays visible. */
-      input={parsed.prompt ?? parsed.raw}
+      input={
+        parsed.prompt ?? parsed.raw ? (
+          <TraceOutput
+            capped
+            label={i18n.t("session:assistantTrace.inputLabel")}
+            linkify={false}
+            prose
+            text={parsed.prompt ?? parsed.raw ?? ""}
+          />
+        ) : undefined
+      }
       inputLabel={i18n.t("session:assistantTrace.inputLabel")}
       output={
-        !isError && output ? <TraceOutput prose text={output} /> : undefined
+        !isError && output ? (
+          <TraceOutput capped label={i18n.t("ui:toolrun.output")} prose text={output} />
+        ) : undefined
       }
       status={toAgentStepState(part.state)}
       title={

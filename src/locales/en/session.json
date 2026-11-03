@@ -869,7 +869,9 @@
     "traceOutput": "Copied",
     "traceOutput2": "Copy",
     "label": "Reasoning trace",
-    "extraCopy197": "Reasoning"
+    "extraCopy197": "Reasoning",
+    "lineNote_one": "{{count}} line · scroll for more",
+    "lineNote_other": "{{count}} lines · scroll for more"
   },
   "taskPanelMarks": {
     "label": "Approval needed",
