@@ -97,6 +97,7 @@
     "expandRepository": "Expand {{name}}",
     "collapseRepository": "Collapse {{name}}",
     "layoutLabel": "Board layout",
+    "tree": "Tree",
     "cards": "Cards",
     "table": "Table",
     "valueTasksShown_one": " · {{count}} task shown",
@@ -365,5 +366,10 @@
     "fourHours": "4 hours",
     "oneDay": "1 day",
     "oneWeek": "1 week"
+  },
+  "agentTree": {
+    "answer": "Answer",
+    "open": "Open",
+    "openTask": "Open task"
   }
 }

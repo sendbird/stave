@@ -395,7 +395,7 @@ describe("unopened workspaces' task lists", () => {
   });
 });
 
-describe("the Cards/Table choice", () => {
+describe("the board layout choice", () => {
   const initial = useAppStore.getInitialState();
   // Restored exactly: later files tell a bridge-less test run by the key's absence.
   const globalWithWindow = globalThis as { window?: unknown };
@@ -410,10 +410,11 @@ describe("the Cards/Table choice", () => {
     else delete globalWithWindow.window;
   });
 
-  test("defaults to cards, persists table, and reads anything else as cards", () => {
-    expect(initial.settings.fleetBoardLayout).toBe("cards");
+  test("defaults to tree, persists table, and reads anything else as tree", () => {
+    expect(initial.settings.fleetBoardLayout).toBe("tree");
     expect(normalizeFleetBoardLayout("table")).toBe("table");
-    expect(normalizeFleetBoardLayout("grid")).toBe("cards");
+    expect(normalizeFleetBoardLayout("cards")).toBe("cards");
+    expect(normalizeFleetBoardLayout("grid")).toBe("tree");
     useAppStore.getState().updateSettings({ patch: { fleetBoardLayout: "table" } });
     expect(useAppStore.getState().settings.fleetBoardLayout).toBe("table");
 
@@ -425,7 +426,7 @@ describe("the Cards/Table choice", () => {
     };
     const written = options.partialize(useAppStore.getState());
     expect(restore(JSON.parse(JSON.stringify(written.settings))).settings.fleetBoardLayout).toBe("table");
-    expect(restore({ fleetBoardLayout: 3 }).settings.fleetBoardLayout).toBe("cards");
-    expect(restore({}).settings.fleetBoardLayout).toBe("cards");
+    expect(restore({ fleetBoardLayout: 3 }).settings.fleetBoardLayout).toBe("tree");
+    expect(restore({}).settings.fleetBoardLayout).toBe("tree");
   });
 });

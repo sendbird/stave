@@ -215,7 +215,12 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await reviewToggle.click();
   await expect(items).toHaveCount(1);
 
-  // The board renders the workspace as a card, not a full-width row.
+  // Fleet opens on the Tree layout; the workspace cards are one choice away.
+  const layout = page.getByRole("group", { name: "Board layout" });
+  await expect(layout.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
+  await layout.getByRole("button", { name: "Cards" }).click();
+
+  // The cards board renders the workspace as a card, not a full-width row.
   const workspaceCard = page.getByRole("article", {
     name: /fleet-needs workspace in stave-fleet-needs/,
   });

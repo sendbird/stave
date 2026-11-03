@@ -482,7 +482,9 @@ Idle | Tasks with nothing to do right now
 | Idle            | Tasks with nothing to do                                             |
 
 Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you".
-Below the band, the activity filter and the **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
+Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
+
+Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task. If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
 Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/fleet.png)
 
 ## Notifications and issues

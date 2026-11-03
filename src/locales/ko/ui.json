@@ -349,5 +349,33 @@
       "error": "오류",
       "pending": "대기"
     }
+  },
+  "agentFleet": {
+    "title": "에이전트",
+    "totals": {
+      "agents_other": "에이전트 {{count}}개",
+      "running_other": "{{count}}개 실행 중",
+      "needsYou_other": "{{count}}개 확인 필요",
+      "cost": "합계 {{cost}}"
+    },
+    "empty": {
+      "title": "에이전트 없음",
+      "description": "열린 작업이 여기에 에이전트로 표시됩니다."
+    },
+    "status": {
+      "done": "완료"
+    },
+    "runningTime": "실행 시간",
+    "tools": "도구: {{tools}}",
+    "moreTools_other": "+{{count}}",
+    "subagents_other": "하위 에이전트 {{count}}개",
+    "needYou_other": "{{count}}개 확인 필요",
+    "failedCount_other": "{{count}}개 실패",
+    "treeLabel": "{{name}}의 하위 에이전트",
+    "loadingSubagents": "하위 에이전트를 불러오는 중…",
+    "noSubagents": "아직 하위 에이전트가 없습니다.",
+    "subagentsFailed": "하위 에이전트를 읽지 못했습니다: {{error}}",
+    "stepsTitle": "{{name}}의 작업",
+    "closeSteps": "작업 닫기"
   }
 }

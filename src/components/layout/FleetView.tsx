@@ -13,6 +13,7 @@ import {
   CircleDashed,
   FolderTree,
   LayoutGrid,
+  ListTree,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -34,6 +35,7 @@ import {
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
+import { FleetAgentTree } from "@/components/layout/FleetAgentTree";
 import {
   FleetTaskTable,
   type FleetTaskTableSummary,
@@ -87,6 +89,7 @@ type FleetRepositoryView = {
 };
 
 const EMPTY_NEEDS: FleetAttentionItem[] = [];
+/** The layout switch's order: the default first. */
 const EMPTY_VISIBILITY: Record<string, FleetWorkspaceCardVisibility> = {};
 
 /** How often dormancy is re-evaluated against the wall clock. */
@@ -254,7 +257,8 @@ export function FleetView() {
     Record<string, boolean>
   >({});
   const [boardFilter, setBoardFilter] = useState<FleetTaskTableFilter>("active");
-  // Cards or one table of every open task, kept as a UI setting.
+  // Agents with their subagents, cards, or one table of every open task,
+  // kept as a UI setting.
   const boardLayout = useAppStore((state) => state.settings.fleetBoardLayout);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [tableSummary, setTableSummary] = useState<FleetTaskTableSummary | null>(null);
@@ -651,9 +655,10 @@ export function FleetView() {
     (entry) => entry.isPhantom,
   ).length;
   const isBoardEmpty = settled && visibleCount === 0 && repositories.length > 0;
-  const showTable = boardLayout === "table";
-  const headerLiveCount = showTable ? (tableSummary?.liveWorkspaceCount ?? 0) : liveCount;
-  const headerShownCount = showTable ? (tableSummary?.shownRowCount ?? 0) : visibleCount;
+  // The table and the tree draw the same task rows, filters and counts.
+  const showsTaskRows = boardLayout === "table" || boardLayout === "tree";
+  const headerLiveCount = showsTaskRows ? (tableSummary?.liveWorkspaceCount ?? 0) : liveCount;
+  const headerShownCount = showsTaskRows ? (tableSummary?.shownRowCount ?? 0) : visibleCount;
 
   const toggleRepository = useCallback((repositoryPath: string) => {
     setCollapsedRepositories((current) => ({
@@ -675,7 +680,7 @@ export function FleetView() {
               ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount })
               : tI18n("fleet:fleetView.noAgentTurnsInFlight")}
             {headerShownCount > 0
-              ? showTable
+              ? showsTaskRows
                 ? tI18n("fleet:fleetView.valueTasksShown", { count: headerShownCount })
                 : tI18n("fleet:fleetView.valueShown", { visibleCount: headerShownCount })
               : ""}
@@ -801,7 +806,7 @@ export function FleetView() {
               aria-label={tI18n("fleet:fleetView.filterLabel")}
               value={boardFilter}
               onValueChange={setBoardFilter}
-              options={(showTable ? FLEET_TABLE_FILTER_OPTIONS : FLEET_BOARD_FILTER_OPTIONS).map((option) => ({
+              options={(showsTaskRows ? FLEET_TABLE_FILTER_OPTIONS : FLEET_BOARD_FILTER_OPTIONS).map((option) => ({
                 value: option.value,
                 label: option.label,
                 title: option.hint,
@@ -839,6 +844,12 @@ export function FleetView() {
               value={boardLayout}
               onValueChange={setBoardLayout}
               options={[
+                {
+                  value: "tree",
+                  label: tI18n("fleet:fleetView.tree"),
+                  icon: <ListTree aria-hidden="true" />,
+                  testId: "fleet-board-layout-tree",
+                },
                 {
                   value: "cards",
                   label: tI18n("fleet:fleetView.cards"),
@@ -883,7 +894,16 @@ export function FleetView() {
                     {tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
-            ) : showTable ? (
+            ) : boardLayout === "tree" ? (
+              <FleetAgentTree
+                repositories={repositories}
+                filter={boardFilter}
+                searchQuery={searchQuery}
+                nowMs={nowMs}
+                onOpenTask={handleOpenTask}
+                onSummaryChange={setTableSummary}
+              />
+            ) : boardLayout === "table" ? (
               <FleetTaskTable
                 repositories={repositories}
                 filter={boardFilter}

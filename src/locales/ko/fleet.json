@@ -94,6 +94,7 @@
     "expandRepository": "{{name}} 펼치기",
     "collapseRepository": "{{name}} 접기",
     "layoutLabel": "보드 레이아웃",
+    "tree": "트리",
     "cards": "카드",
     "table": "표",
     "valueTasksShown_other": " · 작업 {{count}}개 표시됨",
@@ -333,5 +334,10 @@
     "fourHours": "4시간",
     "oneDay": "1일",
     "oneWeek": "1주일"
+  },
+  "agentTree": {
+    "answer": "답변",
+    "open": "열기",
+    "openTask": "작업 열기"
   }
 }

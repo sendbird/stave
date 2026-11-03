@@ -259,7 +259,10 @@ export const FLEET_TABLE_FILTER_OPTIONS: ReadonlyArray<{
   },
 ];
 
-/** Whether a filter only exists in the table (the cards fall back to Active). */
+/**
+ * Whether a filter only exists in the task-row layouts, the table and the
+ * tree (the cards fall back to Active).
+ */
 export function isTableOnlyFilter(
   filter: FleetTaskTableFilter,
 ): filter is "needs-answer" | "stalled" {
@@ -271,6 +274,11 @@ const ANSWER_KINDS: ReadonlySet<FleetAttentionKind> = new Set([
   "user-input",
   "agent-run-sign-off",
 ]);
+
+/** The need is a request waiting for the user's answer (an approval, a question, a sign-off). */
+export function isFleetAnswerNeed(need: Pick<FleetAttentionItem, "kind"> | null | undefined) {
+  return Boolean(need && ANSWER_KINDS.has(need.kind));
+}
 
 /**
  * The task's own turn is in flight: the per-task form of the cards' rule
@@ -291,7 +299,7 @@ export function matchesFleetTaskTableFilter(row: FleetTaskRow, filter: FleetTask
     case "blocked":
       return row.rank.lane === "action-required";
     case "needs-answer":
-      return Boolean(row.need && ANSWER_KINDS.has(row.need.kind));
+      return isFleetAnswerNeed(row.need);
     case "stalled":
       return row.status === "stalled" || row.need?.kind === "turn-stalled";
   }

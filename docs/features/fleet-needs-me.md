@@ -61,14 +61,40 @@ Fleet item, and the task records the answer the same way.
   the board. It stays put while board filters change, is bounded so the board
   always keeps room, and scrolls inside itself; on wide screens its decisions
   sit side by side. Opening a row's control panel lets the band grow, still
-  bounded. Below it, the board shows workspace cards or one table of tasks
-  (the `Cards` and `Table` switch, kept between sessions), with activity
-  filters (`Active`, `Running`, `Action required`, and `All`) rather than a
-  task timeline. Each switch is one control: Tab reaches it once and the
-  arrow keys move the choice. While a filter other than `Active` or a search
-  narrows the board, the applied filters show as chips under the toolbar,
-  each removable on its own, with `Clear all` to return to `Active` and no
-  search.
+  bounded. Below it, the board shows every open task as an agent with its
+  subagents, workspace cards, or one table of tasks (the `Tree`, `Cards` and
+  `Table` switch, kept between sessions), with activity filters (`Active`,
+  `Running`, `Action required`, and `All`) rather than a task timeline.
+  Each switch is one control: Tab reaches it once and the arrow keys move the
+  choice. While a filter other than `Active` or a search narrows the board,
+  the applied filters show as chips under the toolbar, each removable on its
+  own, with `Clear all` to return to `Active` and no search.
+- `Tree` is the default layout. A profile that was on `Cards` before the Tree
+  layout existed moves to `Tree` once after the update; choosing `Cards` or
+  `Table` again is kept from then on.
+- `Tree` draws each open task as a main agent card, in the same rows, order,
+  filters and search as `Table` (including `Needs answer` and `No updates`,
+  and the same reading, incomplete-list and `Retry` states for workspaces you
+  have not opened). A totals line above the cards counts agents, running
+  ones, the ones that need you, and the cost their turns reported (left out
+  when none reported one); screen readers hear it change. A card shows a
+  status ring and the status in words, the task, the model, up to three tool
+  icons (named for screen readers, then `+N`), and what the turn last did or
+  what the task needs. A third line shows cost, running time and subagents
+  when there are any; without them the card is two lines tall. Cards only
+  ever take one of those two heights, so a status change never shifts the
+  list unpredictably. A task in a workspace you have not opened reads
+  `Unknown`, or `Needs you` while a request for it waits.
+- Selecting a main card (or `Enter`/`Space` on it) opens its subagents beside
+  the list, or under the card on a narrow board: its delegated tasks and its
+  turn's own subagents, each with its status, time and cost when reported. A
+  subagent's task line is left out when it only repeats the name. A waiting
+  delegated task offers `Answer` and a failed one `Open`; both open the child
+  task. An in-turn subagent opens a `Tasks of <name>` window listing its
+  steps. On a wide board the tree stops at a reading width and the rest stays
+  empty. `↑`/`↓` move between main cards, `Home`/`End` jump, `Tab` goes into
+  the open tree, `Esc` there returns to its card, and `Esc` closes the steps
+  window back to the subagent that opened it.
 - `Table` lists every open task of every workspace in one place, one row per
   task: the task, its workspace, its state, what it needs from you, how long it
   has waited, and what its running turn last did. Rows follow the Work queue

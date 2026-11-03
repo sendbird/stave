@@ -363,5 +363,40 @@
       "error": "error",
       "pending": "pending"
     }
+  },
+  "agentFleet": {
+    "title": "Agents",
+    "totals": {
+      "agents_one": "{{count}} agent",
+      "agents_other": "{{count}} agents",
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "needsYou_one": "{{count}} needs you",
+      "needsYou_other": "{{count}} need you",
+      "cost": "{{cost}} total"
+    },
+    "empty": {
+      "title": "No agents",
+      "description": "Open tasks appear here as agents."
+    },
+    "status": {
+      "done": "Done"
+    },
+    "runningTime": "Running time",
+    "tools": "Tools: {{tools}}",
+    "moreTools_one": "+{{count}}",
+    "moreTools_other": "+{{count}}",
+    "subagents_one": "{{count}} subagent",
+    "subagents_other": "{{count}} subagents",
+    "needYou_one": "{{count}} needs you",
+    "needYou_other": "{{count}} need you",
+    "failedCount_one": "{{count}} failed",
+    "failedCount_other": "{{count}} failed",
+    "treeLabel": "Subagents of {{name}}",
+    "loadingSubagents": "Loading subagents…",
+    "noSubagents": "No subagents yet.",
+    "subagentsFailed": "Subagents could not be read: {{error}}",
+    "stepsTitle": "Tasks of {{name}}",
+    "closeSteps": "Close tasks"
   }
 }
