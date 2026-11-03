@@ -65,6 +65,7 @@ import {
 } from "./assistant-trace-builder";
 import { TraceApproval, TraceClarification } from "./turn-event-decisions";
 import { TraceSystemNotice } from "./turn-event-notice";
+import { resolveTraceActivity } from "./trace-activity";
 import { ReasoningRow } from "./turn-event-rows";
 import { toMeasuredDurationMs } from "./turn-event-state";
 import {
@@ -235,6 +236,7 @@ function AssistantTraceEntryView(args: {
               getReasoningDurationSeconds(entry.parts) ?? undefined,
             )}
             isStreaming={entry.isStreaming}
+            startedAt={toEpochMilliseconds(entry.parts[0]?.startedAt) ?? undefined}
             text={joinReasoningText(entry.parts)}
           />
         </StepRail.Step>
@@ -493,6 +495,7 @@ export function AssistantMessageBody(args: {
     | "isStreaming"
     | "terminalStopReason"
     | "role"
+    | "startedAt"
   >;
   taskId: string;
   messageId: string;
@@ -570,6 +573,11 @@ export function AssistantMessageBody(args: {
             t,
           }),
     [categoryCounts, isStreaming, trace.responseParts, t],
+  );
+  /* While the turn runs: the newest step still in progress, for the header. */
+  const streamingActivity = useMemo(
+    () => (isStreaming ? resolveTraceActivity(trace.entries, t) : null),
+    [isStreaming, trace.entries, t],
   );
   /* Total reasoning time for the turn, shown next to the collapsed title
      ("12s"). Only meaningful once the turn has finished. */
@@ -680,6 +688,8 @@ export function AssistantMessageBody(args: {
                 ? i18n.t("session:assistantTrace.completionLabel")
                 : completedTitle
             }
+            streamingActivity={streamingActivity}
+            streamingStartedAt={message.startedAt}
           />
           {trace.entries.length > 0 ? (
             <ChainOfThoughtContent>

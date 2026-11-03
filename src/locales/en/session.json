@@ -794,6 +794,14 @@
       "usedTools_one": "made {{count}} tool call",
       "usedTools_other": "made {{count}} tool calls",
       "clauseSeparator": ", "
+    },
+    "activity": {
+      "read": "Reading {{target}}",
+      "edit": "Editing {{target}}",
+      "command": "Running {{target}}",
+      "search": "Searching {{target}}",
+      "web": "Looking up {{target}}",
+      "tool": "Using {{tool}}"
     }
   },
   "commandResult": {

@@ -14,6 +14,7 @@ export type PreviewMessage = Pick<
   | "displayParts"
   | "isStreaming"
   | "role"
+  | "startedAt"
 >;
 
 const REASONING_TEXT = [
@@ -46,7 +47,10 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
       type: "thinking",
       text: REASONING_TEXT,
       isStreaming: args.reasoningStreaming,
-      startedAt: "2026-01-01T00:00:00.000Z",
+      /* A live pass ticks from its start, so it starts 30s before mount. */
+      startedAt: args.reasoningStreaming
+        ? new Date(Date.now() - 30_000).toISOString()
+        : "2026-01-01T00:00:00.000Z",
       completedAt: args.reasoningStreaming
         ? undefined
         : "2026-01-01T00:00:12.000Z",
@@ -212,6 +216,8 @@ export function createStreamingPreviewMessage(): PreviewMessage {
       },
     ],
     isStreaming: true,
+    /* The header's clock reads the turn start; 42s ago at mount. */
+    startedAt: new Date(Date.now() - 42_000).toISOString(),
   };
 }
 

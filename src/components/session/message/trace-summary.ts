@@ -34,6 +34,11 @@ export interface TraceCategoryCount {
   count: number;
 }
 
+/** The kind of work a tool call counts as. */
+export function traceToolCategory(toolName: string): TraceCategory {
+  return TOOL_CATEGORY[normalizeTraceToolName(toolName)] ?? "tool";
+}
+
 /** Counts per kind of work, in the order each kind first appeared. */
 export function countTraceCategories(
   entries: readonly AssistantTraceEntry[],
@@ -43,7 +48,7 @@ export function countTraceCategories(
     counts.set(category, (counts.get(category) ?? 0) + count);
   for (const entry of entries) {
     if (entry.kind === "tool") {
-      add(TOOL_CATEGORY[normalizeTraceToolName(entry.part.toolName)] ?? "tool", 1);
+      add(traceToolCategory(entry.part.toolName), 1);
     } else if (entry.kind === "subagent") {
       add("agent", 1);
     } else if (entry.kind === "diff") {

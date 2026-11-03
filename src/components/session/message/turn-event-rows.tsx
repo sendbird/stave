@@ -170,15 +170,21 @@ export function TraceCitations(args: { output?: string }) {
 export function ReasoningRow(args: {
   durationMs?: number;
   isStreaming: boolean;
+  /**
+   * When the pass started, epoch ms. Used only while it streams, so the live
+   * header ticks; a settled pass keeps reporting only the measured duration.
+   */
+  startedAt?: number;
   text: string;
 }) {
   useTranslation();
-  const { durationMs, isStreaming, text } = args;
+  const { durationMs, isStreaming, startedAt, text } = args;
   const body = text.trim();
 
   return (
     <Thinking
       durationMs={durationMs}
+      startedAt={isStreaming && startedAt !== undefined && Number.isFinite(startedAt) ? startedAt : undefined}
       label={i18n.t("session:turnEventRows.label")}
       loaderVariant="think"
       phase={isStreaming ? i18n.t("ui:thinking.thinking") : i18n.t("session:turnEventRows.extraCopy197")}

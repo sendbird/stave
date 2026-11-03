@@ -762,6 +762,14 @@
       "ranAgents_other": "에이전트 {{count}}개 실행",
       "usedTools_other": "도구 호출 {{count}}회",
       "clauseSeparator": ", "
+    },
+    "activity": {
+      "read": "{{target}} 읽는 중",
+      "edit": "{{target}} 수정 중",
+      "command": "{{target}} 실행 중",
+      "search": "{{target}} 검색 중",
+      "web": "{{target}} 조회 중",
+      "tool": "{{tool}} 사용 중"
     }
   },
   "commandResult": {
