@@ -31,8 +31,8 @@ import { cardStyles as styles } from "./fleet-workspace-card.styles";
 import {
   normalizeFleetSearchQuery,
   orderFleetCardTaskRows,
-  splitFleetSearchMatch,
 } from "@/lib/fleet/card-task-rows";
+import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { WorkspaceShellSummary } from "@/lib/db/workspaces.db";
 import {
@@ -626,7 +626,7 @@ export function FleetWorkspaceCard(args: {
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskDetails)}>
                       <span className={sx(styles.taskTitle)}>
-                        <FleetSearchHighlight text={taskTitle} normalizedQuery={normalizedQuery} />
+                        <SearchHighlight text={taskTitle} query={normalizedQuery} />
                       </span>
                       {/* A task in a live turn says what it last did and for how
                           long; any other task keeps its last update. */}
@@ -754,21 +754,6 @@ export function FleetWorkspaceCard(args: {
         </Button>
       </div>
     </article>
-  );
-}
-
-/** The task title with the active search match marked. */
-function FleetSearchHighlight(props: { text: string; normalizedQuery: string }) {
-  const parts = splitFleetSearchMatch(props.text, props.normalizedQuery);
-  if (!parts) {
-    return props.text;
-  }
-  return (
-    <>
-      {parts.before}
-      <mark className={sx(styles.searchMatch)}>{parts.match}</mark>
-      {parts.after}
-    </>
   );
 }
 

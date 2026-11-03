@@ -64,28 +64,3 @@ export function orderFleetCardTaskRows<Row>(args: {
     noTaskMatched: matched.length === 0,
   };
 }
-
-/**
- * The first case-insensitive occurrence of the query in `text`, split for
- * highlighting. Returns null when the query is empty or absent from the text.
- */
-export function splitFleetSearchMatch(
-  text: string,
-  normalizedQuery: string,
-): { before: string; match: string; after: string } | null {
-  const lowered = text.toLowerCase();
-  // Some characters change length when lowercased; an offset into `lowered`
-  // would then cut `text` in the wrong place, so skip the highlight.
-  if (!normalizedQuery || lowered.length !== text.length) {
-    return null;
-  }
-  const index = lowered.indexOf(normalizedQuery);
-  if (index === -1) {
-    return null;
-  }
-  return {
-    before: text.slice(0, index),
-    match: text.slice(index, index + normalizedQuery.length),
-    after: text.slice(index + normalizedQuery.length),
-  };
-}

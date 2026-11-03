@@ -10,6 +10,7 @@ import {
 import { ArrowUpDown, CornerDownLeft, Pin, PinOff } from "lucide-react";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   Badge,
@@ -262,7 +263,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
         <div className={sx(commandPaletteStyles.itemBody)}>
           <div className={sx(commandPaletteStyles.itemTitleRow)}>
             <span className={sx(commandPaletteStyles.itemTitle)}>
-              {action.title}
+              <SearchHighlight text={action.title} query={query} />
             </span>
             {action.source === "contributed" ? (
               <Badge
@@ -283,7 +284,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           </div>
           {action.subtitle ? (
             <p className={sx(commandPaletteStyles.itemSubtitle)}>
-              {action.subtitle}
+              <SearchHighlight text={action.subtitle} query={query} />
             </p>
           ) : null}
         </div>
@@ -451,7 +452,12 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               </span>
               <Kbd aria-hidden="true">Alt+P</Kbd>
             </Button>
-            <span className={sx(commandPaletteStyles.resultCount)}>
+            <span
+              className={sx(commandPaletteStyles.resultCount)}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {query.trim()
                 ? i18n.t("shell:globalCommandPalette.result", { count: resultCount })
                 : i18n.t("shell:globalCommandPalette.available", { value1: actionCount })}

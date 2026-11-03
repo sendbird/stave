@@ -141,3 +141,21 @@ test("rows are one 36px line, ten or more show at once, and only the highlighted
     expect(display).toBe(index === layout.highlighted ? "block" : "none");
   });
 });
+
+test("matched characters are marked and the result count is announced politely", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette", { waitUntil: "domcontentloaded" });
+  const input = page.getByPlaceholder("Find a command, task, workspace, or setting");
+  await expect(input).toBeFocused();
+  // The scope switch keeps typing in the search field.
+  await page.getByTestId("task-scope-all").click();
+  await expect(input).toBeFocused();
+  await page.getByTestId("task-scope-workspace").click();
+  await input.fill("open");
+  const marks = page.locator('[data-slot="command-item"] mark');
+  await expect(marks.first()).toBeVisible();
+  for (const text of await marks.allInnerTexts()) expect(text.toLowerCase()).toBe("open");
+  const count = page.getByRole("status").filter({ hasText: /results?$/ });
+  await expect(count).toHaveAttribute("aria-live", "polite");
+  await input.fill("zzz-none");
+  await expect(page.locator('[data-slot="command-item"] mark')).toHaveCount(0);
+});
