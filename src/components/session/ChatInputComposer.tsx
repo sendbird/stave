@@ -115,7 +115,8 @@ import type {
 import { useShallow } from "zustand/react/shallow";
 import { buildChatInputGoalStatus } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
-import { trustToolAndApprove } from "./composer-approval-actions";
+import { resolveApprovalRequesterName } from "@/lib/approvals/approval-requester";
+import { selectApprovalAnswersThroughHost } from "@/store/approval-delivery";
 import { resolveShownApproval } from "./composer-approval.utils";
 import { AgentRunSignOffSlot } from "@/components/agent-runs/SignOffCard";
 import { DelegatedAgentReplySlot } from "@/components/agent-runs/DelegatedAgentReplySlot";
@@ -387,8 +388,19 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     }
   }
   const pendingApprovals = useMemo(
-    () => findPendingApprovals({ messages: activeTaskMessages }),
+    () =>
+      findPendingApprovals({ messages: activeTaskMessages }).map((item) => {
+        if (!item.part.ownerAgentId) return item;
+        const requestedBy = resolveApprovalRequesterName({
+          parts: activeTaskMessages.find((message) => message.id === item.messageId)?.parts,
+          ownerAgentId: item.part.ownerAgentId,
+        });
+        return requestedBy ? { ...item, requestedBy } : item;
+      }),
     [activeTaskMessages],
+  );
+  const approvalsAnswerThroughHost = useAppStore((state) =>
+    selectApprovalAnswersThroughHost(state, args.activeTaskId),
   );
   // The row's step names a request, so Enter and Tab answer the one it shows.
   const [shownApprovalRequestId, setShownApprovalRequestId] = useState<string | null>(null);
@@ -1318,6 +1330,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         ) : null}
         {pendingApprovals.length > 0 ? (
           <ChatInputApprovalQueue
+            allowAlways={!approvalsAnswerThroughHost}
             approvals={pendingApprovals}
             guidanceFocusNonce={guidanceFocusNonce}
             shownRequestId={pendingApproval?.part.requestId ?? null}
@@ -1331,7 +1344,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                 ...(scope ? { scope } : {}),
               });
             }}
-            onTrustAndApprove={(request) => trustToolAndApprove({ taskId: args.activeTaskId, ...request })}
             onDraftGuidance={({ messageId, requestId, toolName, description, guidance }) => {
               stageApprovalGuidance({ toolName, description, guidance });
               resolveApproval({

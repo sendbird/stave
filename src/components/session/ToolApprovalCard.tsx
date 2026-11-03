@@ -1,13 +1,31 @@
-import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { i18n, Trans, useTranslation } from "@/i18n";
+import * as stylex from "@stylexjs/stylex";
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import {
   Approval,
   type ApprovalDecision,
   type ApprovalOutcome,
 } from "@/components/ads/components/Approval";
+import { Button } from "@/components/ads/components/Button";
+import { Kbd } from "@/components/ads/components/Kbd";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { describeApprovalDecider } from "@/components/approvals/ApprovalRecord";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { formatTime } from "@/i18n/format";
+import type { ApprovalRisk } from "@/lib/approvals/approval-resolution";
+import {
+  formatKeyStepParts,
+  parseKeyStep,
+  resolveKeybindingPlatform,
+} from "@/lib/keybindings/key-chord";
+import { getDefaultKeybindingKeys, getKeybinding } from "@/lib/keybindings/keybinding-registry";
+import {
+  formatTrustedToolEntry,
+  hasTrustedToolEntry,
+  removeTrustedToolEntry,
+} from "@/lib/providers/trusted-tools";
+import { useAppStore } from "@/store/app.store";
 import type { ApprovalPart } from "@/types/chat";
 
 /**
@@ -20,6 +38,17 @@ export const APPROVAL_DELIVERY_GUARD_MS = 32_000;
 export interface ToolApprovalDecision {
   approved: boolean;
   scope: "once" | "always";
+}
+
+/** The status word for a risk the request reported. */
+export function describeApprovalRisk(risk: ApprovalRisk): string {
+  switch (risk) {
+    case "network-access": return i18n.t("ui:approval.risk.networkAccess");
+    case "file-system-access": return i18n.t("ui:approval.risk.fileSystemAccess");
+    case "write-outside-repository": return i18n.t("ui:approval.risk.writeOutsideRepository");
+    case "credential-access": return i18n.t("ui:approval.risk.credentialAccess");
+    case "irreversible-remote": return i18n.t("ui:approval.risk.irreversibleRemote");
+  }
 }
 
 /**
@@ -65,6 +94,93 @@ export function toToolApprovalDecision(
   };
 }
 
+/**
+ * The card's "Allow once" shortcut, from the keybinding registry so the
+ * shortcut list, its docs and the card agree: Cmd+Enter on macOS, Ctrl+Enter
+ * elsewhere. The keycaps are decoration; `aria-keyshortcuts` carries it.
+ */
+function useAllowOnceShortcut() {
+  return useMemo(() => {
+    const platform = resolveKeybindingPlatform();
+    const [keys = "mod+enter"] = getDefaultKeybindingKeys(getKeybinding("approval.allow-once"), platform);
+    const parts = formatKeyStepParts(parseKeyStep(keys), platform);
+    return {
+      ariaKeyShortcuts: platform === "mac" ? "Meta+Enter" : "Control+Enter",
+      hint: (
+        <span aria-hidden="true" className={sx(styles.keys)} data-approval-shortcut="">
+          {parts.map((part, index) => (
+            <Kbd key={`${part}-${index}`} size="sm">
+              {part}
+            </Kbd>
+          ))}
+        </span>
+      ),
+    };
+  }, []);
+}
+
+/**
+ * The resolved card's note when "Always allow" kept a Stave trusted-tools
+ * entry: what it trusts and a Remove that revokes it in place. Shown while
+ * the entry is still trusted; after Remove it says so where the button was,
+ * so a keyboard user keeps a position.
+ */
+function TrustedRuleNote(props: { entry: string }) {
+  useTranslation();
+  const { entry } = props;
+  const trusted = useAppStore((state) =>
+    hasTrustedToolEntry({ entries: state.settings.trustedTools, entry }),
+  );
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  const [removedHere, setRemovedHere] = useState(false);
+  const removedRef = useRef<HTMLSpanElement>(null);
+  const reclaimFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (removedHere && reclaimFocusRef.current) {
+      reclaimFocusRef.current = false;
+      removedRef.current?.focus({ preventScroll: true });
+    }
+  }, [removedHere]);
+
+  if (removedHere && !trusted) {
+    return (
+      <span ref={removedRef} role="status" tabIndex={-1} data-trusted-rule-removed="">
+        {i18n.t("ui:approval.trustedRemoved")}
+      </span>
+    );
+  }
+  if (!trusted) {
+    return null;
+  }
+  const label = formatTrustedToolEntry(entry);
+  return (
+    <span className={sx(styles.trusted)} data-trusted-rule="">
+      <Trans
+        i18n={i18n}
+        ns="ui"
+        i18nKey="approval.trusted"
+        components={{ entry: <code className={sx(styles.entry)}>{label}</code> }}
+      />
+      <span aria-hidden="true">·</span>
+      <Button
+        aria-label={i18n.t("ui:approval.removeTrustedLabel", { entry: label })}
+        onClick={(event) => {
+          reclaimFocusRef.current = event.currentTarget.contains(document.activeElement)
+            || event.currentTarget === document.activeElement;
+          const entries = useAppStore.getState().settings.trustedTools;
+          updateSettings({ patch: { trustedTools: removeTrustedToolEntry({ entries, entry }) } });
+          setRemovedHere(true);
+        }}
+        size="xs"
+        variant="link"
+      >
+        {i18n.t("ui:approval.removeTrusted")}
+      </Button>
+    </span>
+  );
+}
+
 export type ToolApprovalCardProps = {
   part: ApprovalPart;
   onDecide: (decision: ToolApprovalDecision) => void;
@@ -79,11 +195,17 @@ export type ToolApprovalCardProps = {
   /** Host actions after the decision set (a keyboard hint, for example). */
   actions?: ReactNode;
   /**
-   * Offer "Always allow" here. It is shown only when the provider persists the
-   * grant itself (`supportsAllowAlways`); `false` hides it where the surface
-   * cannot send a scoped answer. It never widens what the provider supports.
+   * Offer "Always allow" here. It is shown only when the runtime said the
+   * grant is honored on later calls (`supportsAllowAlways`); `false` hides it
+   * where the answer goes through the host, which keeps no grant. It never
+   * widens what the runtime supports.
    */
   allowAlways?: boolean;
+  /**
+   * The subagent that asked, when the caller found its starting call. A
+   * request with an owner but no name says a subagent asked, without one.
+   */
+  requestedBy?: string;
 } & Omit<
   ComponentProps<typeof Approval>,
   | "title"
@@ -93,8 +215,10 @@ export type ToolApprovalCardProps = {
   | "busy"
   | "onDecide"
   | "allowAlways"
+  | "allowOnceShortcut"
   | "density"
   | "actions"
+  | "risk"
   // `part` is also an HTML attribute (CSS shadow parts); here it is the
   // approval part.
   | "part"
@@ -102,13 +226,14 @@ export type ToolApprovalCardProps = {
 
 /**
  * The one approval card: a tool approval part drawn with ADS `Approval`
- * wherever it is answered — the transcript, the composer queue, a delegated
- * child's slot and Fleet. Every surface shows the same title, description and
- * input and the same decision words ("Allow once", "Always allow" only when the
- * provider persists it, "Deny"), and blocks the decision set from the moment
- * one is sent until the part leaves pending or the delivery guard passes. A
- * surface that coordinates several cards passes `busy` itself; otherwise the
- * card keeps its own.
+ * wherever it is answered — the transcript, a delegated child's slot and
+ * Fleet. Every surface shows the same title, description and input and the
+ * same decision words ("Allow once", "Always allow" wherever the runtime
+ * honors it and the answer goes straight to it, "Deny"), answers Cmd/Ctrl+Enter
+ * as "Allow once" while the card holds focus, and blocks the decision set from
+ * the moment one is sent until the part leaves pending or the delivery guard
+ * passes. A surface that coordinates several cards passes `busy` itself;
+ * otherwise the card keeps its own.
  */
 export function ToolApprovalCard(props: ToolApprovalCardProps) {
   useTranslation();
@@ -121,11 +246,13 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
     note,
     actions,
     allowAlways,
+    requestedBy,
     ...rest
   } = props;
   const pending = part.state === "approval-requested";
   const [sentRequestId, setSentRequestId] = useState<string | null>(null);
   const ownBusy = pending && sentRequestId === part.requestId;
+  const allowOnceShortcut = useAllowOnceShortcut();
 
   useEffect(() => {
     if (!ownBusy) {
@@ -146,12 +273,38 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
         {note}
       </>
     ) : undefined;
+  const outcome = toApprovalOutcome(part);
+  const trustedEntry =
+    outcome?.decision === "allow-always" && part.trustedToolEntry
+      ? part.trustedToolEntry
+      : null;
+  const toolTitle = getToolTitle(part.toolName);
+  const title = part.ownerAgentId ? (
+    <>
+      {toolTitle}
+      <span className={sx(styles.requester)}>
+        {requestedBy ? (
+          <Trans
+            i18n={i18n}
+            ns="ui"
+            i18nKey="approval.requestedBy"
+            components={{ agent: <span className={sx(styles.requesterName)}>{requestedBy}</span> }}
+          />
+        ) : (
+          i18n.t("ui:approval.requestedBySubagent")
+        )}
+      </span>
+    </>
+  ) : (
+    toolTitle
+  );
 
   return (
     <Approval
       {...rest}
       actions={hostActions}
       allowAlways={part.supportsAllowAlways === true && allowAlways !== false}
+      allowOnceShortcut={allowOnceShortcut}
       arguments={
         part.input
           ? [
@@ -178,8 +331,41 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
               onDecide(toToolApprovalDecision(decision));
             }
       }
-      outcome={toApprovalOutcome(part)}
-      title={getToolTitle(part.toolName)}
+      outcome={
+        outcome && trustedEntry
+          ? { ...outcome, note: <TrustedRuleNote entry={trustedEntry} /> }
+          : outcome
+      }
+      risk={part.risk ? describeApprovalRisk(part.risk) : undefined}
+      title={title}
     />
   );
 }
+
+const styles = stylex.create({
+  keys: {
+    alignItems: "center",
+    display: "inline-flex",
+    gap: vars["--ads-space-2"],
+    marginInlineStart: vars["--ads-space-4"],
+  },
+  requester: {
+    color: vars["--ads-color-text-muted"],
+    fontWeight: vars["--ads-font-weight-regular"],
+    marginInlineStart: vars["--ads-space-4"],
+  },
+  requesterName: {
+    color: vars["--ads-color-text"],
+    fontWeight: vars["--ads-font-weight-medium"],
+  },
+  trusted: {
+    alignItems: "baseline",
+    display: "inline-flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-4"],
+  },
+  entry: {
+    fontFamily: vars["--ads-font-mono"],
+    overflowWrap: "anywhere",
+  },
+});

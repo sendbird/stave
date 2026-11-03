@@ -196,6 +196,15 @@ Further host extensions:
   `src/components/session/ToolApprovalCard.tsx`, which also passes
   `allowAlways` explicitly instead of relying on the `true` default.
 
+  Two more host extensions, both optional and additive:
+  `allowOnceShortcut` (`{ ariaKeyShortcuts, hint }`) makes Enter with Ctrl or
+  Cmd allow once while focus is inside that one decision, puts
+  `aria-keyshortcuts` and the keycap hint on the Allow once button, and
+  deliberately binds no Escape-to-deny; `risk` renders a word in muted ink
+  before the status word (the status word stays the one colored signal). The
+  root composes a caller's `onKeyDown` before its own. Without either prop the
+  component renders and behaves exactly as installed.
+
   `Checkpoint` is installed but not yet wired: Stave's compaction-boundary
   restore runs a destructive `git restore --worktree` behind a
   confirm-then-restore second click, and `Checkpoint` models a single

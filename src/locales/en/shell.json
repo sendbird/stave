@@ -1029,6 +1029,10 @@
       "sideChatClose": {
         "title": "Close the side question panel",
         "description": "Close the side question panel; the task's turn keeps running."
+      },
+      "approvalAllowOnce": {
+        "title": "Allow an approval once",
+        "description": "With focus in an approval card, allow its request once. Esc never denies a request."
       }
     },
     "ui": {

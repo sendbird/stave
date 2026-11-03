@@ -597,7 +597,6 @@
     "chatInputApprovalQueue3": "Deny & guide",
     "chatInputApprovalQueue4": "Cancel",
     "chatInputApprovalQueue5": "guide instead",
-    "sentence54": "always allow {{value1}}",
     "extraCopy143": "Another decision is being delivered."
   },
   "composerApprovalRow": {

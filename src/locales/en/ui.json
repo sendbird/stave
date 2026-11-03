@@ -114,7 +114,21 @@
     "deny": "Deny",
     "byAuthor": "by <author/>",
     "recordingdecision": "Recording decision",
-    "needsyourapproval": "Needs your approval"
+    "needsyourapproval": "Needs your approval",
+    "risk": {
+      "networkAccess": "Network access",
+      "fileSystemAccess": "File access outside the sandbox",
+      "writeOutsideRepository": "Writes outside the repository",
+      "credentialAccess": "Credential access",
+      "irreversibleRemote": "Irreversible remote action"
+    },
+    "requestedBy": "· requested by <agent/>",
+    "requestedByPlain": "· requested by {{agent}}",
+    "requestedBySubagent": "· requested by a subagent",
+    "trusted": "Trusted: <entry/>",
+    "removeTrusted": "Remove",
+    "removeTrustedLabel": "Remove {{entry}} from trusted approvals",
+    "trustedRemoved": "Removed from trusted approvals"
   },
   "commandParts": {
     "navigate": "navigate",

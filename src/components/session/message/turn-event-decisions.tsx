@@ -38,6 +38,7 @@ import {
   readUserInputAnswer,
 } from "@/lib/user-input-answers";
 import { useAppStore } from "@/store/app.store";
+import { selectApprovalAnswersThroughHost } from "@/store/approval-delivery";
 import type {
   ApprovalPart,
   ToolUsePart,
@@ -134,11 +135,17 @@ export function planProgressCount(input: string): string | undefined {
 export function TraceApproval(args: {
   messageId: string;
   part: ApprovalPart;
+  /** The subagent that asked, when the trace found its starting call. */
+  requestedBy?: string;
   taskId: string;
 }) {
   useTranslation();
   const { messageId, part, taskId } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
+  // Only a pending request needs to know where its answer goes.
+  const answersThroughHost = useAppStore((state) =>
+    part.state === "approval-requested" && selectApprovalAnswersThroughHost(state, taskId),
+  );
 
   const decide = useCallback(
     (decision: ToolApprovalDecision) => {
@@ -161,8 +168,10 @@ export function TraceApproval(args: {
       data-pending-interaction-request-id={
         part.state === "approval-requested" ? part.requestId : undefined
       }
+      allowAlways={!answersThroughHost}
       onDecide={decide}
       part={part}
+      requestedBy={args.requestedBy}
       /* Focusable once answered too: the return summary's link reveals it. */
       tabIndex={-1}
     />

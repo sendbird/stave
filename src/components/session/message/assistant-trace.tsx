@@ -365,6 +365,7 @@ function AssistantTraceEntryView(args: {
           <TraceApproval
             messageId={messageId}
             part={entry.part}
+            requestedBy={entry.requestedBy}
             taskId={taskId}
           />
         </StepRail.Step>

@@ -1023,6 +1023,10 @@
       "sideChatClose": {
         "title": "곁질문 패널 닫기",
         "description": "곁질문 패널을 닫습니다. 작업의 턴은 계속 실행됩니다."
+      },
+      "approvalAllowOnce": {
+        "title": "승인 요청 한 번 허용",
+        "description": "승인 카드에 포커스가 있을 때 그 요청을 한 번 허용합니다. Esc로는 요청을 거절하지 않습니다."
       }
     },
     "ui": {

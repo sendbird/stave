@@ -488,6 +488,23 @@ export const KEYBINDING_REGISTRY = [
     handledBy: ["src/components/session/ChatInputComposer.tsx"],
   },
   {
+    // Bound on the approval card itself (ADS `Approval`), so it answers only
+    // the request whose card holds focus: in the conversation, a Fleet panel
+    // or a delegated task's slot. Escape is deliberately never a denial.
+    id: "approval.allow-once",
+    keys: ["mod+enter"],
+    scope: "task-pane",
+    focus: true,
+    editable: "block",
+    titleKey: "shell:keybindings.entries.approvalAllowOnce.title",
+    descriptionKey: "shell:keybindings.entries.approvalAllowOnce.description",
+    section: "composer",
+    handledBy: [
+      "src/components/ads/components/Approval.tsx",
+      "src/components/session/ToolApprovalCard.tsx",
+    ],
+  },
+  {
     id: "approval.focus-guidance",
     keys: ["tab"],
     scope: "composer",

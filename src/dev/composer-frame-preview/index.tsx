@@ -485,7 +485,6 @@ export function ComposerFramePreviewApp() {
                     approvals={PREVIEW_APPROVALS}
                     onDraftGuidance={() => {}}
                     onResolveApproval={() => {}}
-                    onTrustAndApprove={() => {}}
                   />
                 ) : null}
                 {framed ? null : shelf}

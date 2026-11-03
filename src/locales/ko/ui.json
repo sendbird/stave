@@ -114,7 +114,21 @@
     "deny": "거부",
     "byAuthor": "<author/> 결정",
     "recordingdecision": "결정 기록 중",
-    "needsyourapproval": "사용자 승인 필요"
+    "needsyourapproval": "사용자 승인 필요",
+    "risk": {
+      "networkAccess": "네트워크 접근",
+      "fileSystemAccess": "샌드박스 밖 파일 접근",
+      "writeOutsideRepository": "저장소 밖 쓰기",
+      "credentialAccess": "자격 증명 접근",
+      "irreversibleRemote": "되돌릴 수 없는 원격 작업"
+    },
+    "requestedBy": "· <agent/>의 요청",
+    "requestedByPlain": "· {{agent}}의 요청",
+    "requestedBySubagent": "· 하위 에이전트의 요청",
+    "trusted": "신뢰됨: <entry/>",
+    "removeTrusted": "제거",
+    "removeTrustedLabel": "신뢰된 승인에서 {{entry}} 제거",
+    "trustedRemoved": "신뢰된 승인에서 제거했습니다"
   },
   "commandParts": {
     "navigate": "이동",

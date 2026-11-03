@@ -3,15 +3,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShieldAlert } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
-import { APPROVAL_DELIVERY_GUARD_MS } from "@/components/session/ToolApprovalCard";
+import {
+  APPROVAL_DELIVERY_GUARD_MS,
+  describeApprovalRisk,
+} from "@/components/session/ToolApprovalCard";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { Loader } from "@/components/ui/loader";
 import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  buildTrustedToolEntryForApproval,
-  formatTrustedToolEntry,
-} from "@/lib/providers/trusted-tools";
 import { sx } from "@/components/ads/utils/stylex";
 import { composerApprovalRowStyles as styles } from "@/components/session/composer-approval-row.styles";
 import {
@@ -24,6 +23,8 @@ import type { ApprovalPart } from "@/types/chat";
 export interface PendingApprovalQueueItem {
   messageId: string;
   part: ApprovalPart;
+  /** The subagent that asked, when its starting call is in the same message. */
+  requestedBy?: string;
 }
 
 interface ChatInputApprovalQueueProps {
@@ -39,6 +40,11 @@ interface ChatInputApprovalQueueProps {
   shownRequestId?: string | null;
   onShownRequestChange?: (requestId: string | null) => void;
   /**
+   * Offer "Always allow" where the runtime honors it (`supportsAllowAlways`).
+   * `false` when the answer goes through the host, as on every other surface.
+   */
+  allowAlways?: boolean;
+  /**
    * Every decision names its request: one message can hold several approvals,
    * and the store would otherwise answer the message's latest one.
    */
@@ -47,12 +53,6 @@ interface ChatInputApprovalQueueProps {
     requestId: string;
     approved: boolean;
     scope?: "once" | "always";
-  }) => void;
-  onTrustAndApprove?: (args: {
-    messageId: string;
-    requestId: string;
-    toolName: string;
-    input?: string;
   }) => void;
   onDraftGuidance?: (args: {
     messageId: string;
@@ -66,7 +66,8 @@ interface ChatInputApprovalQueueProps {
 /**
  * The current task's pending approvals, shown once, as a row attached to the
  * composer: the tool and what it would run, then Allow once (Enter), Always
- * allow when the provider persists the grant, and Deny. The description, the
+ * allow wherever the runtime honors it (the same rule as the approval card),
+ * and Deny. The description, the
  * full input and the other ways to answer sit behind the disclosure, which
  * scrolls inside a bounded height so the transcript keeps its room. Several
  * requests read as "1 of N" and are stepped through one at a time; every
@@ -80,7 +81,6 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     disabledReason,
     guidanceFocusNonce = 0,
     onResolveApproval,
-    onTrustAndApprove,
     onDraftGuidance,
   } = args;
   const detailsId = useId();
@@ -252,10 +252,8 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   const busy = pendingDecisionRequestId === part.requestId;
   const toolTitle = getToolTitle(part.toolName);
   const summary = summarizeApprovalRequest(part);
-  const trustedEntry =
-    !part.supportsAllowAlways && onTrustAndApprove
-      ? buildTrustedToolEntryForApproval({ toolName: part.toolName, input: part.input })
-      : null;
+  const offersAllowAlways = part.supportsAllowAlways === true && args.allowAlways !== false;
+  const risk = part.risk ? describeApprovalRisk(part.risk) : null;
   // Why the decisions are blocked, or nothing while they are live.
   const blockedReason = busy
     ? undefined
@@ -299,10 +297,22 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
         <div className={sx(styles.identity)}>
           <ShieldAlert aria-hidden className={sx(styles.statusIcon)} />
           <span className={sx(styles.tool)}>{toolTitle}</span>
+          {part.ownerAgentId ? (
+            <span className={sx(styles.requester)}>
+              {current.requestedBy
+                ? i18n.t("ui:approval.requestedByPlain", { agent: current.requestedBy })
+                : i18n.t("ui:approval.requestedBySubagent")}
+            </span>
+          ) : null}
           {summary ? (
             <code className={sx(styles.summary)} title={summary}>
               {summary}
             </code>
+          ) : null}
+          {risk ? (
+            <span className={sx(styles.risk)} data-approval-risk="">
+              {risk}
+            </span>
           ) : null}
           {count > 1 ? (
             <span className={sx(styles.stepper)}>
@@ -355,7 +365,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                 <Kbd aria-hidden className={sx(styles.allowKey)}>↵</Kbd>
               ) : null}
             </AdsButton>
-            {part.supportsAllowAlways === true ? (
+            {offersAllowAlways ? (
               <AdsButton
                 disabled={!live}
                 onClick={() => decide({ approved: true, scope: "always" })}
@@ -405,33 +415,10 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               <pre className={sx(styles.argumentValue)}>{part.input}</pre>
             </div>
           ) : null}
-          {live && (onDraftGuidance || trustedEntry) ? (
+          {/* "Always allow" sits beside Allow once on the row, as on the card. */}
+          {live && onDraftGuidance ? (
             <div className={sx(styles.detailActions)}>
-              {/*
-                When the runtime persists the rule itself, Stave's client-side
-                trusted list would be a second, weaker copy of the same
-                decision: the trusted entry re-matches only this exact input,
-                while the provider rule generalizes to the command.
-              */}
-              {trustedEntry && onTrustAndApprove ? (
-                <AdsButton
-                  onClick={() =>
-                    onTrustAndApprove({
-                      messageId: current.messageId,
-                      requestId: part.requestId,
-                      toolName: part.toolName,
-                      input: part.input,
-                    })
-                  }
-                  size="xs"
-                  variant="quiet"
-                >
-                  {i18n.t("session:chatInputApprovalQueue.sentence54", {
-                    value1: formatTrustedToolEntry(trustedEntry),
-                  })}
-                </AdsButton>
-              ) : null}
-              {onDraftGuidance && !guidanceOpen ? (
+              {!guidanceOpen ? (
                 <AdsButton
                   aria-keyshortcuts="Tab"
                   onClick={() => openGuidanceDraft({ focusComposer: true })}
