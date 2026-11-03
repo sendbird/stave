@@ -239,6 +239,7 @@ their existing mapping.
 Approval cards keep their time limit: after 45 minutes Stave declines an
 unanswered approval and the turn continues. In a
 [delegated task](./delegated-tasks.md) the host declines it after a few minutes.
+The card shows the time it will be declined.
 
 A native question in a Run stays on the task until you answer it, including
 after its 45-minute callback timeout, a turn ending, or an app restart. The

@@ -168,7 +168,11 @@ While the conversation is shown, the current task's pending approval appears
 once, as a row attached above the composer: the tool, the command, file or
 pattern it would run, **Allow once** (Enter), **Always allow** and **Deny**.
 The disclosure at the end of the row shows the description, the full input
-and **guide instead** (Tab). When several requests wait, the row reads
+and **guide instead** (Tab). An unanswered request is denied automatically
+after a time limit (45 minutes; a few minutes in a delegated task); the
+approval card says when, beside its decisions (**Auto-denies at 16:24 if
+nobody answers**), and so does the row's disclosure. Claude, Codex, Cursor,
+Kiro and OpenCode all report this time. When several requests wait, the row reads
 **1 of N**; step through them with the arrows, and Enter and Tab act on the
 request the row shows. The task's attention summary above the conversation
 does not repeat these requests; in Review, where the composer is hidden, it

@@ -9,10 +9,11 @@ import {
 import { Button } from "@/components/ads/components/Button";
 import { Kbd } from "@/components/ads/components/Kbd";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { describeApprovalDecider } from "@/components/approvals/ApprovalRecord";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { formatTime } from "@/i18n/format";
+import { readApprovalDeadline } from "@/lib/approvals/approval-expiry";
 import type { ApprovalRisk } from "@/lib/approvals/approval-resolution";
 import {
   formatKeyStepParts,
@@ -49,6 +50,28 @@ export function describeApprovalRisk(risk: ApprovalRisk): string {
     case "credential-access": return i18n.t("ui:approval.risk.credentialAccess");
     case "irreversible-remote": return i18n.t("ui:approval.risk.irreversibleRemote");
   }
+}
+
+/**
+ * "Auto-denies at 16:24 if nobody answers": when the runtime's timer will deny
+ * a pending request, read from the request's `expiresAt`. A wall-clock time and
+ * no countdown, so nothing ticks on screen; nothing shows for a request with
+ * no deadline ahead.
+ */
+export function ApprovalExpiryNote(props: { part: Pick<ApprovalPart, "expiresAt" | "state">; xstyle?: StyleXValue }) {
+  useTranslation();
+  const deadline = props.part.state === "approval-requested" ? readApprovalDeadline(props.part.expiresAt) : null;
+  if (!deadline) return null;
+  return (
+    <span className={sx(styles.expiry, props.xstyle)} data-approval-expiry="">
+      <Trans
+        i18n={i18n}
+        ns="ui"
+        i18nKey="approval.autoDeniesAt"
+        components={{ time: <time dateTime={deadline.toISOString()}>{formatTime(deadline)}</time> }}
+      />
+    </span>
+  );
 }
 
 /**
@@ -266,11 +289,13 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
   }, [ownBusy]);
 
   const busy = controlledBusy ?? ownBusy;
+  const expires = pending && readApprovalDeadline(part.expiresAt) !== null;
   const hostActions =
-    note != null || actions != null ? (
+    note != null || actions != null || expires ? (
       <>
         {actions}
         {note}
+        {expires ? <ApprovalExpiryNote part={part} /> : null}
       </>
     ) : undefined;
   const outcome = toApprovalOutcome(part);
@@ -353,6 +378,13 @@ const styles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontWeight: vars["--ads-font-weight-regular"],
     marginInlineStart: vars["--ads-space-4"],
+  },
+  // Muted caption beside the decisions, as the AFTER card shows it.
+  expiry: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    overflowWrap: "anywhere",
   },
   requesterName: {
     color: vars["--ads-color-text"],

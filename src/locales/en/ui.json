@@ -115,6 +115,7 @@
     "byAuthor": "by <author/>",
     "recordingdecision": "Recording decision",
     "needsyourapproval": "Needs your approval",
+    "autoDeniesAt": "Auto-denies at <time/> if nobody answers",
     "risk": {
       "networkAccess": "Network access",
       "fileSystemAccess": "File access outside the sandbox",

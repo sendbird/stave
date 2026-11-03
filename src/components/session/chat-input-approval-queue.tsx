@@ -5,6 +5,7 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   APPROVAL_DELIVERY_GUARD_MS,
+  ApprovalExpiryNote,
   describeApprovalRisk,
 } from "@/components/session/ToolApprovalCard";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
@@ -408,6 +409,9 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               {requester}
             </p>
           ) : null}
+          {/* When the runtime denies it if nobody answers, as on the card. */}
+          <ApprovalExpiryNote part={part} />
+
           {part.description ? (
             <p className={sx(styles.description)}>{part.description}</p>
           ) : null}

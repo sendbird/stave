@@ -115,6 +115,7 @@
     "byAuthor": "<author/> 결정",
     "recordingdecision": "결정 기록 중",
     "needsyourapproval": "사용자 승인 필요",
+    "autoDeniesAt": "응답이 없으면 <time/>에 자동으로 거부합니다",
     "risk": {
       "networkAccess": "네트워크 접근",
       "fileSystemAccess": "샌드박스 밖 파일 접근",
