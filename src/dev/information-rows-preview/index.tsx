@@ -9,6 +9,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Toaster } from "@/components/ui";
 import { GitHubPrRow, InlineLinkRow, StorybookAccessBadges } from "@/components/layout/workspace-information/workspace-information-link-rows";
 import { WorkspacePlansSection } from "@/components/layout/WorkspacePlansSection";
 import { WorkspaceMemorySection } from "@/components/layout/WorkspaceMemorySection";
@@ -29,7 +30,7 @@ import {
  * plan and a remembered decision are the same shape of thing, and each had
  * grown its own container. Verifying that they now share one row needs all
  * three visible at one width — and the browser dev bridge exposes no
- * `window.api.fs` or `window.api.projectMemory`, so the plan and memory lists
+ * `window.api.fs` or `window.api.repositoryMemory`, so the plan and memory lists
  * render empty in the real panel here no matter what is on disk. The fixture
  * installs just enough of that surface for the two sections to load.
  *
@@ -161,6 +162,8 @@ export function InformationRowsPreview() {
           ) : null}
         </section>
       </div>
+      {/* Forgetting a memory answers with an Undo toast. */}
+      <Toaster />
     </div>
   );
 }
