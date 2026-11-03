@@ -32,15 +32,6 @@ export const statusBarUsageStyles = stylex.create({
     flexShrink: 0,
     fontVariantNumeric: "tabular-nums",
   },
-  meterTrack: {
-    backgroundColor: vars["--ads-color-overlay-pressed"],
-    borderRadius: vars["--ads-radius-full"],
-    height: 6,
-    overflow: "hidden",
-  },
-
-  meterFill: { borderRadius: vars["--ads-radius-full"], height: "100%" },
-
   toneOk: { backgroundColor: vars["--ads-color-success"] },
   toneWarn: { backgroundColor: vars["--ads-color-warning"] },
   toneDanger: { backgroundColor: vars["--ads-color-danger"] },

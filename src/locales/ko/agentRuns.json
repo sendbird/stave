@@ -181,9 +181,6 @@
     "startedAt": "{{time}}부터",
     "fromStartedAt": "{{time}}부터"
   },
-  "ditherProgress": {
-    "ariaLabel": "진행 상황"
-  },
   "evidenceList": {
     "ariaLabel": "대화에서 “{{value1}}” 표시",
     "copy": "표시",

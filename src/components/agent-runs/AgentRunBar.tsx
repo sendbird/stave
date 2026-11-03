@@ -223,7 +223,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
       }
       progress={
         <span className={sx(shelfStyles.track)}>
-          <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} showPercent={false} />
+          <StageTrack rows={rows} paused={paused} showPercent={false} />
         </span>
       }
       meta={<span title={i18n.t("agentRuns:agentRunBar.title")}>{elapsed}</span>}

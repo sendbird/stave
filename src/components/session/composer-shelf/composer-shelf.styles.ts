@@ -192,7 +192,7 @@ export const shelfStyles = stylex.create({
     alignItems: "center",
     gap: 6,
   },
-  /** The dithered stage track, compact: one line high and capped so the text keeps its room. */
+  /** The stage progress bar, compact: one line high and capped so the text keeps its room. */
   track: {
     display: { default: "block", [NARROW]: "none" },
     flex: "0 1 11rem",

@@ -536,6 +536,11 @@
     "lensVisibility": "{{sessions}} Lens · {{visible}} visible",
     "accessibility": {
       "meterValue": "{{value1}}, {{value2}} percent, {{value3}}"
+    },
+    "level": {
+      "healthy": "Normal",
+      "elevated": "Elevated",
+      "high": "High"
     }
   },
   "resourceManagerOverview": {

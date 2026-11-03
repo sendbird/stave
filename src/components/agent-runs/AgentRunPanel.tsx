@@ -225,7 +225,6 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         <StageTrack
           rows={rows}
           size="md"
-          live={active && !props.reducedMotion && agentRun.state === "running"}
           paused={agentRun.state === "paused"}
           tone={agentRun.state === "stopped" ? "attention" : undefined}
         />

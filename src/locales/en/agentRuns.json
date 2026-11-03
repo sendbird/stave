@@ -182,9 +182,6 @@
     "startedAt": "since {{time}}",
     "fromStartedAt": "from {{time}}"
   },
-  "ditherProgress": {
-    "ariaLabel": "Progress"
-  },
   "evidenceList": {
     "ariaLabel": "Show \"{{value1}}\" in the transcript",
     "copy": "Show",

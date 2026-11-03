@@ -3,6 +3,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Meter } from "@/components/ads/components/Meter";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
 import { sx } from "@/components/ads/utils/stylex";
@@ -89,8 +90,10 @@ export function Reasons({ summary }: { summary: ResultsSummary }) {
       <ul className={sx(styles.reasons)}>
         {summary.reasons.map(({ reason, count }) => (
           <li key={reason} className={sx(styles.reason)}>
-            <span className={sx(styles.reasonLabel)}><span>{RUN_END_REASON_LABELS[reason]}</span><span>{formatNumber(count)}</span></span>
-            <span className={sx(styles.track)} aria-hidden><span className={sx(styles.fill)} style={{ inlineSize: `${count / total * 100}%` }} /></span>
+            <span className={sx(styles.reasonLabel)} aria-hidden><span>{RUN_END_REASON_LABELS[reason]}</span><span>{formatNumber(count)}</span></span>
+            {/* The row's words are drawn above; the meter carries the same name and count for assistive technology. */}
+            <Meter label={RUN_END_REASON_LABELS[reason]} hideLabel hideValue size="sm" min={0} max={Math.max(1, total)} value={count}
+              getAriaValueText={() => t("compare:agentPerformance.reasonShare", { count, total: formatNumber(total), percent: formatPercent(total > 0 ? count / total : 0) })} />
           </li>
         ))}
       </ul>

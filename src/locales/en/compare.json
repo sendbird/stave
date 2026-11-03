@@ -251,6 +251,8 @@
     "costLimit": "Reported spend includes failed and cancelled runs with known costs. Missing costs are excluded, so this is not a complete bill or a fair provider price comparison.",
     "emptyTitle": "No ended agent runs in this sample",
     "emptyDescription": "Assign work to an agent from the composer or Agents, or try a different period. Ordinary chat answers are saved in the task’s Outputs tab.",
-    "refresh": "Refresh agent performance"
+    "refresh": "Refresh agent performance",
+    "reasonShare_one": "{{count}} of {{total}} runs, {{percent}}",
+    "reasonShare_other": "{{count}} of {{total}} runs, {{percent}}"
   }
 }

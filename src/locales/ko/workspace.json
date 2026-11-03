@@ -528,6 +528,11 @@
     "lensVisibility": "Lens {{sessions}}개 · {{visible}}개 표시됨",
     "accessibility": {
       "meterValue": "{{value1}}, {{value2}}퍼센트, {{value3}}"
+    },
+    "level": {
+      "healthy": "정상",
+      "elevated": "높아짐",
+      "high": "높음"
     }
   },
   "resourceManagerOverview": {

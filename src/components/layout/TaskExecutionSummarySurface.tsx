@@ -15,6 +15,7 @@ import type {
   TaskExecutionMetricProvenance,
   TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
+import { Meter } from "@/components/ads/components/Meter";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import type { Tone } from "@/components/ads/utils/tone";
@@ -105,12 +106,6 @@ const PART_INK: Record<PartInk, StyleXValue> = {
   removed: styles.toneRemoved,
 };
 
-const METER_FILL: Record<MeterTone, StyleXValue> = {
-  neutral: styles.meterNeutral,
-  warning: styles.meterWarning,
-  danger: styles.meterDanger,
-};
-
 /**
  * Provenance moved from a third text line to a dot on the label row.
  *
@@ -138,23 +133,23 @@ function ProvenanceDot(args: { provenance: TaskExecutionMetricProvenance }) {
   );
 }
 
+/**
+ * A second reading of the figure above it: the design system's small meter,
+ * muted until the headroom is actually tight.
+ */
 function StatMeterBar(args: { meter: StatMeter }) {
   const clamped = Math.min(100, Math.max(0, args.meter.usedPercent));
   return (
-    <div
-      className={sx(styles.meterTrack)}
-      role="meter"
-      aria-label={args.meter.label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(clamped)}
-      aria-valuetext={args.meter.label}
-    >
-      <div
-        className={sx(styles.meterFill, METER_FILL[args.meter.tone])}
-        style={{ width: `${clamped}%` }}
-      />
-    </div>
+    <Meter
+      xstyle={styles.meter}
+      label={args.meter.label}
+      hideLabel
+      hideValue
+      size="sm"
+      tone={args.meter.tone}
+      value={Math.round(clamped)}
+      getAriaValueText={() => args.meter.label}
+    />
   );
 }
 

@@ -3,6 +3,7 @@ import { formatDuration, formatCost, formatTokenCount } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
+import { Meter } from "@/components/ads/components/Meter";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { thresholdTone, type Tone } from "@/components/ads/utils/tone";
@@ -173,12 +174,15 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
                 {metric.unit ? <span className={sx(styles.metricUnit)}> {metric.unit}</span> : null}
               </span>
               {metric.meter !== undefined ? (
-                <span className={sx(styles.meter)} aria-hidden>
-                  <span
-                    className={sx(styles.meterFill, metric.tone === "warning" && styles.meterWarning)}
-                    style={{ width: `${Math.round(metric.meter * 100)}%` }}
-                  />
-                </span>
+                <Meter
+                  label={metric.label}
+                  hideLabel
+                  hideValue
+                  size="sm"
+                  tone={metric.tone === "warning" ? "warning" : "neutral"}
+                  value={Math.round(metric.meter * 100)}
+                  getAriaValueText={() => [metric.value, metric.unit].filter(Boolean).join(" ")}
+                />
               ) : null}
               {metric.detail ? <span className={sx(styles.metricDetail)}>{metric.detail}</span> : null}
             </dd>
@@ -303,15 +307,6 @@ const styles = stylex.create({
     fontVariantNumeric: "tabular-nums",
   },
   warning: { color: vars["--ads-color-warning-text"] },
-  meter: {
-    display: "block",
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: vars["--ads-color-border-subtle"],
-    overflow: "hidden",
-  },
-  meterFill: { display: "block", height: "100%", borderRadius: 999, backgroundColor: vars["--ads-color-text-muted"] },
-  meterWarning: { backgroundColor: vars["--ads-color-warning-text"] },
   notes: {
     display: "flex",
     flexDirection: "column",

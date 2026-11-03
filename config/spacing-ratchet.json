@@ -1,7 +1,7 @@
 {
   "version": 2,
   "description": "Existing literal spacing declarations. New or changed declarations must use ADS space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
-  "total": 724,
+  "total": 722,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
       "styles.identityText.gap = 2": 1,
@@ -29,10 +29,6 @@
       "agentRunStyles.stageKind.paddingInline = 6": 1,
       "agentRunStyles.decision.gap = 2": 1,
       "agentRunStyles.statTile.gap = 4": 1
-    },
-    "src/components/agent-runs/dither-progress.styles.ts": {
-      "ditherProgressStyles.head.gap = 3": 1,
-      "ditherProgressStyles.head.paddingInline = 6": 1
     },
     "src/components/agents/FlowPanel.tsx": {
       "styles.receivedList.gap = 2": 1,

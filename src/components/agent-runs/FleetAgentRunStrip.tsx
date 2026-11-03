@@ -103,7 +103,7 @@ export function FleetAgentRunStripView(props: {
         </span>
         {spent ? <span className={sx(styles.position)}>{spent}</span> : null}
       </span>
-      <StageTrack rows={rows} live={false} paused={paused} />
+      <StageTrack rows={rows} paused={paused} />
     </Button>
   );
 }
@@ -173,7 +173,7 @@ function FleetAgentRunLine(props: {
           {spent ? ` · ${spent}` : ""}
         </span>
       </span>
-      {staged ? <StageTrack rows={rows} live={false} paused={detail.agentRun.state === "paused"} /> : null}
+      {staged ? <StageTrack rows={rows} paused={detail.agentRun.state === "paused"} /> : null}
     </Button>
   );
 }

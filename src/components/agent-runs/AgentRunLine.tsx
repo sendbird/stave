@@ -180,7 +180,7 @@ export function AgentRunLineView(props: {
         progress={
           rows ? (
             <span className={sx(shelfStyles.track)}>
-              <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} showPercent={false} />
+              <StageTrack rows={rows} paused={paused} showPercent={false} />
             </span>
           ) : props.todo ? (
             <ShelfTodoProgressView progress={props.todo} />

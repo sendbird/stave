@@ -16,7 +16,7 @@ import {
 import type { ReactNode } from "react";
 
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
-import { transition } from "@/components/ads/recipes/transition";
+import { Meter, type MeterTone } from "@/components/ads/components/Meter";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   formatKB,
@@ -35,7 +35,6 @@ import { sparklineGeometry } from "@/lib/performance/sparkline";
 import type { AppMetrics } from "./ResourcesPopover";
 import {
   dashboardStyles as styles,
-  levelFillStyles,
   levelTextStyles,
 } from "./resource-dashboard.styles";
 
@@ -58,10 +57,17 @@ const LEVEL_ICON: Record<
   high: OctagonAlert,
 };
 
-const LEVEL_WORD: Record<ResourcePressureLevel, string> = {
-  healthy: "Normal",
-  elevated: "Elevated",
-  high: "High",
+const LEVEL_WORD: Record<ResourcePressureLevel, { readonly text: string }> = {
+  healthy: { get text() { return i18n.t("workspace:resourceDashboard.level.healthy"); } },
+  elevated: { get text() { return i18n.t("workspace:resourceDashboard.level.elevated"); } },
+  high: { get text() { return i18n.t("workspace:resourceDashboard.level.high"); } },
+};
+
+/** A level's meter fill; the icon and the word beside it say the same thing. */
+const LEVEL_METER_TONE: Record<ResourcePressureLevel, MeterTone> = {
+  healthy: "success",
+  elevated: "warning",
+  high: "danger",
 };
 
 /**
@@ -74,7 +80,7 @@ function LevelChip({ level }: { level: ResourcePressureLevel }) {
   return (
     <Badge tone={LEVEL_TONE[level]} variant="soft" size="sm">
       <Icon className={sx(styles.badgeIcon)} aria-hidden />
-      {LEVEL_WORD[level]}
+      {LEVEL_WORD[level].text}
     </Badge>
   );
 }
@@ -146,7 +152,7 @@ function Tile({
   );
 }
 
-function Meter({ gauge }: { gauge: ResourceGauge }) {
+function GaugeMeter({ gauge }: { gauge: ResourceGauge }) {
   const Icon = LEVEL_ICON[gauge.level];
   return (
     <div className={sx(styles.meterRow)}>
@@ -162,25 +168,16 @@ function Meter({ gauge }: { gauge: ResourceGauge }) {
       <span className={sx(styles.meterDetail, levelTextStyles[gauge.level])}>
         {gauge.detail} · {gauge.percent}%
       </span>
-      <div
-        className={sx(styles.track)}
-        role="meter"
-        aria-label={`${gauge.label}: ${LEVEL_WORD[gauge.level]}`}
-        aria-valuenow={Math.min(100, Math.max(0, gauge.percent))}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuetext={i18n.t("workspace:resourceDashboard.accessibility.meterValue", { value1: gauge.detail, value2: gauge.percent, value3: LEVEL_WORD[gauge.level] })}
-      >
-        <div
-          className={sx(
-            styles.fill,
-            levelFillStyles[gauge.level],
-            transition.bar,
-            transition.motionDurationEmphasis,
-          )}
-          style={{ width: `${Math.min(gauge.ratio * 100, 100)}%` }}
-        />
-      </div>
+      <Meter
+        xstyle={styles.meter}
+        label={`${gauge.label}: ${LEVEL_WORD[gauge.level].text}`}
+        hideLabel
+        hideValue
+        size="sm"
+        tone={LEVEL_METER_TONE[gauge.level]}
+        value={Math.min(Math.max(gauge.ratio * 100, 0), 100)}
+        getAriaValueText={() => i18n.t("workspace:resourceDashboard.accessibility.meterValue", { value1: gauge.detail, value2: gauge.percent, value3: LEVEL_WORD[gauge.level].text })}
+      />
     </div>
   );
 }
@@ -419,7 +416,7 @@ export function ResourceDashboard({
           <span className={sx(styles.sectionLabel, styles.metersLabel)}>
             {tI18n("workspace:resourceDashboard.usageAgainstAKnownLimit")}</span>
           {gauges.map((gauge) => (
-            <Meter key={gauge.id} gauge={gauge} />
+            <GaugeMeter key={gauge.id} gauge={gauge} />
           ))}
         </div>
       ) : null}
