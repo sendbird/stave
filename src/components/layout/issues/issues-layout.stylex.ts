@@ -203,6 +203,8 @@ export const taskLayoutStyles = stylex.create({
   selectSmall: { fontSize: vars["--ads-font-size-caption"], height: 32 },
   selectMedium: { fontSize: vars["--ads-font-size-caption"], height: 32, width: "10rem" },
   selectShort: { fontSize: vars["--ads-font-size-caption"], height: 32, width: "9rem" },
+  // Sized by its words: "Updated: Last 30 days" and its Korean reading differ.
+  selectUpdated: { fontSize: vars["--ads-font-size-caption"], height: 32, width: "auto", minWidth: "9rem" },
   // The columns row. `scrollbarColor` opts out of overlay scrollbars and the
   // inline-end fade turns a clipped column into "the row continues here":
   // without either, a board wider than the pane reads as if it ended.

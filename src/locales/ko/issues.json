@@ -76,7 +76,17 @@
     "resultSummary_other": "{{filters}} · 이슈 {{count}}개",
     "filterTotal_other": "필터 {{count}}개",
     "searchChip": "검색어",
-    "operatorContains": "포함"
+    "operatorContains": "포함",
+    "updated": "업데이트",
+    "updatedTrigger": "업데이트: {{window}}",
+    "filterByUpdated": "마지막 업데이트로 필터링",
+    "operatorWithin": "기간",
+    "updatedAny": "전체 기간",
+    "updatedToday": "오늘",
+    "updatedLast7": "최근 7일",
+    "updatedLast30": "최근 30일",
+    "updatedLast90": "최근 90일",
+    "updatedThisMonth": "이번 달"
   },
   "issuesView": {
     "ticket": "티켓",

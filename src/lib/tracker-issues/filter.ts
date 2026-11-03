@@ -27,6 +27,14 @@ export type TrackerIssueView = (typeof TRACKER_ISSUE_VIEWS)[number];
 export type TrackerIssueLinkedFilter = "any" | "linked" | "unlinked";
 
 /**
+ * How recently a ticket was last updated, as calendar presets read in local
+ * time: today, the last 7, 30 or 90 days counting today, or this month. The
+ * same periods the usage report offers, so "last 30 days" means one thing.
+ */
+export const TRACKER_ISSUE_UPDATED_WINDOWS = ["any", "today", "7", "30", "90", "month"] as const;
+export type TrackerIssueUpdatedWindow = (typeof TRACKER_ISSUE_UPDATED_WINDOWS)[number];
+
+/**
  * One filter state.
  *
  * Every array field means "no constraint" when empty rather than "match
@@ -42,6 +50,8 @@ export interface TrackerIssueFilter {
   projectKeys: string[];
   labels: string[];
   linked: TrackerIssueLinkedFilter;
+  /** Last-update window; `any` is no constraint. */
+  updated: TrackerIssueUpdatedWindow;
   query: string;
 }
 
@@ -102,6 +112,7 @@ export const DEFAULT_TRACKER_ISSUE_FILTER: TrackerIssueFilter = Object.freeze({
   projectKeys: EMPTY_STRINGS,
   labels: EMPTY_STRINGS,
   linked: "any" as TrackerIssueLinkedFilter,
+  updated: "any" as TrackerIssueUpdatedWindow,
   query: "",
 });
 
@@ -117,8 +128,25 @@ export function createTrackerIssueFilter(
     projectKeys: [],
     labels: [],
     linked: "any",
+    updated: "any",
     query: "",
   };
+}
+
+/**
+ * The earliest last-update `window` keeps, in epoch ms, or `null` for no
+ * constraint. Local midnight based, so "today" starts at 00:00 here and
+ * "last 7 days" is today plus the six days before it.
+ */
+export function trackerIssueUpdatedSinceMs(
+  window: TrackerIssueUpdatedWindow,
+  now: Date,
+): number | null {
+  if (window === "any") return null;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (window === "month") start.setDate(1);
+  else if (window !== "today") start.setDate(start.getDate() + 1 - Number(window));
+  return start.getTime();
 }
 
 /**
@@ -154,6 +182,7 @@ export function countActiveTrackerIssueFilters(
   if (filter.projectKeys.length > 0) count += 1;
   if (filter.labels.length > 0) count += 1;
   if (filter.linked !== "any") count += 1;
+  if (filter.updated !== "any") count += 1;
   if (filter.query.trim().length > 0) count += 1;
   return count;
 }
@@ -312,6 +341,7 @@ export function filterTrackerIssues(
       ? new Set(options.currentUserIds)
       : null;
   const query = parseTrackerIssueQuery(filter.query);
+  const updatedSinceMs = trackerIssueUpdatedSinceMs(filter.updated, options.now);
 
   const result: TrackerIssueListItem[] = [];
   for (const item of items) {
@@ -343,6 +373,10 @@ export function filterTrackerIssues(
     }
     if (filter.linked === "linked" && item.staveLinks.length === 0) continue;
     if (filter.linked === "unlinked" && item.staveLinks.length > 0) continue;
+    if (updatedSinceMs !== null) {
+      const stamp = Date.parse(task.updatedAt);
+      if (Number.isNaN(stamp) || stamp < updatedSinceMs) continue;
+    }
     if (query && !matchesQuery(task, query)) continue;
     result.push(item);
   }

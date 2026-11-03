@@ -99,7 +99,7 @@ export function selectedIssueFilterValues(filter: TrackerIssueFilter): string[] 
   return ISSUE_FILTER_FIELDS.flatMap((field) => filter[field].map((value) => encode(field, value)));
 }
 
-/** The filter with its facet fields replaced by the picked values; view, linked and search are kept. */
+/** The filter with its facet fields replaced by the picked values; view, the quick filters and search are kept. */
 export function applyIssueFilterValues(filter: TrackerIssueFilter, values: readonly string[]): TrackerIssueFilter {
   const next: Record<IssueFilterField, string[]> = {
     sources: [], statusCategories: [], priorities: [], projectKeys: [], labels: [],
@@ -112,7 +112,7 @@ export function applyIssueFilterValues(filter: TrackerIssueFilter, values: reado
 }
 
 export type IssueAppliedFilter = {
-  id: IssueFilterField | "linked" | "query";
+  id: IssueFilterField | "linked" | "updated" | "query";
   property: string;
   operator: string;
   value: string;
@@ -120,14 +120,15 @@ export type IssueAppliedFilter = {
 
 /**
  * One removable chip per narrowed property: "Status is any of In progress,
- * To do". The Stave-runs quick filter and the search text get a chip too, so
- * every narrowing has a visible way back.
+ * To do". The Stave-runs and Updated quick filters and the search text get a
+ * chip too, so every narrowing has a visible way back.
  */
 export function issueAppliedFilters(args: {
   filter: TrackerIssueFilter;
   projectOptions: readonly TrackerIssueFilterOption[];
   labelOptions: readonly TrackerIssueFilterOption[];
   linkedLabel: (linked: TrackerIssueFilter["linked"]) => string;
+  updatedLabel: (updated: TrackerIssueFilter["updated"]) => string;
 }): IssueAppliedFilter[] {
   const byField = optionsByField(args);
   const chips: IssueAppliedFilter[] = [];
@@ -154,6 +155,14 @@ export function issueAppliedFilters(args: {
       value: args.linkedLabel(args.filter.linked),
     });
   }
+  if (args.filter.updated !== "any") {
+    chips.push({
+      id: "updated",
+      property: i18n.t("issues:issuesToolbar.updated"),
+      operator: i18n.t("issues:issuesToolbar.operatorWithin"),
+      value: args.updatedLabel(args.filter.updated),
+    });
+  }
   const query = args.filter.query.trim();
   if (query) {
     chips.push({
@@ -168,6 +177,7 @@ export function issueAppliedFilters(args: {
 
 export function removeIssueAppliedFilter(filter: TrackerIssueFilter, id: IssueAppliedFilter["id"]): TrackerIssueFilter {
   if (id === "linked") return { ...filter, linked: "any" };
+  if (id === "updated") return { ...filter, updated: "any" };
   if (id === "query") return { ...filter, query: "" };
   return { ...filter, [id]: [] };
 }

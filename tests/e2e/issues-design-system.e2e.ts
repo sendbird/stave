@@ -277,3 +277,40 @@ test("one searchable Filter list, applied chips with per-chip remove and Clear a
   await expect(page.getByRole("button", { name: /Remove filter/ })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Filter", exact: true })).toBeVisible();
 });
+
+test("the Updated quick filter narrows by last update and reads as a removable chip", async ({ page }) => {
+  // The seeded tickets were last updated on September 2.
+  await page.clock.setFixedTime(new Date("2026-09-10T12:00:00"));
+  await seedTasks(page);
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open Issues" }).click();
+  await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
+  await page.getByRole("radio", { name: /All open/ }).click();
+
+  const updated = page.getByRole("combobox", { name: "Filter by last update" });
+  await expect(updated).toHaveText(/Updated: Any time/);
+  // It sits in the quick-filter row beside the Stave-runs filter, unclipped.
+  const linkedBox = (await page.getByRole("combobox", { name: "Filter by Stave runs" }).boundingBox())!;
+  const updatedBox = (await updated.boundingBox())!;
+  expect(Math.abs(updatedBox.y - linkedBox.y)).toBeLessThanOrEqual(1);
+  expect(updatedBox.x).toBeGreaterThan(linkedBox.x + linkedBox.width);
+  expect(await updated.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+
+  await updated.click();
+  await page.getByRole("option", { name: "Last 7 days", exact: true }).click();
+  await expect(updated).toHaveText(/Updated: Last 7 days/);
+  await expect(page.getByRole("button", { name: "Remove filter: Updated within Last 7 days" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /1 filter · 0 issues/ })).toBeVisible();
+
+  await updated.click();
+  await page.getByRole("option", { name: "Last 30 days", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: /1 filter · 2 issues/ })).toBeVisible();
+  // The period list has closed before the capture.
+  await expect(page.getByRole("option", { name: "Last 90 days", exact: true })).toHaveCount(0);
+  await page.screenshot({ path: test.info().outputPath("issues-updated-filter.png") });
+
+  await page.getByRole("button", { name: "Remove filter: Updated within Last 30 days" }).click();
+  await expect(updated).toHaveText(/Updated: Any time/);
+  await expect(page.getByRole("button", { name: /Remove filter/ })).toHaveCount(0);
+});

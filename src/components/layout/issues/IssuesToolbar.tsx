@@ -13,11 +13,13 @@ import {
   SelectValue,
 } from "@/components/ui";
 import {
+  TRACKER_ISSUE_UPDATED_WINDOWS,
   TRACKER_ISSUE_VIEWS,
   countActiveTrackerIssueFilters,
   createTrackerIssueFilter,
   type TrackerIssueFilter,
   type TrackerIssueLinkedFilter,
+  type TrackerIssueUpdatedWindow,
   type TrackerIssueView,
 } from "@/lib/tracker-issues/filter";
 import {
@@ -70,6 +72,15 @@ const LINKED_LABELS: Record<TrackerIssueLinkedFilter, string> = {
   get unlinked() { return i18n.t("issues:issuesToolbar.notInStave"); },
 };
 
+const UPDATED_LABELS: Record<TrackerIssueUpdatedWindow, string> = {
+  get any() { return i18n.t("issues:issuesToolbar.updatedAny"); },
+  get today() { return i18n.t("issues:issuesToolbar.updatedToday"); },
+  get "7"() { return i18n.t("issues:issuesToolbar.updatedLast7"); },
+  get "30"() { return i18n.t("issues:issuesToolbar.updatedLast30"); },
+  get "90"() { return i18n.t("issues:issuesToolbar.updatedLast90"); },
+  get month() { return i18n.t("issues:issuesToolbar.updatedThisMonth"); },
+};
+
 export interface IssuesToolbarProps {
   filter: TrackerIssueFilter;
   onFilterChange: (filter: TrackerIssueFilter) => void;
@@ -105,6 +116,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
     projectOptions: props.projectOptions,
     labelOptions: props.labelOptions,
     linkedLabel: (linked) => LINKED_LABELS[linked],
+    updatedLabel: (updated) => UPDATED_LABELS[updated],
   });
 
   const patch = (changes: Partial<TrackerIssueFilter>) => {
@@ -189,6 +201,33 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
                 </SelectItem>
               ),
             )}
+          </SelectContent>
+        </Select>
+
+        {/* Quick filter on the last update, in the usage report's periods. */}
+        <Select
+          value={filter.updated}
+          onValueChange={(value) =>
+            patch({ updated: value as TrackerIssueUpdatedWindow })
+          }
+        >
+          <SelectTrigger
+            className={sx(taskLayoutStyles.selectUpdated)}
+            aria-label={tI18n("issues:issuesToolbar.filterByUpdated")}
+            data-issues-updated-filter=""
+          >
+            <SelectValue>
+              {(value: TrackerIssueUpdatedWindow) =>
+                tI18n("issues:issuesToolbar.updatedTrigger", { window: UPDATED_LABELS[value] })
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {TRACKER_ISSUE_UPDATED_WINDOWS.map((value) => (
+              <SelectItem key={value} value={value}>
+                {UPDATED_LABELS[value]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

@@ -79,7 +79,17 @@
     "filterTotal_one": "{{count}} filter",
     "filterTotal_other": "{{count}} filters",
     "searchChip": "Search",
-    "operatorContains": "contains"
+    "operatorContains": "contains",
+    "updated": "Updated",
+    "updatedTrigger": "Updated: {{window}}",
+    "filterByUpdated": "Filter by last update",
+    "operatorWithin": "within",
+    "updatedAny": "Any time",
+    "updatedToday": "Today",
+    "updatedLast7": "Last 7 days",
+    "updatedLast30": "Last 30 days",
+    "updatedLast90": "Last 90 days",
+    "updatedThisMonth": "This month"
   },
   "issuesView": {
     "ticket": "Ticket",
