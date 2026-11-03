@@ -254,6 +254,11 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   const summary = summarizeApprovalRequest(part);
   const offersAllowAlways = part.supportsAllowAlways === true && args.allowAlways !== false;
   const risk = part.risk ? describeApprovalRisk(part.risk) : null;
+  const requester = !part.ownerAgentId
+    ? null
+    : current.requestedBy
+      ? i18n.t("ui:approval.requestedByPlain", { agent: current.requestedBy })
+      : i18n.t("ui:approval.requestedBySubagent");
   // Why the decisions are blocked, or nothing while they are live.
   const blockedReason = busy
     ? undefined
@@ -297,20 +302,13 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
         <div className={sx(styles.identity)}>
           <ShieldAlert aria-hidden className={sx(styles.statusIcon)} />
           <span className={sx(styles.tool)}>{toolTitle}</span>
-          {part.ownerAgentId ? (
-            <span className={sx(styles.requester)}>
-              {current.requestedBy
-                ? i18n.t("ui:approval.requestedByPlain", { agent: current.requestedBy })
-                : i18n.t("ui:approval.requestedBySubagent")}
-            </span>
-          ) : null}
           {summary ? (
             <code className={sx(styles.summary)} title={summary}>
               {summary}
             </code>
           ) : null}
           {risk ? (
-            <span className={sx(styles.risk)} data-approval-risk="">
+            <span className={sx(styles.risk)} data-approval-risk="" title={risk}>
               {risk}
             </span>
           ) : null}
@@ -404,6 +402,12 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
 
       {detailsOpen ? (
         <div className={sx(styles.details)} id={detailsId}>
+          {/* Who asked: the row keeps its width for the command. */}
+          {requester ? (
+            <p className={sx(styles.requester)} data-approval-requester="">
+              {requester}
+            </p>
+          ) : null}
           {part.description ? (
             <p className={sx(styles.description)}>{part.description}</p>
           ) : null}

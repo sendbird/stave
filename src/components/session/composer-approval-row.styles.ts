@@ -59,16 +59,18 @@ export const composerApprovalRowStyles = stylex.create({
     lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
-  // "requested by Explore": who asked, beside the tool, never truncating it.
+  // "· requested by Explore": who asked, first in the details, so the row
+  // keeps its width for the command.
   requester: {
     color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
-    whiteSpace: "nowrap",
+    lineHeight: vars["--ads-line-height-normal"],
+    margin: 0,
+    overflowWrap: "anywhere",
   },
   // The request's risk as a word in muted ink, not a badge: the row's
-  // warning border is already its one attention signal.
+  // warning border is already its one attention signal. A short word that
+  // stays whole; the command beside it is what truncates.
   risk: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,

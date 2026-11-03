@@ -214,6 +214,40 @@ test("a request whose grant nobody keeps offers no Always allow on the row or th
   await expect(transcriptCard(page, PLAIN.requestId).getByRole("button", { name: "Always allow" })).toHaveCount(0);
 });
 
+test("a subagent's request names it on the card and in the row's details, beside the risk", async ({ page }) => {
+  await seedApprovals(page, [PLAIN]);
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    useAppStore.setState((state) => {
+      const [message] = state.messagesByTask["task-always"] ?? [];
+      return {
+        messagesByTask: {
+          "task-always": [{
+            ...message!,
+            parts: [
+              {
+                type: "tool_use", toolUseId: "spawn-explore", toolName: "Agent", agentId: "agent-explore",
+                input: JSON.stringify({ subagent_type: "Explore", description: "Map the settings" }),
+                state: "output-available", output: "done",
+              },
+              ...message!.parts.map((part) =>
+                part.type === "approval" ? { ...part, ownerAgentId: "agent-explore", risk: "network-access" } : part),
+            ],
+          }],
+        },
+      } as never;
+    });
+  });
+  const queue = page.getByRole("region", { name: "Approval queue" });
+  await expect(queue.locator("[data-approval-risk]")).toHaveText("Network access");
+  await queue.getByRole("button", { name: "Show details" }).click();
+  await expect(queue.locator("[data-approval-requester]")).toHaveText("· requested by Explore");
+  await page.getByRole("button", { name: /Ran 1 agent|Finished/ }).first().click();
+  const card = transcriptCard(page, PLAIN.requestId);
+  await expect(card).toContainText(/bash\s*· requested by Explore/);
+  await expect(card).toContainText(/Network access\s*·\s*Needs your approval/);
+});
+
 async function seedFleet(page: Page, args: { managed: boolean }) {
   await page.addInitScript((managed) => {
     const repositoryPath = "/tmp/stave-fleet-always";

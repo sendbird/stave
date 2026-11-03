@@ -203,8 +203,10 @@ Claude turn already running keeps the list it started with until it ends.
   the guardrail a Claude call crossed (**Writes outside the repository**,
   **Credential access**, **Irreversible remote action**). Cursor, Kiro and
   OpenCode report none.
-- A request a subagent made says so after the tool, with the subagent's name
-  when the call that started it is in the same reply.
+- A request a subagent made says so after the tool on the card, and first in
+  the composer row's details, with the subagent's name when the call that
+  started it is in the same reply. The composer row keeps its width for the
+  command and shows the risk word beside it.
 - Requests carry no expiry from the provider, so the card shows no deadline.
 
 ## What A Preset Does On Its Own

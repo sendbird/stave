@@ -96,7 +96,7 @@ describe("ChatInputApprovalQueue", () => {
     expect(withSupport).not.toContain("1 of 1");
   });
 
-  test("names the risk the request reported and the subagent that asked", () => {
+  test("names the risk the request reported on the row, and keeps who asked for the details", () => {
     const html = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
       approvals: [{
         ...BASH,
@@ -105,20 +105,15 @@ describe("ChatInputApprovalQueue", () => {
       }],
       onResolveApproval: () => {},
     }));
-    expect(html).toContain("Network access");
-    expect(html).toContain("· requested by Explore");
-
-    const unnamed = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
-      approvals: [{ ...BASH, part: { ...BASH.part, ownerAgentId: "agent-1" } }],
-      onResolveApproval: () => {},
-    }));
-    expect(unnamed).toContain("· requested by a subagent");
-    // The main loop's request names nobody, and a request without a risk shows none.
+    expect(html).toMatch(/data-approval-risk="" title="Network access">Network access</);
+    // The row keeps its width for the command; the asking subagent is named
+    // in the folded details.
+    expect(html).not.toContain("requested by");
+    // A request without a risk shows none.
     const plain = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
       approvals: [BASH],
       onResolveApproval: () => {},
     }));
-    expect(plain).not.toContain("requested by");
     expect(plain).not.toContain("data-approval-risk");
   });
 
