@@ -87,10 +87,22 @@ function PickerList(props: {
   );
 }
 
-function PickerSearch(props: { placeholder: string; label?: string }) {
+function PickerSearch(props: { placeholder: string; label?: string; onEscape: () => void }) {
   return (
     <Combobox.InputGroup searchIcon size="sm">
-      <Combobox.Input size="sm" aria-label={props.label ?? props.placeholder} placeholder={props.placeholder} />
+      <Combobox.Input
+        size="sm"
+        aria-label={props.label ?? props.placeholder}
+        placeholder={props.placeholder}
+        // Escape always closes the list, typed search or not, and the
+        // trigger takes focus back; it never just clears the search first.
+        onKeyDown={(event) => {
+          if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          event.stopPropagation();
+          props.onEscape();
+        }}
+      />
     </Combobox.InputGroup>
   );
 }
@@ -148,6 +160,7 @@ export function SearchablePicker(props: {
   const size = props.size ?? "sm";
   const valueId = useId();
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const { grouped, items } = usePickerItems(props.options);
   const current = props.options.find((option) => option.value === props.value) ?? null;
   const label = current?.label ?? props.fallbackLabel;
@@ -175,8 +188,12 @@ export function SearchablePicker(props: {
       }}
       inputValue={query}
       onInputValueChange={setQuery}
-      onOpenChange={(open) => {
-        if (!open) setQuery("");
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // Reset the search when the list opens, not as it closes: changing
+        // the input's text during the close reads as typing and reopens it.
+        if (next) setQuery("");
       }}
       filter={matchesSearchablePickerOption}
       itemToStringLabel={optionLabel}
@@ -210,7 +227,7 @@ export function SearchablePicker(props: {
         <Combobox.Positioner>
           <Combobox.Popup xstyle={[styles.popup, props.popupXstyle]}>
             {props.header}
-            <PickerSearch placeholder={props.searchPlaceholder} label={props.searchLabel} />
+            <PickerSearch placeholder={props.searchPlaceholder} label={props.searchLabel} onEscape={() => setOpen(false)} />
             <PickerList grouped={grouped} loading={props.loading} loadingText={props.loadingText} emptyText={props.emptyText} />
           </Combobox.Popup>
         </Combobox.Positioner>
@@ -245,6 +262,7 @@ export function SearchableMultiPicker(props: {
   children?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const { grouped, items } = usePickerItems(props.options);
   const chosen = props.options.filter((option) => props.selected.includes(option.value));
   return (
@@ -255,9 +273,11 @@ export function SearchableMultiPicker(props: {
       onValueChange={(next) => props.onChange(next.map((option) => option.value))}
       inputValue={query}
       onInputValueChange={setQuery}
-      onOpenChange={(open) => {
-        if (!open) setQuery("");
-        props.onOpenChange?.(open);
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setQuery("");
+        props.onOpenChange?.(next);
       }}
       filter={matchesSearchablePickerOption}
       itemToStringLabel={optionLabel}
@@ -278,7 +298,14 @@ export function SearchableMultiPicker(props: {
         <Combobox.Positioner>
           <Combobox.Popup xstyle={[styles.popup, props.popupXstyle]}>
             {props.children}
-            <PickerSearch placeholder={props.searchPlaceholder} label={props.searchLabel} />
+            <PickerSearch
+              placeholder={props.searchPlaceholder}
+              label={props.searchLabel}
+              onEscape={() => {
+                setOpen(false);
+                props.onOpenChange?.(false);
+              }}
+            />
             <PickerList grouped={grouped} loading={props.loading} loadingText={props.loadingText} emptyText={props.emptyText} />
           </Combobox.Popup>
         </Combobox.Positioner>
