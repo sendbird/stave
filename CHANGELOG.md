@@ -1,3 +1,31 @@
+## [0.30.0](https://github.com/sendbird/stave/compare/v0.29.2...v0.30.0) (2026-11-03)
+
+This minor release includes all seven merged changes since 0.29.2.
+
+### Changes
+
+- Fleet opens as an agent tree with task and subagent status, cost, elapsed time and keyboard navigation. Cards and Table remain available; saved Cards layouts move to Tree once.
+- Agent surfaces share approval, status, plan and selection controls. Model and macro pickers offer visible search, approval requests show their deadlines and requesting subagent, and active run time excludes pauses and user waits. Trusted rules do not auto-approve guardrail or outside-workspace access requests.
+- Conversations show subagent results, failures and questions next to their owning message, link to child tasks, reduce duplicate completed-history text, and hide copy and timestamp controls on Stave-authored stage progress.
+- Long traces reuse unchanged rows, defer tool and reasoning bodies until first open, reuse parsed timeline spans on clock ticks, and avoid recalculating unchanged Fleet facts. Opened bodies preserve their state when closed again.
+- The landing page shows an animated task walkthrough with light/dark, narrow-screen and reduced-motion states.
+- The English and Korean user guide sources include current workflows and linked screenshots.
+- Development and build hosts use Node.js 26.13.0 LTS, pinned through the shared Node version file. The Electron runtime is unchanged.
+
+### Upgrade Notes
+
+- The scheduled Background AI and Jira single-switch migrations are removed in 0.30.0. Upgrades that skip 0.28.x and 0.29.x no longer combine the retired switches: pre-PR review uses its Background AI lane switch, inline completion uses its editor switch, and Jira uses Settings > Integrations. If an old secondary switch alone kept one of these off, verify its current switch before use; it may be enabled after a direct upgrade from 0.27.3 or earlier.
+- Unopened tool, reasoning and rolled-up group bodies are absent from browser find and printing until first opened.
+- The retired connector-host migration remains until 0.31.0; the Fleet default migration remains until 0.32.0.
+
+### Known Limits
+
+- This release does not establish a fix for memory growth in long-running desktop sessions or virtualize fully expanded traces. Packaged upgrades, live provider execution and screen readers require separate validation.
+
+### References
+
+- [PR #880](https://github.com/sendbird/stave/pull/880), [PR #881](https://github.com/sendbird/stave/pull/881), [PR #882](https://github.com/sendbird/stave/pull/882), [PR #883](https://github.com/sendbird/stave/pull/883), [PR #884](https://github.com/sendbird/stave/pull/884), [PR #885](https://github.com/sendbird/stave/pull/885), [PR #886](https://github.com/sendbird/stave/pull/886)
+
 ## [0.29.2](https://github.com/sendbird/stave/compare/v0.29.1...v0.29.2) (2026-11-02)
 
 This patch release ships the one change merged since 0.29.1 (PR #878): sidebar fixes for the active workspace, its hover preview, and where a running task's progress shows.

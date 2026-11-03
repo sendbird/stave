@@ -45,9 +45,6 @@ import {
   normalizeAuxInferenceDefault,
   normalizeAuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
-// temporary-migration: jira-single-switch
-import { migrateJiraSingleSwitch } from "@/lib/tracker-issues/jira-single-switch-migration";
-// end temporary-migration: jira-single-switch
 // temporary-migration: atelier-retired-host
 import { migrateCraneConnectorRetiredHost } from "@/lib/atelier-connector/retired-host-migration";
 // end temporary-migration: atelier-retired-host
@@ -273,13 +270,6 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       const persistedSettings = state.settings;
-      // temporary-migration: jira-single-switch
-      // Before the merge and normalization below, which would drop the retired
-      // `trackerIssues.sourceEnabled.jira` before it is read.
-      if (persistedSettings) {
-        migrateJiraSingleSwitch(persistedSettings as unknown as Record<string, unknown>);
-      }
-      // end temporary-migration: jira-single-switch
       // temporary-migration: atelier-retired-host
       // A connector saved for the retired Atelier host reads as the new UI host
       // and is written back with the next save.
