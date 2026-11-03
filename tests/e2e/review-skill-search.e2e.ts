@@ -35,7 +35,7 @@ test("settings searches review skills by name and description, clears, and reset
   await seedSkills(page);
   await page.getByRole("combobox", { name: "Review prompt" }).click();
   await page.getByRole("option", { name: "Installed skill" }).click();
-  const trigger = page.getByRole("button", { name: "Review skill", exact: true });
+  const trigger = page.getByRole("combobox", { name: /^Review skill/ });
   await trigger.click();
   const search = page.getByRole("combobox", { name: "Search review skills" });
   await expect(search).toBeFocused();
@@ -92,7 +92,7 @@ test("review dialog searches compatible skills and supports no skill", async ({ 
   await page.getByRole("button", { name: "Review local changes", exact: true }).click();
   await page.getByRole("combobox", { name: "Review prompt" }).click();
   await page.getByRole("option", { name: "Installed skill" }).click();
-  const trigger = page.getByRole("button", { name: "Review skill", exact: true });
+  const trigger = page.getByRole("combobox", { name: /^Review skill/ });
   await trigger.click();
   const search = page.getByRole("combobox", { name: "Search review skills" });
   await search.fill("codex-only");

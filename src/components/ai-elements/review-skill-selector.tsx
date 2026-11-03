@@ -1,20 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
-import { ChevronDown } from "lucide-react";
-import { useState } from "react";
-import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { useMemo } from "react";
 import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui";
+  SearchablePicker,
+  type SearchablePickerOption,
+} from "@/components/layout/settings-searchable-picker";
 
 export interface ReviewSkillOption {
   value: string;
@@ -32,6 +21,11 @@ export interface ReviewOptionSelectorCopy {
   empty: string;
 }
 
+/**
+ * Picks a review skill (or another review option) from a searchable list:
+ * name, description and keywords match, and the "no skill" choice stays an
+ * ordinary row.
+ */
 export function ReviewSkillSelector(args: {
   "aria-labelledby"?: string;
   value: string;
@@ -41,95 +35,27 @@ export function ReviewSkillSelector(args: {
   copy?: ReviewOptionSelectorCopy;
 }) {
   useTranslation();
-  const [open, setOpen] = useState(false);
-  const selected = args.options.find((option) => option.value === args.value);
-
+  const options = useMemo<SearchablePickerOption[]>(
+    () =>
+      args.options.map((option) => ({
+        value: option.value,
+        label: option.label,
+        detail: option.description,
+        keywords: option.keywords,
+      })),
+    [args.options],
+  );
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            fullWidth
-            aria-label={args["aria-labelledby"] ? undefined : (args.copy?.triggerAria ?? i18n.t("ui:reviewSkillSelector.reviewSkill"))}
-            aria-labelledby={args["aria-labelledby"]}
-            xstyle={styles.trigger}
-          />
-        }
-      >
-        <span className={sx(styles.label)}>{selected?.label ?? args.copy?.trigger ?? i18n.t("ui:reviewSkillSelector.noSkill")}</span>
-        <ChevronDown aria-hidden="true" className={sx(styles.chevron)} />
-      </PopoverTrigger>
-      <PopoverContent align="start" density="flush" xstyle={styles.popup}>
-        {open ? (
-          <Command>
-            <CommandInput
-              autoFocus
-              aria-label={args.copy?.searchAria ?? i18n.t("ui:reviewSkillSelector.searchReviewSkills")}
-              placeholder={args.copy?.search ?? i18n.t("ui:reviewSkillSelector.searchSkills")}
-            />
-            <CommandList className={sx(styles.list)}>
-              <CommandEmpty>{args.copy?.empty ?? i18n.t("ui:reviewSkillSelector.noSkillsFound")}</CommandEmpty>
-              {args.options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value || "__no_skill__"}
-                  keywords={[
-                    option.label,
-                    option.description ?? "",
-                    ...(option.keywords ?? []),
-                  ]}
-                  onSelect={() => {
-                    args.onValueChange(option.value);
-                    setOpen(false);
-                  }}
-                >
-                  <span className={sx(styles.copy)}>
-                    <span>{option.label}</span>
-                    {option.description ? (
-                      <span className={sx(styles.description)}>
-                        {option.description}
-                      </span>
-                    ) : null}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandList>
-          </Command>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+    <SearchablePicker
+      labelledBy={args["aria-labelledby"]}
+      aria-label={args.copy?.triggerAria ?? i18n.t("ui:reviewSkillSelector.reviewSkill")}
+      value={args.value}
+      placeholder={args.copy?.trigger ?? i18n.t("ui:reviewSkillSelector.noSkill")}
+      options={options}
+      onSelect={args.onValueChange}
+      searchPlaceholder={args.copy?.search ?? i18n.t("ui:reviewSkillSelector.searchSkills")}
+      searchLabel={args.copy?.searchAria ?? i18n.t("ui:reviewSkillSelector.searchReviewSkills")}
+      emptyText={args.copy?.empty ?? i18n.t("ui:reviewSkillSelector.noSkillsFound")}
+    />
   );
 }
-
-const styles = stylex.create({
-  trigger: { justifyContent: "space-between", minWidth: 0 },
-  label: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  chevron: {
-    width: 16,
-    height: 16,
-    flexShrink: 0,
-    color: vars["--ads-color-text-muted"],
-  },
-  popup: {
-    width: "var(--anchor-width)",
-    maxWidth: "var(--available-width)",
-    overflow: "hidden",
-  },
-  list: { maxHeight: "min(17.5rem, calc(var(--available-height) - 4rem))" },
-  copy: {
-    display: "grid",
-    gap: vars["--ads-space-4"],
-    minWidth: 0,
-    overflowWrap: "anywhere",
-  },
-  description: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-  },
-});

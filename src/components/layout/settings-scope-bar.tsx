@@ -1,19 +1,9 @@
 import { I18N_NAMESPACES, Trans, useTranslation } from "@/i18n";
-import { useState } from "react";
+import { useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui";
+import { SearchablePicker, type SearchablePickerOption } from "./settings-searchable-picker";
 import type { RecentRepositoryState } from "@/store/repository.utils";
 import {
   buildSettingsSearchText,
@@ -72,95 +62,57 @@ function ScopePicker(args: {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { repositoryPath, repositoryName, setRepositoryPath } =
     useSettingsScope();
-  const [open, setOpen] = useState(false);
   const allLabel = t("settings:scope.bar.allProjects");
   const label = repositoryPath ? (repositoryName ?? repositoryPath) : allLabel;
-  const current = args.repositories.find(
-    (repository) => repository.repositoryPath === args.currentRepositoryPath,
-  );
-  const others = args.repositories.filter(
-    (repository) => repository.repositoryPath !== args.currentRepositoryPath,
-  );
-  const choose = (next: string | null) => {
-    setRepositoryPath(next);
-    setOpen(false);
-  };
-  const renderRepository = (repository: RecentRepositoryState) => (
-    <CommandItem
-      key={repository.repositoryPath}
-      value={repository.repositoryPath}
-      keywords={[repository.repositoryName]}
-      data-checked={repositoryPath === repository.repositoryPath}
-      className={sx(styles.item)}
-      onSelect={() => choose(repository.repositoryPath)}
-    >
-      <span className={sx(styles.itemText)}>
-        <span className={sx(styles.itemLabel)}>{repository.repositoryName}</span>
-        <span className={sx(styles.itemDetail)} title={repository.repositoryPath}>
-          {repository.repositoryPath}
-        </span>
-      </span>
-    </CommandItem>
-  );
+  const currentGroup = t("settings:scope.picker.currentGroup");
+  const otherGroup = t("settings:scope.picker.otherGroup");
+  const allDescription = t("settings:scope.picker.allDescription");
+  const options = useMemo<SearchablePickerOption[]>(() => {
+    const current = args.repositories.find(
+      (repository) => repository.repositoryPath === args.currentRepositoryPath,
+    );
+    const others = args.repositories.filter(
+      (repository) => repository.repositoryPath !== args.currentRepositoryPath,
+    );
+    const toOption = (repository: RecentRepositoryState, group: string): SearchablePickerOption => ({
+      value: repository.repositoryPath,
+      label: repository.repositoryName,
+      detail: repository.repositoryPath,
+      group,
+    });
+    return [
+      { value: ALL_PROJECTS_VALUE, label: allLabel, detail: allDescription },
+      ...(current ? [toOption(current, currentGroup)] : []),
+      ...others.map((repository) => toOption(repository, otherGroup)),
+    ];
+  }, [allDescription, allLabel, args.currentRepositoryPath, args.repositories, currentGroup, otherGroup]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            id={SETTINGS_SCOPE_PICKER_ID}
-            type="button"
-            size="sm"
-            variant="outline"
-            xstyle={styles.trigger}
-            aria-label={t("settings:scope.bar.triggerAriaLabel", { scope: label })}
-          />
-        }
-      >
-        <span className={sx(styles.triggerLabel)}>{label}</span>
-        <ChevronDown aria-hidden="true" className={sx(styles.chevron)} />
-      </PopoverTrigger>
-      <PopoverContent align="start" density="flush" xstyle={styles.popup}>
-        {open ? (
-          <Command>
-            <CommandInput
-              autoFocus
-              aria-label={t("settings:scope.picker.searchPlaceholder")}
-              placeholder={t("settings:scope.picker.searchPlaceholder")}
-            />
-            <CommandList className={sx(styles.list)}>
-              <CommandEmpty>{t("settings:scope.picker.empty")}</CommandEmpty>
-              <CommandGroup>
-                <CommandItem
-                  value={ALL_PROJECTS_VALUE}
-                  keywords={[allLabel, t("settings:scope.picker.allDescription")]}
-                  data-checked={repositoryPath === null}
-                  className={sx(styles.item)}
-                  onSelect={() => choose(null)}
-                >
-                  <span className={sx(styles.itemText)}>
-                    <span className={sx(styles.itemLabel)}>{allLabel}</span>
-                    <span className={sx(styles.itemDetail)}>
-                      {t("settings:scope.picker.allDescription")}
-                    </span>
-                  </span>
-                </CommandItem>
-              </CommandGroup>
-              {current ? (
-                <CommandGroup heading={t("settings:scope.picker.currentGroup")}>
-                  {renderRepository(current)}
-                </CommandGroup>
-              ) : null}
-              {others.length > 0 ? (
-                <CommandGroup heading={t("settings:scope.picker.otherGroup")}>
-                  {others.map(renderRepository)}
-                </CommandGroup>
-              ) : null}
-            </CommandList>
-          </Command>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+    <SearchablePicker
+      trigger={
+        <Button
+          id={SETTINGS_SCOPE_PICKER_ID}
+          type="button"
+          size="sm"
+          variant="outline"
+          xstyle={styles.trigger}
+        />
+      }
+      triggerContent={
+        <>
+          <span className={sx(styles.triggerLabel)}>{label}</span>
+          <ChevronDown aria-hidden="true" className={sx(styles.chevron)} />
+        </>
+      }
+      aria-label={t("settings:scope.bar.triggerAriaLabel", { scope: label })}
+      popupXstyle={styles.popup}
+      value={repositoryPath ?? ALL_PROJECTS_VALUE}
+      placeholder={allLabel}
+      options={options}
+      onSelect={(value) => setRepositoryPath(value === ALL_PROJECTS_VALUE ? null : value)}
+      searchPlaceholder={t("settings:scope.picker.searchPlaceholder")}
+      emptyText={t("settings:scope.picker.empty")}
+    />
   );
 }
 

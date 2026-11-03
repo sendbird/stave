@@ -55,9 +55,24 @@ export const searchablePickerStyles = stylex.create({
     maxBlockSize: "min(20rem, calc(var(--available-height) - 4rem))",
   },
   item: {
-    alignItems: "flex-start",
+    alignItems: "start",
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
+  },
+  // The row's first grid track: mark, copy, then any muted trailing value.
+  itemMain: {
+    alignItems: "flex-start",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    minInlineSize: 0,
+  },
+  itemMeta: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-normal"]})`,
+    marginInlineStart: "auto",
   },
   itemText: {
     display: "flex",

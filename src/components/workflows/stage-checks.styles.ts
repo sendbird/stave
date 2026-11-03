@@ -49,15 +49,4 @@ export const stageCheckStyles = stylex.create({
   scriptLabel: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   removeScript: { width: 20, height: 20, minWidth: 20 },
   popup: { width: "18rem", maxWidth: "var(--available-width)", overflow: "hidden" },
-  options: { maxHeight: "min(17.5rem, calc(var(--available-height) - 4rem))" },
-  option: { display: "grid", gap: vars["--ads-space-2"], minWidth: 0, overflowWrap: "anywhere" },
-  optionDetail: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
-  note: {
-    margin: 0,
-    padding: vars["--ads-space-12"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
-  },
-  boundary: { padding: vars["--ads-space-8"] },
 });

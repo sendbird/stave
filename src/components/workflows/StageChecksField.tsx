@@ -3,17 +3,7 @@ import { useId, useState, type ReactNode } from "react";
 import { ListChecks, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { AsyncBoundary } from "@/components/system/AsyncBoundary";
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui";
+import { SearchableMultiPicker } from "@/components/layout/settings-searchable-picker";
 import type { AiStage, WorkflowStage, WorkspaceCheckMode } from "@/lib/workflows/schema";
 import {
   addStageCheck,
@@ -25,7 +15,7 @@ import {
 } from "@/lib/workflows/stage-checks";
 import { workspaceCheckMode } from "@/lib/agent-runs/workspace-check";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
-import { readyWorkspaceScripts, useWorkspaceScriptActions, type WorkspaceScriptActions, type WorkspaceScriptOption } from "./useWorkspaceScriptActions";
+import { readyWorkspaceScripts, useWorkspaceScriptActions, type WorkspaceScriptActions } from "./useWorkspaceScriptActions";
 import { stageCheckStyles as styles } from "./stage-checks.styles";
 import { workflowStyles } from "./workflows.styles";
 
@@ -161,63 +151,42 @@ function ScriptPicker(props: {
   triggerLabel?: string;
 }) {
   useTranslation();
-  const [open, setOpen] = useState(false);
+  const state = props.scripts.available ? props.scripts.state : null;
+  const list = readyWorkspaceScripts(props.scripts);
+  const options = list.map((script) => ({
+    value: script.id,
+    label: script.label,
+    detail: [script.label !== script.id ? script.id : null, script.description || null].filter(Boolean).join(" · ") || undefined,
+    keywords: [script.id, script.description],
+  }));
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) props.onClose?.();
+    <SearchableMultiPicker
+      trigger={<Button variant="quiet" size="xs" />}
+      triggerContent={props.trigger}
+      aria-label={props.triggerLabel}
+      options={options}
+      selected={props.selected}
+      onChange={(next) => {
+        // One pick or unpick at a time: hand the changed script back.
+        const changed = next.find((id) => !props.selected.includes(id))
+          ?? props.selected.find((id) => !next.includes(id));
+        if (changed) props.onToggle(changed);
       }}
-    >
-      <PopoverTrigger render={<Button variant="quiet" size="xs" aria-label={props.triggerLabel} />}>{props.trigger}</PopoverTrigger>
-      <PopoverContent align="start" density="flush" xstyle={styles.popup}>
-        {open ? <ScriptOptions {...props} /> : null}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function ScriptOptions(props: { scripts: WorkspaceScriptActions; selected: readonly string[]; onToggle: (scriptId: string) => void }) {
-  useTranslation();
-  if (!props.scripts.available) return <p role="status" className={sx(styles.note)}>{i18n.t("agentRuns:stageChecks.noWorkspace")}</p>;
-  return (
-    <div className={sx(styles.boundary)}>
-      <AsyncBoundary
-        state={props.scripts.state}
-        onRetry={props.scripts.refresh}
-        describeError={() => i18n.t("agentRuns:stageChecks.readFailed")}
-        isEmpty={(list: WorkspaceScriptOption[]) => list.length === 0}
-        empty={<p role="status" className={sx(styles.note)}>{i18n.t("agentRuns:stageChecks.noScripts")}</p>}
-      >
-        {(list) => (
-          <Command>
-            <CommandInput autoFocus aria-label={i18n.t("agentRuns:stageChecks.search")} placeholder={i18n.t("agentRuns:stageChecks.search")} />
-            <CommandList className={sx(styles.options)}>
-              <CommandEmpty>{i18n.t("agentRuns:stageChecks.noMatch")}</CommandEmpty>
-              {list.map((script) => {
-                const checked = props.selected.includes(script.id);
-                return (
-                  <CommandItem
-                    key={script.id}
-                    value={script.id}
-                    keywords={[script.label, script.id, script.description]}
-                    data-checked={checked}
-                    aria-checked={checked}
-                    onSelect={() => props.onToggle(script.id)}
-                  >
-                    <span className={sx(styles.option)}>
-                      <span>{script.label}</span>
-                      {script.label !== script.id ? <span className={sx(styles.optionDetail)}>{script.id}</span> : null}
-                      {script.description ? <span className={sx(styles.optionDetail)}>{script.description}</span> : null}
-                    </span>
-                  </CommandItem>
-                );
-              })}
-            </CommandList>
-          </Command>
-        )}
-      </AsyncBoundary>
-    </div>
+      popupXstyle={styles.popup}
+      onOpenChange={(open) => {
+        if (!open) props.onClose?.();
+      }}
+      loading={state?.status === "pending"}
+      searchPlaceholder={i18n.t("agentRuns:stageChecks.search")}
+      emptyText={
+        !state
+          ? i18n.t("agentRuns:stageChecks.noWorkspace")
+          : state.status === "error"
+            ? i18n.t("agentRuns:stageChecks.readFailed")
+            : list.length === 0
+              ? i18n.t("agentRuns:stageChecks.noScripts")
+              : i18n.t("agentRuns:stageChecks.noMatch")
+      }
+    />
   );
 }

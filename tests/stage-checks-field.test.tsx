@@ -13,7 +13,7 @@ function render(next: AiStage, error?: string) {
 
 /** The opening tag of the all/any radio whose label is `label`. */
 function radio(markup: string, label: string) {
-  return [...markup.matchAll(/<button[^>]*role="radio"[^>]*>(.*?)<\/button>/g)].find((match) => match[1]!.includes(label))?.[0];
+  return [...markup.matchAll(/<(?:span|button)[^>]*role="radio"[^>]*>(.*?)<\/(?:span|button)><input/g)].find((match) => match[1]!.includes(label))?.[0];
 }
 
 describe("stage checks field", () => {
