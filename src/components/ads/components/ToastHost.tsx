@@ -69,6 +69,23 @@ export type ToastHostProps = {
   timeout?: ToastProviderProps["timeout"];
 };
 
+/**
+ * Host extension: a second, lesser action, carried on the toast's `data`
+ * because the Base UI toast has one action slot. It renders before the
+ * primary action, in the same placement, and is responsible for closing the
+ * toast itself (the facade wraps it to do so).
+ */
+export type ToastSecondaryAction = {
+  label: React.ReactNode;
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
+};
+
+function readSecondaryAction(data: unknown): ToastSecondaryAction | null {
+  if (!data || typeof data !== "object" || !("secondaryAction" in data)) return null;
+  const action = (data as { secondaryAction?: ToastSecondaryAction }).secondaryAction;
+  return action && typeof action.onClick === "function" ? action : null;
+}
+
 export type ToastOptions = {
   /** Action button label; composes `Button` size `sm`. */
   actionLabel?: React.ReactNode;
@@ -295,9 +312,16 @@ function ToastHostList({
     // the whole row — including the trailing close column — so it never floats
     // mid-card and its trailing edge lines up with the close button's, flush
     // to the card's inline padding rather than inset by a close-button width.
+    // Two actions take that row too: inline they would squeeze the title.
     const hasAction = Boolean(toast.actionProps);
     const hasDescription = Boolean(toast.description);
-    const inlineAction = hasAction && !hasDescription;
+    const secondaryAction = hasAction ? readSecondaryAction(toast.data) : null;
+    const inlineAction = hasAction && !hasDescription && !secondaryAction;
+    const secondaryButton = secondaryAction ? (
+      <Button size="sm" variant="secondary" onClick={secondaryAction.onClick}>
+        {secondaryAction.label}
+      </Button>
+    ) : null;
 
     const theme = themeProps("toast", { tone });
 
@@ -389,8 +413,9 @@ function ToastHostList({
               <X aria-hidden />
             </ToastClose>
           </div>
-          {hasAction && hasDescription ? (
+          {hasAction && !inlineAction ? (
             <div className={sx(styles.actionRow)}>
+              {secondaryButton}
               <ToastAction render={<Button size="sm" variant="secondary" />} />
             </div>
           ) : null}

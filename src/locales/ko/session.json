@@ -90,6 +90,16 @@
     "copy2": "작업을 로컬에서 직접 제어합니다",
     "description": "Crane에 일시적으로 연결할 수 없습니다. 터미널 상태는 백그라운드에서 다시 확인합니다."
   },
+  "promptEnhancementDiff": {
+    "title": "프롬프트 개선으로 바뀐 내용",
+    "summary": "지운 단어 {{removed}}개 · 추가한 단어 {{added}}개",
+    "legend": "지운 단어는 취소선, 추가한 단어는 밑줄로 표시합니다.",
+    "diffLabel": "단어 변경",
+    "removedMarker": "삭제:",
+    "addedMarker": "추가:",
+    "keep": "유지",
+    "revert": "원래대로 되돌리기"
+  },
   "chatInputComposer": {
     "submitInstantMacro": "매크로를 즉시 실행하지 못했습니다",
     "description": "입력창에 프롬프트가 있습니다. 대기 중인 동작을 완료한 후 보내세요.",
@@ -98,6 +108,8 @@
     "handleEnhancePrompt2": "이미 명확한 프롬프트입니다",
     "handlePromptEnhancementRevealComplete": "프롬프트 개선됨",
     "label": "실행 취소",
+    "viewEnhancementChanges": "변경 보기",
+    "enhancementChangesUnavailable": "프롬프트 개선 뒤에 초안이 바뀌어 비교할 내용이 없습니다.",
     "handleStartCompareRun": "비교 실행을 시작하지 못했습니다",
     "handleStartCompareRun2": "비교 후보가 별도로 실행 중입니다",
     "description3": "모든 후보가 완료되면 새 컨텍스트의 평가자가 결과를 평가합니다.",

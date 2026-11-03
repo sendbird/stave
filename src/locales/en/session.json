@@ -93,6 +93,16 @@
     "copy2": "Task control is now local",
     "description": "Crane is temporarily unreachable; its terminal status will retry in the background."
   },
+  "promptEnhancementDiff": {
+    "title": "Changes from Enhance",
+    "summary": "Removed words: {{removed}} · Added words: {{added}}",
+    "legend": "Removed words are struck through; added words are underlined.",
+    "diffLabel": "Word changes",
+    "removedMarker": "Removed:",
+    "addedMarker": "Added:",
+    "keep": "Keep",
+    "revert": "Revert to original"
+  },
   "chatInputComposer": {
     "submitInstantMacro": "Couldn't run the macro immediately",
     "description": "The prompt is in the composer. Finish the pending action and send it.",
@@ -101,6 +111,8 @@
     "handleEnhancePrompt2": "This prompt is already clear",
     "handlePromptEnhancementRevealComplete": "Prompt enhanced",
     "label": "Undo",
+    "viewEnhancementChanges": "View changes",
+    "enhancementChangesUnavailable": "The draft changed after Enhance, so there is nothing to compare.",
     "handleStartCompareRun": "Unable to start compare run",
     "handleStartCompareRun2": "Compare candidates are running separately",
     "description3": "A fresh-context judge will score the results after every candidate finishes.",

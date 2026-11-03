@@ -52,20 +52,21 @@ function isWhitespaceToken(token: string) {
   return /^\s+$/u.test(token);
 }
 
-/**
- * Marks which of `next`'s tokens are absent from `previous`, using an LCS so a
- * word that merely moved with the surrounding sentence is not reported as new.
- */
-function getChangedTokenFlags(previous: string[], next: string[]) {
-  const changed = new Array<boolean>(next.length).fill(true);
+type PromptTokenOp = { kind: "same" | "removed" | "added"; token: string };
 
+/**
+ * Aligns `previous` with `next` token by token: kept, removed or added. An
+ * LCS keeps a word that merely moved with the surrounding sentence from
+ * reading as new. A middle too long to align is reported as wholly removed
+ * and wholly added rather than blocking the frame.
+ */
+function alignPromptTokens(previous: string[], next: string[]): PromptTokenOp[] {
   let prefix = 0;
   while (
     prefix < previous.length &&
     prefix < next.length &&
     previous[prefix] === next[prefix]
   ) {
-    changed[prefix] = false;
     prefix += 1;
   }
 
@@ -75,19 +76,23 @@ function getChangedTokenFlags(previous: string[], next: string[]) {
     suffix < next.length - prefix &&
     previous[previous.length - 1 - suffix] === next[next.length - 1 - suffix]
   ) {
-    changed[next.length - 1 - suffix] = false;
     suffix += 1;
   }
 
+  const same = (token: string): PromptTokenOp => ({ kind: "same", token });
+  const removed = (token: string): PromptTokenOp => ({ kind: "removed", token });
+  const added = (token: string): PromptTokenOp => ({ kind: "added", token });
+  const ops: PromptTokenOp[] = next.slice(0, prefix).map(same);
   const previousMiddle = previous.slice(prefix, previous.length - suffix);
   const nextMiddle = next.slice(prefix, next.length - suffix);
+  const suffixOps = next.slice(next.length - suffix).map(same);
   if (
     previousMiddle.length === 0 ||
     nextMiddle.length === 0 ||
     previousMiddle.length > PROMPT_ENHANCEMENT_DIFF_TOKEN_LIMIT ||
     nextMiddle.length > PROMPT_ENHANCEMENT_DIFF_TOKEN_LIMIT
   ) {
-    return changed;
+    return [...ops, ...previousMiddle.map(removed), ...nextMiddle.map(added), ...suffixOps];
   }
 
   const columns = nextMiddle.length + 1;
@@ -107,19 +112,97 @@ function getChangedTokenFlags(previous: string[], next: string[]) {
   let column = 0;
   while (row < previousMiddle.length && column < nextMiddle.length) {
     if (previousMiddle[row] === nextMiddle[column]) {
-      changed[prefix + column] = false;
+      ops.push(same(nextMiddle[column]!));
       row += 1;
       column += 1;
       continue;
     }
     if (lengthAt(row + 1, column) >= lengthAt(row, column + 1)) {
+      ops.push(removed(previousMiddle[row]!));
       row += 1;
       continue;
     }
+    ops.push(added(nextMiddle[column]!));
     column += 1;
   }
+  ops.push(...previousMiddle.slice(row).map(removed), ...nextMiddle.slice(column).map(added));
+  return [...ops, ...suffixOps];
+}
 
-  return changed;
+/** Marks which of `next`'s tokens are absent from `previous`. */
+function getChangedTokenFlags(previous: string[], next: string[]) {
+  return alignPromptTokens(previous, next)
+    .filter((op) => op.kind !== "removed")
+    .map((op) => op.kind === "added");
+}
+
+export type PromptWordDiffSegment = {
+  kind: "same" | "removed" | "added";
+  text: string;
+};
+
+export interface PromptWordDiff {
+  segments: PromptWordDiffSegment[];
+  /** Words, not whitespace, on each side. */
+  removedWords: number;
+  addedWords: number;
+}
+
+/**
+ * The words Enhance removed from the draft and the words it added, in reading
+ * order, for the "View changes" diff.
+ *
+ * Words are aligned on their own, without the whitespace between them, so a
+ * kept word is never traded for a matching space (the reveal's token LCS can
+ * do that, which is harmless for a fade but wrong for a count). The kept and
+ * added runs carry the new text's own whitespace, so they read back as the
+ * new prompt exactly; a removed run is its words joined by single spaces, and
+ * the view sets it apart from its neighbours.
+ */
+export function diffPromptWords(previous: string, next: string): PromptWordDiff {
+  const previousWords = tokenizePromptText(previous).filter((token) => !isWhitespaceToken(token));
+  const nextTokens = tokenizePromptText(next);
+  const ops = alignPromptTokens(
+    previousWords,
+    nextTokens.filter((token) => !isWhitespaceToken(token)),
+  );
+  const segments: PromptWordDiffSegment[] = [];
+  const push = (kind: PromptWordDiffSegment["kind"], text: string) => {
+    const last = segments.at(-1);
+    if (last && last.kind === kind) last.text += text;
+    else segments.push({ kind, text });
+  };
+  let tokenIndex = 0;
+  const takeWhitespace = (kind: PromptWordDiffSegment["kind"]) => {
+    while (tokenIndex < nextTokens.length && isWhitespaceToken(nextTokens[tokenIndex]!)) {
+      push(kind, nextTokens[tokenIndex]!);
+      tokenIndex += 1;
+    }
+  };
+  takeWhitespace("same");
+  let removed: string[] = [];
+  for (let index = 0; index < ops.length; index += 1) {
+    const op = ops[index]!;
+    if (op.kind === "removed") {
+      removed.push(op.token);
+      continue;
+    }
+    if (removed.length > 0) {
+      push("removed", removed.join(" "));
+      removed = [];
+    }
+    push(op.kind, nextTokens[tokenIndex] ?? op.token);
+    tokenIndex += 1;
+    // The gap between two added words underlines with them; any other gap is kept text.
+    const following = ops[index + 1];
+    takeWhitespace(op.kind === "added" && following?.kind === "added" ? "added" : "same");
+  }
+  if (removed.length > 0) push("removed", removed.join(" "));
+  return {
+    segments,
+    removedWords: ops.filter((op) => op.kind === "removed").length,
+    addedWords: ops.filter((op) => op.kind === "added").length,
+  };
 }
 
 /**

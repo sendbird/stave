@@ -80,4 +80,22 @@ describe("toast facade", () => {
     ).rejects.toBe(failure);
     expect(notifications.events.at(-1)?.options.updates).toMatchObject({ title: "Import failed: disk full", type: "danger" });
   });
+
+  test("a secondary action rides on the toast's data and closes it after running", () => {
+    const notifications = record(notificationToastManager);
+    stops.push(notifications.stop);
+    let viewed = 0;
+    let undone = 0;
+    const id = toast.success("Prompt enhanced", {
+      secondaryAction: { label: "View changes", onClick: () => { viewed += 1; } },
+      action: { label: "Undo", onClick: () => { undone += 1; } },
+    });
+    const added = notifications.events.find((event) => event.action === "add");
+    const data = added?.options.data as { secondaryAction: { label: string; onClick: (event: unknown) => void } };
+    expect(data.secondaryAction.label).toBe("View changes");
+    data.secondaryAction.onClick({ defaultPrevented: false });
+    expect(viewed).toBe(1);
+    expect(undone).toBe(0);
+    expect(notifications.events.at(-1)).toMatchObject({ action: "close", options: { id } });
+  });
 });

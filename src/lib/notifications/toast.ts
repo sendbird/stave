@@ -4,6 +4,7 @@ import {
   runToastPromise,
   type ToastPromiseOptions,
 } from "@/components/ads/components/ToastHost.promise";
+import type { ToastSecondaryAction } from "@/components/ads/components/ToastHost";
 
 export const notificationToastManager = createToastManager();
 export const workspaceToastManager = createToastManager();
@@ -16,6 +17,12 @@ type NoticeOptions = {
   description?: ReactNode;
   duration?: number;
   action?: { label: ReactNode; onClick: MouseEventHandler<HTMLButtonElement> };
+  /**
+   * A second, lesser action shown before `action` (for example "View changes"
+   * beside "Undo"). It closes the toast too unless its handler calls
+   * `event.preventDefault()`.
+   */
+  secondaryAction?: { label: ReactNode; onClick: MouseEventHandler<HTMLButtonElement> };
   /** Runs once the toast closes, whether dismissed, timed out or acted on. */
   onClose?: () => void;
 };
@@ -75,6 +82,17 @@ function notice(type: string) {
               options.action?.onClick(event);
               if (!event.defaultPrevented) manager.close(id);
             },
+          }
+        : undefined,
+      data: options.secondaryAction
+        ? {
+            secondaryAction: {
+              label: options.secondaryAction.label,
+              onClick: (event: Parameters<MouseEventHandler<HTMLButtonElement>>[0]) => {
+                options.secondaryAction?.onClick(event);
+                if (!event.defaultPrevented) manager.close(id);
+              },
+            } satisfies ToastSecondaryAction,
           }
         : undefined,
     });

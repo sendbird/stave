@@ -57,6 +57,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import { PromptEnhancementDiffAnchor, type PromptEnhancementResult } from "@/components/session/prompt-enhancement-diff";
 import {
   ChevronDown,
   History,
@@ -547,11 +548,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const promptEnhancementRequestRef = useRef(0);
   const promptEnhancementPendingRef = useRef(false);
   const promptEnhancementRevealingRef = useRef(false);
-  const promptEnhancementResultRef = useRef<{
-    targetTaskId: string;
-    sourceText: string;
-    enhancedPrompt: string;
-  } | null>(null);
+  const promptEnhancementResultRef = useRef<PromptEnhancementResult | null>(null);
+  // The rewrite "View changes" is showing, over the composer.
+  const [promptEnhancementDiff, setPromptEnhancementDiff] = useState<PromptEnhancementResult | null>(null);
   const draftTextRef = useRef(promptDraft.text);
   const syncedDraftRef = useRef({
     taskId: args.providerSelectionTarget,
@@ -748,32 +747,32 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       outcome: "kept",
     });
     toast.success(i18n.t("session:chatInputComposer.handlePromptEnhancementRevealComplete"), {
+      secondaryAction: {
+        label: i18n.t("session:chatInputComposer.viewEnhancementChanges"),
+        onClick: () =>
+          isPromptEnhancementCurrent(enhancementResult)
+            ? setPromptEnhancementDiff(enhancementResult)
+            : toast.info(i18n.t("session:chatInputComposer.enhancementChangesUnavailable")),
+      },
       action: {
         label: i18n.t("session:chatInputComposer.label"),
-        onClick: () => {
-          if (
-            syncedDraftRef.current.taskId !== enhancementResult.targetTaskId ||
-            draftTextRef.current !== enhancementResult.enhancedPrompt
-          ) {
-            return;
-          }
-          adoptPromptDraftText({
-            taskId: enhancementResult.targetTaskId,
-            text: enhancementResult.sourceText,
-          });
-          commitPromptDraftText({
-            taskId: enhancementResult.targetTaskId,
-            text: enhancementResult.sourceText,
-          });
-          recordPromptEnhancementOutcome({
-            source: enhancementResult.sourceText,
-            enhanced: enhancementResult.enhancedPrompt,
-            outcome: "undone",
-          });
-          setFocusNonce((current) => current + 1);
-        },
+        onClick: () => revertPromptEnhancement(enhancementResult),
       },
     });
+  }
+
+  /** The draft still is this rewrite, in the task it was made for. */
+  const isPromptEnhancementCurrent = (result: PromptEnhancementResult) =>
+    syncedDraftRef.current.taskId === result.targetTaskId && draftTextRef.current === result.enhancedPrompt;
+
+  /** Undo or Revert: put the draft back and remember the rewrite was refused. */
+  function revertPromptEnhancement(result: PromptEnhancementResult) {
+    setPromptEnhancementDiff(null);
+    if (!isPromptEnhancementCurrent(result)) return;
+    adoptPromptDraftText({ taskId: result.targetTaskId, text: result.sourceText });
+    commitPromptDraftText({ taskId: result.targetTaskId, text: result.sourceText });
+    recordPromptEnhancementOutcome({ source: result.sourceText, enhanced: result.enhancedPrompt, outcome: "undone" });
+    setFocusNonce((current) => current + 1);
   }
 
   /**
@@ -1308,7 +1307,14 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
         />
       ) : null}
-      <div className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)}>
+      {/* "View changes" opens the Enhance diff over the composer, anchored to this measure box. */}
+      <PromptEnhancementDiffAnchor
+        change={promptEnhancementDiff?.targetTaskId === args.providerSelectionTarget ? promptEnhancementDiff : null}
+        onClose={() => setPromptEnhancementDiff(null)}
+        onKeep={() => (setPromptEnhancementDiff(null), setFocusNonce((current) => current + 1))}
+        onRevert={() => promptEnhancementDiff && revertPromptEnhancement(promptEnhancementDiff)}
+        render={<div className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)} />}
+      >
         {/* Rows attached above the card keep the card's width: in the framed
             composer they stay clear of the wing tracks beside it. */}
         <div className={sx(useFramedComposer && chatInputStyles.attachedRowsFramed)}>
@@ -1812,7 +1818,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             approvalRedirectMode ? (handleApprovalKey ?? undefined) : undefined
           }
         />
-      </div>
+      </PromptEnhancementDiffAnchor>
     </div>
   );
 }

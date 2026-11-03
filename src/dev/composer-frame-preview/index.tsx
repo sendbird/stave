@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import {
   buildModelPickerAgents,
@@ -55,7 +55,9 @@ const PREVIEW_DOCUMENT_CATALOG: readonly WorkspaceDocumentCatalogEntry[] = [
   },
 ];
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
-import { TooltipProvider } from "@/components/ui";
+import { Popover, PopoverAnchor, Toaster, TooltipProvider, toast } from "@/components/ui";
+import { PromptEnhancementDiffPopover } from "@/components/session/prompt-enhancement-diff";
+import { i18n } from "@/i18n";
 import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
 import { SecretRequestCard } from "@/components/session/secret-request-card";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
@@ -220,6 +222,15 @@ const INITIAL_AGENT = previewAgent();
  * total. The Claude read is a fake host call that counts itself on
  * `window.__contextBreakdownLoads`, behind the real short cache.
  */
+/**
+ * `&enhanceDiff=1` shows Enhance's finished state: the rewritten draft and the
+ * real "Prompt enhanced" toast with View changes and Undo, wired the way
+ * `ChatInputComposer` wires them.
+ */
+const ENHANCE_DIFF = previewParams.get("enhanceDiff") === "1";
+const PREVIEW_ENHANCE_SOURCE = "fix the bug in login where users end up on the wrong page";
+const PREVIEW_ENHANCED_PROMPT =
+  "Fix the login redirect bug: after sign-in, users land on /home instead of the page they requested. Add a regression test.";
 const CONTEXT_PROVIDER: ProviderId =
   previewParams.get("contextProvider") === "codex" ? "codex" : "claude-code";
 function loadPreviewContextBreakdown() {
@@ -265,10 +276,29 @@ export function ComposerFramePreviewApp() {
     useComposerFrameFits();
   const framed = layoutPreference === "framed" && composerFrameFits;
   const [draft, setDraft] = useState(
-    previewParams.get("draft") === "empty"
-      ? ""
-      : "Tighten the four-bar composer so the side shelves match the input card height.",
+    ENHANCE_DIFF
+      ? PREVIEW_ENHANCED_PROMPT
+      : previewParams.get("draft") === "empty"
+        ? ""
+        : "Tighten the four-bar composer so the side shelves match the input card height.",
   );
+  const [enhanceDiffOpen, setEnhanceDiffOpen] = useState(false);
+  const enhanceToastShown = useRef(false);
+  useEffect(() => {
+    if (!ENHANCE_DIFF || enhanceToastShown.current) return;
+    enhanceToastShown.current = true;
+    toast.success(i18n.t("session:chatInputComposer.handlePromptEnhancementRevealComplete"), {
+      duration: 0,
+      secondaryAction: {
+        label: i18n.t("session:chatInputComposer.viewEnhancementChanges"),
+        onClick: () => setEnhanceDiffOpen(true),
+      },
+      action: {
+        label: i18n.t("session:chatInputComposer.label"),
+        onClick: () => setDraft(PREVIEW_ENHANCE_SOURCE),
+      },
+    });
+  }, []);
   const [thinkingMode, setThinkingMode] = useState<
     "adaptive" | "enabled" | "disabled"
   >("enabled");
@@ -490,6 +520,12 @@ export function ComposerFramePreviewApp() {
           </div>
 
           <div className={sx(f.composerDock)}>
+            <Popover
+              open={enhanceDiffOpen}
+              onOpenChange={(open) => {
+                if (!open) setEnhanceDiffOpen(false);
+              }}
+            >
             <div className={sx(f.composerPad)}>
               <div
                 ref={composerMeasureRef}
@@ -500,6 +536,11 @@ export function ComposerFramePreviewApp() {
                   squeezed ? f.composerMeasureSqueezed : f.composerMeasureWide,
                 )}
               >
+                {/* The composer measure's top edge, where `ChatInputComposer`
+                    anchors the Enhance diff. */}
+                {ENHANCE_DIFF ? (
+                  <PopoverAnchor render={<div className={sx(f.enhanceAnchor)} />} />
+                ) : null}
                 {caseId === "needs-input" ? (
                   <ChatInputApprovalQueue
                     approvals={PREVIEW_APPROVALS}
@@ -641,6 +682,18 @@ export function ComposerFramePreviewApp() {
                 />
               </div>
             </div>
+            {ENHANCE_DIFF ? (
+              <PromptEnhancementDiffPopover
+                enhancedPrompt={PREVIEW_ENHANCED_PROMPT}
+                sourceText={PREVIEW_ENHANCE_SOURCE}
+                onKeep={() => setEnhanceDiffOpen(false)}
+                onRevert={() => {
+                  setEnhanceDiffOpen(false);
+                  setDraft(PREVIEW_ENHANCE_SOURCE);
+                }}
+              />
+            ) : null}
+            </Popover>
           </div>
         </div>
         {showPanel ? (
@@ -651,6 +704,7 @@ export function ComposerFramePreviewApp() {
         </div>
       </div>
       </TaskScopeProvider>
+      {ENHANCE_DIFF ? <Toaster /> : null}
     </TooltipProvider>
   );
 }
