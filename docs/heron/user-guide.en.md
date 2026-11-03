@@ -237,6 +237,8 @@ Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/scr
 
 **Progress line**: while a turn runs, the line above its steps shows a playful status phrase, the step in progress (for example **Reading search.ts**) and the elapsed time. Once the turn ends it becomes the turn's title. A turn that searched or fetched the web ends with **Sources** and a count under the answer; open it to list each page once.
 
+Tool output, reasoning, and folded tool groups load their bodies on first open and keep them after closing. Open a body before using browser find or printing its contents.
+
 **Questions**: when the AI asks a question with choices, the number keys pick an option. A Claude option can carry a preview, such as a code snippet; it shows under the options while that option has focus or the pointer.
 
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.

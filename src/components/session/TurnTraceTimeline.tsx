@@ -12,6 +12,7 @@ import type { ChatMessage } from "@/types/chat";
 import { useTurnClock } from "./TurnActivity";
 import {
   buildTurnTrace,
+  advanceTurnTrace,
   spanDurationMs,
   TURN_TRACE_ROOT_ID,
   type TurnTrace,
@@ -80,7 +81,7 @@ export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
           span.toolUseId ? [[span.id, span.toolUseId] as const] : [],
         ),
       ),
-    [trace],
+    [trace.spans],
   );
   const handleSelect = useCallback(
     (id: string) => {
@@ -156,22 +157,27 @@ export function LiveTurnTraceTimeline(props: { taskId: string }) {
   const snapshot =
     liveTurnId && activity?.turnId === liveTurnId ? activity : (retained?.snapshot ?? null);
   const live = Boolean(snapshot && snapshot.turnId === liveTurnId && snapshot.completedAt == null);
-  const trace = useMemo(
+  const turnId = snapshot?.turnId;
+  const startedAt = snapshot?.startedAt;
+  const completedAt = snapshot?.completedAt ?? null;
+  const failed = !live && retained?.snapshot.turnId === turnId && retained?.outcome === "failed";
+  const baseTrace = useMemo(
     () =>
-      snapshot
+      turnId && startedAt !== undefined
         ? buildTurnTrace({
-            messages: messages.filter((message) => message.turnId === snapshot.turnId),
-            turnStartedAt: snapshot.startedAt,
-            turnCompletedAt: snapshot.completedAt ?? null,
+            messages: messages.filter((message) => message.turnId === turnId),
+            turnStartedAt: startedAt,
+            turnCompletedAt: completedAt,
             live,
-            now,
-            failed: !live && retained?.snapshot.turnId === snapshot.turnId && retained.outcome === "failed",
+            now: startedAt,
+            failed,
           })
         : null,
     // Span names are translated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [live, messages, now, retained, snapshot, i18n.language],
+    [live, messages, turnId, startedAt, completedAt, failed, i18n.language],
   );
+  const trace = useMemo(() => baseTrace ? advanceTurnTrace(baseTrace, now) : null, [baseTrace, now]);
   const onSelectTool = useCallback(
     (toolUseId: string) => focusTranscriptTool({ taskId, toolUseId }),
     [focusTranscriptTool, taskId],

@@ -1,7 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createFleetAgentFactsSelector } from "./fleet-agent-facts-selector";
 import { AgentFleet, type AgentFleetAgent } from "@/components/ads/components/AgentFleet";
 import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -18,50 +19,16 @@ import { getToolIcon } from "@/components/session/message/tool-icon";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import { selectDelegationExchanges } from "@/lib/delegation/exchange";
 import {
-  buildFleetAgentFacts,
   buildMainAgent,
   buildSubagent,
   EMPTY_FLEET_AGENT_FACTS,
-  shareFleetAgentFacts,
-  type FleetAgentFacts,
 } from "@/lib/fleet/agent-tree";
 import type { FleetTaskRow, FleetTaskTableFilter } from "@/lib/fleet/task-rows";
 import { selectDelegatedTaskBlockedKinds } from "@/lib/runs/delegated-task-view";
-import type { AppState } from "@/store/app-store.types";
 import { useAppStore } from "@/store/app.store";
 import { sharedFilesParentKey, useSharedFilesStore } from "@/store/shared-files-store";
 
 type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: string };
-
-const NO_FACTS: Readonly<Record<string, FleetAgentFacts>> = {};
-
-/** The row's messages, where the window holds its workspace's session. */
-function rowMessages(state: AppState, row: FleetTaskRow) {
-  if (row.repositoryPath !== state.repositoryPath) return undefined;
-  if (row.workspaceId === state.activeWorkspaceId) return state.messagesByTask[row.task.id];
-  return state.workspaceRuntimeCacheById[row.workspaceId]?.messagesByTask[row.task.id];
-}
-
-/**
- * The live facts of every shown row in one record. It runs on every streamed
- * chunk, so entries equal to the last ones keep their references and a chunk
- * that reports no new work re-renders nothing.
- */
-function createFleetAgentFactsSelector(
-  rows: readonly FleetTaskRow[],
-  previous: { current: Readonly<Record<string, FleetAgentFacts>> },
-) {
-  return (state: AppState) => {
-    const next: Record<string, FleetAgentFacts> = {};
-    for (const row of rows) {
-      const snapshot = row.activeTurnId ? state.providerTurnActivityByTask[row.task.id] : undefined;
-      const activity = snapshot && snapshot.turnId === row.activeTurnId ? snapshot : null;
-      next[row.key] = buildFleetAgentFacts({ activity, messages: rowMessages(state, row) });
-    }
-    previous.current = shareFleetAgentFacts(previous.current, next);
-    return previous.current;
-  };
-}
 
 /**
  * Fleet's Tree layout: every open task, with the same rows, filter, search
@@ -101,8 +68,7 @@ function FleetAgentTreeBoard(props: {
 }) {
   const { t } = useTranslation(["fleet"]);
   const { rows } = props;
-  const previousFacts = useRef<Readonly<Record<string, FleetAgentFacts>>>(NO_FACTS);
-  const selectFacts = useMemo(() => createFleetAgentFactsSelector(rows, previousFacts), [rows]);
+  const selectFacts = useMemo(() => createFleetAgentFactsSelector(rows), [rows, i18n.resolvedLanguage]);
   const facts = useAppStore(selectFacts);
 
   // The first agent opens until the user chooses; then the choice holds.

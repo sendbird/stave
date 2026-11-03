@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { usePanelMount } from "./Collapsible.panel-mount";
 import { ListTree } from "lucide-react";
 import * as React from "react";
 
@@ -131,6 +132,7 @@ export function ToolRunGroup({
   ...props
 }: ToolRunGroupProps) {
   useTranslation();
+  const panel = usePanelMount("lazy");
   const items = flattenRunRows(children);
   const derivedStatus =
     statusProp ?? aggregateRunStatus(runs.map((run) => run.status)) ?? "done";
@@ -222,8 +224,9 @@ export function ToolRunGroup({
           sx(inlineDisclosure.panel, toolRunStyles.panel),
           "atelier-motion-collapse",
         )}
-        keepMounted
+        keepMounted={panel.keepMounted}
       >
+        {panel.probe}
         <div className="atelier-motion-panel-inner">{list}</div>
       </CollapsiblePanel>
     </CollapsibleRoot>

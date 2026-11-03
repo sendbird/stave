@@ -206,6 +206,13 @@ cross-session readability.
 - Do not derive trace arrays inside store selectors.
 - Build trace data with pure helpers plus `useMemo` at the component boundary.
 - Keep step renderers split by responsibility so only affected nodes re-render.
+- Compare immutable source parts when memoizing trace rows: rebuilding a trace
+  wrapper must not re-render unchanged tool, reasoning, or decision rows.
+- Tool, reasoning, and rolled-up tool-group bodies mount on first open, then
+  stay mounted to preserve reader state. Unopened bodies do not participate in
+  browser find or printing. Headers and summaries remain available.
+- A live timeline advances its clock from parsed spans; clock-only ticks must
+  not parse tool inputs or rebuild the turn's observed timestamps.
 - Batch provider text and reasoning deltas into at most 20 visual updates per second
   and merge adjacent text from the same provider segment before replay. Interaction,
   tool, and lifecycle events still flush immediately. Arrival-based liveness remains

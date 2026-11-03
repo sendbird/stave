@@ -1,4 +1,5 @@
 import { i18n, useTranslation, Trans } from "@/i18n";
+import { usePanelMount } from "./Collapsible.panel-mount";
 import * as stylex from "@stylexjs/stylex";
 import { BrainCircuit } from "lucide-react";
 import * as React from "react";
@@ -138,6 +139,7 @@ export function Thinking({
   ...props
 }: ThinkingProps) {
   useTranslation();
+  const panel = usePanelMount("lazy");
   const thinking = status === "thinking";
   const elapsedMs = useMeasuredElapsed(
     { durationMs, now, settledAt, startedAt },
@@ -275,8 +277,9 @@ export function Thinking({
       </CollapsibleTrigger>
       <CollapsiblePanel
         className={cx(sx(styles.panel), "atelier-motion-collapse")}
-        keepMounted
+        keepMounted={panel.keepMounted}
       >
+        {panel.probe}
         <div
           aria-label={label}
           className={cx(

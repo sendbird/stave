@@ -240,6 +240,18 @@ export function buildTurnTrace(args: {
     }
   }
 
+  return { spans, unreported, slowestId: findSlowestSpan(spans, nowMs), nowMs, usage: sumUsage(args.messages) };
+}
+
+/** Move a live axis without re-parsing every tool's input and observed times. */
+export function advanceTurnTrace(trace: TurnTrace, now: number): TurnTrace {
+  if (trace.nowMs === null) return trace;
+  const nowMs = Math.max(now, trace.spans[0]?.startMs ?? now);
+  if (nowMs === trace.nowMs) return trace;
+  return { ...trace, nowMs, slowestId: findSlowestSpan(trace.spans, nowMs) };
+}
+
+function findSlowestSpan(spans: readonly TurnTraceSpan[], nowMs: number | null): string | null {
   const parentIds = new Set(spans.map((span) => span.parentId).filter(Boolean));
   const leaves = spans.filter((span) => span.kind !== "turn" && !parentIds.has(span.id));
   let slowestId: string | null = null;
@@ -254,7 +266,7 @@ export function buildTurnTrace(args: {
     }
   }
 
-  return { spans, unreported, slowestId, nowMs, usage: sumUsage(args.messages) };
+  return slowestId;
 }
 
 /** A span's length; a running span is measured to `nowMs`. */

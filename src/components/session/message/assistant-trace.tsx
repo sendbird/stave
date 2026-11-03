@@ -2,7 +2,8 @@ import { formatSystemEventDisplay } from "../system-event-display";
 import { formatProviderErrorDisplay } from "@/lib/providers/error-display";
 import { i18n, useTranslation, type AppTFunction } from "@/i18n";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
+import { sameAssistantTraceEntry } from "./assistant-trace-entry-equality";
 import { FileCode2 } from "lucide-react";
 import type { AgentStepState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
@@ -166,7 +167,7 @@ export function splitSystemEventContent(content: string): {
 
 /* ─── Entry renderer ──────────────────────────────────────────────── */
 
-function AssistantTraceEntryView(args: {
+const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
   entry: AssistantTraceEntry;
   isLast: boolean;
   taskId: string;
@@ -397,7 +398,14 @@ function AssistantTraceEntryView(args: {
       );
     }
   }
-}
+}, (previous, next) =>
+  previous.taskId === next.taskId &&
+  previous.messageId === next.messageId &&
+  previous.isLast === next.isLast &&
+  previous.terminalStopReason === next.terminalStopReason &&
+  previous.readOnly === next.readOnly &&
+  sameAssistantTraceEntry(previous.entry, next.entry),
+);
 
 function DisplayPartList(args: {
   parts: MessagePart[];
