@@ -243,6 +243,54 @@ export const styles = stylex.create({
     pointerEvents: "none",
     position: "absolute",
   },
+  // Host: the `axisTicks` row. Same subgrid, gap and end gutter as a span row,
+  // so its middle cell IS the tracks' column and a label's x is a bar's x.
+  axisRow: {
+    alignItems: "end",
+    columnGap: vars["--ads-space-12"],
+    display: "grid",
+    gridColumn: "1 / -1",
+    gridTemplateColumns: "subgrid",
+    minInlineSize: 0,
+    paddingBlockStart: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--ads-space-12"],
+  },
+  axisTrack: {
+    blockSize: `calc(${vars["--ads-font-size-caption"]} * ${vars["--ads-line-height-tight"]})`,
+    minInlineSize: 0,
+    position: "relative",
+  },
+  tickLabel: {
+    color: vars["--ads-color-text-subtle"],
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    insetBlockStart: 0,
+    lineHeight: vars["--ads-line-height-tight"],
+    position: "absolute",
+    whiteSpace: "nowrap",
+  },
+  // The origin label starts at its line, the last ones end at theirs, the
+  // rest centre on it, so no label hangs off either end of the track.
+  tickLabelStart: {
+    transform: "none",
+  },
+  tickLabelCentre: {
+    transform: "translateX(-50%)",
+  },
+  tickLabelEnd: {
+    transform: "translateX(-100%)",
+  },
+  // A tick's rule through a span row: the marker's full-row extent, in the
+  // quiet divider ink so the bars stay the figure and the rules the ground.
+  tickRule: {
+    borderInlineStartColor: vars["--ads-color-border"],
+    borderInlineStartStyle: "dashed",
+    borderInlineStartWidth: vars["--ads-border-width-hairline"],
+    insetBlock: `calc((8px - ${vars["--ads-control-height-xs"]}) / 2)`,
+    pointerEvents: "none",
+    position: "absolute",
+  },
   // Host: bar series other than the upstream `chart1`.
   barChart2: {
     backgroundColor: vars["--ads-chart-2"],

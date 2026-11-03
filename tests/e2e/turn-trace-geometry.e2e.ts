@@ -119,6 +119,80 @@ for (const locale of ["en", "ko"] as const) {
   }
 }
 
+async function measureTicks(page: Page) {
+  return page.getByTestId("turn-trace-fixture").evaluate((fixture) => {
+    const axis = fixture.querySelector<HTMLElement>("[data-trace-axis]")!;
+    const firstTrack = fixture.querySelector<HTMLElement>('[data-trace-span-id] [data-ads-slot="track"]')!.getBoundingClientRect();
+    const axisTrack = axis.children[1]!.getBoundingClientRect();
+    const firstRow = fixture.querySelector<HTMLElement>("[data-trace-span-id]")!.getBoundingClientRect();
+    const labels = [...axis.querySelectorAll<HTMLElement>("[data-trace-tick]")].map((label) => {
+      const box = label.getBoundingClientRect();
+      return { offset: Number(label.dataset.traceTick), text: label.textContent, left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    });
+    const rules = [...fixture.querySelectorAll<HTMLElement>("[data-trace-tick-rule]")].map((rule) => ({
+      offset: Number(rule.dataset.traceTickRule),
+      x: rule.getBoundingClientRect().left,
+    }));
+    return {
+      trackLeft: firstTrack.left,
+      trackWidth: firstTrack.width,
+      axisTrackLeft: axisTrack.left,
+      axisTrackWidth: axisTrack.width,
+      axisBottom: axis.getBoundingClientRect().bottom,
+      firstRowTop: firstRow.top,
+      labels,
+      rules,
+    };
+  });
+}
+
+const TICK_TEXT = {
+  en: ["0s", "30s", "1m", "1m 30s"],
+  ko: ["0초", "30초", "1분", "1분 30초"],
+} as const;
+
+for (const locale of ["en", "ko"] as const) {
+  for (const dark of [false, true]) {
+    test(`time-axis ticks sit on the bars' grid (${locale}, ${dark ? "dark" : "light"})`, async ({ page }) => {
+      await open(page, { locale, dark });
+      const geometry = await measureTicks(page);
+
+      // The 0-95s axis takes a 30s step: four labels, a rule for each past 0.
+      expect(geometry.labels.map((label) => label.offset)).toEqual([0, 30_000, 60_000, 90_000]);
+      expect(geometry.labels.map((label) => label.text)).toEqual([...TICK_TEXT[locale]]);
+      expect(new Set(geometry.rules.map((rule) => rule.offset))).toEqual(new Set([30_000, 60_000, 90_000]));
+
+      // The axis row's track is the rows' track.
+      expect(Math.abs(geometry.axisTrackLeft - geometry.trackLeft)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(geometry.axisTrackWidth - geometry.trackWidth)).toBeLessThanOrEqual(0.5);
+      // Labels sit above the first span row, inside the track's extent.
+      for (const label of geometry.labels) {
+        expect(label.bottom).toBeLessThanOrEqual(geometry.firstRowTop + 0.5);
+        expect(label.left).toBeGreaterThanOrEqual(geometry.trackLeft - 0.5);
+        expect(label.right).toBeLessThanOrEqual(geometry.trackLeft + geometry.trackWidth + 0.5);
+      }
+
+      const xAt = (offset: number) => geometry.trackLeft + (offset / 95_000) * geometry.trackWidth;
+      // Every rule, on every row, stands where its time is on the axis.
+      for (const rule of geometry.rules) {
+        expect(Math.abs(rule.x - xAt(rule.offset)), `rule ${rule.offset}`).toBeLessThanOrEqual(1);
+      }
+      // The origin label starts at the track; middle labels centre on their
+      // rule; the last one, near the end, ends at it.
+      const [zero, thirty, sixty, ninety] = geometry.labels;
+      expect(Math.abs(zero!.left - geometry.trackLeft)).toBeLessThanOrEqual(1);
+      for (const label of [thirty!, sixty!]) {
+        expect(Math.abs((label.left + label.right) / 2 - xAt(label.offset)), `label ${label.offset}`).toBeLessThanOrEqual(1);
+      }
+      expect(Math.abs(ninety!.right - xAt(90_000))).toBeLessThanOrEqual(1);
+      // Neighbouring labels never touch.
+      for (let index = 1; index < geometry.labels.length; index += 1) {
+        expect(geometry.labels[index]!.left).toBeGreaterThan(geometry.labels[index - 1]!.right);
+      }
+    });
+  }
+}
+
 test("the Slowest tag, the turn's cost and the unreported step read in Korean", async ({ page }) => {
   await open(page, { locale: "ko", dark: false });
   const fixture = page.getByTestId("turn-trace-fixture");

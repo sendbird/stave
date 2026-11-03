@@ -15,6 +15,13 @@ import {
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { DisclosureGroupToggle } from "./disclosure-group-toggle";
 import { barStatusStyles, barToneStyles, styles } from "./TraceWaterfall.styles";
+import {
+  resolveTraceTicks,
+  tickLabelAnchor,
+  type TraceAxis,
+} from "./TraceWaterfall.ticks";
+
+export { resolveTraceTicks, type TraceAxis };
 
 export type TraceSpanStatus = "ok" | "error" | "running";
 
@@ -49,6 +56,11 @@ export type TraceWaterfallProps = Omit<
   React.ComponentProps<"div">,
   "onSelect"
 > & {
+  /**
+   * Host addition: a labelled time axis (0s, 30s, 1m…) above the rows, with a
+   * faint rule through every track at each tick, on the bars' own grid.
+   */
+  axisTicks?: boolean;
   /** Span ids collapsed initially (uncontrolled expansion; default all expanded). */
   defaultCollapsedIds?: string[];
   label?: string;
@@ -78,8 +90,6 @@ const DEPTH_INDENT = 16;
 function formatDuration(durationMs: number): string {
   return formatHostDuration(durationMs, { tenths: true });
 }
-
-export type TraceAxis = { originMs: number; totalMs: number };
 
 /**
  * Host: the shared axis, exported so the math is tested where it is used.
@@ -121,6 +131,12 @@ export function layoutTraceBar(
   return { startPercent, widthPercent };
 }
 
+const tickLabelStyles = {
+  centre: styles.tickLabelCentre,
+  end: styles.tickLabelEnd,
+  start: styles.tickLabelStart,
+} as const;
+
 /**
  * Hierarchical span waterfall (trace-view anatomy: chronologically
  * ordered rows, children indented under parents, proportional timing bars on
@@ -141,6 +157,7 @@ export function layoutTraceBar(
  * bars on them — share one axis whatever a row's duration text measures.
  */
 export function TraceWaterfall({
+  axisTicks = false,
   className,
   defaultCollapsedIds,
   label,
@@ -261,6 +278,14 @@ export function TraceWaterfall({
 
   const markerPercent =
     markerMs === undefined ? null : ((markerMs - originMs) / totalMs) * 100;
+  const ticks = axisTicks
+    ? resolveTraceTicks(axis).map((offset) => ({
+        offset,
+        percent: (offset / totalMs) * 100,
+      }))
+    : [];
+  // The origin needs no rule: the track's own start is it.
+  const tickRules = ticks.filter((tick) => tick.offset > 0);
 
   return (
     <div
@@ -299,6 +324,26 @@ export function TraceWaterfall({
             onToggle={group.toggleAll}
             themeSlot={themeSlotProps("trace-waterfall", "toggle")}
           />
+        </div>
+      ) : null}
+      {ticks.length > 0 ? (
+        // Host: the axis is a row of the same subgrid, so a tick's label sits
+        // over the very x its rule and any bar starting then are drawn at.
+        <div aria-hidden className={sx(styles.axisRow)} data-trace-axis="true">
+          <span />
+          <div className={sx(styles.axisTrack)}>
+            {ticks.map((tick) => (
+              <span
+                className={sx(styles.tickLabel, tickLabelStyles[tickLabelAnchor(tick.percent)])}
+                data-trace-tick={tick.offset}
+                key={tick.offset}
+                style={{ insetInlineStart: `${tick.percent}%` }}
+              >
+                {formatDuration(tick.offset)}
+              </span>
+            ))}
+          </div>
+          <span />
         </div>
       ) : null}
       {visible.map((node, index) => {
@@ -387,6 +432,14 @@ export function TraceWaterfall({
               aria-hidden
               className={sx(styles.track)}
             >
+              {tickRules.map((tick) => (
+                <span
+                  className={sx(styles.tickRule)}
+                  data-trace-tick-rule={tick.offset}
+                  key={tick.offset}
+                  style={{ insetInlineStart: `${tick.percent}%` }}
+                />
+              ))}
               <span
                 className={sx(
                   styles.bar,

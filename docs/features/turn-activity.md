@@ -305,6 +305,9 @@ the steps:
   step. Under it are the reasoning passes, the tool calls, and the subagents
   with the calls they made nested inside them, colored by kind (the legend
   names them).
+- Time labels over the bars (for example 0s, 30s, 1m) mark the axis, with a
+  faint rule down every row at each one. The step adapts to the turn's length
+  so there are at most four labels.
 - While the turn runs, a **Now** line marks the present and running steps
   reach it. The longest step is tagged **Slowest**.
 - Each bar starts and ends when the runtime saw the step start and finish.

@@ -99,6 +99,7 @@ export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
       {/* The turn row always draws: its length, tokens and cost are known
           even when none of its steps reported a time. */}
       <TraceWaterfall
+        axisTicks
         label={i18n.t("session:turnTrace.label")}
         spans={spans}
         markerMs={trace.nowMs ?? undefined}

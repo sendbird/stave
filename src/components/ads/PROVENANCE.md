@@ -824,6 +824,14 @@ Further host extensions:
     axis stretches to include it). It sets `aria-pressed` only when the caller
     keeps a selection, and tags rows, names, bars and the marker with
     `data-trace-*` attributes for geometry tests.
+  - `axisTicks` (host addition, off by default): a labelled time axis above
+    the rows and a dashed rule through every track at each tick. The axis is
+    a row of the same subgrid, so a label's x is the x its rule and any bar
+    starting then are drawn at. `resolveTraceTicks` (`TraceWaterfall.ticks.ts`,
+    re-exported) picks the smallest step on a readable ladder (0.1s … 30s, 1m,
+    2m, 5m … 1h, then whole hours) that keeps four labels or fewer; labels use
+    the same `formatDuration` as the spans. The Activity tab's Timeline turns
+    it on.
   - A span's name keeps its room and its muted `meta` shrinks first; upstream
     held the meta at full width, so a long path cut the name to a letter.
   - The axis and bar math moved into exported `resolveTraceAxis` and

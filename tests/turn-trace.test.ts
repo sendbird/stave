@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   layoutTraceBar,
   resolveTraceAxis,
+  resolveTraceTicks,
 } from "@/components/ads/components/TraceWaterfall";
 import {
   buildTurnTrace,
@@ -221,5 +222,24 @@ describe("waterfall layout", () => {
     const axis = { originMs: 0, totalMs: 100_000 };
     expect(layoutTraceBar({ startMs: 50_000, durationMs: 1 }, axis)).toEqual({ startPercent: 50, widthPercent: 0.5 });
     expect(layoutTraceBar({ startMs: 99_900, durationMs: 1 }, axis).widthPercent).toBeCloseTo(0.1, 6);
+  });
+
+  test("axis ticks take the smallest readable step that keeps four or fewer", () => {
+    // A 1m 35s turn reads 0s / 30s / 1m / 1m 30s, not a tick every 15s.
+    expect(resolveTraceTicks({ originMs: 0, totalMs: 95_000 })).toEqual([0, 30_000, 60_000, 90_000]);
+    // An exact fit keeps its end tick.
+    expect(resolveTraceTicks({ originMs: 0, totalMs: 60_000 })).toEqual([0, 30_000, 60_000]);
+    // Short traces step in tenths of a second; long ones in minutes, then hours.
+    expect(resolveTraceTicks({ originMs: 0, totalMs: 1_200 })).toEqual([0, 500, 1_000]);
+    expect(resolveTraceTicks({ originMs: 0, totalMs: 14 * 60_000 })).toEqual([0, 300_000, 600_000]);
+    expect(resolveTraceTicks({ originMs: 0, totalMs: 7 * 3_600_000 })).toEqual([0, 3 * 3_600_000, 6 * 3_600_000]);
+    // Offsets are from the axis origin, whatever absolute time it starts at.
+    expect(resolveTraceTicks({ originMs: 5_000, totalMs: 10_000 })).toEqual([0, 5_000, 10_000]);
+    for (const totalMs of [1, 999, 4_000, 95_000, 3_600_000, 50 * 3_600_000]) {
+      const ticks = resolveTraceTicks({ originMs: 0, totalMs });
+      expect(ticks.length).toBeGreaterThanOrEqual(1);
+      expect(ticks.length).toBeLessThanOrEqual(4);
+      expect(ticks.at(-1)!).toBeLessThanOrEqual(totalMs);
+    }
   });
 });
