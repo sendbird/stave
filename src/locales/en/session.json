@@ -1254,7 +1254,14 @@
       "approval": "Approved: {{tool}}: {{description}}",
       "approvalTool": "Approved: {{tool}}",
       "plan": "Plan: {{path}}"
-    }
+    },
+    "leftOutTitle_one": "{{count}} line did not fit",
+    "leftOutTitle_other": "{{count}} lines did not fit",
+    "leftOutLimit": "{{section}} holds {{limit}} characters",
+    "leftOutLabel": "Left out:",
+    "putBack": "Put back",
+    "overLimit_one": "{{count}} character over the {{limit}}-character limit. Shorten it to save.",
+    "overLimit_other": "{{count}} characters over the {{limit}}-character limit. Shorten it to save."
   },
   "sideChat": {
     "title": "Side question",

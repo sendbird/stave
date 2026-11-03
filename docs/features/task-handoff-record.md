@@ -50,7 +50,12 @@
   - plans linked to the task go to Remaining work.
   Lines a section already has are not added twice. A section never grows
   past its 2,000 characters this way: lines that do not fit are left out, and
-  Stave says how many and in which sections.
+  Stave says how many and in which sections. While you edit, they stay listed
+  under their section (**1 line did not fit · Cautions holds 2,000
+  characters**), struck through and labelled **Left out**, each with **Put
+  back**. Put back adds the line to the end of the section; if that takes the
+  section past its limit, the field says by how many characters and **Save**
+  waits until you shorten it. The list goes when you save or cancel.
 - **Ask the agent to update** sends the task's agent a message that asks for a
   proposed record. Its reply carries the proposal in a block Stave reads; the
   tab then shows **The agent proposed changes** with **Review** and

@@ -10,6 +10,7 @@ import type { ChatMessage } from "@/types/chat";
 import {
   applyHandoffDraft,
   emptyHandoffRecord,
+  HANDOFF_SECTION_MAX_CHARS,
   HANDOFF_PROPOSAL_FENCE,
   type TaskHandoffRecord,
 } from "@/lib/task-context/handoff-record";
@@ -109,8 +110,20 @@ export function stubTurnHistory(args: { plainTaskId: string; messages: readonly 
   };
 }
 
+/**
+ * Cautions that leave less room than Stave's checks line needs, for
+ * `&record=full`: Fill from this task then leaves that line out.
+ */
+function nearlyFullCautions(): string {
+  const lines = ["- Stave's checks failed: test: 2 tests failed in tests/settings-sidebar.test.tsx"];
+  for (let index = 1; lines.join("\n").length < HANDOFF_SECTION_MAX_CHARS - 60; index += 1) {
+    lines.push(`- Sidebar row ${index} keeps its focus ring inside the panel edge`);
+  }
+  return lines.join("\n");
+}
+
 /** A record with a goal, a decision the agent proposed and the user kept, and a caution Stave filled. */
-function previewHandoffRecord(): TaskHandoffRecord {
+function previewHandoffRecord(full = false): TaskHandoffRecord {
   const day = "2026-09-29T09:05:00.000Z";
   const written = applyHandoffDraft({
     record: emptyHandoffRecord(),
@@ -119,7 +132,7 @@ function previewHandoffRecord(): TaskHandoffRecord {
       decisions: "- Row gap 8px, list padding 12px (tokens only)\n- Keep the Tab order identical to the visual order",
       verified: "",
       remaining: "- Section headers keep their spacing; a separate pass",
-      cautions: "- Stave's checks failed: test: 2 tests failed in tests/settings-sidebar.test.tsx",
+      cautions: full ? nearlyFullCautions() : "- Stave's checks failed: test: 2 tests failed in tests/settings-sidebar.test.tsx",
     },
     authors: { decisions: "agent", cautions: "stave" },
     at: day,
@@ -168,7 +181,8 @@ export const PREVIEW_HANDOFF_PROPOSAL: ChatMessage = {
 /**
  * The handoff record reads and saves, kept in memory for the preview.
  * `&record=empty` starts with no record, so the return summary's last
- * decision is the newest approval you answered.
+ * decision is the newest approval you answered; `&record=full` starts with
+ * Cautions nearly at its limit, so Fill leaves a line out.
  */
 export function stubTaskHandoff() {
   const host = window as unknown as {
@@ -183,8 +197,8 @@ export function stubTaskHandoff() {
       ...host.api?.persistence,
       readTaskHandoff: async (args: { workspaceId: string; taskId: string }) => {
         const key = keyOf(args);
-        const empty = new URLSearchParams(window.location.search).get("record") === "empty";
-        if (!records.has(key)) records.set(key, empty ? emptyHandoffRecord() : previewHandoffRecord());
+        const seed = new URLSearchParams(window.location.search).get("record");
+        if (!records.has(key)) records.set(key, seed === "empty" ? emptyHandoffRecord() : previewHandoffRecord(seed === "full"));
         return { ok: true, record: records.get(key) };
       },
       saveTaskHandoff: async (args: SaveTaskHandoffArgs) => {

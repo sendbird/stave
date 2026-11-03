@@ -1200,7 +1200,12 @@
       "approval": "승인함: {{tool}}: {{description}}",
       "approvalTool": "승인함: {{tool}}",
       "plan": "계획: {{path}}"
-    }
+    },
+    "leftOutTitle_other": "{{count}}줄이 들어가지 못했습니다",
+    "leftOutLimit": "{{section}}에는 최대 {{limit}}자까지 담을 수 있습니다",
+    "leftOutLabel": "넣지 않음:",
+    "putBack": "다시 넣기",
+    "overLimit_other": "최대 {{limit}}자보다 {{count}}자 많습니다. 줄여야 저장할 수 있습니다."
   },
   "sideChat": {
     "title": "곁질문",

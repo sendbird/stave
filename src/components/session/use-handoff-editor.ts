@@ -4,10 +4,14 @@ import { useAppStore } from "@/store/app.store";
 import {
   HANDOFF_SECTION_IDS,
   handoffRecordToDraft,
+  combineHandoffLeftOut,
+  handoffSectionOverflow,
   mergeHandoffSuggestions,
+  putBackHandoffLine,
   resolveHandoffCommit,
   type HandoffDraft,
   type HandoffDraftAuthors,
+  type HandoffLeftOut,
   type HandoffSectionId,
   type TaskHandoffRecord,
 } from "@/lib/task-context/handoff-record";
@@ -83,6 +87,9 @@ export function useHandoffEditor(args: {
     stored !== null && stored.baseRevision !== args.record.revision ? args.record : null,
   );
   const [saving, setSaving] = useState(false);
+  // What the last Fill could not add, until it is put back or editing ends.
+  // Held for this editing session only; a restored draft starts without it.
+  const [leftOut, setLeftOut] = useState<HandoffLeftOut>({});
 
   const remember = (next: { draft: HandoffDraft; authors: HandoffDraftAuthors; baseRevision: number }) => {
     setDraft(next.draft);
@@ -91,9 +98,10 @@ export function useHandoffEditor(args: {
     writeHandoffDraft(args.draftKey, next);
   };
 
-  const begin = (next: { draft: HandoffDraft; authors: HandoffDraftAuthors }) => {
+  const begin = (next: { draft: HandoffDraft; authors: HandoffDraftAuthors }, nextLeftOut: HandoffLeftOut = {}) => {
     setConflict(null);
     setIsEditing(true);
+    setLeftOut(nextLeftOut);
     remember({ ...next, baseRevision: args.record.revision });
   };
 
@@ -101,6 +109,7 @@ export function useHandoffEditor(args: {
     clearHandoffDraft(args.draftKey);
     setConflict(null);
     setIsEditing(false);
+    setLeftOut({});
   };
 
   const save = async (fromRevision: number): Promise<HandoffSaveOutcome> => {
@@ -143,25 +152,45 @@ export function useHandoffEditor(args: {
     authors,
     conflict,
     saving,
+    leftOut,
+    /** A section past its limit after a line was put back: Save waits until it is shortened. */
+    overLimit: HANDOFF_SECTION_IDS.some((id) => handoffSectionOverflow(draft[id]) > 0),
     startEditing: () => begin({ draft: handoffRecordToDraft(args.record), authors: {} }),
     updateSection: (id: HandoffSectionId, text: string) =>
       remember({ draft: { ...draft, [id]: text }, authors: { ...authors, [id]: "user" }, baseRevision }),
     /**
      * Stave's facts, appended where a section lacks them and has room; returns
-     * the sections that changed and how many lines each section left out.
+     * the sections that changed and the lines each section left out. The
+     * editor opens to list what was left out even when nothing else changed.
      */
     applySuggestions: (suggestions: Partial<HandoffDraft>) => {
       const base = isEditing ? draft : handoffRecordToDraft(args.record);
       const merged = mergeHandoffSuggestions(base, suggestions);
-      if (merged.changed.length === 0) return { changed: merged.changed, leftOut: merged.leftOut };
+      const nextLeftOut = combineHandoffLeftOut(isEditing ? leftOut : {}, merged.leftOut, merged.draft);
+      const left = HANDOFF_SECTION_IDS.some((id) => (merged.leftOut[id]?.length ?? 0) > 0);
+      if (merged.changed.length === 0 && !left) return { changed: merged.changed, leftOut: merged.leftOut };
       const nextAuthors = { ...(isEditing ? authors : {}) };
       for (const id of merged.changed) nextAuthors[id] = "stave";
       if (isEditing) {
+        setLeftOut(nextLeftOut);
         remember({ draft: merged.draft, authors: nextAuthors, baseRevision });
       } else {
-        begin({ draft: merged.draft, authors: nextAuthors });
+        begin({ draft: merged.draft, authors: nextAuthors }, nextLeftOut);
       }
       return { changed: merged.changed, leftOut: merged.leftOut };
+    },
+    /**
+     * Puts one left-out line back at the end of its section. The text is
+     * Stave's, so a section nobody wrote yet takes Stave as its author.
+     */
+    putBack: (id: HandoffSectionId, line: string) => {
+      const rest = (leftOut[id] ?? []).filter((candidate) => candidate !== line);
+      setLeftOut({ ...leftOut, [id]: rest });
+      remember({
+        draft: { ...draft, [id]: putBackHandoffLine(draft[id], line) },
+        authors: { ...authors, [id]: authors[id] ?? "stave" },
+        baseRevision,
+      });
     },
     /** The agent's proposal, section by section, for the user to review and save. */
     applyProposal: (proposal: Partial<HandoffDraft>) => {
@@ -177,6 +206,7 @@ export function useHandoffEditor(args: {
       begin({ draft: next, authors: nextAuthors });
     },
     commit: async (): Promise<HandoffSaveOutcome> => {
+      if (HANDOFF_SECTION_IDS.some((id) => handoffSectionOverflow(draft[id]) > 0)) return "failed";
       const decision = resolveHandoffCommit({ draft, baseRevision, current: args.record });
       if (decision === "unchanged") {
         finish();
@@ -193,3 +223,4 @@ export function useHandoffEditor(args: {
     cancel: finish,
   };
 }
+

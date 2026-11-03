@@ -288,7 +288,7 @@ The Information panel, task context and the latest turn summary are attached to 
 
 - **Side question**: **Side question** in the composer toolbar, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Welcome back**: after you have been away for more than 15 minutes, a card summarizes what happened and the last decision.
-- **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task.
+- **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
 - **Enhance prompt**: the wand icon in the composer rewrites your request.
 - **Compact context**: in the context meter, shortens a long conversation.
 - **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
