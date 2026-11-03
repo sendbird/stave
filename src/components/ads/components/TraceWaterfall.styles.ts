@@ -6,7 +6,7 @@ import { vars } from "../tokens/tokens.stylex";
  * TraceWaterfall — styles.
  *
  * Split from `TraceWaterfall.tsx` so the root has room for the disclosure
- * group (ATL-57) under the 500-line source ceiling. Moved verbatim.
+ * group under the 500-line source ceiling. Moved verbatim.
  * ------------------------------------------------------------------------ */
 
 // "Running" state signal: gentle opacity pulse on the bar. State signal, not

@@ -822,6 +822,8 @@ Further host extensions:
   - The axis and bar math moved into exported `resolveTraceAxis` and
     `layoutTraceBar`, which the component calls and the host tests; the
     minimum bar width no longer runs a bar past the end of its track.
+  - Comments naming other products, a parity claim and a tracker number in
+    `Tree`, `Tree.row` and `TraceWaterfall.styles` were generalized.
   - Forward-port: the `head`, `summary` and `toggle` slots on the
     `trace-waterfall` theme target (`theme-targets.insight.ts`), a strict
     addition the newer upstream target carries and `TraceWaterfall` reads.

@@ -24,7 +24,7 @@ import { TreeRow } from "./Tree.row";
 import { VisuallyHidden } from "./VisuallyHidden";
 
 /**
- * Tree — file-explorer-grade tree view (IDE file-explorer parity), built to
+ * Tree — file-explorer-grade tree view, built to
  * the WAI-ARIA TreeView pattern.
  *
  * DOM is a *flat* list of `role="treeitem"` rows (the file-explorer

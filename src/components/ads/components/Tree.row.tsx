@@ -39,8 +39,8 @@ import type { TreeDensity, TreeDropTarget, TreeFlatNode } from "./Tree.model";
  * reports `aria-checked`, so a real `<input>` here would add a second stop
  * inside a roving-tabindex list and a duplicate announcement. It is, however,
  * its own *pointer* target: clicking the box checks without moving the current
- * row, and clicking the label selects without checking — the split Ant Design
- * `checkable` and MUI X `checkboxSelection` both draw.
+ * row, and clicking the label selects without checking — the split checkbox
+ * trees commonly draw.
  */
 
 export type TreeRowProps = {
