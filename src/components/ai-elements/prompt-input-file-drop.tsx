@@ -1,9 +1,69 @@
 import { useTranslation } from "@/i18n";
+import { useState, type DragEvent } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Upload } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
+import { dragCarriesFiles } from "@/lib/files/file-drop";
+import { TASK_DRAG_MIME } from "@/lib/task-context/attached-task-context";
+import { readDroppedTask } from "./prompt-input-mentions";
+import type { PromptInputProps } from "./prompt-input.types";
+
+/**
+ * The composer form's drop handling. A task row dragged from the sidebar
+ * attaches as task context; files dragged from the operating system attach
+ * the way a paste does (`attachTransfer`). Both show the drop outline while
+ * over the form; files also show what the drop does. Capture-phase handlers
+ * claim the drop before the editor would insert it as text.
+ */
+export function usePromptInputDrop(args: {
+  onAttachTask?: PromptInputProps["onAttachTask"];
+  /** False while the composer cannot take files (disabled, or no attachment owner). */
+  acceptsFiles: boolean;
+  attachTransfer: (transfer: Pick<DataTransfer, "items" | "files">) => boolean;
+}) {
+  const [taskDropActive, setTaskDropActive] = useState(false);
+  const [fileDropActive, setFileDropActive] = useState(false);
+  const formProps = {
+    onDragOverCapture: (event: DragEvent<HTMLFormElement>) => {
+      if (args.onAttachTask && event.dataTransfer.types.includes(TASK_DRAG_MIME)) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setTaskDropActive(true);
+        return;
+      }
+      if (!args.acceptsFiles || !dragCarriesFiles(event.dataTransfer.types)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setFileDropActive(true);
+    },
+    onDragLeave: (event: DragEvent<HTMLFormElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        setTaskDropActive(false);
+        setFileDropActive(false);
+      }
+    },
+    onDropCapture: (event: DragEvent<HTMLFormElement>) => {
+      setFileDropActive(false);
+      setTaskDropActive(false);
+      const task = args.onAttachTask ? readDroppedTask(event.dataTransfer) : null;
+      if (task) {
+        // The editor would otherwise insert the payload as text.
+        event.preventDefault();
+        event.stopPropagation();
+        args.onAttachTask?.(task);
+        return;
+      }
+      if (!args.acceptsFiles || !dragCarriesFiles(event.dataTransfer.types)) return;
+      // Files attach the way a paste does; the editor and the page never open or insert them.
+      event.preventDefault();
+      event.stopPropagation();
+      args.attachTransfer(event.dataTransfer);
+    },
+  };
+  return { taskDropActive, fileDropActive, formProps };
+}
 
 /**
  * Says what a file drop on the composer does while files are dragged over
