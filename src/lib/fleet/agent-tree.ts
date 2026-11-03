@@ -9,7 +9,7 @@ import {
   resolveExchangeElapsedMs,
   type DelegationExchange,
 } from "@/lib/delegation/exchange";
-import { describeAgentIdentity, describeExchangeStatus } from "@/lib/delegation/format";
+import { describeAgentIdentity, describeExchangeStatus, type ExchangeStatus } from "@/lib/delegation/format";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { toToolDisplayName } from "@/lib/tool-display-name";
 import type { ChatMessage } from "@/types/chat";
@@ -65,31 +65,25 @@ export function mapFleetTaskRowStatus(row: Pick<FleetTaskRow, "status" | "need">
 
 /**
  * A delegation's status as a subagent's: the one place the exchange
- * vocabulary meets the tree's. Waiting on a person wins over the exchange's
- * own status, and so does a waiting or needs-you status itself, so a status
- * added to the exchange vocabulary for that reads as waiting here too. The
+ * vocabulary meets the tree's. `needs_user` is the only status that waits on
+ * the user; a delegate between turns on its own still reads as working. The
  * settled ends that are not plain failures (cancelled, timed out,
- * unresolved) keep their own words; a status this does not know says
- * "Unknown" rather than guessing.
+ * unresolved) keep their own words.
  */
 export function mapExchangeStatus(
   exchange: Pick<DelegationExchange, "outcome">,
 ): AgentStatus {
-  const { status, needsUser } = exchange.outcome;
-  if (needsUser) return { status: "waiting" };
-  // Compared as a string so a status the vocabulary gains later lands in a
-  // case below (or the default) instead of failing the switch.
-  const value: string = status;
-  switch (value) {
+  const status: ExchangeStatus = exchange.outcome.status;
+  switch (status) {
     case "queued":
       return { status: "queued" };
     case "running":
       return { status: "running" };
+    // Live but between turns on its own (an event, a usage reset): still
+    // working, so it does not count as needing the user.
     case "waiting":
+      return { status: "running", statusLabel: describeExchangeStatus("waiting").label };
     case "needs_user":
-    case "needs-user":
-    case "needs_you":
-    case "needs-you":
       return { status: "waiting" };
     case "returned":
       return { status: "done" };
@@ -99,9 +93,12 @@ export function mapExchangeStatus(
       return { status: "failed", statusLabel: describeExchangeStatus("timed_out").label };
     case "cancelled":
     case "unresolved":
-      return { status: "stopped", statusLabel: describeExchangeStatus(value).label };
-    default:
+      return { status: "stopped", statusLabel: describeExchangeStatus(status).label };
+    default: {
+      const unhandled: never = status;
+      void unhandled;
       return { status: "queued", statusLabel: WORK_STATE.unknown.label };
+    }
   }
 }
 

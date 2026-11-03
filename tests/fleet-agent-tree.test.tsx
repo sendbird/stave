@@ -98,16 +98,17 @@ describe("Fleet task status as a main agent", () => {
     expect(mapFleetTaskRowStatus({ status: "running", need: need("approval") }).status).toBe("running");
   });
 
-  test("a waiting or needs-you exchange status reads as waiting; one it does not know says Unknown", () => {
+  test("needs_user waits on the user, a delegate waiting on its own still works, and an unknown status says Unknown", () => {
     const outcome = (status: string) => ({ outcome: { status } as DelegationExchange["outcome"] });
-    for (const status of ["waiting", "needs_user", "needs-you"]) {
-      expect(mapExchangeStatus(outcome(status))).toEqual({ status: "waiting" });
-    }
+    expect(mapExchangeStatus(outcome("needs_user"))).toEqual({ status: "waiting" });
+    const own = mapExchangeStatus(outcome("waiting"));
+    expect(own.status).toBe("running");
+    expect(own.statusLabel).toBeTruthy();
     expect(mapExchangeStatus(outcome("paused-by-host"))).toEqual({ status: "queued", statusLabel: "Unknown" });
   });
 
   test("a delegation waiting on a person needs you; settled ends keep their own words", () => {
-    expect(mapExchangeStatus({ outcome: { status: "running", needsUser: true } })).toEqual({ status: "waiting" });
+    expect(mapExchangeStatus({ outcome: { status: "needs_user" } })).toEqual({ status: "waiting" });
     expect(mapExchangeStatus({ outcome: { status: "queued" } })).toEqual({ status: "queued" });
     expect(mapExchangeStatus({ outcome: { status: "returned" } })).toEqual({ status: "done" });
     expect(mapExchangeStatus({ outcome: { status: "failed" } })).toEqual({ status: "failed" });
@@ -182,7 +183,7 @@ describe("main agents from task rows", () => {
 
 describe("subagents from delegation exchanges", () => {
   test("a delegated task that waits offers Answer, a failed one Open, and neither lists steps", () => {
-    const waiting = buildSubagent(exchange({ outcome: { status: "running", needsUser: true, progress: ["Needs approval"] } }), NOW);
+    const waiting = buildSubagent(exchange({ outcome: { status: "needs_user", progress: ["Needs approval"] } }), NOW);
     expect(waiting).toMatchObject({ name: "review", status: "waiting", resolveLabel: "Answer", task: "Review the search change", startedAt: NOW - 60_000 });
     expect(waiting.ask).toContain("Review the search change");
     expect(waiting.steps).toBeUndefined();

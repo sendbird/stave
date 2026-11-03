@@ -305,9 +305,9 @@ test("Fleet View exposes its operating model at a glance", async ({
   }
 
   // Work opens on the Tree layout; the agent-workspace cards are one choice away.
-  const layout = page.getByRole("group", { name: "Board layout" });
-  await expect(layout.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
-  await layout.getByRole("button", { name: "Cards" }).click();
+  const layout = page.getByRole("radiogroup", { name: "Board layout" });
+  await expect(layout.getByRole("radio", { name: "Tree" })).toHaveAttribute("aria-checked", "true");
+  await layout.getByRole("radio", { name: "Cards" }).click();
   await expect(page.getByRole("article").first()).toBeVisible();
 
   await page.screenshot({

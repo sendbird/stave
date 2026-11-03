@@ -216,9 +216,9 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(items).toHaveCount(1);
 
   // Fleet opens on the Tree layout; the workspace cards are one choice away.
-  const layout = page.getByRole("group", { name: "Board layout" });
-  await expect(layout.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
-  await layout.getByRole("button", { name: "Cards" }).click();
+  const layout = page.getByRole("radiogroup", { name: "Board layout" });
+  await expect(layout.getByRole("radio", { name: "Tree" })).toHaveAttribute("aria-checked", "true");
+  await layout.getByRole("radio", { name: "Cards" }).click();
 
   // The cards board renders the workspace as a card, not a full-width row.
   const workspaceCard = page.getByRole("article", {

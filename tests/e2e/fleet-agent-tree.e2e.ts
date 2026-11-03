@@ -199,8 +199,8 @@ async function startTurn(page: Page) {
 /** Fleet opens on the Tree layout: the default, and where a saved `cards` moved once. */
 async function openFleet(page: Page) {
   await page.getByTestId("top-bar").getByRole("button", { name: "Open Fleet View" }).click();
-  const layout = page.getByRole("group", { name: "Board layout" });
-  await expect(layout.getByRole("button", { name: "Tree" })).toHaveAttribute("aria-pressed", "true");
+  const layout = page.getByRole("radiogroup", { name: "Board layout" });
+  await expect(layout.getByRole("radio", { name: "Tree" })).toHaveAttribute("aria-checked", "true");
   return layout;
 }
 
@@ -291,7 +291,7 @@ test("Fleet's Tree layout shows tasks as agents and opens their subagent trees f
   expect(treeBox.x).toBeGreaterThanOrEqual(leadBox.x + leadBox.width);
   expect(Math.abs(treeBox.y - (await box(cards.first())).y)).toBeLessThanOrEqual(1);
   // The agents line up under the toolbar's inset (its filter group's start).
-  const toolbarStart = await box(page.getByRole("button", { name: "Active", exact: true }).locator(".."));
+  const toolbarStart = await box(page.getByRole("radiogroup", { name: "Board filter" }));
   expect(Math.abs(leadBox.x - toolbarStart.x)).toBeLessThanOrEqual(1);
   // The tree stops at its reading width; the rest of the row stays empty.
   expect(treeBox.width).toBeLessThanOrEqual((await remPx(page, 42)) + 1);
@@ -384,11 +384,11 @@ test("Fleet's Tree layout shows tasks as agents and opens their subagent trees f
 
   // Cards stays a choice, and the choice is kept: the old profile moved to the tree only once.
   const layout = await openFleet(page);
-  await layout.getByRole("button", { name: "Cards" }).click();
-  await expect(layout.getByRole("button", { name: "Cards" })).toHaveAttribute("aria-pressed", "true");
+  await layout.getByRole("radio", { name: "Cards" }).click();
+  await expect(layout.getByRole("radio", { name: "Cards" })).toHaveAttribute("aria-checked", "true");
   await page.getByTestId("close-fleet-view").click();
   await page.getByTestId("top-bar").getByRole("button", { name: "Open Fleet View" }).click();
-  await expect(layout.getByRole("button", { name: "Cards" })).toHaveAttribute("aria-pressed", "true");
+  await expect(layout.getByRole("radio", { name: "Cards" })).toHaveAttribute("aria-checked", "true");
   // The saved profile carries the choice and the one-time marker, so reading it
   // again (the next launch) keeps Cards. (A reload would rerun this test's seed.)
   const restored = await page.evaluate(async () => {
