@@ -131,7 +131,7 @@
     "@typescript-eslint/parser": "^8.71.0",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
-    "electron": "44.4.5",
+    "electron": "44.10.1",
     "electron-builder": "^26.15.3",
     "electron-builder-squirrel-windows": "26.15.3",
     "electron-vite": "^5.0.0",
