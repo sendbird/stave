@@ -462,14 +462,15 @@ export function FleetAttentionInbox(args: {
     if (!nextId) {
       return;
     }
-    const frame = window.requestAnimationFrame(() => {
+    // Not cancelled when the list changes again within the frame: the handoff
+    // is already decided, and a row that is gone by then is simply not found.
+    window.requestAnimationFrame(() => {
       const active = document.activeElement;
       if (active && active !== document.body && !sectionRef.current?.contains(active)) {
         return;
       }
       document.getElementById(`fleet-attention-trigger-${nextId}`)?.focus();
     });
-    return () => window.cancelAnimationFrame(frame);
   }, [visibleRowKey]);
   const { onSnooze, onDismiss, onMarkRead } = args;
   const snoozeRow = useCallback(
