@@ -9,10 +9,8 @@ import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate"
 import { createCodexApprovalReviewTracker } from "./codex-approval-review";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
-import {
-  summarizeCodexAppServerDebugMessage,
-  extractCodexAppServerErrorMessage,
-} from "./codex-app-server-errors";
+import { summarizeCodexAppServerDebugMessage, extractCodexAppServerErrorMessage } from "./codex-app-server-errors";
+import { codexChildRequestOwner } from "./codex-request-owner";
 export { summarizeCodexAppServerDebugMessage } from "./codex-app-server-errors";
 import { CodexClientLifetime } from "./codex-thread-lifetime";
 import {
@@ -2485,13 +2483,7 @@ export async function streamCodexWithAppServer(
             params,
             requestId,
           });
-          // A request raised on a worker's own thread names that worker, the
-          // same id its tool events carry as `ownerAgentId` (symmetric with
-          // Claude's `agentID`); the turn's own thread names nobody.
-          const childRequestOwner =
-            requestThreadId && threadId && requestThreadId !== threadId
-              ? { ownerAgentId: requestThreadId }
-              : {};
+          const childRequestOwner = codexChildRequestOwner({ requestThreadId, threadId });
           if (
             message.method === "mcpServer/elicitation/request" &&
             presentation?.kind === "approval" &&

@@ -1,5 +1,5 @@
 import type { BridgeEvent } from "./types";
-import { resolveCodexApprovalAllowAlways, resolveCodexApprovalRisk } from "./approval-allow-always";
+import { resolveCodexApprovalExtras } from "./approval-allow-always";
 import {
   mapCodexElicitationToApproval,
   mapCodexElicitationToUserInput,
@@ -18,12 +18,7 @@ type ApprovalPresentation = {
   kind: "approval";
   event: Extract<BridgeEvent, { type: "approval" }>;
   pending: {
-    responseKind:
-      | "review"
-      | "commandExecution"
-      | "fileChange"
-      | "permissions"
-      | "elicitation";
+    responseKind: "review" | "commandExecution" | "fileChange" | "permissions" | "elicitation";
     permissions?: { network?: unknown; fileSystem?: unknown } | null;
   };
 };
@@ -125,8 +120,6 @@ export function mapCodexServerRequestPresentation(args: {
       method === "execCommandApproval"
         ? buildApprovalInput(params)
         : undefined;
-    const toolName = mapApprovalToolName(method);
-    const risk = resolveCodexApprovalRisk({ method, params });
     return {
       kind: "approval",
       pending: {
@@ -142,12 +135,11 @@ export function mapCodexServerRequestPresentation(args: {
       },
       event: {
         type: "approval",
-        toolName,
+        toolName: mapApprovalToolName(method),
         requestId,
         description: buildApprovalDescription({ method, params }),
         ...(approvalInput ? { input: approvalInput } : {}),
-        ...resolveCodexApprovalAllowAlways({ method, params, toolName, input: approvalInput }),
-        ...(risk ? { risk } : {}),
+        ...resolveCodexApprovalExtras({ method, params, toolName: mapApprovalToolName(method), input: approvalInput }),
       },
     };
   }

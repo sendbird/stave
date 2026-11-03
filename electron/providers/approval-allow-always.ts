@@ -154,3 +154,15 @@ export function resolveAcpApprovalAllowAlways(args: {
   }
   return resolveTrustedRuleAllowAlways({ toolName: args.toolName, input: args.input });
 }
+
+/** The always-allow fields and the risk word of a Claude approval, as one spread for its event. */
+export function resolveClaudeApprovalExtras(args: Parameters<typeof resolveClaudeApprovalAllowAlways>[0]) {
+  const risk = resolveClaudeApprovalRisk(args.guardrail);
+  return { ...resolveClaudeApprovalAllowAlways(args), ...(risk ? { risk } : {}) };
+}
+
+/** The always-allow fields and the risk word of a Codex approval, as one spread for its event. */
+export function resolveCodexApprovalExtras(args: Parameters<typeof resolveCodexApprovalAllowAlways>[0]) {
+  const risk = resolveCodexApprovalRisk(args);
+  return { ...resolveCodexApprovalAllowAlways(args), ...(risk ? { risk } : {}) };
+}
