@@ -56,12 +56,14 @@ describe("quota ring", () => {
     expect(resolveQuotaRingArc({ usedPercent: Number.NaN, radius: 6 }).filled).toBe(0);
   });
 
-  test("tones by the shared 60/85 thresholds", () => {
+  test("tones by the shared 80/97 quota thresholds", () => {
     expect(usageTone(0)).toBe("success");
-    expect(usageTone(59.9)).toBe("success");
-    expect(usageTone(60)).toBe("warning");
-    expect(usageTone(84.9)).toBe("warning");
-    expect(usageTone(85)).toBe("danger");
+    expect(usageTone(70)).toBe("success");
+    expect(usageTone(79.9)).toBe("success");
+    expect(usageTone(80)).toBe("warning");
+    expect(usageTone(88)).toBe("warning");
+    expect(usageTone(96.9)).toBe("warning");
+    expect(usageTone(97)).toBe("danger");
     expect(usageTone(250)).toBe("danger");
     // A reading that is not a number is not a warning.
     expect(usageTone(Number.NaN)).toBe("success");

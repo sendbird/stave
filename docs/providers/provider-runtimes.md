@@ -1606,7 +1606,8 @@ has room for every connected provider, a segment shows the full strip:
 
 - One entry per quota window: a ring, the percent used in bold, then the window
   and its countdown (`5h · resets 1h 7m`). The ring's arc is the share used,
-  toned at the shared thresholds (under 60% ok, under 85% warn, then danger).
+  toned at the shared quota thresholds the Usage view also uses (under 80% ok,
+  under 97% warn, then danger).
   Inside the ring is the time-left clock: its hand marks how far the window has
   run, so an arc past the hand is usage running ahead of time. Claude shows its
   5-hour, weekly and, when reported, weekly Fable windows; Codex shows its first

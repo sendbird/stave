@@ -17,7 +17,8 @@ import type {
 } from "@/lib/fleet/task-execution-summary";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/ads/utils/tone";
+import { usageThresholdTone, type UsageThresholdKind } from "@/lib/usage/usage-thresholds";
 import { summaryStyles as styles } from "./task-execution-summary.styles";
 
 type MetricTone = Extract<Tone, "neutral" | "success" | "warning" | "danger">;
@@ -232,6 +233,8 @@ function formatContextPercent(usedPercent: number): string {
 }
 
 interface HeadroomFact {
+  /** Which shared scale colours this reading: the context window or an account quota. */
+  kind: UsageThresholdKind;
   /** 0–1. Lower means less room, so the tighter fact becomes the hero. */
   remainingRatio: number | null;
   usedPercent: number | null;
@@ -241,16 +244,11 @@ interface HeadroomFact {
 }
 
 /**
- * One scale for both constraints: the bar and the number change together.
- * 75% used is the warning, 90% is the point where the run is about to stop.
+ * The bar and the number change together, on the same scale the composer
+ * context meter or the quota surfaces use for that reading.
  */
-const PRESSURE_THRESHOLDS = [
-  { from: 75, tone: "warning" },
-  { from: 90, tone: "danger" },
-] as const satisfies readonly ToneThreshold<MeterTone>[];
-
-function pressureTone(usedPercent: number): MeterTone {
-  return thresholdTone(usedPercent, PRESSURE_THRESHOLDS, "neutral");
+function pressureTone(kind: UsageThresholdKind, usedPercent: number): MeterTone {
+  return usageThresholdTone(kind, usedPercent, "neutral");
 }
 
 function contextHeadroomFact(
@@ -260,6 +258,7 @@ function contextHeadroomFact(
     const remainingRatio = headroom.remainingTokens / headroom.totalTokens;
     const usedPercent = (1 - remainingRatio) * 100;
     return {
+      kind: "context",
       remainingRatio,
       usedPercent,
       figure: i18n.t("workspace:taskExecutionSummarySurface.contextLeft", { amount: formatCount(headroom.remainingTokens) }),
@@ -268,6 +267,7 @@ function contextHeadroomFact(
   }
   if (headroom.remainingTokens !== undefined) {
     return {
+      kind: "context",
       remainingRatio: null,
       usedPercent: headroom.usedPercent ?? null,
       figure: i18n.t("workspace:taskExecutionSummarySurface.contextLeft", { amount: formatCount(headroom.remainingTokens) }),
@@ -279,6 +279,7 @@ function contextHeadroomFact(
   }
   if (headroom.usedPercent !== undefined) {
     return {
+      kind: "context",
       remainingRatio: (100 - headroom.usedPercent) / 100,
       usedPercent: headroom.usedPercent,
       figure: i18n.t("workspace:taskExecutionSummarySurface.contextLeft", { amount: formatContextPercent(100 - headroom.usedPercent) }),
@@ -294,6 +295,7 @@ function accountHeadroomFact(
   const used = Math.round(limit.usedPercent);
   const left = Math.max(0, 100 - used);
   return {
+    kind: "quota",
     remainingRatio: left / 100,
     usedPercent: used,
     figure: i18n.t("workspace:taskExecutionSummarySurface.percentLeft", { percent: formatWholePercent(left) }),
@@ -322,7 +324,7 @@ function buildHeadroomDescriptor(
     : "unavailable";
   const tone: MeterTone =
     primary?.usedPercent != null
-      ? pressureTone(primary.usedPercent)
+      ? pressureTone(primary.kind, primary.usedPercent)
       : "neutral";
   const parts: StatPart[] = [];
   if (primary?.usedLabel) {

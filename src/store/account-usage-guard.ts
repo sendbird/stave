@@ -6,6 +6,7 @@ import {
   type AccountUsageBlock,
 } from "@/lib/providers/account-usage-block";
 import { toast } from "@/lib/notifications/toast";
+import { usageThresholdFrom } from "@/lib/usage/usage-thresholds";
 import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 
@@ -88,7 +89,9 @@ export async function guardSendAgainstAccountUsage(
     snapshot: state.rateLimitsSnapshot,
   });
   if (!options?.cachedOnly && !cachedBlock) {
-    if (usage != null && usage.usedPercent >= 97) {
+    // "Near the limit" is the quota scale's danger point, the same reading the
+    // Usage view and status bar colour as about to bind.
+    if (usage != null && usage.usedPercent >= usageThresholdFrom("quota", "danger")) {
       await state.refreshRateLimits({
         providers: [providerId],
         force: true,

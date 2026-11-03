@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import type { QuotaObservation, UsageStatisticsReport } from "@/lib/providers/usage-statistics";
@@ -18,11 +18,6 @@ import { NotReported, UsageInfo } from "./UsageInfo";
 
 const identity = (row: QuotaObservation) => `${row.providerId}:${row.accountProfileId}:${row.windowId}`;
 const percent = (value: number) => `${formatNumber(value, { maximumFractionDigits: 1 })}%`;
-/** A saved window is worth watching from 80% used and about to bind from 97%. */
-const QUOTA_FILL_THRESHOLDS = [
-  { from: 80, tone: "warning" },
-  { from: 97, tone: "danger" },
-] as const satisfies readonly ToneThreshold<Extract<Tone, "warning" | "danger">>[];
 const QUOTA_FILL = { neutral: null, warning: styles.warning, danger: styles.danger } as const;
 
 export function UsageQuota(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string;
@@ -107,7 +102,7 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
   </section>;
 }
 
-const fillTone = (usedPercent: number) => QUOTA_FILL[thresholdTone(usedPercent, QUOTA_FILL_THRESHOLDS, "neutral")];
+const fillTone = (usedPercent: number) => QUOTA_FILL[usageThresholdTone("quota", usedPercent, "neutral")];
 const TEXT_TONE = { neutral: null, warning: styles.warningText, danger: styles.dangerText } as const;
 const resetTime = (resetsAt: number, timeZone: string) => formatDateTime(resetsAt * 1000,
   { timeZone, month: "short", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -155,7 +150,7 @@ function QuotaWindow(props: { row: QuotaObservation; profiles: readonly Provider
   const { t } = useTranslation(I18N_NAMESPACES);
   const { row } = props;
   const state = quotaWindowState(row, props.now);
-  const tone = state.stale || state.expired ? "neutral" : thresholdTone(row.usedPercent, QUOTA_FILL_THRESHOLDS, "neutral");
+  const tone = state.stale || state.expired ? "neutral" : usageThresholdTone("quota", row.usedPercent, "neutral");
   const pace = paceText(state, row, props.timeZone);
   return <div className={sx(styles.quotaWindow)}>
     <div className={sx(styles.quotaWindowHead)}><span>{row.label}</span>
@@ -172,7 +167,7 @@ function QuotaWindow(props: { row: QuotaObservation; profiles: readonly Provider
 function QuotaHeadline(props: { row: QuotaObservation; state: QuotaWindowState; profiles: readonly ProviderAccountProfile[]; timeZone: string; now: number }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { row, state } = props;
-  const tone = thresholdTone(row.usedPercent, QUOTA_FILL_THRESHOLDS, "neutral");
+  const tone = usageThresholdTone("quota", row.usedPercent, "neutral");
   const pace = paceText(state, row, props.timeZone);
   const scope = `${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}`;
   return <section className={sx(styles.quotaHeadline)} aria-label={t("usage:usageQuota.tightestLimit")}>

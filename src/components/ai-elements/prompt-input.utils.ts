@@ -1,5 +1,6 @@
 import { formatNumber } from "@/i18n/format";
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/ads/utils/tone";
+import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import type { CommandPaletteItem } from "@/lib/commands";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
@@ -379,16 +380,11 @@ export interface ConversationContextUsage {
   messageId: string;
 }
 
-/** Under 60% of the window is fine, under 85% is worth watching. */
-const CONTEXT_USAGE_THRESHOLDS = [
-  { from: 60, tone: "warning" },
-  { from: 85, tone: "danger" },
-] as const satisfies readonly ToneThreshold<ConversationContextUsageTone>[];
-
+/** Context tone on the shared context scale. */
 export function conversationContextUsageTone(
   usedPercent: number,
 ): ConversationContextUsageTone {
-  return thresholdTone(usedPercent, CONTEXT_USAGE_THRESHOLDS, "success");
+  return usageThresholdTone("context", usedPercent, "success");
 }
 
 export function formatConversationContextPercent(usedPercent: number): string {
