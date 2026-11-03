@@ -2,6 +2,9 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { Thinking } from "@/components/ads/components/Thinking";
+import { ToolRun } from "@/components/ads/components/ToolRun";
+import { ReasoningRow } from "@/components/session/message/turn-event-rows";
+import { TraceToolRun } from "@/components/session/message/turn-event-tool-runs";
 import { LiveTurnTraceTimeline } from "@/components/session/TurnTraceTimeline";
 import { useAppStore } from "@/store/app.store";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
@@ -72,3 +75,23 @@ export function mountTimelineFixture() {
 }
 
 export type TimelineFixture = ReturnType<typeof mountTimelineFixture>;
+
+export function mountDisclosureFixture() {
+  const app = document.getElementById("root");
+  if (app) app.hidden = true;
+  const host = document.createElement("main");
+  host.dataset.disclosureFixture = "true";
+  document.body.append(host);
+  const root = createRoot(host);
+  let retries = 0;
+  flushSync(() => root.render(<>
+    <ReasoningRow isStreaming text="Open https://example.com/docs." />
+    <TraceToolRun taskId="probe" outputLabel="Live output" part={{
+      type: "tool_use", toolUseId: "disclosure-tool", toolName: "Grep",
+      input: JSON.stringify({ pattern: "traceStepEnter", path: "src", glob: "*.tsx" }),
+      output: "src/a.tsx:1: traceStepEnter", state: "input-streaming",
+    }} />
+    <ToolRun status="failed" title="Retry fixture" error="exit 1" onRetry={() => { retries++; }} />
+  </>));
+  return { retries: () => retries };
+}

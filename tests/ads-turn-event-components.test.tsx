@@ -94,14 +94,12 @@ describe("ADS turn-event components", () => {
       />,
     );
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain("Arguments");
-    expect(markup).toContain("Output");
+    expect(markup).not.toContain("Arguments");
+    expect(markup).not.toContain("# Stave");
   });
 
   test("a failed ToolRun stays collapsed and still offers recovery", () => {
-    // Failures are loud on the header and stay closed; the reader opens the
-    // payload. The panel stays mounted, so the error and retry remain in the
-    // tree.
+    // Recovery belongs to the body, which mounts when the reader opens it.
     const markup = renderToStaticMarkup(
       <ToolRun
         status="failed"
@@ -111,9 +109,14 @@ describe("ADS turn-event components", () => {
       />,
     );
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain("exit 1");
-    expect(markup).toContain("Retry");
-    expect(markup).toContain('role="alert"');
+    expect(markup).toContain('data-tool-run-status="failed"');
+    expect(markup).not.toContain("exit 1");
+    const opened = renderToStaticMarkup(
+      <ToolRun status="failed" title="Run the tests" error="exit 1" onRetry={() => {}} open />,
+    );
+    expect(opened).toContain("exit 1");
+    expect(opened).toContain("Retry");
+    expect(opened).toContain('role="alert"');
   });
 
   test("an approval ToolRun stays expanded", () => {
@@ -167,7 +170,7 @@ describe("ADS turn-event components", () => {
       </Thinking>,
     );
     expect(markup).toContain("Reading the changelog");
-    expect(markup).toContain("Comparing the two migrations.");
+    expect(markup).not.toContain("Comparing the two migrations.");
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('data-ads-loader-anatomy="reason"');
   });

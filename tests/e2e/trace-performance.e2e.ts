@@ -62,3 +62,29 @@ test("the live timeline clock advances without parsing unchanged tool inputs", a
   await expect.poll(() => row.innerText()).not.toBe(original);
   expect(await page.evaluate(() => window.timelineFixture.reads())).toBe(reads);
 });
+
+test("opened payloads retain reasoning accessibility, argument controls and failure recovery", async ({ page }) => {
+  await page.goto("/?stavePreview=agent-messages");
+  await expect(page.locator("[data-trace-streaming-label]")).toBeVisible();
+  await page.evaluate(async () => {
+    const path = "/tests/e2e/fixtures/trace-performance.tsx";
+    const { mountDisclosureFixture } = await import(path);
+    (window as unknown as { disclosure: ReturnType<typeof mountDisclosureFixture> }).disclosure = mountDisclosureFixture();
+  });
+  await expect(page.getByText("Open https://example.com/docs.", { exact: true })).toHaveCount(0);
+  await page.locator('[data-disclosure-fixture] [data-thinking-status="thinking"] button').click();
+  const thought = page.getByText("Open https://example.com/docs.", { exact: true });
+  await expect(thought).toBeVisible();
+  await expect(thought.locator("a")).toHaveCount(0);
+  await expect(page.locator('[aria-busy="true"]')).toBeVisible();
+  const tool = page.locator('[data-disclosure-fixture] [data-tool-run-status="running"]');
+  await tool.getByRole("button").click();
+  await expect(tool.locator('[data-trace-output-capped="true"]')).toHaveCount(2);
+  await expect(tool.getByRole("button", { name: "Copy", exact: true })).toHaveCount(2);
+  await expect(tool.getByText("Live output", { exact: true })).toBeVisible();
+  const failed = page.locator('[data-disclosure-fixture] [data-tool-run-status="failed"]');
+  await failed.getByRole("button").click();
+  await expect(failed.getByRole("alert")).toContainText("exit 1");
+  await failed.getByRole("button", { name: "Retry", exact: true }).click();
+  expect(await page.evaluate(() => (window as unknown as { disclosure: { retries(): number } }).disclosure.retries())).toBe(1);
+});

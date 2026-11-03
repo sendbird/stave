@@ -30,13 +30,13 @@ describe("ReasoningRow", () => {
     expect(unmeasured).not.toMatch(/Thought for/);
   });
 
-  test("holds the streaming thought in a busy capped log region", () => {
+  test("defers the busy thought region while its disclosure is closed", () => {
     const markup = renderToStaticMarkup(
       <ReasoningRow isStreaming text="Reading the changelog" />,
     );
-    expect(markup).toContain('aria-busy="true"');
-    expect(markup).toContain("--ads-capped-viewport-cap:220px");
-    expect(markup).toContain("Reading the changelog");
+    expect(markup).not.toContain('aria-busy="true"');
+    expect(markup).not.toContain("--ads-capped-viewport-cap:220px");
+    expect(markup).not.toContain("Reading the changelog");
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('data-ads-loader-anatomy="think"');
   });
@@ -117,7 +117,7 @@ describe("Tool call card values", () => {
     expect(countLines("")).toBe(0);
   });
 
-  test("gives the arguments the same copy action and cap as the output", () => {
+  test("defers argument and output viewports while the tool is closed", () => {
     const markup = renderToStaticMarkup(
       <TraceToolRun
         taskId="task-1"
@@ -131,9 +131,10 @@ describe("Tool call card values", () => {
         }}
       />,
     );
-    expect(markup.match(/data-trace-output-capped="true"/g)).toHaveLength(2);
-    expect(markup).toContain('aria-label="Arguments"');
-    expect(markup.match(/>Copy</g)).toHaveLength(2);
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).not.toContain('data-trace-output-capped="true"');
+    expect(markup).not.toContain('aria-label="Arguments"');
+    expect(markup).not.toContain(">Copy<");
   });
 
   test("an uncapped value keeps its plain layout", () => {
