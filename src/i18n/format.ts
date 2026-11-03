@@ -40,6 +40,18 @@ export function formatDate(value: DateInput, options: Intl.DateTimeFormatOptions
   return formatDateTime(value, options);
 }
 
+/**
+ * Two dates as one range ("Sep 5 – Oct 4, 2026"): the parts both ends share
+ * are written once, in the display language's own order and separator.
+ */
+export function formatDateRange(start: DateInput, end: DateInput, options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" }): string {
+  const from = toDate(start);
+  const to = toDate(end);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
+  const formatter = cached("dt", options, (locale) => new Intl.DateTimeFormat(locale, options)) as Intl.DateTimeFormat;
+  return to.getTime() < from.getTime() ? formatter.formatRange(to, from) : formatter.formatRange(from, to);
+}
+
 export function formatTime(value: DateInput, options: Intl.DateTimeFormatOptions = { timeStyle: "short" }): string {
   return formatDateTime(value, options);
 }

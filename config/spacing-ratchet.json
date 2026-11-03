@@ -987,8 +987,7 @@
       "sheetLayout.header.gap = 6": 1
     },
     "src/components/usage/usage.styles.ts": {
-      "usageStyles.elapsedMarker.marginInlineStart = -1": 1,
-      "usageStyles.chart.gap = 4": 1
+      "usageStyles.elapsedMarker.marginInlineStart = -1": 1
     },
     "src/components/workflows/workflows.styles.ts": {
       "workflowStyles.list.gap = 2": 1,

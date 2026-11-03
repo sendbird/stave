@@ -48,7 +48,9 @@
     "historyDescription": "최신순 · {{zone}} · 페이지당 {{pageSize}}개. 턴을 펼치면 계정과 토큰 세부 정보를 볼 수 있습니다. 실행 중인 턴은 완료된 뒤 표시됩니다.",
     "noCompletedTurns": "선택한 범위에 완료된 턴이 없습니다.",
     "historyMeasurements": "토큰 수에는 캐시 읽기가 포함되지 않습니다. USD 비용은 프로바이더가 보고한 값이며, 누락된 측정값은 0이 아닙니다.",
-    "tokenCountingTitle": "토큰 집계 방식"
+    "tokenCountingTitle": "토큰 집계 방식",
+    "share": "비중",
+    "shareOf": "{{name}}의 토큰 비중"
   },
   "usageQuota": {
     "accountQuota": "계정 할당량",
@@ -117,8 +119,6 @@
     "day": "일",
     "hour": "시간",
     "timezone": "시간대",
-    "from": "시작일",
-    "through": "종료일",
     "filtersOnlyChangeThisReport": "· 필터는 이 보고서에만 적용합니다.",
     "model": "모델 ·",
     "quotaRemainsAccountWide": "· 할당량은 계정 전체 기준입니다.",
@@ -182,5 +182,44 @@
     "daysHoursMinutes": "{{days}}일 {{hours}}시간 {{minutes}}분 후 초기화",
     "missing": "초기화 시점이 보고되지 않음",
     "passed": "초기화 시점이 지남"
+  },
+  "dateRange": {
+    "label": "기간",
+    "dialog": "날짜 선택",
+    "presets": "기본 기간",
+    "pickEnd": "종료일을 선택하세요",
+    "tooLong_other": "최대 {{count}}일까지 선택하세요",
+    "summary_other": "{{range}} · {{count}}일 · {{zone}}"
+  },
+  "compare": {
+    "sameChip": "±0%",
+    "fromZeroChip": "0에서 {{arrow}}",
+    "underOnePercent": "<1%",
+    "same": "변화 없음",
+    "upFromZero": "0에서 증가",
+    "downToZero": "0으로 감소",
+    "up": "{{percent}} 증가",
+    "down": "{{percent}} 감소",
+    "sentenceWithValue": "{{period}} 대비 {{change}} (이전 {{previous}})",
+    "sentence": "{{period}} 대비 {{change}}",
+    "versusWithValue": "{{period}} 대비 (이전 {{previous}})",
+    "versus": "{{period}} 대비",
+    "notCompared": {
+      "noEarlierTurns": "비교 안 함 · {{period}}에 턴 없음",
+      "earlierNotReported": "비교 안 함 · {{period}}은 보고되지 않음",
+      "notReported": "비교 안 함 · 이 기간에 보고되지 않음"
+    }
+  },
+  "chart": {
+    "split": "나눔 기준",
+    "splitNone": "합계만",
+    "splitProvider": "제공자별로 나누기",
+    "legend": "차트에 표시할 제공자",
+    "providerValue": "{{provider}} {{value}}",
+    "barSplitLabel": "{{label}}. {{providers}}",
+    "readout_other": "{{metric}} {{value}} · {{count}}턴",
+    "hintDay": "← → 이동 · Enter로 시간별 보기",
+    "hintHour": "← → 이동 · Enter로 정확한 구간 보기",
+    "readoutNotReported_other": "{{metric}} 보고되지 않음 · {{count}}턴"
   }
 }
