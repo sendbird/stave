@@ -13,7 +13,7 @@ import { focusRing } from "../recipes/focus-ring";
 import { inlineDisclosure } from "../recipes/inline-disclosure";
 import { transition } from "../recipes/transition";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
-import { isActionRequiredState, type AgentRunState } from "./agent-state";
+import { isActionRequiredState, type AgentStepState } from "./agent-state";
 import { InlineDisclosureIcon } from "./inline-disclosure-icon";
 import {
   formatElapsed,
@@ -71,13 +71,13 @@ export type ToolRunGroupProps = Omit<
    * Overrides the rolled-up status word. By default the group takes the most
    * urgent state among its runs — see `aggregateRunStatus`.
    */
-  status?: AgentRunState;
+  status?: AgentStepState;
   /** Overrides the "4 tool calls" summary label. */
   summary?: React.ReactNode;
 } & XstyleProp;
 
 export type ToolRunGroupRun = ElapsedSource & {
-  status: AgentRunState;
+  status: AgentStepState;
 };
 
 /**

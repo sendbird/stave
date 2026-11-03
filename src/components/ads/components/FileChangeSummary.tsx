@@ -18,7 +18,7 @@ import {
   agentStateLabel,
   agentStateTone,
   isQuietState,
-  type AgentRunState,
+  type AgentStepState,
 } from "./agent-state";
 import { VisuallyHidden } from "./VisuallyHidden";
 
@@ -60,7 +60,7 @@ export type FileChangeSummaryProps = Omit<
    * `agent-state`; omit it for a change that simply is (a diff in a review),
    * as opposed to one an agent proposed and something then did or did not do.
    */
-  state?: AgentRunState;
+  state?: AgentStepState;
 } & XstyleProp;
 
 const kindIcon: Record<FileChangeKind, LucideIcon> = {

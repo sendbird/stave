@@ -32,7 +32,7 @@ import { turnEventDecisionStyles as styles } from "./turn-event-decisions.styles
  *
  * ADS has no notice surface for this kind, and the two candidates are both the
  * wrong shape. `ToolRun` would name a runtime event a "tool call", which is
- * exactly the two-names-for-one-state bug the shared `AgentRunState` exists to
+ * exactly the two-names-for-one-state bug the shared `AgentStepState` exists to
  * prevent. `Callout` is authored prose in a reading column — it draws a tint
  * and has no disclosure — and a transcript notice is neither authored nor
  * short: the payload is a stack trace or a recovery action.

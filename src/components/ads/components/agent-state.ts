@@ -16,8 +16,11 @@ export type AgentStatusTone = Exclude<BadgeTone, "info" | "warm">;
  * `approval` "Approval" where `ToolCall` said "Awaiting approval". Two names
  * for one state is a bug you cannot see in a diff, so the union and its tables
  * live here once and both components import them.
+ *
+ * Named for one step of agent work. It is not the state of a supervised agent
+ * run, which is `AgentRunState` in `src/lib/agent-runs/domain.ts`.
  */
-export type AgentRunState =
+export type AgentStepState =
   | "pending"
   | "queued"
   | "running"
@@ -41,7 +44,7 @@ export type AgentRunState =
   | "skipped";
 
 /** Human-readable label for a run state. */
-export const agentStateLabel: Record<AgentRunState, string> = {
+export const agentStateLabel: Record<AgentStepState, string> = {
   get approval() { return i18n.t("ui:agentState.awaitingApproval"); },
   get canceled() { return i18n.t("ui:agentState.canceled"); },
   get checkpointed() { return i18n.t("ui:agentState.checkpointed"); },
@@ -66,7 +69,7 @@ export const agentStateLabel: Record<AgentRunState, string> = {
  * vocabulary has no word for map to the nearest one: a denied request failed,
  * an interrupted run stopped, and a checkpoint is work that is ready.
  */
-export const agentStateWorkState: Record<AgentRunState, WorkState> = {
+export const agentStateWorkState: Record<AgentStepState, WorkState> = {
   approval: "approval",
   canceled: "stopped",
   checkpointed: "ready",
@@ -84,17 +87,17 @@ export const agentStateWorkState: Record<AgentRunState, WorkState> = {
   skipped: "skipped",
 };
 
-const stateEntries = Object.entries(agentStateWorkState) as Array<[AgentRunState, WorkState]>;
+const stateEntries = Object.entries(agentStateWorkState) as Array<[AgentStepState, WorkState]>;
 
 /** Semantic tone for a run state, for status-bearing `Badge` compositions. */
 export const agentStateTone = Object.fromEntries(
   stateEntries.map(([state, work]) => [state, WORK_STATE[work].tone]),
-) as Record<AgentRunState, AgentStatusTone>;
+) as Record<AgentStepState, AgentStatusTone>;
 
 /** The same tone narrowed to what `StatusDot` accepts. */
-export const agentStateDotTone: Record<AgentRunState, StatusDotTone> = Object.fromEntries(
+export const agentStateDotTone: Record<AgentStepState, StatusDotTone> = Object.fromEntries(
   stateEntries.map(([state, work]) => [state, WORK_STATE[work].tone]),
-) as Record<AgentRunState, StatusDotTone>;
+) as Record<AgentStepState, StatusDotTone>;
 
 /**
  * Whether a state is one the user has to *do* something about, or one that
@@ -107,7 +110,7 @@ export const agentStateDotTone: Record<AgentRunState, StatusDotTone> = Object.fr
  * must not hard-code their own list; the whole point is that "which states are
  * loud" is one decision.
  */
-export function isAttentionState(state: AgentRunState): boolean {
+export function isAttentionState(state: AgentStepState): boolean {
   return (
     state === "approval" ||
     state === "denied" ||
@@ -125,7 +128,7 @@ export function isAttentionState(state: AgentRunState): boolean {
  * Failures stay loud on the header and stay collapsed; the reader opens
  * the payload. Only a request to the reader (`approval`) auto-opens.
  */
-export function isActionRequiredState(state: AgentRunState): boolean {
+export function isActionRequiredState(state: AgentStepState): boolean {
   return state === "approval";
 }
 
@@ -153,6 +156,6 @@ export function isActionRequiredState(state: AgentRunState): boolean {
  * `queued` and `running` are neither loud nor quiet, and a running row that
  * said nothing at all would be indistinguishable from a settled one.
  */
-export function isQuietState(state: AgentRunState): boolean {
+export function isQuietState(state: AgentStepState): boolean {
   return state === "completed" || state === "done";
 }

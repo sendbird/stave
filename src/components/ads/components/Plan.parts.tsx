@@ -12,7 +12,7 @@ import { VisuallyHidden } from "./VisuallyHidden";
 /**
  * The five states a durable plan step can be in.
  *
- * Deliberately smaller than `agent-state.ts`'s thirteen-value `AgentRunState`.
+ * Deliberately smaller than `agent-state.ts`'s thirteen-value `AgentStepState`.
  * That union is a *run* lifecycle (queued, checkpointed, resumed, interrupted,
  * …) and a plan step has no use for eight of its values; carrying them would
  * force every consumer to answer "what does a checkpointed plan step look

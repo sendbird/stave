@@ -13,7 +13,7 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react";
-import type { AgentRunState } from "@/components/ads/components/agent-state";
+import type { AgentStepState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { ToolRun } from "@/components/ads/components/ToolRun";
 import {
@@ -307,14 +307,14 @@ function AssistantTraceEntryView(args: {
      * they did not. Nothing about a diff asked for that; it was just the row it
      * was built on.
      *
-     * The pending/rejected states are reported through `AgentRunState` rather
+     * The pending/rejected states are reported through `AgentStepState` rather
      * than a local `defaultOpen`: `approval` is what "waiting for accept or
      * reject" is called everywhere else in this family, and `isAttentionState`
      * then keeps exactly those rows open without this call site re-deriving the
      * rule.
      */
     case "diff": {
-      const diffStatus: AgentRunState = entry.parts.some(
+      const diffStatus: AgentStepState = entry.parts.some(
         (part) => part.status === "pending",
       )
         ? "approval"

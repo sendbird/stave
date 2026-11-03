@@ -45,6 +45,8 @@ Host modifications are intentional and retained when refreshing the bundle:
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
 
+`agent-state.ts` names its lifecycle union `AgentStepState` (the bundle calls it `AgentRunState`), and every consumer here follows. The host already has an `AgentRunState`: the state of a supervised agent run (`src/lib/agent-runs/domain.ts`). One name for two different unions let a tool row's state read as a run's, so the bundle's union takes the name of what it describes, one step of agent work. Keep the rename when refreshing the bundle.
+
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.
 
 Additional control/sidebar, lightbox, async-state, toolbar, version-compare, review,
@@ -471,7 +473,7 @@ Further host extensions:
   an uncommitted upstream working-tree state, so no pristine baseline exists in
   either repository and a mechanical three-way merge is impossible. It starts
   from upstream with three known host deltas re-applied and nothing else:
-  `"skipped"` in `ROLLUP_PRIORITY` (a host-added `AgentRunState`),
+  `"skipped"` in `ROLLUP_PRIORITY` (a host-added `AgentStepState`),
   `?? null` on `aggregateRunStatus`'s result (the strict indexed-access
   adaptation recorded above), and `agentSurface.rowLabel` on the title.
 

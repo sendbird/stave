@@ -16,7 +16,7 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   agentStateLabel,
   isActionRequiredState,
-  type AgentRunState,
+  type AgentStepState,
 } from "./agent-state";
 import {
   formatElapsed,
@@ -88,10 +88,10 @@ export type ToolRunProps = ToolRunBaseProps & {
   outputLabel?: React.ReactNode;
   /**
    * Where this run is in its lifecycle. Shared with every other agent
-   * surface (`AgentRunState`) rather than re-declared here — two names for
+   * surface (`AgentStepState`) rather than re-declared here — two names for
    * one state is a bug you cannot see in a diff.
    */
-  status: AgentRunState;
+  status: AgentStepState;
   /** Overrides the status word. Defaults to `agentStateLabel[status]`. */
   statusLabel?: React.ReactNode;
   /** What the run is doing, in human words: "Search the changelog". */

@@ -2,26 +2,26 @@ import { describe, expect, test } from "bun:test";
 
 import {
   extractOutputUrls,
-  toAgentRunState,
+  toAgentStepState,
   toDiffRunState,
   toFileChangeRunState,
   toMeasuredDurationMs,
   toUrlSource,
 } from "@/components/session/message/turn-event-state";
 
-describe("toAgentRunState", () => {
+describe("toAgentStepState", () => {
   test("maps both input phases onto one running state", () => {
     // The difference between "arguments still arriving" and "call is out" is
     // not something a reader can act on, and ADS `running` already carries the
     // live clock and the open payload both need.
-    expect(toAgentRunState("input-streaming")).toBe("running");
-    expect(toAgentRunState("input-available")).toBe("running");
+    expect(toAgentStepState("input-streaming")).toBe("running");
+    expect(toAgentStepState("input-available")).toBe("running");
   });
 
   test("maps terminal states onto the shared vocabulary", () => {
-    expect(toAgentRunState("output-available")).toBe("done");
-    expect(toAgentRunState("output-error")).toBe("failed");
-    expect(toAgentRunState(undefined)).toBe("pending");
+    expect(toAgentStepState("output-available")).toBe("done");
+    expect(toAgentStepState("output-error")).toBe("failed");
+    expect(toAgentStepState(undefined)).toBe("pending");
   });
 });
 

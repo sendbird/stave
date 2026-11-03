@@ -40,7 +40,7 @@ import {
   TraceCitations,
   TraceOutput,
 } from "./turn-event-rows";
-import { toAgentRunState, toMeasuredDurationMs } from "./turn-event-state";
+import { toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
 
 /**
  * The one tool-call renderer. A tool call is drawn as an ADS `ToolRun` whether
@@ -176,7 +176,7 @@ export function TraceToolRun(args: {
         ) : undefined
       }
       outputLabel={args.outputLabel}
-      status={toAgentRunState(part.state)}
+      status={toAgentStepState(part.state)}
       title={getToolTitle(part.toolName)}
       tool={toolSummary?.text}
     >
@@ -221,7 +221,7 @@ export function TraceSubagentRun(args: { part: ToolUsePart }) {
       output={
         !isError && output ? <TraceOutput prose text={output} /> : undefined
       }
-      status={toAgentRunState(part.state)}
+      status={toAgentStepState(part.state)}
       title={
         parsed.description ??
         parsed.subagentType ??
@@ -251,7 +251,7 @@ export function TraceTodoRun(args: { part: ToolUsePart; title: string }) {
     <ToolRun
       count={planProgressCount(part.input)}
       icon={<ListTodo size={TRACE_GLYPH_SIZE} />}
-      status={toAgentRunState(part.state)}
+      status={toAgentStepState(part.state)}
       title={args.title}
     >
       <TracePlan input={part.input} state={part.state} />
