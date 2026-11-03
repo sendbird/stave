@@ -1371,5 +1371,31 @@
     "legendTool": "Tool",
     "legendAgent": "Agent",
     "legendNow": "Now"
+  },
+  "sharedFiles": {
+    "title": "Shared files",
+    "reading": "Reading what each worktree changed…",
+    "summary_one": "{{count}} file changed in more than one worktree",
+    "summary_other": "{{count}} files changed in more than one worktree",
+    "none": "No file changed in more than one worktree",
+    "refresh": "Read shared files again",
+    "file": "File",
+    "agents_one": "{{count}} agent",
+    "agents_other": "{{count}} agents",
+    "change": {
+      "added": "Added",
+      "deleted": "Deleted",
+      "renamed": "Renamed",
+      "changed": "Changed"
+    },
+    "notChanged": "—",
+    "openDiff": "Open diff",
+    "openDiffLabel": "Open the diff of {{path}} from {{agent}}",
+    "openFailed": "The diff could not be opened.",
+    "binary": "This is a binary file; its diff is not shown.",
+    "unreadable_one": "Not compared: {{agents}}. Its worktree is not available or could not be read.",
+    "unreadable_other": "Not compared: {{agents}}. Their worktrees are not available or could not be read.",
+    "scope": "Since each worktree left the default branch · file level; overlapping lines are not checked.",
+    "notChangedSpoken": "Not changed"
   }
 }

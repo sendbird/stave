@@ -411,7 +411,9 @@
     "noSubagents": "No subagents yet.",
     "subagentsFailed": "Subagents could not be read: {{error}}",
     "stepsTitle": "Tasks of {{name}}",
-    "closeSteps": "Close tasks"
+    "closeSteps": "Close tasks",
+    "sharedFiles_one": "{{count}} shared file",
+    "sharedFiles_other": "{{count}} shared files"
   },
   "tree": {
     "rename": "Rename",

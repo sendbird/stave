@@ -13,7 +13,9 @@ import { resolveDelegatedTaskControls, type DelegatedTaskSummary } from "@/lib/r
 import { useAppStore } from "@/store/app.store";
 import { useDelegatedTaskRowController } from "./DelegatedTaskRows";
 import { useDelegatedTasks } from "./useDelegatedTasks";
-import { selectTaskSubagents } from "@/lib/delegation/subagent-summary";
+import { selectTaskSubagents, subagentWorkState } from "@/lib/delegation/subagent-summary";
+import { describeExchangeStatus } from "@/lib/delegation/format";
+import { SharedFilesSection, type SharedFilesChildInfo } from "./SharedFilesSection";
 import { SubagentsList, type SubagentListItem } from "./SubagentsList";
 import type { ChatMessage } from "@/types/chat";
 
@@ -134,9 +136,30 @@ export function SubagentsSection(props: {
         : undefined,
     };
   });
+  // Who each delegated child is and how it stands, for the Shared files columns.
+  const infoByDelegationKey = new Map<string, SharedFilesChildInfo>();
+  for (const item of items) {
+    const key = item.exchange.kind === "delegated-task" ? item.exchange.ref.delegationKey : undefined;
+    if (!key) continue;
+    infoByDelegationKey.set(key, {
+      label: item.what && item.what !== item.who ? `${item.who} · ${item.what}` : item.who,
+      state: subagentWorkState(item.exchange),
+      stateLabel: describeExchangeStatus(item.exchange.outcome.status).label,
+    });
+  }
   return (
     <>
-      <SubagentsList items={items} />
+      <SubagentsList
+        items={items}
+        afterTray={
+          <SharedFilesSection
+            workspaceId={props.workspaceId}
+            taskId={props.taskId}
+            delegatedTasks={controller.children}
+            infoByDelegationKey={infoByDelegationKey}
+          />
+        }
+      />
       {viewing ? (
         <ActivityDetailDialog
           key={viewing.exchange.id}

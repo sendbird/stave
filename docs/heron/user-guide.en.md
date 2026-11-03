@@ -454,6 +454,7 @@ An agent can hand part of its work to another agent. A delegated task is a real 
 The **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view activity, open the transcript, or stop it.
 **Needs you** means it asked a question or an approval and waits for a person; **Waiting** means it sits between turns on its own.
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
+When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
 
 @page automation | Automation | Schedules, check-backs and Fleet | guide
@@ -494,7 +495,7 @@ Idle | Tasks with nothing to do right now
 Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you". J and K move between rows like the arrow keys. A wait's age turns to the warning color after an hour and the failed color after a day.
 Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
 
-Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task. If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
+Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. A task whose Subagents tab you opened also counts the files its subagents changed in common. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task. If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
 Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/fleet.png)
 
 ## Notifications and issues

@@ -390,7 +390,8 @@
     "noSubagents": "아직 하위 에이전트가 없습니다.",
     "subagentsFailed": "하위 에이전트를 읽지 못했습니다: {{error}}",
     "stepsTitle": "{{name}}의 작업",
-    "closeSteps": "작업 닫기"
+    "closeSteps": "작업 닫기",
+    "sharedFiles_other": "함께 바꾼 파일 {{count}}개"
   },
   "tree": {
     "rename": "이름 바꾸기",

@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { RotateCcw } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { Textarea } from "@/components/ads/components/Textarea";
 import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
@@ -72,7 +72,12 @@ const FILTER_LABEL_KEYS = {
  * deterministic render; live rows otherwise tick their elapsed time each
  * second.
  */
-export function SubagentsList(props: { items: readonly SubagentListItem[]; nowMs?: number }) {
+export function SubagentsList(props: {
+  items: readonly SubagentListItem[];
+  nowMs?: number;
+  /** Shown between the summary tray and the rows, such as the files children share. */
+  afterTray?: ReactNode;
+}) {
   useTranslation();
   const [selected, setSelected] = useState<SubagentListFilter>("all");
   const counts = countSubagentFilters(props.items.map((item) => item.exchange));
@@ -82,6 +87,7 @@ export function SubagentsList(props: { items: readonly SubagentListItem[]; nowMs
   return (
     <>
       <SubagentsTray items={props.items} counts={counts} filter={filter} onFilter={setSelected} />
+      {props.afterTray}
       <ul aria-label={i18n.t("session:subagentsSection.ariaLabel")} className={sx(styles.list)} data-testid="subagents-list">
         {shown.map((item) => (
           <SubagentRow key={item.exchange.id} item={item} nowMs={props.nowMs} />

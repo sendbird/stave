@@ -81,7 +81,9 @@ Fleet item, and the task records the answer the same way.
   status ring and the status in words, the task, the model, up to three tool
   icons (named for screen readers, then `+N`), and what the turn last did or
   what the task needs. A third line shows cost, running time and subagents
-  when there are any; without them the card is two lines tall. Cards only
+  when there are any, and how many files its subagents' worktrees changed in
+  common once its Subagents tab has read them (`2 shared files`); without
+  them the card is two lines tall. Cards only
   ever take one of those two heights, so a status change never shifts the
   list unpredictably. A task in a workspace you have not opened reads
   `Unknown`, or `Needs you` while a request for it waits.

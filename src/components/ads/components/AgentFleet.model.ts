@@ -68,6 +68,11 @@ export interface AgentFleetAgent {
   error?: string;
   /** A shortcut on a waiting or failed subagent's card, e.g. "Answer". */
   resolveLabel?: string;
+  /**
+   * Files two or more of this agent's subagent worktrees changed, when the
+   * host has read them; omitted (not 0) when unknown.
+   */
+  sharedFileCount?: number;
 }
 
 /**
@@ -187,12 +192,13 @@ export function hasAgentFleetTime(agent: Pick<AgentFleetAgent, "status" | "start
  * card heights instead of carrying an empty line.
  */
 export function hasAgentFleetNumbers(
-  agent: Pick<AgentFleetAgent, "status" | "startedAt" | "elapsedMs" | "cost" | "children">,
+  agent: Pick<AgentFleetAgent, "status" | "startedAt" | "elapsedMs" | "cost" | "children" | "sharedFileCount">,
 ) {
   return (
     rollupAgentFleetCost(agent) !== null ||
     hasAgentFleetTime(agent) ||
-    (agent.children?.length ?? 0) > 0
+    (agent.children?.length ?? 0) > 0 ||
+    (agent.sharedFileCount ?? 0) > 0
   );
 }
 
@@ -206,7 +212,7 @@ export type AgentFleetCardSize = "compact" | "full";
 export function sizeAgentFleetCard(
   agent: Pick<
     AgentFleetAgent,
-    "name" | "task" | "status" | "startedAt" | "elapsedMs" | "cost" | "children"
+    "name" | "task" | "status" | "startedAt" | "elapsedMs" | "cost" | "children" | "sharedFileCount"
   >,
   kind: "main" | "subagent",
 ): AgentFleetCardSize {

@@ -424,6 +424,11 @@ function MainAgentCard(props: {
                 {t("ui:agentFleet.needYou", { count: counts.waiting })}
               </span>
             ) : null,
+            (agent.sharedFileCount ?? 0) > 0 ? (
+              <span key="shared" className={sx(styles.metaAttention)} data-agent-fleet-shared-files="">
+                {t("ui:agentFleet.sharedFiles", { count: agent.sharedFileCount })}
+              </span>
+            ) : null,
           ]}
         </MetaLine>
       ) : null}

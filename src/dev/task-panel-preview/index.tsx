@@ -67,10 +67,19 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  *   in-turn subagents that wait on an approval and that failed. Retry is
  *   accepted without a ledger (`retry=refuse` refuses it) and recorded on
  *   `window.__staveSubagentRetries`.
+ * - `shared=1` (with `stuck=1`) puts the asking and the failed child in
+ *   worktrees of their own that both changed `server/users.ts` and
+ *   `tests/users.test.ts`, for Shared files; `shared=none` makes them share
+ *   nothing and `shared=missing` leaves the failed child's worktree unknown.
+ *   Each change-list read is recorded on `window.__staveReviewDiffCalls`.
  */
 const params = new URLSearchParams(window.location.search);
 /** `stuck=1`: see above. */
 const STUCK = params.get("stuck") === "1";
+/** `shared=1|none|missing`: see above. */
+const SHARED = params.get("shared");
+const CHANGELOG_WORKSPACE_ID = "task-panel-preview-ws-changelog";
+const MIGRATE_WORKSPACE_ID = "task-panel-preview-ws-migrate";
 
 const WORKSPACE_ID = "task-panel-preview-ws";
 const REPOSITORY_PATH = "/tmp/task-panel-preview-repo";
@@ -537,6 +546,7 @@ const DELEGATED_REVIEW: DelegatedTaskSummary = {
 /** `stuck=1`: a child that asks the user a question and one that failed. */
 const DELEGATED_ASKING: DelegatedTaskSummary = {
   ...DELEGATED_REVIEW,
+  ...(SHARED ? { delegatedWorkspaceId: CHANGELOG_WORKSPACE_ID } : {}),
   runId: "child-task:agent-run:changelog",
   stepId: "child-task:agent-run:changelog:turn",
   delegationKey: "write-changelog-entry",
@@ -552,6 +562,7 @@ const DELEGATED_ASKING: DelegatedTaskSummary = {
 };
 const DELEGATED_FAILED: DelegatedTaskSummary = {
   ...DELEGATED_REVIEW,
+  ...(SHARED ? { delegatedWorkspaceId: MIGRATE_WORKSPACE_ID } : {}),
   runId: "child-task:agent-run:migrate",
   stepId: "child-task:agent-run:migrate:turn",
   delegationKey: "migrate-users-table",
@@ -595,6 +606,55 @@ function stubDelegatedTasks() {
   };
 }
 
+/**
+ * `shared=*`: each child worktree's changes since it left the default
+ * branch, as the change-list read returns them, and each file's two sides.
+ */
+const PREVIEW_BASE = "3f2a9c1d0b8e7f6a5c4d3e2f1a0b9c8d7e6f5a4b";
+const PREVIEW_HEAD = "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d";
+function stubWorktreeChanges() {
+  if (!SHARED) return;
+  const host = window as unknown as { api?: Record<string, unknown> & { sourceControl?: Record<string, unknown> }; __staveReviewDiffCalls?: unknown[] };
+  const calls: unknown[] = [];
+  host.__staveReviewDiffCalls = calls;
+  const filesByPath: Record<string, Array<{ path: string; status: string; additions: number; deletions: number; untracked?: boolean }>> = {
+    "/tmp/task-panel-preview-changelog": [
+      { path: "CHANGELOG.md", status: "M", additions: 3, deletions: 0 },
+      { path: "server/users.ts", status: "M", additions: 4, deletions: 1 },
+      { path: "tests/users.test.ts", status: "M", additions: 6, deletions: 0 },
+    ],
+    "/tmp/task-panel-preview-migrate": SHARED === "none"
+      ? [{ path: "db/migrations/003_users_offset.sql", status: "A", additions: 5, deletions: 0, untracked: true }]
+      : [
+          { path: "db/migrations/003_users_offset.sql", status: "A", additions: 5, deletions: 0, untracked: true },
+          { path: "server/users.ts", status: "M", additions: 2, deletions: 2 },
+          { path: "tests/users.test.ts", status: "M", additions: 1, deletions: 0 },
+        ],
+  };
+  host.api = {
+    ...host.api,
+    sourceControl: {
+      ...host.api?.sourceControl,
+      getReviewDiff: async (args: { cwd: string; base: { kind: string; sha?: string } }) => {
+        calls.push({ cwd: args.cwd, base: args.base.kind });
+        const files = filesByPath[args.cwd];
+        return files
+          ? { ok: true, baseSha: PREVIEW_BASE, baseRef: "origin/main", headSha: PREVIEW_HEAD, files, stderr: "" }
+          : { ok: false, baseSha: null, baseRef: null, headSha: null, files: [], stderr: "fatal: not a git repository" };
+      },
+      getReviewFileDiff: async (args: { cwd: string; baseSha: string; path: string; untracked?: boolean }) => {
+        calls.push({ cwd: args.cwd, file: args.path, baseSha: args.baseSha, ...(args.untracked ? { untracked: true } : {}) });
+        return {
+          ok: true,
+          oldContent: `// ${args.path} at the base\n`,
+          newContent: `// ${args.path} in the worktree\nexport const offset = 0;\n`,
+          stderr: "",
+        };
+      },
+    },
+  };
+}
+
 function seedResultReviews() {
   let rows: unknown[] = [];
   try {
@@ -615,6 +675,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   const store = useAppStore.getState();
   seedResultReviews();
   stubDelegatedTasks();
+  stubWorktreeChanges();
   stubTurnHistory({ plainTaskId: PLAIN_TASK_ID, messages: PLAIN_MESSAGES });
   stubTaskHandoff();
   useAppStore.setState({
@@ -627,7 +688,11 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     workspaces: [{ id: WORKSPACE_ID, name: "sidebar-spacing", updatedAt: "2026-09-29T09:04:00.000Z" }],
     workspaceBranchById: { [WORKSPACE_ID]: "feat/sidebar-spacing" },
     workspaceDefaultById: { [WORKSPACE_ID]: false },
-    workspacePathById: { [WORKSPACE_ID]: REPOSITORY_PATH },
+    workspacePathById: {
+      [WORKSPACE_ID]: REPOSITORY_PATH,
+      ...(SHARED ? { [CHANGELOG_WORKSPACE_ID]: "/tmp/task-panel-preview-changelog" } : {}),
+      ...(SHARED && SHARED !== "missing" ? { [MIGRATE_WORKSPACE_ID]: "/tmp/task-panel-preview-migrate" } : {}),
+    },
     // Known files, so inline code in answers stays code unless it names one.
     repositoryFiles: [
       SIDEBAR_DIFF.filePath,

@@ -127,6 +127,20 @@ with its original model and permissions; a refusal shows on that task's row.
 An in-turn subagent that failed is reported and retried by the turn that called
 it, so it is never part of this retry. A managed task's subagents stay
 read-only. **Open {name}** opens the first child that waits on you in one click.
+
+**Shared files** appears under that line when two or more of the task's
+children write in worktrees of their own (a writer gets a new worktree by
+default; a child working in the parent's workspace is not compared). It lists
+every file that two or more of those worktrees changed since they left the
+default branch, committed or not, with a column per worktree naming its
+children and their state. A changed cell says how the file changed and opens
+that worktree's diff of the file, read-only, in the editor. The list is read
+when the tab opens and with its refresh button, never in the background; the
+merge-base is reused while a worktree's HEAD stays, and the file list is read
+again each time. A worktree Stave cannot find or read is named and left out.
+It compares files only: whether the same lines changed is not checked, and a
+child created from another branch than the default one counts that branch's
+earlier changes too.
 Turn Activity retains its compact child rows with follow-up, retry and release
 controls. Settings → Providers → Delegated tasks documents provider availability,
 per-call parameters and how many helper Agents one Agent run can call ([team limits](./agents.md#team-limits)).

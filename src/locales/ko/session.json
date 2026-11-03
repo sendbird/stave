@@ -1307,5 +1307,28 @@
     "legendTool": "도구",
     "legendAgent": "에이전트",
     "legendNow": "현재"
+  },
+  "sharedFiles": {
+    "title": "함께 바꾼 파일",
+    "reading": "각 worktree가 바꾼 파일을 읽는 중…",
+    "summary_other": "worktree 두 곳 이상에서 바뀐 파일 {{count}}개",
+    "none": "worktree 두 곳 이상에서 바뀐 파일 없음",
+    "refresh": "함께 바꾼 파일 다시 읽기",
+    "file": "파일",
+    "agents_other": "에이전트 {{count}}개",
+    "change": {
+      "added": "추가",
+      "deleted": "삭제",
+      "renamed": "이름 바뀜",
+      "changed": "바뀜"
+    },
+    "notChanged": "—",
+    "openDiff": "diff 열기",
+    "openDiffLabel": "{{agent}}의 {{path}} diff 열기",
+    "openFailed": "diff를 열지 못했습니다.",
+    "binary": "바이너리 파일이라 diff를 보여 주지 않습니다.",
+    "unreadable_other": "비교하지 못함: {{agents}}. worktree가 없거나 읽지 못했습니다.",
+    "scope": "각 worktree가 기본 브랜치에서 갈라진 뒤부터 · 파일 단위이며 같은 줄인지는 확인하지 않습니다.",
+    "notChangedSpoken": "바뀌지 않음"
   }
 }

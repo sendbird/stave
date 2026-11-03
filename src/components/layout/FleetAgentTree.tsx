@@ -29,6 +29,7 @@ import type { FleetTaskRow, FleetTaskTableFilter } from "@/lib/fleet/task-rows";
 import { selectDelegatedTaskBlockedKinds } from "@/lib/runs/delegated-task-view";
 import type { AppState } from "@/store/app-store.types";
 import { useAppStore } from "@/store/app.store";
+import { sharedFilesParentKey, useSharedFilesStore } from "@/store/shared-files-store";
 
 type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: string };
 
@@ -114,13 +115,18 @@ function FleetAgentTreeBoard(props: {
   const openRow = rows.find((row) => row.key === openKey) ?? null;
 
   const children = useOpenAgentChildren(openRow, props.nowMs);
+  // Shared files are read only where a task's Subagents tab was opened; a
+  // card counts them when that read found any, and says nothing otherwise.
+  const sharedFilesByParent = useSharedFilesStore((state) => state.byParent);
 
   const agents = useMemo<AgentFleetAgent[]>(
     () =>
       rows.map((row) => {
+        const sharedFileCount = sharedFilesByParent[sharedFilesParentKey(row.workspaceId, row.task.id)]?.shared.length ?? 0;
         const agent: AgentFleetAgent = {
           ...buildMainAgent(row, facts[row.key] ?? EMPTY_FLEET_AGENT_FACTS),
           avatar: <FleetProviderIcon provider={row.task.provider} />,
+          ...(sharedFileCount > 0 ? { sharedFileCount } : {}),
         };
         return row.key === openRow?.key
           ? {
@@ -132,7 +138,7 @@ function FleetAgentTreeBoard(props: {
           : agent;
       }),
     // The agents carry translated words; a language switch rebuilds them.
-    [children, facts, openRow?.key, rows, i18n.resolvedLanguage],
+    [children, facts, openRow?.key, rows, sharedFilesByParent, i18n.resolvedLanguage],
   );
 
   const openChild = (agent: AgentFleetAgent) => {
