@@ -240,6 +240,8 @@ Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/scr
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
 
+**Activity tab**: the Task panel's **Activity** tab lists the turn's steps. The **List | Timeline** switch draws the same turn on a time axis: the turn row with its tokens and cost, tool calls and subagents as bars, a **Now** line while it runs, and a **Slowest** tag on the longest step. Steps without a recorded time are listed under the axis instead. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
+
 ## 4. Check the changes and open a PR
 
 1. Use **Source Control** in the right panels to see changed files and history.

@@ -98,6 +98,11 @@ summary. A few kinds read better than plain text:
 - **Mermaid diagrams** in a reply (a fenced `mermaid` code block) are drawn once
   the reply finishes, in the current light or dark theme. **Show code** switches
   to the source; a diagram that cannot be drawn shows its source instead.
+- **Arguments and output** of a tool call each have a **Copy** button. Long
+  arguments, output or error text stop at a fixed height and scroll inside the
+  step, with a fade at the cut and a line count under it (`42 lines · scroll
+  for more`), so one large result does not push the conversation down. A
+  subagent's prompt and report work the same way.
 
 ### The Queue
 
@@ -198,7 +203,9 @@ to read all of it. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
   ends — under every placement, with a **Turn** picker for the task's earlier
-  turns. See [Earlier Turns](#earlier-turns). Under them, **Approvals in this
+  turns. See [Earlier Turns](#earlier-turns). A **List | Timeline** switch
+  under the picker draws the same turn on a time axis; the list is the
+  default. See [Timeline View](#timeline-view). Under them, **Approvals in this
   turn** counts the turn's permission requests by who allowed them (`1 allowed
   by you · 1 allowed by a Stave rule · 1 allowed by the provider's mode ·
   1 denied`); open it to list each request with who decided it and when. It
@@ -266,6 +273,49 @@ line says the run needs you without repeating the question.
 - In the Task panel, tool, event, and agent rows wrap titles and details so a
   long path or command stays readable. The inline list keeps each field to one
   ellipsized line.
+
+### The Agent Tree
+
+When a turn starts agents, the Activity list shows them as a tree under
+**Agent tree**, with a polite count beside the heading
+(`2 running · 1 needs you · 0 failed`) that a screen reader announces when it
+changes.
+
+- Each agent's row shows its state mark and word, its label, model and
+  latest progress, and how long it has run.
+- A branch folds on its own: press its chevron, or the line under a folded
+  branch that says what it hides (`Show 2 subagents of Explore the router`).
+- Finished agents fold away behind **N done** while others still run; show
+  them to put them back in their place in the tree.
+- The tree takes one Tab stop. Up and Down move between rows; Right opens a
+  branch, then moves into it; Left folds a branch, or moves to the parent;
+  Home and End jump to the first and last row; typing a letter jumps to the
+  next agent whose name starts with it. Enter or Space opens the agent's
+  activity (or shows its call in the conversation); on a row without that,
+  it folds or opens the branch. A row's message, interrupt and stop buttons
+  join the Tab order only while that row has focus.
+
+### Timeline View
+
+**Timeline** draws the turn on one time axis, in the Activity tab's place for
+the steps:
+
+- The **Turn** row spans the whole turn and carries its tokens and cost, when
+  the provider reports them; providers report them for the turn, not for each
+  step. Under it are the reasoning passes, the tool calls, and the subagents
+  with the calls they made nested inside them, colored by kind (the legend
+  names them).
+- While the turn runs, a **Now** line marks the present and running steps
+  reach it. The longest step is tagged **Slowest**.
+- Each bar starts and ends when the runtime saw the step start and finish.
+  Steps without such times — calls saved before Stave recorded them, or ones
+  that ended without a result — are listed under **N steps without a
+  reported time** instead of being placed on the axis.
+- Choosing a tool call shows it in the conversation. Rows with nested steps
+  fold, and **Collapse all** / **Expand all** fold every one.
+
+It works for the live turn, the last turn, and earlier turns opened from the
+picker. The choice lasts while the task stays open.
 
 ### Provider-Specific Detail
 
@@ -488,8 +538,11 @@ row when it is narrower.
 - The full activity view (timings, the agent tree, the metrics) is kept only
   for the most recent turn, only for the last several tasks you ran one in, and
   only until the app is restarted. Earlier turns open as records: their steps
-  carry the durations providers reported, not their start times, and their
-  agents are rows rather than a tree.
+  carry the durations providers reported, and their agents are rows rather
+  than a tree. Their Timeline places tool calls by the start and end times
+  the runtime recorded; calls saved before those were recorded have none and
+  are listed instead, and an earlier turn's record keeps no reasoning passes or
+  token counts, so its Timeline shows neither.
 - The picker lists a task's latest 200 turns. A record lists up to 300 steps;
   the rest are in the conversation.
 - A turn you steered saves one reply per stretch. A record reads all of them,
