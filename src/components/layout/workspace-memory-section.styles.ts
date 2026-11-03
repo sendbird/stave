@@ -24,6 +24,46 @@ export const workspaceMemorySectionStyles = stylex.create({
   },
   controlsBody: { paddingBlockStart: vars["--ads-space-16"] },
   hint: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  /* The search and the kind chips under it, flush with the hint above: they
+     filter the list, they are not rows of it. The chip track wraps onto a
+     second line in a narrow rail rather than overflowing it. */
+  filters: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
+  filterStatus: {
+    alignItems: "center",
+    color: vars["--ads-color-text-muted"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    justifyContent: "space-between",
+    lineHeight: vars["--ads-line-height-tight"],
+  },
+  filterStatusText: { minWidth: 0 },
+  /* "Last confirmed 3d ago": the relative time is a button (its card shows
+     the absolute time), so this wrapper must not clip its focus ring the way
+     the ellipsizing `metaText` would. */
+  metaTime: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    whiteSpace: "nowrap",
+  },
+  /* "Source task": a text link at the meta line's own size, not a control-
+     height button, so when a narrow row wraps it under the time it sits one
+     text line down rather than a control's height down. Accent ink and an
+     underline on hover, like the row titles' links. */
+  sourceLink: {
+    color: vars["--ads-color-accent"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    textDecorationLine: { default: "none", ":hover": "underline" },
+    whiteSpace: "nowrap",
+  },
   error: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-body"] },
   retry: { textDecorationLine: "underline" },
   /* Row shape, hover wash and action trail come from

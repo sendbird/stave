@@ -284,7 +284,7 @@ edge memory -> turn
 | `@web`                  | Write `@web` in the message                                  | Uses the provider's Chrome integration; scope in Settings > Browser > Mentions |
 | Information panel       | Keep notes, todos and links there                            | Jira and PR links pasted into a prompt are added to the panel automatically  |
 | Repository instructions | Settings > Projects > Repository > **Repository Instructions** | Included in every Claude and Codex turn in this repository                 |
-| Repository memory       | Information > **Memory**                                     | Collection is off by default; 280 characters per entry, up to 6 per turn     |
+| Repository memory       | Information > **Memory**                                     | Collection is off by default; 280 characters per entry, up to 6 per turn. Forgetting asks nothing; **Undo** in the notice that follows restores the entry. Search and kind chips appear from 8 entries |
 
 ```callout note "For the Information panel to reach the AI"
 The Information panel, task context and the latest turn summary are attached to a turn only while **Settings > MCP > Local MCP Server** is on. If the AI seems unaware of your notes or links, check this first.

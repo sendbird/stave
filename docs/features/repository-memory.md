@@ -26,6 +26,33 @@ alone keeps it a candidate; changing its usage makes it available for recall.
 Entries display their complete text. **Edit memory** opens a multiline editor;
 **Save memory** applies changes, and **Cancel** or Escape discards the draft.
 
+Under each entry, **Last confirmed** says when it was saved, found again or
+edited; hover or focus the time for the exact date. **Source task** opens the
+task that saved the entry, in its own workspace, while that task exists and is
+not archived.
+
+Once a repository has eight or more entries, a search field (matching entry
+text) and kind chips (**All**, **Decision**, **Convention**, **Gotcha**,
+**Fact**, each with its count) appear above the list. The chips' counts follow
+the search. The controls stay while a search or kind is active, even if the
+list drops below eight.
+
+## Forgetting and Undo
+
+**Forget this memory** removes the entry at once, without a confirmation. A
+**Memory forgotten** notice offers **Undo** (Cmd/Ctrl+Z also works while the
+notice shows), which restores the entry exactly as it was: text, kind, usage
+and source.
+
+Forgetting is a soft delete. A forgotten entry immediately leaves the list,
+`stave_list_repository_memories` and every injected memory block. It can be
+restored for 24 hours, and only into its own repository. After that, its text
+and source are erased the next time Stave starts or another entry is forgotten.
+The deletion marker keeps only a one-way fingerprint of the text, so neither
+automatic extraction nor `stave_remember` can add the identical text back and
+nothing can restore it. `stave_forget` performs the same soft delete; forgetting
+an already forgotten id reports `forgotten: false`.
+
 ## Settings and cleanup
 
 Open **Settings > Projects > Memory** and pick the repository in the project picker, or expand **Memory settings and
@@ -105,7 +132,9 @@ Enabling or disabling collection invalidates pending summary writes by revision.
 
 An additive database migration classifies existing high-confidence entries as
 contextual and lower-confidence entries as candidates. No old entry becomes core
-automatically, and no row or deletion marker is removed. Existing user-edited
+automatically, and no row or deletion marker is removed. Entries forgotten
+before the restore window existed are past it, so their text is reduced to a
+fingerprint on the first start. Existing user-edited
 summary prompts are preserved; untouched old defaults receive the new candidate
 extraction instructions. The parser enforces the one-candidate limit regardless
 of the configured prompt.
@@ -125,5 +154,6 @@ Memory lookup failure omits the block without failing the user turn.
 
 Implementation: `src/lib/repository-memory.ts`,
 `src/lib/task-context/repository-memory.ts`,
-`electron/persistence/repository-memory-store.ts`, and
-`src/components/layout/WorkspaceMemorySection.tsx`.
+`electron/persistence/repository-memory-store.ts`,
+`electron/main/ipc/repository-memory.ts` (including `repository-memory:restore`),
+and `src/components/layout/WorkspaceMemorySection.tsx`.

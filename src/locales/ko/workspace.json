@@ -307,12 +307,30 @@
       "editTitle": "이 메모리 편집",
       "editAriaLabel": "메모리 편집: {{content}}",
       "forgetTitle": "이 메모리 삭제",
-      "forgetAriaLabel": "메모리 삭제: {{content}}"
+      "forgetAriaLabel": "메모리 삭제: {{content}}",
+      "confirmedAt": "<time/> 마지막 확인",
+      "sourceTask": "출처 작업",
+      "sourceTaskAriaLabel": "출처 작업 열기: {{title}}"
     },
-    "forgetDialog": {
-      "title": "이 메모리를 삭제하시겠습니까?",
-      "description": "\"{{content}}\" 항목이 이 저장소의 메모리에서 제거됩니다. 이 작업은 되돌릴 수 없습니다.",
-      "confirm": "메모리 삭제"
+    "forgotten": {
+      "title": "메모리를 삭제했습니다.",
+      "restoreFailed": "메모리를 복원하지 못했습니다."
+    },
+    "filters": {
+      "searchLabel": "메모리 검색",
+      "searchPlaceholder": "메모리 내용 검색",
+      "clearSearch": "검색 지우기",
+      "kindLabel": "종류별 메모리 필터",
+      "all": "전체",
+      "kinds": {
+        "decision": "결정",
+        "convention": "규칙",
+        "gotcha": "주의점",
+        "fact": "사실"
+      },
+      "matchCount_other": "메모리 {{count}}개 중 {{matched}}개 일치",
+      "noMatch": "조건에 맞는 메모리가 없습니다.",
+      "clear": "필터 지우기"
     }
   },
   "repositoryMemory": {

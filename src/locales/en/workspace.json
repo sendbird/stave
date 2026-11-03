@@ -311,12 +311,31 @@
       "editTitle": "Edit this memory",
       "editAriaLabel": "Edit memory: {{content}}",
       "forgetTitle": "Forget this memory",
-      "forgetAriaLabel": "Forget memory: {{content}}"
+      "forgetAriaLabel": "Forget memory: {{content}}",
+      "confirmedAt": "Last confirmed <time/>",
+      "sourceTask": "Source task",
+      "sourceTaskAriaLabel": "Open source task: {{title}}"
     },
-    "forgetDialog": {
-      "title": "Forget this memory?",
-      "description": "\"{{content}}\" will be removed from this repository's memory. This cannot be undone.",
-      "confirm": "Forget memory"
+    "forgotten": {
+      "title": "Memory forgotten",
+      "restoreFailed": "Could not restore memory."
+    },
+    "filters": {
+      "searchLabel": "Search memory",
+      "searchPlaceholder": "Search memory text",
+      "clearSearch": "Clear search",
+      "kindLabel": "Filter memory by kind",
+      "all": "All",
+      "kinds": {
+        "decision": "Decision",
+        "convention": "Convention",
+        "gotcha": "Gotcha",
+        "fact": "Fact"
+      },
+      "matchCount_one": "{{matched}} of {{count}} memory matches",
+      "matchCount_other": "{{matched}} of {{count}} memories match",
+      "noMatch": "No memories match these filters.",
+      "clear": "Clear filters"
     }
   },
   "repositoryMemory": {
