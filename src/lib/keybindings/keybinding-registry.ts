@@ -103,6 +103,11 @@ const FLEET_ROW_ANSWER = [
   "src/components/layout/FleetAttentionInbox.tsx",
   "src/components/layout/FleetRowInlineAnswer.tsx",
 ] as const;
+/** Approvals answer to the same keys in Fleet's rows and in the bell. */
+const APPROVAL_ROW_ANSWER = [
+  ...FLEET_ROW_ANSWER,
+  "src/components/layout/TopBarNotifications.tsx",
+] as const;
 
 /** A `Cmd/Ctrl+K` chord whose second key the user can change in Settings. */
 function appChord<TId extends AppShortcutCommandId>(
@@ -705,7 +710,7 @@ export const KEYBINDING_REGISTRY = [
     titleKey: "shell:keybindings.entries.fleetRowAllow.title",
     descriptionKey: "shell:keybindings.entries.fleetRowAllow.description",
     section: "surfaces",
-    handledBy: FLEET_ROW_ANSWER,
+    handledBy: APPROVAL_ROW_ANSWER,
   },
   {
     id: "fleet.row-deny",
@@ -717,7 +722,7 @@ export const KEYBINDING_REGISTRY = [
     titleKey: "shell:keybindings.entries.fleetRowDeny.title",
     descriptionKey: "shell:keybindings.entries.fleetRowDeny.description",
     section: "surfaces",
-    handledBy: FLEET_ROW_ANSWER,
+    handledBy: APPROVAL_ROW_ANSWER,
   },
   {
     id: "fleet.row-choose-option",

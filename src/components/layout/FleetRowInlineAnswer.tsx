@@ -25,37 +25,60 @@ function isTextEntryTarget(target: EventTarget | null) {
   return element.isContentEditable === true;
 }
 
+export type RowAnswerKeyEvent = Pick<
+  KeyboardEvent,
+  "key" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey" | "repeat" | "target"
+> & { isComposing?: boolean };
+
 /**
- * The response a key press in a focused Fleet row stands for: `A` allows an
- * approval once, `D` denies it, `1`–`9` picks an option of a short question.
- * Modified, composing, repeated and typed keys mean nothing here, so a held
- * key never answers twice and a field keeps its letters.
+ * Modified, composing, repeated and typed keys mean nothing to a row, so a
+ * held key never answers twice and a field keeps its letters.
  */
-export function resolveFleetRowKey(
-  event: Pick<
-    KeyboardEvent,
-    "key" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey" | "repeat" | "target"
-  > & { isComposing?: boolean },
-  interaction: Pick<FleetRowInteraction, "inline" | "busy">,
-): FleetInteractionResponse | null {
-  if (
+function isRowAnswerKey(event: RowAnswerKeyEvent) {
+  return !(
     event.altKey ||
     event.ctrlKey ||
     event.metaKey ||
     event.shiftKey ||
     event.repeat ||
     event.isComposing ||
-    interaction.busy ||
     isTextEntryTarget(event.target)
-  ) {
+  );
+}
+
+/**
+ * The decision a key press in a focused row with an approval stands for:
+ * `A` allows it once, `D` denies it. Fleet rows and the notification bell
+ * read approvals with the same keys.
+ */
+export function resolveApprovalRowKey(event: RowAnswerKeyEvent): boolean | null {
+  if (!isRowAnswerKey(event)) {
+    return null;
+  }
+  const key = event.key.toLowerCase();
+  if (key === "a") return true;
+  if (key === "d") return false;
+  return null;
+}
+
+/**
+ * The response a key press in a focused Fleet row stands for: `A` allows an
+ * approval once, `D` denies it, `1`–`9` picks an option of a short question.
+ */
+export function resolveFleetRowKey(
+  event: RowAnswerKeyEvent,
+  interaction: Pick<FleetRowInteraction, "inline" | "busy">,
+): FleetInteractionResponse | null {
+  if (interaction.busy || !isRowAnswerKey(event)) {
     return null;
   }
   const { inline } = interaction;
   if (inline.kind === "approval") {
-    const key = event.key.toLowerCase();
-    if (key === "a") return { kind: "approval", approved: true, scope: "once" };
-    if (key === "d") return { kind: "approval", approved: false };
-    return null;
+    const approved = resolveApprovalRowKey(event);
+    if (approved === null) return null;
+    return approved
+      ? { kind: "approval", approved: true, scope: "once" }
+      : { kind: "approval", approved: false };
   }
   if (inline.kind === "short-question" && /^[1-9]$/.test(event.key)) {
     const option = inline.options[Number(event.key) - 1];
@@ -82,6 +105,49 @@ export function describeFleetRowKeys(
       .join(" ");
   }
   return undefined;
+}
+
+/**
+ * Allow and Deny with their A / D key hints, the same words and keys on every
+ * row that answers an approval: Fleet's rows and the notification bell.
+ */
+export function ApprovalRowButtons(props: {
+  allowLabel: string;
+  denyLabel: string;
+  disabled?: boolean;
+  onAllow: () => void;
+  onDeny: () => void;
+}) {
+  useTranslation();
+  return (
+    <>
+      <Button
+        aria-keyshortcuts="A"
+        aria-label={props.allowLabel}
+        disabled={props.disabled}
+        onClick={props.onAllow}
+        size="sm"
+        type="button"
+        xstyle={styles.inlineOptionCompact}
+      >
+        <Kbd aria-hidden="true">A</Kbd>
+        {i18n.t("fleet:inlineAnswer.allow")}
+      </Button>
+      <Button
+        aria-keyshortcuts="D"
+        aria-label={props.denyLabel}
+        disabled={props.disabled}
+        onClick={props.onDeny}
+        size="sm"
+        type="button"
+        variant="outline"
+        xstyle={styles.inlineOptionCompact}
+      >
+        <Kbd aria-hidden="true">D</Kbd>
+        {i18n.t("fleet:inlineAnswer.deny")}
+      </Button>
+    </>
+  );
 }
 
 /**
@@ -123,31 +189,12 @@ export function FleetRowInlineAnswer(props: {
   return (
     <div className={sx(styles.inlineAnswerCompact)} data-fleet-inline-answer={inline.kind}>
       {inline.kind === "approval" && !interaction.busy ? (
-        <>
-          <Button
-            aria-keyshortcuts="A"
-            aria-label={i18n.t("fleet:inlineAnswer.allowOnceLabel", { tool: inline.part.toolName })}
-            onClick={() => onAnswer({ kind: "approval", approved: true, scope: "once" })}
-            size="sm"
-            type="button"
-            xstyle={styles.inlineOptionCompact}
-          >
-            <Kbd aria-hidden="true">A</Kbd>
-            {i18n.t("fleet:inlineAnswer.allow")}
-          </Button>
-          <Button
-            aria-keyshortcuts="D"
-            aria-label={i18n.t("fleet:inlineAnswer.denyLabel", { tool: inline.part.toolName })}
-            onClick={() => onAnswer({ kind: "approval", approved: false })}
-            size="sm"
-            type="button"
-            variant="outline"
-            xstyle={styles.inlineOptionCompact}
-          >
-            <Kbd aria-hidden="true">D</Kbd>
-            {i18n.t("fleet:inlineAnswer.deny")}
-          </Button>
-        </>
+        <ApprovalRowButtons
+          allowLabel={i18n.t("fleet:inlineAnswer.allowOnceLabel", { tool: inline.part.toolName })}
+          denyLabel={i18n.t("fleet:inlineAnswer.denyLabel", { tool: inline.part.toolName })}
+          onAllow={() => onAnswer({ kind: "approval", approved: true, scope: "once" })}
+          onDeny={() => onAnswer({ kind: "approval", approved: false })}
+        />
       ) : null}
       {inline.kind === "short-question" ? (
         <div

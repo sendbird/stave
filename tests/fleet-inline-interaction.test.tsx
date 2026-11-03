@@ -542,4 +542,32 @@ describe("row keys", () => {
     }
     expect(resolveFleetRowKey(press("a"), { ...approvalRow, busy: true })).toBeNull();
   });
+
+  test("the bell reads A and D on an approval row with the same guards", async () => {
+    const { resolveApprovalRowKey } = await import("@/components/layout/FleetRowInlineAnswer");
+    const press = (key: string, extra: Record<string, unknown> = {}) => ({
+      key, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, repeat: false, target: null, ...extra,
+    });
+    expect(resolveApprovalRowKey(press("a"))).toBe(true);
+    expect(resolveApprovalRowKey(press("A"))).toBe(true);
+    expect(resolveApprovalRowKey(press("d"))).toBe(false);
+    expect(resolveApprovalRowKey(press("1"))).toBeNull();
+    for (const extra of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }, { isComposing: true }]) {
+      expect(resolveApprovalRowKey(press("a", extra))).toBeNull();
+    }
+    expect(resolveApprovalRowKey(press("a", { target: { tagName: "TEXTAREA" } }))).toBeNull();
+  });
+
+  test("Fleet rows and the bell draw the same Allow and Deny with their key hints", async () => {
+    const { ApprovalRowButtons } = await import("@/components/layout/FleetRowInlineAnswer");
+    const html = renderToStaticMarkup(createElement(ApprovalRowButtons, {
+      allowLabel: "Allow the request in Ship once", denyLabel: "Deny the request in Ship",
+      onAllow: () => {}, onDeny: () => {},
+    }));
+    expect(html).toMatch(/aria-keyshortcuts="A"[^>]*aria-label="Allow the request in Ship once"/);
+    expect(html).toMatch(/aria-keyshortcuts="D"[^>]*aria-label="Deny the request in Ship"/);
+    expect(html).toMatch(/>A<\/kbd><span[^>]*>Allow</);
+    expect(html).toMatch(/>D<\/kbd><span[^>]*>Deny</);
+    expect(html).not.toContain("Allow once");
+  });
 });

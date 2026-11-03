@@ -379,7 +379,6 @@
     "thisTask": "이 작업",
     "archived": "보관됨",
     "markRead": "읽음 표시",
-    "deny": "거부",
     "thisTaskIsArchived": "이 작업은 보관되었습니다.",
     "restore": "복원",
     "cancel": "취소",
@@ -389,12 +388,13 @@
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "승인 및 입력 요청을 포함하여 현재 기록의 모든 알림을 영구 삭제합니다. 읽지 않은 알림은 유지합니다.",
     "loadMoreCount": "더 불러오기 ({{count}}개 남음)",
     "restoreTask": "{{title}} 작업을 복원하면 알림에서 다시 열 수 있습니다.",
-    "allowOnce": "한 번 허용",
     "all": "전체",
     "errors": "오류",
     "nothingInTheInbox": "받은 항목이 없습니다.",
     "noErrors": "오류가 없습니다.",
-    "failedRunsAndChecksWillAppear": "실패한 실행, 차단된 실행, 실패한 풀 리퀘스트 검사가 여기에 표시됩니다."
+    "failedRunsAndChecksWillAppear": "실패한 실행, 차단된 실행, 실패한 풀 리퀘스트 검사가 여기에 표시됩니다.",
+    "allowOnceFor": "{{title}} 작업의 요청 한 번 허용",
+    "denyFor": "{{title}} 작업의 요청 거부"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "독립 CLI — 설정에서 폴더 지정",
@@ -987,12 +987,12 @@
         "description": "AI 사용량 화면을 닫고 워크스페이스로 돌아갑니다."
       },
       "fleetRowAllow": {
-        "title": "Fleet 요청 한 번 허용",
-        "description": "승인 요청이 있는 Fleet 행에 포커스가 있을 때 한 번 허용합니다."
+        "title": "요청 한 번 허용",
+        "description": "승인 요청이 있는 Fleet 행이나 알림 행에 포커스가 있을 때 한 번 허용합니다."
       },
       "fleetRowDeny": {
-        "title": "Fleet 요청 거부",
-        "description": "승인 요청이 있는 Fleet 행에 포커스가 있을 때 거부합니다."
+        "title": "요청 거부",
+        "description": "승인 요청이 있는 Fleet 행이나 알림 행에 포커스가 있을 때 거부합니다."
       },
       "fleetRowChoose": {
         "title": "Fleet 질문에 응답",

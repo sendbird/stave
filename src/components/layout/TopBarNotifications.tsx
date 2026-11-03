@@ -3,7 +3,7 @@ import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundar
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Archive, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
-import { useRef, useState, type CSSProperties } from "react";
+import { useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Badge,
@@ -26,6 +26,7 @@ import {
   shouldShowNotificationApprovalActions,
 } from "@/components/layout/top-bar-notifications.utils";
 import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
+import { ApprovalRowButtons, resolveApprovalRowKey } from "@/components/layout/FleetRowInlineAnswer";
 import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import { inboxRowStyles as rowStyles } from "@/components/layout/inbox-row.styles";
 import { describeFleetAttentionPrimaryAction } from "@/lib/fleet/fleet-vocabulary";
@@ -311,14 +312,38 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
       ? (archivedPrompt?.taskTitle ?? entry.title ?? i18n.t("shell:topBarNotifications.thisTask"))
       : null;
 
+    // A focused row with an approval answers to A / D, as Fleet's rows do.
+    const handleRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+      if (event.defaultPrevented || busy || !approvalNotification) {
+        return;
+      }
+      const approved = resolveApprovalRowKey({
+        key: event.key,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        repeat: event.repeat,
+        isComposing: event.nativeEvent.isComposing,
+        target: event.target,
+      });
+      if (approved === null) {
+        return;
+      }
+      event.preventDefault();
+      void handleResolveApproval(entry, approvalNotification.id, approved);
+    };
+
     return (
       <InboxRow
         key={entry.id}
         entry={entry}
         triggerId={`notification-entry-${entry.id}`}
         triggerLabel={describeInboxEntryLabel(entry)}
+        triggerProps={approvalNotification ? { "aria-keyshortcuts": "A D" } : undefined}
         busy={busy}
         onActivate={() => void handleOpenEntry(entry)}
+        onKeyDown={handleRowKeyDown}
         supplement={
           taskIsArchived ? (
             <span className={sx(rowStyles.archivedChip)}>
@@ -330,33 +355,15 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
         actions={
           entry.unread || approvalNotification ? (
             <>
-              {/* The approval card's decision words, allow first. */}
+              {/* Fleet's decision words and keys, allow first. */}
               {approvalNotification ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    xstyle={rowStyles.rowAction}
-                    disabled={busy}
-                    onClick={() =>
-                      void handleResolveApproval(entry, approvalNotification.id, true)
-                    }
-                  >
-                    {i18n.t("shell:topBarNotifications.allowOnce")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    xstyle={rowStyles.rowAction}
-                    disabled={busy}
-                    onClick={() =>
-                      void handleResolveApproval(entry, approvalNotification.id, false)
-                    }
-                  >
-                    {i18n.t("shell:topBarNotifications.deny")}
-                  </Button>
-                </>
+                <ApprovalRowButtons
+                  allowLabel={i18n.t("shell:topBarNotifications.allowOnceFor", { title: entry.title })}
+                  denyLabel={i18n.t("shell:topBarNotifications.denyFor", { title: entry.title })}
+                  disabled={busy}
+                  onAllow={() => void handleResolveApproval(entry, approvalNotification.id, true)}
+                  onDeny={() => void handleResolveApproval(entry, approvalNotification.id, false)}
+                />
               ) : null}
               {entry.unread ? (
                 <Button

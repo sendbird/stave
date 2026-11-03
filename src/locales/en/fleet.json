@@ -219,7 +219,10 @@
     "actionRequiredCount_one": "{{count}} action required",
     "actionRequiredCount_other": "{{count}} actions required",
     "inReviewCount_one": "{{count}} in review",
-    "inReviewCount_other": "{{count}} in review"
+    "inReviewCount_other": "{{count}} in review",
+    "waitingOnYou_one": "{{count}} waiting on you",
+    "waitingOnYou_other": "{{count}} waiting on you",
+    "nothingWaitingOnYou": "Nothing is waiting on you"
   },
   "inlineAnswer": {
     "otherRepository": "This request belongs to another repository. Open the task to answer it.",
@@ -321,10 +324,6 @@
     "snoozeFor_one": "Snooze {{count}} item for {{duration}}",
     "snoozeFor_other": "Snooze {{count}} items for {{duration}}",
     "requestsUnanswered": "Pending requests stay unanswered.",
-    "oneHour": "1 hour",
-    "fourHours": "4 hours",
-    "oneDay": "1 day",
-    "oneWeek": "1 week",
     "snoozed_one": "Snoozed {{count}} item",
     "snoozed_other": "Snoozed {{count}} items",
     "scope_one": "All workspaces and filters · includes {{count}} request needing attention",
@@ -354,5 +353,11 @@
     "openFailed": "Could not open this request. Try again.",
     "recentFailure_one": "Last stopped turn ({{count}})",
     "recentFailure_other": "Last stopped turns ({{count}})"
+  },
+  "snoozeDuration": {
+    "oneHour": "1 hour",
+    "fourHours": "4 hours",
+    "oneDay": "1 day",
+    "oneWeek": "1 week"
   }
 }

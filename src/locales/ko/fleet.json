@@ -211,7 +211,9 @@
       "openTurn": "멈춘 턴 열기"
     },
     "actionRequiredCount_other": "조치 필요 {{count}}개",
-    "inReviewCount_other": "리뷰 대기 {{count}}개"
+    "inReviewCount_other": "리뷰 대기 {{count}}개",
+    "waitingOnYou_other": "{{count}}개가 기다리는 중",
+    "nothingWaitingOnYou": "기다리는 항목 없음"
   },
   "inlineAnswer": {
     "otherRepository": "이 요청은 다른 저장소에 있습니다. 작업을 열어 응답하세요.",
@@ -295,10 +297,6 @@
     "snoozeLabel_other": "항목 {{count}}개 모두 알림 미루기",
     "snoozeFor_other": "항목 {{count}}개 {{duration}} 동안 미루기",
     "requestsUnanswered": "대기 중인 요청에 응답하지 않습니다.",
-    "oneHour": "1시간",
-    "fourHours": "4시간",
-    "oneDay": "1일",
-    "oneWeek": "1주일",
     "snoozed_other": "항목 {{count}}개 알림을 미뤘습니다",
     "scope_other": "전체 워크스페이스·필터 대상 · 확인이 필요한 요청 {{count}}개 포함"
   },
@@ -323,5 +321,11 @@
     },
     "openFailed": "요청을 열지 못했습니다. 다시 시도해 주세요.",
     "recentFailure_other": "최근 중단 원인 ({{count}})"
+  },
+  "snoozeDuration": {
+    "oneHour": "1시간",
+    "fourHours": "4시간",
+    "oneDay": "1일",
+    "oneWeek": "1주일"
   }
 }

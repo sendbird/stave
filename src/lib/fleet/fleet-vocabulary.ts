@@ -1,8 +1,9 @@
-import { i18n } from "@/i18n/runtime";
+import { i18n, type I18nKey } from "@/i18n/runtime";
 import type {
   FleetAttentionKind,
   FleetAttentionTier,
 } from "./attention-projection";
+import type { FleetAttentionSnoozeDurationId } from "./attention-snooze";
 import type { WorkQueueLane } from "./work-attention-order";
 
 /**
@@ -43,6 +44,24 @@ export const FLEET_ATTENTION_KIND_LABEL: Record<FleetAttentionKind, string> = {
   get "agent-run-blocked"() { return i18n.t("fleet:vocabulary.kind.agentRunBlocked"); },
   get "agent-run-stuck"() { return i18n.t("fleet:vocabulary.kind.agentRunStuck"); },
 };
+
+/** How long a snooze hides a row, as the row menu and the bulk menu say it. */
+export const FLEET_SNOOZE_DURATION_LABEL_KEY = {
+  "1h": "fleet:snoozeDuration.oneHour",
+  "4h": "fleet:snoozeDuration.fourHours",
+  "1d": "fleet:snoozeDuration.oneDay",
+  "1w": "fleet:snoozeDuration.oneWeek",
+} as const satisfies Record<FleetAttentionSnoozeDurationId, I18nKey>;
+
+/**
+ * The Action required count as a sentence ("2 waiting on you"), so the live
+ * region that carries it says what the number counts instead of a bare digit.
+ */
+export function describeFleetWaitingCount(blockingCount: number) {
+  return blockingCount > 0
+    ? i18n.t("fleet:vocabulary.waitingOnYou", { count: blockingCount })
+    : i18n.t("fleet:vocabulary.nothingWaitingOnYou");
+}
 
 /**
  * "Fleet View · 2 actions required · 3 in review": the blocking count first,

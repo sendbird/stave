@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { applyAppLocale } from "@/i18n";
 import { FLEET_ATTENTION_PRIORITY } from "@/lib/fleet/attention-projection";
+import { i18n } from "@/i18n";
+import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
 import {
   describeFleetAttentionCounts,
   describeFleetAttentionPrimaryAction,
+  describeFleetWaitingCount,
   FLEET_ATTENTION_KIND_LABEL,
   FLEET_LANE_LABEL,
+  FLEET_SNOOZE_DURATION_LABEL_KEY,
   FLEET_TIER_LABEL,
 } from "@/lib/fleet/fleet-vocabulary";
 import { SIDEBAR_WORK_QUEUE_LANE_LABEL } from "@/lib/fleet/sidebar-work-queue";
@@ -54,5 +58,25 @@ describe("Fleet vocabulary", () => {
         expect(describeFleetAttentionPrimaryAction(kind)).not.toContain("vocabulary.");
       }
     }
+  });
+});
+
+describe("Fleet inbox words", () => {
+  test("the waiting count is a sentence in either language", () => {
+    expect(describeFleetWaitingCount(1)).toBe("1 waiting on you");
+    expect(describeFleetWaitingCount(3)).toBe("3 waiting on you");
+    expect(describeFleetWaitingCount(0)).toBe("Nothing is waiting on you");
+    applyAppLocale("ko");
+    expect(describeFleetWaitingCount(3)).toBe("3개가 기다리는 중");
+    expect(describeFleetWaitingCount(0)).toBe("기다리는 항목 없음");
+  });
+
+  test("every snooze length has words, and Korean has no English left", () => {
+    const words = () => FLEET_ATTENTION_SNOOZE_DURATIONS.map((duration) => i18n.t(FLEET_SNOOZE_DURATION_LABEL_KEY[duration.id]));
+    expect(words()).toEqual(["1 hour", "4 hours", "1 day", "1 week"]);
+    applyAppLocale("ko");
+    const korean = words();
+    expect(korean).toEqual(["1시간", "4시간", "1일", "1주일"]);
+    for (const word of korean) expect(word).not.toMatch(/[A-Za-z]/);
   });
 });

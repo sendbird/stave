@@ -111,7 +111,13 @@ Fleet item, and the task records the answer the same way.
   are answered in the task: the row says so and `Open` takes you there.
 - With a row focused, `A` allows the approval once, `D` denies it, and `1`–`9`
   picks a short question's option. `Enter` still opens the row's control panel.
-  After an answer, focus moves to the next row.
+  After an answer, focus moves to the next row. When `Snooze`, `Dismiss` or
+  `Mark read` takes a row away, focus moves to the row that took its place (the
+  row before it when it was the last one), unless you already moved focus
+  elsewhere.
+- The `Action required` heading says its count as a sentence ("2 waiting on
+  you") in a polite live region, so a screen reader hears what the number
+  counts when it changes.
 - An answer is sent only if the task still shows that exact request (same
   workspace, task, turn and request); otherwise the row says why. A question
   that did not pause its turn can still be answered after the turn ends, in

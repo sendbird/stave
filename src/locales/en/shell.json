@@ -382,7 +382,6 @@
     "thisTask": "this task",
     "archived": "Archived",
     "markRead": "Mark read",
-    "deny": "Deny",
     "thisTaskIsArchived": "This task is archived.",
     "restore": "Restore",
     "cancel": "Cancel",
@@ -392,12 +391,13 @@
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "This permanently removes every notification currently in History, including approval and input requests. Unread notifications remain available.",
     "loadMoreCount": "Load more ({{count}} remaining)",
     "restoreTask": "Restore {{title}} to reopen it from notifications.",
-    "allowOnce": "Allow once",
     "all": "All",
     "errors": "Errors",
     "nothingInTheInbox": "Nothing in the inbox.",
     "noErrors": "No errors.",
-    "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here."
+    "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here.",
+    "allowOnceFor": "Allow the request in {{title}} once",
+    "denyFor": "Deny the request in {{title}}"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "Standalone CLI — set a folder in Settings",
@@ -993,12 +993,12 @@
         "description": "Close AI usage and return to the workspace."
       },
       "fleetRowAllow": {
-        "title": "Allow a Fleet request once",
-        "description": "In a focused Fleet row with an approval, allow it once."
+        "title": "Allow a request once",
+        "description": "In a focused Fleet or notification row with an approval, allow it once."
       },
       "fleetRowDeny": {
-        "title": "Deny a Fleet request",
-        "description": "In a focused Fleet row with an approval, deny it."
+        "title": "Deny a request",
+        "description": "In a focused Fleet or notification row with an approval, deny it."
       },
       "fleetRowChoose": {
         "title": "Answer a Fleet question",
