@@ -89,6 +89,17 @@ type declares its own values.
 nothing about Stave's data and carry no English copy of their own: the host
 passes words in. `src/components/ui` adapts them to existing imports.
 
+Selection has one control per shape. A choice of one among two to six short
+options is `SegmentedControl` (`src/components/system/SegmentedControl.tsx`:
+the ToggleGroup track as a `radiogroup`, one Tab stop, arrow keys, an
+optional count); a toggle that is on or off stays a pressed button, and a
+switch that shows its own panel stays `Tabs`. A list that is long or grows
+(models, macros, agents, projects, filter values) is `SearchablePicker` or
+`SearchableMultiPicker` (`src/components/layout/settings-searchable-picker.tsx`,
+on the ADS `Combobox`), whose search matches labels, ids, details and section
+names. Filters that narrow a list show as `AppliedFilters` chips with Clear
+all.
+
 ### Work components
 
 Work components give a primitive Stave's meaning, so every surface says the

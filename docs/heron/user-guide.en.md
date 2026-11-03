@@ -291,6 +291,7 @@ The Information panel, task context and the latest turn summary are attached to 
 - **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task.
 - **Enhance prompt**: the wand icon in the composer rewrites your request.
 - **Compact context**: in the context meter, shortens a long conversation.
+- **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
 
 @page safety | Working | Permissions and safety | guide
 @lead Each provider has a Mode Preset that sets what the AI may do without asking. New installs start every provider on the widest preset, **Auto**, so check it once at the start.
@@ -481,12 +482,13 @@ Idle | Tasks with nothing to do right now
 | Idle            | Tasks with nothing to do                                             |
 
 Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you".
+Below the band, the activity filter and the **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
 Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/fleet.png)
 
 ## Notifications and issues
 
 - **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View.
-- **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**.
+- **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.
 
 @page tools | Tools | Workspace tools | reference
 @lead Tools you use outside the conversation. Most open from a right-panel button or Cmd/Ctrl+K followed by one letter.

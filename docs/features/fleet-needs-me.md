@@ -64,7 +64,11 @@ Fleet item, and the task records the answer the same way.
   bounded. Below it, the board shows workspace cards or one table of tasks
   (the `Cards` and `Table` switch, kept between sessions), with activity
   filters (`Active`, `Running`, `Action required`, and `All`) rather than a
-  task timeline.
+  task timeline. Each switch is one control: Tab reaches it once and the
+  arrow keys move the choice. While a filter other than `Active` or a search
+  narrows the board, the applied filters show as chips under the toolbar,
+  each removable on its own, with `Clear all` to return to `Active` and no
+  search.
 - `Table` lists every open task of every workspace in one place, one row per
   task: the task, its workspace, its state, what it needs from you, how long it
   has waited, and what its running turn last did. Rows follow the Work queue

@@ -40,7 +40,9 @@
 7. Use `Add Information resource`, choose a resource type, and enter the new
    resource that each run should receive.
 8. Select `Save`, then use `Run now` to test the schedule.
-9. Switch to the `Run history` tab and select a run to inspect its full result.
+9. Switch to `Run history` (the switch shows how many schedules and runs there
+   are) and select a run to inspect its full result. Filter runs by status
+   and by schedule; the active filters show as chips with `Clear all`.
 
 ## Interface Walkthrough
 
