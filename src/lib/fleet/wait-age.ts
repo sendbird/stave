@@ -1,3 +1,5 @@
+import type { Tone } from "@/components/ads/utils/tone";
+
 /**
  * How long a wait may run before its age stops reading as routine: one table
  * for every surface that colors a waiting time, so Fleet's rows and the bell
@@ -12,7 +14,7 @@ export const FLEET_WAIT_AGE_THRESHOLDS_MS = {
   dangerMs: 24 * 60 * 60 * 1000,
 } as const;
 
-export type WaitAgeTone = "neutral" | "warning" | "danger";
+export type WaitAgeTone = Extract<Tone, "neutral" | "warning" | "danger">;
 
 /**
  * The tone of a wait that began at `since`. A wait with no recorded start,
