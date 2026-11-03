@@ -393,6 +393,8 @@ export const modelEffortSelectorStyles = stylex.create({
     height: vars["--ads-control-icon-size-sm"],
   },
   modelRowBody: { minWidth: 0, flex: 1 },
+  // The published price ends the title line, muted; absent for unpriced models.
+  modelRowPrice: { marginInlineStart: "auto" },
   modelRowTitleLine: {
     display: "flex",
     minWidth: 0,

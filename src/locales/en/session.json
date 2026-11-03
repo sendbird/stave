@@ -277,7 +277,9 @@
     "macroControl": "Macros",
     "macroControl2": "Insert a macro",
     "macroControl3": "No macros yet. Add one in Settings → Presets & Macros → Macros, or type ! in the composer after you create the first.",
-    "copy": "Instant"
+    "copy": "Instant",
+    "search": "Search macros",
+    "noMatch": "No macros match."
   },
   "macroQuickPicks": {
     "ariaLabel": "Run macro {{value1}}",

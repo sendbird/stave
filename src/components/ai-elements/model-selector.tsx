@@ -32,6 +32,7 @@ import {
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { modelSelectorStyles as styles } from "./model-selector.styles";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
+import { ModelPrice } from "./model-picker-options";
 import { ModelIcon } from "./model-icon";
 import {
   shouldOpenModelSelector,
@@ -184,6 +185,7 @@ export function ModelSelector(args: ModelSelectorProps) {
           {option.badge ? (
             <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
           ) : null}
+          {option.isAuto ? null : <ModelPrice model={option.model} xstyle={styles.optionPrice} />}
         </span>
         <span className={sx(styles.optionDescription)}>
           {option.description || option.model}

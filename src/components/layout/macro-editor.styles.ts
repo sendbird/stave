@@ -22,21 +22,6 @@ export const macroEditorStyles = stylex.create({
     height: vars["--ads-control-height-lg"],
     width: "100%",
   },
-  option: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-    minWidth: 0,
-  },
-  optionIcon: {
-    height: 14,
-    width: 14,
-  },
-  optionLabel: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
   error: {
     color: vars["--ads-color-danger-text"],
     fontSize: vars["--ads-font-size-body"],

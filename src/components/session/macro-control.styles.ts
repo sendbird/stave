@@ -4,67 +4,23 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 export const macroControlStyles = stylex.create({
   content: {
-    width: 320,
+    inlineSize: "20rem",
   },
+  // The list's heading, above its search row, inset like the rows below it.
   label: {
     alignItems: "center",
+    color: vars["--ads-color-text-muted"],
     display: "flex",
-    gap: vars["--ads-space-8"],
-  },
-  labelIcon: {
-    height: 14,
-    width: 14,
-  },
-  empty: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: "1.25rem",
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-8"],
-  },
-  item: {
-    alignItems: "flex-start",
-    gap: vars["--ads-space-8"],
-  },
-  itemBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  itemTitleRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: 6,
-    minWidth: 0,
-  },
-  itemTitle: {
-    fontSize: vars["--ads-font-size-body"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  itemSlug: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: "1rem",
-    paddingBlock: vars["--ads-space-2"],
-    paddingInline: vars["--ads-space-4"],
-  },
-  itemInstant: {
-    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
+    margin: 0,
+    paddingBlockStart: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
   },
-  itemDescription: {
-    color: vars["--ads-color-text-muted"],
-    display: "block",
-    fontSize: vars["--ads-font-size-caption"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+  labelIcon: {
+    blockSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--ads-control-icon-size-sm"],
   },
 });

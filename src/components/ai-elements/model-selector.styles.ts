@@ -120,6 +120,8 @@ export const modelSelectorStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   optionLabel: { fontWeight: vars["--ads-font-weight-medium"] },
+  // The published price ends the title row, muted; absent for unpriced models.
+  optionPrice: { marginInlineStart: "auto" },
   optionDefaultBadge: {
     flexShrink: 0,
     borderRadius: vars["--ads-radius-mark"],

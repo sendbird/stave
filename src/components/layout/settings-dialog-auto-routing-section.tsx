@@ -85,6 +85,8 @@ import {
   SwitchField,
   ToggleChipGroup,
 } from "./settings-dialog.shared";
+import { SearchablePicker } from "./settings-searchable-picker";
+import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";
 import { autoRoutingSectionStyles as styles } from "./settings-dialog-auto-routing-section.styles";
 import { SettingsAutoRoutingWizard } from "./settings-dialog-auto-routing-wizard";
 import { SettingsProviderStrengths } from "./settings-dialog-provider-strengths";
@@ -422,14 +424,19 @@ function RuleRow(args: {
       entry.value === "alternate-provider" ||
       providerIds.includes(entry.value as ProviderId),
   );
-  const models = providerForModels
-    ? (args.modelsByProvider[providerForModels] ?? [])
-    : args.providerIds.flatMap((providerId) => args.modelsByProvider[providerId] ?? []);
-  const modelOptions = (
-    rule.then.model && !models.includes(rule.then.model)
-      ? [...models, rule.then.model]
-      : models
-  ).map((model) => ({ value: model, label: modelLabel(model) }));
+  // "Any eligible" offers every provider's models, so each keeps its own
+  // section; a model the rule already pins stays listed after its catalog moves.
+  const modelProviders = providerForModels ? [providerForModels] : args.providerIds;
+  const modelOptions = modelProviders.flatMap((providerId) =>
+    modelPickerOptions({
+      providerId,
+      models: args.modelsByProvider[providerId] ?? [],
+      group: providerForModels ? undefined : getProviderLabel({ providerId }),
+    }),
+  );
+  if (rule.then.model && !modelOptions.some((option) => option.value === rule.then.model)) {
+    modelOptions.push({ value: rule.then.model, label: modelLabel(rule.then.model), detail: rule.then.model });
+  }
   const patchWhen = (when: Partial<RouteRule["when"]>) =>
     args.onChange({ ...rule, when: { ...rule.when, ...when } });
   const patchThen = (then: Partial<RouteRule["then"]>) =>
@@ -621,13 +628,17 @@ function RuleRow(args: {
             />
           </RuleField>
           <RuleField label={t("settingsProviders:auxiliaryInference.model.title")}>
-            <RuleSelect
-              ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetModel")}
+            <SearchablePicker
+              aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.targetModel")}
               value={rule.then.model ?? DEFAULT_VALUE}
-              onChange={(value) =>
+              placeholder={t("settingsConnections:settingsDialogAutoRoutingSection.pickByTier")}
+              onSelect={(value) =>
                 patchThen({ model: value === DEFAULT_VALUE ? undefined : value })
               }
               options={[{ value: DEFAULT_VALUE, label: t("settingsConnections:settingsDialogAutoRoutingSection.pickByTier") }, ...modelOptions]}
+              searchPlaceholder={t("settings:macroEditor.searchModels")}
+              emptyText={t("settings:macroEditor.noModelsMatch")}
+              triggerXstyle={styles.ruleSelectTrigger}
             />
           </RuleField>
           <RuleField label={t("settingsProviders:providersSection.claudeRuntime.effort.title")}>

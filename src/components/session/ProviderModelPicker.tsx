@@ -10,6 +10,7 @@ import {
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
+import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";
 import {
   getDefaultModelForProvider,
   getProviderLabel,
@@ -84,12 +85,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
     [args.selectedModel, args.selectedProvider, catalogs, readiness],
   );
   const modelOptions = useMemo(
-    () => providerModels.map((model) => ({
-      value: model,
-      label: toHumanModelName({ model }),
-      detail: model,
-      icon: <ModelIcon providerId={args.selectedProvider} model={model} className={sx(styles.icon)} />,
-    })),
+    () => modelPickerOptions({ providerId: args.selectedProvider, models: providerModels }),
     [args.selectedProvider, providerModels],
   );
   const modelLabelId = useId();

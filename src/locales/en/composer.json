@@ -772,5 +772,8 @@
     "hideDone": "Hide done",
     "showPlan": "Show plan",
     "hidePlan": "Hide plan"
+  },
+  "modelPrice": {
+    "perMTok": "{{price}} / MTok"
   }
 }

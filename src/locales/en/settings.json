@@ -1221,7 +1221,10 @@
     "theModelUsedWhenThisMacro": "The model used when this macro is applied.",
     "leaveOnTheModelDefaultOr": "Leave on the model default, or pin an effort for this macro.",
     "defaultPerModel": "Default (per model)",
-    "enterALabelAndASlug": "Enter a label and a slug like conventional-commit."
+    "enterALabelAndASlug": "Enter a label and a slug like conventional-commit.",
+    "chooseModel": "Choose a model",
+    "searchModels": "Search models",
+    "noModelsMatch": "No models match."
   },
   "repositoryAppearance": {
     "folder": "Folder",

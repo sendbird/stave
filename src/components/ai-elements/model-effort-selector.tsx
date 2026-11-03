@@ -39,6 +39,7 @@ import { SelectionRail } from "@/components/system/SelectionRail";
 import { AgentRouteRow } from "./agent-route-row";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
+import { ModelPrice } from "./model-picker-options";
 import { ModelEffortGrid } from "./model-effort-grid";
 import { ModelGroupEditButton, ModelPickerAccountFooter } from "./model-picker-account-actions";
 import { isModelSelectorOpenRequestReady, type ModelSelectorOpenRequest } from "./model-selector-open-request";
@@ -266,6 +267,7 @@ function ModelOnlyList(args: {
                     {option.badge}
                   </span>
                 ) : null}
+                <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
               </span>
               {presentation.capabilities.length > 0 ? (
                 <span className={sx(styles.modelRowCapabilities)}>

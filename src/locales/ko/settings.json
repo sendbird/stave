@@ -1211,7 +1211,10 @@
     "theModelUsedWhenThisMacro": "이 매크로를 적용할 때 사용할 모델입니다.",
     "leaveOnTheModelDefaultOr": "모델 기본값을 사용하거나 매크로의 추론 수준을 고정합니다.",
     "defaultPerModel": "기본값 (모델별)",
-    "enterALabelAndASlug": "표시 이름과 conventional-commit 같은 슬러그를 입력하세요."
+    "enterALabelAndASlug": "표시 이름과 conventional-commit 같은 슬러그를 입력하세요.",
+    "chooseModel": "모델 선택",
+    "searchModels": "모델 검색",
+    "noModelsMatch": "일치하는 모델이 없습니다."
   },
   "repositoryAppearance": {
     "folder": "폴더",

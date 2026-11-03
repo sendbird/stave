@@ -1,5 +1,5 @@
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import {
   Button,
   Input,
@@ -25,6 +25,8 @@ import {
 } from "@/lib/task-presets";
 import { sx } from "@/components/ads/utils/stylex";
 import { taskPresetEditorStyles as styles } from "./task-preset-editor.styles";
+import { SearchablePicker } from "./settings-searchable-picker";
+import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";
 import { useSettingsProviderIdsWithSaved } from "./settings-provider-visibility";
 
 const DEFAULT_EFFORT_VALUE = "__default__";
@@ -65,6 +67,7 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     () => listModelsForPresetProvider(provider),
     [provider],
   );
+  const modelLabelId = useId();
   // Model-scoped so, e.g., GPT-5.6 Luna never offers "Ultra" — a value only
   // Sol/Terra accept.
   const effortOptions = useMemo(
@@ -213,28 +216,18 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       </div>
       {kind === "task" && effortOptions.length > 0 ? (
         <div className={sx(styles.field)}>
-          <span className={sx(styles.label)}>{t("settingsProviders:auxiliaryInference.model.title")}</span>
-          <Select value={model} onValueChange={handleModelChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {modelOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  <span className={sx(styles.option)}>
-                    <ModelIcon
-                      providerId={provider}
-                      model={option}
-                      className={sx(styles.optionIcon)}
-                    />
-                    <span className={sx(styles.optionLabel)}>
-                      {toHumanModelName({ model: option })}
-                    </span>
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <span id={modelLabelId} className={sx(styles.label)}>{t("settingsProviders:auxiliaryInference.model.title")}</span>
+          <SearchablePicker
+            labelledBy={modelLabelId}
+            size="md"
+            value={model}
+            fallbackLabel={model ? toHumanModelName({ model }) : undefined}
+            placeholder={t("settings:macroEditor.chooseModel")}
+            options={modelPickerOptions({ providerId: provider, models: modelOptions })}
+            onSelect={handleModelChange}
+            searchPlaceholder={t("settings:macroEditor.searchModels")}
+            emptyText={t("settings:macroEditor.noModelsMatch")}
+          />
         </div>
       ) : null}
       {kind === "task" ? (

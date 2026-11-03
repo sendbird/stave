@@ -142,6 +142,8 @@ export function SearchablePicker(props: {
   triggerContent?: ReactNode;
   /** Opens a list whose width follows the trigger, or a wider one for an inline trigger. */
   popupXstyle?: StyleXValue;
+  /** A heading above the search, for a picker opened from an icon-sized control. */
+  header?: ReactNode;
 }) {
   const size = props.size ?? "sm";
   const valueId = useId();
@@ -207,6 +209,7 @@ export function SearchablePicker(props: {
       <Combobox.Portal>
         <Combobox.Positioner>
           <Combobox.Popup xstyle={[styles.popup, props.popupXstyle]}>
+            {props.header}
             <PickerSearch placeholder={props.searchPlaceholder} label={props.searchLabel} />
             <PickerList grouped={grouped} loading={props.loading} loadingText={props.loadingText} emptyText={props.emptyText} />
           </Combobox.Popup>

@@ -757,5 +757,8 @@
     "hideDone": "완료 숨기기",
     "showPlan": "계획 보기",
     "hidePlan": "계획 숨기기"
+  },
+  "modelPrice": {
+    "perMTok": "MTok당 {{price}}"
   }
 }
