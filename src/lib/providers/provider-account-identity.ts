@@ -90,7 +90,9 @@ export function describeProviderAccountIdentity(
   if (!identity) return { text: i18n.t("providers:providerAccountIdentity.checkingSignIn"), tone: "muted" };
   switch (identity.state) {
     case "signed-in": {
-      const who = identity.email ? `Signed in as ${identity.email}` : "Signed in";
+      const who = identity.email
+        ? i18n.t("providers:providerAccountIdentity.signedInAs", { email: identity.email })
+        : i18n.t("providers:providerAccountIdentity.signedIn");
       return { text: identity.plan ? `${who} · ${identity.plan}` : who, tone: "muted" };
     }
     case "signed-out":

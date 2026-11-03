@@ -50,7 +50,7 @@ export function TrackerIssueFilterChip(props: TrackerIssueFilterChipProps) {
       : selected.length === 1
         ? (props.options.find((option) => option.value === selected[0])
             ?.label ?? selected[0])
-        : `${selected.length} selected`;
+        : tI18n("issues:trackerIssueFilterChip.selectedCount", { count: selected.length });
 
   const toggle = (value: string) => {
     props.onChange(

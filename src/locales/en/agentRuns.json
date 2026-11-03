@@ -243,7 +243,8 @@
     "extraCopy11": "asks you first",
     "extraCopy13": "no repairs",
     "extraCopy12_one": "up to {{value1}} repair",
-    "extraCopy12_other": "up to {{value1}} repairs"
+    "extraCopy12_other": "up to {{value1}} repairs",
+    "now": "now"
   },
   "stageTrack": {
     "ariaLabel": "{{value1}} progress",
@@ -317,12 +318,14 @@
     "label14": "the {{value1}}",
     "exchangeDetail4": "Assignment and execution details",
     "label15": "the assignment",
-    "sentence33": "Started {{value1}} {{value2}}",
     "sentence34": "asked by{{value1}} {{value2}}",
     "extraCopy75": "{{value1}} cache read",
     "extraCopy76": "{{value1}} cache write",
     "extraCopy77": "Requested or configured; runtime execution not reported",
-    "extraCopy81": "Not reported"
+    "extraCopy81": "Not reported",
+    "started": "Started {{start}}",
+    "startedEnded": "Started {{start}} · ended {{end}}",
+    "startedStillRunning": "Started {{start}} · still running"
   },
   "exchangeRow": {
     "exchangeRow": "elapsed"
@@ -854,7 +857,6 @@
     "presentationCopy4": "attempt {{v1}}",
     "presentationCopy6": " for {{v1}}",
     "presentationCopy7": "Stave action: {{v1}}",
-    "presentationCopy266": " · ended {{v1}}",
     "presentationCopy402": "{{v1}} again",
     "presentationCopy414": "{{v1}} · running",
     "presentationCopy415": "{{v1}} · starting",

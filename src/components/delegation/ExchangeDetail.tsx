@@ -188,11 +188,16 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
               startedAt={exchange.timing.startedAt}
             />
           ) : (
-            <p className={sx(styles.meta)}>{i18n.t("agentRuns:exchangeDetail.sentence33", { value1: formatTime(new Date(exchange.timing.startedAt)), value2: exchange.timing.endedAt !== undefined
-                ? i18n.t("agentRuns:remaining.presentationCopy266", { v1: formatTime(new Date(exchange.timing.endedAt)) })
+            <p className={sx(styles.meta)}>
+              {exchange.timing.endedAt !== undefined
+                ? i18n.t("agentRuns:exchangeDetail.startedEnded", {
+                    start: formatTime(new Date(exchange.timing.startedAt)),
+                    end: formatTime(new Date(exchange.timing.endedAt)),
+                  })
                 : live
-                  ? " · still running"
-                  : "" })}</p>
+                  ? i18n.t("agentRuns:exchangeDetail.startedStillRunning", { start: formatTime(new Date(exchange.timing.startedAt)) })
+                  : i18n.t("agentRuns:exchangeDetail.started", { start: formatTime(new Date(exchange.timing.startedAt)) })}
+            </p>
           )}
         </Section>
       ) : null}

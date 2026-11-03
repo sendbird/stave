@@ -68,12 +68,12 @@ export function ResourceManagerOverview({
         keepActive,
       });
       if (!result?.ok)
-        throw new Error(result?.message ?? "Keep-active setting unavailable");
+        throw new Error(result?.message ?? tI18n("workspace:resourceManagerOverview.keepActiveUnavailable"));
       await refresh();
     } catch (error) {
       if (alive.current)
         setMessage(
-          error instanceof Error ? error.message : "Setting could not be saved",
+          error instanceof Error ? error.message : tI18n("workspace:resourceManagerOverview.settingNotSaved"),
         );
     } finally {
       operation.current = false;
@@ -195,7 +195,7 @@ export function ResourceManagerOverview({
         workspaceId,
       });
       if (!result?.ok)
-        throw new Error(result?.message ?? "Release unavailable");
+        throw new Error(result?.message ?? tI18n("workspace:resourceManagerOverview.releaseUnavailable"));
       await new Promise((resolve) => setTimeout(resolve, 1500));
       const after = await window.api?.metrics?.getAppMetrics?.();
       if (!alive.current) return;
@@ -208,14 +208,18 @@ export function ResourceManagerOverview({
             cpu: null,
           })),
         ).reduce((sum, p) => sum + p.rssBytes, 0);
-      const observation =
+      setMessage(
         before && after
-          ? ` Electron RSS observed: ${formatResourceBytes(rss(before))} → ${formatResourceBytes(rss(after))}. Other activity can affect this change.`
-          : " Memory observation unavailable.";
-      setMessage(`${result.released} hidden page(s) released.${observation}`);
+          ? tI18n("workspace:resourceManagerOverview.releasedObserved", {
+              count: result.released,
+              before: formatResourceBytes(rss(before)),
+              after: formatResourceBytes(rss(after)),
+            })
+          : tI18n("workspace:resourceManagerOverview.releasedUnobserved", { count: result.released }),
+      );
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Release failed");
+      setMessage(error instanceof Error ? error.message : tI18n("workspace:resourceManagerOverview.releaseFailed"));
     } finally {
       operation.current = false;
       if (alive.current) {
@@ -333,9 +337,9 @@ export function ResourceManagerOverview({
             );
           const name =
             owner === "application"
-              ? "Stave app and unattributed processes"
+              ? tI18n("workspace:resourceManagerOverview.applicationGroup")
               : owner === "shared"
-                ? "Processes shared across workspaces"
+                ? tI18n("workspace:resourceManagerOverview.sharedGroup")
                 : (names.get(owner) ?? owner);
           return (
             <section key={owner} className={sx(styles.group)}>

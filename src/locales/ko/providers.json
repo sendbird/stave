@@ -239,7 +239,9 @@
   "providerAccountIdentity": {
     "checkingSignIn": "로그인 확인 중…",
     "cliNotFound": "{{value1}} CLI를 찾지 못했습니다.",
-    "canTCheckSignIn": "로그인을 확인하지 못했습니다."
+    "canTCheckSignIn": "로그인을 확인하지 못했습니다.",
+    "signedInAs": "{{email}}(으)로 로그인됨",
+    "signedIn": "로그인됨"
   },
   "providerAccountSetup": {
     "sharesYourFromSystemDefaultWith": "시스템 기본 계정의 {{value1}} 항목을 이 계정에 공유합니다. {{value2}}",
@@ -551,5 +553,9 @@
     "midTask": "작업 도중 프로바이더 전환",
     "midTaskDescription": "위 표를 포함한 프로바이더 규칙이 이미 시작한 작업도 다른 프로바이더로 옮길 수 있게 합니다. 끄면 작업의 첫 턴에서만 프로바이더가 바뀝니다. 어느 경우든 턴을 실행할 수 없는 프로바이더는 작업을 넘깁니다.",
     "privacyNote": "프로바이더를 바꾸면 대화 중 최대 12,000자가 다른 프로바이더로 전달되고, 그 프로바이더의 skill·hook·MCP 서버 설정이 적용됩니다."
+  },
+  "codexModelCatalog": {
+    "listedByRuntime": "현재 Codex 런타임이 제공하는 모델입니다.",
+    "runtimeSupportUnconfirmed": "런타임 지원을 확인하지 못했습니다."
   }
 }

@@ -55,7 +55,9 @@
     "sentence35": "Provider history · {{value1}}",
     "sentence36": "Thread configuration (may differ from execution): {{value1}} · {{value2}}. Current or last saved settings, not per-turn execution telemetry.",
     "sentence37": "Result · {{value1}}",
-    "extraCopy82": "Agent history is unavailable in this runtime."
+    "extraCopy82": "Agent history is unavailable in this runtime.",
+    "modelNotReported": "Model not reported",
+    "effortNotReported": "Effort not reported"
   },
   "agentAttachmentNotice": {
     "agentAttachmentNotice": "The Run keeps attached images and context through retries and continuations."
@@ -1305,5 +1307,9 @@
     "actionHandoff": "Open handoff",
     "actionSideQuestion": "Ask a side question",
     "actionComposer": "Write a reply"
+  },
+  "userInputDelivery": {
+    "failedWithDetail": "User input delivery failed: {{detail}}",
+    "notAccepted": "User input delivery failed: the answer was not accepted. Retry from this question card."
   }
 }

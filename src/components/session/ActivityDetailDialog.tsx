@@ -327,7 +327,7 @@ export function ActivityDetailDialog(props: {
         {!live ? exchangeDetail : null}
         {live ? activityLog : <details><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog4")}</summary>{activityLog}</details>}
         {live ? exchangeDetail : null}
-        {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.sentence36", { value1: historyResponse.model ?? "Model not reported", value2: historyResponse.effort ?? "Effort not reported" })}</p> : null}
+        {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>{i18n.t("session:activityDetailDialog.sentence36", { value1: historyResponse.model ?? i18n.t("session:activityDetailDialog.modelNotReported"), value2: historyResponse.effort ?? i18n.t("session:activityDetailDialog.effortNotReported") })}</p> : null}
         {selection.detail ? <details><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog9")}</summary><TraceOutput text={selection.detail} /></details> : null}
         {tool?.type === "tool_use" ? <details className={sx(s.section)}><summary className={sx(s.historySummary)}>{i18n.t("session:activityDetailDialog.activityDetailDialog10")}</summary><p className={sx(s.subheading)}>{i18n.t("session:activityDetailDialog.activityDetailDialog11")}</p><TraceOutput text={tool.input} /><p className={sx(s.subheading)}>{i18n.t("session:activityDetailDialog.sentence37", { value1: tool.state })}</p><TraceOutput text={tool.output ?? i18n.t("session:activityDetailDialog.text")} /></details> : null}
       </div>

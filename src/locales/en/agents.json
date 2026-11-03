@@ -120,7 +120,8 @@
     "agentSuggestions3": "Learning is off. Your corrections are not reviewed and nothing is suggested.",
     "ariaLabel3": "Learned suggestions",
     "agentSuggestions4": "Learned suggestions",
-    "sentence12": "Learned from a correction on {{value1}}. {{value2}}"
+    "learnedFromCorrection": "Learned from a correction on {{date}}.",
+    "learnedFromCorrectionStale": "Learned from a correction on {{date}}. The instructions changed since; applying replaces them with this version."
   },
   "agentWorkflowField": {
     "agentWorkflowField": "Runs as one stage that plans its own steps. Add stages to work in a fixed order.",

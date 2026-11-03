@@ -418,7 +418,10 @@
     "addADesignBoardOrNodeUrl": "Add a design, board, or node URL.",
     "customField": "Custom field",
     "addTypedRepositorySpecificContext": "Add typed repository-specific context.",
-    "createItInWorkspaceAnd": "Create it in the {{value1}} workspace and attach it to this schedule."
+    "createItInWorkspaceAnd": "Create it in the {{value1}} workspace and attach it to this schedule.",
+    "jiraIssue": "Jira issue",
+    "confluencePage": "Confluence page",
+    "slackThread": "Slack thread"
   },
   "repositoryWorkspaceSidebar": {
     "openRepository": "Open Repository",
@@ -480,7 +483,10 @@
       "openSettings": "Open settings"
     },
     "signOffNeeded": "sign-off needed",
-    "noUpdates": "No updates"
+    "noUpdates": "No updates",
+    "movedToPosition": "{{name}} moved to position {{position}} of {{total}}.",
+    "repositoryFallbackName": "Repository",
+    "workspaceFallbackName": "Workspace"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "App footprint at {{value1}}",
@@ -556,7 +562,17 @@
     "changesCompareTheSamePidOverRecent": "Changes compare the same PID over recent observations. RSS growth alone does not prove a leak; compare after work finishes and inspect heap usage in Diagnostics.",
     "recentPageReleasesAndReopenings": "Recent page releases and reopenings",
     "releaseRequested": "Release requested",
-    "reopened": "Reopened"
+    "reopened": "Reopened",
+    "keepActiveUnavailable": "Keep-active setting unavailable",
+    "settingNotSaved": "Setting could not be saved",
+    "releaseUnavailable": "Release unavailable",
+    "releaseFailed": "Release failed",
+    "releasedObserved_one": "{{count}} hidden page released. Electron RSS observed: {{before}} → {{after}}. Other activity can affect this change.",
+    "releasedObserved_other": "{{count}} hidden pages released. Electron RSS observed: {{before}} → {{after}}. Other activity can affect this change.",
+    "releasedUnobserved_one": "{{count}} hidden page released. Memory observation unavailable.",
+    "releasedUnobserved_other": "{{count}} hidden pages released. Memory observation unavailable.",
+    "applicationGroup": "Stave app and unattributed processes",
+    "sharedGroup": "Processes shared across workspaces"
   },
   "resourcesPopover": {
     "resourceManager": "Resource Manager",
@@ -635,7 +651,11 @@
     "processCount": "Processes ({{count}})",
     "accessibility": {
       "refreshMetrics": "Refresh metrics"
-    }
+    },
+    "reclaimed": "Reclaimed {{size}}",
+    "reclaimedWithErrors_one": "Reclaimed {{size}} with {{count}} error",
+    "reclaimedWithErrors_other": "Reclaimed {{size}} with {{count}} errors",
+    "cleanupUnavailable": "Clean-up unavailable"
   },
   "taskExecutionSummarySurface": {
     "reported": "Reported",
@@ -656,7 +676,22 @@
     "noActivityReported": "No activity reported",
     "taskExecutionSummary": "Task execution summary",
     "runningCount": "{{count}} running",
-    "runningDuration": "{{duration}} · running"
+    "runningDuration": "{{duration}} · running",
+    "contextLeft": "{{amount}} ctx left",
+    "percentUsed": "{{percent}} used",
+    "percentLeft": "{{percent}} left",
+    "percentCached": "{{percent}} cached",
+    "notReported": "Not reported",
+    "noDiffReported": "No diff reported",
+    "mainLoopOnly": "Main loop only",
+    "tokenCount": "{{amount}} tokens",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "agentCount_one": "{{count}} agent",
+    "agentCount_other": "{{count}} agents",
+    "blockedCount": "{{count}} blocked",
+    "failedCount": "{{count}} failed",
+    "entriesRan": "{{executed}}/{{total}} ran"
   },
   "workspaceChangesPanel": {
     "notRun": "Not run",
@@ -850,7 +885,9 @@
     "addCustomField": "Add custom field",
     "noCustomFields": "No custom fields",
     "label": "Label",
-    "removeField": "Remove field"
+    "removeField": "Remove field",
+    "amplifyLinkFallback": "Amplify link",
+    "slackThreadFallback": "Slack thread"
   },
   "workspaceInformationSectionMenu": {
     "configureInformationPanelSections": "Configure information panel sections",
@@ -1238,7 +1275,11 @@
     "branchDeletionFailed": "Branch deletion failed",
     "valueButCouldNotDeleteValue": "{{subject}}, but could not delete {{branch}}.",
     "branchKept": "Branch kept",
-    "valueButCouldNotConfirmWhichBranch": "{{subject}}, but could not confirm which branch its git worktree had checked out, so no branch was deleted."
+    "valueButCouldNotConfirmWhichBranch": "{{subject}}, but could not confirm which branch its git worktree had checked out, so no branch was deleted.",
+    "archivedNamed": "Archived {{name}}",
+    "archivedWorkspace": "Archived the workspace",
+    "branchNamed": "branch {{name}}",
+    "itsBranch": "its branch"
   },
   "workspaceTurnSummaryRuntime": {
     "untitledTask": "Untitled Task"
@@ -1339,6 +1380,19 @@
       "removeAriaLabel": "Remove attached document {{title}}",
       "removeTitle": "Remove document",
       "couldNotOpen": "Could not open the attached document."
+    }
+  },
+  "workspaceCleanup": {
+    "blocker": {
+      "workspaceChanged": "Workspace changed",
+      "defaultWorkspace": "Default workspace",
+      "currentWorkspace": "Current workspace",
+      "pathUnavailable": "Path unavailable",
+      "agentRunning": "Agent running",
+      "waitingForYou": "Waiting for your response"
+    },
+    "recommendation": {
+      "mergedAndInactive": "PR merged · no unpushed commits · inactive for at least 14 days"
     }
   }
 }

@@ -133,9 +133,10 @@
     "localChangeReviewDialog34": "Review changes",
     "sentence25": "Use a commit, branch or range that starts with a letter or digit and uses only letters, digits and . _ / ~ ^ @ {{value1}} {{value2}} -.",
     "sentence26": "{{value1}} staged · {{value2}}{{value3}} unstaged · {{value4}} untracked {{value5}}",
-    "sentence27": "Add product intent, risk areas, or files that deserve special attention. {{value1}}",
     "sentence24_one": "{{value1}} changed file ",
-    "sentence24_other": "{{value1}} changed file s"
+    "sentence24_other": "{{value1}} changed file s",
+    "focusDescription": "Add product intent, risk areas, or files that deserve special attention.",
+    "focusDescriptionWithSavedInstructions": "Add product intent, risk areas, or files that deserve special attention. Your saved review instructions from Settings are included too."
   },
   "reviewDocumentPicker": {
     "trigger": "Load from a document",
@@ -623,7 +624,8 @@
     "extraCopy171": "Resume continues the stopped turn, then sends {{value1}} queued.",
     "extraCopy172": "Resume continues the stopped turn where it left off.",
     "extraCopy173": "Resume sends {{value1}} queued in order.",
-    "extraCopy174": "{{value1}}\n\nThe reviewer's full instructions are the first message of the review task."
+    "extraCopy174": "{{value1}}\n\nThe reviewer's full instructions are the first message of the review task.",
+    "noUpdatesForAWhile": "No updates for a while"
   },
   "useShelfReviews": {
     "copy": "Could not attach the review",

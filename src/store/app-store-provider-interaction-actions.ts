@@ -846,8 +846,8 @@ export function createProviderInteractionActions(args: {
           }
           appendUserInputFailure(
             "message" in result && result.message
-              ? `User input delivery failed: ${result.message}`
-              : "User input delivery failed: the answer was not accepted. Retry from this question card.",
+              ? i18n.t("session:userInputDelivery.failedWithDetail", { detail: result.message })
+              : i18n.t("session:userInputDelivery.notAccepted"),
           );
         })()
           .catch((error) =>

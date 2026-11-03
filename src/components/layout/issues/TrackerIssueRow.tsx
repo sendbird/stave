@@ -188,7 +188,11 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
         {jiraLink ? (
           <span
             {...stylex.props(styles.external)}
-            title={tI18n("issues:trackerIssueRow.mirrorsValue", { value1: jiraLink.key ?? "a Jira issue" })}
+            title={
+              jiraLink.key
+                ? tI18n("issues:trackerIssueRow.mirrorsValue", { value1: jiraLink.key })
+                : tI18n("issues:trackerIssueRow.mirrorsJiraIssue")
+            }
           >
             <ServiceLinkIcon
               kind="jira"

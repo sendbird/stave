@@ -132,8 +132,9 @@
     "localChangeReviewDialog34": "변경 사항 리뷰",
     "sentence25": "문자나 숫자로 시작하며 문자, 숫자 및 . _ / ~ ^ @ {{value1}} {{value2}} -만 포함하는 커밋, 브랜치 또는 범위를 입력하세요.",
     "sentence26": "스테이징됨 {{value1}}개 · 스테이징 안 됨 {{value2}}{{value3}}개 · 추적 안 됨 {{value4}}개 {{value5}}",
-    "sentence27": "제품 의도, 위험 영역 또는 특별히 살펴볼 파일을 추가하세요. {{value1}}",
-    "sentence24_other": "변경된 파일 {{value1}}개"
+    "sentence24_other": "변경된 파일 {{value1}}개",
+    "focusDescription": "제품 의도, 위험 영역 또는 특별히 살펴볼 파일을 추가하세요.",
+    "focusDescriptionWithSavedInstructions": "제품 의도, 위험 영역 또는 특별히 살펴볼 파일을 추가하세요. 설정에 저장한 리뷰 지침도 함께 포함됩니다."
   },
   "reviewDocumentPicker": {
     "trigger": "문서에서 불러오기",
@@ -618,7 +619,8 @@
     "extraCopy171": "재개하면 중지된 턴을 계속한 후 대기열의 {{value1}}개를 전송합니다.",
     "extraCopy172": "재개하면 중지된 턴을 중단한 지점부터 계속합니다.",
     "extraCopy173": "재개하면 대기열의 {{value1}}개를 순서대로 전송합니다.",
-    "extraCopy174": "{{value1}}\n\n리뷰어의 전체 지침은 리뷰 작업의 첫 메시지에 있습니다."
+    "extraCopy174": "{{value1}}\n\n리뷰어의 전체 지침은 리뷰 작업의 첫 메시지에 있습니다.",
+    "noUpdatesForAWhile": "한동안 업데이트 없음"
   },
   "useShelfReviews": {
     "copy": "리뷰를 첨부하지 못했습니다",

@@ -657,9 +657,11 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 className={sx(styles.instructionsLabel)}
               >
                 {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog24")}</label>
-              <p className={sx(styles.focusDescription)}>{i18n.t("composer:localChangeReviewDialog.sentence27", { value1: reviewSettings.instructions.trim()
-                  ? " Your saved review instructions from Settings are included too."
-                  : null })}</p>
+              <p className={sx(styles.focusDescription)}>
+                {reviewSettings.instructions.trim()
+                  ? i18n.t("composer:localChangeReviewDialog.focusDescriptionWithSavedInstructions")
+                  : i18n.t("composer:localChangeReviewDialog.focusDescription")}
+              </p>
             </div>
             <Textarea
               id={`${idPrefix}-instructions`}

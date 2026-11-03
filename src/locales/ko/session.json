@@ -52,7 +52,9 @@
     "sentence35": "프로바이더 기록 · {{value1}}",
     "sentence36": "스레드 구성 (실행 설정과 다를 수 있음): {{value1}} · {{value2}}. 현재 또는 마지막 저장 설정이며 턴별 실행 정보가 아닙니다.",
     "sentence37": "결과 · {{value1}}",
-    "extraCopy82": "이 런타임에서는 에이전트 기록을 사용할 수 없습니다."
+    "extraCopy82": "이 런타임에서는 에이전트 기록을 사용할 수 없습니다.",
+    "modelNotReported": "보고되지 않은 모델",
+    "effortNotReported": "보고되지 않은 추론 강도"
   },
   "agentAttachmentNotice": {
     "agentAttachmentNotice": "첨부한 이미지와 맥락을 유지하며 에이전트 실행을 시작합니다. 재시도와 이어지는 실행에도 같은 자료를 사용합니다."
@@ -1253,5 +1255,9 @@
     "actionHandoff": "인계 기록 열기",
     "actionSideQuestion": "곁질문하기",
     "actionComposer": "이어서 작성"
+  },
+  "userInputDelivery": {
+    "failedWithDetail": "답변을 전달하지 못했습니다: {{detail}}",
+    "notAccepted": "답변을 전달하지 못했습니다. 답변이 받아들여지지 않았습니다. 이 질문 카드에서 다시 시도하세요."
   }
 }

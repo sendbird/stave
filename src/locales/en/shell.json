@@ -705,7 +705,8 @@
     "clickForTheirAPIValue": "Click for their API value.",
     "sEstimateOfWhatTheseTurnsCost": "{{value1}}'s estimate of what these turns cost. Your gateway bills them, and its invoice is final.",
     "notBilledToYourSubscriptionEstimatesIt": "Not billed to your subscription. {{value1}} estimates it from token use at API prices.",
-    "tokensToday": "{{value1}} tokens today"
+    "tokensToday": "{{value1}} tokens today",
+    "windowUsedTitle": "{{title}} · {{percent}} used"
   },
   "statusBarUsageUtils": {
     "usageLimit": "Usage limit",

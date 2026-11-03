@@ -270,10 +270,11 @@
   },
   "verification": {
     "verificationPassedValueValueChecks": "Verification passed — {{value1}}/{{value2}} checks",
-    "verificationValueValue": "Verification {{verb}}: {{names}}",
     "verificationPassed": "Verification passed",
     "verificationWarnings": "Verification warnings",
-    "verificationFailed": "Verification failed"
+    "verificationFailed": "Verification failed",
+    "failedNames": "Verification failed: {{names}}",
+    "warnedNames": "Verification reported warnings: {{names}}"
   },
   "workspaceToolsPresentation": {
     "value1ProcessRunning": "{{value1}}, 1 process running",

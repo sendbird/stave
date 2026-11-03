@@ -135,7 +135,10 @@
     "startInCurrentWorkspace": "starts a task in the current workspace",
     "startInNewWorkspace": "creates a new workspace and starts",
     "createTask": "Create task",
-    "currentWorkspaceDetails": "The new task uses the current workspace and its shared context."
+    "currentWorkspaceDetails": "The new task uses the current workspace and its shared context.",
+    "openARepositoryToStart": "Open a repository to start work.",
+    "providerUnavailableChooseProvider": "{{provider}} is unavailable. Choose another provider under Runs on.",
+    "providerUnavailableChooseModel": "{{provider}} is unavailable. Choose another model."
   },
   "kickoffSourceWho": {
     "who": "Who",
@@ -194,7 +197,16 @@
     "openARepositoryBeforeResolvingAKickoff": "Open a repository before resolving a kickoff source.",
     "kickoffResolutionWasCancelled": "Kickoff resolution was cancelled.",
     "openTheWorkspaceThisAgentWorksIn": "Open the workspace this agent works in, then start again.",
-    "theTaskCouldNotBeCreated": "The task could not be created."
+    "theTaskCouldNotBeCreated": "The task could not be created.",
+    "aiTimedOut": "AI interpretation timed out. Review the task before starting.",
+    "aiUnusableProposal": "AI returned an unusable proposal. Review the task before starting.",
+    "createdTask": "Task created.",
+    "createdWorkspace": "Workspace created.",
+    "reviewSavedPrompt": "Open its task to review the saved prompt before starting.",
+    "agentNotRecorded": "The task's agent could not be recorded, so its prompt is ready in the composer instead of starting.",
+    "firstTaskNotStarted": "The first task could not start; review its saved prompt before retrying.",
+    "startupUnconfirmed": "Check the task's messages before sending again; startup could not be confirmed.",
+    "startupUnconfirmedCheckPrompt": "Check the task's messages and saved prompt before sending again; startup could not be confirmed."
   },
   "proposal": {
     "fallbackSource": "Workspace kickoff",

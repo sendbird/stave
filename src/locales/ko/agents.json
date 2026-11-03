@@ -119,7 +119,8 @@
     "agentSuggestions3": "학습이 꺼져 있습니다. 수정 의견을 검토하거나 변경을 제안하지 않습니다.",
     "ariaLabel3": "학습된 제안",
     "agentSuggestions4": "학습된 제안",
-    "sentence12": "{{value1}}의 수정 의견으로 학습했습니다. {{value2}}"
+    "learnedFromCorrection": "{{date}}의 수정 의견으로 학습했습니다.",
+    "learnedFromCorrectionStale": "{{date}}의 수정 의견으로 학습했습니다. 그 뒤 지침이 바뀌었으므로, 적용하면 이 버전으로 바뀝니다."
   },
   "agentWorkflowField": {
     "agentWorkflowField": "단계를 직접 계획하는 하나의 단계로 실행합니다. 고정된 순서로 작업하려면 단계를 추가하세요.",

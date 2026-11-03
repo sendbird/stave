@@ -16,7 +16,7 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 /** The right-hand meta of a stage row: duration, attempts, what it will do. */
 export function describeStageMeta(row: AgentRunStageRow): string {
   const parts: string[] = [];
-  if (row.status === "running") parts.push("now");
+  if (row.status === "running") parts.push(i18n.t("agentRuns:stageCard.now"));
   else if (row.durationMs !== null && row.status === "completed") parts.push(formatDuration(row.durationMs));
   if (row.attempts > 1) parts.push(i18n.t("agentRuns:remaining.presentationCopy4", { v1: row.attempts }));
   if (row.asksFirst && (row.status === "pending" || row.status === "awaiting-sign-off")) {

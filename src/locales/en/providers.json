@@ -239,7 +239,9 @@
   "providerAccountIdentity": {
     "checkingSignIn": "Checking sign-in…",
     "cliNotFound": "{{value1}} CLI not found",
-    "canTCheckSignIn": "Can't check sign-in"
+    "canTCheckSignIn": "Can't check sign-in",
+    "signedInAs": "Signed in as {{email}}",
+    "signedIn": "Signed in"
   },
   "providerAccountSetup": {
     "sharesYourFromSystemDefaultWith": "Shares your {{value1}} from System default with this account. {{value2}}",
@@ -556,5 +558,9 @@
     "midTask": "Switch provider mid-task",
     "midTaskDescription": "Let provider rules, including the table above, move a task that has already started. Off, a task changes provider only on its first turn. A provider that cannot run the turn hands over either way.",
     "privacyNote": "Switching provider sends at most 12,000 characters of the conversation to the other provider, and that provider's own skills, hooks and MCP servers apply."
+  },
+  "codexModelCatalog": {
+    "listedByRuntime": "Listed by the current Codex runtime.",
+    "runtimeSupportUnconfirmed": "Runtime support unconfirmed."
   }
 }

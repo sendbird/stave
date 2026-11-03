@@ -168,7 +168,7 @@ export function describeUsageWindow(args: {
     ? i18n.t("shell:statusBarUsageStripUtils.at100StaveHoldsNewTurnsUntil", { value1: providerName })
     : i18n.t("shell:statusBarUsageStripUtils.at100StaveKeepsSendingTurnsBecause", { value1: providerName });
   return {
-    title: `${window.title} · ${formatUsagePercent(window.usedPercent)} used`,
+    title: i18n.t("shell:statusBarUsageStripUtils.windowUsedTitle", { title: window.title, percent: formatUsagePercent(window.usedPercent) }),
     lines: [...(window.note ? [window.note] : []), reset, atLimit],
   };
 }

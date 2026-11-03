@@ -214,8 +214,7 @@ export function createWorkspaceKickoffResolver(args: {
           return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.kickoffResolutionWasCancelled") };
         const remaining = 60_000 - (Date.now() - startedAt);
         if (remaining < 1_000) {
-          reason =
-            "AI interpretation timed out. Review the task before starting.";
+          reason = i18n.t("kickoff:workspaceKickoffActions.aiTimedOut");
           break;
         }
         const providerId = inferProviderIdFromModel({ model });
@@ -284,10 +283,10 @@ export function createWorkspaceKickoffResolver(args: {
           const code = error instanceof Error ? error.message : "unavailable";
           reason =
             code === "timeout"
-              ? "AI interpretation timed out. Review the task before starting."
+              ? i18n.t("kickoff:workspaceKickoffActions.aiTimedOut")
               : code === "invalid-output" || code === "output-limit"
-                ? "AI returned an unusable proposal. Review the task before starting."
-                : "AI interpretation was unavailable. Review the task before starting.";
+                ? i18n.t("kickoff:workspaceKickoffActions.aiUnusableProposal")
+                : i18n.t("kickoff:additionalCopy.message48");
         }
       }
       if (signal.aborted)
@@ -399,7 +398,7 @@ export async function runWorkspaceKickoff(args: {
   if (!createResult.ok) return createResult;
   const { taskId } = createResult;
   // A current-workspace start made a task, not a workspace.
-  const made = target ? "Task created." : "Workspace created.";
+  const made = target ? i18n.t("kickoff:workspaceKickoffActions.createdTask") : i18n.t("kickoff:workspaceKickoffActions.createdWorkspace");
   const warning = (
     message: string,
     startup: "blocked" | "unknown",
@@ -411,7 +410,7 @@ export async function runWorkspaceKickoff(args: {
   });
   if (!taskId || !prompt) {
     return warning(
-      `${made} Open its task to review the saved prompt before starting.`,
+      `${made} ${i18n.t("kickoff:workspaceKickoffActions.reviewSavedPrompt")}`,
       "blocked",
     );
   }
@@ -436,7 +435,7 @@ export async function runWorkspaceKickoff(args: {
       // send: sending as the wrong agent is worse than a staged task.
       restorePromptIfEmpty();
       return warning(
-        `${made} The task's agent could not be recorded, so its prompt is ready in the composer instead of starting.`,
+        `${made} ${i18n.t("kickoff:workspaceKickoffActions.agentNotRecorded")}`,
         "blocked",
       );
     }
@@ -460,19 +459,19 @@ export async function runWorkspaceKickoff(args: {
     if (result.status === "blocked") {
       restorePromptIfEmpty();
       return warning(
-        `${made} The first task could not start; review its saved prompt before retrying.`,
+        `${made} ${i18n.t("kickoff:workspaceKickoffActions.firstTaskNotStarted")}`,
         "blocked",
       );
     }
     return warning(
-      `${made} Check the task's messages before sending again; startup could not be confirmed.`,
+      `${made} ${i18n.t("kickoff:workspaceKickoffActions.startupUnconfirmed")}`,
       "unknown",
     );
   } catch {
     // The task was already persisted with its prompt. A thrown send may have
     // submitted work, so preserve its state and never automatically resend.
     return warning(
-      `${made} Check the task's messages and saved prompt before sending again; startup could not be confirmed.`,
+      `${made} ${i18n.t("kickoff:workspaceKickoffActions.startupUnconfirmedCheckPrompt")}`,
       "unknown",
     );
   }

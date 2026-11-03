@@ -171,7 +171,7 @@ export function summarizeTrackerSource(
     return {
       ...base,
       condition: retryable ? "error" : "blocked",
-      headline: retryable ? "Did not sync" : "Unavailable",
+      headline: retryable ? i18n.t("issues:sourceStatus.didNotSync") : i18n.t("issues:sourceStatus.unavailable"),
       detail: describeError(status.lastErrorCode),
       retryable,
       // A rejected credential or query is fixed in Settings; a server that does

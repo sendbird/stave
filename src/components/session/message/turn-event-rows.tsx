@@ -135,7 +135,7 @@ export function ReasoningRow(args: {
       durationMs={durationMs}
       label={i18n.t("session:turnEventRows.label")}
       loaderVariant="think"
-      phase={isStreaming ? "Thinking" : i18n.t("session:turnEventRows.extraCopy197")}
+      phase={isStreaming ? i18n.t("ui:thinking.thinking") : i18n.t("session:turnEventRows.extraCopy197")}
       status={isStreaming ? "thinking" : "settled"}
     >
       {body.length === 0 ? null : isStreaming ? (

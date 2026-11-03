@@ -85,7 +85,7 @@ function previewOf(stage: WorkflowStage): { text: string; missing: boolean } {
     if (stage.action.type === "run-script") {
       return { text: i18n.t("agentRuns:stageRow.text2", { value1: stage.action.scriptId }), missing: false };
     }
-    return { text: "Stave action", missing: false };
+    return { text: i18n.t("agentRuns:stageRow.title2"), missing: false };
   }
   if (!stage.instruction.trim()) return { text: i18n.t("agentRuns:stageRow.text3"), missing: true };
   return { text: stage.instruction, missing: false };

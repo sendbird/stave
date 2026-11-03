@@ -307,11 +307,14 @@ export function MemoryUsagePopover({
         if (response?.ok && response.result) {
           setStorageMessage(
             response.result.errors.length > 0
-              ? `Reclaimed ${formatBytes(response.result.reclaimedBytes)} with ${response.result.errors.length} error(s)`
-              : `Reclaimed ${formatBytes(response.result.reclaimedBytes)}`,
+              ? i18n.t("workspace:resourcesPopover.reclaimedWithErrors", {
+                  size: formatBytes(response.result.reclaimedBytes),
+                  count: response.result.errors.length,
+                })
+              : i18n.t("workspace:resourcesPopover.reclaimed", { size: formatBytes(response.result.reclaimedBytes) }),
           );
         } else {
-          setStorageMessage(response?.error ?? "Clean-up unavailable");
+          setStorageMessage(response?.error ?? i18n.t("workspace:resourcesPopover.cleanupUnavailable"));
         }
       } catch (error) {
         setStorageMessage(String(error));

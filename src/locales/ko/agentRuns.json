@@ -241,7 +241,8 @@
     "sentence8": "진행 중{{value1}}. 에이전트가 완료를 보고하면 단계 보고서가 여기에 표시됩니다.",
     "extraCopy11": "먼저 확인합니다",
     "extraCopy13": "수정 시도 없음",
-    "extraCopy12_other": "최대 {{value1}} 회 수정"
+    "extraCopy12_other": "최대 {{value1}} 회 수정",
+    "now": "진행 중"
   },
   "stageTrack": {
     "ariaLabel": "{{value1}} 진행 상황",
@@ -315,12 +316,14 @@
     "label14": "{{value1}} 항목",
     "exchangeDetail4": "과제 및 실행 세부 사항",
     "label15": "과제",
-    "sentence33": "{{value1}}에 시작됨 {{value2}}",
     "sentence34": "{{value1}}{{value2}}에서 요청함",
     "extraCopy75": "캐시 읽기 {{value1}}",
     "extraCopy76": "캐시 쓰기 {{value1}}",
     "extraCopy77": "요청 또는 설정됨; 실제 런타임 실행 보고 안 됨",
-    "extraCopy81": "보고되지 않음"
+    "extraCopy81": "보고되지 않음",
+    "started": "{{start}}에 시작됨",
+    "startedEnded": "{{start}}에 시작됨 · {{end}} 종료",
+    "startedStillRunning": "{{start}}에 시작됨 · 아직 실행 중"
   },
   "exchangeRow": {
     "exchangeRow": "경과 시간"
@@ -833,7 +836,6 @@
     "presentationCopy4": "{{v1}}회 시도",
     "presentationCopy6": "{{v1}} 동안",
     "presentationCopy7": "Stave 동작: {{v1}}",
-    "presentationCopy266": " · {{v1}} 종료",
     "presentationCopy402": "{{v1}} 다시",
     "presentationCopy414": "{{v1}} · 실행 중",
     "presentationCopy415": "{{v1}} · 시작 중",

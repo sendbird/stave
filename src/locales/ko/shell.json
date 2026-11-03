@@ -701,7 +701,8 @@
     "clickForTheirAPIValue": "클릭하여 API 가치 보기.",
     "sEstimateOfWhatTheseTurnsCost": "{{value1}} 프로바이더가 추정한 턴 비용입니다. 게이트웨이가 청구하며 실제 청구서가 최종 기준입니다.",
     "notBilledToYourSubscriptionEstimatesIt": "구독에 청구하지 않습니다. {{value1}} 프로바이더가 토큰 사용량과 API 가격으로 추정합니다.",
-    "tokensToday": "오늘 토큰 {{value1}}"
+    "tokensToday": "오늘 토큰 {{value1}}",
+    "windowUsedTitle": "{{title}} · {{percent}} 사용됨"
   },
   "statusBarUsageUtils": {
     "usageLimit": "사용량 한도",

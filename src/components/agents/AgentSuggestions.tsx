@@ -26,7 +26,11 @@ function SuggestionCard(props: {
         <Lightbulb aria-hidden size={14} />
         <span className={sx(agentStyles.historyWhen)}>{props.suggestion.summary}</span>
       </div>
-      <span className={sx(styles.hint)}>{i18n.t("agents:agentSuggestions.sentence12", { value1: formatDate(new Date(props.suggestion.createdAt)), value2: props.stale ? " The instructions changed since; applying replaces them with this version." : "" })}</span>
+      <span className={sx(styles.hint)}>
+        {props.stale
+          ? i18n.t("agents:agentSuggestions.learnedFromCorrectionStale", { date: formatDate(new Date(props.suggestion.createdAt)) })
+          : i18n.t("agents:agentSuggestions.learnedFromCorrection", { date: formatDate(new Date(props.suggestion.createdAt)) })}
+      </span>
       {editing ? (
         <Textarea
           size="sm"
