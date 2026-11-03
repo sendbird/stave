@@ -24,6 +24,13 @@ A review is a [delegated task](delegated-tasks.md) with read-only access. Use
 a compare run when two models should each write a solution, and a delegated
 writer when another model should change files.
 
+In a compare run, each candidate's column shows its state, how long it ran (or
+has run so far), what its provider reported spending (dollars where reported,
+otherwise tokens), and, while it runs, what it is doing now. **Keep this one**
+is one choice among the candidates: the arrow keys move between the finished
+ones, and choosing asks before it keeps one and discards the rest. A candidate
+still running says **Keep when finished**.
+
 ## Before You Start
 
 - Review tasks need the desktop app. The browser development build has no

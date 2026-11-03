@@ -66,7 +66,17 @@
     "judge": "Judge",
     "freshContextScoringAndRecommendation": "Fresh-context scoring and recommendation.",
     "inspectEvidenceAgainstOneRubric": "Inspect evidence against one rubric.",
-    "preserveOneWorkspaceDiscardTheRest": "Preserve one workspace; discard the rest."
+    "preserveOneWorkspaceDiscardTheRest": "Preserve one workspace; discard the rest.",
+    "keepGroup": "Keep one candidate",
+    "keepThisOne": "Keep this one",
+    "keptThisOne": "Kept",
+    "keepWhenFinished": "Keep when finished",
+    "keepRadio": "{{action}}: {{title}}",
+    "keepRadioScored": "{{action}}: {{title}}, score {{score}}",
+    "elapsedSoFar": "{{duration}} so far",
+    "tokens_one": "{{value}} token",
+    "tokens_other": "{{value}} tokens",
+    "now": "Now: {{activity}}"
   },
   "compareRunPrepareDialog": {
     "candidateA": "Candidate A",

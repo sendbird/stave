@@ -1,8 +1,9 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import {
-  ArrowRight,
   BrainCircuit,
-  CheckCircle2,
+  Circle,
+  CircleDashed,
+  CircleDot,
   Eye,
   GitBranch,
   ListChecks,
@@ -12,8 +13,14 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import { sx } from "@/components/ads/utils/stylex";
+import { useNow } from "@/components/agent-runs/useAgentRun";
+import { formatCost, formatDuration, formatTokenCount } from "@/i18n/format";
+import { COMPARE_VARIANT_WORK_STATE, describeCompareVariantProgress } from "@/lib/compare-run-progress";
+import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
+import type { ChatMessage } from "@/types/chat";
 import { buildSourceControlSummary } from "@/components/layout/editor-panel.utils";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
@@ -28,7 +35,6 @@ import {
   toast,
 } from "@/components/ui";
 import { StateMark } from "@/components/ads/components/StateMark";
-import { AgentRunMark } from "@/components/system/AgentRunMark";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -54,6 +60,7 @@ interface VariantSourceControlState {
 }
 
 const EMPTY_STATUS_ITEMS: SourceControlStatusItem[] = [];
+const NO_MESSAGES: ChatMessage[] = [];
 const COMPARE_JUDGE_STORE_ACCESS = {
   getState: () => useAppStore.getState(),
   updateRuns: (updater) =>
@@ -62,67 +69,94 @@ const COMPARE_JUDGE_STORE_ACCESS = {
     })),
 } satisfies CompareJudgeStoreAccess;
 
+/**
+ * A candidate's status word: the shared state word, except where the compare
+ * flow says more (a worktree being created, the one kept, the rest discarded).
+ */
 function getVariantStatusLabel(status: CompareRunVariant["status"]) {
   switch (status) {
     case "creating":
       return i18n.t("compare:compareRunPanel.creating");
-    case "running":
-      return i18n.t("common:status.running");
-    case "completed":
-      return i18n.t("common:status.ready");
-    case "failed":
-      return i18n.t("common:status.failed");
-    case "cancelled":
-      return i18n.t("common:status.cancelled");
     case "kept":
       return i18n.t("compare:compareRunPanel.kept");
     case "discarded":
       return i18n.t("compare:compareRunPanel.discarded");
-    case "pending":
     default:
-      return i18n.t("common:status.pending");
+      return WORK_STATE[COMPARE_VARIANT_WORK_STATE[status]].label;
   }
 }
 
-function getVariantStatusStyle(status: CompareRunVariant["status"]) {
-  if (status === "failed") {
-    return styles.statusFailed;
-  }
-  if (status === "cancelled") {
-    return styles.statusMuted;
-  }
-  if (status === "kept") {
-    return styles.statusKept;
-  }
-  if (status === "completed") {
-    return styles.statusCompleted;
-  }
-  if (status === "discarded") {
-    return styles.statusMuted;
-  }
-  if (status === "running" || status === "creating") {
-    return styles.statusRunning;
-  }
-  return styles.statusPending;
+/** How long a candidate ran (`18m`, `12m so far`) and what it reported spending. */
+function CompareVariantProgressMeta(props: { variant: CompareRunVariant }) {
+  useTranslation();
+  const { variant } = props;
+  const taskId = variant.taskId ?? null;
+  const messages = useAppStore((state) => {
+    if (!taskId || !variant.workspaceId) return undefined;
+    return state.activeWorkspaceId === variant.workspaceId
+      ? state.messagesByTask[taskId]
+      : state.workspaceRuntimeCacheById[variant.workspaceId]?.messagesByTask[taskId];
+  });
+  const activity = useAppStore((state) => (taskId ? state.providerTurnActivityByTask[taskId] ?? null : null));
+  const progress = useMemo(() => {
+    if (!taskId || (!messages && !activity)) return null;
+    const summary = buildTaskExecutionSummary({ taskId, providerId: variant.provider, messages: messages ?? NO_MESSAGES, activity });
+    return describeCompareVariantProgress({ summary, activityStartedAt: activity?.completedAt == null ? activity?.startedAt : null });
+  }, [activity, messages, taskId, variant.provider]);
+  const running = Boolean(progress?.elapsed?.running);
+  const now = useNow(running, 1_000);
+  if (!progress) return null;
+  const { elapsed, spend } = progress;
+  const elapsedMs = elapsed ? (elapsed.running && elapsed.startedAt !== null ? now - elapsed.startedAt : elapsed.milliseconds) : null;
+  const time = elapsedMs === null ? null
+    : elapsed?.running ? i18n.t("compare:compareRunPanel.elapsedSoFar", { duration: formatDuration(elapsedMs, { units: 1 }) })
+    : formatDuration(elapsedMs, { units: 1 });
+  const cost = !spend ? null
+    : spend.kind === "usd" ? formatCost(spend.amount)
+    : i18n.t("compare:compareRunPanel.tokens", { count: spend.count, value: formatTokenCount(spend.count) });
+  if (!time && !cost) return null;
+  return (
+    <span className={sx(styles.variantMetaItem)} data-testid="compare-variant-progress">
+      {[time, cost].filter(Boolean).join(" · ")}
+    </span>
+  );
 }
 
-function VariantStatusIcon(props: { status: CompareRunVariant["status"] }) {
-  if (props.status === "failed" || props.status === "cancelled") {
-    return <XCircle className={sx(styles.icon14)} />;
-  }
-  if (props.status === "kept" || props.status === "completed") {
-    return <CheckCircle2 className={sx(styles.icon14)} />;
-  }
-  // A variant is one row of the comparison, so its agent working wears the
-  // list's working mark; preparing its worktree is Stave's own work and keeps
-  // the spinner.
-  if (props.status === "running") {
-    return <StateMark state="working" />;
-  }
-  if (props.status === "creating") {
-    return <AgentRunMark kind="busy" />;
-  }
-  return <GitBranch className={sx(styles.icon14)} />;
+/** `Now: Run command · bun test` while a candidate runs. */
+function CompareVariantCurrentStep(props: { variant: CompareRunVariant }) {
+  useTranslation();
+  const taskId = props.variant.taskId ?? null;
+  const activity = useAppStore((state) => (taskId ? state.providerTurnActivityByTask[taskId] ?? null : null));
+  const current = useMemo(() => {
+    if (!taskId || !activity || activity.completedAt != null) return null;
+    const summary = buildTaskExecutionSummary({ taskId, providerId: props.variant.provider, messages: NO_MESSAGES, activity });
+    return describeCompareVariantProgress({ summary, activityStartedAt: activity.startedAt }).current;
+  }, [activity, props.variant.provider, taskId]);
+  if (!current || props.variant.status !== "running") return null;
+  return (
+    <p className={sx(styles.variantNow)} data-testid="compare-variant-now">
+      {i18n.t("compare:compareRunPanel.now", { activity: current })}
+    </p>
+  );
+}
+
+/**
+ * Keep as one choice among the candidates: each candidate's Keep is a radio
+ * in one radiogroup, checked on the kept one. Arrow keys move between the
+ * candidates that can be kept without choosing, because choosing keeps one
+ * and discards the rest, so it waits for Enter, Space or a click and its
+ * confirmation.
+ */
+function moveKeepFocus(event: KeyboardEvent<HTMLButtonElement>) {
+  const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+  if (!step && event.key !== "Home" && event.key !== "End") return;
+  const group = event.currentTarget.closest("[role='radiogroup']");
+  const radios = Array.from(group?.querySelectorAll<HTMLButtonElement>("[role='radio']:not([disabled])") ?? []);
+  if (radios.length === 0) return;
+  const index = radios.indexOf(event.currentTarget);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? radios.length - 1 : (index + step + radios.length) % radios.length;
+  event.preventDefault();
+  radios[next]?.focus();
 }
 
 function formatVariantTitle(variant: CompareRunVariant, index: number) {
@@ -192,6 +226,18 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
   const recommendedScore = judgment?.candidateScores.find(
     (candidate) => candidate.variantId === recommendedVariantId,
   )?.score;
+  // A candidate can be kept once it finished and the judge is not still
+  // scoring; after one is kept, the choice is made.
+  const canKeepVariant = (variant: CompareRunVariant) =>
+    !compareRun?.keptVariantId &&
+    Boolean(variant.workspaceId && variant.taskId) &&
+    variant.status === "completed" &&
+    judge?.status !== "pending" &&
+    judge?.status !== "running" &&
+    pendingAction !== `keep:${variant.id}`;
+  // The radiogroup's one tab stop: the kept candidate, else the first that can be kept.
+  const keptIndex = variants.findIndex((variant) => variant.id === compareRun?.keptVariantId);
+  const keepTabStop = keptIndex >= 0 ? keptIndex : variants.findIndex(canKeepVariant);
   const comparePhase = compareRun?.keptVariantId
     ? 5
     : compareRun?.status === "failed" || compareRun?.status === "cancelled"
@@ -651,6 +697,8 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
       <div className={sx(styles.scroller)}>
         <div
           className={sx(styles.grid)}
+          role="radiogroup"
+          aria-label={t("compare:compareRunPanel.keepGroup")}
           style={{
             gridTemplateColumns: `repeat(${Math.max(variants.length, 1)}, minmax(0, 1fr))`,
           }}
@@ -659,7 +707,6 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
             const sourceState = statusByVariantId[variant.id];
             const items = sourceState?.items ?? EMPTY_STATUS_ITEMS;
             const summary = buildSourceControlSummary({ items });
-            const pending = pendingAction === `keep:${variant.id}`;
             const title = formatVariantTitle(variant, index);
             const candidateScore = judgment?.candidateScores.find(
               (candidate) => candidate.variantId === variant.id,
@@ -683,15 +730,12 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                           {String(index + 1).padStart(2, "0")}
                         </span>
                         <h3 className={sx(styles.variantTitle)}>{title}</h3>
-                        <span
-                          className={sx(
-                            styles.statusChip,
-                            getVariantStatusStyle(variant.status),
-                          )}
-                        >
-                          <VariantStatusIcon status={variant.status} />
-                          {getVariantStatusLabel(variant.status)}
-                        </span>
+                        <StateMark
+                          state={COMPARE_VARIANT_WORK_STATE[variant.status]}
+                          showLabel
+                          label={getVariantStatusLabel(variant.status)}
+                          xstyle={styles.variantState}
+                        />
                         {recommended ? (
                           <span className={sx(styles.recommendedTag)}>
                             <Trophy className={sx(styles.icon12)} />
@@ -726,7 +770,9 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     {summary.conflictCount > 0 ? (
                       <span className={sx(styles.variantConflicts)}>{t("compare:messages.conflicts", { count: summary.conflictCount })}</span>
                     ) : null}
+                    <CompareVariantProgressMeta variant={variant} />
                   </div>
+                  <CompareVariantCurrentStep variant={variant} />
                 </div>
 
                 <div className={sx(styles.variantBody)}>
@@ -822,23 +868,41 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                   >
                     <Eye className={sx(styles.icon14)} />
                     {i18n.t("compare:compareRunPanel.openCandidate")}</Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className={sx(styles.actionButton)}
-                    disabled={
-                      !variant.workspaceId ||
-                      !variant.taskId ||
-                      variant.status !== "completed" ||
-                      judge?.status === "pending" ||
-                      judge?.status === "running" ||
-                      pending
-                    }
-                    onClick={() => setKeepTarget(variant)}
-                  >
-                    <Trophy className={sx(styles.icon14)} />
-                    {i18n.t("compare:compareRunPanel.keep")}<ArrowRight className={sx(styles.icon14)} />
-                  </Button>
+                  {(() => {
+                    const kept = compareRun.keptVariantId === variant.id;
+                    const canKeep = canKeepVariant(variant);
+                    // Unfinished candidates say when they can be kept.
+                    const unfinished = variant.status === "pending" || variant.status === "creating" || variant.status === "running";
+                    const word = kept
+                      ? t("compare:compareRunPanel.keptThisOne")
+                      : unfinished
+                        ? t("compare:compareRunPanel.keepWhenFinished")
+                        : t("compare:compareRunPanel.keepThisOne");
+                    const Indicator = kept ? CircleDot : canKeep ? Circle : CircleDashed;
+                    return (
+                      <Button
+                        type="button"
+                        size="sm"
+                        role="radio"
+                        aria-checked={kept}
+                        aria-label={candidateScore
+                          ? t("compare:compareRunPanel.keepRadioScored", { action: word, title, score: candidateScore.score.toFixed(1) })
+                          : t("compare:compareRunPanel.keepRadio", { action: word, title })}
+                        tabIndex={index === keepTabStop ? 0 : -1}
+                        variant={kept || canKeep ? "default" : "secondary"}
+                        className={sx(styles.actionButton)}
+                        disabled={!canKeep && !kept}
+                        data-compare-keep={variant.id}
+                        onKeyDown={moveKeepFocus}
+                        onClick={() => {
+                          if (canKeep) setKeepTarget(variant);
+                        }}
+                      >
+                        <Indicator aria-hidden className={sx(styles.icon14)} />
+                        {word}
+                      </Button>
+                    );
+                  })()}
                 </div>
               </section>
             );

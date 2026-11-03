@@ -478,7 +478,9 @@ test("Compare Runs explains the prepare, run, judge, review, and keep decision",
   await expect(
     page.getByRole("button", { name: "Open candidate" }),
   ).toHaveCount(2);
-  await expect(page.getByRole("button", { name: "Keep" })).toHaveCount(2);
+  await expect(
+    page.getByRole("radiogroup", { name: "Keep one candidate" }).getByRole("radio"),
+  ).toHaveCount(2);
 
   await page.screenshot({
     path: testInfo.outputPath("compare-candidates.png"),
