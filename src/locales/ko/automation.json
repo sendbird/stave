@@ -62,7 +62,15 @@
     "shownCount": "{{count}}개 표시됨",
     "accessibility": {
       "closeSchedules": "일정 닫기"
-    }
+    },
+    "tabs": {
+      "schedules": "일정",
+      "schedulesCount": "일정 · {{total}}",
+      "runHistory": "실행 기록",
+      "runHistoryCount": "실행 기록 · {{total}}"
+    },
+    "statusOn": "켜짐 · 일정에 따라 실행",
+    "statusOff": "꺼짐 · 수동으로만 실행"
   },
   "automationEditor": {
     "when": "시점",
@@ -216,12 +224,16 @@
     "on": "켜짐",
     "paused": "일시 중지됨",
     "stopped": "중지됨",
-    "manual": "수동",
     "running": "실행 중",
     "waiting": "대기 중",
     "done": "완료됨",
     "failed": "실패",
-    "skipped": "건너뜀"
+    "skipped": "건너뜀",
+    "off": "꺼짐",
+    "pauseNamed": "{{name}} 일시 중지",
+    "turnOnNamed": "{{name}} 켜기",
+    "resumeNamed": "{{name}} 재개",
+    "checkBackOnTask": "{{task}} 작업 다시 확인"
   },
   "automationCenter": {
     "running": "실행 중",

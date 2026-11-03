@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Pause, Play } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
@@ -9,12 +10,23 @@ import {
   type ScheduleRow,
 } from "@/lib/schedule-rows";
 import { formatRelativeTime, formatTimeAgo } from "./automation-center.utils";
-import { runToneDotStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
 import { scheduleRowStyles as styles } from "./schedule-rows.styles";
 
+/**
+ * The toggle names the move away from the row's state: an `on` row pauses, an
+ * `off` start-a-task row turns on, a `paused` check-back resumes.
+ */
 function toggleLabel(row: ScheduleRow) {
   return row.toggle === "pause" ? i18n.t("automation:scheduleRows.pause") : row.kind === "start" ? i18n.t("automation:scheduleRows.turnOn") : i18n.t("automation:scheduleRows.resume");
+}
+
+function toggleAccessibleName(row: ScheduleRow) {
+  return row.toggle === "pause"
+    ? i18n.t("automation:scheduleRows.pauseNamed", { name: row.name })
+    : row.kind === "start"
+      ? i18n.t("automation:scheduleRows.turnOnNamed", { name: row.name })
+      : i18n.t("automation:scheduleRows.resumeNamed", { name: row.name });
 }
 
 function nextText(row: ScheduleRow) {
@@ -66,13 +78,12 @@ export function ScheduleRows(props: {
               </span>
               <span className={sx(styles.meta)}>
                 {row.cadence ? <span className={sx(styles.metaText)}>{row.cadence}</span> : null}
-                <span className={sx(styles.metaText)}>
-                  <span
-                    className={sx(centerStyles.automationDot, styles.resultDot, runToneDotStyles[row.lastResult.tone])}
-                    aria-hidden="true"
-                  />
-                  {row.lastResult.label}
-                  {row.lastResult.at ? ` ${formatTimeAgo(row.lastResult.at)}` : ""}
+                <span className={sx(styles.result)}>
+                  <StateMark state={row.lastResult.state} size="xs" />
+                  <span className={sx(styles.metaText)}>
+                    {row.lastResult.label}
+                    {row.lastResult.at ? ` ${formatTimeAgo(row.lastResult.at)}` : ""}
+                  </span>
                 </span>
                 {nextText(row) ? <span className={sx(styles.metaText)}>{nextText(row)}</span> : null}
               </span>
@@ -97,7 +108,7 @@ export function ScheduleRows(props: {
                 xstyle={styles.action}
                 disabled={busy}
                 onClick={() => props.onToggle(row)}
-                aria-label={`${toggleLabel(row)} ${row.name}`}
+                aria-label={toggleAccessibleName(row)}
               >
                 {row.toggle === "pause" ? (
                   <Pause className={sx(centerStyles.buttonIcon)} />

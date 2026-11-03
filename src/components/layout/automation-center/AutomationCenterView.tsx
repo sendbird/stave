@@ -805,8 +805,14 @@ export function AutomationCenterView() {
     activeTab === "automations"
       ? listState === "loading"
       : !snapshotAnswered && snapshot.runs.length === 0;
-  const tabLabel = (label: string, count: number) =>
-    count > 0 ? `${label} · ${count}` : label;
+  const schedulesTabLabel =
+    scheduleRows.length > 0
+      ? tI18n("automation:automationCenterView.tabs.schedulesCount", { total: scheduleRows.length })
+      : tI18n("automation:automationCenterView.tabs.schedules");
+  const runHistoryTabLabel =
+    snapshot.runs.length > 0
+      ? tI18n("automation:automationCenterView.tabs.runHistoryCount", { total: snapshot.runs.length })
+      : tI18n("automation:automationCenterView.tabs.runHistory");
 
   return (
     <div className={sx(centerStyles.root)}>
@@ -878,8 +884,8 @@ export function AutomationCenterView() {
         <nav aria-label={tI18n("automation:automationCenterView.scheduleViews")} className={sx(centerStyles.tabNav)}>
           {(
             [
-              ["automations", tabLabel("Schedules", scheduleRows.length)],
-              ["runs", tabLabel("Run history", snapshot.runs.length)],
+              ["automations", schedulesTabLabel],
+              ["runs", runHistoryTabLabel],
             ] as const
           ).map(([id, label]) => (
             <ActionButton
@@ -1100,7 +1106,9 @@ export function AutomationCenterView() {
                     <Detail
                       label={tI18n("automation:automationCenterView.status")}
                       value={
-                        selectedAutomation.enabled ? "Scheduled" : "Manual only"
+                        selectedAutomation.enabled
+                          ? tI18n("automation:automationCenterView.statusOn")
+                          : tI18n("automation:automationCenterView.statusOff")
                       }
                     />
                     {selectedAutomation.enabled ? (

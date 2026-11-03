@@ -453,10 +453,10 @@ When a delegated agent waits for a person, the shelf tells you; answer in that t
 | What it does | Creates and runs a new task in a repository each time | Adds a turn to one existing task to wake it again           |
 | Where        | Top bar **Schedules** > **New schedule** > **New task in a repository** | **Check back…** in the task tab menu, or **New schedule** > **An existing task** |
 | When         | A set time or cadence, or **Run now**             | **On a cadence**, **When subagents finish**, **When its pull request needs fixing** |
-| States       | On, Paused, Stopped, Manual                       | On, Paused, Stopped                                             |
+| States       | On, Off (runs only from **Run now**)              | On, Paused, Stopped                                             |
 | Limits       | 1 to 8 concurrent runs (default 1)                | One per task. Claude and Codex only. Pauses while that task has an active agent run |
 
-Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start paused; check them, then turn them on.
+Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
 ## Fleet View

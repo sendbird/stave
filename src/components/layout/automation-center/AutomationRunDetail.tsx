@@ -153,7 +153,7 @@ export function AutomationRunDetail(props: {
           <dl className={sx(runDetailStyles.facts)}>
             <DetailRow
               label={tI18n("automation:automationRunDetail.trigger")}
-              value={props.run.trigger === "scheduled" ? "Schedule" : "Manual"}
+              value={props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")}
             />
             <DetailRow
               label={tI18n("automation:automationRunDetail.permissions")}

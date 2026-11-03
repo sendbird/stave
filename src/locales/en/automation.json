@@ -62,7 +62,15 @@
     "shownCount": "{{count}} shown",
     "accessibility": {
       "closeSchedules": "Close schedules"
-    }
+    },
+    "tabs": {
+      "schedules": "Schedules",
+      "schedulesCount": "Schedules · {{total}}",
+      "runHistory": "Run history",
+      "runHistoryCount": "Run history · {{total}}"
+    },
+    "statusOn": "On · Runs on its schedule",
+    "statusOff": "Off · Manual runs only"
   },
   "automationEditor": {
     "when": "When",
@@ -216,12 +224,16 @@
     "on": "On",
     "paused": "Paused",
     "stopped": "Stopped",
-    "manual": "Manual",
     "running": "Running",
     "waiting": "Waiting",
     "done": "Done",
     "failed": "Failed",
-    "skipped": "Skipped"
+    "skipped": "Skipped",
+    "off": "Off",
+    "pauseNamed": "Pause {{name}}",
+    "turnOnNamed": "Turn on {{name}}",
+    "resumeNamed": "Resume {{name}}",
+    "checkBackOnTask": "Check back on {{task}}"
   },
   "automationCenter": {
     "running": "Running",
