@@ -18,6 +18,13 @@ test("meter tracks read on their card and panel surfaces in every built-in theme
   await page.goto("/?stavePreview=usage");
   const meters = page.locator('[role="meter"]');
   await expect(meters.first()).toBeVisible();
+  // Load the theme modules once first: on a cold dev server the first import
+  // can make Vite reload the page, which would end the measuring script.
+  await page
+    .evaluate(() => Promise.all([import("/src/lib/themes/apply.ts"), import("/src/lib/themes/builtin-themes.ts")]))
+    .catch(() => undefined);
+  await page.waitForLoadState("networkidle");
+  await expect(meters.first()).toBeVisible();
   expect(await meters.count()).toBeGreaterThan(2);
 
   const results = await page.evaluate(async () => {
@@ -72,6 +79,14 @@ test("meter tracks read on their card and panel surfaces in every built-in theme
     }
     return rows;
   });
+
+  // The default dark theme, for a look at the quota cards.
+  await page.evaluate(async () => {
+    const { applyCustomTheme, applyThemeClass } = await import("/src/lib/themes/apply.ts");
+    applyThemeClass({ enabled: true });
+    applyCustomTheme({ theme: null });
+  });
+  await page.screenshot({ path: test.info().outputPath("meter-tracks-dark.png") });
 
   expect(results.length).toBeGreaterThan(40);
   const surfaces = new Set(results.map((row) => row.surface));
