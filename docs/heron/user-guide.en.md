@@ -440,7 +440,9 @@ Its progress shows on the shelf. When it is done, attach or view the result, run
 ## Delegated tasks
 
 An agent can hand part of its work to another agent. A delegated task is a real task under the parent task.
-The **Subagents** tab shows whether each is running, waiting, completed or failed, and lets you view activity, open the transcript, or stop it.
+The **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view activity, open the transcript, or stop it.
+**Needs you** means it asked a question or an approval and waits for a person; **Waiting** means it sits between turns on its own.
+The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
 
 @page automation | Automation | Schedules, check-backs and Fleet | guide
