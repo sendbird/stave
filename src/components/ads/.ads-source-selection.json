@@ -1,0 +1,168 @@
+{
+  "bundleIntegrity": "sha256-fd09dcf3e22217fa1e372b784e057d13f6230d8ca93c6cb8ea37a64ca41228f4",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@stylexjs/stylex": "0.19.0",
+    "lucide-react": "1.21.0",
+    "motion": "^12.42.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "combobox",
+      "kind": "component",
+      "name": "Combobox",
+      "path": "src/components/ads/components/Combobox.tsx"
+    },
+    {
+      "id": "appliedfilters",
+      "kind": "component",
+      "name": "AppliedFilters",
+      "path": "src/components/ads/components/AppliedFilters.tsx"
+    },
+    {
+      "id": "stepper",
+      "kind": "component",
+      "name": "Stepper",
+      "path": "src/components/ads/components/Stepper.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-e67d0f3df753151ceaf8de7c5c86ad8c35abc98a673ba977d7d3ac20a3f59913",
+      "path": "src/components/ads/components/AppliedFilters.clear.tsx",
+      "sourcePath": "packages/design-system/src/components/AppliedFilters.clear.tsx"
+    },
+    {
+      "integrity": "sha256-da86fe493b941047fd443650da980dd474cfe94a1900e5ea9e3ddf06a904378d",
+      "path": "src/components/ads/components/AppliedFilters.tsx",
+      "sourcePath": "packages/design-system/src/components/AppliedFilters.tsx"
+    },
+    {
+      "integrity": "sha256-8dd78b5acec926c3f63cfbd7bb5c4e3d8071df9e8427957ac0c90a3151bab738",
+      "path": "src/components/ads/components/Combobox.array.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.array.tsx"
+    },
+    {
+      "integrity": "sha256-bd538c58b6a2ec363dcefbc1b7e21fc8788bb213b0df2cb3d8793ffe94167f23",
+      "path": "src/components/ads/components/Combobox.arrayProps.ts",
+      "sourcePath": "packages/design-system/src/components/Combobox.arrayProps.ts"
+    },
+    {
+      "integrity": "sha256-3182e181934fbe467dec4a0785955572d28ef09acf449ed842c6662f7d97cd3e",
+      "path": "src/components/ads/components/Combobox.chips.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.chips.tsx"
+    },
+    {
+      "integrity": "sha256-389affa30dc521e3cbebdc9d18bc536ae7d7a0d902971cf18cf5f9d12044d9aa",
+      "path": "src/components/ads/components/Combobox.create.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.create.tsx"
+    },
+    {
+      "integrity": "sha256-9891e8dde8397cdc743c513aff49ff932205c98b8fe01832f6ad21b45a924c8d",
+      "path": "src/components/ads/components/Combobox.fieldTrigger.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.fieldTrigger.tsx"
+    },
+    {
+      "integrity": "sha256-90d6ad624eed57f767fb1e3e4f760d4aae58376c6d28e9f8456b9c1cd5f59f14",
+      "path": "src/components/ads/components/Combobox.input.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.input.tsx"
+    },
+    {
+      "integrity": "sha256-ec432b0aabcfcd4068af6d9116385e06290e2a76d2fa97b3e5426d8a235c7424",
+      "path": "src/components/ads/components/Combobox.loadMore.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.loadMore.tsx"
+    },
+    {
+      "integrity": "sha256-18c160a7a1e26903d7730d3e5cb85e32fe8a8843ffc08813ba8a53a4e22851f5",
+      "path": "src/components/ads/components/Combobox.options.ts",
+      "sourcePath": "packages/design-system/src/components/Combobox.options.ts"
+    },
+    {
+      "integrity": "sha256-7191f724d499c955d46636f49b5b0e6e21450c59843ff692068c617ac29ac264",
+      "path": "src/components/ads/components/Combobox.pagedList.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.pagedList.tsx"
+    },
+    {
+      "integrity": "sha256-0c255b52bf2f32fd8f0a70e26b8a10a496f4c34cd91794618d7ac2e47bb4a07f",
+      "path": "src/components/ads/components/Combobox.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.parts.tsx"
+    },
+    {
+      "integrity": "sha256-31376fe617d13bc624259a18386a3974ab4163a3c1ea7ea3f5f66d696ea03afe",
+      "path": "src/components/ads/components/Combobox.passthrough.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.passthrough.tsx"
+    },
+    {
+      "integrity": "sha256-7af10329ddc88d296dfab0f5683d4f65ea171720ecea67db2dc1844d9ae5783c",
+      "path": "src/components/ads/components/Combobox.popup.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.popup.tsx"
+    },
+    {
+      "integrity": "sha256-5960565d217475c784c349d05eba542cbeb69907868f0d626532f988746ba470",
+      "path": "src/components/ads/components/Combobox.scale.ts",
+      "sourcePath": "packages/design-system/src/components/Combobox.scale.ts"
+    },
+    {
+      "integrity": "sha256-946e1fc63b8c921229a3484260740d05416dcc393db8f0fe4ab568ea09267bdf",
+      "path": "src/components/ads/components/Combobox.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Combobox.styles.ts"
+    },
+    {
+      "integrity": "sha256-766a416eb0f818bb03951718a42e3972881d961f578dbd29f1cc0aefdaed646e",
+      "path": "src/components/ads/components/Combobox.tsx",
+      "sourcePath": "packages/design-system/src/components/Combobox.tsx"
+    },
+    {
+      "integrity": "sha256-c4b4844071a0a1c6eefb6c887e58ece137040fbf7b68c2ebe68de598bdfe68fc",
+      "path": "src/components/ads/components/Stepper.context.tsx",
+      "sourcePath": "packages/design-system/src/components/Stepper.context.tsx"
+    },
+    {
+      "integrity": "sha256-684e89f4fae0d062ab01ea9aeccb541a811290559ec0d8a1751876a84206daa9",
+      "path": "src/components/ads/components/Stepper.flow.tsx",
+      "sourcePath": "packages/design-system/src/components/Stepper.flow.tsx"
+    },
+    {
+      "integrity": "sha256-2399c7c99781da969a0ec4633224c0a21a2176a3161138984f85a947f707d4c0",
+      "path": "src/components/ads/components/Stepper.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Stepper.parts.tsx"
+    },
+    {
+      "integrity": "sha256-8ad3b57f30a1469d23c09b2eae8c3466aa7f134f972a34ad55cc13d161b7c384",
+      "path": "src/components/ads/components/Stepper.size.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Stepper.size.styles.ts"
+    },
+    {
+      "integrity": "sha256-1c09bea9249157f44fa99a3a2c2e8b56274cda95f5164cb8714cd534bba3a54a",
+      "path": "src/components/ads/components/Stepper.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Stepper.styles.ts"
+    },
+    {
+      "integrity": "sha256-cb152c43992d641e377f2ec314ab06962049570af108fc2d889eb0db872ac949",
+      "path": "src/components/ads/components/Stepper.tsx",
+      "sourcePath": "packages/design-system/src/components/Stepper.tsx"
+    },
+    {
+      "integrity": "sha256-23b2a40457e4c394d83b87136d6745d21be392b92b551cd90c554cd97dac6f8d",
+      "path": "src/components/ads/headless/combobox.tsx",
+      "sourcePath": "packages/design-system/src/headless/combobox.tsx"
+    },
+    {
+      "integrity": "sha256-9125ccd6620aed594fdeccb0c0613395e247abed7169805f946b6dc323bb8b6b",
+      "path": "src/components/ads/recipes/field-shell.ts",
+      "sourcePath": "packages/design-system/src/recipes/field-shell.ts"
+    }
+  ],
+  "generatorVersion": "2",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-2cc1826a78e99ef11be4d81f8059ccfc26e0aa76fb1c1ea07b432bfa073b86d7",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

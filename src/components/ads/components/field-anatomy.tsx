@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { CheckCircle2 } from "lucide-react";
-import { useId } from "react";
+import { createContext, useContext, useId } from "react";
 import type * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
@@ -81,6 +81,32 @@ export type FieldAnatomy = {
  * Resolve the ids, the described-by string, and the effective tone for one
  * field. Call it once per control and pass the result to `FieldMessages`.
  */
+/**
+ * A disabled `Fieldset` disables every field inside it. A field ORs this into
+ * its own prop, so `disabled` on the field still wins on its own and a disabled
+ * Fieldset cannot be opted out of from inside.
+ */
+const FieldsetDisabledContext = createContext(false);
+
+export function FieldsetDisabledProvider({
+  children,
+  disabled,
+}: {
+  children: React.ReactNode;
+  disabled: boolean;
+}) {
+  return (
+    <FieldsetDisabledContext.Provider value={disabled}>
+      {children}
+    </FieldsetDisabledContext.Provider>
+  );
+}
+
+/** Read by every field: its own `disabled`, or the enclosing Fieldset's. */
+export function useFieldDisabled(disabled?: boolean) {
+  return useContext(FieldsetDisabledContext) || Boolean(disabled);
+}
+
 export function useFieldAnatomy({
   description,
   error,

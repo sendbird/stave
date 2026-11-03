@@ -332,6 +332,12 @@ export const vars = stylex.defineVars({
   // Lucide's default 2 and is not set by hand (sole exception: a check mark at
   // <=14px uses 3). Marks that track text rather than controls — StatusDot's
   // 6/8/12 — are off this scale on purpose.
+  // Control MARK scale: the painted box of a checkbox, radio, or step marker,
+  // 16/20/24. Not the glyph inside a control (`--ads-control-icon-size-*`) and
+  // not `space*`, which compact density remaps; a `size` prop owns these.
+  "--ads-control-mark-size-sm": "16px",
+  "--ads-control-mark-size-md": "20px",
+  "--ads-control-mark-size-lg": "24px",
   "--ads-control-icon-size-sm": "14px",
   "--ads-control-icon-size-md": "16px",
   "--ads-control-icon-size-lg": "18px",

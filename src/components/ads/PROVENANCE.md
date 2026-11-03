@@ -714,3 +714,39 @@ Further host extensions:
   wrong base and drop host work. Files those manifests SHARE with
   `.ads-source.json` were re-synced and did advance. Re-syncing those two
   closures is the remaining ADS parity work.
+
+- **The selection family (`.ads-source-selection.json`).** `Combobox` (its
+  array and compound halves, `FieldTrigger`, chips, paging and create rows,
+  `headless/combobox` and the `field-shell` recipe), `Stepper` (root, items,
+  `Flow`/`Panel`) and `AppliedFilters` were installed from the ADS source
+  bundle on 2026-11-03 for Stave's pickers, the auto-routing wizard and the
+  applied-filter rows. Only the 25 files absent from this copy were written;
+  every file the bundle shares with an older closure kept its host version, and
+  the bundle's newer `Tooltip.base`, `shortcut-keys`, CSS sheets and
+  theme-target files were not installed because nothing installed here imports
+  them. The manifest's integrity values are the PRISTINE upstream hashes.
+  `FilterBar` and `DatePicker` were not installed: their closure brings a
+  rule-builder query editor, a number field and a second calendar the host has
+  no consumer for yet.
+
+  Host modifications, kept when refreshing:
+
+  - Every English default (empty, loading, search placeholder, clear, open,
+    remove-chip, create, retry, load-more, applied-filter and stepper status
+    copy) reads `i18n.t("ui:combobox.*" | "ui:appliedFilters.*" |
+    "ui:stepper.*")` instead of a literal, and the array components call
+    `useTranslation()` so a language switch re-renders them. Stepper's
+    `statusLabels` holds translation keys rather than words.
+  - `Combobox.loadMore`'s retry button uses the installed Button's `outline`
+    variant name (the bundle calls it `outlined`).
+  - Comments naming other internal products and their tracker numbers were
+    generalized.
+
+  Additive forward-ports the closure needed from newer upstream versions of
+  host-modified files, each a strict addition: `useFieldDisabled` and
+  `FieldsetDisabledProvider` in `field-anatomy.tsx`, the exported
+  `InputGroupContext` in `InputGroup.tsx`, `controlChrome.fieldTriggerBorder`
+  in `recipes/control-chrome.ts`, the `--ads-control-mark-size-sm|md|lg` scale
+  in `tokens.stylex.ts` (size tokens, not colors, so no theme carries them),
+  and the `xs` size rung on the `stepper`, `stepper-indicator` and
+  `stepper-trigger` theme targets.

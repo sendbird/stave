@@ -127,6 +127,25 @@ export const controlChrome = stylex.create({
     },
   },
   /**
+   * Border ladder for a field-shaped BUTTON trigger (`Combobox.FieldTrigger`):
+   * rest, a stronger hover rung, and the focus colour on `:focus-visible`, so a
+   * field trigger and a text field in one row light up the same way. The
+   * `:not(:focus-visible)` guard keeps focus above hover, because StyleX emits
+   * conditions by pseudo-class priority. No `:active` rung: the list opens on
+   * pointer down and the consumer's open style repaints this border.
+   */
+  fieldTriggerBorder: {
+    borderColor: {
+      default: vars["--ads-color-border"],
+      ":focus-visible": vars["--ads-color-border-focus"],
+      "@media (hover: hover)": {
+        default: vars["--ads-color-border"],
+        ":hover:not(:focus-visible)": vars["--ads-color-border-strong"],
+        ":focus-visible": vars["--ads-color-border-focus"],
+      },
+    },
+  },
+  /**
    * Engaged state for an overlay trigger. While its popup is on screen the
    * trigger must stay visibly held down even though the pointer has moved off
    * it onto the popup. Base UI sets `data-popup-open` on the trigger.

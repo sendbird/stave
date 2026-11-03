@@ -334,5 +334,34 @@
       "offline": "Offline",
       "online": "Online"
     }
+  },
+  "combobox": {
+    "noMatches": "No matching options.",
+    "loadingOptions": "Loading options…",
+    "search": "Search",
+    "clearSelection": "Clear selection",
+    "openOptions": "Open options",
+    "removeOption": "Remove {{label}}",
+    "create": "Create “{{query}}”",
+    "retry": "Retry",
+    "loadingMore": "Loading more…",
+    "loadMore": "Load more"
+  },
+  "appliedFilters": {
+    "removeNamed": "Remove filter: {{property}} {{operator}} {{value}}",
+    "remove": "Remove filter",
+    "clearAll": "Clear all",
+    "label": "Filters"
+  },
+  "stepper": {
+    "progress": "Progress",
+    "statusSuffix": ", {{status}}",
+    "statusUnavailable": ", {{status}}, unavailable",
+    "status": {
+      "complete": "complete",
+      "current": "current step",
+      "error": "error",
+      "pending": "pending"
+    }
   }
 }
