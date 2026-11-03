@@ -479,11 +479,21 @@
     "ariaLabel4": "새 발견 사항",
     "ariaLabel5": "{{value1}} 전송: {{value2}}",
     "title": "다음 메시지에 선택한 발견 사항만 보내기",
-    "reviewFindingsPanel3": "첨부",
-    "reviewFindingsPanel4": "중",
     "title2": "처음부터 리뷰하지 않고 같은 모델로 각 발견 사항이 수정되었는지 확인",
     "reviewFindingsPanel5": "수정 확인",
-    "sentence56": "수정: {{value1}}"
+    "sentence56": "수정: {{value1}}",
+    "severity": {
+      "critical": "심각",
+      "major": "중요",
+      "minor": "경미"
+    },
+    "status": {
+      "resolved": "해결됨",
+      "outdated": "오래됨",
+      "unresolved": "미해결",
+      "unchecked": "확인되지 않음"
+    },
+    "attachChosen": "{{total}}개 중 {{chosen}}개 첨부"
   },
   "shelfQueue": {
     "ariaLabel": "대기 중인 메시지",

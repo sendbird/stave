@@ -484,11 +484,21 @@
     "ariaLabel4": "New findings",
     "ariaLabel5": "Send {{value1}}: {{value2}}",
     "title": "Send only the chosen findings with your next message",
-    "reviewFindingsPanel3": "Attach",
-    "reviewFindingsPanel4": "of",
     "title2": "Check whether each finding is fixed now, on the same model, without reviewing from scratch",
     "reviewFindingsPanel5": "Check fixes",
-    "sentence56": "Fix: {{value1}}"
+    "sentence56": "Fix: {{value1}}",
+    "severity": {
+      "critical": "Critical",
+      "major": "Major",
+      "minor": "Minor"
+    },
+    "status": {
+      "resolved": "Resolved",
+      "outdated": "Outdated",
+      "unresolved": "Unresolved",
+      "unchecked": "Unchecked"
+    },
+    "attachChosen": "Attach {{chosen}} of {{total}}"
   },
   "shelfQueue": {
     "ariaLabel": "Queued messages",

@@ -2,9 +2,6 @@ import { i18n, useTranslation } from "@/i18n";
 import { memo, useCallback, useMemo, useState } from "react";
 import {
   Check,
-  CircleAlert,
-  CircleSlash,
-  FileCheck2,
   PanelTopOpen,
   Paperclip,
   RotateCcw,
@@ -12,13 +9,14 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
 import { Loader, toast } from "@/components/ui";
 import type { DelegationActionId } from "@/lib/delegation/exchange";
-import type { ReviewShelfItem } from "@/lib/reviews/review-task";
+import { REVIEW_SHELF_WORK_STATE, type ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
 import { recheckReviewTask, rerunReviewTask } from "@/store/review-task-runtime";
 import { reviewFindingsToRecheck } from "@/lib/reviews/review-findings";
@@ -225,24 +223,16 @@ export function ReviewActivityDialog(props: {
   );
 }
 
+/**
+ * A running review wears the verify loader, as a shelf run line draws work in
+ * progress. A settled review is a work state, drawn as every surface draws one.
+ * The line's label says the state in words, so the mark stays decorative.
+ */
 function ReviewMark(props: { item: ReviewShelfItem }) {
-  useTranslation();
   if (props.item.status === "running") {
     return <Loader aria-hidden cadence="reduced" size="sm" variant="verify" />;
   }
-  const Icon =
-    props.item.status === "ready"
-      ? FileCheck2
-      : props.item.status === "stopped"
-        ? CircleSlash
-        : CircleAlert;
-  const ink =
-    props.item.status === "ready"
-      ? styles.labelAccent
-      : props.item.status === "stopped"
-        ? styles.quiet
-        : styles.labelDanger;
-  return <Icon aria-hidden className={sx(styles.markIcon, ink)} />;
+  return <StateMark state={REVIEW_SHELF_WORK_STATE[props.item.status]} size="sm" />;
 }
 
 function ReviewLine(props: {
