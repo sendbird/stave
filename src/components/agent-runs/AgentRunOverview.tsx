@@ -5,7 +5,7 @@ import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { Bot, Gauge, ListChecks, ListOrdered, ListTodo } from "lucide-react";
+import { Bot, Gauge, ListChecks, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Badge } from "@/components/ads/components/Badge";
 import { StepRail } from "@/components/ads/components/StepRail";
@@ -24,7 +24,7 @@ import { projectAgentRunStages } from "@/lib/agent-runs/agent-run-view";
 import { AGENT_CHECK_IN_LABELS } from "@/lib/agents/schema";
 import { AgentRunDecisionLog } from "./AgentRunDecisionLog";
 import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
-import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
+import { AgentRunPlan } from "./AgentRunPlan";
 import { AgentRunOutcome } from "./AgentRunResultCard";
 import { AgentRunReportView } from "./AgentRunReportView";
 import { AgentRunSummary } from "./AgentRunSummary";
@@ -164,16 +164,10 @@ export function AgentRunOverview(props: {
       ) : null}
 
       {plan ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel2")}>
-          <div className={sx(styles.sectionHeader)}>
-            <ListTodo aria-hidden className={sx(styles.sectionIcon)} />
-            <h3 className={sx(styles.sectionTitle)}>{i18n.t("agentRuns:agentRunOverview.agentRunOverview5")}</h3>
-            <span className={sx(styles.sectionAside)} title={i18n.t("agentRuns:agentRunOverview.title")}>
-              {describePlanProgress(plan.items)}
-            </span>
-          </div>
+        // The plan names itself and counts its steps; it announces what changes after the first render.
+        <div className={sx(styles.section, styles.sectionRule)}>
           <AgentRunPlan items={plan.items} live={status.badge === "running" && !status.waiting} />
-        </section>
+        </div>
       ) : null}
 
       {rows ? (

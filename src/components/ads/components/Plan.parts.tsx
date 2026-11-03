@@ -42,6 +42,12 @@ export const planStatusLabel: Record<PlanStepStatus, string> = {
 };
 
 export type PlanStepItem = {
+  /**
+   * The step the work is on, exposed as `aria-current="step"`. Usually the
+   * `running` one; a plan whose work stopped keeps it on a step that no longer
+   * runs, so a reader still knows where it stands.
+   */
+  current?: boolean;
   /** Secondary prose under the title. Rung 0, muted ink. */
   detail?: React.ReactNode;
   id: string;

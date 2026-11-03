@@ -131,7 +131,9 @@ or pinned model would keep its helpers on its own provider.
    list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5 · Now: Run
    the checks** on the status line and Fleet, between turns too. Until the
    first plan arrives the line says **Planning…**. A single step counts.
-   **Progress** updates the checklist as the agent works and keeps the saved
+   **Progress** shows the plan with its count (`1 / 3`), marks the step in
+   progress as the current one, and tells a screen reader only what changed
+   after it first appears. It updates as the agent works and keeps the saved
    plan between turns; the report carries the final plan. Multi-step work uses
    the provider's plan tool when available, otherwise a short written plan.
    A missing plan tool does not block work, and a simple answer needs no plan.

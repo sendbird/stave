@@ -252,10 +252,9 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
       ) : null}
 
       {plan ? (
-        <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel2")}>
-          <h3 className={sx(styles.sectionTitle)}>{i18n.t("ui:plan.plan")}</h3>
+        <div className={sx(styles.section, styles.sectionRule)}>
           <AgentRunPlan items={plan.items} live={Boolean(active && agentRun.state === "running")} />
-        </section>
+        </div>
       ) : null}
 
       {criteria.length > 0 ? (

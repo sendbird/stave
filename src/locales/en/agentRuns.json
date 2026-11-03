@@ -81,9 +81,6 @@
     "agentRunOverview": " · Workflow: {{value1}}",
     "ariaLabel": "Done when",
     "agentRunOverview2": "Done when",
-    "ariaLabel2": "Plan",
-    "agentRunOverview5": "Plan",
-    "title": "Updated as the agent works",
     "ariaLabel3": "Stages",
     "agentRunOverview6": "Stages",
     "ariaLabel4": "Result",
@@ -114,12 +111,6 @@
     "sentence3": "Run · {{value1}}",
     "sentence4": "{{value1}} of {{value2}} met",
     "sentence5": "Signed off by you at {{value1}}"
-  },
-  "agentRunPlan": {
-    "label": "Done",
-    "label2": "Now",
-    "describePlanProgress": "{{value1}} of {{value2}} done",
-    "ariaLabel": "Plan"
   },
   "agentRunPrompt": {
     "label": "Full prompt sent to the agent",
@@ -158,7 +149,6 @@
     "description": "The agent posts the report once, as a reply, with your Slack tools. It changes no files.",
     "agentRunReportView9": "Cancel",
     "agentRunReportView10": "Share",
-    "sentence6": "Plan · {{value1}}",
     "extraCopy4": "Duration",
     "extraCopy5": "Stages",
     "extraCopy6": "Turns",

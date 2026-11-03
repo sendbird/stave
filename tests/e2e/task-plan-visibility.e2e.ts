@@ -8,6 +8,11 @@ for (const width of [384, 760]) {
       await expect(page.getByRole("button", { name: "Write plan", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Write plan", exact: true }).click();
       const shelf = page.getByTestId("composer-shelf");
+      // The Progress tab's plan is the design system's Plan: a plan that appears says nothing of its backlog.
+      const panelPlan = page.getByTestId("agent-run-panel").getByRole("group", { name: "Plan", exact: true });
+      await expect(panelPlan).toContainText("1 / 3");
+      await expect(panelPlan.locator('[aria-current="step"]')).toContainText("Implement the fix");
+      await expect(panelPlan.locator('[aria-live="polite"]')).toHaveText(["", ""]);
       const run = page.getByTestId("agent-run-bar");
       // The step leads; the count is said once, by the segment, never as words too.
       await expect(run.locator("p").first()).toHaveText(/^Implement the fix/);
@@ -20,20 +25,20 @@ for (const width of [384, 760]) {
       await page.keyboard.press("Enter");
       await expect(run.getByRole("button", { name: "Hide activity details", exact: true })).toHaveAttribute("aria-expanded", "true");
       const plan = page.getByTestId("shelf-plan");
-      await expect(plan.getByText("Open the pull request", { exact: true })).toBeVisible();
+      await expect(plan.getByText(/^Open the pull request/)).toBeVisible();
       await expect(plan).not.toContainText("Run focused checks");
       // The finished step folds behind one toggle, and the plan's steps are listed once.
       await expect(plan.getByText(/^Inspect the affected contract/)).toHaveCount(0);
       await plan.getByRole("button", { name: "Show 1 done", exact: true }).click();
       await expect(plan.getByText(/^Inspect the affected contract/)).toBeVisible();
-      await expect(shelf.getByText("Open the pull request", { exact: true })).toHaveCount(1);
+      await expect(shelf.getByText(/^Open the pull request/)).toHaveCount(1);
       await page.evaluate(() => document.fonts.ready);
       const geometry = await plan.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
         const items = [...element.querySelectorAll("li")].map((row) => {
           const mark = row.children[0].getBoundingClientRect();
           const text = row.children[1].getBoundingClientRect();
-          return { left: text.left, markRight: mark.right, right: text.right, top: text.top, markTop: mark.top, markHeight: mark.height, lineHeight: parseFloat(getComputedStyle(row).lineHeight) };
+          return { left: text.left, markRight: mark.right, right: text.right, top: text.top, markTop: mark.top, markHeight: mark.height, lineHeight: parseFloat(getComputedStyle(row.children[1]).lineHeight) };
         });
         return { width: bounds.width, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth, items };
       });
@@ -44,11 +49,14 @@ for (const width of [384, 760]) {
       }
       await page.getByRole("button", { name: "Finish worker", exact: true }).click();
       await expect(run.locator("p").first()).toContainText("Review the result and verify every affected surface");
+      // Then it says only what changed, with the count.
+      await expect(panelPlan.locator('[aria-live="polite"]').filter({ hasText: "1 of 3 complete" })).toHaveCount(1);
       await page.getByRole("button", { name: "Save between turns", exact: true }).click();
       // Between turns the toggle keeps the plan one click away.
       await expect(run.getByTestId("composer-shelf-todo-progress")).toContainText("1/3");
-      await expect(plan.locator("svg.lucide-loader-circle")).toHaveCount(0);
-      await expect(plan.locator("svg.lucide-circle-dot")).toHaveCount(1);
+      // Between turns nothing runs: the step it is on stays current, on a still mark.
+      await expect(plan.locator('[role="status"], svg.lucide-loader-circle')).toHaveCount(0);
+      await expect(plan.locator('[aria-current="step"]')).toHaveCount(1);
       for (const locale of ["en", "ko"]) {
         for (const density of ["regular", "compact"]) {
           await page.evaluate(async ({ locale, density }) => {
@@ -59,7 +67,7 @@ for (const width of [384, 760]) {
           }, { locale, density });
           expect(await plan.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
           expect(await shelf.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
-          await expect(plan.getByText("Open the pull request", { exact: true })).toBeVisible();
+          await expect(plan.getByText(/^Open the pull request/)).toBeVisible();
         }
       }
     });

@@ -23,7 +23,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunReport } from "@/lib/agent-runs/report";
 import { describeAgentRunMetrics, formatAgentRunReportMarkdown, reportDurationMs } from "@/lib/agent-runs/report-markdown";
 import { describeAgentRunAccountSwitch } from "@/lib/agent-runs/account-pool";
-import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
+import { AgentRunPlan } from "./AgentRunPlan";
 import { EvidenceList } from "./EvidenceList";
 import type { AgentRunReportActions } from "./useAgentRunReportActions";
 import { agentRunStyles as styles } from "./agent-runs.styles";
@@ -160,8 +160,8 @@ export function AgentRunReportView({
       ) : null}
       {plan ? (
         <div className={sx(styles.stageGroup)}>
-          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.sentence6", { value1: describePlanProgress(plan) })}</p>
-          <AgentRunPlan items={plan} />
+          {/* An ended run's plan no longer changes, so it has nothing to announce. */}
+          <AgentRunPlan items={plan} announce={false} />
         </div>
       ) : null}
       {decisions.length > 0 ? (

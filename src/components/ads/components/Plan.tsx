@@ -23,11 +23,19 @@ export type { PlanStepItem, PlanStepStatus } from "./Plan.parts";
 export type PlanSubsteps = "indent" | "rail";
 
 export type PlanProps = Omit<React.ComponentProps<"section">, "title"> & {
+  /** Controls at the end of the header, after the count, such as a toggle that folds finished steps. */
+  actions?: React.ReactNode;
   /**
    * Announce status changes in the plan's own polite live region.
    * @default true
    */
   announce?: boolean;
+  /**
+   * The completion count. Omitted, it counts `steps`. Pass the whole plan's
+   * count when `steps` shows only part of it (finished steps folded away), or
+   * `false` where a neighbour already states the count.
+   */
+  count?: false | { done: number; total: number };
   /** Replaces the default blank slate. */
   emptyState?: React.ReactNode;
   steps?: readonly PlanStepItem[];
@@ -80,8 +88,10 @@ const NO_STEPS: readonly PlanStepItem[] = [];
  * plan that mounts half-finished does not narrate its own history.
  */
 export function Plan({
+  actions,
   announce = true,
   className,
+  count,
   emptyState,
   steps = NO_STEPS,
   substeps = "indent",
@@ -92,11 +102,14 @@ export function Plan({
   useTranslation();
   const titleId = `${React.useId()}title`;
   const flat = React.useMemo(() => flattenPlan(steps), [steps]);
-  const total = steps.length;
   // Top-level steps only. A plan's completion count has to match the list the
   // reader is looking at; counting nested leaves as well makes "3 of 12" a
-  // number that appears nowhere on screen.
-  const done = steps.filter((step) => step.status === "done").length;
+  // number that appears nowhere on screen. A caller folding steps away passes
+  // the whole plan's count instead.
+  const { done, total } = count || {
+    done: steps.filter((step) => step.status === "done").length,
+    total: steps.length,
+  };
 
   const { announce: say, region } = usePlanAnnouncer(announce);
   const seenRef = React.useRef<Map<string, PlanStepStatus> | null>(null);
@@ -136,24 +149,29 @@ export function Plan({
         >
           {title}
         </span>
-        {total === 0 ? null : (
-          <>
-            {/*
-             * The glyph form is for the eye: tabular figures so the count does
-             * not drag the header sideways as it ticks. The spoken form is a
-             * sentence, because "3 slash 7" is not one.
-             */}
-            <span aria-hidden className={sx(agentSurface.meta)}>
-              {done} / {total}
-            </span>
-            <VisuallyHidden>
-              {i18n.t("ui:plan.progress", { done, total })}
-            </VisuallyHidden>
-          </>
+        {total === 0 || (count === false && actions == null) ? null : (
+          <span className={sx(styles.headerEnd)}>
+            {count === false ? null : (
+              <>
+                {/*
+                 * The glyph form is for the eye: tabular figures so the count does
+                 * not drag the header sideways as it ticks. The spoken form is a
+                 * sentence, because "3 slash 7" is not one.
+                 */}
+                <span aria-hidden className={sx(agentSurface.meta)}>
+                  {done} / {total}
+                </span>
+                <VisuallyHidden>
+                  {i18n.t("ui:plan.progress", { done, total })}
+                </VisuallyHidden>
+              </>
+            )}
+            {actions}
+          </span>
         )}
       </div>
 
-      {total === 0 ? (
+      {steps.length === 0 ? (
         (emptyState ?? (
           <p className={sx(styles.empty)}>
             {i18n.t("ui:plan.noStepsYetThePlanAppearsOnceTheAgentCommitsToOne")}</p>
@@ -216,6 +234,7 @@ function PlanStepRow({
 
   return (
     <li
+      aria-current={item.current ? "step" : undefined}
       className={sx(
         agentSurface.row,
         styles.step,
@@ -308,6 +327,12 @@ const styles = stylex.create({
     // Matches `agentSurface.row`'s inline padding so the plan title sits in the
     // same column as the step titles below it.
     paddingInline: vars["--ads-space-8"],
+  },
+  headerEnd: {
+    alignItems: "baseline",
+    display: "inline-flex",
+    flexShrink: 0,
+    gap: vars["--ads-space-8"],
   },
   title: {
     color: vars["--ads-color-text"],

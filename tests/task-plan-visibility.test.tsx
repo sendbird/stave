@@ -26,13 +26,16 @@ test("the shelf's plan leads with the steps left and folds the finished ones beh
   // No summary of its own: the run line already says the step and the count.
   expect(html).not.toContain("<details");
   expect(html).not.toContain("1 of 3 done");
+  expect(html).not.toContain("1 / 3");
   expect(html).toContain("Show 1 done");
   expect(html).toContain('aria-expanded="false"');
   expect(html).not.toContain(">Inspect<");
   expect(html).toContain("Verify");
   expect(html).toContain("Ship");
   // The state is the mark's and the ink's; the word stays for screen readers only.
-  expect(html).toContain(", Now");
+  // Between turns the step it is on is still current, but nothing runs.
+  expect(html).toContain('aria-current="step"');
+  expect(html.replace(/<[^>]*>/g, "")).toContain("Verify, Pending");
   expect(html).not.toContain("loader-circle");
   // A finished plan has nothing left to lead with, so it lists every step.
   const finished = renderToStaticMarkup(createElement(ShelfPlan, { items: [{ content: "Inspect", status: "completed" }], live: false }));

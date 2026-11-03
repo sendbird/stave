@@ -143,7 +143,10 @@ test("a one-stage run's report shows the agent's plan, and the Markdown copy che
     }],
   };
   const html = renderToStaticMarkup(createElement(AgentRunReportView, { report, agentOrigin: true }));
-  expect(html).toContain("Plan · 1 of 2 done");
+  // The design system's Plan names itself and counts its steps.
+  expect(html).toContain(">Plan<");
+  expect(html).toContain("1 / 2");
+  expect(html).toContain("1 of 2 steps complete");
   expect(html).toContain("Add the export");
   const markdown = formatAgentRunReportMarkdown(report);
   expect(markdown).toContain("  - [x] Reproduce");

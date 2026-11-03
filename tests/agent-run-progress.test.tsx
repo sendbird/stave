@@ -82,8 +82,9 @@ test("Progress renders the live plan and uses stored facts between turns", () =>
   useAppStore.setState({ messagesByTask: { [detail.agentRun.leadTaskId]: [prompt, message] } });
   const html = renderToStaticMarkup(createElement(AgentRunOverview, { detail, plan: resolveAgentRunPlan(detail, [prompt, message]), now: now.getTime() }));
   expect(html).toContain("Check the live diff");
-  expect(html).toContain("0 of 1 done");
-  expect(html).toContain('aria-label="Plan"');
+  expect(html).toContain("0 / 1");
+  expect(html).toContain('role="group"');
+  expect(html).toContain('aria-current="step"');
   const plan = resolveAgentRunPlan(detail, [prompt, message])!;
   const stored = { ...detail, stages: detail.stages.map((stage) => ({ ...stage, facts: { diff: null, commands: [], toolCalls: [], action: null, plan } })) };
   expect(resolveAgentRunPlan(stored, [])).toEqual(plan);

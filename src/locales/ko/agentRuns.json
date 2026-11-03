@@ -81,9 +81,6 @@
     "agentRunOverview": " · 워크플로: {{value1}}",
     "ariaLabel": "완료 조건",
     "agentRunOverview2": "완료 조건",
-    "ariaLabel2": "계획",
-    "agentRunOverview5": "계획",
-    "title": "에이전트 작업에 따라 갱신됩니다",
     "ariaLabel3": "단계",
     "agentRunOverview6": "단계",
     "ariaLabel4": "결과",
@@ -114,12 +111,6 @@
     "sentence3": "실행 · {{value1}}",
     "sentence4": "{{value2}}개 중 {{value1}}개 충족됨",
     "sentence5": "{{value1}}에 직접 승인함"
-  },
-  "agentRunPlan": {
-    "label": "완료됨",
-    "label2": "현재",
-    "describePlanProgress": "{{value1}} / {{value2}} 완료됨",
-    "ariaLabel": "계획"
   },
   "agentRunPrompt": {
     "label": "에이전트에 보낸 전체 프롬프트",
@@ -158,7 +149,6 @@
     "description": "에이전트가 Slack 도구로 보고서를 답글 한 번으로 게시합니다. 파일은 변경하지 않습니다.",
     "agentRunReportView9": "취소",
     "agentRunReportView10": "공유",
-    "sentence6": "계획 · {{value1}}",
     "extraCopy4": "소요 시간",
     "extraCopy5": "단계",
     "extraCopy6": "턴",
