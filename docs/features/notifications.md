@@ -66,7 +66,7 @@ One short sound plays when a task turn finishes and when the AI is waiting on yo
 
 1. Open `Settings > General`.
 2. Find `Notification Sound`.
-3. Enable it, choose a preset or upload your own audio, and set the volume.
+3. Enable it, choose a preset or your own audio, and set the volume. For your own audio, drop an MP3, WAV, OGG, M4A or WebM file (up to 500 KB) on the row, or select **Choose file**. A file of another type or a larger one stays listed with the reason it was refused until you dismiss it.
 4. Click `Preview` to hear it.
 
 ## Run Sign-off Reminders

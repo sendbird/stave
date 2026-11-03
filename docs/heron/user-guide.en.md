@@ -278,7 +278,7 @@ edge memory -> turn
 
 | Method                  | How                                                          | Worth knowing                                                                |
 | ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Files and images        | The paperclip in the composer (**Attach files**); paste images | Dropping files onto the composer does not attach them                      |
+| Files and images        | The paperclip in the composer (**Attach files**); paste or drop files on the composer | A drop shows **Drop to attach** and attaches the way a paste does |
 | Other tasks             | `@` and part of a task title, or drag a task from the sidebar | Choose **Latest reply** or **Recent conversation**; up to 5 per message     |
 | Skills                  | Type `$` and pick one                                        | The skill's whole SKILL.md goes with the message                             |
 | `@web`                  | Write `@web` in the message                                  | Uses the provider's Chrome integration; scope in Settings > Browser > Mentions |
@@ -499,7 +499,7 @@ Idle | Tasks with nothing to do right now
 Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you". J and K move between rows like the arrow keys. A wait's age turns to the warning color after an hour and the failed color after a day.
 Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
 
-Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. A task whose Subagents tab you opened also counts the files its subagents changed in common. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task. If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
+Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. A task whose Subagents tab you opened also counts the files its subagents changed in common. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task; select a column header to sort by it (again to reverse, a third time for the Work queue order). If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
 Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/fleet.png)
 
 ## Notifications and issues
@@ -565,7 +565,7 @@ macOS uses Cmd; Windows and Linux use Ctrl. See the full list with Cmd/Ctrl+/.
 | Stopped by a usage limit                   | **Resume at reset** or **Resume now**. With several accounts, turn on the run's account pool |
 | Create PR or the PR status is missing      | Run `gh auth login` in a terminal                                                           |
 | A closed task tab is gone from the list    | Closing is not archiving. Reopen it from Task History                                       |
-| A dropped file was not attached            | Use the paperclip or paste                                                                  |
+| A dropped folder was not attached          | Drop or pick its files; attachments are files, not folders                                  |
 | The Lens button is disabled                | It works only in the desktop app; also check that a repository is open                      |
 
 ## More documentation

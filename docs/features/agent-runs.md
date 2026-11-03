@@ -287,10 +287,11 @@ agent run is going, between its turns included (see
   long, with the Run's badge, such as **Needs your answer · Approval · 8m**. A stage turn that stalls,
   steers, retries or fails says so instead, as the turn's line would:
   **Stalled · No updates for 2m** with how to stop or interrupt it.
-- The stage track, one line high: the stages behind the run fill it and the
-  head names the stage in progress and where it stands (`Verify 3/6`). When
+- The stage track, one line high: the stage in progress and where it stands
+  (`Verify 3/6`), then a progress bar the stages behind the run fill. When
   the composer is too narrow for the track, the line says `3/6` in words. A
-  hand marks a stage that asks you first.
+  hand marks a stage that asks you first, and a waiting, failed or finished
+  stage also wears its mark, so the bar's color is never the only signal.
 - How long the run has worked: its active time (see **Active for** below), so
   a pause or a wait for your answer does not add to it.
 - **Take over** pauses the agent run so your replies are your own; **Resume**

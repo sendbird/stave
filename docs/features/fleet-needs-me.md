@@ -101,7 +101,11 @@ Fleet item, and the task records the answer the same way.
   task: the task, its workspace, its state, what it needs from you, how long it
   has waited, and what its running turn last did. Rows follow the Work queue
   lanes, and inside a lane the longest wait comes first, so the oldest approval
-  and the quiet turns are on top without expanding a card. Two more filters
+  and the quiet turns are on top without expanding a card. Every column
+  header sorts the rows: select it once for ascending order, again for
+  descending, and a third time to return to the Work queue order. The sorted
+  header shows its direction with an arrow and the others a dimmed double
+  arrow; rows without a value (no wait, no need) stay last. Two more filters
   apply only here: `Needs answer` (approvals, questions and sign-offs) and
   `No updates` (quiet turns). A task's name opens it; with the name focused,
   `Enter` does the same. A workspace you have not opened since starting Stave
