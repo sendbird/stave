@@ -163,6 +163,50 @@ export const PREVIEW_CHILD_QUESTION: ChildPendingRequest = {
   },
 };
 
+/**
+ * A Claude question whose options carry previews (`&childRequest=preview`):
+ * two options with a snippet, one without, so the area shows and hides.
+ */
+export const PREVIEW_CHILD_QUESTION_WITH_PREVIEW: ChildPendingRequest = {
+  messageId: "preview-child-preview-message",
+  model: "claude-opus-5",
+  part: {
+    type: "user_input",
+    requestId: "preview-child-preview-question",
+    toolName: "AskUserQuestion",
+    state: "input-requested",
+    questions: [
+      {
+        key: "layout",
+        header: "Layout",
+        question: "How should the billing table behave below 600px?",
+        options: [
+          {
+            label: "Scroll container",
+            description: "Wrap the table so it scrolls sideways; the header stays sticky.",
+            preview: [
+              "<div className={styles.scroll}>      // overflow-x: auto",
+              "  <table className={styles.table}>",
+              "    <thead className={styles.stickyHeader}>",
+              "      <tr><th>Invoice</th><th>Amount</th><th>Tax</th>…</tr>",
+              "    </thead>",
+              "    <tbody>{rows}</tbody>",
+              "  </table>",
+              "</div>",
+            ].join("\n"),
+          },
+          {
+            label: "Card list",
+            description: "Render each row as a stacked card on narrow widths.",
+            preview: "┌ Invoice 1042 ─────────┐\n│ Amount   $120.00      │\n│ Tax      $9.60        │\n└───────────────────────┘",
+          },
+          { label: "Hide secondary columns", description: "Container query drops Tax and Discount under 600px." },
+        ],
+      },
+    ],
+  },
+};
+
 export const PREVIEW_CHILD_APPROVAL: ChildPendingRequest = {
   messageId: "preview-child-approval-message",
   model: "gpt-5.5-codex",

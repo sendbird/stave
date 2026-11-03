@@ -10,6 +10,8 @@ const UserInputOptionSchema = z
     description: z.string().max(5000),
     value: z.string().max(500).optional(),
     recommended: z.boolean().optional(),
+    // Bounded like the runtime's `MAX_OPTION_PREVIEW_LENGTH`.
+    preview: z.string().max(20_000).optional(),
   })
   .strict();
 

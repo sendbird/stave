@@ -234,6 +234,45 @@ export const userInputCardStyles = stylex.create({
   // Rows, marks and keys come from `question-option-row.styles.ts`, shared
   // with every surface that draws a question's options.
   optionList: { marginTop: vars["--ads-space-12"] },
+  /*
+   * The focused or hovered option's preview, under the list it belongs to:
+   * the eyebrow register for its name and a capped, scrollable text box that
+   * keeps the provider's line breaks and wraps long lines.
+   */
+  optionPreview: {
+    marginTop: vars["--ads-space-12"],
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
+  },
+  optionPreviewLabel: {
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--ads-color-text-muted"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  optionPreviewViewport: {
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border-subtle"],
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+  },
+  optionPreviewText: {
+    margin: 0,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--ads-color-text"],
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+  },
   recordedAnswer: {
     marginTop: vars["--ads-space-12"],
     color: vars["--ads-color-text"],

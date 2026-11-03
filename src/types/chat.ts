@@ -314,6 +314,13 @@ export interface UserInputOption {
   description: string;
   value?: string;
   recommended?: boolean;
+  /**
+   * What choosing the option would look like (a snippet, a mockup in text),
+   * shown while the option has focus or the pointer. Claude's
+   * `AskUserQuestion` reports it; Codex and Cursor questions have no such
+   * field. Plain text, never rendered as markdown.
+   */
+  preview?: string;
 }
 
 export interface UserInputQuestion {

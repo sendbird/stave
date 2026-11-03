@@ -31,6 +31,7 @@ describe("question option rows", () => {
         recommended: false,
         selected: false,
         shortcut: 1,
+        preview: null,
       },
       {
         // The submitted value keeps the agent's label; the shown one drops the marker.
@@ -40,6 +41,7 @@ describe("question option rows", () => {
         recommended: true,
         selected: true,
         shortcut: 2,
+        preview: null,
       },
     ]);
   });

@@ -130,6 +130,7 @@ const UserInputPartSchema = z.object({
           description: z.string(),
           value: z.string().optional(),
           recommended: z.boolean().optional(),
+          preview: z.string().optional(),
         }),
       ),
       multiSelect: z.boolean().optional(),

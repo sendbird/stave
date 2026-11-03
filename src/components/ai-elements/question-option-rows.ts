@@ -18,6 +18,8 @@ export interface QuestionOptionRowModel {
   selected: boolean;
   /** The 1-9 number key that picks the row, or `null` when it has none. */
   shortcut: number | null;
+  /** What choosing the option would look like, when the provider sent it. */
+  preview: string | null;
 }
 
 export function getQuestionOptionValue(
@@ -56,6 +58,7 @@ export function buildQuestionOptionRows(args: {
       }),
       selected: selected.has(value),
       shortcut: toShortcut(index, args.showShortcuts),
+      preview: option.preview?.trim() ? option.preview : null,
     };
   });
 }

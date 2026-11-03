@@ -89,6 +89,7 @@ import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles
 import {
   PREVIEW_CHILD_APPROVAL,
   PREVIEW_CHILD_QUESTION,
+  PREVIEW_CHILD_QUESTION_WITH_PREVIEW,
   PREVIEW_CLAUDE_CONTEXT_USAGE,
   PREVIEW_MACROS,
   PREVIEW_MODEL,
@@ -132,7 +133,7 @@ import {
  * `&attachments=all` attaches one Information item, one task and one document,
  * so the three context chips render side by side; `&partial=1` attaches a task
  * whose reply is still streaming.
- * `&childRequest=question|approval` shows a delegated task's request above the
+ * `&childRequest=question|preview|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
  * `&draft=empty` starts with an empty draft, so the placeholder shows. With
  * `&case=needs-input` the composer stays usable and sending redirects the agent;
@@ -231,6 +232,7 @@ function loadPreviewContextBreakdown() {
 }
 const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
   question: PREVIEW_CHILD_QUESTION,
+  preview: PREVIEW_CHILD_QUESTION_WITH_PREVIEW,
   approval: PREVIEW_CHILD_APPROVAL,
 };
 const CHILD_REQUEST = CHILD_REQUESTS[previewParams.get("childRequest") ?? ""] ?? null;

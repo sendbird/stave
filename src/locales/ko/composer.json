@@ -453,6 +453,7 @@
     "title": "복사"
   },
   "userInputCard": {
+    "optionPreview": "미리보기 · {{label}}",
     "title": "응답됨",
     "detail": "제출한 답변을 아래에서 확인할 수 있습니다.",
     "title2": "응답 거절됨",

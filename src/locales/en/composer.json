@@ -458,6 +458,7 @@
     "title": "Copy"
   },
   "userInputCard": {
+    "optionPreview": "Preview · {{label}}",
     "title": "Answered",
     "detail": "Your submitted answer is shown below.",
     "title2": "Answer declined",
