@@ -46,7 +46,7 @@ import type {
   UserInputQuestion,
 } from "@/types/chat";
 
-import { deriveTodoTraceItems, getToolTitle } from "./assistant-trace.utils";
+import { deriveTodoTraceItems } from "./assistant-trace.utils";
 import { turnEventDecisionStyles as styles } from "./turn-event-decisions.styles";
 
 /* ─── Plan ───────────────────────────────────────────────────────── */
@@ -338,6 +338,7 @@ export function TraceClarification(args: {
   messageId: string;
   part: UserInputPart;
   taskId: string;
+  readOnly?: boolean;
 }) {
   useTranslation();
   const { messageId, part, taskId } = args;
@@ -414,9 +415,8 @@ export function TraceClarification(args: {
           data-pending-interaction-request-id={
             open ? part.requestId : undefined
           }
-          description={part.questions[0]?.question}
           onContinue={
-            missingRequired
+            args.readOnly || missingRequired
               ? undefined
               : () => {
                   setSentRequestId(part.requestId);
@@ -428,7 +428,7 @@ export function TraceClarification(args: {
                   });
                 }
           }
-          onSkip={() => {
+          onSkip={args.readOnly ? undefined : () => {
             setSentRequestId(part.requestId);
             resolveUserInput({
               denied: true,
@@ -440,7 +440,7 @@ export function TraceClarification(args: {
           outcome={outcome}
           skipLabel={i18n.t("session:turnEventDecisions.skipLabel")}
           tabIndex={open ? -1 : undefined}
-          title={getToolTitle(part.toolName)}
+          title={i18n.t("session:assistantTrace.questionTitle")}
           totalSteps={
             part.questions.length > 1 ? part.questions.length : undefined
           }
@@ -449,7 +449,7 @@ export function TraceClarification(args: {
             const key = getUserInputAnswerKey(question);
             return (
               <ClarificationField
-                disabled={busy}
+                disabled={busy || args.readOnly === true}
                 key={key}
                 onChange={(values) =>
                   setDrafts((previous) => ({ ...previous, [key]: values }))

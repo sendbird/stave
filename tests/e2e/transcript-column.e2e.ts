@@ -105,12 +105,12 @@ test.describe("transcript column", () => {
     });
   }
 
-  test("a finished turn's header is one line with a factual title", async ({ page }) => {
+  test("a finished turn's history stays one line without repeating its answer", async ({ page }) => {
     await seedConversation(page);
     await openConversation(page, 1024);
     const trigger = page.locator('[data-message-id="a2"] button[aria-expanded]').first();
-    await expect(trigger).toContainText("One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite");
-    await expect(trigger).toContainText("1 command");
+    await expect(trigger).toHaveText("Work history");
+    await expect(trigger).not.toContainText("1 command");
     const line = await trigger.evaluate((element) => {
       const own = element.getBoundingClientRect();
       const middle = own.top + own.height / 2;
@@ -120,8 +120,8 @@ test.describe("transcript column", () => {
       });
       return { height: own.height, maxOffset: Math.max(...offsets), parts: offsets.length };
     });
-    // Glyph, title and counts all sit on the trigger's own middle line.
-    expect(line.parts).toBeGreaterThanOrEqual(3);
+    // Glyph and history label sit on the trigger's own middle line.
+    expect(line.parts).toBeGreaterThanOrEqual(2);
     expect(line.maxOffset).toBeLessThanOrEqual(2);
     expect(line.height).toBeLessThanOrEqual(36);
   });

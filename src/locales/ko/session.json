@@ -782,7 +782,15 @@
       "search": "{{target}} 검색 중",
       "web": "{{target}} 조회 중",
       "tool": "{{tool}} 사용 중"
-    }
+    },
+    "workHistory": "작업 이력",
+    "subagents": "하위 작업 결과",
+    "openChild": "작업 열기",
+    "noResult": "기록된 결과 없음",
+    "resultReceived": "결과 도착",
+    "needsAnswer": "하위 작업에서 답변하기",
+    "needsApproval": "하위 작업에서 승인 검토하기",
+    "questionTitle": "질문"
   },
   "commandResult": {
     "commandResult": "복사됨",

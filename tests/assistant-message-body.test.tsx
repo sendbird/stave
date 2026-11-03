@@ -60,6 +60,47 @@ async function loadAssistantMessageBodies() {
 }
 
 describe("AssistantMessageBody", () => {
+  test("does not repeat the final answer in a completed history trigger", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const text = "Fixed the missing redirect guard.";
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ parts: [
+        { type: "tool_use", toolName: "Bash", input: "bun test", state: "output-available", output: "passed" },
+        { type: "text", text },
+      ] }), taskId: "parent", messageId: "reply", streamingEnabled: false,
+    }));
+    expect(html).toContain("Work history");
+    expect(html.split(text)).toHaveLength(2);
+    expect(html).not.toContain("1 command");
+  });
+
+  test("a pending question stays visible when history is manually collapsed", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ isStreaming: true, parts: [
+        { type: "tool_use", toolName: "Read", input: "README.md", state: "output-available", output: "read" },
+        { type: "user_input", requestId: "question-1", toolName: "request_user_input", state: "input-requested",
+          questions: [{ key: "scope", header: "Scope", question: "Include the narrow layout?", options: [] }] },
+      ] }), taskId: "parent", messageId: "reply", streamingEnabled: true, traceExpansionMode: "manual",
+    }));
+    expect(html.split("Include the narrow layout?")).toHaveLength(2);
+    expect(html).toContain('aria-expanded="false"');
+  });
+
+  test("read-only past questions cannot submit or deny an answer", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ parts: [{
+        type: "user_input", requestId: "past-question", toolName: "request_user_input", state: "input-requested",
+        questions: [{ key: "scope", header: "Scope", question: "Include tests?", required: false, options: [] }],
+      }] }), taskId: "parent", messageId: "past", streamingEnabled: false, readOnly: true,
+    }));
+    expect(html).toContain("Include tests?");
+    const buttons = html.match(/<button[^>]*>/g) ?? [];
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons.every((button) => button.includes('disabled=""'))).toBe(true);
+  });
+
   test("renders display parts instead of raw provider prompt content", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

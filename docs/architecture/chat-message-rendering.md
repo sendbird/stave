@@ -97,8 +97,8 @@ mirror the Codex investigation:
 The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as possible:
 
 - **Root**: No outer border or background — just `not-prose w-full`.
-- **Trigger**: The ADS `inlineDisclosure` trigger, no card — `[glyph/chevron] title · duration · summary`, always on one line:
-  the title ellipsizes while the duration and the counts keep their width.
+- **Trigger**: The ADS `inlineDisclosure` trigger, no card — `[glyph/chevron] title · duration`, always on one line:
+  the title ellipsizes while the measured reasoning duration keeps its width.
   The chevron is in the LEADING slot (`InlineDisclosureIcon`) and replaces the glyph on hover
   and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box
   brings its padding, `controlHeightSm`, radius, hover wash and focus ring with it. Its ink is
@@ -110,11 +110,9 @@ The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as p
   truncates. None of it is a live region, so the rotating phrase and the changing activity are not
   announced. A streaming reasoning row inside the trace ticks its own elapsed time the same way.
   The rotating phrase swap animation is user-selectable in Settings → Chat, with a soft fade as the default.
-  Once the turn finishes, the title says what it did, from data the turn already has (no model call):
-  the first sentence of the reply that names the work (at least three words, markdown stripped),
-  otherwise a summary of the counted work such as "Edited 1 file, ran 1 command". A failed run that
-  offers recovery is titled "Run failed" instead.
-  When collapsed and not streaming, the counts sit at the end of the same row.
+  Once the turn finishes, the trigger reads **Work history**, with measured reasoning time when available.
+  It does not repeat the answer's first sentence or append category counts. A failed run that
+  offers recovery is titled **Run failed** instead. Individual tool records remain in the history.
 - **Open and close**: The trace panel animates its row track (`grid-template-rows` 0fr ↔ 1fr,
   `motionDurationQuick`, `motionEaseExpressive`) with a `motionDurationFast` content fade, and
   unmounts after the close plays. Reduced motion switches at once. While it moves, the
@@ -151,12 +149,16 @@ axis, never past the transcript's gutters (`transcript-wide.tsx`); inside list i
 the trace rail and user bubbles they keep the column width. Rows are 8px apart inside a turn
 and 28px apart between turns.
 
-### Collapsed summary
+### Results outside work history
 
-When the Chain of Thought collapses after a turn completes, the trigger displays a compact
-summary of the work performed. Categories include commands, reads, edits, searches, web,
-agents, and file changes. Each category shows an icon and a localized count with real
-plurals ("1 read", "3 reads"; Korean "읽기 1"), separated by dot dividers.
+Message-owned subagents appear in the reading column even when work history is collapsed.
+Rows preview the recorded return or failure, preserve provider/model/effort evidence, and expand
+into the existing result-first exchange detail. **Result received** means only that an answer
+arrived; it does not claim the parent incorporated or verified it. Async spawn handles are not answers.
+Durable results are matched by parent, run, step, child task, attempt and recorded child turn.
+One transcript-level ledger subscription supplies live updates; read-only message views use
+recorded receipts. Native results reuse the task projection and only the matching turn graph.
+Structured questions stay outside history, retaining the same answer and focus handling.
 
 ### Inline code & file links
 

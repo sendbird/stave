@@ -1,3 +1,4 @@
+import { TranscriptDelegationsProvider } from "./message/transcript-delegations-context";
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import {
@@ -1519,6 +1520,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   useTranslation();
   const taskId = useScopedTaskId();
   return (
+    <TranscriptDelegationsProvider key={taskId} taskId={taskId}>
     <Conversation>
       <div className={sx(styles.panelColumn)}>
         <MemoizedChatPanelMessageList
@@ -1527,5 +1529,6 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
       </div>
       <ChatScrollToBottomButton taskId={taskId} />
     </Conversation>
+    </TranscriptDelegationsProvider>
   );
 }
