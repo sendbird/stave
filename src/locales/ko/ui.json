@@ -410,5 +410,23 @@
     "summary_other": "구간 <strong>{{count}}</strong>개<dot>·</dot>{{duration}}",
     "expand": "{{name}} 펼치기",
     "collapse": "{{name}} 접기"
+  },
+  "progress": {
+    "indeterminate": "진행 중, 진행량은 알 수 없음",
+    "syncing": "진행 중"
+  },
+  "fileUpload": {
+    "label": "파일을 여기로 끌어오거나 찾아보기",
+    "uploadFailed": "업로드 실패",
+    "removeAttachment": "첨부 제거",
+    "cancel": "{{name}} 업로드 취소",
+    "remove": "{{name}} 제거",
+    "uploaded": "{{name}} 업로드됨",
+    "uploading": "{{name}} 업로드 중",
+    "status": {
+      "queued": "대기 중",
+      "uploading": "업로드 중",
+      "uploaded": "업로드됨"
+    }
   }
 }

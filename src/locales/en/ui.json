@@ -433,5 +433,23 @@
     "summary_other": "<strong>{{count}}</strong> spans<dot>·</dot>{{duration}}",
     "expand": "Expand {{name}}",
     "collapse": "Collapse {{name}}"
+  },
+  "progress": {
+    "indeterminate": "In progress, amount not known",
+    "syncing": "Working"
+  },
+  "fileUpload": {
+    "label": "Drag files here or browse",
+    "uploadFailed": "Upload failed",
+    "removeAttachment": "Remove attachment",
+    "cancel": "Cancel upload of {{name}}",
+    "remove": "Remove {{name}}",
+    "uploaded": "{{name}} uploaded",
+    "uploading": "Uploading {{name}}",
+    "status": {
+      "queued": "Queued",
+      "uploading": "Uploading",
+      "uploaded": "Uploaded"
+    }
   }
 }

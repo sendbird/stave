@@ -1,5 +1,5 @@
 {
-  "bundleIntegrity": "sha256-1a59284dc4ffd3af598f84d340da82d00d24b61ac1405502b9faa2eb9884a5d0",
+  "bundleIntegrity": "sha256-4c8a9afc9eec8eccf1cf0c09f4a230951a99c4b9a12805020c7160c020fc670f",
   "catalogVersion": "1.1",
   "dependencies": {
     "@base-ui/react": "1.6.0",
@@ -43,6 +43,24 @@
       "kind": "component",
       "name": "TraceWaterfall",
       "path": "src/components/ads/components/TraceWaterfall.tsx"
+    },
+    {
+      "id": "meter",
+      "kind": "component",
+      "name": "Meter",
+      "path": "src/components/ads/components/Meter.tsx"
+    },
+    {
+      "id": "progress",
+      "kind": "component",
+      "name": "Progress",
+      "path": "src/components/ads/components/Progress.tsx"
+    },
+    {
+      "id": "fileupload",
+      "kind": "component",
+      "name": "File Upload",
+      "path": "src/components/ads/components/FileUpload.tsx"
     }
   ],
   "files": [
@@ -55,6 +73,11 @@
       "integrity": "sha256-da86fe493b941047fd443650da980dd474cfe94a1900e5ea9e3ddf06a904378d",
       "path": "src/components/ads/components/AppliedFilters.tsx",
       "sourcePath": "packages/design-system/src/components/AppliedFilters.tsx"
+    },
+    {
+      "integrity": "sha256-a23f32c9a23dbc343932b77bb20756f1694f086f32bf50d6ff604b8d14a94799",
+      "path": "src/components/ads/components/Attachment.tsx",
+      "sourcePath": "packages/design-system/src/components/Attachment.tsx"
     },
     {
       "integrity": "sha256-8dd78b5acec926c3f63cfbd7bb5c4e3d8071df9e8427957ac0c90a3151bab738",
@@ -130,6 +153,21 @@
       "integrity": "sha256-766a416eb0f818bb03951718a42e3972881d961f578dbd29f1cc0aefdaed646e",
       "path": "src/components/ads/components/Combobox.tsx",
       "sourcePath": "packages/design-system/src/components/Combobox.tsx"
+    },
+    {
+      "integrity": "sha256-852795c2b5ef624f77a29aa8ab67c56f9c880ba1ec65fcac1e6d2c44fbc3517d",
+      "path": "src/components/ads/components/FileUpload.tsx",
+      "sourcePath": "packages/design-system/src/components/FileUpload.tsx"
+    },
+    {
+      "integrity": "sha256-6711e5012728f37ec8c27531e14e000037509e73221231a311b92f2c4f6068e6",
+      "path": "src/components/ads/components/Meter.tsx",
+      "sourcePath": "packages/design-system/src/components/Meter.tsx"
+    },
+    {
+      "integrity": "sha256-07becaafec01fd14cc80f401c07703eba2c0e55b5d6c2304b933c546522d5b95",
+      "path": "src/components/ads/components/Progress.tsx",
+      "sourcePath": "packages/design-system/src/components/Progress.tsx"
     },
     {
       "integrity": "sha256-c4b4844071a0a1c6eefb6c887e58ece137040fbf7b68c2ebe68de598bdfe68fc",
@@ -210,6 +248,16 @@
       "integrity": "sha256-23b2a40457e4c394d83b87136d6745d21be392b92b551cd90c554cd97dac6f8d",
       "path": "src/components/ads/headless/combobox.tsx",
       "sourcePath": "packages/design-system/src/headless/combobox.tsx"
+    },
+    {
+      "integrity": "sha256-096d1fee8df1c958a8aa34c1bd6754b39b41b24ee010caeb5a9943e861c8f4b4",
+      "path": "src/components/ads/headless/meter.tsx",
+      "sourcePath": "packages/design-system/src/headless/meter.tsx"
+    },
+    {
+      "integrity": "sha256-b11076b1f2512b12446804476d397d4118c8325b4893af436128d9f5d91eb401",
+      "path": "src/components/ads/headless/progress.tsx",
+      "sourcePath": "packages/design-system/src/headless/progress.tsx"
     },
     {
       "integrity": "sha256-dd26463008856226bd8ed2aaf25a364e9e2eb11b3ab0d4e8f932fdb2926897c5",

@@ -827,3 +827,46 @@ Further host extensions:
   - Forward-port: the `head`, `summary` and `toggle` slots on the
     `trace-waterfall` theme target (`theme-targets.insight.ts`), a strict
     addition the newer upstream target carries and `TraceWaterfall` reads.
+
+- **Meter, Progress and FileUpload (`.ads-source-selection.json`).** `Meter`
+  and `Progress` (with their `headless/meter` and `headless/progress`
+  primitives) and `FileUpload` (with `Attachment`, the row it lists files in)
+  were installed from the ADS source bundle on 2026-11-03 and added to the
+  selection manifest, whose `bundleIntegrity` is now the eight-entrypoint
+  bundle's. The bundle reported the same `sourceRevision` as the installed
+  selection, so nothing upstream had moved. Only the six files absent here were
+  written; the rest of the closure (`agent-retry`, `agent-surface`,
+  `surface-chrome`, `focus-ring`, `VisuallyHidden`, the theme props and the
+  `meter`, `progress`, `file-upload` and `attachment` theme targets) already
+  existed and kept its host versions. The bundle's CSS sheets and the
+  `editing` and `graph` theme-target files were not installed because nothing
+  installed here imports them. Integrity values are PRISTINE upstream hashes.
+
+  `DatePicker` was evaluated in the same pass and not installed: its closure
+  replaces this copy's host-modified `Calendar` with the newer split calendar
+  (`Calendar.grid`, `Calendar.month`, `Calendar.nav`, `Calendar.nights`) and
+  adds `Tooltip.base` and `native-select`. The usage view's range field
+  (`src/components/usage/UsageDateRangeField.tsx`) composes the installed
+  `Calendar` and the host popover instead.
+
+  Host modifications, kept when refreshing:
+
+  - `Meter` and `Progress` take a required `label` (the bundle defaulted to the
+    English words "Meter" and "Progress"), and `Progress` reads its
+    indeterminate value text and caption from `ui:progress.*`.
+  - Both gain `size` (`md` default, the bundle's 10px and 8px tracks; `sm` a
+    6px track for a table cell or a one-line row) and `hideValue` (the value
+    stays in `aria-valuetext`, the visible figure goes, for a caller that
+    prints the reading beside the bar). `Progress` gains `hideLabel`, the same
+    clipped label `Meter` already had; with both hidden the header row is not
+    rendered, so the bar is the whole surface.
+  - `Meter` gains a `neutral` tone (the muted ink), for a reading that is not
+    yet a concern; the `meter` theme target's `tone` axis lists it.
+  - Both fills set `forced-color-adjust: none`, so forced colors do not paint
+    the fill as Canvas and empty the track.
+  - `FileUpload` and `Attachment` read every English default from
+    `ui:fileUpload.*` (retry reads `ui:agentRetry.retry`), and `FileUpload`
+    gains `actionLabel`: a "Choose file" affordance drawn inside the compact
+    picker button, so it joins that button's name and Enter or Space on the
+    row still opens the picker. The copy slot grows so the affordance sits at
+    the row's end.

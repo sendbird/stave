@@ -103,7 +103,7 @@ export const signalThemeTargets = {
      * hue on the container. Same constraint as `progress`.
      */
     axes: {
-      tone: ["accent", "danger", "info", "success", "warning", "warm"],
+      tone: ["accent", "danger", "info", "neutral", "success", "warning", "warm"],
     },
     exports: ["Meter"],
     properties: panel,
