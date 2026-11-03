@@ -33,7 +33,17 @@ for (const locale of ["en", "ko"] as const) {
       await expect(trigger).toContainText("2");
 
       // After the answer text.
-      const answerBottom = await page.getByText("bun run typecheck", { exact: false }).last().evaluate((element) => element.getBoundingClientRect().bottom);
+      // The answer is the same turn's text that ends with "bun run typecheck passes.",
+      // read inside the turn that holds the sources rather than anywhere on the page.
+      const answerBottom = await sources.evaluate((element) => {
+        let node: Element | null = element;
+        while (node && !node.parentElement?.textContent?.includes("bun run typecheck")) node = node.parentElement;
+        const turn = node?.parentElement;
+        const texts = turn ? [...turn.querySelectorAll("p, li")].filter((candidate) => candidate.textContent?.includes("bun run typecheck") && !element.contains(candidate)) : [];
+        const answer = texts.at(-1);
+        return answer ? answer.getBoundingClientRect().bottom : Number.NaN;
+      });
+      expect(Number.isFinite(answerBottom)).toBe(true);
       const sourcesTop = await sources.evaluate((element) => element.getBoundingClientRect().top);
       expect(sourcesTop).toBeGreaterThanOrEqual(answerBottom);
 

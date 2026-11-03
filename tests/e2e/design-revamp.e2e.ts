@@ -442,7 +442,7 @@ test("Compare owns its preparation action and recent run history", async ({
 
   await search.fill("");
   await historyDialog
-    .getByRole("button", { name: "Failed 1", exact: true })
+    .getByRole("radio", { name: "Failed 1", exact: true })
     .click();
   await expect(historyDialog.getByText("Run failed")).toBeVisible();
 });

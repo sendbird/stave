@@ -32,9 +32,10 @@ for (const lang of ["en", "ko"] as const) {
 
 test("a turned-off schedule reads Off next to Turn on, in the list and the detail (ko)", async ({ page }) => {
   await page.goto("/?stavePreview=schedules&lang=ko");
-  const nav = page.getByRole("navigation", { name: /일정/ });
-  await expect(nav.getByRole("button").first()).toHaveText(/^일정 · \d+$/);
-  await expect(nav.getByRole("button").nth(1)).toHaveText(/^실행 기록( · \d+)?$/);
+  const views = page.getByRole("radiogroup", { name: /일정/ });
+  // Each view names itself in Korean and carries its count as a badge.
+  await expect(views.getByRole("radio").first()).toHaveText(/^일정\s*\d+$/);
+  await expect(views.getByRole("radio").nth(1)).toHaveText(/^실행 기록(\s*\d+)?$/);
   const row = page.locator("li", { hasText: "Weekly dependency check" });
   await expect(row.getByText("꺼짐", { exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "Weekly dependency check 켜기" })).toBeVisible();
