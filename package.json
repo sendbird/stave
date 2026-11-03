@@ -27,7 +27,7 @@
   "type": "module",
   "main": "out/main/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=26.13.0"
   },
   "scripts": {
     "postinstall": "node scripts/rebuild-electron-deps.mjs",

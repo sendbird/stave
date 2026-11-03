@@ -6,10 +6,10 @@ This guide is for building Stave locally or contributing changes. If you want to
 
 - Read [AGENTS.md](../../AGENTS.md) first. It contains repo-specific workflow rules, guardrails, and contribution constraints.
 - Runtime: **Bun**
-- Node.js: **>= 20**. Node 22 LTS is recommended, and the repo pins a version in `.nvmrc`.
+- Node.js: **>= 26.13.0**. Use the Node 26 LTS version pinned in `.nvmrc` for development and builds. CI and release builds use the same pin. This host runtime is separate from the Node.js runtime bundled with Electron.
 - Native build toolchain:
   - macOS: Xcode Command Line Tools (`xcode-select --install`)
-  - Linux: `build-essential`
+  - Linux: `build-essential` and the `libatomic` runtime (for example, `libatomic1` on Debian/Ubuntu, required by official Node.js 26 binaries)
   - Windows: Visual Studio Build Tools 2022 with the Desktop development with C++ workload and Python
 - Optional provider setup:
   - `claude auth login`
