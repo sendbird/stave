@@ -96,14 +96,14 @@ export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
       className={cx(sx(styles.root), props.className)}
       data-testid="turn-trace-timeline"
     >
-      {hasSteps || trace.unreported.length === 0 ? (
-        <TraceWaterfall
-          label={i18n.t("session:turnTrace.label")}
-          spans={spans}
-          markerMs={trace.nowMs ?? undefined}
-          onSelectSpan={onSelectTool ? handleSelect : undefined}
-        />
-      ) : null}
+      {/* The turn row always draws: its length, tokens and cost are known
+          even when none of its steps reported a time. */}
+      <TraceWaterfall
+        label={i18n.t("session:turnTrace.label")}
+        spans={spans}
+        markerMs={trace.nowMs ?? undefined}
+        onSelectSpan={onSelectTool ? handleSelect : undefined}
+      />
       {!hasSteps && trace.unreported.length === 0 ? (
         <p className={sx(styles.empty)}>{i18n.t("session:turnTrace.empty")}</p>
       ) : null}

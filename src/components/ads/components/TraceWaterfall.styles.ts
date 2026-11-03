@@ -164,7 +164,12 @@ export const styles = stylex.create({
     backgroundColor: vars["--ads-color-selection-fill"],
     boxShadow: `inset 0 0 0 ${vars["--ads-ring-width-sm"]} ${vars["--ads-color-accent"]}`,
   },
+  // Host: the name keeps its room and the muted meta gives way first. Upstream
+  // held the meta at full width, so a long meta (a file path, a command)
+  // squeezed the span's own name to a letter.
   name: {
+    flexShrink: 0,
+    maxInlineSize: "100%",
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -172,7 +177,8 @@ export const styles = stylex.create({
   },
   meta: {
     color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
+    flexShrink: 1,
+    minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

@@ -817,6 +817,8 @@ Further host extensions:
     axis stretches to include it). It sets `aria-pressed` only when the caller
     keeps a selection, and tags rows, names, bars and the marker with
     `data-trace-*` attributes for geometry tests.
+  - A span's name keeps its room and its muted `meta` shrinks first; upstream
+    held the meta at full width, so a long path cut the name to a letter.
   - The axis and bar math moved into exported `resolveTraceAxis` and
     `layoutTraceBar`, which the component calls and the host tests; the
     minimum bar width no longer runs a bar past the end of its track.
