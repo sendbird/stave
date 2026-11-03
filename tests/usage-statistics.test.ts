@@ -265,3 +265,48 @@ describe("time and query validation", () => {
     expect(usageRange({ period: "custom", start: "", end: "", utc: true })).toBeNull();
   });
 });
+
+describe("comparison and provider split", () => {
+  test("the previous period is totalled under the same filters, and only when asked", () => {
+    turn("now-a", "codex", ACCOUNT_A, { inputTokens: 100, outputTokens: 20 });
+    turn("before-a", "codex", ACCOUNT_A, { inputTokens: 40, outputTokens: 10 }, "2026-09-29T08:00:00.000Z");
+    turn("before-b", "codex", ACCOUNT_B, { inputTokens: 900, outputTokens: 90 }, "2026-09-29T09:00:00.000Z");
+    // Outside both periods: never counted.
+    turn("long-ago", "codex", ACCOUNT_A, { inputTokens: 7, outputTokens: 7 }, "2026-09-01T00:00:00.000Z");
+    expect(store.read(filters()).previousTotals).toBeNull();
+    const previous = { from: "2026-09-29T00:00:00.000Z", to: FROM };
+    const all = store.read(filters({ previous }));
+    expect(all.totals.tokens).toBe(120);
+    expect(all.previousTotals?.tokens).toBe(50 + 990);
+    expect(all.previousTotals?.turns).toBe(2);
+    const scoped = store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_A, previous }));
+    expect(scoped.previousTotals?.tokens).toBe(50);
+    expect(scoped.previousTotals?.measuredTurns).toBe(1);
+    // An earlier period with no turns reads as zero turns, which the view must not compare against.
+    const empty = store.read(filters({ previous: { from: "2026-08-01T00:00:00.000Z", to: "2026-08-03T00:00:00.000Z" } }));
+    expect(empty.previousTotals?.turns).toBe(0);
+    expect(empty.previousTotals?.measuredTurns).toBe(0);
+  });
+
+  test("a comparison period must end before the report starts and stay bounded", () => {
+    expect(UsageStatisticsArgsSchema.safeParse({ from: FROM, to: TO, timeZone: "UTC", previous: { from: "2026-09-30T00:00:00.000Z", to: "2026-10-02T00:00:00.000Z" } }).success).toBe(false);
+    expect(UsageStatisticsArgsSchema.safeParse({ from: FROM, to: TO, timeZone: "UTC", previous: { from: "2024-01-01T00:00:00.000Z", to: FROM } }).success).toBe(false);
+    expect(UsageStatisticsArgsSchema.safeParse({ from: FROM, to: TO, timeZone: "UTC", previous: { from: FROM, to: FROM } }).success).toBe(false);
+    expect(UsageStatisticsArgsSchema.safeParse({ from: FROM, to: TO, timeZone: "UTC", previous: { from: "2026-09-29T00:00:00.000Z", to: FROM, extra: 1 } }).success).toBe(false);
+  });
+
+  test("each bucket splits its totals by the provider that ran the turn", () => {
+    turn("claude-1", "claude-code", ACCOUNT_A, { inputTokens: 100, outputTokens: 10 });
+    turn("codex-1", "codex", ACCOUNT_B, { inputTokens: 50, outputTokens: 5 });
+    turn("codex-2", "codex", ACCOUNT_B, { inputTokens: 20, outputTokens: 2 }, "2026-10-02T03:00:00.000Z");
+    const report = store.read(filters());
+    const first = report.series.find((row) => row.at === "2026-10-01")!;
+    expect(first.providers["claude-code"]?.tokens).toBe(110);
+    expect(first.providers.codex?.tokens).toBe(55);
+    expect(first.providers.cursor).toBeUndefined();
+    expect(sum(Object.values(first.providers))).toEqual(sum([first]));
+    const second = report.series.find((row) => row.at === "2026-10-02")!;
+    expect(Object.keys(second.providers)).toEqual(["codex"]);
+    for (const row of report.series) expect(sum(Object.values(row.providers))).toEqual(sum([row]));
+  });
+});

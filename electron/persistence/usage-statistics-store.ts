@@ -3,7 +3,7 @@ import { selectedProviderAccount } from "../../src/lib/providers/provider-accoun
 import {
   addUsageMetrics, emptyUsageMetrics, quotaObservations, usageBucketKey, UNATTRIBUTED_ACCOUNT_ID,
   type QuotaObservation, type UsageAccountTotal, type UsageMetrics, type UsageModelTotal,
-  type UsageStatisticsArgs, type UsageStatisticsReport, type UsageTurn,
+  type UsageSeriesPoint, type UsageStatisticsArgs, type UsageStatisticsReport, type UsageTurn,
 } from "../../src/lib/providers/usage-statistics";
 import { METRIC_SUMS, TURN_METRICS, USAGE_CTE } from "./usage-statistics-query";
 import type { BridgeEvent } from "../providers/types";
@@ -122,10 +122,18 @@ export class UsageStatisticsStore {
   private readReport(args: UsageStatisticsArgs): UsageStatisticsReport {
     const params = [args.from, args.to, args.providerId ?? null, args.providerId ?? null,
       args.accountProfileId ?? null, args.accountProfileId ?? null];
-    const turnParams = [...params, args.modelId === undefined ? 0 : 1, args.modelId ?? null];
-    const totals = this.db.prepare(`${USAGE_CTE} SELECT ${METRIC_SUMS} FROM usage`).get(...turnParams) as UsageMetrics;
-    totals.measuredTurns ??= 0;
-    totals.costReportedTurns ??= 0;
+    const filterParams = [args.modelId === undefined ? 0 : 1, args.modelId ?? null];
+    const turnParams = [...params, ...filterParams];
+    const readTotals = (from: string, to: string) => {
+      const sums = this.db.prepare(`${USAGE_CTE} SELECT ${METRIC_SUMS} FROM usage`)
+        .get(from, to, ...params.slice(2), ...filterParams) as UsageMetrics;
+      sums.measuredTurns ??= 0;
+      sums.costReportedTurns ??= 0;
+      return sums;
+    };
+    const totals = readTotals(args.from, args.to);
+    // Same filters, the earlier period's own bounds: one more aggregate, no rows.
+    const previousTotals = args.previous ? readTotals(args.previous.from, args.previous.to) : null;
     const accounts = this.db.prepare(`${USAGE_CTE} SELECT provider_id AS providerId,
       account_profile_id AS accountProfileId, ${METRIC_SUMS} FROM usage GROUP BY provider_id, account_profile_id
       ORDER BY tokens DESC, provider_id, account_profile_id`).all(...turnParams) as UsageAccountTotal[];
@@ -135,17 +143,29 @@ export class UsageStatisticsStore {
     // Minute groups preserve half/quarter-hour timezone boundaries. Aggregate in
     // SQLite first so all prompt-free rows need not cross into the renderer.
     const minutes = this.db.prepare(`${USAGE_CTE} SELECT strftime('%Y-%m-%dT%H:%M:00Z', created_at) AS at,
-      ${METRIC_SUMS} FROM usage GROUP BY at ORDER BY at`).all(...turnParams) as Array<UsageMetrics & { at: string }>;
-    const buckets = new Map<string, UsageMetrics>();
+      provider_id AS providerId, ${METRIC_SUMS} FROM usage GROUP BY at, provider_id ORDER BY at, provider_id`)
+      .all(...turnParams) as Array<UsageMetrics & { at: string; providerId: ProviderId }>;
+    const buckets = new Map<string, UsageSeriesPoint>();
+    const bucket = (key: string) => {
+      let point = buckets.get(key);
+      if (!point) {
+        point = { at: key, ...emptyUsageMetrics(), providers: {} };
+        buckets.set(key, point);
+      }
+      return point;
+    };
     for (let at = Date.parse(args.from); at < Date.parse(args.to); at += 30 * 60_000) {
-      buckets.set(usageBucketKey(new Date(at).toISOString(), args.timeZone, args.granularity), emptyUsageMetrics());
+      bucket(usageBucketKey(new Date(at).toISOString(), args.timeZone, args.granularity));
     }
-    buckets.set(usageBucketKey(new Date(Date.parse(args.to) - 1).toISOString(), args.timeZone, args.granularity), emptyUsageMetrics());
-    for (const minute of minutes) {
-      const key = usageBucketKey(minute.at, args.timeZone, args.granularity);
-      const target = buckets.get(key) ?? emptyUsageMetrics();
-      addUsageMetrics(target, minute);
-      buckets.set(key, target);
+    bucket(usageBucketKey(new Date(Date.parse(args.to) - 1).toISOString(), args.timeZone, args.granularity));
+    for (const { at, providerId, ...metrics } of minutes) {
+      const point = bucket(usageBucketKey(at, args.timeZone, args.granularity));
+      metrics.measuredTurns ??= 0;
+      metrics.costReportedTurns ??= 0;
+      addUsageMetrics(point, metrics);
+      const share = point.providers[providerId] ?? emptyUsageMetrics();
+      addUsageMetrics(share, metrics);
+      point.providers[providerId] = share;
     }
     const turns = this.db.prepare(`${USAGE_CTE} SELECT id, provider_id AS providerId,
       account_profile_id AS accountProfileId, model_id AS modelId, created_at AS createdAt,
@@ -169,7 +189,7 @@ export class UsageStatisticsStore {
           AND (s.observed_at IS NULL OR q.observed_at >= s.observed_at))
       WHERE rank = 1 ORDER BY provider_id, account_profile_id, window_id`)
       .all(args.providerId ?? null, args.providerId ?? null, args.accountProfileId ?? null, args.accountProfileId ?? null) as QuotaObservation[];
-    return { totals, series: [...buckets].map(([at, metrics]) => ({ at, ...metrics })), accounts, models, knownAccounts, latestQuota,
+    return { totals, previousTotals, series: [...buckets.values()], accounts, models, knownAccounts, latestQuota,
       turns, quota: quota.slice(0, 2000).reverse(), quotaHistoryTruncated: quota.length > 2000,
       generatedAt: new Date().toISOString() };
   }

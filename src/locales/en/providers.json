@@ -391,7 +391,8 @@
     "uniqueModels": "Model IDs must be unique.",
     "customEndpoint": "A custom connection needs at least one endpoint.",
     "periodLimit": "Choose a period of at most 366 days.",
-    "accountProvider": "An account filter needs a provider."
+    "accountProvider": "An account filter needs a provider.",
+    "previousPeriod": "The comparison period must end before the report's period starts."
   },
   "agentHistory": {
     "message": "Message",

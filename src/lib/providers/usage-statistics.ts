@@ -10,6 +10,17 @@ export const USAGE_PROVIDER_NAMES: Record<ProviderId, string> = {
 };
 
 const IsoDate = z.iso.datetime().transform((value) => new Date(value).toISOString());
+const MAX_PERIOD_MS = 366 * 86_400_000;
+/**
+ * The earlier period a report compares against: same filters, its own
+ * bounds. It must end where the report's period starts (or before), so the
+ * two never count a turn twice.
+ */
+const UsageComparisonPeriodSchema = z.object({ from: IsoDate, to: IsoDate }).strict()
+  .refine((period) => {
+    const duration = Date.parse(period.to) - Date.parse(period.from);
+    return duration > 0 && duration <= MAX_PERIOD_MS;
+  }, { error: () => i18n.t("providers:validation.periodLimit") });
 export const UsageStatisticsArgsSchema = z.object({
   from: IsoDate,
   to: IsoDate,
@@ -24,10 +35,13 @@ export const UsageStatisticsArgsSchema = z.object({
   modelId: z.string().min(1).max(500).nullable().optional(),
   limit: z.number().int().min(1).max(100).default(50),
   offset: z.number().int().min(0).max(1_000_000).default(0),
+  /** When set, the report also totals this earlier period under the same filters. */
+  previous: UsageComparisonPeriodSchema.optional(),
 }).strict().refine((args) => {
   const duration = Date.parse(args.to) - Date.parse(args.from);
-  return duration > 0 && duration <= 366 * 86_400_000;
+  return duration > 0 && duration <= MAX_PERIOD_MS;
 }, { error: () => i18n.t("providers:validation.periodLimit") })
+  .refine((args) => !args.previous || Date.parse(args.previous.to) <= Date.parse(args.from), { error: () => i18n.t("providers:validation.previousPeriod") })
   .refine((args) => !args.accountProfileId || Boolean(args.providerId), { error: () => i18n.t("providers:validation.accountProvider") });
 export type UsageStatisticsArgs = z.infer<typeof UsageStatisticsArgsSchema>;
 
@@ -71,9 +85,17 @@ export interface QuotaObservation {
   resetsAt: number | null;
   source: string;
 }
+/** One time bucket: its totals, and the same totals split by the provider that ran each turn. */
+export type UsageSeriesPoint = UsageMetrics & {
+  at: string;
+  /** Only providers with a turn in the bucket appear. */
+  providers: Partial<Record<ProviderId, UsageMetrics>>;
+};
 export interface UsageStatisticsReport {
   totals: UsageMetrics;
-  series: Array<UsageMetrics & { at: string }>;
+  /** Totals of `args.previous` under the same filters; null when no comparison was asked for. */
+  previousTotals: UsageMetrics | null;
+  series: UsageSeriesPoint[];
   accounts: UsageAccountTotal[];
   models: UsageModelTotal[];
   knownAccounts: Array<{ providerId: ProviderId; accountProfileId: string }>;

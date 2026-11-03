@@ -386,7 +386,8 @@
     "uniqueModels": "모델 ID는 중복될 수 없습니다.",
     "customEndpoint": "사용자 지정 연결에는 엔드포인트가 하나 이상 필요합니다.",
     "periodLimit": "기간은 최대 366일까지 선택하세요.",
-    "accountProvider": "계정 필터를 사용하려면 제공자를 선택하세요."
+    "accountProvider": "계정 필터를 사용하려면 제공자를 선택하세요.",
+    "previousPeriod": "비교 기간은 보고 기간이 시작되기 전에 끝나야 합니다."
   },
   "agentHistory": {
     "message": "메시지",
