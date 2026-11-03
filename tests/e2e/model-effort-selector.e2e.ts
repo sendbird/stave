@@ -800,10 +800,10 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
   await expect(modePopover).toBeVisible();
   for (const tier of ["Manual", "Guided", "Auto"]) {
     await expect(
-      modePopover.getByRole("button", { name: new RegExp(`^${tier}`) }),
+      modePopover.getByRole("radio", { name: new RegExp(`^${tier}`) }),
     ).toBeVisible();
   }
-  await modePopover.getByRole("button", { name: /^Manual/ }).click();
+  await modePopover.getByRole("radio", { name: /^Manual/ }).click();
   await expect(cursorPill).toHaveAccessibleName(/^Cursor Manual:/);
 
   await page.getByTestId("open-settings").first().click();

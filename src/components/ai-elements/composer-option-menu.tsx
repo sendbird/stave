@@ -6,6 +6,10 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { ReactNode } from "react";
 import { Check, Info, TriangleAlert } from "lucide-react";
 
+import { RadioRoot } from "@/components/ads/headless/radio-group";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
+import { questionOptionRowStyles as radioMark } from "./question-option-row.styles";
 import { cx } from "../ads/utils/stylex";
 import type { Tone } from "@/components/ads/utils/tone";
 
@@ -73,8 +77,6 @@ export function ComposerOptionCard(props: {
   testId?: string;
   /** Active styling for modes that carry their own tone (plan, accept-edits, ...). */
   activeClassName?: string;
-  /** Matching tone for the selected mark. */
-  checkClassName?: string;
 }) {
   useTranslation();
   return (
@@ -100,18 +102,70 @@ export function ComposerOptionCard(props: {
       />
       {props.active ? (
         <span className={sx(selectStyles.itemIndicator)}>
-          <Check
-            className={cx(
-              sx(
-                optionStyles.check,
-                !props.checkClassName && optionStyles.selectedCheck,
-              ),
-              props.checkClassName,
-            )}
-          />
+          <Check className={sx(optionStyles.check, optionStyles.selectedCheck)} />
         </span>
       ) : null}
     </AdsButton>
+  );
+}
+
+/**
+ * `ComposerOptionCard` as one radio of a `RadioGroupRoot`: the same two-line
+ * row, with a radio mark where the card has its check. The group gives the
+ * list one Tab stop and arrow keys that move the radio; the row keeps the
+ * card's tone when checked.
+ */
+export function ComposerOptionRadioCard(props: {
+  value: string;
+  /** Whether the group's value is this row; draws the radio's dot. */
+  checked: boolean;
+  label: string;
+  summary?: ReactNode;
+  description?: ReactNode;
+  icon?: ReactNode;
+  /** Chosen styling for options that carry their own tone. */
+  activeClassName?: string;
+  /** Picking the row: a pointer click, Space, or Enter (a radio ignores Enter on its own). */
+  onChoose?: () => void;
+  testId?: string;
+}) {
+  useTranslation();
+  return (
+    <RadioRoot
+      value={props.value}
+      data-testid={props.testId}
+      onClick={props.onChoose}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+        event.preventDefault();
+        props.onChoose?.();
+      }}
+      className={(state) =>
+        cx(
+          sx(
+            optionStyles.rowReset,
+            selectStyles.item,
+            transition.colors,
+            focusRing.ring,
+            state.checked && !props.activeClassName && optionStyles.selected,
+          ),
+          state.checked ? props.activeClassName : undefined,
+        ) ?? ""
+      }
+    >
+      <ComposerOptionRowCopy
+        description={props.description}
+        icon={props.icon}
+        label={props.label}
+        summary={props.summary}
+      />
+      {/* The same radio mark a question's single-choice option leads with. */}
+      <span aria-hidden className={sx(selectStyles.itemIndicator)}>
+        <span className={sx(radioMark.radio, props.checked && radioMark.radioChecked)}>
+          {props.checked ? <span className={sx(radioMark.radioDot)} /> : null}
+        </span>
+      </span>
+    </RadioRoot>
   );
 }
 

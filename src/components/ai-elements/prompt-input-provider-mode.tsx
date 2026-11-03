@@ -22,8 +22,9 @@ import type {
 } from "@/lib/providers/provider-mode-presets";
 import {
   COMPOSER_OPTION_MENU_CONTENT,
-  ComposerOptionCard,
+  ComposerOptionRadioCard,
 } from "@/components/ai-elements/composer-option-menu";
+import { RadioGroupRoot } from "@/components/ads/headless/radio-group";
 import {
   COMPOSER_CONTROL_BUTTON,
   ComposerControlLabel,
@@ -111,12 +112,28 @@ export function PromptInputProviderModePill(args: {
 }) {
   useTranslation();
   const [open, setOpen] = useState(false);
+  // The radio the arrow keys have moved to while the menu is open. It is not
+  // applied until it is chosen (click, Space, Enter): browsing a more
+  // permissive preset to read what it does must not grant it. Esc or a click
+  // elsewhere leaves the preset as it was.
+  const [browsedPresetId, setBrowsedPresetId] = useState<ProviderModePresetId | null>(null);
   const { icon: Icon } = modeVisual(args.status);
   const isInteractive =
     args.presets.length > 0 && typeof args.onSelect === "function";
+  const shownPresetId = browsedPresetId ?? args.activePresetId;
+  const choose = (presetId: ProviderModePresetId) => {
+    if (presetId !== args.activePresetId) args.onSelect?.(presetId);
+    setOpen(false);
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setBrowsedPresetId(null);
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
@@ -158,7 +175,16 @@ export function PromptInputProviderModePill(args: {
           aria-label={i18n.t("composer:promptInputProviderMode.ariaLabel", { value1: args.status.providerLabel })}
           xstyle={[COMPOSER_OPTION_MENU_CONTENT, providerModeStyles.popover]}
         >
-          <div className={sx(providerModeStyles.optionList)}>
+          {/* One Tab stop; arrow keys move the radio and the action list
+              follows it. A click, Space or Enter applies it and closes. */}
+          <RadioGroupRoot
+            aria-label={i18n.t("composer:promptInputProviderMode.ariaLabel", { value1: args.status.providerLabel })}
+            className={sx(providerModeStyles.optionList)}
+            value={shownPresetId ?? null}
+            onValueChange={(value) => {
+              if (typeof value === "string") setBrowsedPresetId(value as ProviderModePresetId);
+            }}
+          >
             {args.presets.map((preset) => {
               const presetStatus = {
                 ...args.status,
@@ -168,12 +194,14 @@ export function PromptInputProviderModePill(args: {
               } satisfies PromptInputProviderModeStatus;
               const { icon: PresetIcon, summary: presetSummary } =
                 modeVisual(presetStatus);
-              const isActive = args.activePresetId === preset.id;
+              const isActive = shownPresetId === preset.id;
               const providerId = args.status.providerId;
 
               return (
                 <Fragment key={preset.id}>
-                <ComposerOptionCard
+                <ComposerOptionRadioCard
+                  value={preset.id}
+                  checked={isActive}
                   label={preset.label}
                   summary={presetSummary}
                   description={preset.description}
@@ -185,13 +213,8 @@ export function PromptInputProviderModePill(args: {
                       )}
                     />
                   }
-                  active={isActive}
                   activeClassName={modeOptionActiveClass(presetStatus)}
-                  checkClassName={sx(modeIconToneStyle(presetStatus))}
-                  onSelect={() => {
-                    args.onSelect?.(preset.id);
-                    setOpen(false);
-                  }}
+                  onChoose={() => choose(preset.id)}
                 />
                 {/* What the selected preset does on its own and what it
                     asks about, so the choice is not prose alone. */}
@@ -208,7 +231,7 @@ export function PromptInputProviderModePill(args: {
                 </Fragment>
               );
             })}
-          </div>
+          </RadioGroupRoot>
         </PopoverContent>
       ) : null}
     </Popover>

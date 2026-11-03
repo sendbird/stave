@@ -419,6 +419,8 @@ export function ComposerFramePreviewApp() {
     return {
       ...presentation,
       providerLabel: "Claude",
+      // Lists what the chosen preset does on its own, as the app does.
+      providerId: "claude-code" as const,
     };
   }, [providerMode]);
 

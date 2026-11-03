@@ -41,6 +41,12 @@ You can also confirm the effective state from the runtime chips near the compose
   `Settings > Providers > Claude > Thinking Mode`, and the menu says so.
 - **Runtime** names the profile in use (`Safe`, `Custom` or `Elevated`) in its
   side-wing label; open it for the details behind that profile.
+- The **permission preset** (`Auto`, `Guided`, `Manual`) opens its presets as
+  one radio group under what the checked preset does on its own and asks
+  first. Tab reaches the checked preset; the arrow keys move between presets
+  and the list follows, without changing the preset. A click, Space or Enter
+  applies the preset and closes the menu; Esc or a click elsewhere leaves it
+  as it was.
 - In the classic composer the controls stay on one row at any width. When
   they do not fit, the side question first shows only its icon, then the
   others move into the row's **⋯** menu, Stave's own tools first and the
