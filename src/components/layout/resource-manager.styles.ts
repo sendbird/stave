@@ -2,58 +2,29 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 export const managerStyles = stylex.create({
-  tableScroll: { overflowX: "auto", minWidth: 0 },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
+  /**
+   * A body row's heading cell (the workspace or process it measures): the
+   * ADS table's head cell keeps its padding and rule, and reads as body text.
+   */
+  rowHeading: {
+    color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-caption"],
-  },
-  columnHeading: {
-    textAlign: "start",
-    fontWeight: 500,
-    color: vars["--ads-color-text-muted"],
-    paddingBlock: 8,
-    paddingInline: 10,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
-  },
-  numericHeading: {
-    textAlign: "end",
-    fontWeight: 500,
-    color: vars["--ads-color-text-muted"],
-    paddingBlock: 8,
-    paddingInline: 10,
-    whiteSpace: "nowrap",
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
-  },
-  identityCell: {
-    textAlign: "start",
-    fontWeight: 400,
-    paddingBlock: 12,
-    paddingInline: 10,
+    fontWeight: vars["--ads-font-weight-regular"],
+    lineHeight: vars["--ads-line-height-normal"],
+    minWidth: "10rem",
     overflowWrap: "anywhere",
-    minWidth: 160,
     verticalAlign: "top",
+    whiteSpace: "normal",
   },
   numericCell: {
-    textAlign: "end",
     fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
     width: "1%",
-    paddingBlock: 12,
-    paddingInline: 10,
     verticalAlign: "top",
   },
-  dataRow: {
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
-    ":last-child": { borderBottomWidth: 0 },
-  },
+  shareMeter: { marginBlockStart: vars["--ads-space-4"] },
   processTitle: {
     display: "flex",
     alignItems: "baseline",

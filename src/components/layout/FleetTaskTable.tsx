@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
-import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
@@ -41,6 +41,12 @@ import {
   fleetSearchMatches,
   normalizeFleetSearchQuery,
 } from "@/lib/fleet/card-task-rows";
+import {
+  nextFleetTaskSort,
+  sortFleetTaskRows,
+  type FleetTaskSort,
+  type FleetTaskSortKey,
+} from "@/lib/fleet/task-table-sort";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import {
@@ -396,12 +402,29 @@ export function FleetTaskTableView(props: {
   );
 }
 
+/** The table's columns, in order, each a sort key. */
+const FLEET_TASK_COLUMNS = [
+  { key: "task", label: "fleet:taskTable.task" },
+  { key: "workspace", label: "fleet:taskTable.workspace" },
+  { key: "state", label: "fleet:taskTable.state" },
+  { key: "needs", label: "fleet:taskTable.needs" },
+  { key: "waiting", label: "fleet:taskTable.waiting" },
+  { key: "activity", label: "fleet:taskTable.activity" },
+] as const satisfies ReadonlyArray<{ key: FleetTaskSortKey; label: string }>;
+
 function FleetTaskRowsTable(props: {
   rows: readonly FleetTaskRow[];
   nowMs: number;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
+  // Unsorted is the rows' own order (the Work queue's lanes); a header press cycles ascending, descending, unsorted.
+  const [sort, setSort] = useState<FleetTaskSort>(null);
+  const untitled = t("fleet:fleetWorkspaceCard.untitledTask");
+  const rows = useMemo(
+    () => sortFleetTaskRows(props.rows, sort, { nowMs: props.nowMs, untitled }),
+    [props.rows, sort, props.nowMs, untitled],
+  );
   return (
     <Table
       density="compact"
@@ -412,16 +435,20 @@ function FleetTaskRowsTable(props: {
     >
       <TableHeader sticky>
         <TableRow>
-          <TableHead>{t("fleet:taskTable.task")}</TableHead>
-          <TableHead>{t("fleet:taskTable.workspace")}</TableHead>
-          <TableHead>{t("fleet:taskTable.state")}</TableHead>
-          <TableHead>{t("fleet:taskTable.needs")}</TableHead>
-          <TableHead>{t("fleet:taskTable.waiting")}</TableHead>
-          <TableHead>{t("fleet:taskTable.activity")}</TableHead>
+          {FLEET_TASK_COLUMNS.map((column) => (
+            <TableHead
+              key={column.key}
+              data-fleet-task-column={column.key}
+              sortDirection={sort?.key === column.key ? sort.direction : null}
+              onSort={() => setSort((current) => nextFleetTaskSort(current, column.key))}
+            >
+              {t(column.label)}
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <TableBody>
-        {props.rows.map((row) => (
+        {rows.map((row) => (
           <FleetTaskTableRow
             key={row.key}
             nowMs={props.nowMs}

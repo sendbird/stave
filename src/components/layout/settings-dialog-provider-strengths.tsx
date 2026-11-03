@@ -8,6 +8,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ads/components/Table";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AutoRoutingProfile } from "@/lib/providers/auto-routing-profile";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -122,14 +130,14 @@ export function SettingsProviderStrengths(props: {
           </SelectContent>
         </Select>
       </LabeledField>
-      <table className={sx(styles.levelTable)} data-testid="provider-strengths">
-        <thead>
-          <tr>
-            <th scope="col" className={sx(styles.levelHead)}>{t("providers:providerStrengths.work")}</th>
-            <th scope="col" className={sx(styles.levelHead)}>{t("providers:providerStrengths.startsOn")}</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table density="compact" minInlineSize={0} data-testid="provider-strengths">
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("providers:providerStrengths.work")}</TableHead>
+            <TableHead>{t("providers:providerStrengths.startsOn")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {STRENGTH_AREAS.map((area) => (
             <StrengthRow
               key={area}
@@ -145,8 +153,8 @@ export function SettingsProviderStrengths(props: {
               }}
             />
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       <p className={sx(styles.stanceNote)}>
         {t("providers:providerStrengths.hypothesisNote", { date: (preset ?? suggested).asOf })}
       </p>
@@ -175,8 +183,8 @@ function StrengthRow(args: {
   const { t } = useTranslation(I18N_NAMESPACES);
   const sources = args.evidence ? getStrengthSources(args.evidence.sourceIds) : [];
   return (
-    <tr className={sx(styles.levelRow)}>
-      <th scope="row" className={sx(styles.levelName)}>
+    <TableRow>
+      <TableHead scope="row" xstyle={styles.strengthName}>
         <span className={sx(styles.levelLabel)}>{strengthAreaLabel(args.area)}</span>
         {args.evidence ? (
           <span className={sx(styles.levelDescription)}>
@@ -189,8 +197,8 @@ function StrengthRow(args: {
             ))}
           </span>
         ) : null}
-      </th>
-      <td className={sx(styles.levelCell)}>
+      </TableHead>
+      <TableCell xstyle={styles.strengthCell}>
         <Select value={args.value} onValueChange={(value) => args.onChange(value as StrengthChoice)}>
           <SelectTrigger
             className={sx(styles.ruleSelectTrigger)}
@@ -206,7 +214,7 @@ function StrengthRow(args: {
             ))}
           </SelectContent>
         </Select>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }

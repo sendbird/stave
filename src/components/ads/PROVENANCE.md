@@ -870,3 +870,16 @@ Further host extensions:
     picker button, so it joins that button's name and Enter or Space on the
     row still opens the picker. The copy slot grows so the affordance sits at
     the row's end.
+
+- `Table` gains two host extensions. `minInlineSize` (the table's width floor
+  inside its frame; the bundle hard-codes 560px, and a narrow dialog or panel
+  passes 0) forward-ports the newer upstream prop of the same name.
+  `TableHead` gains `onSort` and `sortDirection`: with `onSort` the header's
+  label becomes a button with a direction icon (both arrows dimmed while
+  another column or none sorts, one arrow for the sorted column), and the
+  cell states `aria-sort` (`none` until it is the sorted column). The caller
+  owns the order and the cycle, so a table keeps its own unsorted order (the
+  Fleet table's lanes) as the third state. The rest of the sort contract
+  follows the ADS `DataTable`'s sortable header; `DataTable` itself is not
+  installed because its closure needs a windowing package the host does not
+  ship.

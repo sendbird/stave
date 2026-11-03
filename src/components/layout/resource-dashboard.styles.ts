@@ -176,21 +176,3 @@ export const levelTextStyles = stylex.create({
   elevated: { color: vars["--ads-color-warning-text"] },
   high: { color: vars["--ads-color-danger-text"] },
 });
-
-/** Magnitude, not identity: one hue for every share bar in the dialog. */
-export const shareStyles = stylex.create({
-  track: {
-    height: 4,
-    width: "100%",
-    minWidth: 48,
-    marginBlockStart: 6,
-    overflow: "hidden",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-  },
-  fill: {
-    height: "100%",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-accent"],
-  },
-});

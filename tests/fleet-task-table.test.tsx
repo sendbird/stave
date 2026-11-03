@@ -222,7 +222,8 @@ describe("the table", () => {
   test("names each column, the state, the need and how long it has waited", () => {
     const html = render(fixture());
     for (const column of ["Task", "Workspace", "State", "Needs", "Waiting", "Activity"]) {
-      expect(html).toContain(`>${column}</th>`);
+      // Each header is a sort button: the label is its text, the direction an icon beside it.
+      expect(html).toContain(`>${column}</span>`);
     }
     expect(html.match(/data-fleet-task-table-row=/g)).toHaveLength(6);
     expect(html).toContain('aria-label="Open approve-old in ws-cold"');
@@ -237,7 +238,7 @@ describe("the table", () => {
     expect(render([])).toContain("No tasks match this filter.");
     applyAppLocale("ko");
     expect(render([])).toContain("이 필터에 맞는 작업이 없습니다.");
-    expect(render(fixture())).toContain(">대기 시간</th>");
+    expect(render(fixture())).toContain(">대기 시간</span>");
   });
 });
 

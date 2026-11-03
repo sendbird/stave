@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import type * as React from "react";
 
+import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
 import { densityPad } from "../tokens/density.stylex";
 import { vars } from "../tokens/tokens.stylex";
@@ -17,12 +19,19 @@ export type TableDensity = "compact" | "regular";
 export type TableProps = Omit<React.ComponentProps<"div">, "children"> & {
   children: React.ReactNode;
   density?: TableDensity;
+  /**
+   * Width floor of the table inside its frame, in px; below it the frame
+   * scrolls sideways. A short table in a dialog or narrow panel passes 0 to
+   * take the container's width. @default 560
+   */
+  minInlineSize?: number;
 } & XstyleProp;
 
 export function Table({
   children,
   className,
   density = "regular",
+  minInlineSize,
   style,
   xstyle,
   ...props
@@ -44,7 +53,12 @@ export function Table({
       className={cx(sx(styles.frame, xstyle), theme.className, className)}
       style={{ ...densityStyle, ...style }}
     >
-      <table className={sx(styles.table)}>{children}</table>
+      <table
+        className={sx(styles.table)}
+        style={minInlineSize === undefined ? undefined : { minInlineSize }}
+      >
+        {children}
+      </table>
     </div>
   );
 }
@@ -139,23 +153,74 @@ export function TableRow({
   );
 }
 
+export type TableSortDirection = "ascending" | "descending";
+
 export type TableHeadProps = Omit<React.ComponentProps<"th">, "align"> & {
   align?: "start" | "center" | "end";
+  /**
+   * Makes the header a sort button. The table owns the order: this only
+   * reports the press, so the caller decides what follows (ascending,
+   * descending, back to its own order).
+   */
+  onSort?: () => void;
+  /**
+   * This column's current order, or null while another column (or none)
+   * orders the rows. A sortable header always states it: `aria-sort` is
+   * `none` when it is not the sorted column.
+   */
+  sortDirection?: TableSortDirection | null;
 } & XstyleProp;
 
 export function TableHead({
   align = "start",
+  children,
   className,
+  onSort,
+  sortDirection = null,
   xstyle,
   ...props
 }: TableHeadProps) {
+  const SortIcon =
+    sortDirection === "ascending"
+      ? ArrowUp
+      : sortDirection === "descending"
+        ? ArrowDown
+        : ArrowUpDown;
   return (
     <th
       {...props}
       {...themeSlotProps("table", "head")}
+      aria-sort={onSort ? (sortDirection ?? "none") : props["aria-sort"]}
       className={cx(sx(styles.headCell, alignStyles[align], xstyle), className)}
       scope={props.scope ?? "col"}
-    />
+    >
+      {onSort ? (
+        <button
+          type="button"
+          className={sx(
+            styles.sortButton,
+            align === "end" && styles.sortButtonEnd,
+            align === "center" && styles.sortButtonCenter,
+            sortDirection !== null && styles.sortButtonActive,
+            focusRing.ring,
+            transition.colors,
+          )}
+          data-table-sort={sortDirection ?? "none"}
+          onClick={onSort}
+        >
+          <span className={sx(styles.sortLabel)}>{children}</span>
+          <SortIcon
+            aria-hidden
+            className={sx(
+              styles.sortIcon,
+              sortDirection === null && styles.sortIconIdle,
+            )}
+          />
+        </button>
+      ) : (
+        children
+      )}
+    </th>
   );
 }
 
@@ -298,6 +363,53 @@ const styles = stylex.create({
     textAlign: "start",
     verticalAlign: "middle",
     whiteSpace: "nowrap",
+  },
+  // The header's own type, as a button: the label and its direction icon sit
+  // on one line, centred on each other, and the whole label is the target.
+  sortButton: {
+    alignItems: "center",
+    appearance: "none",
+    backgroundColor: "transparent",
+    borderRadius: vars["--ads-radius-mark"],
+    borderWidth: 0,
+    color: {
+      default: "inherit",
+      "@media (hover: hover) and (pointer: fine)": {
+        default: "inherit",
+        ":hover": vars["--ads-color-text"],
+      },
+    },
+    cursor: "pointer",
+    display: "inline-flex",
+    font: "inherit",
+    gap: vars["--ads-space-4"],
+    lineHeight: "inherit",
+    margin: 0,
+    maxInlineSize: "100%",
+    padding: 0,
+    textAlign: "inherit",
+  },
+  sortButtonEnd: {
+    flexDirection: "row-reverse",
+  },
+  sortButtonCenter: {
+    justifyContent: "center",
+  },
+  sortButtonActive: {
+    color: vars["--ads-color-text"],
+  },
+  sortLabel: {
+    minInlineSize: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+  sortIcon: {
+    blockSize: vars["--ads-control-icon-size-sm"],
+    flexShrink: 0,
+    inlineSize: vars["--ads-control-icon-size-sm"],
+  },
+  sortIconIdle: {
+    opacity: 0.5,
   },
   cell: {
     color: vars["--ads-color-text"],

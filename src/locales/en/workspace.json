@@ -596,7 +596,8 @@
     "releasedUnobserved_one": "{{count}} hidden page released. Memory observation unavailable.",
     "releasedUnobserved_other": "{{count}} hidden pages released. Memory observation unavailable.",
     "applicationGroup": "Stave app and unattributed processes",
-    "sharedGroup": "Processes shared across workspaces"
+    "sharedGroup": "Processes shared across workspaces",
+    "shareOfMeasured": "{{name}}: share of measured memory"
   },
   "resourcesPopover": {
     "resourceManager": "Resource Manager",
