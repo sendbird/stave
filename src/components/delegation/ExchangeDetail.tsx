@@ -12,6 +12,7 @@ import {
 import {
   describeAgentIdentity,
   describeDeadline,
+  isExchangeStatusLive,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
 import { DelegateRoute } from "./DelegateRoute";
@@ -89,9 +90,7 @@ function Section(props: { label: string; children: ReactNode; testId?: string })
 export function ExchangeDetail(props: ExchangeDetailProps) {
   useTranslation();
   const { exchange, nowMs } = props;
-  const live =
-    exchange.outcome.status === "running" ||
-    exchange.outcome.status === "queued";
+  const live = isExchangeStatusLive(exchange.outcome.status);
   const elapsedMs = resolveExchangeElapsedMs(exchange, nowMs);
   const deadline =
     live && exchange.timing.deadlineAt !== undefined

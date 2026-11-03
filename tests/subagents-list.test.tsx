@@ -72,6 +72,13 @@ describe("subagent list order and counts", () => {
   });
 });
 
+/** A row's state word and how long it ran, as the row draws them (`Running · 10m`). */
+function rowStatus(html: string, key: string) {
+  const row = html.slice(html.indexOf(`>${key}</span>`));
+  const head = row.slice(row.indexOf("data-exchange-status="), row.indexOf("</div>"));
+  return head.slice(head.indexOf(">") + 1).replace(/<time[^>]*>.*?<\/time>/g, "").replace(/<[^>]+>/g, "");
+}
+
 describe("SubagentsList", () => {
   function render(rows: DelegationExchange[], opened: string[] = []) {
     const items: SubagentListItem[] = orderSubagentList(rows).map((exchange) => ({
@@ -93,21 +100,62 @@ describe("SubagentsList", () => {
     expect(html.indexOf('data-needs-user="true"')).toBeLessThan(html.indexOf('data-subagent-kind="subagent"'));
   });
 
-  test("every row says how long it ran: live rows to now, settled rows to their end", () => {
+  test("every row says how it stands and how long it ran: live rows to now, settled rows to their end", () => {
     const html = render(sampleRows());
     // explorer started at 0 and still runs at 10m; review took 4m and ended 5m ago.
-    expect(html).toContain("Running · 10m");
-    expect(html).toContain("Returned · 4m");
+    expect(rowStatus(html, "explorer")).toBe("Running · 10m");
+    expect(rowStatus(html, "review")).toBe("Returned · 4m");
     expect(html).toContain(">5m ago</time>");
     // A failed delegated task reads as failed, with how long it ran.
-    expect(html).toContain("Failed · 2m");
+    expect(rowStatus(html, "migrate")).toBe("Failed · 2m");
+    // The child that asks the user reads as such, never as running.
+    expect(rowStatus(html, "writer")).toBe("Needs you · 6m");
+    expect(html).toMatch(/data-subagent-state="needs-you"[^>]*data-needs-user="true"/);
   });
+
 
   test("with nothing waiting on the user there is no open shortcut", () => {
     const html = render([subagent("explorer", "running", { started: 0 }), delegated("review", "completed", { started: 1, ended: 5 })]);
     expect(html).toContain("1 running · 1 done");
     expect(html).not.toContain("Open explorer");
     expect(html).not.toContain('data-needs-user="true"');
+  });
+});
+
+describe("a child waiting on the user", () => {
+  test("an in-turn subagent with an open approval needs the user, not the turn", () => {
+    const node = {
+      key: "agent:claude-code:plan", identitySource: "provider", parentKey: null, label: "Plan the rollout",
+      status: "running", progress: [], startedAt: T0, updatedAt: T0,
+    } as AgentNode;
+    const open = fromWorkGraphNode(node, {
+      providerId: "claude-code",
+      interactionsById: { a: { id: "a", nodeKey: node.key, kind: "approval", title: "Write", raisedAt: T0 } },
+    });
+    expect(open.outcome.status).toBe("needs_user");
+    expect(subagentNeedsUser(open)).toBe(true);
+    expect(countSubagentList([open])).toMatchObject({ needsYou: 1, running: 0 });
+    expect(resolveSubagentsTabMark(countSubagentList([open]))).toMatchObject({ text: "1 needs you", attention: true });
+    // Answered: back to running.
+    const answered = fromWorkGraphNode(node, {
+      providerId: "claude-code",
+      interactionsById: { a: { id: "a", nodeKey: node.key, kind: "approval", title: "Write", raisedAt: T0, resolvedAt: T0 + 1 } },
+    });
+    expect(answered.outcome.status).toBe("running");
+    // An ask left open on a node that already ended does not reopen it.
+    expect(fromWorkGraphNode({ ...node, status: "failed" }, {
+      providerId: "claude-code",
+      interactionsById: { a: { id: "a", nodeKey: node.key, kind: "approval", title: "Write", raisedAt: T0 } },
+    }).outcome.status).toBe("failed");
+  });
+
+  test("a delegated task between turns is waiting, live and not the user's", () => {
+    const waiting = delegated("ship", "waiting", { started: 0 });
+    expect(waiting.outcome.status).toBe("waiting");
+    expect(subagentNeedsUser(waiting)).toBe(false);
+    expect(countSubagentList([waiting])).toMatchObject({ needsYou: 0, running: 1 });
+    const asking = delegated("ship", "waiting", { started: 0 }, "approval");
+    expect(asking.outcome).toMatchObject({ status: "needs_user", progress: ["Needs approval"] });
   });
 });
 
@@ -143,7 +191,7 @@ describe("a child rebuilt from saved messages", () => {
 
   test("shows the duration the provider measured, but no made-up end time", () => {
     const html = rebuilt(252);
-    expect(html).toContain("Returned · 4m 12s");
+    expect(rowStatus(html, "Explore · Explore the users router")).toBe("Returned · 4m 12s");
     expect(html).not.toContain("<time");
   });
 });

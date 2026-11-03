@@ -285,7 +285,8 @@
   "delegationsBlock": {
     "ariaLabel": "에이전트",
     "delegationsBlock": "에이전트",
-    "title": "위임 전체 경과 시간"
+    "title": "위임 전체 경과 시간",
+    "countNeedsYou_other": "{{count}}개 확인 필요"
   },
   "exchangeDetail": {
     "auto": "자동 라우팅",
@@ -672,7 +673,9 @@
     "label4": "실패함",
     "label5": "취소됨",
     "label6": "시간 초과됨",
-    "label7": "미해결"
+    "label7": "미해결",
+    "waiting": "대기 중",
+    "needsYou": "확인 필요"
   },
   "automaticTurnOwner": {
     "aGENTRUNACTIVEWAKEUPDETAIL": "이 작업에서 실행이 진행 중입니다. 실행이 종료되면 이 일정을 재개합니다.",
@@ -804,7 +807,8 @@
     "folded": {
       "done_other": "{{count}}개 완료",
       "failed_other": "{{count}}개 실패",
-      "stopped_other": "{{count}}개 중지됨"
+      "stopped_other": "{{count}}개 중지됨",
+      "unresolved_other": "{{count}}개 확인 안 됨"
     }
   },
   "normalize": {

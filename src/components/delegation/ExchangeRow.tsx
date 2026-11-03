@@ -5,14 +5,10 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { surfaceChrome } from "@/components/ads/recipes/surface-chrome";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
-import { TurnActivityStatusIcon } from "@/components/session/turn-activity-status-icon";
-import type {
-  TurnActivityIconKey,
-  TurnActivityRowStatus,
-} from "@/components/session/turn-activity.utils";
 import {
   resolveExchangeElapsedMs,
   type DelegationActionId,
@@ -21,32 +17,12 @@ import {
 import {
   describeDeadline,
   describeExchangeStatus,
-  type ExchangeStatus,
+  exchangeStatusToWorkState,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
 import { DelegateRoute } from "./DelegateRoute";
 import { ExchangeDetail } from "./ExchangeDetail";
 import { delegationStyles as styles } from "./delegation.styles";
-
-/**
- * The exchange vocabulary onto the shelf's status glyphs. `cancelled` and
- * `unresolved` borrow the inert queued circle and rename themselves for
- * screen readers rather than claiming a check or an alert.
- */
-const ROW_STATUS: Record<ExchangeStatus, TurnActivityRowStatus> = {
-  queued: "pending",
-  running: "running",
-  returned: "completed",
-  failed: "failed",
-  timed_out: "failed",
-  cancelled: "pending",
-  unresolved: "pending",
-};
-
-const ROW_ICON: Record<DelegationExchange["kind"], TurnActivityIconKey> = {
-  "delegated-task": "subagent",
-  subagent: "subagent",
-};
 
 export interface ExchangeRowProps {
   exchange: DelegationExchange;
@@ -69,8 +45,11 @@ export interface ExchangeRowProps {
 
 /**
  * One line per delegation: status glyph · role/identity · one-line ask ·
- * elapsed or deadline · chevron. Expands inline into `ExchangeDetail`, so the
- * live shelf, the panel and the log all open the same body.
+ * elapsed or deadline · chevron. The glyph is the shared work state
+ * (`exchangeStatusToWorkState`), so a delegate waiting on the user wears the
+ * same mark here as in the Subagents list and the tab. Expands inline into
+ * `ExchangeDetail`, so the live shelf, the panel and the log all open the
+ * same body.
  */
 export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
   useTranslation();
@@ -118,9 +97,9 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         onClick={() => props.onInspect ? props.onInspect(exchange) : toggle()}
       >
         <span className={sx(styles.rowStatusSlot)}>
-          <TurnActivityStatusIcon
-            status={ROW_STATUS[exchange.outcome.status]}
-            iconKey={ROW_ICON[exchange.kind]}
+          <StateMark
+            state={exchangeStatusToWorkState(exchange.outcome.status)}
+            size="md"
             label={status.label}
           />
         </span>

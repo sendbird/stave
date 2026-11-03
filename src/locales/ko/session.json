@@ -529,8 +529,6 @@
     "workGraphTree": "에이전트 트리",
     "ariaLabel2": "완료된 에이전트 {{value1}} {{value2}}",
     "workGraphTree2": "완료됨",
-    "statusLabel": "취소됨",
-    "label": "취소됨",
     "body": "응답 필요",
     "body2": "경과 시간",
     "extraCopy130": "숨기기",

@@ -13,14 +13,13 @@ import {
   Square,
   type LucideIcon,
 } from "lucide-react";
+import { StateMark } from "@/components/ads/components/StateMark";
+import { formatTurnActivityElapsedSeconds } from "@/components/session/turn-activity.utils";
 import {
-  getTurnActivityStatusLabel,
-  TurnActivityStatusIcon,
-} from "@/components/session/turn-activity-status-icon";
-import {
-  formatTurnActivityElapsedSeconds,
-  type TurnActivityRowStatus,
-} from "@/components/session/turn-activity.utils";
+  describeExchangeStatus,
+  exchangeStatusFromWorkGraphStatus,
+  exchangeStatusToWorkState,
+} from "@/lib/delegation/format";
 import { Button } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx, cx } from "@/components/ads/utils/stylex";
@@ -39,7 +38,6 @@ import {
   isTerminalWorkGraphStatus,
   type AgentNode,
   type WorkGraph,
-  type WorkGraphStatus,
 } from "@/lib/work-graph/work-graph.types";
 
 /**
@@ -57,20 +55,6 @@ import {
 const WORK_GRAPH_INDENT_PX = 14;
 /** Root rows align their status mark with the section heading; depth owns the inset. */
 const WORK_GRAPH_ROW_INSET_PX = 0;
-
-/**
- * The graph's statuses onto the shelf's. `cancelled` has no shelf equivalent:
- * it neither succeeded nor errored, so it borrows the inert queued circle and
- * renames itself for screen readers rather than claiming a check or an alert.
- */
-const WORK_GRAPH_ROW_STATUS: Record<WorkGraphStatus, TurnActivityRowStatus> = {
-  pending: "pending",
-  running: "running",
-  waiting: "waiting",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "pending",
-};
 
 const WORK_GRAPH_CONTROL_ICONS: Record<WorkGraphControl, LucideIcon> = {
   message: MessageSquare,
@@ -287,8 +271,9 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
     liveIdentities,
   });
   // A person is the critical path here, whatever the runtime still reports the
-  // node's own status as.
-  const status = row.blocked ? "waiting" : WORK_GRAPH_ROW_STATUS[node.status];
+  // node's own status as. Read through the exchange vocabulary, so the tree and
+  // the delegation rows give one node the same mark and word.
+  const exchangeStatus = exchangeStatusFromWorkGraphStatus(node.status, { blocked: row.blocked });
   const detail = node.reason ?? node.progress.at(-1);
   const title = [displayLabel, detail, controls.reason]
     .filter((part): part is string => Boolean(part))
@@ -298,18 +283,15 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
       ? (node.completedAt ?? node.updatedAt)
       : now) - node.startedAt;
   const elapsedLabel = formatTurnActivityElapsedSeconds(elapsedSeconds / 1_000);
-  const statusLabel =
-    node.status === "cancelled"
-      ? i18n.t("session:workGraphTree.statusLabel")
-      : getTurnActivityStatusLabel(status);
+  const statusLabel = describeExchangeStatus(exchangeStatus).label;
   const revealToolUseId = onSelectTool ? node.spawnedByToolUseId : undefined;
   const body = (
     <>
       <span className={sx(styles.statusIconWrap)}>
-        <TurnActivityStatusIcon
-          status={status}
-          iconKey="subagent"
-          label={node.status === "cancelled" ? i18n.t("session:workGraphTree.label") : undefined}
+        <StateMark
+          state={exchangeStatusToWorkState(exchangeStatus)}
+          size="md"
+          label={statusLabel}
         />
       </span>
       <div className={sx(styles.body)}>

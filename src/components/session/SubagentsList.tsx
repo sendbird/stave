@@ -7,7 +7,6 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
-import { ExchangeStatusBadge } from "@/components/delegation/ExchangeStatusBadge";
 import { ActionButton } from "@/components/system/ActionButton";
 import { RelativeTime } from "@/components/system/RelativeTime";
 import { formatDuration } from "@/i18n/format";
@@ -16,12 +15,9 @@ import {
   resolveExchangeElapsedMs,
   type DelegationExchange,
 } from "@/lib/delegation/exchange";
-import {
-  countSubagentList,
-  SUBAGENT_LIST_WORK_STATE,
-  subagentNeedsUser,
-} from "@/lib/delegation/subagent-list";
-import { subagentLineState, subagentResultLine } from "@/lib/delegation/subagent-summary";
+import { describeExchangeStatus } from "@/lib/delegation/format";
+import { countSubagentList, subagentNeedsUser } from "@/lib/delegation/subagent-list";
+import { subagentResultLine, subagentWorkState } from "@/lib/delegation/subagent-summary";
 
 /** One row of the Subagents list, already resolved by its container. */
 export interface SubagentListItem {
@@ -87,7 +83,7 @@ function SubagentsSummary(props: { items: readonly SubagentListItem[] }) {
 function OpenFirstNeedsYou(props: { item: SubagentListItem }) {
   useTranslation();
   const { item } = props;
-  const state = SUBAGENT_LIST_WORK_STATE[subagentLineState(item.exchange)];
+  const state = subagentWorkState(item.exchange);
   const reason = item.exchange.outcome.progress?.at(-1) ?? item.exchange.outcome.error ?? WORK_STATE[state].label;
   return (
     <ActionButton
@@ -124,19 +120,26 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
   const now = props.nowMs ?? clock;
   const elapsedMs = resolveExchangeElapsedMs(exchange, now);
   const needsUser = subagentNeedsUser(exchange);
-  const workState = SUBAGENT_LIST_WORK_STATE[subagentLineState(exchange)];
+  const workState = subagentWorkState(exchange);
+  const status = describeExchangeStatus(exchange.outcome.status);
   // The answer renders like the conversation, and only once it is opened, so
   // a long list never parses every answer it folds away.
   const [answerOpen, setAnswerOpen] = useState(false);
   return (
-    <li className={sx(styles.row)} data-subagent-kind={exchange.kind} data-needs-user={needsUser ? "true" : undefined}>
+    <li
+      className={sx(styles.row)}
+      data-subagent-kind={exchange.kind}
+      data-subagent-state={workState}
+      data-needs-user={needsUser ? "true" : undefined}
+    >
       <div className={sx(styles.head)}>
-        {needsUser ? <StateMark state={workState} size="xs" label={WORK_STATE[workState].label} /> : null}
         <span className={sx(styles.who)}>{item.who}</span>
-        <ExchangeStatusBadge
-          status={exchange.outcome.status}
-          suffix={elapsedMs === null ? undefined : formatDuration(elapsedMs)}
-        />
+        <span className={sx(styles.status)} data-exchange-status={exchange.outcome.status}>
+          <StateMark state={workState} size="xs" showLabel label={status.label} motion={live ? "moving" : "still"} />
+          {elapsedMs === null ? null : (
+            <span className={sx(styles.elapsed)}>{` · ${formatDuration(elapsedMs)}`}</span>
+          )}
+        </span>
         {endedAt !== undefined ? (
           <span className={sx(styles.when)}>
             <RelativeTime date={endedAt} now={new Date(now)} past />
@@ -236,6 +239,19 @@ const styles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-text"],
+  },
+  status: {
+    alignItems: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    minWidth: 0,
+    whiteSpace: "nowrap",
+  },
+  elapsed: {
+    color: vars["--ads-color-text-muted"],
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "pre",
   },
   when: {
     flexShrink: 0,

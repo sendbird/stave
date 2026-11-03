@@ -10,6 +10,7 @@ import {
 } from "@/lib/providers/runtime-option-contract";
 import type { WorkGraphStatus } from "@/lib/work-graph/work-graph.types";
 import type { Tone } from "@/components/ads/utils/tone";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 
 export {
   describeDeadline,
@@ -87,9 +88,19 @@ export function describeAgentIdentity(args: {
 /* Status                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Where one delegation stands. `waiting` and `needs_user` are both live but
+ * not working: a `waiting` delegate sits between turns on its own (an outside
+ * event, a usage reset) and carries on without anyone; a `needs_user`
+ * delegate stopped on a person (a question, an approval, a halted run) and
+ * goes nowhere until someone answers. They are statuses, not flags beside
+ * `running`, so no surface can read the one field and miss the other.
+ */
 export const EXCHANGE_STATUSES = [
   "queued",
   "running",
+  "waiting",
+  "needs_user",
   "returned",
   "failed",
   "cancelled",
@@ -118,6 +129,8 @@ const EXCHANGE_STATUS_DESCRIPTIONS: Record<
 > = {
   queued: { get label() { return i18n.t("agentRuns:format.label"); }, tone: "neutral", settled: false },
   running: { get label() { return i18n.t("agentRuns:format.label2"); }, tone: "info", settled: false },
+  waiting: { get label() { return i18n.t("agentRuns:format.waiting"); }, tone: "neutral", settled: false },
+  needs_user: { get label() { return i18n.t("agentRuns:format.needsYou"); }, tone: "warning", settled: false },
   returned: { get label() { return i18n.t("agentRuns:format.label3"); }, tone: "success", settled: true },
   failed: { get label() { return i18n.t("agentRuns:format.label4"); }, tone: "danger", settled: true },
   cancelled: { get label() { return i18n.t("agentRuns:format.label5"); }, tone: "warning", settled: true },
@@ -133,6 +146,28 @@ export function describeExchangeStatus(
 
 export function isExchangeStatusLive(status: ExchangeStatus) {
   return !EXCHANGE_STATUS_DESCRIPTIONS[status].settled;
+}
+
+/**
+ * Each exchange status as the shared work state (`state-vocabulary.ts`), the
+ * one mapping every delegation surface draws its `StateMark` from. A time-out
+ * is a failure; a cancelled delegation stopped; an unresolved one ended
+ * without saying how, which is what `unknown` means.
+ */
+const EXCHANGE_STATUS_WORK_STATE: Readonly<Record<ExchangeStatus, WorkState>> = {
+  queued: "queued",
+  running: "working",
+  waiting: "waiting",
+  needs_user: "needs-you",
+  returned: "ready",
+  failed: "failed",
+  timed_out: "failed",
+  cancelled: "stopped",
+  unresolved: "unknown",
+};
+
+export function exchangeStatusToWorkState(status: ExchangeStatus): WorkState {
+  return EXCHANGE_STATUS_WORK_STATE[status];
 }
 
 /** Transcript tool-part states (`input-streaming`, `output-error`, …). */
@@ -152,7 +187,9 @@ export function exchangeStatusFromToolState(state: string): ExchangeStatus {
 /**
  * Delegated-task phases onto the vocabulary. A cancelled child that was detached
  * rather than stopped still reads as cancelled: the delegation ended, even if
- * the task carries on as an ordinary one.
+ * the task carries on as an ordinary one. `blocked` is a live child stopped on
+ * a person (a question or approval it raised, or its run waiting for one); it
+ * outranks the ledger phase, which still says running or waiting.
  */
 export function exchangeStatusFromDelegatedTaskPhase(
   phase:
@@ -163,13 +200,15 @@ export function exchangeStatusFromDelegatedTaskPhase(
     | "failed"
     | "interrupted"
     | "cancelled",
+  options: { blocked?: boolean } = {},
 ): ExchangeStatus {
   switch (phase) {
     case "pending":
-      return "queued";
+      return options.blocked ? "needs_user" : "queued";
     case "running":
+      return options.blocked ? "needs_user" : "running";
     case "waiting":
-      return "running";
+      return options.blocked ? "needs_user" : "waiting";
     case "completed":
       return "returned";
     case "failed":
@@ -180,15 +219,22 @@ export function exchangeStatusFromDelegatedTaskPhase(
   }
 }
 
+/**
+ * Work-graph statuses onto the vocabulary. `blocked` is a node with an open
+ * interaction (an approval or a question it raised): while it is live it waits
+ * on the user, whatever its own status says.
+ */
 export function exchangeStatusFromWorkGraphStatus(
   status: WorkGraphStatus,
+  options: { blocked?: boolean } = {},
 ): ExchangeStatus {
   switch (status) {
     case "pending":
-      return "queued";
+      return options.blocked ? "needs_user" : "queued";
     case "running":
+      return options.blocked ? "needs_user" : "running";
     case "waiting":
-      return "running";
+      return options.blocked ? "needs_user" : "waiting";
     case "completed":
       return "returned";
     case "failed":
@@ -196,4 +242,16 @@ export function exchangeStatusFromWorkGraphStatus(
     case "cancelled":
       return "cancelled";
   }
+}
+
+/**
+ * A work-graph node as the shared work state. It goes through the exchange
+ * vocabulary on purpose: the agent tree and the delegation rows draw the same
+ * node, so they must never disagree about it.
+ */
+export function workGraphStatusToWorkState(
+  status: WorkGraphStatus,
+  options: { blocked?: boolean } = {},
+): WorkState {
+  return exchangeStatusToWorkState(exchangeStatusFromWorkGraphStatus(status, options));
 }

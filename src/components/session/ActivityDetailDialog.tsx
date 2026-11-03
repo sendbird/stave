@@ -12,7 +12,7 @@ import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import type { ChatMessage } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
-import { describeExchangeStatus } from "@/lib/delegation/format";
+import { describeExchangeStatus, isExchangeStatusLive } from "@/lib/delegation/format";
 import { TraceOutput } from "./message/turn-event-rows";
 import { activityDetailStyles as s } from "./activity-detail.styles";
 import {
@@ -125,7 +125,7 @@ export function ActivityDetailDialog(props: {
   const accountProfileId = owner?.nativeAccountProfileId ?? "system-default";
   const cursor = provider ? getProviderSessionCursor({ sessions, providerId: provider, accountProfileId }) : null;
   const sessionId = owner?.nativeProviderSessionId ?? cursor?.nativeSessionId;
-  const live = exchange ? ["running", "queued"].includes(exchange.outcome.status) : tool?.type === "tool_use" && ["input-streaming", "input-available"].includes(tool.state);
+  const live = exchange ? isExchangeStatusLive(exchange.outcome.status) : tool?.type === "tool_use" && ["input-streaming", "input-available"].includes(tool.state);
   const canReadProviderHistory = !delegatedTaskId && Boolean(
     agentId &&
     sessionId &&

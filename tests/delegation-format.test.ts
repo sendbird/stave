@@ -112,7 +112,7 @@ describe("exchange status vocabulary", () => {
   });
 
   test("adapts delegated-task phases and graph statuses", () => {
-    expect(exchangeStatusFromDelegatedTaskPhase("waiting")).toBe("running");
+    expect(exchangeStatusFromDelegatedTaskPhase("waiting")).toBe("waiting");
     expect(exchangeStatusFromDelegatedTaskPhase("interrupted")).toBe("failed");
     expect(exchangeStatusFromDelegatedTaskPhase("cancelled")).toBe("cancelled");
     expect(exchangeStatusFromWorkGraphStatus("completed")).toBe("returned");

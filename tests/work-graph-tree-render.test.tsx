@@ -257,7 +257,8 @@ describe("WorkGraphTree", () => {
 
     expect(html).toContain("Summarize the diff");
     expect(html).toContain("Cancelled by the parent turn");
-    // Borrowed glyph, honest announcement.
+    // The stopped mark, announced as what happened to it.
+    expect(html).toContain('data-state="stopped"');
     expect(html).toContain("Cancelled");
     expect(html).not.toContain("Queued");
     expect(html).not.toContain("<button");
@@ -414,9 +415,11 @@ describe("WorkGraphTree", () => {
     });
 
     expect(html).toContain('data-work-graph-blocked="true"');
-    expect(html).toContain("Needs you");
-    // The runtime still calls it running; the person is the critical path.
-    expect(html).toContain("Waiting");
+    // The runtime still calls it running; the person is the critical path, so
+    // the row wears the needs-you mark the delegation rows give the same node.
+    expect(html).toContain('data-state="needs-you"');
+    expect(html).toContain('aria-label="Needs you"');
+    expect(html).not.toContain('data-state="working"');
   });
 
   test("an empty graph renders nothing at all", () => {

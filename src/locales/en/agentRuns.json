@@ -287,7 +287,9 @@
   "delegationsBlock": {
     "ariaLabel": "Agents",
     "delegationsBlock": "Agents",
-    "title": "Elapsed across delegations"
+    "title": "Elapsed across delegations",
+    "countNeedsYou_one": "{{count}} needs you",
+    "countNeedsYou_other": "{{count}} need you"
   },
   "exchangeDetail": {
     "auto": "Automatic routing",
@@ -682,7 +684,9 @@
     "label4": "Failed",
     "label5": "Cancelled",
     "label6": "Timed out",
-    "label7": "Unresolved"
+    "label7": "Unresolved",
+    "waiting": "Waiting",
+    "needsYou": "Needs you"
   },
   "automaticTurnOwner": {
     "aGENTRUNACTIVEWAKEUPDETAIL": "A run is running on this task. This schedule resumes when the run ends.",
@@ -823,7 +827,9 @@
       "failed_one": "{{count}} failed",
       "failed_other": "{{count}} failed",
       "stopped_one": "{{count}} stopped",
-      "stopped_other": "{{count}} stopped"
+      "stopped_other": "{{count}} stopped",
+      "unresolved_one": "{{count}} unresolved",
+      "unresolved_other": "{{count}} unresolved"
     }
   },
   "normalize": {

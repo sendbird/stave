@@ -136,7 +136,7 @@ export function describeDelegatedWait(args: DelegatedWaitSources & {
   wait: AgentRunEventWait | null;
   now: number;
 }): WaitLivenessNote | null {
-  const blocked = args.rows.filter((row) => row.outcome.needsUser);
+  const blocked = args.rows.filter((row) => row.outcome.status === "needs_user");
   if (blocked.length) {
     return { text: i18n.t("agentRuns:eventWait.delegateNeedsYou", { count: blocked.length, names: delegateNames(blocked) }), tone: "warning" };
   }

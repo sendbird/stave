@@ -535,8 +535,6 @@
     "workGraphTree": "Agent tree",
     "ariaLabel2": "{{value1}} {{value2}} completed agents",
     "workGraphTree2": "done",
-    "statusLabel": "Cancelled",
-    "label": "Cancelled",
     "body": "Needs you",
     "body2": "elapsed",
     "extraCopy130": "Hide",
