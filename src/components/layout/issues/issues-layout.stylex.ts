@@ -156,25 +156,6 @@ export const taskLayoutStyles = stylex.create({
     flexWrap: "wrap",
     gap: vars["--ads-space-8"],
   },
-  tabList: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    gap: 2,
-    padding: 2,
-  },
-  activeTab: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    boxShadow: vars["--ads-elevation-raised"],
-  },
-  tab: {
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
-    height: 32,
-    paddingInline: vars["--ads-space-8"],
-  },
   search: { marginInlineStart: "auto", position: "relative" },
   searchIcon: {
     color: vars["--ads-color-text-muted"],
@@ -192,6 +173,27 @@ export const taskLayoutStyles = stylex.create({
     paddingInlineStart: "2rem",
     width: "16rem",
   },
+  // Applied filters and the result count. Kept mounted (and collapsed while
+  // nothing narrows the list) so the count's live region announces changes.
+  appliedRow: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+    minInlineSize: 0,
+  },
+  appliedRowEmpty: { display: "none" },
+  // Sized to its chips, so Clear all follows the last chip and the count
+  // takes the end of the row.
+  appliedChips: { flex: "0 1 auto", inlineSize: "auto", minInlineSize: 0 },
+  appliedSummary: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    marginInlineStart: "auto",
+    whiteSpace: "nowrap",
+  },
+  filterPopup: { inlineSize: "20rem" },
   toolbarActions: {
     alignItems: "center",
     display: "flex",

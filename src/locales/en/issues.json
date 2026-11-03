@@ -52,7 +52,6 @@
     "board": "Board",
     "groupTickets": "Group tickets",
     "sortTickets": "Sort tickets",
-    "reset": "Reset",
     "assignedToMe": "Assigned to me",
     "allOpen": "All open",
     "recentlyDone": "Recently done",
@@ -65,7 +64,22 @@
     "sortKey": "Sort: Key",
     "any": "Any",
     "notInStave": "Not in Stave",
-    "resetCount": "Reset {{count}}"
+    "operatorIs": "is",
+    "operatorIsAnyOf": "is any of",
+    "staveRuns": "Stave runs",
+    "filter": "Filter",
+    "filterCount": "Filter, {{count}} active",
+    "searchFilterValues": "Search status, priority, project, label…",
+    "searchFilterValuesLabel": "Search filter values",
+    "noFilterValues": "No matching values.",
+    "appliedFilters": "Applied filters",
+    "clearAll": "Clear all",
+    "resultSummary_one": "{{filters}} · {{count}} issue",
+    "resultSummary_other": "{{filters}} · {{count}} issues",
+    "filterTotal_one": "{{count}} filter",
+    "filterTotal_other": "{{count}} filters",
+    "searchChip": "Search",
+    "operatorContains": "contains"
   },
   "issuesView": {
     "ticket": "Ticket",
@@ -94,12 +108,6 @@
     "theDescriptionCouldNotBeLoaded": "The description could not be loaded.",
     "staveState": "{{state}} in Stave",
     "commentCount": "Comments ({{count}})"
-  },
-  "trackerIssueFilterChip": {
-    "filterValue": "Filter {{value1}}",
-    "nothingToFilterByYet": "Nothing to filter by yet.",
-    "selectedCount_one": "{{count}} selected",
-    "selectedCount_other": "{{count}} selected"
   },
   "trackerIssueKickoffSheet": {
     "ticket": "ticket",

@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
 import { describeStageMeta } from "@/components/agent-runs/StageCard";
 import { Thinking } from "@/components/ads/components/Thinking";
-import { TrackerIssueFilterChip } from "@/components/layout/issues/TrackerIssueFilterChip";
 import type { AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
 import { describeProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
 import { workspaceCleanupBlocker, workspaceCleanupRecommendation } from "@/lib/workspace-cleanup";
@@ -26,19 +25,6 @@ const runningStage = {
   evidence: [],
 } as unknown as AgentRunStageRow;
 
-function chip(selected: string[]) {
-  return renderToStaticMarkup(
-    createElement(TrackerIssueFilterChip, {
-      label: "Status",
-      options: [
-        { value: "todo", label: "To do" },
-        { value: "done", label: "Done" },
-      ],
-      selected,
-      onChange: () => {},
-    }),
-  );
-}
 
 describe("copy that used to be hardcoded English", () => {
   test("a running stage says now in the app language", () => {
@@ -47,13 +33,6 @@ describe("copy that used to be hardcoded English", () => {
     expect(describeStageMeta(runningStage)).toBe("진행 중");
   });
 
-  test("a filter chip with several picks counts them in a whole phrase", () => {
-    expect(chip(["todo", "done"])).toContain("2 selected");
-    applyAppLocale("ko");
-    const korean = chip(["todo", "done"]);
-    expect(korean).toContain("2개 선택됨");
-    expect(korean).not.toContain("selected");
-  });
 
   test("the thinking phase defaults to the app language", () => {
     const render = () => renderToStaticMarkup(createElement(Thinking, { status: "thinking" }));

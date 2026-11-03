@@ -51,7 +51,6 @@
     "board": "보드",
     "groupTickets": "티켓 그룹화",
     "sortTickets": "티켓 정렬",
-    "reset": "초기화",
     "assignedToMe": "나에게 할당됨",
     "allOpen": "모든 열린 항목",
     "recentlyDone": "최근 완료됨",
@@ -64,7 +63,20 @@
     "sortKey": "정렬: 키",
     "any": "모든 항목",
     "notInStave": "Stave 작업 없음",
-    "resetCount": "{{count}}개 초기화"
+    "operatorIs": "일치",
+    "operatorIsAnyOf": "중 하나",
+    "staveRuns": "Stave 실행",
+    "filter": "필터",
+    "filterCount": "필터, {{count}}개 적용 중",
+    "searchFilterValues": "상태, 우선순위, 프로젝트, 레이블 검색…",
+    "searchFilterValuesLabel": "필터 값 검색",
+    "noFilterValues": "일치하는 값이 없습니다.",
+    "appliedFilters": "적용된 필터",
+    "clearAll": "모두 지우기",
+    "resultSummary_other": "{{filters}} · 이슈 {{count}}개",
+    "filterTotal_other": "필터 {{count}}개",
+    "searchChip": "검색어",
+    "operatorContains": "포함"
   },
   "issuesView": {
     "ticket": "티켓",
@@ -93,11 +105,6 @@
     "theDescriptionCouldNotBeLoaded": "설명을 불러오지 못했습니다.",
     "staveState": "Stave 상태: {{state}}",
     "commentCount": "댓글 ({{count}})"
-  },
-  "trackerIssueFilterChip": {
-    "filterValue": "{{value1}} 필터링",
-    "nothingToFilterByYet": "아직 필터링할 항목이 없습니다.",
-    "selectedCount_other": "{{count}}개 선택됨"
   },
   "trackerIssueKickoffSheet": {
     "ticket": "티켓",
