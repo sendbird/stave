@@ -253,7 +253,27 @@
     "promptInputContextMeter4": "Tokens",
     "promptInputContextMeter5": "Compacting…",
     "promptInputContextMeter6": "Compact context",
-    "promptInputContextMeter7": "This provider has no compact command."
+    "promptInputContextMeter7": "This provider has no compact command.",
+    "ariaLabelRemaining": "Conversation context {{percent}} used, {{remaining}} tokens left",
+    "announceWarning": "Conversation context is {{percent}} full.",
+    "announceDanger": "Conversation context is {{percent}} full and close to its limit."
+  },
+  "contextBreakdown": {
+    "title": "Composition",
+    "loading": "Measuring…",
+    "unavailable": "Couldn't measure what fills the context.",
+    "notReported": "This provider doesn't report what fills the context.",
+    "conversation": "Conversation (estimated)",
+    "note": "Fixed parts are measured from a new session in this folder. Conversation is the used tokens minus those parts.",
+    "category": {
+      "systemPrompt": "System prompt",
+      "systemTools": "Tools",
+      "mcpTools": "MCP tools",
+      "mcpInstructions": "MCP instructions",
+      "customAgents": "Custom agents",
+      "memoryFiles": "Memory files",
+      "skills": "Skills"
+    }
   },
   "promptInputControlMenu": {
     "toolbar": "Bar",

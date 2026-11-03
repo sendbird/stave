@@ -89,12 +89,15 @@ import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles
 import {
   PREVIEW_CHILD_APPROVAL,
   PREVIEW_CHILD_QUESTION,
+  PREVIEW_CLAUDE_CONTEXT_USAGE,
   PREVIEW_MACROS,
   PREVIEW_MODEL,
   PREVIEW_REVIEW_CODEX_MODEL,
   PREVIEW_SECRET_REQUEST,
   PREVIEW_SECRET_REQUEST_EXISTING,
 } from "./fixtures";
+import { readClaudeContextUsageCached } from "@/lib/providers/claude-context-breakdown";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   caseHasQueue,
   isShelfCaseTurnLive,
@@ -211,6 +214,21 @@ function installAgentsBridge(initial: AgentConfig | null) {
   };
 }
 const INITIAL_AGENT = previewAgent();
+/**
+ * `&contextProvider=codex` shows the meter for a provider that reports only a
+ * total. The Claude read is a fake host call that counts itself on
+ * `window.__contextBreakdownLoads`, behind the real short cache.
+ */
+const CONTEXT_PROVIDER: ProviderId =
+  previewParams.get("contextProvider") === "codex" ? "codex" : "claude-code";
+function loadPreviewContextBreakdown() {
+  return readClaudeContextUsageCached("composer-frame-preview", async () => {
+    const host = window as { __contextBreakdownLoads?: number };
+    host.__contextBreakdownLoads = (host.__contextBreakdownLoads ?? 0) + 1;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return { ok: true, detail: "preview", usage: PREVIEW_CLAUDE_CONTEXT_USAGE };
+  });
+}
 const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
   question: PREVIEW_CHILD_QUESTION,
   approval: PREVIEW_CHILD_APPROVAL,
@@ -598,6 +616,8 @@ export function ComposerFramePreviewApp() {
                       compactAvailable
                       compactDisabled={false}
                       onCompact={() => {}}
+                      providerId={CONTEXT_PROVIDER}
+                      loadBreakdown={CONTEXT_PROVIDER === "claude-code" ? loadPreviewContextBreakdown : undefined}
                     />
                   }
                   frameTop={framed ? shelf : undefined}

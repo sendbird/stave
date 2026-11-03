@@ -251,7 +251,27 @@
     "promptInputContextMeter4": "토큰",
     "promptInputContextMeter5": "압축 중…",
     "promptInputContextMeter6": "컨텍스트 압축",
-    "promptInputContextMeter7": "이 프로바이더에는 압축 명령이 없습니다."
+    "promptInputContextMeter7": "이 프로바이더에는 압축 명령이 없습니다.",
+    "ariaLabelRemaining": "대화 컨텍스트 {{percent}} 사용됨, {{remaining}} 토큰 남음",
+    "announceWarning": "대화 컨텍스트가 {{percent}} 찼습니다.",
+    "announceDanger": "대화 컨텍스트가 {{percent}} 찼고 한도에 가깝습니다."
+  },
+  "contextBreakdown": {
+    "title": "구성",
+    "loading": "측정 중…",
+    "unavailable": "컨텍스트 구성을 측정하지 못했습니다.",
+    "notReported": "이 프로바이더는 컨텍스트 구성을 보고하지 않습니다.",
+    "conversation": "대화(추정)",
+    "note": "고정 항목은 이 폴더의 새 세션에서 잰 값입니다. 대화는 사용한 토큰에서 고정 항목을 뺀 값입니다.",
+    "category": {
+      "systemPrompt": "시스템 프롬프트",
+      "systemTools": "도구",
+      "mcpTools": "MCP 도구",
+      "mcpInstructions": "MCP 안내",
+      "customAgents": "사용자 정의 에이전트",
+      "memoryFiles": "메모리 파일",
+      "skills": "스킬"
+    }
   },
   "promptInputControlMenu": {
     "toolbar": "도구 모음",

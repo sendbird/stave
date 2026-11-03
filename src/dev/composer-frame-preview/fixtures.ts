@@ -1,6 +1,7 @@
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 import type { ChildPendingRequest } from "@/components/session/ChildRequestSlot";
 import type { PendingSecretRequest } from "@/lib/secrets/secret-request";
+import type { ClaudeContextUsageSnapshot } from "@/lib/providers/provider.types";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -193,4 +194,36 @@ export const PREVIEW_SECRET_REQUEST_EXISTING: PendingSecretRequest = {
   ...PREVIEW_SECRET_REQUEST,
   id: "preview-secret-request-existing",
   existingSecret: { id: "preview-secret", name: "OpenAI (team)", valuePreview: "••••a9F2" },
+};
+
+/**
+ * A Claude context-usage read for the meter's composition section. Preview
+ * data only: the fixed parts add up to 27,100 of the meter's 72,000 used.
+ */
+export const PREVIEW_CLAUDE_CONTEXT_USAGE: ClaudeContextUsageSnapshot = {
+  categories: [
+    { id: "system_prompt", name: "System prompt", tokens: 3_100, color: "gray", kind: "used" },
+    { id: "system_tools", name: "System tools", tokens: 12_400, color: "gray", kind: "used" },
+    { id: "mcp_tools", name: "MCP tools", tokens: 8_200, color: "cyan", kind: "used" },
+    { id: "mcp_tools_deferred", name: "MCP tools (deferred)", tokens: 4_000, color: "cyan", kind: "deferred", isDeferred: true },
+    { id: "memory_files", name: "Memory files", tokens: 2_300, color: "orange", kind: "used" },
+    { id: "skills", name: "Skills", tokens: 1_100, color: "yellow", kind: "used" },
+    { id: "messages", name: "Messages", tokens: 40, color: "purple", kind: "used" },
+    { id: "free_space", name: "Free space", tokens: 72_860, color: "gray", kind: "free" },
+  ],
+  totalTokens: 27_140,
+  maxTokens: 100_000,
+  rawMaxTokens: 100_000,
+  percentage: 27,
+  model: "claude-opus-5",
+  memoryFiles: [
+    { path: "<workspace>/CLAUDE.md", type: "Project", tokens: 1_600 },
+    { path: "<user-home>/.claude/CLAUDE.md", type: "User", tokens: 700 },
+  ],
+  mcpTools: [
+    { name: "stave_create_workspace", serverName: "stave-local-mcp", tokens: 2_900 },
+    { name: "stave_run_task", serverName: "stave-local-mcp", tokens: 2_700 },
+    { name: "stave_lens_snapshot", serverName: "stave-local-mcp", tokens: 2_600 },
+    { name: "search_docs", serverName: "docs", tokens: 1_800, isLoaded: false },
+  ],
 };
