@@ -85,6 +85,8 @@ export type StepperProps = React.ComponentProps<"nav"> & {
   label?: string;
   onStepChange?: (index: number) => void;
   orientation?: StepperOrientation;
+  /** Host extension; see `StepperRootProps.showDescriptions`. */
+  showDescriptions?: boolean;
   size?: StepperSize;
   steps: StepperStep[];
   variant?: StepperVariant;
@@ -95,6 +97,7 @@ function StepperArray({
   label = i18n.t("ui:stepper.progress"),
   onStepChange,
   orientation = "horizontal",
+  showDescriptions = false,
   size = "md",
   steps,
   variant = "track",
@@ -109,6 +112,7 @@ function StepperArray({
       aria-label={label}
       distribution={distribution}
       orientation={orientation}
+      showDescriptions={showDescriptions}
       size={size}
       variant={variant}
     >

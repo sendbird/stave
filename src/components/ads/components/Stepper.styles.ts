@@ -326,6 +326,13 @@ export const styles = stylex.create({
     position: "absolute",
     whiteSpace: "nowrap",
   },
+  // Host: `showDescriptions` on a navigation chip. The status line sits on
+  // the title's left edge, one tight line under it, and wraps rather than
+  // clips, so a long count is never cut.
+  descriptionNavigationShown: {
+    lineHeight: vars["--ads-line-height-tight"],
+    overflowWrap: "anywhere",
+  },
   trigger: {
     appearance: "none",
     backgroundColor: {

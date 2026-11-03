@@ -763,6 +763,16 @@ Further host extensions:
     `statusLabels` holds translation keys rather than words.
   - `Combobox.loadMore`'s retry button uses the installed Button's `outline`
     variant name (the bundle calls it `outlined`).
+  - Stepper `showDescriptions` (host extension on `Stepper.Root` and the array
+    `Stepper`, carried on `StepperRootContext`, default `false`): a
+    `navigation` step renders its `Description` on screen, one tight muted
+    line under the title on the title's left edge (`descriptionNavigationShown`
+    in `Stepper.styles.ts`), instead of upstream's visually hidden text. The
+    variant, its connectors and its triggers are otherwise unchanged; the
+    `track` variant was not used because its horizontal list stacks into a
+    column below a 640px container, which the wizard's rail is. The usage
+    wizard turns it on so each step's status ("6 prompts read") reads under
+    its name.
   - Comments naming other internal products and their tracker numbers were
     generalized.
 

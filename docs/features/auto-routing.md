@@ -297,6 +297,7 @@ requirements.
 The usage wizard inserts inferred class and skill rules before generic
 level defaults, while keeping safety rules ahead of those suggestions. Its
 step rail marks finished steps with a check and lets you go back to them,
+shows each step's status under its name (for example "6 prompts read"),
 keeps later steps unavailable until they can be reached, says "Step n of 3",
 and moves focus to the new step when you continue or go back. A rule's
 target model is a searchable list (names and ids; with "Any eligible" each

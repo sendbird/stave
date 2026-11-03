@@ -65,6 +65,12 @@ export type StepperRootProps = React.ComponentProps<"nav"> & {
   distribution?: StepperDistribution;
   orientation?: StepperOrientation;
   /**
+   * Host extension: show each `navigation` step's `Description` under its
+   * title instead of only to assistive technology. A `track` step always
+   * shows it. @default false
+   */
+  showDescriptions?: boolean;
+  /**
    * Visual scale for markers, copy, and interactive targets. `xs` is the
    * dense-inspector rung: a 16px marker, a 28px target, and a stepped rhythm
    * (row 12px, marker-to-copy gap 4px) from the fixed `densityPad` scale.
@@ -81,6 +87,7 @@ export function StepperRoot({
   className,
   distribution = "content",
   orientation = "horizontal",
+  showDescriptions = false,
   size = "md",
   variant = "track",
   xstyle,
@@ -117,7 +124,7 @@ export function StepperRoot({
       data-stepper-variant={variant}
     >
       <StepperRootContext.Provider
-        value={{ distribution, orientation, size, variant }}
+        value={{ distribution, orientation, showDescriptions, size, variant }}
       >
         <div className={sx(styles.queryContainer)}>
           <ol
@@ -385,7 +392,7 @@ export function StepperDescription({
   xstyle,
   ...props
 }: StepperDescriptionProps) {
-  const { variant } = useContext(StepperRootContext);
+  const { showDescriptions, variant } = useContext(StepperRootContext);
   return (
     <span
       {...props}
@@ -393,7 +400,10 @@ export function StepperDescription({
       className={cx(
         sx(
           styles.description,
-          variant === "navigation" && styles.descriptionNavigation,
+          variant === "navigation" &&
+            (showDescriptions
+              ? styles.descriptionNavigationShown
+              : styles.descriptionNavigation),
           xstyle,
         ),
         className,

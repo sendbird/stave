@@ -271,8 +271,9 @@ export function SettingsAutoRoutingWizard(props: { samplesOverride?: UsageSample
           <Stepper
             label={t("settingsConnections:settingsDialogAutoRoutingWizard.setupSteps")}
             // Navigation: a finished step is a button back to it. Each step's
-            // status line ("6 prompts read") is its accessible description.
+            // status line ("6 prompts read") shows under its name.
             variant="navigation"
+            showDescriptions
             size="sm"
             distribution="fill"
             xstyle={styles.stepper}

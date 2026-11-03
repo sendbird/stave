@@ -24,11 +24,14 @@ export const StepperItemContext = createContext<{
 export const StepperRootContext = createContext<{
   distribution: StepperDistribution;
   orientation: StepperOrientation;
+  /** Host extension: a navigation step shows its description on screen. */
+  showDescriptions: boolean;
   size: StepperSize;
   variant: StepperVariant;
 }>({
   distribution: "content",
   orientation: "horizontal",
+  showDescriptions: false,
   size: "md",
   variant: "track",
 });
