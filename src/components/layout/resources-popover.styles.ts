@@ -28,7 +28,7 @@ export const resourceStyles = stylex.create({
     width: "100%",
     overflow: "hidden",
     borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-surface-tint"],
+    backgroundColor: vars["--ads-color-track"],
   },
   usageBarFill: {
     height: "100%",

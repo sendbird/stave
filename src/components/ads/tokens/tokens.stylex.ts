@@ -95,6 +95,11 @@ export const vars = stylex.defineVars({
   "--ads-color-scrollbar-track": "oklch(0.275 0.007 89 / 0.06)",
   "--ads-color-scrollbar-thumb": "oklch(0.275 0.007 89 / 0.24)",
   "--ads-color-scrollbar-thumb-hover": "oklch(0.275 0.007 89 / 0.48)",
+  // The empty part of a Meter or Progress bar. An ink overlay at the 24% step
+  // of the overlay ramp, so it reads as a shade of whatever surface it sits on:
+  // `colorCanvasSubtle` is itself a surface, and on a card or panel painted
+  // that colour the track vanished and only a reading's fill or tick showed.
+  "--ads-color-track": "oklch(0.275 0.007 89 / 0.24)",
   "--ads-color-accent": "oklch(0.275 0.007 89)",
   // Neutral870. It shipped identical to `colorAccent`, so in light every
   // accent-filled control had a hover that changed nothing. Sized in OKLCH

@@ -209,7 +209,8 @@ const styles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
   },
   track: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
+    // An overlay, not a surface: see `Meter`'s track.
+    backgroundColor: vars["--ads-color-track"],
     borderRadius: vars["--ads-radius-full"],
     blockSize: 8,
     overflow: "hidden",

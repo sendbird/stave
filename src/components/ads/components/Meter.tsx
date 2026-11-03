@@ -146,7 +146,9 @@ const styles = stylex.create({
     textAlign: "end",
   },
   track: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
+    // An overlay, not a surface: it has to read on every surface a meter sits
+    // on, including one painted `colorCanvasSubtle`.
+    backgroundColor: vars["--ads-color-track"],
     borderRadius: vars["--ads-radius-full"],
     blockSize: 10,
     gridColumn: "1 / -1",

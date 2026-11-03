@@ -248,3 +248,20 @@ export function deriveAdsSemanticRamp(args: {
 export const CONTROL_LABEL_FLOOR = 3;
 export const SEMANTIC_FILL_FLOOR = 3;
 export const SELECTION_DISTINGUISH_FLOOR = 1.2;
+
+/** Mirrors `--ads-color-track` in `ads-theme.ts`: the theme's ink at 24% alpha. */
+export const TRACK_INK_ALPHA = 0.24;
+
+/** The meter/progress track as painted: ink at `TRACK_INK_ALPHA`, still to be composited. */
+export function deriveAdsTrack(tokens: Record<string, string>): Oklab | null {
+  const foreground = parseCssColor(tokens.foreground ?? "");
+  return foreground ? { ...foreground, alpha: TRACK_INK_ALPHA } : null;
+}
+
+/**
+ * An empty or low reading must still show its track's extent on every
+ * surface: the distinguishable-fill floor above, with margin.
+ */
+export const TRACK_DISTINGUISH_FLOOR = 1.3;
+/** Where a fill ends against its own track, so the reading stays legible. */
+export const FILL_ON_TRACK_FLOOR = 1.5;

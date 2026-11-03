@@ -16,7 +16,7 @@ export const contextMeterStyles = stylex.create({
     width: 32,
     overflow: "hidden",
     borderRadius: vars["--ads-radius-full"],
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 15%, transparent)`,
+    backgroundColor: vars["--ads-color-track"],
   },
   fill: {
     display: "block",

@@ -36,7 +36,7 @@ export const detailStyles = stylex.create({
   phaseHeading: { fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text-muted"] },
   phaseName: { fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text"] },
   monoMuted: { fontFamily: vars["--ads-font-mono"], color: vars["--ads-color-text-muted"] },
-  track: { position: "relative", height: 8, overflow: "hidden", borderRadius: vars["--ads-radius-full"], backgroundColor: vars["--ads-color-surface-tint"] },
+  track: { position: "relative", height: 8, overflow: "hidden", borderRadius: vars["--ads-radius-full"], backgroundColor: vars["--ads-color-track"] },
   smallTrack: { height: 6 },
   bar: { position: "absolute", insetBlock: 0, borderRadius: vars["--ads-radius-full"], backgroundColor: vars["--ads-color-accent"] },
   barOrigin: { left: 0 },

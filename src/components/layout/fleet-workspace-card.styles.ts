@@ -229,7 +229,7 @@ export const cardStyles = stylex.create({
     gap: 6,
   },
   todoTrack: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
+    backgroundColor: vars["--ads-color-track"],
     borderRadius: vars["--ads-radius-full"],
     height: 4,
     overflow: "hidden",
