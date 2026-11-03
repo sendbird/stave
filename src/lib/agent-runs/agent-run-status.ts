@@ -107,6 +107,16 @@ const BADGE_LOOK: Record<AgentRunBadge, { tone: AgentRunBadgeTone; mark: AgentRu
 const WAITING_LOOK = { tone: "neutral", mark: { state: "waiting", tone: "idle" } } as const;
 const APPROVAL_MARK: AgentRunStatusMark = { state: "approval", tone: "waiting" };
 
+/**
+ * Each run badge as the shared work state. `describeAgentRunStatus` refines it
+ * in two places only: a running run between turns wears `waiting`, and a run
+ * asking for an approval wears `approval`; every run surface reads the result
+ * from `AgentRunStatus.mark`.
+ */
+export function agentRunBadgeToWorkState(badge: AgentRunBadge): WorkState {
+  return BADGE_LOOK[badge].mark.state;
+}
+
 /** What Retry does: ask the stage again, or start a new run from the assignment. */
 export type AgentRunRecovery = "retry-stage" | "new-run" | "extend";
 

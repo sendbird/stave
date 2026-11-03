@@ -18,7 +18,7 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { FLEET_TASK_WORK_STATE } from "@/components/layout/fleet-attention-marks";
+import { fleetStatusToWorkState } from "@/lib/fleet/task-status";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import {
   FleetProviderIcon,
@@ -415,7 +415,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
     row.activeTurnId ? state.providerTurnActivityByTask[row.task.id] : undefined,
   );
   const activity = snapshot && snapshot.turnId === row.activeTurnId ? snapshot : null;
-  const state = FLEET_TASK_WORK_STATE[row.status];
+  const state = fleetStatusToWorkState(row.status);
   const stateLabel =
     row.status === "stalled"
       ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]

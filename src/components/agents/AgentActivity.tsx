@@ -20,7 +20,7 @@ import {
   type AgentActivitySummary,
 } from "@/lib/agents/agent-activity";
 import { formatTimeAgo } from "@/i18n/format";
-import { classifyTaskStatus, resolveFleetTaskSurfaceStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
+import { classifyTaskStatus, fleetStatusToWorkState, resolveFleetTaskSurfaceStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { useFleetAttentionStore } from "@/store/fleet-attention-store";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { useAppStore } from "@/store/app.store";
@@ -206,7 +206,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               const state = runStatus
                 ? { label: formatAgentRunBadge(runStatus), tone: runStatus.tone, mark: runStatus.mark.state }
                 : live
-                  ? { label: FLEET_STATUS_LABELS[live], tone: FLEET_STATUS_TONES[live], mark: FLEET_STATUS_STATES[live] }
+                  ? { label: FLEET_STATUS_LABELS[live], tone: FLEET_STATUS_TONES[live], mark: fleetStatusToWorkState(live) }
                   : { label: ASSIGNMENT_STATE_LABELS[row.state], tone: ASSIGNMENT_STATE_TONES[row.state], mark: ASSIGNMENT_WORK_STATES[row.state] };
               const body = <WorkRowBody row={row} run={ownRun} state={state} />;
               return (
@@ -272,22 +272,13 @@ const FLEET_STATUS_TONES: Readonly<Record<FleetTaskStatus, BadgeTone>> = {
   "waiting-input": "warning",
   "waiting-approval": "warning",
   error: "danger",
-  stalled: "warning",
+  // A quiet turn is still working (Fleet's rule): no warning, only its words say it went quiet.
+  stalled: "accent",
   running: "accent",
   idle: "neutral",
 };
 
-/** Each live task status and assignment state as a shared work state, for `StateMark`. */
-const FLEET_STATUS_STATES: Readonly<Record<FleetTaskStatus, WorkState>> = {
-  "waiting-input": "needs-you",
-  "waiting-approval": "approval",
-  error: "failed",
-  // Quiet, not failed: the stopped-short glyph, never the failure one.
-  stalled: "halted",
-  running: "working",
-  idle: "idle",
-};
-
+/** Each assignment state as a shared work state, for `StateMark`; a live task status uses Fleet's. */
 const ASSIGNMENT_WORK_STATES: Readonly<Record<AgentAssignment["state"], WorkState>> = {
   preparing: "working",
   started: "idle",

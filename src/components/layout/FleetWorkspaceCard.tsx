@@ -11,7 +11,6 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
-import { FLEET_TASK_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
@@ -46,6 +45,7 @@ import {
   classifyTaskStatus,
   resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
+  fleetStatusToWorkState,
   type FleetDisplayStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
@@ -581,8 +581,8 @@ export function FleetWorkspaceCard(args: {
         ) : (
           <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
-              const state = FLEET_TASK_WORK_STATE[row.status];
-              // A quiet turn borrows the stopped-short glyph, but its word is
+              const state = fleetStatusToWorkState(row.status);
+              // A quiet turn keeps the working glyph, but its word is
               // the attention kind's: it has stopped reporting, not halted.
               const statusLabel =
                 row.status === "stalled"

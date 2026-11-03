@@ -6,7 +6,7 @@ import { createTurnReceipt, finishTurnReceipt } from "@/lib/providers/turn-termi
 import { buildFleetTaskRows } from "@/lib/fleet/task-rows";
 import { buildRepositorySidebarAttentionAlert, buildWorkspaceProgressTaskItems } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { summarizeFleetRespondingTasks } from "@/lib/fleet/task-status";
-import { FLEET_TASK_WORK_STATE } from "@/components/layout/fleet-attention-marks";
+import { fleetStatusToWorkState } from "@/lib/fleet/task-status";
 import { collectAgentsWithWork } from "@/lib/agents/agent-work";
 import { summarizeAgentActivity } from "@/lib/agents/agent-activity";
 import type { TaskAgent } from "@/store/agent-assignments-store";
@@ -74,7 +74,7 @@ test("quiet active tasks keep an activity indicator without a warning or blockin
   const snapshot = { turnId: "turn", providerId: "codex" as const, startedAt: 1, lastEventAt: 2, stalledAt: 3, pendingInteraction: null, workItemsById: {}, orderedWorkItemIds: [], workGraph: createWorkGraph({ turnId: "turn", providerId: "codex", startedAt: 1 }) };
   const summary = summarizeFleetRespondingTasks({ tasks: [failedTask], messagesByTask: {}, activeTurnIdsByTask: { failed: "turn" }, providerTurnActivityByTask: { failed: snapshot } });
   expect(summary).toMatchObject({ respondingTaskCount: 1, hasWarningTask: false });
-  expect(FLEET_TASK_WORK_STATE.stalled).toBe("working");
+  expect(fleetStatusToWorkState("stalled")).toBe("working");
 });
 
 test("externally managed terminal outcomes belong to the controller while child approvals remain actionable", () => {

@@ -11,12 +11,11 @@ import {
   type WorkspaceProgressTaskItem,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { StateMark } from "@/components/ads/components/StateMark";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import { Loader } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { ProviderMark } from "@/components/system/ProviderMark";
 import { sx } from "@/components/ads/utils/stylex";
-import type { FleetTaskStatus } from "@/lib/fleet/task-status";
+import { fleetStatusToWorkState, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ChatMessage, Task } from "@/types/chat";
 import { useFleetAttentionStore } from "@/store/fleet-attention-store";
@@ -36,16 +35,6 @@ const STATUS_LABEL: Record<FleetTaskStatus, string> = {
   get stalled() { return i18n.t("workspace:workspaceProgressTaskTree.stalled"); },
   get running() { return i18n.t("workspace:workspaceProgressTaskTree.running"); },
   get idle() { return i18n.t("workspace:workspaceProgressTaskTree.idle"); },
-};
-
-/** Each open task status as a shared work state, drawn by `StateMark`. */
-const STATUS_WORK_STATE: Record<FleetTaskStatus, WorkState> = {
-  "waiting-input": "needs-you",
-  "waiting-approval": "approval",
-  error: "failed",
-  stalled: "working",
-  running: "working",
-  idle: "idle",
 };
 
 /** The task's provider: its mark, named on hover and to assistive tech. */
@@ -133,7 +122,7 @@ export function WorkspaceProgressTaskTreeView(args: {
             <TaskProviderMark providerId={item.providerId} />
             <span className={sx(styles.rowTitle)}>{item.title}</span>
             <span className={sx(styles.statusSlot)} title={statusLabel}>
-              <StateMark state={STATUS_WORK_STATE[item.status]} />
+              <StateMark state={fleetStatusToWorkState(item.status)} />
               <VisuallyHidden>{statusLabel}</VisuallyHidden>
             </span>
             {args.showProgress && args.workspaceId && (item.status === "running" || item.status === "stalled") ? (
