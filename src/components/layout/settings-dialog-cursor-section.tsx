@@ -95,6 +95,7 @@ export function SettingsCursorSection() {
           <p className={sx(cursorSectionStyles.note)}>
             {t("settingsProviders:cursorSection.approvalPreset.note")}</p>
           <PresetActionList
+            placement="field"
             presetId={cursorApprovalMode}
             presetLabel={CURSOR_PROVIDER_MODE_PRESETS.find((preset) => preset.id === cursorApprovalMode)?.label ?? ""}
             providerId="cursor"

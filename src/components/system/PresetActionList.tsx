@@ -77,6 +77,12 @@ export function PresetActionList(props: {
   providerLabel: string;
   presetId: ProviderModePresetId;
   presetLabel: string;
+  /**
+   * `menu` sits under its option in the composer's preset menu; `field`
+   * follows a Settings field's text, so it takes a step of air above it.
+   * @default "menu"
+   */
+  placement?: "menu" | "field";
 }) {
   useTranslation();
   const headingId = useId();
@@ -91,7 +97,10 @@ export function PresetActionList(props: {
     return null;
   }
   return (
-    <div className={sx(styles.root)} data-preset-actions={props.presetId}>
+    <div
+      className={sx(styles.root, props.placement === "field" && styles.field)}
+      data-preset-actions={props.presetId}
+    >
       <p className={sx(styles.heading)} id={headingId}>
         {i18n.t("providers:presetActions.heading", {
           preset: props.presetLabel,
@@ -101,7 +110,9 @@ export function PresetActionList(props: {
       <ul aria-labelledby={headingId} className={sx(styles.list)}>
         {actions.map((action) => (
           <li className={sx(styles.row)} data-action={action.kind} data-state={action.state} key={action.kind}>
-            <StateMark size="sm" state={STATE_MARK[action.state]} xstyle={styles.mark} />
+            <span className={sx(styles.markSlot)}>
+              <StateMark size="sm" state={STATE_MARK[action.state]} />
+            </span>
             <span className={sx(styles.text)}>
               <span className={sx(styles.label)}>{actionLabel(action.kind)}</span>
               {action.note ? <span className={sx(styles.note)}>{noteText(action.note)}</span> : null}
@@ -120,7 +131,9 @@ export function PresetActionList(props: {
           <ul aria-labelledby={locksHeadingId} className={sx(styles.list)}>
             {locks.map((id) => (
               <li className={sx(styles.row)} data-lock={id} key={id}>
-                <StateMark icon={Lock} size="sm" state="stopped" xstyle={styles.mark} />
+                <span className={sx(styles.markSlot)}>
+                  <StateMark icon={Lock} size="sm" state="stopped" />
+                </span>
                 <span className={sx(styles.text)}>
                   <span className={sx(styles.label)}>{lockLabel(id)}</span>
                 </span>
@@ -134,12 +147,18 @@ export function PresetActionList(props: {
   );
 }
 
+/** A caption label's first line box. */
+const FIRST_LINE = `calc(${vars["--ads-font-size-caption"]} * ${vars["--ads-line-height-tight"]})`;
+
 const styles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-4"],
     minInlineSize: 0,
+  },
+  field: {
+    paddingBlockStart: vars["--ads-space-8"],
   },
   heading: {
     color: vars["--ads-color-text-muted"],
@@ -162,7 +181,12 @@ const styles = stylex.create({
     gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
-  mark: {
+  // The label's first line box: the mark is centred in it, so it sits on the
+  // first line however the label and its note wrap below.
+  markSlot: {
+    alignItems: "center",
+    blockSize: FIRST_LINE,
+    display: "inline-flex",
     flexShrink: 0,
   },
   text: {

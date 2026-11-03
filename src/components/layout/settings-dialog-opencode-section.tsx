@@ -60,6 +60,7 @@ export function SettingsOpenCodeSection() {
           <p className={sx(sectionStyles.note)}>
             {t("settingsProviders:opencodeSection.approvalPreset.note")}</p>
           <PresetActionList
+            placement="field"
             presetId={opencodeApprovalMode}
             presetLabel={OPENCODE_PROVIDER_MODE_PRESETS.find((preset) => preset.id === opencodeApprovalMode)?.label ?? ""}
             providerId="opencode"

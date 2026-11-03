@@ -58,6 +58,7 @@ export function SettingsKiroSection() {
           <p className={sx(kiroSectionStyles.note)}>
             {t("settingsProviders:kiroSection.approvalPreset.note")}</p>
           <PresetActionList
+            placement="field"
             presetId={kiroApprovalMode}
             presetLabel={KIRO_PROVIDER_MODE_PRESETS.find((preset) => preset.id === kiroApprovalMode)?.label ?? ""}
             providerId="kiro"

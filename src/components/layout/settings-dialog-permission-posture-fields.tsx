@@ -300,6 +300,7 @@ export function ClaudePermissionPostureFields(args: { children?: ReactNode }) {
         </p>
         {posture.presetId ? (
           <PresetActionList
+            placement="field"
             presetId={posture.presetId}
             presetLabel={posture.label}
             providerId="claude-code"
@@ -452,6 +453,7 @@ export function CodexPermissionPostureFields(args: { children?: ReactNode }) {
         </p>
         {posture.presetId ? (
           <PresetActionList
+            placement="field"
             presetId={posture.presetId}
             presetLabel={posture.label}
             providerId="codex"
