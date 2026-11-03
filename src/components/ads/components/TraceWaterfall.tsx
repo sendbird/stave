@@ -79,6 +79,48 @@ function formatDuration(durationMs: number): string {
   return formatHostDuration(durationMs, { tenths: true });
 }
 
+export type TraceAxis = { originMs: number; totalMs: number };
+
+/**
+ * Host: the shared axis, exported so the math is tested where it is used.
+ * Origin at the earliest start, end at the latest end or the marker, never
+ * zero wide.
+ */
+export function resolveTraceAxis(
+  spans: readonly Pick<TraceSpan, "durationMs" | "startMs">[],
+  markerMs?: number,
+): TraceAxis {
+  if (spans.length === 0) {
+    return { originMs: 0, totalMs: 1 };
+  }
+
+  const start = Math.min(...spans.map((span) => span.startMs));
+  const end = Math.max(
+    ...spans.map((span) => span.startMs + span.durationMs),
+    markerMs ?? Number.NEGATIVE_INFINITY,
+  );
+
+  return { originMs: start, totalMs: Math.max(end - start, 1) };
+}
+
+/**
+ * Host: where a bar sits, in percent of its track. The minimum width keeps an
+ * instant visible without moving its start, and the bar never runs past the
+ * track's end.
+ */
+export function layoutTraceBar(
+  span: Pick<TraceSpan, "durationMs" | "startMs">,
+  axis: TraceAxis,
+  minWidthPercent = 0.5,
+) {
+  const startPercent = ((span.startMs - axis.originMs) / axis.totalMs) * 100;
+  const widthPercent = Math.min(
+    Math.max((span.durationMs / axis.totalMs) * 100, minWidthPercent),
+    Math.max(100 - startPercent, 0),
+  );
+  return { startPercent, widthPercent };
+}
+
 /**
  * Hierarchical span waterfall (trace-view anatomy: chronologically
  * ordered rows, children indented under parents, proportional timing bars on
@@ -117,19 +159,11 @@ export function TraceWaterfall({
   const rowRefs = React.useRef(new Map<string, HTMLButtonElement>());
 
   // Shared axis: origin at the earliest start, span to the latest end.
-  const { originMs, totalMs } = React.useMemo(() => {
-    if (spans.length === 0) {
-      return { originMs: 0, totalMs: 1 };
-    }
-
-    const start = Math.min(...spans.map((span) => span.startMs));
-    const end = Math.max(
-      ...spans.map((span) => span.startMs + span.durationMs),
-      markerMs ?? Number.NEGATIVE_INFINITY,
-    );
-
-    return { originMs: start, totalMs: Math.max(end - start, 1) };
-  }, [markerMs, spans]);
+  const axis = React.useMemo(
+    () => resolveTraceAxis(spans, markerMs),
+    [markerMs, spans],
+  );
+  const { originMs, totalMs } = axis;
 
   // Link spans to their children, chronological within a level (waterfall
   // ordering). Spans whose parent is missing are treated as roots so bad data
@@ -273,8 +307,7 @@ export function TraceWaterfall({
         const isSelected = selected === span.id;
         const status = span.status ?? "ok";
         const spanName = typeof span.name === "string" ? span.name : span.id;
-        const startPercent = ((span.startMs - originMs) / totalMs) * 100;
-        const widthPercent = Math.max((span.durationMs / totalMs) * 100, 0.5);
+        const { startPercent, widthPercent } = layoutTraceBar(span, axis);
 
         return (
           <div

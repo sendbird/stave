@@ -1347,5 +1347,27 @@
   "userInputDelivery": {
     "failedWithDetail": "User input delivery failed: {{detail}}",
     "notAccepted": "User input delivery failed: the answer was not accepted. Retry from this question card."
+  },
+  "turnTrace": {
+    "viewLabel": "Activity view",
+    "viewList": "List",
+    "viewTimeline": "Timeline",
+    "label": "Turn timeline",
+    "turn": "Turn",
+    "reasoning": "Reasoning",
+    "tokens": "{{value}} tokens",
+    "slowest": "Slowest",
+    "usageNote": "Tokens and cost are reported for the whole turn only, not for each step.",
+    "notReported_one": "{{count}} step without a reported time",
+    "notReported_other": "{{count}} steps without a reported time",
+    "notReportedDetail": "Steps saved before Stave recorded times, and steps that ended without a result, are listed here instead of placed on the axis.",
+    "empty": "No steps with a reported time yet.",
+    "noTurn": "No turn to show yet.",
+    "legendLabel": "Timeline legend",
+    "legendTurn": "Turn",
+    "legendModel": "Reasoning",
+    "legendTool": "Tool",
+    "legendAgent": "Agent",
+    "legendNow": "Now"
   }
 }

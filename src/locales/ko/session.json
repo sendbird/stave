@@ -1285,5 +1285,26 @@
   "userInputDelivery": {
     "failedWithDetail": "답변을 전달하지 못했습니다: {{detail}}",
     "notAccepted": "답변을 전달하지 못했습니다. 답변이 받아들여지지 않았습니다. 이 질문 카드에서 다시 시도하세요."
+  },
+  "turnTrace": {
+    "viewLabel": "활동 보기 방식",
+    "viewList": "목록",
+    "viewTimeline": "타임라인",
+    "label": "턴 타임라인",
+    "turn": "턴",
+    "reasoning": "추론",
+    "tokens": "토큰 {{value}}개",
+    "slowest": "가장 느림",
+    "usageNote": "토큰과 비용은 단계별이 아니라 턴 전체에 대해서만 보고됩니다.",
+    "notReported_other": "시간이 보고되지 않은 단계 {{count}}개",
+    "notReportedDetail": "Stave가 시간을 기록하기 전에 저장된 단계와 결과 없이 끝난 단계는 축에 놓지 않고 여기에 나열합니다.",
+    "empty": "아직 시간이 보고된 단계가 없습니다.",
+    "noTurn": "아직 표시할 턴이 없습니다.",
+    "legendLabel": "타임라인 범례",
+    "legendTurn": "턴",
+    "legendModel": "추론",
+    "legendTool": "도구",
+    "legendAgent": "에이전트",
+    "legendNow": "현재"
   }
 }

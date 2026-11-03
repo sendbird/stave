@@ -817,6 +817,9 @@ Further host extensions:
     axis stretches to include it). It sets `aria-pressed` only when the caller
     keeps a selection, and tags rows, names, bars and the marker with
     `data-trace-*` attributes for geometry tests.
+  - The axis and bar math moved into exported `resolveTraceAxis` and
+    `layoutTraceBar`, which the component calls and the host tests; the
+    minimum bar width no longer runs a bar past the end of its track.
   - Forward-port: the `head`, `summary` and `toggle` slots on the
     `trace-waterfall` theme target (`theme-targets.insight.ts`), a strict
     addition the newer upstream target carries and `TraceWaterfall` reads.
