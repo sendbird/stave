@@ -83,6 +83,15 @@ for (const locale of ["en", "ko"] as const) {
         expect(geometry.popoverTop).toBeGreaterThanOrEqual(0);
         expect(geometry.overflowing).toBe(false);
 
+        // Every part reads to a tenth of its unit, so the parts add up to the
+        // 72,000 tokens the meter reports (whole units drifted by up to 0.5k each).
+        const values = await section.locator("[data-context-breakdown-row]").evaluateAll((rows) =>
+          rows.map((row) => (row.querySelector(":scope > button") ?? row).lastElementChild?.textContent ?? ""));
+        expect(values).toHaveLength(6);
+        for (const value of values) expect(value).toMatch(/^\d+\.\dk$/);
+        const total = values.reduce((sum, value) => sum + Number.parseFloat(value), 0);
+        expect(Math.abs(total - 72)).toBeLessThanOrEqual(0.3);
+
         // MCP tools expand to the tools that are loaded.
         const mcp = section.locator('[data-context-breakdown-row="mcp_tools"] button');
         await mcp.click();

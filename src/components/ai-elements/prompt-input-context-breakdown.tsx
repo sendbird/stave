@@ -36,7 +36,7 @@ function BreakdownRow(props: { row: ContextBreakdownRow }) {
   const label = rowLabel(props.row);
   const items = props.row.items;
   const value = (
-    <span className={sx(styles.breakdownValue)}>{formatTokenCount(props.row.tokens)}</span>
+    <span className={sx(styles.breakdownValue)}>{formatTokenCount(props.row.tokens, { tenths: true })}</span>
   );
   if (!items) {
     return (
@@ -76,7 +76,7 @@ function BreakdownRow(props: { row: ContextBreakdownRow }) {
                 <span className={sx(styles.breakdownItemLabel)} title={item.detail}>
                   {item.label}
                 </span>
-                <span className={sx(styles.breakdownValue)}>{formatTokenCount(item.tokens)}</span>
+                <span className={sx(styles.breakdownValue)}>{formatTokenCount(item.tokens, { tenths: true })}</span>
               </li>
             ))}
           </ul>
@@ -139,7 +139,7 @@ export function PromptInputContextBreakdown(props: {
                   {i18n.t("composer:contextBreakdown.conversation")}
                 </span>
                 <span className={sx(styles.breakdownValue)}>
-                  {formatTokenCount(breakdown.conversationTokens)}
+                  {formatTokenCount(breakdown.conversationTokens, { tenths: true })}
                 </span>
               </li>
             ) : null}

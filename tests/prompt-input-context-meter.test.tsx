@@ -128,7 +128,9 @@ describe("PromptInputContextBreakdown", () => {
     expect(html).toContain("System prompt");
     expect(html).toContain("MCP tools");
     expect(html).toContain("Conversation (estimated)");
-    expect(html).toContain(">58k<");
+    // Each part to a tenth of a thousand, so the rows add up to the total.
+    expect(html).toContain(">58.4k<");
+    expect(html).toContain(">3.1k<");
     // MCP tools and memory files expand; the plain row does not.
     expect(html.match(/aria-expanded="false"/g)?.length).toBe(2);
   });
