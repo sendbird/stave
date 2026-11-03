@@ -236,14 +236,16 @@ export function UserInputCard(args: UserInputCardProps) {
   // when the request itself changes, not when the parent re-renders.
   const questionSetKey = questions.map(getQuestionKey).join("\u0000");
   const [activeIndex, setActiveIndex] = useState(0);
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [questionSetKey]);
-
   // The option whose preview shows: the hovered one, else the focused one.
   // Focus stays the anchor when it moves into the preview to scroll it.
   const [focusedOption, setFocusedOption] = useState<PreviewTarget | null>(null);
   const [hoveredOption, setHoveredOption] = useState<PreviewTarget | null>(null);
+  useEffect(() => {
+    setActiveIndex(0);
+    setFocusedOption(null);
+    setHoveredOption(null);
+  }, [questionSetKey]);
+
   const previewIdPrefix = useId();
 
   const formRef = useRef<HTMLElement | null>(null);

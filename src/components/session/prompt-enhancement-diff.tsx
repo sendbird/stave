@@ -7,7 +7,7 @@ import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { diffPromptWords } from "@/components/ai-elements/prompt-input.utils";
+import { diffPromptWords, type PromptWordDiff } from "@/components/ai-elements/prompt-input.utils";
 import {
   Button,
   Popover,
@@ -31,20 +31,39 @@ export function PromptEnhancementDiffBody(props: {
   enhancedPrompt: string;
 }) {
   useTranslation();
-  const diff = useMemo(
-    () => diffPromptWords(props.sourceText, props.enhancedPrompt),
-    [props.enhancedPrompt, props.sourceText],
-  );
+  const diff = usePromptWordDiff(props.sourceText, props.enhancedPrompt);
   return (
     <>
       <p className={sx(styles.summary)} data-enhancement-diff-summary="">
-        {i18n.t("session:promptEnhancementDiff.summary", {
-          removed: diff.removedWords,
-          added: diff.addedWords,
-        })}
-        <br />
-        {i18n.t("session:promptEnhancementDiff.legend")}
+        {diffSummary(diff)}
       </p>
+      <PromptEnhancementDiffText diff={diff} />
+    </>
+  );
+}
+
+function usePromptWordDiff(sourceText: string, enhancedPrompt: string) {
+  return useMemo(() => diffPromptWords(sourceText, enhancedPrompt), [enhancedPrompt, sourceText]);
+}
+
+/** The counts and how to read the marks; the popover's accessible description. */
+function diffSummary(diff: PromptWordDiff): ReactNode {
+  return (
+    <>
+      {i18n.t("session:promptEnhancementDiff.summary", {
+        removed: diff.removedWords,
+        added: diff.addedWords,
+      })}
+      <br />
+      {i18n.t("session:promptEnhancementDiff.legend")}
+    </>
+  );
+}
+
+function PromptEnhancementDiffText(props: { diff: PromptWordDiff }) {
+  useTranslation();
+  const { diff } = props;
+  return (
       <CappedViewport
         aria-label={i18n.t("session:promptEnhancementDiff.diffLabel")}
         maxBlockSize={DIFF_MAX_BLOCK_SIZE}
@@ -70,7 +89,6 @@ export function PromptEnhancementDiffBody(props: {
           )}
         </p>
       </CappedViewport>
-    </>
   );
 }
 
@@ -122,17 +140,17 @@ export function PromptEnhancementDiffPopover(props: {
   onRevert: () => void;
 }) {
   useTranslation();
+  const diff = usePromptWordDiff(props.sourceText, props.enhancedPrompt);
   return (
     <PopoverContent align="start" side="top" sideOffset={8} xstyle={styles.popover}>
       <PopoverTitle className={sx(styles.title)}>
         {i18n.t("session:promptEnhancementDiff.title")}
       </PopoverTitle>
-      <PopoverDescription render={<div />} className={sx(styles.body)}>
-        <PromptEnhancementDiffBody
-          enhancedPrompt={props.enhancedPrompt}
-          sourceText={props.sourceText}
-        />
+      {/* Only the counts describe the popover; the diff is read on demand. */}
+      <PopoverDescription className={sx(styles.summary)} data-enhancement-diff-summary="">
+        {diffSummary(diff)}
       </PopoverDescription>
+      <PromptEnhancementDiffText diff={diff} />
       <div className={sx(styles.actions)}>
         <Button type="button" size="sm" variant="outline" onClick={props.onRevert}>
           {i18n.t("session:promptEnhancementDiff.revert")}
@@ -153,12 +171,6 @@ const styles = stylex.create({
   },
   title: {
     fontSize: vars["--ads-font-size-body"],
-  },
-  body: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    minWidth: 0,
   },
   summary: {
     fontSize: vars["--ads-font-size-caption"],
