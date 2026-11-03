@@ -30,8 +30,12 @@ test("quota opens first and leads with the limit that stops work first", async (
   await expect(headline).toContainText("60% of the window passed");
   await expect(headline).toContainText(/At this pace it runs out around \d\d:\d\d, 1h before the reset\./);
   // Codex stores no window length, so it shows time left without a pace guess.
-  const codex = page.getByRole("region", { name: "Account quota", exact: true }).getByRole("meter", { name: "Codex · Personal · 5-hour limit" });
-  await expect(codex.locator("div")).toHaveCount(1);
+  const quota = page.getByRole("region", { name: "Account quota", exact: true });
+  const codex = quota.locator("[data-usage-quota-meter]").filter({ has: page.getByRole("meter", { name: "Codex · Personal · 5-hour limit" }) });
+  await expect(codex).toHaveCount(1);
+  await expect(codex.locator("[data-usage-quota-elapsed]")).toHaveCount(0);
+  // A window with a known length still marks how much of it has passed.
+  await expect(quota.locator("[data-usage-quota-meter]").filter({ has: page.getByRole("meter", { name: /Claude · System default · 5-hour limit/ }) }).first().locator("[data-usage-quota-elapsed]")).toHaveCount(1);
   // The period only drives quota history, and the background notes stay one click away.
   await expect(page.getByText(/the period applies to quota history only; current limits always show the latest reading/)).toBeVisible();
   await expect(page.getByText(/Percentages are never pooled/)).toHaveCount(0);
@@ -48,7 +52,8 @@ test("quota opens first and leads with the limit that stops work first", async (
   await page.keyboard.press("Escape");
   // Missing measurements read as a dash in tables, never as 0, and keep their words for hover and screen readers.
   const unattributed = page.getByRole("region", { name: "Usage by account" }).getByRole("row").filter({ hasText: "Unattributed history" });
-  await expect(unattributed.getByTitle("Not reported", { exact: true })).toHaveCount(2);
+  // Tokens, cost and the share column all read "Not reported" for an unmeasured row.
+  await expect(unattributed.getByTitle("Not reported", { exact: true })).toHaveCount(3);
   await expect(unattributed.getByTitle("Not reported", { exact: true }).first()).toHaveText("–Not reported");
   await expect(unattributed.getByText("–", { exact: true }).first()).toBeVisible();
   const totals = page.getByLabel("Usage totals");

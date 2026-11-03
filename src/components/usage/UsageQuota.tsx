@@ -146,7 +146,7 @@ function QuotaMeter(props: { row: QuotaObservation; state: QuotaWindowState; lab
   return <div className={sx(styles.meterFrame)} data-usage-quota-meter="">
     <Meter label={props.label} hideLabel hideValue size="sm" tone={fillTone(row.usedPercent)}
       value={Math.max(0, Math.min(100, row.usedPercent))} getAriaValueText={() => valueText} />
-    {state.elapsedRatio !== null ? <div aria-hidden="true" className={sx(styles.elapsedMarker)} style={{ insetInlineStart: `${state.elapsedRatio * 100}%` }} /> : null}
+    {state.elapsedRatio !== null ? <div aria-hidden="true" data-usage-quota-elapsed="" className={sx(styles.elapsedMarker)} style={{ insetInlineStart: `${state.elapsedRatio * 100}%` }} /> : null}
   </div>;
 }
 
