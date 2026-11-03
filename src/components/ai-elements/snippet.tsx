@@ -1,11 +1,11 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
-import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { snippetStyles as styles } from "./snippet.styles";
 
 // ---------------------------------------------------------------------------
@@ -35,28 +35,26 @@ export function Snippet({ code, prefix, className, ...props }: SnippetProps) {
 
 function SnippetCopyButton({ code }: { code: string }) {
   useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { status, copied, copy } = useClipboardCopy(2000);
   return (
-    <AdsButton
-      layout="host"
-      type="button"
-      xstyle={[styles.copyButton, transition.colors]}
-      onClick={() => {
-        void copyTextToClipboard(code)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          })
-          .catch(() => {});
-      }}
-      aria-label={i18n.t("composer:snippet.ariaLabel")}
-      title={i18n.t("composer:snippet.title")}
-    >
-      {copied ? (
-        <Check className={sx(styles.copiedIcon)} />
-      ) : (
-        <Copy className={sx(styles.copyIcon)} />
-      )}
-    </AdsButton>
+    <>
+      <AdsButton
+        layout="host"
+        type="button"
+        xstyle={[styles.copyButton, transition.colors]}
+        onClick={() => {
+          void copy(code);
+        }}
+        aria-label={i18n.t("composer:snippet.ariaLabel")}
+        title={i18n.t("composer:snippet.title")}
+      >
+        {copied ? (
+          <Check className={sx(styles.copiedIcon)} />
+        ) : (
+          <Copy className={sx(styles.copyIcon)} />
+        )}
+      </AdsButton>
+      <ClipboardCopyAnnouncement status={status} />
+    </>
   );
 }

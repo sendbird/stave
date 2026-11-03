@@ -1,11 +1,11 @@
 import { formatAutomationTrustPolicy } from "@/lib/automation-presentation";
-import { useTranslation } from "@/i18n";
+import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import {
   type AutomationRun,
   type AutomationSpec,
@@ -197,7 +197,7 @@ export function AutomationRunDetail(props: {
                 variant="ghost"
                 size="icon-xs"
                 aria-label={tI18n("automation:automationRunDetail.copyExecutionId")}
-                onClick={() => void copyTextToClipboard(props.run.id)}
+                onClick={() => void copyTextWithToasts(props.run.id, i18n.t("common:clipboard.copied"))}
               >
                 <Copy className={sx(runDetailStyles.buttonIcon)} />
               </Button>

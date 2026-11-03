@@ -52,7 +52,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { hostSurface } from "@/components/ui/host-surface.styles";
@@ -429,13 +429,11 @@ export function SkillDetail(props: {
   const sourceType = resolveSourceType(skill);
 
   const handleCopyPath = useCallback(() => {
-    void copyTextToClipboard(skill.path);
-    toast.success(tI18n("workspace:workspaceSkillsPanel.pathCopied"));
+    void copyTextWithToasts(skill.path, tI18n("workspace:workspaceSkillsPanel.pathCopied"));
   }, [skill.path, tI18n]);
 
   const handleCopyInvocationToken = useCallback(() => {
-    void copyTextToClipboard(skill.invocationToken);
-    toast.success(tI18n("workspace:workspaceSkillsPanel.invocationTokenCopied"));
+    void copyTextWithToasts(skill.invocationToken, tI18n("workspace:workspaceSkillsPanel.invocationTokenCopied"));
   }, [skill.invocationToken, tI18n]);
 
   const handleOpenInFinder = useCallback(() => {

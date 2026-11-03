@@ -19,6 +19,7 @@ import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import type {
   ToolingStatusEntry,
   ToolingStatusId,
@@ -135,9 +136,7 @@ function PathRow(args: { label: string; value: string | null }) {
             aria-label={t("settingsConnections:settingsDialogSecrets.copy", { value1: args.label })}
             xstyle={toolingStyles.copyButton}
             onClick={() => {
-              void copyTextToClipboard(args.value!).then(() => {
-                toast.success(i18n.t("settingsProviders:toolingSection.toasts.pathCopied"));
-              });
+              void copyTextWithToasts(args.value!, i18n.t("settingsProviders:toolingSection.toasts.pathCopied"));
             }}
           >
             <Copy className={sx(toolingStyles.copyIcon)} />

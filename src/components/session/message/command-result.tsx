@@ -1,8 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Terminal } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Button } from "@/components/ads/components/Button";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { agentSurface } from "@/components/ads/recipes/agent-surface";
 import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
@@ -30,23 +32,10 @@ export function CommandResult(args: {
 }) {
   useTranslation();
   const { command, isError = false, isStreaming = false, output } = args;
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
+  const { status, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
   const copy = useCallback(() => {
-    void navigator.clipboard?.writeText(command).then(() => {
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), COPIED_MS);
-    });
-  }, [command]);
+    void copyText(command);
+  }, [command, copyText]);
 
   const trimmed = output?.trim() ?? "";
 
@@ -66,6 +55,7 @@ export function CommandResult(args: {
         >
           {copied ? i18n.t("session:commandResult.commandResult") : i18n.t("session:commandResult.commandResult2")}
         </Button>
+        <ClipboardCopyAnnouncement status={status} />
       </div>
       {trimmed.length > 0 ? (
         <CappedViewport label={i18n.t("session:commandResult.label", { value1: command })} live={isStreaming}>

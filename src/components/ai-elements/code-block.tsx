@@ -5,7 +5,8 @@ import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { highlightCodeBlockHtml } from "@/lib/syntax-highlight-client";
 import { createHighlightCache } from "./code-block-highlight-cache";
 import { useAppStore } from "@/store/app.store";
@@ -169,34 +170,35 @@ export function CodeBlockCopyButton({
 }: CodeBlockCopyButtonProps) {
   useTranslation();
   const { code } = useCodeBlockContext();
-  const [copied, setCopied] = useState(false);
+  // A refused clipboard always raises the error toast; `onError` is extra.
+  const { status, copied, copy } = useClipboardCopy(timeout);
 
   const handleCopy = () => {
-    void copyTextToClipboard(code)
-      .then(() => {
-        setCopied(true);
-        onCopy?.();
-        setTimeout(() => setCopied(false), timeout);
-      })
-      .catch((error) => onError?.(error instanceof Error ? error : new Error(i18n.t("composer:codeBlock.extraCopy48"))));
+    void copy(code).then((ok) => {
+      if (ok) onCopy?.();
+      else onError?.(new Error(i18n.t("composer:codeBlock.extraCopy48")));
+    });
   };
 
   return (
-    <AdsButton
-      layout="host"
-      type="button"
-      xstyle={[styles.copyButton, transition.colors]}
-      className={className}
-      onClick={handleCopy}
-      aria-label={i18n.t("composer:codeBlock.ariaLabel")}
-      title={i18n.t("composer:codeBlock.title")}
-      {...props}
-    >
-      {copied ? (
-        <Check className={sx(styles.copiedIcon)} />
-      ) : (
-        <Copy className={sx(styles.copyIcon)} />
-      )}
-    </AdsButton>
+    <>
+      <AdsButton
+        layout="host"
+        type="button"
+        xstyle={[styles.copyButton, transition.colors]}
+        className={className}
+        onClick={handleCopy}
+        aria-label={i18n.t("composer:codeBlock.ariaLabel")}
+        title={i18n.t("composer:codeBlock.title")}
+        {...props}
+      >
+        {copied ? (
+          <Check className={sx(styles.copiedIcon)} />
+        ) : (
+          <Copy className={sx(styles.copyIcon)} />
+        )}
+      </AdsButton>
+      <ClipboardCopyAnnouncement status={status} />
+    </>
   );
 }

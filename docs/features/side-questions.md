@@ -60,7 +60,9 @@
 - **Copy to composer** adds the answer to your draft as a quote, below what
   the draft already says, and shows the task's conversation if Review was
   open. Nothing is sent until you send it.
-- The copy button under an answer copies it, as Markdown, to the clipboard.
+- The copy button under an answer copies it, as Markdown, to the clipboard. If
+  the clipboard refuses the copy, an error toast says so; screen readers hear
+  either outcome.
 - The eraser at the top of the panel clears the task's side questions.
 - `Esc` closes the panel. It never stops the task's turn, unlike `Esc`
   elsewhere in the task pane.

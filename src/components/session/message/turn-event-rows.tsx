@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Button } from "@/components/ads/components/Button";
 import { Citation } from "@/components/ads/components/Citation";
@@ -13,6 +13,8 @@ import { cx, sx } from "@/components/ads/utils/stylex";
 
 import { extractOutputUrls, toUrlSource } from "./turn-event-state";
 import { turnEventRowStyles as styles } from "./turn-event-rows.styles";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 
 /** How long the copy action stays acknowledged before returning to rest. */
 const COPIED_MS = 1600;
@@ -35,23 +37,10 @@ export function TraceOutput(args: {
 }) {
   useTranslation();
   const { linkify = true, prose = false, text } = args;
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
+  const { status, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
   const copy = useCallback(() => {
-    void navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), COPIED_MS);
-    });
-  }, [text]);
+    void copyText(text);
+  }, [copyText, text]);
 
   const textClass = sx(styles.outputText, prose && styles.outputProse);
 
@@ -71,6 +60,7 @@ export function TraceOutput(args: {
       >
         {copied ? i18n.t("session:turnEventRows.traceOutput") : i18n.t("session:turnEventRows.traceOutput2")}
       </Button>
+      <ClipboardCopyAnnouncement status={status} />
     </div>
   );
 }

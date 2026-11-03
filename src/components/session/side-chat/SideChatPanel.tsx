@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUp, Check, Copy, Eraser, MessageCircleQuestion, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { Banner } from "@/components/ads/components/Banner";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -8,7 +8,8 @@ import { MessageResponse } from "@/components/ai-elements/message";
 import { MESSAGE_BODY_LINE_HEIGHT } from "@/components/ai-elements/message-styles";
 import { MessageTextScaleContext, scaleMessageFontSize } from "@/components/ai-elements/message-text-scale";
 import { Loader, Textarea } from "@/components/ui";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { SIDE_CHAT_QUESTION_MAX_CHARS } from "@/lib/side-chat/side-chat";
 import {
@@ -266,28 +267,23 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
 /** Copies the answer as Markdown, and says so for a moment. */
 function CopyAnswerButton(props: { answer: string }) {
   useTranslation();
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1_500);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
+  const { status, copied, copy } = useClipboardCopy();
   const label = copied ? i18n.t("session:sideChat.copied") : i18n.t("session:sideChat.copyAnswer");
   return (
-    <AdsButton
-      variant="quiet"
-      size="sm"
-      iconOnly
-      aria-label={label}
-      title={label}
-      onClick={() => {
-        void copyTextToClipboard(props.answer).then(
-          () => setCopied(true),
-          () => setCopied(false),
-        );
-      }}
-    >
-      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-    </AdsButton>
+    <>
+      <AdsButton
+        variant="quiet"
+        size="sm"
+        iconOnly
+        aria-label={label}
+        title={label}
+        onClick={() => {
+          void copy(props.answer);
+        }}
+      >
+        {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+      </AdsButton>
+      <ClipboardCopyAnnouncement status={status} />
+    </>
   );
 }

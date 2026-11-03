@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n";
 import { recordClosedPaneTab } from "@/components/panes/closed-tab-history";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextWithFeedback } from "@/hooks/use-clipboard-copy";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { buildPanePanelId } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
@@ -153,28 +153,25 @@ export function buildEditorTabBreadcrumbsPath(args: { filePath: string }) {
   return args.filePath.split("/").filter(Boolean).join(" > ");
 }
 
-async function copyTextSilently(value: string) {
+/** A refused clipboard (denied permission, unfocused window) raises an error toast. */
+async function copyEditorText(value: string) {
   if (!value) {
     return;
   }
-  try {
-    await copyTextToClipboard(value);
-  } catch {
-    // Keep silent; clipboard API can be denied based on runtime permissions.
-  }
+  await copyTextWithFeedback(value);
 }
 
 export async function copyEditorTabPath(args: {
   filePath: string;
   workspaceRootPath: string;
 }) {
-  await copyTextSilently(resolveEditorTabAbsolutePath(args));
+  await copyEditorText(resolveEditorTabAbsolutePath(args));
 }
 
 export async function copyEditorTabRelativePath(args: { filePath: string }) {
-  await copyTextSilently(args.filePath);
+  await copyEditorText(args.filePath);
 }
 
 export async function copyEditorTabBreadcrumbsPath(args: { filePath: string }) {
-  await copyTextSilently(buildEditorTabBreadcrumbsPath(args));
+  await copyEditorText(buildEditorTabBreadcrumbsPath(args));
 }

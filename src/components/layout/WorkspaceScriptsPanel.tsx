@@ -42,7 +42,7 @@ import {
 } from "@/components/ui";
 import { ScriptLogView } from "@/components/scripts";
 import { paneHost } from "@/components/panes/pane-host-controller";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { isTaskArchived } from "@/lib/tasks";
 import {
@@ -346,7 +346,7 @@ export function ScriptEntryRow(props: {
                   size="icon"
                   variant="ghost"
                   xstyle={toolStyles.iconButton}
-                  onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
+                  onClick={() => void copyTextWithToasts(state.orbitUrl ?? "", i18n.t("common:clipboard.copied"))}
                   aria-label={tI18n("scripts:workspaceScriptsPanel.copyOrbitUrl")}
                 >
                   <Copy className={sx(toolStyles.icon)} />

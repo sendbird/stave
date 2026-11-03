@@ -7,7 +7,8 @@ import {
   type AgentRunPromptStage,
   type AgentRunPromptView,
 } from "@/lib/agent-runs/agent-run-status";
-import { copyTextToClipboard } from "@/lib/clipboard";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { useAppStore } from "@/store/app.store";
 import { useAgentRunById, useAgentRunDetailForTurn } from "@/store/agent-runs-store";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -290,22 +291,20 @@ function AgentRunPromptBody({ text }: { text: string }) {
 
 function CopyPromptAction({ text }: { text: string }) {
   useTranslation();
-  const [copied, setCopied] = useState(false);
+  const { status, copied, copy } = useClipboardCopy();
   const label = i18n.t("agentRuns:agentRunPrompt.copy");
   return (
-    <MessageAction
-      label={label}
-      tooltip={label}
-      onClick={() => {
-        void copyTextToClipboard(text)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
-          })
-          .catch(() => {});
-      }}
-    >
-      {copied ? <Check size={controlIconSizes.sm} /> : <Copy size={controlIconSizes.sm} />}
-    </MessageAction>
+    <>
+      <MessageAction
+        label={label}
+        tooltip={label}
+        onClick={() => {
+          void copy(text);
+        }}
+      >
+        {copied ? <Check size={controlIconSizes.sm} /> : <Copy size={controlIconSizes.sm} />}
+      </MessageAction>
+      <ClipboardCopyAnnouncement status={status} />
+    </>
   );
 }

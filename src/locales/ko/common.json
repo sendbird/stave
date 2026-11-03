@@ -139,5 +139,9 @@
     "errorTitle": "불러오지 못했습니다",
     "refreshFailed": "새로 고치지 못했습니다",
     "staleNotice": "마지막으로 불러온 결과를 보여 줍니다."
+  },
+  "clipboard": {
+    "copied": "복사됨",
+    "copyFailed": "클립보드에 복사하지 못했습니다"
   }
 }
