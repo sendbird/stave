@@ -154,6 +154,76 @@ describe("WorkGraphTree", () => {
     expect(flatHtml).toContain("Read the shelf");
   });
 
+  test("is an APG tree: levels, positions, a branch state and one tab stop", () => {
+    const parentKey = providerAgentNodeKey("claude-code", "agent_parent");
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({ key: parentKey, agentId: "agent_parent", label: "Sweep the callers" }),
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_child"),
+          agentId: "agent_child",
+          parentKey,
+          label: "Read the shelf",
+        }),
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_sibling"),
+          agentId: "agent_sibling",
+          label: "Check the docs",
+          startedAt: 2_000,
+        }),
+      ]),
+      capabilities: NO_CAPABILITIES,
+    });
+
+    expect(html).toContain('role="tree"');
+    const items = [...html.matchAll(/<li role="treeitem"([^>]*)>/g)].map((match) => match[1]!);
+    expect(items).toHaveLength(3);
+    // Parent: level 1 of 2 top-level rows, open; child: level 2, a leaf.
+    expect(items[0]).toContain('aria-level="1"');
+    expect(items[0]).toContain('aria-posinset="1"');
+    expect(items[0]).toContain('aria-setsize="2"');
+    expect(items[0]).toContain('aria-expanded="true"');
+    expect(items[1]).toContain('aria-level="2"');
+    expect(items[1]).toContain('aria-setsize="1"');
+    expect(items[1]).not.toContain("aria-expanded");
+    expect(items[2]).toContain('aria-posinset="2"');
+    // Roving tabindex: exactly one row is in the tab order.
+    expect(items.filter((attributes) => attributes.includes('tabindex="0"'))).toHaveLength(1);
+    expect(items.filter((attributes) => attributes.includes('tabindex="-1"'))).toHaveLength(2);
+    // A branch draws a chevron; the leaves keep its column so marks line up.
+    expect(html.match(/data-work-graph-disclosure="true"/g)).toHaveLength(1);
+    // Every row is named by its label and status, not by its buttons.
+    expect(html).toContain("Running, 4s elapsed");
+  });
+
+  test("heads the tree with running, needs-you and failed counts in a polite region", () => {
+    const blockedKey = providerAgentNodeKey("claude-code", "agent_blocked");
+    const html = renderTree({
+      graph: graphOf(
+        [
+          agentNode({ key: blockedKey, agentId: "agent_blocked", label: "Apply" }),
+          agentNode({
+            key: providerAgentNodeKey("claude-code", "agent_failed"),
+            agentId: "agent_failed",
+            label: "Migrate",
+            status: "failed",
+            completedAt: 3_000,
+          }),
+          agentNode({
+            key: providerAgentNodeKey("claude-code", "agent_live"),
+            agentId: "agent_live",
+            label: "Index",
+          }),
+        ],
+        [{ id: "i-1", nodeKey: blockedKey, kind: "approval", title: "Approve", raisedAt: 1_500 }],
+      ),
+    });
+
+    expect(html).toMatch(
+      /<p aria-live="polite"[^>]*data-testid="work-graph-summary"[^>]*>1 running · 1 needs you · 1 failed<\/p>/,
+    );
+  });
+
   test("renders no control the capabilities deny, and says why instead", () => {
     const graph = graphOf([
       agentNode({
@@ -355,15 +425,17 @@ describe("WorkGraphTree", () => {
     });
 
     expect(html).toContain("Live audit");
-    expect(html).toContain("Finished audit");
+    // A finished branch leaves the tree until the reader asks for it, so the
+    // tree's own rows (and its arrow keys) cover only what is still going on.
+    expect(html).not.toContain("Finished audit");
     expect(html).toContain('data-testid="work-graph-completed-toggle"');
-    expect(html).toContain('data-testid="work-graph-completed-rows" hidden=""');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("1 done");
     expect(html.indexOf("Live audit")).toBeLessThan(html.indexOf("1 done"));
-    expect(html.indexOf("1 done")).toBeLessThan(
-      html.indexOf("Finished audit"),
-    );
+    // The toggle names the tree it changes.
+    const treeId = /<ul id="([^"]+)" role="tree"/.exec(html)?.[1];
+    expect(treeId).toBeTruthy();
+    expect(html).toContain(`aria-controls="${treeId}"`);
   });
 
   test("keeps a completed parent visible while its child is still active", () => {

@@ -555,7 +555,11 @@
     "extraCopy131": "표시",
     "extraCopy132": "활동 보기",
     "extraCopy133": "대화에서 표시",
-    "controlAgent": "{{agent}} {{control}}"
+    "controlAgent": "{{agent}} {{control}}",
+    "summaryRunning_other": "{{count}}개 실행 중",
+    "summaryNeedsYou_other": "{{count}}개 확인 필요",
+    "summaryFailed_other": "{{count}}개 실패",
+    "showSubagents_other": "{{label}}의 하위 에이전트 {{count}}개 보기"
   },
   "activityDetailUtils": {
     "title": "프롬프트",

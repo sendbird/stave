@@ -565,7 +565,15 @@
     "extraCopy131": "Show",
     "extraCopy132": "view activity",
     "extraCopy133": "show in conversation",
-    "controlAgent": "{{control}} {{agent}}"
+    "controlAgent": "{{control}} {{agent}}",
+    "summaryRunning_one": "{{count}} running",
+    "summaryRunning_other": "{{count}} running",
+    "summaryNeedsYou_one": "{{count}} needs you",
+    "summaryNeedsYou_other": "{{count}} need you",
+    "summaryFailed_one": "{{count}} failed",
+    "summaryFailed_other": "{{count}} failed",
+    "showSubagents_one": "Show {{count}} subagent of {{label}}",
+    "showSubagents_other": "Show {{count}} subagents of {{label}}"
   },
   "activityDetailUtils": {
     "title": "Prompt",
