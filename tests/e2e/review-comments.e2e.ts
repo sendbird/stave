@@ -69,3 +69,62 @@ for (const lang of ["en", "ko"] as const) {
     expect(fits).toEqual({ nowrap: true, ellipsis: true, inside: true });
   });
 }
+
+/** The colour a token resolves to on this page, for comparing computed colours. */
+function tokenColor(page: Page, token: string) {
+  return page.evaluate((name) => {
+    const probe = document.createElement("span");
+    probe.style.color = `var(${name})`;
+    document.querySelector('[data-testid="review-comments"]')!.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, token);
+}
+
+for (const lang of ["en", "ko"] as const) {
+  test(`in a narrow inspector a sent comment's time wraps under its whole path (${lang})`, async ({ page }, testInfo) => {
+    await open(page, { lang, width: 1100 });
+    await page.evaluate(() => document.fonts.ready);
+    for (let index = 0; index < 2; index += 1) {
+      const row = sent(page).nth(index);
+      const where = row.locator("[data-review-comment-where]");
+      const time = row.locator("[data-review-comment-sent-at]");
+      // The whole path is painted: nothing is cut by an ellipsis.
+      expect(await where.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      const [whereBox, timeBox, rowBox] = await Promise.all([where.boundingBox(), time.boundingBox(), row.boundingBox()]);
+      // The time wrapped below the path rather than taking its room.
+      expect(timeBox!.y).toBeGreaterThanOrEqual(whereBox!.y + whereBox!.height - 1);
+      expect(timeBox!.x + timeBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width + 1);
+    }
+    await page.getByTestId("review-comments").screenshot({ path: testInfo.outputPath(`review-comments-narrow-${lang}.png`) });
+  });
+}
+
+test("the jump mark shows on the hovered or focused row only", async ({ page }) => {
+  await open(page);
+  const icons = page.getByTestId("review-comments").locator("[data-review-comment-jump-icon]");
+  const opacities = () => icons.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).opacity));
+  await page.mouse.move(0, 0);
+  await expect.poll(opacities).toEqual(["0", "0", "0", "0"]);
+  await pending(page).first().getByRole("button", { name: /^Show / }).hover();
+  await expect.poll(opacities).toEqual(["1", "0", "0", "0"]);
+  // Keyboard focus shows it too.
+  await page.mouse.move(0, 0);
+  await sent(page).nth(0).getByRole("button", { name: /^Resolve / }).focus();
+  await page.keyboard.press("Tab");
+  await expect(sent(page).nth(1).getByRole("button", { name: /^Show / })).toBeFocused();
+  await expect.poll(opacities).toEqual(["0", "0", "0", "1"]);
+});
+
+test("delete turns to the danger tone under the pointer, and changed lines read in the success tone", async ({ page }) => {
+  await open(page);
+  const remove = pending(page).first().locator("[data-review-comment-remove]");
+  const danger = await tokenColor(page, "--ads-color-danger");
+  await page.mouse.move(0, 0);
+  expect(await remove.evaluate((element) => getComputedStyle(element).color)).not.toBe(danger);
+  await remove.hover();
+  await expect.poll(() => remove.evaluate((element) => getComputedStyle(element).color)).toBe(danger);
+  const changed = sent(page).nth(1).getByText("Sent · lines changed since");
+  expect(await changed.evaluate((element) => getComputedStyle(element).color)).toBe(await tokenColor(page, "--ads-color-success-text"));
+});

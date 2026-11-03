@@ -15,6 +15,7 @@ import { useAppStore } from "@/store/app.store";
 import { EMPTY_SENT_REVIEW_COMMENTS, useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import type { ReviewComment } from "@/types/review";
 import { reviewStyles as styles } from "./review.styles";
+import { commentJumpMarker } from "./review-comment.stylex";
 
 const NO_COMMENTS: readonly ReviewComment[] = [];
 
@@ -68,6 +69,8 @@ export function ReviewComments(props: {
                   size="xs"
                   variant="quiet"
                   iconOnly
+                  xstyle={styles.commentRemove}
+                  data-review-comment-remove=""
                   aria-label={i18n.t("review:comments.remove", { where: describeWhere(comment) })}
                   onClick={() => removeReviewComment({ taskId: props.taskId, commentId: comment.id })}
                 >
@@ -103,17 +106,21 @@ function CommentJump(props: { comment: ReviewComment; sentAt?: string; onJump?: 
   useTranslation();
   const bodyId = useId();
   const where = describeWhere(props.comment);
+  const jumps = Boolean(props.onJump);
   const whereLine = (
     <span className={sx(styles.commentWhereLine)}>
-      <span className={sx(styles.commentWhere)} title={where}>{where}</span>
+      <span className={sx(styles.commentWhereHead)}>
+        <span className={sx(styles.commentWhere)} title={where} data-review-comment-where="">{where}</span>
+        {jumps ? <ArrowUpRight aria-hidden className={sx(styles.commentJumpIcon)} data-review-comment-jump-icon="" /> : null}
+      </span>
       {props.sentAt ? (
-        <span className={sx(styles.commentSentAt)}>
+        <span className={sx(styles.commentSentAt)} data-review-comment-sent-at="">
           <Trans ns="review" i18nKey="comments.sentAt" components={{ time: <time dateTime={props.sentAt}>{formatDateTime(props.sentAt)}</time> }} />
         </span>
       ) : null}
     </span>
   );
-  if (!props.onJump) {
+  if (!jumps) {
     return (
       <div className={sx(styles.comment)}>
         {whereLine}
@@ -125,15 +132,12 @@ function CommentJump(props: { comment: ReviewComment; sentAt?: string; onJump?: 
     <Button
       layout="host"
       type="button"
-      xstyle={[styles.commentJump, focusRing.ringInset]}
+      xstyle={[styles.commentJump, focusRing.ringInset, commentJumpMarker]}
       aria-label={i18n.t("review:comments.jump", { where })}
       aria-describedby={bodyId}
       onClick={() => props.onJump?.(props.comment)}
     >
-      <span className={sx(styles.commentJumpHead)}>
-        {whereLine}
-        <ArrowUpRight aria-hidden className={sx(styles.commentJumpIcon)} />
-      </span>
+      {whereLine}
       <span id={bodyId} className={sx(styles.commentBody)}>{props.comment.body}</span>
     </Button>
   );
