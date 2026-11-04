@@ -81,6 +81,9 @@ function runAppChordAction(
     case "navigation.issues":
       store.toggleIssues();
       return;
+    case "navigation.usage":
+      store.openUsage();
+      return;
     case "navigation.agents":
       store.toggleAgents();
       return;

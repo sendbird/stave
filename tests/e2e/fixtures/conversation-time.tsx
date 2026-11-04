@@ -98,6 +98,7 @@ createRoot(document.getElementById("root")!).render(
       <TooltipProvider>
         <TaskScopeProvider taskId={taskId}>
           <ChatPanel />
+          {params.has("split") ? <ChatPanel /> : null}
         </TaskScopeProvider>
       </TooltipProvider>
     </main>

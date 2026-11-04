@@ -442,7 +442,7 @@
     "workspaceRows": "워크스페이스 행",
     "expanded": "확장",
     "compact": "간략",
-    "searchReposLabelsOrBranches": "저장소, 레이블 또는 브랜치 검색",
+    "searchReposLabelsOrBranches": "검색",
     "reorderRepositoryValue": "{{value1}} 저장소 순서 변경",
     "useAltPlusArrowUpOrArrow": "Alt와 위쪽 또는 아래쪽 화살표 키로 순서를 변경합니다.",
     "expandRepository": "저장소 펼치기",
@@ -498,7 +498,10 @@
     "noUpdates": "업데이트 없음",
     "movedToPosition": "{{name}} 항목을 {{total}}개 중 {{position}}번째로 옮겼습니다.",
     "repositoryFallbackName": "저장소",
-    "workspaceFallbackName": "워크스페이스"
+    "workspaceFallbackName": "워크스페이스",
+    "view": "사이드바 보기",
+    "shortRepos": "저장소",
+    "shortQueue": "대기열"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "앱 메모리 사용량 {{value1}}",

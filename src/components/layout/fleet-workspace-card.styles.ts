@@ -29,7 +29,7 @@ export const cardStyles = stylex.create({
   // cap on the card edge would be a fourth.
   cardDormant: {
     opacity: {
-      default: 0.7,
+      default: 1,
       ":hover": 1,
     },
   },

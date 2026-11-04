@@ -1,3 +1,4 @@
+import { typeRoles } from "@/components/ads/recipes/type-roles";
 import { FolderOpen } from "lucide-react";
 import { useState } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -23,7 +24,7 @@ export function WorkspaceWelcome() {
     >
       <div className={sx(styles.column)}>
         <div className={sx(styles.intro)}>
-          <p className={sx(styles.eyebrow)}>{t("welcome.eyebrow")}</p>
+          <p className={sx(styles.eyebrow, typeRoles.eyebrow)}>{t("welcome.eyebrow")}</p>
           <h1
             id="workspace-welcome-title"
             className={sx(styles.title)}

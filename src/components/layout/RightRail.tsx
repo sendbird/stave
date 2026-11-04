@@ -198,6 +198,7 @@ export function RightRail() {
 
   const lensActive = activeSurfaceKind === "lens";
   const terminalActive = activeSurfaceKind === "terminal";
+  if (!hasRepository) return null;
   return (
     <aside
       data-testid="workspace-bar"

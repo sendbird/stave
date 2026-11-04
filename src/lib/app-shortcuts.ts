@@ -17,6 +17,7 @@ export type AppShortcutCommandId =
   | "navigation.fleet-view"
   | "navigation.automation-center"
   | "navigation.issues"
+  | "navigation.usage"
   | "navigation.agents"
   | "view.toggle-workspace-sidebar"
   | "view.toggle-changes-panel"
@@ -64,6 +65,12 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     get title() { return i18n.t("shell:appShortcuts.openIssues"); },
     get description() { return i18n.t("shell:appShortcuts.openAssignedTrackerTicketsAndStartA"); },
     defaultKey: "t",
+  },
+  {
+    commandId: "navigation.usage",
+    get title() { return i18n.t("shell:sidebarPrimaryNav.aIUsage"); },
+    get description() { return i18n.t("shell:sidebarPrimaryNav.aIUsage"); },
+    defaultKey: "u",
   },
   {
     commandId: "navigation.agents",

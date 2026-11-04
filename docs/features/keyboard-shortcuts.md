@@ -68,6 +68,7 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Select workspace | `Cmd/Ctrl+Shift+1..9` | Sidebar order, not while typing |
 | Quick open file | `Cmd/Ctrl+P` | Anywhere |
 | Open command palette | `Cmd/Ctrl+Shift+P` | Anywhere |
+| AI usage | `Cmd/Ctrl+K` then `U` | Anywhere, not while typing |
 | Open settings | `Cmd/Ctrl+,` | Anywhere |
 
 ## Tasks And Tabs

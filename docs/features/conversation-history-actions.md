@@ -86,3 +86,7 @@ Stave persists the provider session and native turn identifiers with task messag
 ## Related Docs
 
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
+
+## Find in conversation
+
+Choose Find in conversation above the transcript, or press Cmd+F / Ctrl+F with focus in the conversation. Search matches the text of loaded messages, including virtualized messages outside the viewport; it excludes tool and thinking parts. Enter and Shift+Enter move to the next and previous matching message, wrapping at either end. Load older messages before searching earlier history.

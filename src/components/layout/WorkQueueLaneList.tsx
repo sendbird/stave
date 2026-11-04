@@ -42,6 +42,7 @@ function describeShelf(view: WorkspaceSettlementView | undefined): string | unde
  * folded so the first thing in view is what needs the user.
  */
 export function WorkQueueLaneList(props: {
+  onNewWorkspace: () => void;
   groups: readonly SidebarWorkQueueGroup<SidebarWorkQueueEntry>[];
   highestAttentionByWorkspaceId: Record<string, FleetAttentionItem | undefined>;
   attentionItemsByWorkspaceId: Record<string, readonly FleetAttentionItem[] | undefined>;
@@ -59,7 +60,7 @@ export function WorkQueueLaneList(props: {
   return (
     <div className={sx(repositorySidebarStyles.navStack)}>
       {sections.length === 0 ? (
-        <SidebarEmptyState kind="no-workspaces" />
+        <SidebarEmptyState kind="no-workspaces" onNewWorkspace={props.onNewWorkspace} />
       ) : (
         sections.map((group) => {
           const collapsed =

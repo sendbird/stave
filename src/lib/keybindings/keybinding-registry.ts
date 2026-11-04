@@ -222,6 +222,7 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:appShortcuts.openAssignedTrackerTicketsAndStartA",
     section: "navigation",
   }),
+  appChord("navigation.usage", { titleKey: "shell:sidebarPrimaryNav.aIUsage", descriptionKey: "shell:sidebarPrimaryNav.aIUsage", section: "navigation" }),
   appChord("navigation.agents", {
     titleKey: "shell:appShortcuts.openAgents",
     descriptionKey: "shell:appShortcuts.openSavedAgentsWorkflowsAndYourStandards",

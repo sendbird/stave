@@ -108,3 +108,7 @@ You do not need to create a task first just to open a provider session.
 
 - [Command Palette](command-palette.md)
 - [Install Guide](../install-guide.md)
+
+## Find text in a terminal
+
+With focus in a terminal, press Cmd+F (macOS) or Ctrl+F to open Find in terminal. Type a query, then use Next/Previous or Enter/Shift+Enter. Escape closes the bar and returns focus to the terminal. Search covers the terminal's retained buffer; it does not query discarded output. Running commands show Running, completed commands show their exit code, and idle shell integration events remain hidden.

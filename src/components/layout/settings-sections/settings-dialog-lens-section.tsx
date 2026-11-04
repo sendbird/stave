@@ -1,6 +1,7 @@
+import { Loader } from "@/components/ui";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
-import { Loader2, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
@@ -167,7 +168,7 @@ export function LensSection() {
             xstyle={styles.clearButton}
           >
             {clearingScope === "project" ? (
-              <Loader2 className={sx(styles.spinIcon)} />
+              <Loader aria-hidden size="xs" variant="spinner" />
             ) : (
               <Trash2 className={sx(styles.iconSm)} />
             )}
@@ -183,7 +184,7 @@ export function LensSection() {
             xstyle={styles.clearButton}
           >
             {clearingScope === "workspace" ? (
-              <Loader2 className={sx(styles.spinIcon)} />
+              <Loader aria-hidden size="xs" variant="spinner" />
             ) : (
               <Trash2 className={sx(styles.iconSm)} />
             )}

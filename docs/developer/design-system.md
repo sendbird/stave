@@ -296,3 +296,7 @@ preview, including the original image, request, captured page link, and reload.
 Images open in the canonical zoomable lightbox. Older conversations without this
 metadata do not invent a historical capture. Clearing draft attachments alone
 never creates a sent-feedback record.
+
+## Literal metric inventory
+
+`check:design-system` also enforces `config/token-ratchet.json`. Existing non-ADS consumers have a decreasing per-file allowance for control dimensions, line heights, letter spacing, numeric radii, status colour mixes, icon metrics, and focus resets. New files have no allowance. Remove or lower an allowance when fixing a declaration; do not increase it. Structural dimensions are outside the control-size rule. Use `typeRoles.caption` / `typeRoles.eyebrow` and ADS control metrics for new UI. Text ink must not fade the muted foreground into transparent.

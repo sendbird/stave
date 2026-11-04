@@ -78,7 +78,7 @@ export const modelEffortGridStyles = stylex.create({
     height: "2.75rem",
     alignItems: "center",
     justifyContent: "center",
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 45%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   unsupportedGlyph: {
     display: "flex",

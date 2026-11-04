@@ -185,7 +185,6 @@ function TerminalSurfacePanelContent(props: {
   });
 
   const {
-    activeSessionId,
     activeWriteErrorCount,
     bridgeError,
     clearActiveTranscript,
@@ -250,26 +249,14 @@ function TerminalSurfacePanelContent(props: {
           >
             {i18n.t("panes:terminalSurfacePanel.exitedWithCode", { code: sessionExited.exitCode })}
           </span>
-        ) : shellStatus ? (
+        ) : shellStatus && (shellStatus.status === "command-start" || shellStatus.status === "command-finished") ? (
           <span
             className={sx(
               terminalSurfacePanelStyles.status,
               terminalSurfacePanelStyles.statusShell,
             )}
           >
-            {shellStatus.status.replaceAll("-", " ")}
-            {shellStatus.exitCode === undefined
-              ? ""
-              : ` (${shellStatus.exitCode})`}
-          </span>
-        ) : activeSessionId ? (
-          <span
-            className={sx(
-              terminalSurfacePanelStyles.status,
-              terminalSurfacePanelStyles.statusLive,
-            )}
-          >
-            {i18n.t("panes:terminalSurfacePanel.live")}
+            {shellStatus.status === "command-start" ? i18n.t("panes:terminalSurfacePanel.running") : i18n.t("panes:terminalSurfacePanel.exitedWithCode", { code: shellStatus.exitCode ?? 0 })}
           </span>
         ) : null}
         <Tooltip content={i18n.t("panes:terminalSurfacePanel.clear")}>

@@ -1,3 +1,4 @@
+import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { formatAutomationSchedule, formatAutomationTrustPolicy, describeAutomationDraftIssue } from "@/lib/automation-presentation";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { i18n, useTranslation } from "@/i18n";
@@ -819,15 +820,7 @@ export function AutomationCenterView() {
 
   return (
     <div className={sx(centerStyles.root)}>
-      <header className={sx(centerStyles.header)}>
-        <div className={sx(centerStyles.headerText)}>
-          <div className={sx(centerStyles.headerTitleRow)}>
-            <Workflow className={sx(centerStyles.headerIcon)} />
-            <h1 className={sx(centerStyles.headerTitle)}>{tI18n("automation:automationCenterView.schedules")}</h1>
-          </div>
-          <p className={sx(centerStyles.headerSubtitle)}>
-            {tI18n("automation:automationCenterView.workThatRunsOnItsOwnAnd")}</p>
-        </div>
+      <GlobalPageHeader title={tI18n("automation:automationCenterView.schedules")} description={tI18n("automation:automationCenterView.workThatRunsOnItsOwnAnd")} titleIcon={<Workflow />} actions={
         <div className={sx(centerStyles.headerActions)}>
           {activeTab === "runs" ? null : (
             <Button
@@ -881,7 +874,7 @@ export function AutomationCenterView() {
             </Button>
           </Tooltip>
         </div>
-      </header>
+      } />
 
       <div className={sx(centerStyles.toolbar)}>
         <SegmentedControl

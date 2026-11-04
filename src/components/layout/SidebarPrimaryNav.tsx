@@ -1,3 +1,6 @@
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { useShortcutHint } from "@/components/system/ShortcutKeys";
+import { CountBadge } from "@/components/system/CountBadge";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
@@ -64,6 +67,9 @@ function useAgentsWithWork() {
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   useTranslation();
+  const fleetShortcut = useShortcutHint("navigation.fleet-view");
+  const agentsShortcut = useShortcutHint("navigation.agents");
+  const usageShortcut = useShortcutHint("navigation.usage");
   const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
   const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
@@ -76,7 +82,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   return (
     <>
       {props.showFleetView ? (
-        <AdsButton
+        <AdsTooltip content={i18n.t("shell:sidebarPrimaryNav.fleetView")} shortcut={fleetShortcut}><AdsButton
           layout="host"
           type="button"
           onClick={() => openFleetView()}
@@ -90,11 +96,11 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
         >
           <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
           {i18n.t("shell:sidebarPrimaryNav.fleetView")}
-        </AdsButton>
+        </AdsButton></AdsTooltip>
       ) : null}
       {showAgents ? (
         <>
-          <AdsButton
+          <AdsTooltip content={i18n.t("shell:sidebarPrimaryNav.agents")} shortcut={agentsShortcut}><AdsButton
             layout="host"
             type="button"
             onClick={() => openAgents()}
@@ -109,9 +115,9 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
             <Bot className={sx(repositorySidebarStyles.iconMd)} />
             <span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.agents")}</span>
             {agentsWithWork.total > 0 ? (
-              <span className={sx(styles.count)}>{agentsWithWork.total}</span>
+              <CountBadge count={agentsWithWork.total} tone={agentsWithWork.agents.some((agent) => agent.needsYou) ? "warning" : "neutral"} />
             ) : null}
-          </AdsButton>
+          </AdsButton></AdsTooltip>
           {agentsWithWork.agents.map((agent) => (
             <AdsButton
               key={agent.agentConfigId}
@@ -137,18 +143,18 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
                 aria-label={null}
               />
               <span className={sx(styles.label)}>{agent.agentName}</span>
-              {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
+              {agent.count > 0 ? <CountBadge count={agent.count} tone={agent.needsYou ? "warning" : "neutral"} /> : null}
             </AdsButton>
           ))}
         </>
       ) : null}
       {showAiUsage ? (
-        <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
+        <AdsTooltip content={i18n.t("shell:sidebarPrimaryNav.aIUsage")} shortcut={usageShortcut}><AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
           aria-current={surface === "usage" ? "page" : undefined}
           xstyle={[repositorySidebarStyles.navButton, transition.colors,
             surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
           <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
-        </AdsButton>
+        </AdsButton></AdsTooltip>
       ) : null}
     </>
   );
@@ -157,6 +163,9 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
 /** The collapsed sidebar's rail: Fleet View, Agents and AI usage, with a dot when an agent needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   useTranslation();
+  const fleetShortcut = useShortcutHint("navigation.fleet-view");
+  const agentsShortcut = useShortcutHint("navigation.agents");
+  const usageShortcut = useShortcutHint("navigation.usage");
   const showAgents = useAppStore((state) => state.settings.sidebarShowAgents);
   const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
@@ -181,7 +190,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           >
             <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
           </TooltipTrigger>
-          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.fleetView")}</TooltipContent>
+          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.fleetView")}{fleetShortcut}</TooltipContent>
         </Tooltip>
       ) : null}
       {showAgents ? (
@@ -203,13 +212,14 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           </TooltipTrigger>
           <TooltipContent side="right">
             {agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork2", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
+            {agentsShortcut}
           </TooltipContent>
         </Tooltip>
       ) : null}
       {showAiUsage ? (
         <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
           onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} aria-current={surface === "usage" ? "page" : undefined} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
-          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</TooltipContent></Tooltip>
+          <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}{usageShortcut}</TooltipContent></Tooltip>
       ) : null}
     </>
   );
@@ -229,18 +239,4 @@ const styles = stylex.create({
   },
   label: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },
   childRow: { height: 28, paddingInlineStart: vars["--ads-space-24"], fontSize: vars["--ads-font-size-caption"] },
-  count: {
-    flex: "0 0 auto",
-    minWidth: 18,
-    height: 18,
-    paddingInline: 5,
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-warning-soft"],
-    color: vars["--ads-color-warning-text"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: "18px",
-    textAlign: "center",
-    fontVariantNumeric: "tabular-nums",
-  },
 });

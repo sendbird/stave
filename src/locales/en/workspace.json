@@ -202,7 +202,7 @@
     "eyebrow": "YOUR WORK, IN ONE PLACE",
     "title": "From a task to a result you can trust.",
     "lede": "Use agents in your local repositories. Keep tickets, notes, code, and evidence together so you can pick up where you left off.",
-    "openRepository": "Open a repository",
+    "openRepository": "Open repository",
     "openRepositoryHint": "Choose a folder on your computer. You can connect Jira or Crane later.",
     "steps": {
       "outcome": {
@@ -449,7 +449,7 @@
     "workspaceRows": "Workspace rows",
     "expanded": "Expanded",
     "compact": "Compact",
-    "searchReposLabelsOrBranches": "Search repos, labels, or branches",
+    "searchReposLabelsOrBranches": "Search",
     "reorderRepositoryValue": "Reorder repository {{value1}}",
     "useAltPlusArrowUpOrArrow": "Use Alt plus Arrow Up or Arrow Down to reorder.",
     "expandRepository": "Expand repository",
@@ -487,7 +487,7 @@
     "runStuck": "run stuck",
     "accessibility": {
       "sidebar": "Projects and workspaces",
-      "openProject": "Open project",
+      "openProject": "Open repository",
       "collapseProjectList": "Collapse project list",
       "openWorkspace": "Open workspace {{value1}}",
       "sidebarView": "Sidebar view: {{value1}}",
@@ -505,7 +505,10 @@
     "noUpdates": "No updates",
     "movedToPosition": "{{name}} moved to position {{position}} of {{total}}.",
     "repositoryFallbackName": "Repository",
-    "workspaceFallbackName": "Workspace"
+    "workspaceFallbackName": "Workspace",
+    "view": "Sidebar view",
+    "shortRepos": "Repos",
+    "shortQueue": "Queue"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "App footprint at {{value1}}",

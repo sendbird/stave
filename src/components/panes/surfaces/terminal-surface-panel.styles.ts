@@ -22,10 +22,10 @@ export const terminalSurfacePanelStyles = stylex.create({
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-8"],
-    height: 32,
+    height: vars["--ads-control-height-sm"],
     paddingInline: vars["--ads-space-12"],
   },
-  headerIcon: { flexShrink: 0, height: 14, width: 14 },
+  headerIcon: { flexShrink: 0, height: vars["--ads-control-icon-size-sm"], width: vars["--ads-control-icon-size-sm"] },
   headerPath: {
     flex: 1,
     minWidth: 0,
@@ -34,6 +34,7 @@ export const terminalSurfacePanelStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   status: {
+    lineHeight: vars["--ads-line-height-caption"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",

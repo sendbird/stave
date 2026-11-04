@@ -144,5 +144,16 @@
   "clipboard": {
     "copied": "Copied",
     "copyFailed": "Couldn't copy to the clipboard"
+  },
+  "transcriptFind": {
+    "previous": "Previous",
+    "next": "Next",
+    "close": "Close",
+    "chat": "Find in conversation",
+    "terminal": "Find in terminal",
+    "none": "No matches",
+    "matches": "{{current}} / {{total}}",
+    "loaded": "Search loaded messages",
+    "showSidebar": "Show sidebar"
   }
 }

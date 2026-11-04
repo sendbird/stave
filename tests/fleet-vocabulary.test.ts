@@ -32,15 +32,15 @@ describe("Fleet vocabulary", () => {
   });
 
   test("the top bar counts what blocks and names review items separately", () => {
-    expect(describeFleetAttentionCounts({ blockingCount: 0, reviewCount: 0 })).toBe("Fleet View");
+    expect(describeFleetAttentionCounts({ blockingCount: 0, reviewCount: 0 })).toBe("Fleet");
     expect(describeFleetAttentionCounts({ blockingCount: 1, reviewCount: 0 })).toBe(
-      "Fleet View · 1 action required",
+      "Fleet · 1 action required",
     );
     expect(describeFleetAttentionCounts({ blockingCount: 2, reviewCount: 3 })).toBe(
-      "Fleet View · 2 actions required · 3 in review",
+      "Fleet · 2 actions required · 3 in review",
     );
     expect(describeFleetAttentionCounts({ blockingCount: 0, reviewCount: 1 })).toBe(
-      "Fleet View · 1 in review",
+      "Fleet · 1 in review",
     );
     applyAppLocale("ko");
     expect(describeFleetAttentionCounts({ blockingCount: 2, reviewCount: 3 })).toBe(

@@ -40,20 +40,22 @@ import {
 } from "./useGitGraphData";
 import { gitGraphCanvasStyles as styles } from "./git-graph-canvas.styles";
 
-// Stave-authored colours balanced for light and dark editor surfaces.
+// Graph lanes follow the active theme.
 export const GIT_GRAPH_LANE_PALETTE = [
-  "#2B6FE8",
-  "#D43F82",
-  "#258A52",
-  "#C45A22",
-  "#8662D6",
-  "#D94848",
-  "#16869E",
-  "#B457C4",
-  "#5F8D2B",
-  "#A87412",
-  "#596ED9",
-  "#1D8572",
+  "var(--ads-chart-1)",
+  "var(--ads-chart-2)",
+  "var(--ads-chart-3)",
+  "var(--ads-chart-4)",
+  "var(--ads-chart-5)",
+  "var(--ads-chart-6)",
+  "var(--ads-chart-7)",
+  "var(--ads-chart-8)",
+  "var(--ads-chart-9)",
+  "var(--ads-chart-10)",
+  "var(--ads-chart-11)",
+  "var(--ads-chart-12)",
+  "var(--ads-chart-13)",
+  "var(--ads-chart-14)",
 ] as const;
 // Uncommitted work follows the theme's muted ink instead of a fixed gray.
 const UNCOMMITTED_STROKE = "var(--muted-foreground)";

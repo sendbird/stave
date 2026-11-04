@@ -1,3 +1,4 @@
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { i18n, useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -758,7 +759,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   aria-label={i18n.t("shell:sidebarPrimaryNav.globalViews")}
                   className={sx(repositorySidebarStyles.columnCenter)}
                 >
-                  <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView} />
+                  <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView && repositories.length > 0} />
                 </nav>
               </div>
             ) : (
@@ -873,7 +874,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   repositorySidebarStyles.navStackSpaced,
                 )}
               >
-                <SidebarPrimaryNav showFleetView={sidebarShowFleetView} />
+                <SidebarPrimaryNav showFleetView={sidebarShowFleetView && repositories.length > 0} />
               </nav>
               <div
                 className={sx(repositorySidebarStyles.viewBar, panelBarStyles.bar)}
@@ -881,45 +882,8 @@ export function RepositoryWorkspaceSidebar(args: {
                 {/* The toggle replaces the old static "Projects" heading: it
                     names the view you are in *and* is the control that leaves
                     it, so the bar never claims one thing while showing another. */}
-                <div className={sx(repositorySidebarStyles.viewToggle)}>
-                  {SIDEBAR_NAV_VIEW_OPTIONS.map((option) => {
-                    const isSelected = sidebarNavView === option.value;
-                    return (
-                      <Tooltip key={option.value}>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              xstyle={[
-                                repositorySidebarStyles.viewToggleButton,
-                                isSelected
-                                  ? repositorySidebarStyles.viewToggleButtonActive
-                                  : repositorySidebarStyles.viewToggleButtonIdle,
-                              ]}
-                              data-testid={`sidebar-view-${option.value}`}
-                              aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.sidebarView", { value1: option.label })}
-                              aria-pressed={isSelected}
-                              onClick={() =>
-                                updateSettings({
-                                  patch: { sidebarNavView: option.value },
-                                })
-                              }
-                            />
-                          }
-                        >
-                          <option.Icon
-                            className={sx(repositorySidebarStyles.iconSm)}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          {option.label}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
+                <SegmentedControl value={sidebarNavView} onValueChange={(value) => updateSettings({ patch: { sidebarNavView: value } })} aria-label={tI18n("workspace:repositoryWorkspaceSidebar.view")}
+                  options={SIDEBAR_NAV_VIEW_OPTIONS.map((option) => ({ value: option.value, label: tI18n(option.value === "projects" ? "workspace:repositoryWorkspaceSidebar.shortRepos" : "workspace:repositoryWorkspaceSidebar.shortQueue"), title: option.label, icon: <option.Icon />, testId: `sidebar-view-${option.value}` }))} />
                 <div className={sx(repositorySidebarStyles.viewBarActions)}>
                   <Tooltip>
                     <TooltipTrigger
@@ -1033,11 +997,12 @@ export function RepositoryWorkspaceSidebar(args: {
                 ) : null}
               </div>
               {repositories.length === 0 ? (
-                <SidebarEmptyState kind="no-repositories" onOpenRepository={() => setOpenPathDialogOpen(true)} />
+                <SidebarEmptyState kind="no-repositories" onOpenRepository={() => setOpenPathDialogOpen(true)} hideAction={!currentRepositoryPath} />
               ) : visibleRepositories.length === 0 ? (
                 <SidebarEmptyState kind="no-matches" query={workspaceSearchQuery} onClearSearch={() => setWorkspaceSearchQuery("")} />
               ) : isWorkQueueView ? (
                 <WorkQueueLaneList
+                  onNewWorkspace={() => { if (currentRepositoryPath) void handleCreateWorkspaceRequest(currentRepositoryPath); else setOpenPathDialogOpen(true); }}
                   groups={workQueueGroups}
                   highestAttentionByWorkspaceId={highestAttentionByWorkspaceId}
                   attentionItemsByWorkspaceId={attentionItemsByWorkspaceId}

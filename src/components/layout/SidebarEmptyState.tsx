@@ -12,9 +12,9 @@ import { useTranslation } from "@/i18n";
  */
 export function SidebarEmptyState(
   props:
-    | { kind: "no-repositories"; onOpenRepository: () => void }
+    | { kind: "no-repositories"; onOpenRepository: () => void; hideAction?: boolean }
     | { kind: "no-matches"; query: string; onClearSearch: () => void }
-    | { kind: "no-workspaces" },
+    | { kind: "no-workspaces"; onNewWorkspace?: () => void },
 ) {
   const { t } = useTranslation("workspace");
   if (props.kind === "no-repositories") {
@@ -22,10 +22,10 @@ export function SidebarEmptyState(
       <div className={sx(styles.root)}>
         <p className={sx(styles.title)}>{t("emptyState.noRepositories.title")}</p>
         <p className={sx(styles.reason)}>{t("emptyState.noRepositories.reason")}</p>
-        <Button variant="outline" size="sm" xstyle={styles.action} onClick={props.onOpenRepository}>
+        {!props.hideAction ? <Button variant="outline" size="sm" xstyle={styles.action} onClick={props.onOpenRepository}>
           <FolderOpen aria-hidden />
           {t("emptyState.noRepositories.action")}
-        </Button>
+        </Button> : null}
       </div>
     );
   }
@@ -45,6 +45,7 @@ export function SidebarEmptyState(
     <div className={sx(styles.root)}>
       <p className={sx(styles.title)}>{t("emptyState.noWorkspaces.title")}</p>
       <p className={sx(styles.reason)}>{t("emptyState.noWorkspaces.reason")}</p>
+      {props.onNewWorkspace ? <Button size="sm" onClick={props.onNewWorkspace}>{t("repositoryWorkspaceSidebar.newWorkspace")}</Button> : null}
     </div>
   );
 }

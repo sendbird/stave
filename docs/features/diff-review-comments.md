@@ -52,3 +52,7 @@ resolve it.
   the task's comments, not sent and sent, for that reason, with the same
   actions: a row opens its line, **Remove** deletes a pending comment, and a
   sent one shows the marks above and **Resolve**.
+
+## Diff display and editor conflicts
+
+Chat and Review diffs follow the diff display setting and collapse unchanged lines by default. When a dirty editor buffer conflicts with a changed disk file, a banner offers Compare, Keep mine, and Reload from disk. Repeated Save does not bypass the conflict. Compare shows disk versus the local buffer; Keep mine explicitly saves the local version, while Reload replaces it with disk content.

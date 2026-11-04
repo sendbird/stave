@@ -91,7 +91,7 @@ export const gitGraphViewStyles = stylex.create({
   emptyIcon: {
     width: 32,
     height: 32,
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 45%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   emptyTitle: {
     fontSize: vars["--ads-font-size-body"],

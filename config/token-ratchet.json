@@ -1,0 +1,856 @@
+{
+  "version": 1,
+  "description": "Existing literal metrics only; new files have zero allowance and counts may only decrease.",
+  "files": {
+    "src/components/agent-runs/agent-run-result.styles.ts": {
+      "control-metric": 1
+    },
+    "src/components/agent-runs/StageTrack.tsx": {
+      "icon-metric": 5
+    },
+    "src/components/agent-runs/SignOffCard.tsx": {
+      "control-metric": 1,
+      "line-height": 1
+    },
+    "src/components/agent-runs/AgentRunSummary.tsx": {
+      "control-metric": 2,
+      "icon-metric": 6,
+      "tracking": 1,
+      "line-height": 1
+    },
+    "src/components/agent-runs/agent-runs.styles.ts": {
+      "icon-metric": 9,
+      "custom-spinner": 1,
+      "line-height": 4,
+      "control-metric": 1,
+      "tracking": 2,
+      "radius": 1
+    },
+    "src/components/ui/context-chip.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/ui/input-group.stylex.ts": {
+      "control-metric": 5
+    },
+    "src/components/ui/overlay-layout.styles.ts": {
+      "focus-reset": 2
+    },
+    "src/components/ui/drawer-layout.stylex.ts": {
+      "radius": 1,
+      "focus-reset": 1
+    },
+    "src/components/ui/command-layout.stylex.ts": {
+      "focus-reset": 1
+    },
+    "src/components/layout/pr-status.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/layout/top-bar-notifications.styles.ts": {
+      "icon-metric": 6
+    },
+    "src/components/layout/fleet-attention-inbox.styles.ts": {
+      "tracking": 1,
+      "icon-metric": 2,
+      "control-metric": 2
+    },
+    "src/components/layout/editor-diff-review-hover-menu.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2
+    },
+    "src/components/layout/standalone-cli/standalone-cli.styles.ts": {
+      "control-metric": 3,
+      "icon-metric": 2
+    },
+    "src/components/layout/settings-dialog.shared.styles.ts": {
+      "tracking": 2
+    },
+    "src/components/layout/workspace-skills.styles.ts": {
+      "line-height": 1,
+      "tracking": 5,
+      "icon-metric": 17,
+      "control-metric": 7,
+      "custom-spinner": 1
+    },
+    "src/components/layout/task-preset-editor.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/layout/SidebarPrimaryNav.tsx": {
+      "control-metric": 1
+    },
+    "src/components/layout/crane-dispatch-approval-dialog.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/layout/QuotaTimeLeftClock.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/layout/workspace-account-limit-icon.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/layout/workspace-sync-status-card.styles.ts": {
+      "icon-metric": 4,
+      "custom-spinner": 1,
+      "tracking": 1
+    },
+    "src/components/layout/KickoffDialog.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/keyboard-shortcuts-drawer.styles.ts": {
+      "icon-metric": 4,
+      "control-metric": 1,
+      "tracking": 1
+    },
+    "src/components/layout/resources-popover.styles.ts": {
+      "control-metric": 8,
+      "icon-metric": 8,
+      "custom-spinner": 1
+    },
+    "src/components/layout/top-bar-branch-dropdown.styles.ts": {
+      "line-height": 3,
+      "icon-metric": 4,
+      "custom-spinner": 1,
+      "control-metric": 1,
+      "tracking": 1
+    },
+    "src/components/layout/inbox-row.styles.ts": {
+      "icon-metric": 2,
+      "control-metric": 1
+    },
+    "src/components/layout/StatusBarAccountSection.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/workspace-information-section-menu.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2
+    },
+    "src/components/layout/settings-dialog-crane-connector.styles.ts": {
+      "custom-spinner": 1
+    },
+    "src/components/layout/continue-workspace-dialog.styles.ts": {
+      "tracking": 1,
+      "icon-metric": 2,
+      "control-metric": 1
+    },
+    "src/components/layout/top-bar-open-pr.styles.ts": {
+      "icon-metric": 11,
+      "control-metric": 2,
+      "tracking": 1,
+      "line-height": 3
+    },
+    "src/components/layout/resource-dashboard.styles.ts": {
+      "icon-metric": 6,
+      "tracking": 1
+    },
+    "src/components/layout/source-control-review-dialog.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2,
+      "line-height": 2
+    },
+    "src/components/layout/workspace-information-martin-card.styles.ts": {
+      "control-metric": 3,
+      "icon-metric": 5,
+      "line-height": 1
+    },
+    "src/components/layout/cli-session-panel.styles.ts": {
+      "icon-metric": 2,
+      "tracking": 1,
+      "control-metric": 4,
+      "status-mix": 2
+    },
+    "src/components/layout/automation-center/automation-latest-run.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2
+    },
+    "src/components/layout/automation-center/automation-center.styles.ts": {
+      "tracking": 2,
+      "icon-metric": 2
+    },
+    "src/components/layout/automation-center/schedule-rows.styles.ts": {
+      "line-height": 2
+    },
+    "src/components/layout/automation-center/automation-location.styles.ts": {
+      "line-height": 2
+    },
+    "src/components/layout/automation-center/automation-center-view.styles.ts": {
+      "tracking": 2,
+      "line-height": 2,
+      "icon-metric": 6,
+      "control-metric": 5,
+      "custom-spinner": 1
+    },
+    "src/components/layout/automation-center/automation-editor.styles.ts": {
+      "tracking": 2,
+      "line-height": 10,
+      "control-metric": 8,
+      "icon-metric": 4
+    },
+    "src/components/layout/automation-center/PullRequestWatchEvents.tsx": {
+      "line-height": 1
+    },
+    "src/components/layout/automation-center/AutomationCenterView.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/automation-center/automation-run-detail.styles.ts": {
+      "tracking": 1,
+      "control-metric": 1,
+      "icon-metric": 2
+    },
+    "src/components/layout/fleet-workspace-card.styles.ts": {
+      "icon-metric": 10,
+      "control-metric": 2
+    },
+    "src/components/layout/StatusBarUsageStripItems.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/workspace-progress-task-tree.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2
+    },
+    "src/components/layout/settings-dialog-sections.styles.ts": {
+      "tracking": 6,
+      "custom-spinner": 1,
+      "line-height": 2
+    },
+    "src/components/layout/layout-shell.styles.ts": {
+      "control-metric": 7,
+      "icon-metric": 14,
+      "radius": 1
+    },
+    "src/components/layout/settings-dialog-auto-routing-section.styles.ts": {
+      "tracking": 1
+    },
+    "src/components/layout/stave-app-menu.styles.ts": {
+      "control-metric": 1,
+      "icon-metric": 4,
+      "tracking": 1
+    },
+    "src/components/layout/WorkspaceResumeBrief.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/workspace-information-panel.styles.ts": {
+      "icon-metric": 20,
+      "control-metric": 26,
+      "custom-spinner": 1
+    },
+    "src/components/layout/quit-confirmation-dialog.styles.ts": {
+      "icon-metric": 4,
+      "tracking": 2
+    },
+    "src/components/layout/dispatch-runtime/dispatch-runtime.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/layout/editor-markdown-preview.tsx": {
+      "line-height": 1
+    },
+    "src/components/layout/settings-dialog-advanced-disclosure.styles.ts": {
+      "tracking": 2
+    },
+    "src/components/layout/automation-information-resource-creator.styles.ts": {
+      "control-metric": 6,
+      "icon-metric": 2
+    },
+    "src/components/layout/editor-diff-review-hover-menu.tsx": {
+      "control-metric": 2
+    },
+    "src/components/layout/ProviderBrowserAccessSettingsCard.styles.ts": {
+      "control-metric": 2
+    },
+    "src/components/layout/workspace-turn-summary.styles.ts": {
+      "tracking": 2,
+      "icon-metric": 2
+    },
+    "src/components/layout/fleet-view.styles.ts": {
+      "icon-metric": 12,
+      "tracking": 1,
+      "control-metric": 5
+    },
+    "src/components/layout/workspace-plans.styles.ts": {
+      "custom-spinner": 1
+    },
+    "src/components/layout/editor-markdown-preview.styles.ts": {
+      "tracking": 4
+    },
+    "src/components/layout/open-path-dialog.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/layout/repository-workspace-sidebar.styles.ts": {
+      "icon-metric": 42,
+      "control-metric": 21,
+      "line-height": 1
+    },
+    "src/components/layout/workspace-explorer.styles.ts": {
+      "control-metric": 8,
+      "icon-metric": 15,
+      "line-height": 3
+    },
+    "src/components/layout/top-bar-file-search.styles.ts": {
+      "icon-metric": 4,
+      "focus-reset": 1,
+      "tracking": 1,
+      "control-metric": 2
+    },
+    "src/components/layout/settings-dialog-kickoff-section.styles.ts": {
+      "custom-spinner": 1
+    },
+    "src/components/layout/workspace-changes.styles.ts": {
+      "icon-metric": 17,
+      "control-metric": 10,
+      "tracking": 3,
+      "custom-spinner": 1
+    },
+    "src/components/layout/kickoff-dialog.styles.ts": {
+      "control-metric": 4,
+      "icon-metric": 14
+    },
+    "src/components/layout/workspace-settings-dialog.styles.ts": {
+      "control-metric": 2
+    },
+    "src/components/layout/global-command-palette.styles.ts": {
+      "tracking": 2,
+      "line-height": 1,
+      "icon-metric": 2,
+      "control-metric": 1
+    },
+    "src/components/layout/editor-review-panel.styles.ts": {
+      "control-metric": 8,
+      "line-height": 2
+    },
+    "src/components/layout/QuotaRing.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/top-bar-update.styles.ts": {
+      "control-metric": 2,
+      "custom-spinner": 1,
+      "tracking": 1
+    },
+    "src/components/layout/markdown-frontmatter-card.styles.ts": {
+      "tracking": 1
+    },
+    "src/components/layout/pr-context-dialog.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/layout/SettingsDialog.styles.ts": {
+      "tracking": 3,
+      "line-height": 2
+    },
+    "src/components/layout/top-bar.styles.ts": {
+      "icon-metric": 1
+    },
+    "src/components/layout/create-workspace-branch-picker.styles.ts": {
+      "icon-metric": 10,
+      "tracking": 2
+    },
+    "src/components/layout/settings-dialog-tooling-section.styles.ts": {
+      "tracking": 2,
+      "custom-spinner": 1
+    },
+    "src/components/layout/workspace-welcome.styles.ts": {
+      "tracking": 1,
+      "icon-metric": 2
+    },
+    "src/components/layout/create-workspace-dialog.styles.ts": {
+      "icon-metric": 4,
+      "tracking": 2
+    },
+    "src/components/layout/source-control-reviews-panel.styles.ts": {
+      "line-height": 2,
+      "tracking": 1,
+      "custom-spinner": 1
+    },
+    "src/components/layout/issues/tracker-visual.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/layout/issues/issues-layout.stylex.ts": {
+      "icon-metric": 14,
+      "tracking": 4,
+      "control-metric": 12,
+      "line-height": 4
+    },
+    "src/components/layout/issues/TrackerIssueDetailPane.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/layout/issues/issues-row.styles.ts": {
+      "icon-metric": 10,
+      "control-metric": 4
+    },
+    "src/components/layout/settings-dialog-martin-sync.styles.ts": {
+      "custom-spinner": 1
+    },
+    "src/components/layout/explorer-entry-icon.styles.ts": {
+      "radius": 1,
+      "icon-metric": 4
+    },
+    "src/components/layout/status-bar-usage.styles.ts": {
+      "control-metric": 4,
+      "custom-spinner": 1
+    },
+    "src/components/layout/fleet-task-control-panel.styles.ts": {
+      "control-metric": 3,
+      "icon-metric": 6
+    },
+    "src/components/layout/markdown-frontmatter-card.tsx": {
+      "line-height": 1
+    },
+    "src/components/layout/task-execution-summary.styles.ts": {
+      "icon-metric": 4,
+      "tracking": 3
+    },
+    "src/components/layout/workspace-tools.styles.ts": {
+      "icon-metric": 8,
+      "line-height": 3,
+      "control-metric": 4,
+      "radius": 1,
+      "custom-spinner": 1
+    },
+    "src/components/auto-routing/RouteTrace.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/auto-routing/route-flow.styles.ts": {
+      "tracking": 1
+    },
+    "src/components/auto-routing/route-trace.styles.ts": {
+      "tracking": 1
+    },
+    "src/components/workflows/workflows.styles.ts": {
+      "tracking": 1,
+      "icon-metric": 8,
+      "control-metric": 1
+    },
+    "src/components/agents/AgentAvatar.tsx": {
+      "icon-metric": 10,
+      "radius": 4,
+      "control-metric": 2
+    },
+    "src/components/agents/FlowPanel.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/agents/AgentSuggestions.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/agents/AgentIconChooser.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/agents/agents.styles.ts": {
+      "control-metric": 3,
+      "icon-metric": 2,
+      "tracking": 1
+    },
+    "src/components/usage/usage.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/delegation/delegation.styles.ts": {
+      "line-height": 7,
+      "tracking": 1,
+      "icon-metric": 3
+    },
+    "src/components/results/results.styles.ts": {
+      "line-height": 1,
+      "icon-metric": 2
+    },
+    "src/components/system/WorkspaceSurface.tsx": {
+      "line-height": 2,
+      "radius": 1
+    },
+    "src/components/system/ProviderMark.tsx": {
+      "tracking": 1,
+      "icon-metric": 4
+    },
+    "src/components/system/AgentRunMark.tsx": {
+      "icon-metric": 4
+    },
+    "src/components/system/SearchHighlight.tsx": {
+      "status-mix": 1
+    },
+    "src/components/system/SelectionRail.tsx": {
+      "tracking": 1
+    },
+    "src/components/review/review.styles.ts": {
+      "control-metric": 1,
+      "icon-metric": 5,
+      "line-height": 3
+    },
+    "src/components/scripts/script-entry-card.styles.ts": {
+      "icon-metric": 10,
+      "tracking": 1,
+      "control-metric": 5
+    },
+    "src/components/scripts/script-entries-tab.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/scripts/script-env-editor.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2
+    },
+    "src/components/scripts/scripts-manager.styles.ts": {
+      "icon-metric": 10,
+      "line-height": 2,
+      "control-metric": 1,
+      "custom-spinner": 1
+    },
+    "src/components/scripts/script-entry-form-fields.styles.ts": {
+      "control-metric": 2
+    },
+    "src/components/scripts/script-targets-tab.styles.ts": {
+      "icon-metric": 4,
+      "control-metric": 3
+    },
+    "src/components/scripts/script-hooks-tab.styles.ts": {
+      "icon-metric": 6,
+      "control-metric": 1,
+      "tracking": 1
+    },
+    "src/components/scripts/script-log.stylex.ts": {
+      "control-metric": 3,
+      "icon-metric": 4,
+      "line-height": 1
+    },
+    "src/components/panes/PaneWatermark.tsx": {
+      "icon-metric": 3
+    },
+    "src/components/panes/PaneTabChip.styles.ts": {
+      "icon-metric": 11,
+      "tracking": 1
+    },
+    "src/components/panes/WorkspacePaneHost.tsx": {
+      "control-metric": 4,
+      "radius": 2,
+      "icon-metric": 2
+    },
+    "src/components/panes/surfaces/TerminalSurfacePanel.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/panes/surfaces/lens/lens-feedback.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/panes/surfaces/lens/lens-chrome.styles.ts": {
+      "custom-spinner": 1,
+      "icon-metric": 2
+    },
+    "src/components/panes/surfaces/lens/lens-detail.styles.ts": {
+      "line-height": 1,
+      "control-metric": 6,
+      "icon-metric": 6
+    },
+    "src/components/panes/surfaces/lens/lens-workbench.styles.ts": {
+      "icon-metric": 4,
+      "control-metric": 4
+    },
+    "src/components/panes/surfaces/EditorSurfacePanel.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/panes/surfaces/editor-surface-toolbar.styles.ts": {
+      "control-metric": 4
+    },
+    "src/components/panes/surfaces/editor-surface-toolbar.tsx": {
+      "icon-metric": 8
+    },
+    "src/components/panes/PaneHeaderActions.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/panes/PaneTabChip.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/panes/pane-tab-icon-options.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/panes/TaskHistoryDrawer.tsx": {
+      "control-metric": 2,
+      "radius": 3,
+      "icon-metric": 2
+    },
+    "src/components/compare/compare-run-panel.styles.ts": {
+      "icon-metric": 16,
+      "tracking": 2,
+      "control-metric": 5,
+      "line-height": 5
+    },
+    "src/components/compare/compare-run-history-dialog.styles.ts": {
+      "control-metric": 5,
+      "tracking": 1,
+      "icon-metric": 14,
+      "line-height": 2
+    },
+    "src/components/compare/CompareRunPanel.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/compare/compare-run-prepare-dialog.styles.ts": {
+      "control-metric": 3,
+      "tracking": 1,
+      "line-height": 5,
+      "icon-metric": 10
+    },
+    "src/components/ai-elements/reasoning-text.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/ai-elements/prompt-input-provider-mode.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/ai-elements/prompt-input-goal-status.styles.ts": {
+      "status-mix": 4,
+      "icon-metric": 3,
+      "tracking": 1
+    },
+    "src/components/ai-elements/cursor-model-config-list.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/ai-elements/auto-routing-profile-list.styles.ts": {
+      "tracking": 1
+    },
+    "src/components/ai-elements/model-effort-grid.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/ai-elements/snippet.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/ai-elements/prompt-input-context-meter.styles.ts": {
+      "control-metric": 2
+    },
+    "src/components/ai-elements/question-option-row.styles.ts": {
+      "icon-metric": 10,
+      "line-height": 1
+    },
+    "src/components/ai-elements/user-input-card.styles.ts": {
+      "control-metric": 4,
+      "icon-metric": 8,
+      "line-height": 9,
+      "focus-reset": 2,
+      "tracking": 1
+    },
+    "src/components/ai-elements/local-change-review-dialog.styles.ts": {
+      "icon-metric": 16,
+      "line-height": 4,
+      "control-metric": 1
+    },
+    "src/components/ai-elements/code-block.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/ai-elements/composer-frame.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/ai-elements/prompt-input.styles.ts": {
+      "line-height": 2,
+      "tracking": 4,
+      "radius": 3,
+      "icon-metric": 14,
+      "control-metric": 13,
+      "status-mix": 2
+    },
+    "src/components/ai-elements/prompt-input-control-menu.styles.ts": {
+      "radius": 1,
+      "icon-metric": 2
+    },
+    "src/components/ai-elements/cursor-model-config-list.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/ai-elements/model-effort-selector.styles.ts": {
+      "custom-spinner": 1,
+      "line-height": 2
+    },
+    "src/components/ai-elements/message-markdown.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/ai-elements/composer-option.styles.ts": {
+      "icon-metric": 4,
+      "line-height": 2
+    },
+    "src/components/ai-elements/message.styles.ts": {
+      "control-metric": 1,
+      "icon-metric": 4
+    },
+    "src/components/ai-elements/checkpoint.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/ai-elements/prompt-input-runtime-bar.styles.ts": {
+      "tracking": 1,
+      "control-metric": 1
+    },
+    "src/components/ai-elements/prompt-input-agent-control.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/git-graph/git-graph-canvas.styles.ts": {
+      "control-metric": 1,
+      "tracking": 1
+    },
+    "src/components/git-graph/git-graph-toolbar.styles.ts": {
+      "icon-metric": 12,
+      "custom-spinner": 1
+    },
+    "src/components/git-graph/commit-detail-panel.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 10,
+      "line-height": 1,
+      "tracking": 1,
+      "status-mix": 2
+    },
+    "src/components/git-graph/ref-context-menu.styles.ts": {
+      "icon-metric": 6,
+      "line-height": 1
+    },
+    "src/components/git-graph/GitGraphCanvas.tsx": {
+      "icon-metric": 4
+    },
+    "src/components/git-graph/git-graph-row.styles.ts": {
+      "status-mix": 8,
+      "icon-metric": 1,
+      "tracking": 1
+    },
+    "src/components/git-graph/git-graph-view.styles.ts": {
+      "status-mix": 1,
+      "icon-metric": 6,
+      "control-metric": 2,
+      "line-height": 1
+    },
+    "src/components/git-graph/commit-context-menu.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/approvals/ApprovalRecord.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/brand-icons.tsx": {
+      "icon-metric": 3
+    },
+    "src/components/session/session-loading-state.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/session/turn-activity-status-icon.styles.ts": {
+      "icon-metric": 6
+    },
+    "src/components/session/chat-area.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/session/composer-shelf/ReviewFindingsPanel.tsx": {
+      "tracking": 1
+    },
+    "src/components/session/composer-shelf/composer-shelf.styles.ts": {
+      "icon-metric": 10,
+      "line-height": 4
+    },
+    "src/components/session/auto-route-line.styles.ts": {
+      "control-metric": 1,
+      "icon-metric": 4
+    },
+    "src/components/session/task-source-context-notice.styles.ts": {
+      "icon-metric": 8,
+      "focus-reset": 1,
+      "line-height": 1
+    },
+    "src/components/session/ChatArea.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/session/side-chat/side-chat-panel.styles.ts": {
+      "icon-metric": 2,
+      "line-height": 3
+    },
+    "src/components/session/side-chat/SideQuestionComposerControl.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/session/ChatInputComposer.tsx": {
+      "icon-metric": 6
+    },
+    "src/components/session/delegated-task-rows.styles.ts": {
+      "tracking": 2
+    },
+    "src/components/session/provider-model-picker.styles.ts": {
+      "control-metric": 1
+    },
+    "src/components/session/TaskResultReviews.tsx": {
+      "icon-metric": 3
+    },
+    "src/components/session/session-core.styles.ts": {
+      "icon-metric": 6,
+      "radius": 1,
+      "custom-spinner": 1
+    },
+    "src/components/session/failed-outgoing-messages.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/session/turn-activity.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 7,
+      "tracking": 1,
+      "line-height": 6
+    },
+    "src/components/session/MessageTimeDetails.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/session/secret-binding-control.styles.ts": {
+      "icon-metric": 2,
+      "line-height": 3
+    },
+    "src/components/session/secret-request-card.styles.ts": {
+      "control-metric": 1
+    },
+    "src/components/session/conversation-turn-rail.styles.ts": {
+      "control-metric": 3,
+      "icon-metric": 2,
+      "line-height": 3
+    },
+    "src/components/session/return-summary/return-summary.styles.ts": {
+      "icon-metric": 2,
+      "line-height": 5
+    },
+    "src/components/session/turn-activity-history.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/session/EmptySplash.tsx": {
+      "icon-metric": 5
+    },
+    "src/components/session/turn-document-revisions.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/session/activity-detail.styles.ts": {
+      "tracking": 1
+    },
+    "src/components/session/chat-panel-message-parts.styles.ts": {
+      "icon-metric": 4
+    },
+    "src/components/session/AutoRouteLine.tsx": {
+      "icon-metric": 2
+    },
+    "src/components/session/chat-panel.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 2
+    },
+    "src/components/session/managed-task-takeover-notice.styles.ts": {
+      "control-metric": 2,
+      "tracking": 1
+    },
+    "src/components/session/conversation-turn-actions.styles.ts": {
+      "control-metric": 2,
+      "icon-metric": 4
+    },
+    "src/components/session/TaskRunOverview.tsx": {
+      "icon-metric": 4,
+      "line-height": 1
+    },
+    "src/components/session/chat-panel-file-blocks.styles.ts": {
+      "icon-metric": 2
+    },
+    "src/components/session/turn-record.styles.ts": {
+      "icon-metric": 2,
+      "line-height": 7,
+      "tracking": 2
+    },
+    "src/components/session/provider-error-recovery.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/session/work-graph-tree.styles.ts": {
+      "line-height": 6,
+      "icon-metric": 2,
+      "tracking": 1
+    },
+    "src/components/session/SessionLoadingState.tsx": {
+      "icon-metric": 1
+    },
+    "src/components/session/empty-splash.styles.ts": {
+      "line-height": 1
+    },
+    "src/components/session/task-handoff-panel.styles.ts": {
+      "tracking": 1,
+      "line-height": 2,
+      "icon-metric": 2
+    },
+    "src/components/session/chat-input.styles.ts": {
+      "tracking": 1
+    }
+  }
+}

@@ -164,7 +164,7 @@
   },
   "sidebarPrimaryNav": {
     "globalViews": "Global views",
-    "fleetView": "Fleet View",
+    "fleetView": "Fleet",
     "agentsAtWork": "Agents, {{value1}} at work",
     "agents": "Agents",
     "agent": "Agent {{value1}}{{value2}}",

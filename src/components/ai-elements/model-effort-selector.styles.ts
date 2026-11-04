@@ -139,7 +139,7 @@ export const modelEffortSelectorStyles = stylex.create({
     padding: vars["--ads-space-8"],
   },
   triggerDot: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 35%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   triggerEffort: {
     flexShrink: 0,
