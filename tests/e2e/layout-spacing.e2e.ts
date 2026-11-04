@@ -68,6 +68,8 @@ for (const locale of ["en", "ko"] as const) {
   for (const theme of ["light", "dark"] as const) {
     for (const density of ["regular", "compact"] as const) {
       test(`segmented control geometry: ${locale}/${theme}/${density}`, async ({ page }) => {
+        // Mounting must not depend on the browser retaining resource timing entries.
+        await page.addInitScript(() => performance.setResourceTimingBufferSize(0));
         await mountSegmented(page, { density, count: true, icons: true, locale, theme });
         const { expectedHeight, segments } = await segmentGeometry(page);
         if (density === "regular") expect(expectedHeight).toBe(28);

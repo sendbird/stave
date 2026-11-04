@@ -18,13 +18,9 @@ export async function mountSegmented(
   await page.goto(`/?stavePreview=ads-regressions${args.theme ? `&theme=${args.theme}` : ""}`);
   await expect(page.locator("main svg").first()).toBeVisible();
   await page.evaluate(async ({ density, count, icons, locale }) => {
-    const resources = performance.getEntriesByType("resource");
-    const moduleUrl = (name: string) => resources.find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
-    const React = (await import(moduleUrl("react"))).default;
-    const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
+    const { React, createRoot, LayoutGrid } = await import("/tests/e2e/segmented-runtime.ts");
     const { SegmentedControl } = await import("/src/components/system/SegmentedControl.tsx");
     const { StaveDesignProvider } = await import("/src/components/system/StaveDesignProvider.tsx");
-    const { LayoutGrid } = await import(moduleUrl("lucide-react"));
     document.getElementById("root")!.style.display = "none";
     document.documentElement.dataset.uiDensity = density;
     const host = document.createElement("div");
