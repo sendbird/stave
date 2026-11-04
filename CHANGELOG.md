@@ -1,3 +1,27 @@
+## [0.31.0](https://github.com/sendbird/stave/compare/v0.30.0...v0.31.0) (2026-11-04)
+
+This minor release includes all eight merged changes since 0.30.0.
+
+### Changes
+
+- Find loaded conversation text and retained terminal output, move between matches, and use Back/Forward across global views. F6 region navigation and a skip link improve keyboard access.
+- Editor save conflicts preserve the original revision and offer Compare, Keep mine, or Reload from disk. Chat and Review diffs follow the diff display setting and collapse unchanged lines.
+- Thinking bodies render Markdown, live trace headers show current work, and compact tool copy controls confirm success. Replies render Markdown while streaming, reuse completed blocks, and highlight code when its block finishes. Plain code fences use the surrounding text color, and the composer follows the reader's text size.
+- Conversations mark provider, model, or effort changes between replies and group consecutive user messages with one delivery note.
+- Context compaction shows elapsed time while active. Wide composers show used / limit tokens; narrow composers retain percentages with full accessible counts.
+- Global headers, empty states, search and Settings controls share consistent reading and navigation behavior. The default workspace label and branch stay on one sidebar line; both user-guide sources are updated.
+- Electron advances to 44.10.1 with the certificate-blocking security fix. Layout tests resolve their harness imports without depending on retained browser resource timings.
+
+### Upgrade Notes
+
+- The scheduled retired connector-host migration is removed in 0.31.0. Upgrades that skip the releases carrying it no longer rewrite saved connector settings or vault pairings for the retired host. If a pairing still uses that host, disconnect and pair again with the current Atelier URL in Settings.
+- The Fleet default-layout migration remains until 0.32.0.
+- Conversation search covers loaded message text, excluding tools and thinking; load older messages before searching them. Terminal search covers its retained buffer.
+
+### References
+
+- [PR #888](https://github.com/sendbird/stave/pull/888), [PR #889](https://github.com/sendbird/stave/pull/889), [PR #890](https://github.com/sendbird/stave/pull/890), [PR #891](https://github.com/sendbird/stave/pull/891), [PR #892](https://github.com/sendbird/stave/pull/892), [PR #893](https://github.com/sendbird/stave/pull/893), [PR #894](https://github.com/sendbird/stave/pull/894), [PR #895](https://github.com/sendbird/stave/pull/895)
+
 ## [0.30.0](https://github.com/sendbird/stave/compare/v0.29.2...v0.30.0) (2026-11-03)
 
 This minor release includes all seven merged changes since 0.29.2.
