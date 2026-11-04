@@ -6,6 +6,7 @@ import {
   resetSurfaceHistory,
   startSurfaceHistoryTracking,
 } from "@/components/panes/surface-history-runtime";
+import { registerPaneHostController } from "@/components/panes/pane-host-controller";
 import { getBackAppSurfaceKind } from "@/lib/panes/surface-history";
 import { runSurfaceTransition } from "@/lib/panes/surface-transition";
 import { useAppStore } from "@/store/app.store";
@@ -21,6 +22,10 @@ const TASK = (id: string) => ({
 
 let original: ReturnType<typeof useAppStore.getState>;
 let stop: () => void = () => {};
+// A mounted pane host, so a visit's open is not queued for the next test
+// file's controller.
+let unregisterPaneHost: () => void = () => {};
+const openedSurfaces: unknown[] = [];
 
 function showTask(taskId: string) {
   useAppStore.setState({
@@ -34,6 +39,17 @@ const surfaceKind = () => useAppStore.getState().activeAppSurface.kind;
 
 beforeEach(() => {
   original = useAppStore.getState();
+  openedSurfaces.length = 0;
+  unregisterPaneHost = registerPaneHostController({
+    openSurface: (surface) => {
+      openedSurfaces.push(surface);
+      return true;
+    },
+    closeSurface: () => {},
+    focusSurface: () => {},
+    splitActivePanel: () => {},
+    toggleTerminalGroup: () => {},
+  });
   resetSurfaceHistory();
   useAppStore.setState({
     // The real actions, whatever an earlier test file left stubbed.
@@ -51,6 +67,7 @@ beforeEach(() => {
 
 afterEach(() => {
   stop();
+  unregisterPaneHost();
   resetSurfaceHistory();
   useAppStore.setState(original, true);
 });
@@ -66,9 +83,10 @@ describe("surface history runtime: global views", () => {
 
     useAppStore.getState().closeFleetView();
     // Going back to a workspace place awaits the workspace switch.
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(surfaceKind()).toBe("workspace");
     expect(useAppStore.getState().activeWorkspaceId).toBe("ws");
+    expect(openedSurfaces).toEqual([{ kind: "task", taskId: "a" }]);
   });
 
   test("Back from a task opened in Fleet returns to Fleet, Forward to the task", async () => {

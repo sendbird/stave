@@ -12,6 +12,7 @@ import {
   type SurfaceHistoryDirection,
   type SurfaceHistoryLocation,
   type SurfaceHistoryTarget,
+  type SurfaceHistoryWorkspaceLocation,
 } from "@/lib/panes/surface-history";
 import {
   isSurfaceTransitionActive,
@@ -202,11 +203,7 @@ export function startSurfaceHistoryTracking(): () => void {
   };
 }
 
-async function visit(location: SurfaceHistoryLocation) {
-  if (isAppSurfaceLocation(location)) {
-    openAppSurface(location.appSurface);
-    return;
-  }
+async function visitWorkspace(location: SurfaceHistoryWorkspaceLocation) {
   const store = useAppStore.getState();
   if (
     location.repositoryPath &&
@@ -248,7 +245,13 @@ export async function navigateSurfaceHistory(
   writeHistory(moveSurfaceHistory(readHistory(), step.index));
   navigating = true;
   try {
-    await visit(step.location);
+    // A global view opens synchronously, so `navigating` is clear again
+    // before the next key press or close can ask for another step.
+    if (isAppSurfaceLocation(step.location)) {
+      openAppSurface(step.location.appSurface);
+    } else {
+      await visitWorkspace(step.location);
+    }
   } finally {
     navigating = false;
   }
