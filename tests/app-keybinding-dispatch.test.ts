@@ -126,12 +126,14 @@ describe("app shell dispatch keeps the old key behavior", () => {
 });
 
 describe("new shortcuts", () => {
-  test("reopen, back and forward only run on the workspace surface", () => {
+  test("reopen runs only on the workspace; back and forward also on global views", () => {
     expect(candidates({ key: "T", metaKey: true, shiftKey: true })).toEqual(["tabs.reopen-closed"]);
     expect(candidates({ key: "T", metaKey: true, shiftKey: true }, "fleet-view")).toEqual([]);
     expect(candidates({ key: "[", code: "BracketLeft", metaKey: true })).toEqual(["navigation.back"]);
     expect(candidates({ key: "]", code: "BracketRight", ctrlKey: true })).toEqual(["navigation.forward"]);
-    expect(candidates({ key: "[", code: "BracketLeft", metaKey: true }, "issues")).toEqual([]);
+    // Fleet, Issues and the other views are places in the history too.
+    expect(candidates({ key: "[", code: "BracketLeft", metaKey: true }, "issues")).toEqual(["navigation.back"]);
+    expect(candidates({ key: "]", code: "BracketRight", metaKey: true }, "fleet-view")).toEqual(["navigation.forward"]);
   });
 
   test("back and forward never fire from an editable field", () => {

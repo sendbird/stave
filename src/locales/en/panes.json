@@ -1,5 +1,7 @@
 {
   "paneHeaderActions": {
+    "backToFleetView": "Back to Fleet View",
+    "fleetView": "Fleet View",
     "createNewPaneTab": "Create new pane tab",
     "newTask": "New Task",
     "newCLISession": "New CLI Session",

@@ -230,7 +230,7 @@ export const KEYBINDING_REGISTRY = [
   {
     id: "navigation.back",
     keys: ["mod+["],
-    scope: "workspace",
+    scope: "global",
     editable: "block",
     titleKey: "shell:keybindings.entries.back.title",
     descriptionKey: "shell:keybindings.entries.back.description",
@@ -240,7 +240,7 @@ export const KEYBINDING_REGISTRY = [
   {
     id: "navigation.forward",
     keys: ["mod+]"],
-    scope: "workspace",
+    scope: "global",
     editable: "block",
     titleKey: "shell:keybindings.entries.forward.title",
     descriptionKey: "shell:keybindings.entries.forward.description",

@@ -96,9 +96,9 @@ function useRunByTaskId(): Record<string, AgentRunDetail> {
 
 function openAssignmentTask(row: AgentAssignment) {
   if (!row.taskId) return;
-  const state = useAppStore.getState();
-  state.closeAgents();
-  void state.focusTaskAttention({
+  // Showing the task leaves Agents itself; closing first would go back a step
+  // and race the switch.
+  void useAppStore.getState().focusTaskAttention({
     repositoryPath: row.repositoryPath,
     ...(row.workspaceId ? { workspaceId: row.workspaceId } : {}),
     taskId: row.taskId,

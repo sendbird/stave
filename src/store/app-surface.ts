@@ -64,6 +64,28 @@ export function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
   return WORKSPACE_APP_SURFACE;
 }
 
+/**
+ * Closing a surface goes back one step, to wherever the user came from (the
+ * history runtime registers this). It returns false when it did not act — no
+ * earlier place to return to, or `kind` is not the open surface — and the
+ * close then falls back to the workspace.
+ */
+export type AppSurfaceBackNavigator = (kind: AppOverlaySurfaceKind) => boolean;
+
+let appSurfaceBackNavigator: AppSurfaceBackNavigator | null = null;
+
+/** Registers how closing goes back; returns the unregister function. */
+export function setAppSurfaceBackNavigator(
+  navigator: AppSurfaceBackNavigator,
+): () => void {
+  appSurfaceBackNavigator = navigator;
+  return () => {
+    if (appSurfaceBackNavigator === navigator) {
+      appSurfaceBackNavigator = null;
+    }
+  };
+}
+
 export interface AppSurfaceActions {
   openFleetView: () => void;
   closeFleetView: () => void;
@@ -81,6 +103,12 @@ export interface AppSurfaceActions {
   openAgentPerformance: () => void;
   openUsage: (scope?: { providerId: ProviderId; accountProfileId?: string }) => void;
   closeUsage: () => void;
+  /**
+   * Leaves `kind` for the workspace without going back: for actions that
+   * finish by showing something in the workspace (a task, a panel), where a
+   * close would return to an unrelated earlier place instead.
+   */
+  exitToWorkspace: (kind: AppOverlaySurfaceKind) => void;
 }
 
 type AppSurfaceState = { activeAppSurface: AppActiveSurface };
@@ -103,14 +131,23 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
         : { activeAppSurface: APP_SURFACE_BY_KIND[kind] },
     );
   };
-  const close = (kind: AppOverlaySurfaceKind) => () => {
+  const exitToWorkspace = (kind: AppOverlaySurfaceKind) => {
     set((state) =>
       state.activeAppSurface.kind === kind
         ? { activeAppSurface: WORKSPACE_APP_SURFACE }
         : state,
     );
   };
+  const close = (kind: AppOverlaySurfaceKind) => () => {
+    if (appSurfaceBackNavigator?.(kind)) {
+      return;
+    }
+    exitToWorkspace(kind);
+  };
   const toggle = (kind: AppOverlaySurfaceKind) => () => {
+    if (appSurfaceBackNavigator?.(kind)) {
+      return;
+    }
     set((state) => ({
       activeAppSurface:
         state.activeAppSurface.kind === kind
@@ -147,5 +184,6 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
       });
     },
     closeUsage: close("usage"),
+    exitToWorkspace,
   };
 }

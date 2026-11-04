@@ -31,9 +31,13 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
   on the page they showed). Each workspace remembers its last 20 closed tabs.
   Tabs whose task, file, or workspace is gone are skipped. Terminals and CLI
   sessions cannot be reopened, because closing them ends their process.
-- `Cmd/Ctrl+[` and `Cmd/Ctrl+]` go back and forward through the tasks, files, and
-  Lens tabs you activated, across workspaces, the way a browser does. Visiting
-  somewhere new after going back drops the forward steps.
+- `Cmd/Ctrl+[` and `Cmd/Ctrl+]` go back and forward through the tasks, files,
+  Lens tabs, and views (Fleet View, Schedules, Issues, Agents, AI usage) you
+  visited, across workspaces, the way a browser does. Visiting somewhere new
+  after going back drops the forward steps. Closing a view, with its close
+  button or `Esc`, also goes back one step: close Agents opened from Fleet and
+  you are in Fleet again. A task opened from Fleet shows a **Fleet** back
+  button in its pane header.
 - `Cmd/Ctrl+Z` outside a text field undoes the last **Settle** or **Snooze** in
   the Work queue while its Undo toast is still showing.
 
@@ -46,8 +50,8 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Open Schedules | `Cmd/Ctrl+K` then `A` | Anywhere |
 | Open Issues | `Cmd/Ctrl+K` then `T` | Anywhere |
 | Open Agents | `Cmd/Ctrl+K` then `G` | Anywhere |
-| Go back | `Cmd/Ctrl+[` | Workspace, not while typing |
-| Go forward | `Cmd/Ctrl+]` | Workspace, not while typing |
+| Go back | `Cmd/Ctrl+[` | Anywhere, not while typing |
+| Go forward | `Cmd/Ctrl+]` | Anywhere, not while typing |
 | Select workspace | `Cmd/Ctrl+Shift+1..9` | Sidebar order, not while typing |
 | Quick open file | `Cmd/Ctrl+P` | Anywhere |
 | Open command palette | `Cmd/Ctrl+Shift+P` | Anywhere |

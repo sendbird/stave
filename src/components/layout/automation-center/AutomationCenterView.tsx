@@ -126,6 +126,7 @@ export function AutomationCenterView() {
     focusTaskAttention,
     setLayout,
     closeAutomationCenter,
+    exitToWorkspace,
     tasks,
   ] = useAppStore(
     useShallow(
@@ -144,6 +145,7 @@ export function AutomationCenterView() {
           state.focusTaskAttention,
           state.setLayout,
           state.closeAutomationCenter,
+          state.exitToWorkspace,
           state.tasks,
         ] as const,
     ),
@@ -475,7 +477,7 @@ export function AutomationCenterView() {
         sidebarOverlayTab: "scripts",
       },
     });
-    closeAutomationCenter();
+    exitToWorkspace("automation-center");
   }
 
   function showRunHistory(automation: AutomationSpec) {
@@ -724,7 +726,7 @@ export function AutomationCenterView() {
         toast.error(tI18n("automation:automationCenterView.thisAutomationSTaskConversationCouldNot"));
         return;
       }
-      closeAutomationCenter();
+      exitToWorkspace("automation-center");
     } catch (openError) {
       toast.error(
         getAutomationErrorMessage(openError, tI18n("automation:automationCenterView.failedToOpenTaskResult")),

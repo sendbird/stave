@@ -872,7 +872,7 @@
     "entries": {
       "back": {
         "title": "Go back",
-        "description": "Return to the previous task, file, or Lens tab you were on, across workspaces."
+        "description": "Return to the previous task, file, Lens tab, or view such as Fleet, across workspaces."
       },
       "forward": {
         "title": "Go forward",

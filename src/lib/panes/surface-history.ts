@@ -1,7 +1,10 @@
+import type { AppActiveSurface } from "@/store/app-surface";
+
 /**
- * Back/forward history of the surfaces the user activated: a workspace plus
- * the task, editor or Lens tab in it. Visiting a new place after going back
- * drops the forward entries, the way a browser does.
+ * Back/forward history of the places the user visited: a workspace plus the
+ * task, editor or Lens tab in it, or a global view (Fleet, Schedules, Issues,
+ * Agents, AI usage). Visiting a new place after going back drops the forward
+ * entries, the way a browser does.
  */
 
 export const SURFACE_HISTORY_LIMIT = 50;
@@ -11,10 +14,30 @@ export type SurfaceHistoryTarget =
   | { kind: "editor"; editorTabId: string }
   | { kind: "lens"; lensSessionId: string };
 
-export interface SurfaceHistoryLocation {
+export interface SurfaceHistoryWorkspaceLocation {
   repositoryPath: string;
   workspaceId: string;
   surface: SurfaceHistoryTarget;
+}
+
+export type SurfaceHistoryAppSurface = Exclude<
+  AppActiveSurface,
+  { kind: "workspace" }
+>;
+
+/** A global view; it belongs to no repository or workspace. */
+export interface SurfaceHistoryAppLocation {
+  appSurface: SurfaceHistoryAppSurface;
+}
+
+export type SurfaceHistoryLocation =
+  | SurfaceHistoryWorkspaceLocation
+  | SurfaceHistoryAppLocation;
+
+export function isAppSurfaceLocation(
+  location: SurfaceHistoryLocation,
+): location is SurfaceHistoryAppLocation {
+  return "appSurface" in location;
 }
 
 export interface SurfaceHistory {
@@ -38,12 +61,32 @@ function targetEntityId(target: SurfaceHistoryTarget) {
   }
 }
 
+function appSurfaceEquals(
+  left: SurfaceHistoryAppSurface,
+  right: SurfaceHistoryAppSurface,
+) {
+  if (left.kind === "usage" && right.kind === "usage") {
+    return (
+      left.providerId === right.providerId &&
+      left.accountProfileId === right.accountProfileId
+    );
+  }
+  return left.kind === right.kind;
+}
+
 export function surfaceLocationEquals(
   left: SurfaceHistoryLocation | undefined,
   right: SurfaceHistoryLocation | undefined,
 ) {
   if (!left || !right) {
     return left === right;
+  }
+  if (isAppSurfaceLocation(left) || isAppSurfaceLocation(right)) {
+    return (
+      isAppSurfaceLocation(left) &&
+      isAppSurfaceLocation(right) &&
+      appSurfaceEquals(left.appSurface, right.appSurface)
+    );
   }
   return (
     left.repositoryPath === right.repositoryPath &&
@@ -109,4 +152,17 @@ export function moveSurfaceHistory(
     return history;
   }
   return { entries: history.entries, index };
+}
+
+/**
+ * The global view one step back, when the current entry was reached from it
+ * directly (Fleet, then a task opened from Fleet); null otherwise.
+ */
+export function getBackAppSurfaceKind(
+  history: SurfaceHistory,
+): SurfaceHistoryAppSurface["kind"] | null {
+  const previous = history.entries[history.index - 1];
+  return previous && isAppSurfaceLocation(previous)
+    ? previous.appSurface.kind
+    : null;
 }
