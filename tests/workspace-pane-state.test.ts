@@ -51,6 +51,47 @@ describe("workspace pane state reducers", () => {
     expect(state.tasks).toHaveLength(2);
   });
 
+  test("late pane activation cannot reopen a closed task tab", () => {
+    const initial = createState();
+    const closed = {
+      ...initial,
+      ...reduceCloseTaskTab({
+        state: initial,
+        taskId: "task-1",
+        nextSnapshotVersion: 5,
+      }),
+    };
+
+    expect(
+      reduceActiveSurfaceFromPane({
+        state: closed,
+        surface: { kind: "task", taskId: "task-1" },
+        nextSnapshotVersion: 6,
+      }),
+    ).toBe(closed);
+  });
+
+  test("late pane activation cannot reopen the last closed task tab", () => {
+    const initial = { ...createState(), openTaskTabIds: ["task-1"] };
+    const closed = {
+      ...initial,
+      ...reduceCloseTaskTab({
+        state: initial,
+        taskId: "task-1",
+        nextSnapshotVersion: 5,
+      }),
+    };
+
+    expect(
+      reduceActiveSurfaceFromPane({
+        state: closed,
+        surface: { kind: "task", taskId: "task-1" },
+        nextSnapshotVersion: 6,
+      }),
+    ).toBe(closed);
+    expect(closed.activeTaskId).toBe("");
+  });
+
   test("closes only the selected lens tab and selects its neighbor", () => {
     const state = {
       ...createState(),

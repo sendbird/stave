@@ -126,6 +126,14 @@ export function reduceActiveSurfaceFromPane<
   surface: WorkspaceActiveSurface;
   nextSnapshotVersion: number;
 }): State | WorkspacePaneReducerPatch {
+  // Pane focus mirrors an existing tab; only explicit open/select actions may
+  // add one. A delayed activation from a closing panel must not revive it.
+  if (
+    args.surface.kind === "task" &&
+    !args.state.openTaskTabIds.includes(args.surface.taskId)
+  ) {
+    return args.state;
+  }
   const patch: WorkspacePaneReducerPatch = {
     activeAppSurface: { kind: "workspace" },
     activeSurface: args.surface,
@@ -135,9 +143,6 @@ export function reduceActiveSurfaceFromPane<
       const taskId = args.surface.taskId;
       if (taskId && args.state.tasks.some((task) => task.id === taskId)) {
         patch.activeTaskId = taskId;
-        if (!args.state.openTaskTabIds.includes(taskId)) {
-          patch.openTaskTabIds = [...args.state.openTaskTabIds, taskId];
-        }
       }
       break;
     }
