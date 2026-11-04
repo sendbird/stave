@@ -8,10 +8,12 @@
  *   (Markdown markers visible until the reply finishes);
  * - full-reparse-per-delta: Markdown on the whole reply after every delta;
  * - block-incremental: the transcript renderer — re-split from the last open
- *   block, render that block, render each finished block once.
+ *   block, render that block, render each finished block once; split the
+ *   finished reply with one full parse.
  *
- * "Parsed" counts characters given to remark (block splitting plus Markdown
- * rendering). Times cover parsing and building React elements, not React
+ * "Max delta" covers the streaming deltas; "final" is the last step, where the
+ * reply finishes. "Parsed" counts characters given to remark (block splitting
+ * plus Markdown rendering). Times cover parsing and building React elements, not React
  * reconciliation or layout; the dev preview `?stavePreview=markdown-streaming
  * &measure=1` measures those in a browser.
  */
@@ -19,7 +21,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   markdownRenderBlocks,
-  splitMarkdownBlocks,
+  splitMessageMarkdown,
   type MarkdownBlockSplit,
 } from "../src/components/ai-elements/message-markdown-blocks";
 import { hardenSetextHeadings } from "../src/components/ai-elements/message-markdown.setext";
@@ -56,14 +58,16 @@ function fullReparsePerDelta(prefixes: string[]): Result {
   let maxDeltaMs = 0;
   let finalMs = 0;
   const started = performance.now();
-  for (const prefix of prefixes) {
+  prefixes.forEach((prefix, index) => {
     const deltaStarted = performance.now();
     const source = hardenSetextHeadings(prefix);
     renderMarkdown(source);
     parsedChars += source.length;
     finalMs = performance.now() - deltaStarted;
-    maxDeltaMs = Math.max(maxDeltaMs, finalMs);
-  }
+    if (index < prefixes.length - 1) {
+      maxDeltaMs = Math.max(maxDeltaMs, finalMs);
+    }
+  });
   return { totalMs: performance.now() - started, maxDeltaMs, parsedChars, finalMs };
 }
 
@@ -78,7 +82,9 @@ function blockIncremental(prefixes: string[]): Result {
     const deltaStarted = performance.now();
     const isLast = index === prefixes.length - 1;
     const source = hardenSetextHeadings(prefix);
-    const split = splitMarkdownBlocks(source, previous);
+    // Like the transcript renderer: incremental while streaming, one full
+    // parse once the reply is finished.
+    const split = splitMessageMarkdown(source, previous, !isLast);
     const firstNew = split.blocks.findIndex(
       (block, blockIndex) => block !== previous?.blocks[blockIndex],
     );
@@ -98,7 +104,9 @@ function blockIncremental(prefixes: string[]): Result {
       }
     });
     finalMs = performance.now() - deltaStarted;
-    maxDeltaMs = Math.max(maxDeltaMs, finalMs);
+    if (!isLast) {
+      maxDeltaMs = Math.max(maxDeltaMs, finalMs);
+    }
   });
   return { totalMs: performance.now() - started, maxDeltaMs, parsedChars, finalMs };
 }
