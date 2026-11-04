@@ -22,6 +22,13 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 
 ## Before You Start
 
+The running conversation trace header shows only the current step, or **Thinking**
+before a step is available. The turn elapsed time remains in the message footer.
+Thinking bodies render Markdown while streaming and after completion, including
+bold text, lists and code. Tool argument/output blocks and command lines have
+a copy icon beside their content; it changes to a check mark after copying the
+original text. A failed copy reports an error and can be retried.
+
 In the conversation trace, tool output, reasoning, and rolled-up tool groups
 load their bodies when first opened and keep them after closing. Open a body
 before using browser find or printing its contents.

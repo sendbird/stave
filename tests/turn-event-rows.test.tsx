@@ -23,17 +23,13 @@ describe("ReasoningRow", () => {
     expect(measured).toContain("Thought for");
     expect(measured).toContain("14.2s");
 
-    const unmeasured = renderToStaticMarkup(
-      <ReasoningRow isStreaming={false} text="Compared." />,
-    );
+    const unmeasured = renderToStaticMarkup(<ReasoningRow isStreaming={false} text="Compared." />);
     expect(unmeasured).toContain("Finished thinking");
     expect(unmeasured).not.toMatch(/Thought for/);
   });
 
   test("defers the busy thought region while its disclosure is closed", () => {
-    const markup = renderToStaticMarkup(
-      <ReasoningRow isStreaming text="Reading the changelog" />,
-    );
+    const markup = renderToStaticMarkup(<ReasoningRow isStreaming text="Reading the changelog" />);
     expect(markup).not.toContain('aria-busy="true"');
     expect(markup).not.toContain("--ads-capped-viewport-cap:220px");
     expect(markup).not.toContain("Reading the changelog");
@@ -42,9 +38,7 @@ describe("ReasoningRow", () => {
   });
 
   test("an empty reasoning pass is one quiet line, not an empty disclosure", () => {
-    const markup = renderToStaticMarkup(
-      <ReasoningRow isStreaming={false} text="   " />,
-    );
+    const markup = renderToStaticMarkup(<ReasoningRow isStreaming={false} text="   " />);
     expect(markup).not.toContain("aria-expanded");
   });
 });
@@ -68,20 +62,16 @@ describe("CommandResult", () => {
     expect(failed).toContain("1 fail");
     expect(failed).not.toMatch(/exit\s+\d/);
 
-    const passed = renderToStaticMarkup(
-      <CommandResult command="bun test" output="1 fail" />,
-    );
+    const passed = renderToStaticMarkup(<CommandResult command="bun test" output="1 fail" />);
     // The tone is the only difference, so the two must not render identically.
     expect(failed).not.toBe(passed);
   });
 
   test("says which state an empty result is in", () => {
-    expect(
-      renderToStaticMarkup(<CommandResult command="bun test" isStreaming />),
-    ).toContain("Waiting for output");
-    expect(renderToStaticMarkup(<CommandResult command="bun test" />)).toContain(
-      "No output.",
+    expect(renderToStaticMarkup(<CommandResult command="bun test" isStreaming />)).toContain(
+      "Waiting for output",
     );
+    expect(renderToStaticMarkup(<CommandResult command="bun test" />)).toContain("No output.");
   });
 });
 
@@ -102,14 +92,19 @@ describe("TraceCitations", () => {
 
 describe("Tool call card values", () => {
   test("caps a long output in the shared viewport and keeps its copy action", () => {
-    const longOutput = Array.from({ length: 500 }, (_, index) => `src/file-${index}.ts:1: match`).join("\n");
-    const markup = renderToStaticMarkup(<TraceOutput capped label="Output" linkify={false} text={longOutput} />);
+    const longOutput = Array.from(
+      { length: 500 },
+      (_, index) => `src/file-${index}.ts:1: match`,
+    ).join("\n");
+    const markup = renderToStaticMarkup(
+      <TraceOutput capped label="Output" linkify={false} text={longOutput} />,
+    );
     expect(markup).toContain('data-trace-output-capped="true"');
     expect(markup).toContain('role="log"');
     expect(markup).toContain('aria-label="Output"');
     expect(markup).toContain("--ads-capped-viewport-cap:220px");
     expect(markup).toContain("src/file-499.ts:1: match");
-    expect(markup).toContain(">Copy<");
+    expect(markup).toContain('aria-label="Copy"');
     // The line count is measured in the browser once the box overflows.
     expect(markup).not.toContain("trace-output-line-note");
     expect(countLines(longOutput)).toBe(500);
@@ -134,7 +129,7 @@ describe("Tool call card values", () => {
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).not.toContain('data-trace-output-capped="true"');
     expect(markup).not.toContain('aria-label="Arguments"');
-    expect(markup).not.toContain(">Copy<");
+    expect(markup).not.toContain('aria-label="Copy"');
   });
 
   test("an uncapped value keeps its plain layout", () => {

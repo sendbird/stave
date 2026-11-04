@@ -129,20 +129,6 @@ export const chainOfThoughtStyles = stylex.create({
     gap: vars["--ads-space-8"],
     fontWeight: vars["--ads-font-weight-medium"],
   },
-  /*
-   * The running header's three parts and who gives way first. The phrase and
-   * the clock keep their width; the activity starts from a zero basis and
-   * grows into the room left, up to its own text, so it is the part that
-   * ellipsizes when the row is short. Only once it is gone does the phrase
-   * shrink. The clock never does.
-   */
-  streamingPhrase: {
-    flex: "0 1 auto",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
   streamingActivity: {
     flex: "1 1 0",
     minWidth: 0,
@@ -151,18 +137,6 @@ export const chainOfThoughtStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     color: vars["--ads-color-text-muted"],
-  },
-  streamingElapsed: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: vars["--ads-space-8"],
-    flexShrink: 0,
-    whiteSpace: "nowrap",
-  },
-  /* The dot between parts, sitting in the activity so it leaves with it. */
-  streamingSeparator: {
-    color: vars["--ads-color-border"],
-    marginInlineEnd: vars["--ads-space-8"],
   },
   completionLabel: {
     minWidth: 0,

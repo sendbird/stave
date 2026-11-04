@@ -1,100 +1,88 @@
-import { expect, test, type Page } from "@playwright/test";
-
-/**
- * The running turn's header on the real `AssistantMessageBody` (agent trace
- * preview): status phrase · newest in-progress step · elapsed time, on one
- * line. When the column is short the activity ellipsizes first; the phrase
- * keeps its words while there is room for them and the clock is never cut.
- * Measured in English and Korean, light and dark, wide and narrow.
- */
-
-async function open(page: Page, args: { locale: "en" | "ko"; dark: boolean }) {
-  // One fixed phrase, so a 3s rotation cannot change the width mid-measure.
-  await page.addInitScript(() => {
-    Math.random = () => 0.5;
-  });
-  await page.goto("/?stavePreview=agent-messages");
-  const label = page.locator("[data-trace-streaming-label]");
-  await expect(label).toBeVisible();
-  // The preview opens dark; the toggle names the current theme.
-  if (!args.dark) {
-    await page.getByRole("button", { name: "Dark", exact: true }).click();
-    await expect(page.locator("html")).not.toHaveClass(/dark/);
-  }
-  await page.evaluate(async (locale) => {
-    const path = "/src/i18n/runtime.ts";
-    const { i18n } = await import(path);
-    await i18n.changeLanguage(locale);
-    await document.fonts.ready;
-  }, args.locale);
-  await expect(label.locator('[data-trace-streaming-part="activity"]')).toBeVisible();
-  await expect(label.locator('[data-trace-streaming-part="elapsed"]')).toBeVisible();
-}
-
-async function setColumnWidth(page: Page, width: number | null) {
-  await page.locator("[data-trace-streaming-label]").evaluate((label, value) => {
-    const column = label.closest("section")!;
-    column.style.width = value === null ? "" : `${value}px`;
-    column.style.maxWidth = value === null ? "" : `${value}px`;
-  }, width);
-}
-
-async function measure(page: Page) {
-  return page.locator("[data-trace-streaming-label]").evaluate((label) => {
-    const part = (name: string) =>
-      label.querySelector<HTMLElement>(`[data-trace-streaming-part="${name}"]`)!;
-    const box = (element: Element) => element.getBoundingClientRect();
-    const trigger = label.closest("button")!;
-    const phrase = part("phrase");
-    const activity = part("activity");
-    const elapsed = part("elapsed");
-    const centre = (rect: DOMRect) => rect.top + rect.height / 2;
-    const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight) ||
-      Number.parseFloat(getComputedStyle(label).fontSize) * 1.5;
-    return {
-      triggerRight: box(trigger).right,
-      labelHeight: box(label).height,
-      lineHeight,
-      phrase: { centre: centre(box(phrase)), width: box(phrase).width, truncated: phrase.scrollWidth > phrase.clientWidth + 1 },
-      activity: { centre: centre(box(activity)), width: box(activity).width, truncated: activity.scrollWidth > activity.clientWidth + 1 },
-      elapsed: {
-        centre: centre(box(elapsed)),
-        right: box(elapsed).right,
-        truncated: elapsed.scrollWidth > elapsed.clientWidth + 1,
-        text: elapsed.textContent ?? "",
-      },
-      ellipsis: getComputedStyle(activity).textOverflow,
-    };
-  });
-}
+import { expect, test } from "@playwright/test";
 
 for (const locale of ["en", "ko"] as const) {
   for (const dark of [false, true]) {
-    test(`streaming header keeps phrase, activity and clock on one line (${locale}, ${dark ? "dark" : "light"})`, async ({ page }) => {
-      await open(page, { locale, dark });
+    test(`streaming header shows only work (${locale}, ${dark ? "dark" : "light"})`, async ({
+      page,
+    }) => {
+      await page.goto("/?stavePreview=agent-messages");
+      const label = page.locator("[data-trace-streaming-label]");
+      await expect(label).toBeVisible({ timeout: 15_000 });
+      if (!dark) await page.getByRole("button", { name: "Dark", exact: true }).click();
+      await page.evaluate(async (language) => {
+        const path = "/src/i18n/runtime.ts";
+        const { i18n } = await import(path);
+        await i18n.changeLanguage(language);
+        await document.fonts.ready;
+      }, locale);
+      await expect(label).toHaveText(
+        locale === "ko" ? "globals.css 수정 중" : "Editing globals.css",
+      );
+      await expect(
+        label.locator(
+          '[data-trace-streaming-part="phrase"], [data-trace-streaming-part="elapsed"]',
+        ),
+      ).toHaveCount(0);
 
-      // Wide: every part is whole and they share one line.
-      const wide = await measure(page);
-      expect(wide.phrase.truncated).toBe(false);
-      expect(wide.activity.truncated).toBe(false);
-      expect(wide.elapsed.truncated).toBe(false);
-      expect(wide.elapsed.text).toMatch(/\d/);
-      expect(wide.labelHeight).toBeLessThanOrEqual(wide.lineHeight * 1.5);
-      for (const centre of [wide.activity.centre, wide.elapsed.centre]) {
-        expect(Math.abs(centre - wide.phrase.centre)).toBeLessThanOrEqual(1);
+      for (const width of [720, 240]) {
+        await label.evaluate((element, value) => {
+          const column = element.closest("section")!;
+          column.style.width = `${value}px`;
+          column.style.maxWidth = `${value}px`;
+        }, width);
+        const geometry = await label.evaluate((element) => {
+          const activity = element.querySelector<HTMLElement>(
+            '[data-trace-streaming-part="activity"]',
+          )!;
+          const button = element.closest("button")!;
+          const icon = button.querySelector("svg")!;
+          const a = activity.getBoundingClientRect();
+          const i = icon.getBoundingClientRect();
+          return {
+            right: a.right,
+            buttonRight: button.getBoundingClientRect().right,
+            centreDifference: Math.abs(a.y + a.height / 2 - i.y - i.height / 2),
+            ellipsis: getComputedStyle(activity).textOverflow,
+            truncated: activity.scrollWidth > activity.clientWidth + 1,
+          };
+        });
+        expect(geometry.right).toBeLessThanOrEqual(geometry.buttonRight + 0.5);
+        expect(geometry.centreDifference).toBeLessThanOrEqual(1);
+        expect(geometry.ellipsis).toBe("ellipsis");
+        if (width === 720) expect(geometry.truncated).toBe(false);
       }
 
-      // Narrow: the activity ellipsizes first. The phrase stays whole and the
-      // clock stays inside the header.
-      await setColumnWidth(page, 320);
-      const narrow = await measure(page);
-      expect(narrow.ellipsis).toBe("ellipsis");
-      expect(narrow.activity.truncated || narrow.activity.width === 0).toBe(true);
-      expect(narrow.phrase.truncated).toBe(false);
-      expect(narrow.elapsed.truncated).toBe(false);
-      expect(narrow.elapsed.right).toBeLessThanOrEqual(narrow.triggerRight + 0.5);
-      expect(narrow.labelHeight).toBeLessThanOrEqual(narrow.lineHeight * 1.5);
-      expect(Math.abs(narrow.elapsed.centre - narrow.phrase.centre)).toBeLessThanOrEqual(1);
+      const trigger = label.locator("..");
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await expect(label).toHaveText(
+        locale === "ko" ? "globals.css 수정 중" : "Editing globals.css",
+      );
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      await page.getByRole("button", { name: "Streaming", exact: true }).click();
+      await expect(label).toHaveCount(0);
     });
   }
 }
+
+test("a turn without an active step has a readable fallback", async ({ page }) => {
+  await page.goto("/?stavePreview=agent-messages");
+  await expect(page.locator("[data-trace-streaming-label]")).toBeVisible();
+  await page.evaluate(async () => {
+    const path = "/tests/e2e/fixtures/trace-streaming-header.tsx";
+    const { mountEmptyTrace } = await import(path);
+    mountEmptyTrace();
+  });
+  const trigger = page.locator("[data-empty-trace] button");
+  await expect(trigger).toHaveAccessibleName("Thinking");
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await page.evaluate(async () => {
+    const path = "/src/i18n/runtime.ts";
+    const { i18n } = await import(path);
+    await i18n.changeLanguage("ko");
+  });
+  await expect(trigger).not.toHaveAccessibleName("Thinking");
+  await expect(trigger).not.toHaveAccessibleName("");
+});

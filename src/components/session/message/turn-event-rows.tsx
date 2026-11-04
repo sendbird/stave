@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
+import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ads/components/Button";
@@ -8,9 +9,9 @@ import { Citation } from "@/components/ads/components/Citation";
 import type { CitationSource } from "@/components/ads/components/Citation.parts";
 import { Thinking } from "@/components/ads/components/Thinking";
 import { StreamingThoughtViewport } from "@/components/ai-elements/chain-of-thought";
-import { MESSAGE_BODY_LINE_HEIGHT } from "@/components/ai-elements/message-styles";
+import { MessageResponse } from "@/components/ai-elements/message";
 import { LinkifiedText } from "@/components/ui/linkified-text";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 
 import { extractOutputUrls, toUrlSource } from "./turn-event-state";
 import { turnEventRowStyles as styles } from "./turn-event-rows.styles";
@@ -89,7 +90,7 @@ export function TraceOutput(args: {
   );
 
   return (
-    <div className={sx(styles.output)}>
+    <div className={sx(styles.output)} data-trace-output="">
       {capped ? (
         <CappedViewport
           ref={viewportRef}
@@ -108,13 +109,24 @@ export function TraceOutput(args: {
         </p>
       ) : null}
       <Button
+        iconOnly
+        aria-label={
+          copied
+            ? i18n.t("session:turnEventRows.traceOutput")
+            : i18n.t("session:turnEventRows.traceOutput2")
+        }
+        title={
+          copied
+            ? i18n.t("session:turnEventRows.traceOutput")
+            : i18n.t("session:turnEventRows.traceOutput2")
+        }
         onClick={copy}
         size="xs"
         type="button"
         variant="quiet"
         xstyle={styles.copy}
       >
-        {copied ? i18n.t("session:turnEventRows.traceOutput") : i18n.t("session:turnEventRows.traceOutput2")}
+        {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
       </Button>
       <ClipboardCopyAnnouncement status={status} />
     </div>
@@ -206,10 +218,14 @@ export function ReasoningRow(args: {
   return (
     <Thinking
       durationMs={durationMs}
-      startedAt={isStreaming && startedAt !== undefined && Number.isFinite(startedAt) ? startedAt : undefined}
+      startedAt={
+        isStreaming && startedAt !== undefined && Number.isFinite(startedAt) ? startedAt : undefined
+      }
       label={i18n.t("session:turnEventRows.label")}
       loaderVariant="think"
-      phase={isStreaming ? i18n.t("ui:thinking.thinking") : i18n.t("session:turnEventRows.extraCopy197")}
+      phase={
+        isStreaming ? i18n.t("ui:thinking.thinking") : i18n.t("session:turnEventRows.extraCopy197")
+      }
       status={isStreaming ? "thinking" : "settled"}
     >
       {body.length === 0 ? null : isStreaming ? (
@@ -219,20 +235,12 @@ export function ReasoningRow(args: {
          * the prose glides under the top mask once it outgrows the cap.
          */
         <StreamingThoughtViewport>
-          <p
-            className={cx(sx(styles.reasoningBody))}
-            style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
-          >
+          <MessageResponse isStreaming className={sx(styles.reasoningBody)}>
             {body}
-          </p>
+          </MessageResponse>
         </StreamingThoughtViewport>
       ) : (
-        <LinkifiedText
-          as="p"
-          className={sx(styles.reasoningBody)}
-          style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
-          text={body}
-        />
+        <MessageResponse className={sx(styles.reasoningBody)}>{body}</MessageResponse>
       )}
     </Thinking>
   );

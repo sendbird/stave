@@ -3,10 +3,6 @@ import { formatDuration } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
-import {
-  formatElapsed,
-  useMeasuredElapsed,
-} from "@/components/ads/components/Thinking.parts";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { agentSurface } from "@/components/ads/recipes/agent-surface";
 import {
@@ -30,7 +26,6 @@ import { Brain, Check, ChevronDown, Circle } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
-import { ThinkingPhraseLabel } from "./thinking-phrase";
 import { TranscriptWideScope } from "./transcript-wide";
 import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
 
@@ -276,65 +271,18 @@ export function ChainOfThought({
 
 /* ─── Streaming header label ──────────────────────────────────────── */
 
-/**
- * The running turn's header on one line: the rotating status phrase, the
- * newest step still in progress, and how long the turn has run —
- * "Farming XP · Reading search.ts · 12s". With no step in progress it is the
- * phrase and the clock alone.
- *
- * Nothing here is a live region. The phrase rotates and the activity changes
- * with every step; announcing either would talk over the reader. The trigger
- * is a button, so its text is read when it takes focus.
- */
-function StreamingTraceLabel(props: {
-  activity?: string | null;
-  startedAt?: string | number;
-}) {
+/** The current work only; the message footer owns the turn's elapsed time. */
+function StreamingTraceLabel(props: { activity?: string | null }) {
   useTranslation();
+  const activity = props.activity || i18n.t("ui:thinking.thinking");
   return (
     <span className={sx(s.streamingLabel)} data-trace-streaming-label="">
-      <span className={sx(s.streamingPhrase)} data-trace-streaming-part="phrase">
-        <ThinkingPhraseLabel active />
-      </span>
-      {props.activity ? (
-        <span
-          className={sx(s.streamingActivity)}
-          data-trace-streaming-part="activity"
-          title={props.activity}
-        >
-          <span aria-hidden="true" className={sx(s.streamingSeparator)}>
-            ·
-          </span>
-          {props.activity}
-        </span>
-      ) : null}
-      {props.startedAt !== undefined ? (
-        <StreamingElapsed startedAt={props.startedAt} />
-      ) : null}
-    </span>
-  );
-}
-
-/**
- * The turn's measured run time, ticking off the design system's shared
- * one-second clock so only this span re-renders. Spelled the way every
- * `Thinking` and `ToolRun` row on the rail spells a live duration.
- */
-function StreamingElapsed(props: { startedAt: string | number }) {
-  useTranslation();
-  const startedAt =
-    typeof props.startedAt === "string"
-      ? Date.parse(props.startedAt)
-      : props.startedAt;
-  const elapsedMs = useMeasuredElapsed({ startedAt }, true);
-  if (elapsedMs === null) return null;
-  return (
-    <span className={sx(s.streamingElapsed)} data-trace-streaming-part="elapsed">
-      <span aria-hidden="true" className={sx(s.summaryDivider)}>
-        ·
-      </span>
-      <span className={sx(agentSurface.meta, s.durationLabel)}>
-        {formatElapsed(elapsedMs)}
+      <span
+        className={sx(s.streamingActivity)}
+        data-trace-streaming-part="activity"
+        title={activity}
+      >
+        {activity}
       </span>
     </span>
   );
@@ -346,19 +294,16 @@ export function ChainOfThoughtTrigger(
   {
     completionLabel,
     streamingActivity,
-    streamingStartedAt,
     className,
     ...args
   }: ButtonHTMLAttributes<HTMLButtonElement> & {
     /**
      * The finished turn's title: what it did, or how it ended ("Run failed").
-     * While the turn runs, the header shows a rotating playful status instead.
+     * While the turn runs, the header shows the current work instead.
      */
     completionLabel?: string;
     /** While streaming: the title of the newest step still in progress. */
     streamingActivity?: string | null;
-    /** While streaming: when the turn started, for the elapsed readout. */
-    streamingStartedAt?: string | number;
   },
 ) {
   useTranslation();
@@ -413,10 +358,7 @@ export function ChainOfThoughtTrigger(
     >
       <InlineDisclosureIcon open={open}>{glyph}</InlineDisclosureIcon>
       {isStreaming ? (
-        <StreamingTraceLabel
-          activity={streamingActivity}
-          startedAt={streamingStartedAt}
-        />
+        <StreamingTraceLabel activity={streamingActivity} />
       ) : (
         <>
           <span className={sx(s.completionLabel)}>

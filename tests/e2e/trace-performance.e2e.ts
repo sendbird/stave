@@ -73,9 +73,8 @@ test("opened payloads retain reasoning accessibility, argument controls and fail
   });
   await expect(page.getByText("Open https://example.com/docs.", { exact: true })).toHaveCount(0);
   await page.locator('[data-disclosure-fixture] [data-thinking-status="thinking"] button').click();
-  const thought = page.getByText("Open https://example.com/docs.", { exact: true });
-  await expect(thought).toBeVisible();
-  await expect(thought.locator("a")).toHaveCount(0);
+  const thought = page.locator('[data-disclosure-fixture] [data-thinking-status="thinking"]');
+  await expect(thought.getByRole("link")).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toBeVisible();
   const tool = page.locator('[data-disclosure-fixture] [data-tool-run-status="running"]');
   await tool.getByRole("button").click();

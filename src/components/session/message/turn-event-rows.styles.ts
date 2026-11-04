@@ -6,7 +6,9 @@ export const turnEventRowStyles = stylex.create({
   output: {
     display: "grid",
     gap: vars["--ads-space-4"],
-    justifyItems: "start",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    alignItems: "start",
+    columnGap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   /**
@@ -15,6 +17,8 @@ export const turnEventRowStyles = stylex.create({
    * min-content width wider than the disclosure that holds it.
    */
   outputText: {
+    gridColumn: 1,
+    gridRow: 1,
     color: vars["--ads-color-text"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
@@ -31,10 +35,13 @@ export const turnEventRowStyles = stylex.create({
   /* The capped box takes the section's width, so the cut and its fade run
      edge to edge whatever the longest line measures. */
   capped: {
+    gridColumn: 1,
+    gridRow: 1,
     justifySelf: "stretch",
     minInlineSize: 0,
   },
   lineNote: {
+    gridColumn: 1,
     margin: 0,
     color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
@@ -42,6 +49,8 @@ export const turnEventRowStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
   },
   copy: {
+    gridColumn: 2,
+    gridRow: 1,
     justifySelf: "end",
   },
   /** The reasoning body: prose, secondary ink, relaxed leading. */
@@ -50,7 +59,7 @@ export const turnEventRowStyles = stylex.create({
     margin: 0,
     minInlineSize: 0,
     overflowWrap: "anywhere",
-    whiteSpace: "pre-wrap",
+    whiteSpace: "normal",
   },
   progressList: {
     display: "grid",
