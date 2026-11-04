@@ -33,14 +33,13 @@ function tool(
   };
 }
 
-function renderHeader(args: { activity?: string | null; startedAt?: number }) {
+function renderHeader(args: { activity?: string | null }) {
   return renderToStaticMarkup(
     createElement(
       ChainOfThought,
       { isStreaming: true },
       createElement(ChainOfThoughtTrigger, {
         streamingActivity: args.activity,
-        streamingStartedAt: args.startedAt,
       }),
     ),
   );
@@ -113,51 +112,32 @@ describe("resolveTraceActivity", () => {
 });
 
 describe("streaming trace header", () => {
-  test("shows the phrase, the activity and the elapsed time in that order", () => {
-    const html = renderHeader({ activity: "Reading search.ts", startedAt: Date.now() - 12_000 });
-    const phrase = partIndex(html, "phrase");
-    const activity = partIndex(html, "activity");
-    const elapsed = partIndex(html, "elapsed");
-    expect(phrase).toBeGreaterThan(-1);
-    expect(activity).toBeGreaterThan(phrase);
-    expect(elapsed).toBeGreaterThan(activity);
-    expect(html).toContain("Reading search.ts");
-    // ADS elapsed spelling, the same as the reasoning row beneath it. The
-    // reading comes from the shared one-second clock, whose snapshot a long
-    // test process may have taken earlier, so only its shape is asserted.
-    const elapsedText = html.slice(elapsed).match(/>(\d[^<]*)<\/span>/)?.[1];
-    expect(elapsedText).toMatch(/^\d+(?:ms|s)$|^\d+m \d+s$/);
-  });
-
-  test("shows only the phrase and the clock when nothing is in progress", () => {
-    const html = renderHeader({ activity: null, startedAt: Date.now() - 5_000 });
-    expect(partIndex(html, "phrase")).toBeGreaterThan(-1);
-    expect(partIndex(html, "activity")).toBe(-1);
-    expect(partIndex(html, "elapsed")).toBeGreaterThan(-1);
-  });
-
-  test("drops the clock when the turn has no start time", () => {
+  test("shows current work without rotating phrases or a duplicate clock", () => {
     const html = renderHeader({ activity: "Reading search.ts" });
+    expect(partIndex(html, "activity")).toBeGreaterThan(-1);
+    expect(html).toContain("Reading search.ts");
+    expect(partIndex(html, "phrase")).toBe(-1);
     expect(partIndex(html, "elapsed")).toBe(-1);
   });
 
-  test("lets the activity ellipsize first and never shrinks the clock", () => {
-    const html = renderHeader({ activity: "Reading search.ts", startedAt: Date.now() });
+  test.each([null, undefined, ""])("falls back to Thinking for activity %p", (activity) => {
+    const html = renderHeader({ activity });
+    expect(partIndex(html, "activity")).toBeGreaterThan(-1);
+    expect(html).toContain(i18n.t("ui:thinking.thinking"));
+    expect(partIndex(html, "phrase")).toBe(-1);
+    expect(partIndex(html, "elapsed")).toBe(-1);
+  });
+
+  test("keeps the activity truncation style", () => {
+    const html = renderHeader({ activity: "Reading search.ts" });
     for (const cls of sx(chainOfThoughtStyles.streamingActivity).split(/\s+/)) {
       expect(html).toContain(cls);
     }
-    for (const cls of sx(chainOfThoughtStyles.streamingPhrase).split(/\s+/)) {
-      expect(html).toContain(cls);
-    }
-    for (const cls of sx(chainOfThoughtStyles.streamingElapsed).split(/\s+/)) {
-      expect(html).toContain(cls);
-    }
-    // The rendered priority (activity first, then phrase, never the clock) is
-    // measured in `tests/e2e/trace-streaming-header.e2e.ts`.
+    // Rendered truncation is measured in tests/e2e/trace-streaming-header.e2e.ts.
   });
 
   test("is not a live region, so a label change is never announced", () => {
-    const html = renderHeader({ activity: "Reading search.ts", startedAt: Date.now() });
+    const html = renderHeader({ activity: "Reading search.ts" });
     const label = html.slice(html.indexOf("data-trace-streaming-label"));
     expect(label).not.toContain("aria-live");
     expect(label).not.toContain('role="status"');
