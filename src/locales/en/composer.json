@@ -247,7 +247,7 @@
     "confirmSwitch": "{{agent}} may do more than {{current}} ({{permission}}). Switch from the next turn?"
   },
   "promptInputContextMeter": {
-    "ariaLabelCounts": "Context usage: {{percent}}; {{counts}} tokens used / limit",
+    "ariaLabelCounts": "Conversation context {{percent}} used, {{remaining}} tokens left; {{counts}} tokens used / limit",
     "ariaLabel": "Conversation context {{value1}} used",
     "promptInputContextMeter": "Conversation context",
     "promptInputContextMeter2": "Latest context usage for the selected provider. Compact summarizes this provider's session.",

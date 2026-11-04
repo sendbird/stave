@@ -30,7 +30,7 @@ describe("PromptInputContextMeter", () => {
     );
 
     // The trigger names what is left, not only what is used.
-    expect(html).toContain('aria-label="Conversation context 75% used, 250 tokens left"');
+    expect(html).toContain('aria-label="Conversation context 75% used, 250 tokens left; 750 / 1,000 tokens used / limit"');
     expect(html).toContain(">75%<");
     // 75% is the warn tone; assert against the StyleX style identity rather
     // than a Tailwind class string.
@@ -70,7 +70,7 @@ describe("PromptInputContextMeter", () => {
       }),
     );
     expect(loads).toBe(0);
-    expect(html).toContain('aria-label="Conversation context 72% used, 28,000 tokens left"');
+    expect(html).toContain('aria-label="Conversation context 72% used, 28,000 tokens left; 72,000 / 100,000 tokens used / limit"');
     // A meter that mounts already past a boundary did not cross it.
     expect(html).toMatch(/role="status"[^>]*><\/span>|aria-live="polite"[^>]*><\/span>/);
   });
