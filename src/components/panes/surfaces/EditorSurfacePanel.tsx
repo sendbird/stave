@@ -81,6 +81,11 @@ import {
 } from "@/components/panes/surfaces/editor-surface-toolbar";
 import { useEditorPanelMountGate } from "@/components/panes/surfaces/editor-panel-mount-gate";
 import {
+  EditorSaveConflictBanner,
+  EditorSaveConflictCompare,
+  type EditorSaveConflictCompareState,
+} from "@/components/panes/surfaces/editor-save-conflict";
+import {
   disposeTextModelIfUnused,
   reconcileEditorModelContent,
   syncRetainedEditorModels,
@@ -378,6 +383,8 @@ function EditorTabSurface({
     useState<EditorBulkClosePlan | null>(null);
   const [reviewDraftState, setReviewDraftState] =
     useState<TaskReviewDraftState | null>(null);
+  const [conflictCompare, setConflictCompare] =
+    useState<EditorSaveConflictCompareState | null>(null);
 
   const monacoRef = useRef<Monaco | null>(null);
   const editorRef = useRef<MonacoEditorApi.IStandaloneCodeEditor | null>(null);
@@ -409,6 +416,15 @@ function EditorTabSurface({
     tab && tab.language === "markdown" && !tabIsImage,
   );
   const tabIsHtml = !tabIsImage && isHtmlEditorTab(tab);
+  // The Compare view belongs to the conflict it was opened for: once the tab
+  // is resolved, or the file moves again, the disk copy it shows is stale.
+  const showConflictCompare = Boolean(
+    tab?.hasConflict &&
+    !tabContentUnavailable &&
+    !tabIsImage &&
+    conflictCompare &&
+    conflictCompare.conflictRevision === (tab.conflictRevision ?? null),
+  );
   const previewKind: EditorPreviewKind | null = tabIsMarkdown
     ? "markdown"
     : tabIsHtml
@@ -418,7 +434,7 @@ function EditorTabSurface({
   // flags). Non-active panels fall back to the tab's intrinsic mode so a
   // source-control diff keeps rendering as a diff in a background split.
   const diffMode = isActiveEditorTab ? editorDiffMode : isDiffEditorTab(tab);
-  const showPreview = shouldShowEditorPreview({
+  const showPreview = !showConflictCompare && shouldShowEditorPreview({
     previewKind,
     isActiveEditorTab,
     diffMode,
@@ -430,10 +446,12 @@ function EditorTabSurface({
   });
   const monacoTheme = isDarkMode ? "vs-dark" : "vs";
   const modelPath = tab ? toMonacoModelPath(tab.filePath) : undefined;
-  const renderDiffEditor = shouldRenderDiffEditorSurface({
-    diffMode,
-    originalContent: tab?.originalContent,
-  });
+  const renderDiffEditor =
+    !showConflictCompare &&
+    shouldRenderDiffEditorSurface({
+      diffMode,
+      originalContent: tab?.originalContent,
+    });
   const showDiffDisplayControls = Boolean(renderDiffEditor && !tabIsImage);
   const diffSessionKey = showDiffDisplayControls && tab ? tab.id : null;
   // A snapshot diff shows two frozen sides, so there is nothing to edit or
@@ -447,7 +465,8 @@ function EditorTabSurface({
     !tabContentUnavailable &&
     !tabIsImage &&
     !showPreview &&
-    !renderDiffEditor,
+    !renderDiffEditor &&
+    !showConflictCompare,
   );
   const mountCodeEditor = showCodeEditor && editorMounted;
   const mountedDiffSessionKey = editorMounted ? diffSessionKey : null;
@@ -1114,6 +1133,14 @@ function EditorTabSurface({
         />
       ) : null}
 
+      {tab.hasConflict && !isGitGraphEditorTab(tab) ? (
+        <EditorSaveConflictBanner
+          tab={tab}
+          comparing={showConflictCompare}
+          onCompareChange={setConflictCompare}
+        />
+      ) : null}
+
       <div className={sx(styles.body)}>
         <div className={sx(styles.viewport)}>
           {tab.kind === "git-graph" ? (
@@ -1197,6 +1224,21 @@ function EditorTabSurface({
           ) : !editorMounted ? (
             // Hidden panel: Monaco is released until the panel shows again.
             <div className={sx(styles.emptyHost)} aria-hidden="true" />
+          ) : showConflictCompare && conflictCompare ? (
+            <EditorSaveConflictCompare
+              tab={tab}
+              diskContent={conflictCompare.diskContent}
+              theme={monacoTheme}
+              options={{
+                renderSideBySide: diffViewMode === "split",
+                fixedOverflowWidgets: true,
+                minimap: { enabled: editorMinimap },
+                fontSize: editorFontSize,
+                fontFamily: editorFontFamily,
+                lineNumbers: editorLineNumbers,
+                wordWrap: editorWordWrap ? "on" : "off",
+              }}
+            />
           ) : renderDiffEditor ? (
             <DiffEditor
               key={diffSessionKey ?? "diff-editor"}
