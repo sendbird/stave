@@ -190,7 +190,7 @@ export function MessagePartRenderer(args: {
       // "Compacting conversation context…" — in-progress spinner
       // i18n-ignore: canonical provider or lifecycle text used for parsing
       if (normalized.startsWith("compacting conversation context")) {
-        return <CompactingIndicator startedAt={part.startedAt} />;
+        return <CompactingIndicator startedAt={part.startedAt} active={Boolean(isStreaming)} />;
       }
       // "Context compacted (auto)." / "Context compacted (manual)." — checkpoint divider
       const compactedMatch = part.content

@@ -172,7 +172,7 @@ export function PromptInputContextMeter(args: {
               className={sx(contextMeterStyles.trigger)}
               aria-label={
                 countLabel
-                  ? i18n.t("composer:promptInputContextMeter.ariaLabelCounts", { percent: percentLabel, counts: countLabel, remaining: formatNumber(remainingTokens ?? 0) })
+                  ? i18n.t("composer:promptInputContextMeter.ariaLabelCounts", { percent: percentLabel, used: formatNumber(resolveUsedTokens(args.usage) ?? 0), limit: formatNumber(args.usage.windowTokens ?? 0), remaining: formatNumber(remainingTokens ?? 0) })
                   : remainingTokens !== undefined
                   ? i18n.t("composer:promptInputContextMeter.ariaLabelRemaining", {
                       percent: percentLabel,

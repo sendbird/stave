@@ -19,7 +19,7 @@
 ## Quick Start
 
 1. Open a task that has already completed a turn.
-2. Look under the composer for a short fill bar and a percent.
+2. Look under the composer for a short fill bar and used / limit tokens (for example `720k / 1M`). Narrow composers show the percent instead.
 3. Open the meter to read the latest reported fill.
 4. Choose `Compact context` if you want the provider to summarize the conversation.
 
@@ -32,8 +32,10 @@
 
 ### Key Controls
 
+- While compaction runs, its conversation notice shows elapsed time when the start is known. Interrupted or restored inactive messages do not keep counting.
+
 - The fill bar uses the shared context thresholds (`USAGE_THRESHOLDS.context` in `src/lib/usage/usage-thresholds.ts`): ok under 60%, warn under 85%, then critical. Account quota meters read their own entry in the same module (80% / 97%).
-- The trigger's accessible name says the percent used and, when the provider reported enough to know, the tokens left (`72% used, 28,000 tokens left`).
+- The trigger's accessible name includes the percent, used / limit tokens and remaining tokens when reported.
 - The first time the fill climbs into warn, and the first time it reaches critical, one polite announcement says so. A meter that opens a conversation already past a boundary stays quiet, and dropping back after a compact does not repeat a boundary.
 - The popover shows the percent and, when the provider reported them, used and window token counts.
 - `Composition` lists what fills the window. For Claude it shows the fixed parts — system prompt, tools, MCP tools, MCP instructions, custom agents, memory files, skills — and `Conversation (estimated)`, which is the used tokens minus those parts. MCP tools (loaded ones only) and memory files expand to their entries. Other providers report only a total, so the section says the provider does not report a breakdown.

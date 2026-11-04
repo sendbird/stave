@@ -7,7 +7,7 @@ for (const theme of ["light", "dark"]) {
         await page.goto(`/?stavePreview=context-progress&theme=${theme}&lang=${lang}&width=${width}`);
         await page.evaluate(() => document.fonts.ready);
         const trigger = page.getByRole("button").first();
-        await expect(trigger).toHaveAccessibleName(/720,000.*1,000,000/);
+        await expect(trigger).toHaveAccessibleName(/(?=.*720,000)(?=.*1,000,000)/);
         await expect(trigger.getByText(width < 480 ? "72%" : "720k / 1M", { exact: true })).toBeVisible();
         await expect(trigger.getByText(width < 480 ? "720k / 1M" : "72%", { exact: true })).toBeHidden();
         const label = page.locator('[data-composer-frame] > div').first();

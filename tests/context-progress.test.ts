@@ -37,3 +37,16 @@ test("token counts use the shared locale formatter and require both readings", a
   }
   await i18n.changeLanguage("en");
 });
+
+
+test("interrupted compaction does not keep an elapsed indicator running", async () => {
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { CompactingIndicator } = await import("../src/components/ai-elements/checkpoint");
+  const html = renderToStaticMarkup(createElement(CompactingIndicator, {
+    startedAt: "1970-01-01T00:00:00Z", active: false,
+  }));
+  expect(html).toContain("Compacting conversation context");
+  expect(html).not.toContain("Compacting context ·");
+  expect(html).not.toContain("svg");
+});

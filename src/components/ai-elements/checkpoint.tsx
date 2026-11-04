@@ -13,21 +13,22 @@ import { checkpointStyles as s } from "./checkpoint.styles";
  */
 export function CompactingIndicator({
   startedAt,
+  active = true,
   className,
   ...props
-}: HTMLAttributes<HTMLDivElement> & { startedAt?: string }) {
+}: HTMLAttributes<HTMLDivElement> & { startedAt?: string; active?: boolean }) {
   useTranslation();
   return (
     <div className={cx(sx(s.compacting), className)} {...props}>
-      <Loader
+      {active ? <Loader
         aria-hidden
         className={sx(s.compactingLoader)}
         size="xs"
         variant="persist"
-      />
-      <ElapsedClock live={Boolean(compactionElapsed(startedAt, Date.now()))} now={Date.now()}>
+      /> : null}
+      <ElapsedClock live={active && Boolean(startedAt) && Number.isFinite(Date.parse(startedAt!))} now={Date.now()}>
         {(now) => {
-          const duration = compactionElapsed(startedAt, now);
+          const duration = active ? compactionElapsed(startedAt, now) : null;
           return <span>{duration
             ? i18n.t("composer:checkpoint.compactingWithElapsed", { duration })
             : i18n.t("composer:checkpoint.compactingIndicator")}</span>;

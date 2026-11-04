@@ -169,6 +169,7 @@ export function splitSystemEventContent(content: string): {
 
 const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
   entry: AssistantTraceEntry;
+  isStreaming: boolean;
   isLast: boolean;
   taskId: string;
   messageId: string;
@@ -386,6 +387,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
           >
             {hasDistinctSystemContent ? (
               <MessagePartRenderer
+                isStreaming={args.isStreaming}
                 part={systemBodyPart}
                 taskId={taskId}
                 messageId={messageId}
@@ -402,6 +404,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
   previous.taskId === next.taskId &&
   previous.messageId === next.messageId &&
   previous.isLast === next.isLast &&
+  previous.isStreaming === next.isStreaming &&
   previous.terminalStopReason === next.terminalStopReason &&
   previous.readOnly === next.readOnly &&
   sameAssistantTraceEntry(previous.entry, next.entry),
@@ -442,6 +445,7 @@ function DisplayPartList(args: {
           <MessagePartRenderer
             key={`${args.messageId}-display-${index}`}
             part={part}
+            isStreaming={args.isStreaming}
             taskId={args.taskId}
             messageId={args.messageId}
             terminalStopReason={args.terminalStopReason}
@@ -655,6 +659,7 @@ export function AssistantMessageBody(args: {
                 <AssistantTraceEntryView
                   key={entry.id}
                   entry={entry}
+                  isStreaming={isStreaming}
                   isLast={index === historyEntries.length - 1}
                   taskId={taskId}
                   messageId={messageId}
