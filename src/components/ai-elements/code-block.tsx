@@ -41,6 +41,8 @@ interface CodeBlockProps extends HTMLAttributes<HTMLDivElement> {
   code: string;
   language?: string;
   showLineNumbers?: boolean;
+  /** Explicit host size for file and skill previews outside the transcript. */
+  fontSize?: number;
   /**
    * The code is still being written. It shows as plain text and is highlighted
    * once it stops changing, so a streaming block neither queues a highlight per
@@ -49,7 +51,7 @@ interface CodeBlockProps extends HTMLAttributes<HTMLDivElement> {
   isStreaming?: boolean;
 }
 
-export function CodeBlock({ code, language, showLineNumbers, isStreaming, className, children, ...props }: CodeBlockProps) {
+export function CodeBlock({ code, language, showLineNumbers, isStreaming, fontSize, className, children, ...props }: CodeBlockProps) {
   useTranslation();
   return (
     <CodeBlockContext.Provider value={{ code }}>
@@ -60,6 +62,7 @@ export function CodeBlock({ code, language, showLineNumbers, isStreaming, classN
           language={language}
           showLineNumbers={showLineNumbers}
           isStreaming={isStreaming}
+          fontSize={fontSize}
         />
       </div>
     </CodeBlockContext.Provider>
@@ -81,10 +84,12 @@ interface CodeBlockContentProps {
   code: string;
   language?: string;
   showLineNumbers?: boolean;
+  /** Explicit host size for file and skill previews outside the transcript. */
+  fontSize?: number;
   isStreaming?: boolean;
 }
 
-export const CodeBlockContent = memo(function CodeBlockContent({ code, language, isStreaming }: CodeBlockContentProps) {
+export const CodeBlockContent = memo(function CodeBlockContent({ code, language, isStreaming, fontSize }: CodeBlockContentProps) {
   useTranslation();
   const resolvedLang = resolveCodeBlockLanguage(language);
   const cacheKey = _highlightCache.keyFor(code, resolvedLang ?? "text");
@@ -95,7 +100,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
   const html = cached ?? (isStreaming ? null : highlightedHtml);
   const textScale = useMessageTextScale();
   const settingsCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
-  const messageCodeFontSize = scaleMessageCodeFontSize(textScale, settingsCodeFontSize);
+  const messageCodeFontSize = fontSize ?? scaleMessageCodeFontSize(textScale, settingsCodeFontSize);
 
   useEffect(() => {
     if (isStreaming || !resolvedLang) {

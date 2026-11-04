@@ -84,6 +84,13 @@ export const editorMarkdownPreviewStyles = stylex.create({
       ":first-child": 0,
     },
     overflowWrap: "anywhere",
+  },
+  /**
+   * `lineBreaks="preserve"`: every newline breaks the line, for notes typed
+   * line by line. Files and skills wrap like any Markdown renderer, so a
+   * hard-wrapped document does not break mid-sentence.
+   */
+  paragraphPreserveBreaks: {
     whiteSpace: "pre-wrap",
   },
   list: {
@@ -112,35 +119,6 @@ export const editorMarkdownPreviewStyles = stylex.create({
     marginBlock: vars["--ads-space-24"],
   },
 
-  codeBlock: {
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    marginBlock: vars["--ads-space-16"],
-    overflow: "hidden",
-  },
-  codeBlockLanguage: {
-    backgroundColor: "var(--editor-muted)",
-    borderBottomColor: vars["--ads-color-border"],
-    borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.08em",
-    paddingBlock: 6,
-    paddingInline: vars["--ads-space-12"],
-    textTransform: "uppercase",
-  },
-  codeBlockPre: {
-    backgroundColor: "var(--editor)",
-    color: "var(--editor-foreground)",
-    fontFamily: vars["--ads-font-mono"],
-    overflowX: "auto",
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
-  },
   inlineCode: {
     backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas-subtle"]} 40%, transparent)`,
     borderColor: vars["--ads-color-border"],

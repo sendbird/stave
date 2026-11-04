@@ -99,6 +99,44 @@ describe("EditorMarkdownPreview", () => {
     expect(html).toContain('target="_blank"');
   });
 
+  test("wraps hard-wrapped paragraphs unless the host preserves line breaks", () => {
+    const content = "A sentence wrapped\nacross two lines.";
+    const preserveClass = sx(editorMarkdownPreviewStyles.paragraphPreserveBreaks);
+
+    for (const variant of ["editor", "embedded"] as const) {
+      const html = renderToStaticMarkup(
+        createElement(EditorMarkdownPreview, { content, fontSize: 14, variant }),
+      );
+      expect(html).toContain("A sentence wrapped\nacross two lines.");
+      expect(html).not.toContain(preserveClass);
+    }
+
+    const notes = renderToStaticMarkup(
+      createElement(EditorMarkdownPreview, {
+        content,
+        fontSize: 14,
+        variant: "embedded",
+        lineBreaks: "preserve",
+      }),
+    );
+    expect(notes).toContain(preserveClass);
+  });
+
+  test("draws fenced code with the conversation's code block and copy button", () => {
+    const html = renderToStaticMarkup(
+      createElement(EditorMarkdownPreview, {
+        content: "```ts\nconst enabled = true;\n```\n\n```\nplain block\nsecond line\n```",
+        fontSize: 15,
+      }),
+    );
+
+    expect(html.match(/aria-label="Copy code"/g)).toHaveLength(2);
+    expect(html).toContain(">ts<");
+    expect(html).toContain(">text<");
+    // Sized to the preview (fontSize - 1), not the chat code size setting.
+    expect(html).toContain("font-size:14px");
+  });
+
   test("uses a compact left-aligned layout for embedded previews", () => {
     const html = renderToStaticMarkup(
       createElement(EditorMarkdownPreview, {

@@ -47,7 +47,7 @@ export function NotesSectionBody(props: {
       >
         {/* 13 is not on the type ramp; the notes preview reads at the control-text
             baseline, the same step WorkspaceSkillsPanel passes. */}
-        <EditorMarkdownPreview content={props.notes} fontSize={14} variant="embedded" />
+        <EditorMarkdownPreview content={props.notes} fontSize={14} variant="embedded" lineBreaks="preserve" />
       </div>
       <AdsButton type="button" variant="quiet" size="sm" xstyle={styles.notesEditButton}
         aria-label={tI18n("workspace:workspaceInformationNotes.editNotes")} onClick={startEditing}>
