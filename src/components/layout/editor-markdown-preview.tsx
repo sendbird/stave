@@ -15,10 +15,12 @@ import {
 } from "@/components/ui/table";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { parseMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx, type XstyleProp } from "@/components/ads/utils/stylex";
 import { editorMarkdownPreviewStyles as styles } from "@/components/layout/editor-markdown-preview.styles";
 
-interface EditorMarkdownPreviewProps extends HTMLAttributes<HTMLDivElement> {
+interface EditorMarkdownPreviewProps
+  extends HTMLAttributes<HTMLDivElement>,
+    XstyleProp {
   content: string;
   fontSize: number;
   variant?: "editor" | "embedded";
@@ -78,6 +80,7 @@ export function EditorMarkdownPreview({
   fontSize,
   variant = "editor",
   className,
+  xstyle,
   ...props
 }: EditorMarkdownPreviewProps) {
   useTranslation();
@@ -89,7 +92,9 @@ export function EditorMarkdownPreview({
   );
 
   return (
-    <div className={cx(sx(styles.root), className)} {...props}>
+    // `xstyle` composes in the same `sx` call so it reliably overrides `root`
+    // (a separate StyleX `className` can lose to it on the same property).
+    <div className={cx(sx(styles.root, xstyle), className)} {...props}>
       <div
         className={sx(
           styles.page,
