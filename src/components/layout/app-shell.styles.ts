@@ -24,15 +24,6 @@ export const appShellStyles = stylex.create({
     padding: vars["--ads-space-16"],
     position: "fixed",
   },
-  overlayCard: {
-    backgroundColor: vars["--ads-color-canvas"],
-    borderColor: vars["--ads-color-border"],
-    boxShadow: vars["--ads-elevation-modal"],
-    maxWidth: "28rem",
-    padding: vars["--ads-space-24"],
-    width: "100%",
-  },
-  overlayText: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-body"] },
 
   root: {
     backgroundColor: vars["--ads-color-canvas"],
@@ -127,14 +118,6 @@ export const appShellStyles = stylex.create({
     minHeight: 0,
     minWidth: { default: 0, [SM]: 420 },
     overflow: "hidden",
-  },
-  suspenseCenter: {
-    alignItems: "center",
-    color: vars["--ads-color-text-muted"],
-    display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    height: "100%",
-    justifyContent: "center",
   },
   paneHostFrame: { height: "100%", minHeight: 0, position: "relative" },
   paneHostInert: { height: "100%" },

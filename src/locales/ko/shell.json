@@ -26,11 +26,11 @@
     "keyboardShortcuts": "키보드 단축키",
     "settings": "설정",
     "kickoff": "킥오프",
-    "loadingTasks": "작업 불러오는 중...",
-    "loadingPanel": "패널 불러오는 중...",
+    "loadingIssues": "이슈 불러오는 중…",
+    "loadingPanel": "패널 불러오는 중…",
     "defaultModel": "기본 모델",
     "currentRepository": "현재 저장소",
-    "loadingSurface": "{{title}} 불러오는 중...",
+    "loadingSurface": "{{title}} 불러오는 중…",
     "zoomPercent": "확대/축소 {{percent}}%"
   },
   "confirmDialog": {

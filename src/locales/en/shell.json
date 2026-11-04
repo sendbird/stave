@@ -26,11 +26,11 @@
     "keyboardShortcuts": "Keyboard Shortcuts",
     "settings": "Settings",
     "kickoff": "Kickoff",
-    "loadingTasks": "Loading tasks...",
-    "loadingPanel": "Loading panel...",
+    "loadingIssues": "Loading issues…",
+    "loadingPanel": "Loading panel…",
     "defaultModel": "default model",
     "currentRepository": "Current repository",
-    "loadingSurface": "Loading {{title}}...",
+    "loadingSurface": "Loading {{title}}…",
     "zoomPercent": "Zoom {{percent}}%"
   },
   "confirmDialog": {

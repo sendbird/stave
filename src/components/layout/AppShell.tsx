@@ -37,7 +37,9 @@ import { TaskReturnTracker } from "@/components/session/return-summary/TaskRetur
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
-import { Card, Toaster, toast } from "@/components/ui";
+import { Toaster, toast } from "@/components/ui";
+import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
+import { OverlayLoadingFallback } from "@/components/layout/OverlayLoadingFallback";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
 import { requestComparePreparation } from "@/components/compare/compare-prepare-request";
@@ -451,17 +453,6 @@ export function AppShell() {
 
   function scheduleLayoutResizePatch(key: ResizableLayoutKey, value: number) {
     scheduleLayoutPatch({ [key]: value } as Partial<LayoutState>);
-  }
-
-  function OverlayLoadingFallback(args: { title: string }) {
-  useTranslation();
-    return (
-      <div className={sx(layers.dialog, appShellStyles.overlayFallback)}>
-        <Card className={sx(appShellStyles.overlayCard)}>
-          <div className={sx(appShellStyles.overlayText)}>{i18n.t("shell:appShell.loadingSurface", { title: args.title })}</div>
-        </Card>
-      </div>
-    );
   }
 
   useEffect(() => {
@@ -1182,9 +1173,10 @@ export function AppShell() {
                   ) : showIssues ? (
                     <Suspense
                       fallback={
-                        <div className={sx(appShellStyles.suspenseCenter)}>
-                          {i18n.t("shell:appShell.loadingTasks")}
-                        </div>
+                        <LoadingSurface
+                          size="fill"
+                          label={i18n.t("shell:appShell.loadingIssues")}
+                        />
                       }
                     >
                       <IssuesView onClose={closeIssues} />
