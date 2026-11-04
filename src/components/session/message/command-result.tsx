@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Terminal } from "lucide-react";
+import { Check, Copy, Terminal } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import { Button } from "@/components/ads/components/Button";
@@ -47,27 +47,39 @@ export function CommandResult(args: {
           <ShellCommandText command={command} />
         </code>
         <Button
+          iconOnly
+          aria-label={
+            copied
+              ? i18n.t("session:commandResult.commandResult")
+              : i18n.t("session:commandResult.commandResult2")
+          }
+          title={
+            copied
+              ? i18n.t("session:commandResult.commandResult")
+              : i18n.t("session:commandResult.commandResult2")
+          }
           onClick={copy}
           size="xs"
           type="button"
           variant="quiet"
           xstyle={styles.copy}
         >
-          {copied ? i18n.t("session:commandResult.commandResult") : i18n.t("session:commandResult.commandResult2")}
+          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
         </Button>
         <ClipboardCopyAnnouncement status={status} />
       </div>
       {trimmed.length > 0 ? (
-        <CappedViewport label={i18n.t("session:commandResult.label", { value1: command })} live={isStreaming}>
-          <pre
-            className={sx(styles.output, isError && styles.outputError)}
-          >
-            {trimmed}
-          </pre>
+        <CappedViewport
+          label={i18n.t("session:commandResult.label", { value1: command })}
+          live={isStreaming}
+        >
+          <pre className={sx(styles.output, isError && styles.outputError)}>{trimmed}</pre>
         </CappedViewport>
       ) : (
         <span className={sx(styles.empty)}>
-          {isStreaming ? i18n.t("session:commandResult.commandResult3") : i18n.t("session:commandResult.commandResult4")}
+          {isStreaming
+            ? i18n.t("session:commandResult.commandResult3")
+            : i18n.t("session:commandResult.commandResult4")}
         </span>
       )}
     </div>

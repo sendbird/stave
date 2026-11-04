@@ -651,7 +651,6 @@ export function AssistantMessageBody(args: {
                 : t("session:assistantTrace.workHistory")
             }
             streamingActivity={streamingActivity}
-            streamingStartedAt={message.startedAt}
           />
           {historyEntries.length > 0 ? (
             <ChainOfThoughtContent>

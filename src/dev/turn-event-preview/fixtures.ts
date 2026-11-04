@@ -177,7 +177,7 @@ export function createEventSamples(): EventSample[] {
       parts: [
         {
           type: "thinking",
-          text: "공통 컨트롤과 호스트의 스타일이 중첩되는 지점을 확인하고 있습니다. 긴 파일명과 작은 화면에서도 같은 정렬을 유지해야 합니다.",
+          text: "**공통 컨트롤**과 호스트의 스타일이 중첩되는 지점을 확인하고 있습니다.\n\n- 긴 파일명 확인\n- `min-width`와 작은 화면의 정렬 확인",
           isStreaming: true,
         },
       ],
@@ -187,7 +187,7 @@ export function createEventSamples(): EventSample[] {
       parts: [
         {
           type: "thinking",
-          text: "안쪽 버튼의 기본 패딩이 행 정렬에 영향을 주고 있었습니다. 공통 스타일에서 수정하고 라이트·다크를 확인했습니다.",
+          text: "**기본 패딩**이 행 정렬에 영향을 주고 있었습니다.\n\n- 공통 스타일 수정\n- `light` / `dark` 확인",
           isStreaming: false,
           startedAt: "2026-01-01T00:00:00Z",
           completedAt: "2026-01-01T00:00:12Z",
