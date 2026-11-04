@@ -641,6 +641,7 @@ const EditorTabSchema = z.object({
   fileSizeBytes: z.number().optional(),
   fileSizeLimitBytes: z.number().optional(),
   hasConflict: z.boolean(),
+  conflictRevision: z.string().nullable().optional(),
   isDirty: z.boolean(),
   // A bad value drops only the mode (the tab then uses the remembered one),
   // never the whole snapshot.

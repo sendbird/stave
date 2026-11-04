@@ -1,3 +1,4 @@
+import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { useEffect } from "react";
 import { Bot, X } from "lucide-react";
@@ -60,15 +61,7 @@ export function AgentsView(props: {
 
   return (
     <div className={sx(centerStyles.root)}>
-      <header className={sx(centerStyles.header)}>
-        <div className={sx(centerStyles.headerText)}>
-          <div className={sx(centerStyles.headerTitleRow)}>
-            <Bot className={sx(centerStyles.headerIcon)} />
-            <h1 className={sx(centerStyles.headerTitle)}>{i18n.t("agents:agentsView.agentsView")}</h1>
-          </div>
-          <p className={sx(centerStyles.headerSubtitle)}>
-            {i18n.t("agents:agentsView.agentsView2")}</p>
-        </div>
+      <GlobalPageHeader title={i18n.t("agents:agentsView.agentsView")} description={i18n.t("agents:agentsView.agentsView2")} titleIcon={<Bot />} actions={
         <div className={sx(centerStyles.headerActions)}>
           <Tooltip content={i18n.t("agents:agentsView.title")}>
             <Button
@@ -82,7 +75,7 @@ export function AgentsView(props: {
             </Button>
           </Tooltip>
         </div>
-      </header>
+      } />
 
       <div className={sx(centerStyles.toolbar)}>
         <SegmentedControl

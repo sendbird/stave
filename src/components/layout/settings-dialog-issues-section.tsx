@@ -28,6 +28,12 @@ import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-issues/context";
 import { sx } from "@/components/ads/utils/stylex";
 import { tasksSectionStyles as styles } from "./settings-dialog-issues-section.styles";
 import type { SectionId } from "./settings-dialog.schema";
+import {
+  LabeledField,
+  SectionStack,
+  SETTINGS_LIST_SWITCH_SIZE,
+  SettingsCard,
+} from "./settings-dialog.shared";
 
 const VIEW_LABELS: Record<(typeof TRACKER_ISSUE_VIEWS)[number], string> = {
   get "assigned-open"() { return i18n.t("settings:settingsDialogIssuesSection.assignedToMe"); },
@@ -43,8 +49,6 @@ const START_MODE_LABELS: Record<
   get run() { return i18n.t("settings:settingsDialogIssuesSection.startTheRunImmediately"); },
   get stage() { return i18n.t("settings:settingsDialogIssuesSection.stageThePromptInTheComposer"); },
 };
-
-const HINT = sx(styles.hint);
 
 function describeInterval(seconds: number): string {
   if (seconds % 60 !== 0) return i18n.t("settings:duration.seconds", { count: seconds });
@@ -107,24 +111,17 @@ export function IssueTrackerSettingsSection(args: {
   };
 
   return (
-    <div
-      id="settings-field-tracker-issues"
-      tabIndex={-1}
-      className={sx(styles.card)}
-    >
-      <div className={sx(styles.cardHeader)}>
-        <h3 className={sx(styles.cardTitle)}>{t("settings:sections.fields.trackerIssues.title")}</h3>
-        <p className={sx(styles.hintSpaced)}>
-          {t("settings:settingsDialogIssuesSection.theTicketListOpensOnAssigned")}</p>
-      </div>
-
-      <div className={sx(styles.cardBody)}>
-        <div className={sx(styles.field)}>
-          <label
-            htmlFor="settings-tasks-default-view"
-            className={sx(styles.fieldLabel)}
-          >
-            {t("settings:settingsDialogIssuesSection.defaultView")}</label>
+    <SectionStack>
+      <SettingsCard
+        id="settings-field-tracker-issues"
+        tabIndex={-1}
+        title={t("settings:sections.fields.trackerIssues.title")}
+        description={t("settings:settingsDialogIssuesSection.theTicketListOpensOnAssigned")}
+      >
+        <LabeledField
+          title={t("settings:settingsDialogIssuesSection.defaultView")}
+          description={t("settings:settingsDialogIssuesSection.firstTabWhenYouOpenIssues")}
+        >
           <Select
             value={tasks.defaultView}
             onValueChange={(value) =>
@@ -133,7 +130,8 @@ export function IssueTrackerSettingsSection(args: {
           >
             <SelectTrigger
               id="settings-tasks-default-view"
-              className={sx(styles.triggerWide)}
+              aria-label={t("settings:settingsDialogIssuesSection.defaultView")}
+              className={sx(styles.control)}
             >
               <SelectValue />
             </SelectTrigger>
@@ -145,21 +143,18 @@ export function IssueTrackerSettingsSection(args: {
               ))}
             </SelectContent>
           </Select>
-          <p className={HINT}>
-            {t("settings:settingsDialogIssuesSection.firstTabWhenYouOpenIssues")}</p>
-        </div>
+        </LabeledField>
 
-        <div className={sx(styles.field)}>
-          <label
-            htmlFor="settings-tasks-refresh-interval"
-            className={sx(styles.fieldLabel)}
-          >
-            {t("settings:settingsDialogIssuesSection.refreshIntervalSeconds")}</label>
+        <LabeledField
+          title={t("settings:settingsDialogIssuesSection.refreshIntervalSeconds")}
+          description={t("settings:whole.issueRefresh", { interval: describeInterval(tasks.refreshIntervalSeconds), min: MIN_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS, max: MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS })}
+        >
           <Input
             id="settings-tasks-refresh-interval"
+            aria-label={t("settings:settingsDialogIssuesSection.refreshIntervalSeconds")}
             type="number"
             inputMode="numeric"
-            xstyle={styles.intervalInput}
+            xstyle={styles.control}
             min={MIN_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS}
             max={MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS}
             step={30}
@@ -167,15 +162,12 @@ export function IssueTrackerSettingsSection(args: {
             onChange={(event) => setIntervalDraft(event.target.value)}
             onBlur={commitInterval}
           />
-          <p className={HINT}>{t("settings:whole.issueRefresh", { interval: describeInterval(tasks.refreshIntervalSeconds), min: MIN_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS, max: MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS })}</p>
-        </div>
+        </LabeledField>
 
-        <div className={sx(styles.field)}>
-          <label
-            htmlFor="settings-tasks-start-mode"
-            className={sx(styles.fieldLabel)}
-          >
-            {t("settings:settingsDialogIssuesSection.whenATicketStartsWork")}</label>
+        <LabeledField
+          title={t("settings:settingsDialogIssuesSection.whenATicketStartsWork")}
+          description={t("settings:settingsDialogIssuesSection.stagingLeavesTheGeneratedPromptIn")}
+        >
           <Select
             value={tasks.defaultKickoffStartMode}
             onValueChange={(value) =>
@@ -187,7 +179,8 @@ export function IssueTrackerSettingsSection(args: {
           >
             <SelectTrigger
               id="settings-tasks-start-mode"
-              className={sx(styles.triggerWide)}
+              aria-label={t("settings:settingsDialogIssuesSection.whenATicketStartsWork")}
+              className={sx(styles.control)}
             >
               <SelectValue />
             </SelectTrigger>
@@ -199,117 +192,114 @@ export function IssueTrackerSettingsSection(args: {
               ))}
             </SelectContent>
           </Select>
-          <p className={HINT}>
-            {t("settings:settingsDialogIssuesSection.stagingLeavesTheGeneratedPromptIn")}</p>
-        </div>
+        </LabeledField>
+      </SettingsCard>
 
-        <div className={sx(styles.sourcesCard)}>
-          <div>
-            <h4 className={sx(styles.sourcesTitle)}>{t("settings:settingsDialogIssuesSection.sources")}</h4>
-            <p className={sx(styles.hintSpaced)}>
-              {t("settings:settingsDialogIssuesSection.chooseWhichTrackersIssuesReadsPairing")}</p>
-          </div>
-          <ul className={sx(styles.sourceList)}>
-            {TRACKER_SOURCE_IDS.map((source) => {
-              const summary = summaries.find(
-                (entry) => entry.source === source,
-              );
-              // Jira's on/off is owned by Integrations; this row shows it and
-              // links there instead of a second switch.
-              const issuesSwitch = source === "jira" ? null : source;
-              const ownedByIntegrations = issuesSwitch === null;
-              const enabled = issuesSwitch === null
-                ? jiraEnabled
-                : tasks.sourceEnabled[issuesSwitch];
-              return (
-                <li key={source} className={sx(styles.sourceRow)}>
-                  <div className={sx(styles.sourceMain)}>
-                    <div className={sx(styles.sourceHead)}>
-                      <label
-                        htmlFor={
-                          ownedByIntegrations
-                            ? undefined
-                            : `settings-tasks-source-${source}`
+      <SettingsCard
+        title={t("settings:settingsDialogIssuesSection.sources")}
+        description={t("settings:settingsDialogIssuesSection.chooseWhichTrackersIssuesReadsPairing")}
+      >
+        <ul className={sx(styles.sourceList)}>
+          {TRACKER_SOURCE_IDS.map((source) => {
+            const summary = summaries.find(
+              (entry) => entry.source === source,
+            );
+            // Jira's on/off is owned by Integrations; this row shows it and
+            // links there instead of a second switch.
+            const issuesSwitch = source === "jira" ? null : source;
+            const ownedByIntegrations = issuesSwitch === null;
+            const enabled = issuesSwitch === null
+              ? jiraEnabled
+              : tasks.sourceEnabled[issuesSwitch];
+            return (
+              <li key={source} className={sx(styles.sourceRow)}>
+                <div className={sx(styles.sourceMain)}>
+                  <div className={sx(styles.sourceHead)}>
+                    <label
+                      htmlFor={
+                        ownedByIntegrations
+                          ? undefined
+                          : `settings-tasks-source-${source}`
+                      }
+                      className={sx(styles.sourceLabel)}
+                    >
+                      {TRACKER_SOURCE_LABELS[source]}
+                    </label>
+                    {summary ? (
+                      <Badge
+                        variant={
+                          summary.condition === "producing" ||
+                          summary.condition === "syncing"
+                            ? "success"
+                            : summary.condition === "error"
+                              ? "destructive"
+                              : "outline"
                         }
-                        className={sx(styles.sourceLabel)}
+                        className={sx(styles.sourceBadge)}
                       >
-                        {TRACKER_SOURCE_LABELS[source]}
-                      </label>
-                      {summary ? (
-                        <Badge
-                          variant={
-                            summary.condition === "producing" ||
-                            summary.condition === "syncing"
-                              ? "success"
-                              : summary.condition === "error"
-                                ? "destructive"
-                                : "outline"
-                          }
-                          className={sx(styles.sourceBadge)}
+                        {summary.headline}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className={sx(styles.hintTight)}>
+                    {enabled
+                      ? (summary?.detail ?? i18n.t("settings:settingsDialogIssuesSection.usedInTheIssuesList"))
+                      : ownedByIntegrations
+                        ? i18n.t("settings:settingsDialogIssuesSection.turnedOffInIntegrations")
+                        : i18n.t("settings:settingsDialogIssuesSection.hiddenFromIssuesPairingAndCredentials")}
+                  </p>
+                </div>
+                <div className={sx(styles.sourceActions)}>
+                  {ownedByIntegrations ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      xstyle={styles.setUpButton}
+                      onClick={openIntegrations}
+                    >
+                      {i18n.t("settings:settingsDialogIssuesSection.manageInIntegrations")}</Button>
+                  ) : (
+                    <>
+                      {summary?.fixInSettings ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          xstyle={styles.setUpButton}
+                          onClick={openIntegrations}
                         >
-                          {summary.headline}
-                        </Badge>
+                          {i18n.t("settings:settingsDialogIssuesSection.setUp")}</Button>
                       ) : null}
-                    </div>
-                    <p className={sx(styles.hintTight)}>
-                      {enabled
-                        ? (summary?.detail ?? i18n.t("settings:settingsDialogIssuesSection.usedInTheIssuesList"))
-                        : ownedByIntegrations
-                          ? i18n.t("settings:settingsDialogIssuesSection.turnedOffInIntegrations")
-                          : i18n.t("settings:settingsDialogIssuesSection.hiddenFromIssuesPairingAndCredentials")}
-                    </p>
-                  </div>
-                  <div className={sx(styles.sourceActions)}>
-                    {ownedByIntegrations ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        xstyle={styles.setUpButton}
-                        onClick={openIntegrations}
-                      >
-                        {i18n.t("settings:settingsDialogIssuesSection.manageInIntegrations")}</Button>
-                    ) : (
-                      <>
-                        {summary?.fixInSettings ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            xstyle={styles.setUpButton}
-                            onClick={openIntegrations}
-                          >
-                            {i18n.t("settings:settingsDialogIssuesSection.setUp")}</Button>
-                        ) : null}
-                        <Switch
-                          id={`settings-tasks-source-${source}`}
-                          checked={enabled}
-                          onCheckedChange={(checked) =>
-                            save({
-                              sourceEnabled: {
-                                ...tasks.sourceEnabled,
-                                [issuesSwitch]: checked,
-                              },
-                            })
-                          }
-                        />
-                      </>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <Button
-            type="button"
-            size="xs"
-            variant="link"
-            xstyle={styles.openIntegrations}
-            onClick={openIntegrations}
-          >
-            {t("settings:settingsDialogIssuesSection.openSettingsIntegrations")}</Button>
-        </div>
-      </div>
-    </div>
+                      <Switch
+                        id={`settings-tasks-source-${source}`}
+                        size={SETTINGS_LIST_SWITCH_SIZE}
+                        checked={enabled}
+                        onCheckedChange={(checked) =>
+                          save({
+                            sourceEnabled: {
+                              ...tasks.sourceEnabled,
+                              [issuesSwitch]: checked,
+                            },
+                          })
+                        }
+                      />
+                    </>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        <Button
+          type="button"
+          size="xs"
+          variant="link"
+          xstyle={styles.openIntegrations}
+          onClick={openIntegrations}
+        >
+          {t("settings:settingsDialogIssuesSection.openSettingsIntegrations")}</Button>
+      </SettingsCard>
+    </SectionStack>
   );
 }

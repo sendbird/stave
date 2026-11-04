@@ -9,7 +9,7 @@ describe("LensCredentialsSettingsCard", () => {
       createElement(LensCredentialsSettingsCard),
     );
 
-    expect(html).toContain("Saved Accounts");
+    expect(html).toContain("Saved accounts");
     expect(html).toContain("Add account");
     expect(html).toContain("Store multiple accounts");
     expect(html).toContain("one or more exact hostnames");

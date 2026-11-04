@@ -45,7 +45,7 @@ describe("StandaloneCliSettingsCard", () => {
     );
 
     expect(markup).toContain(STANDALONE_CLI_SETTING_FIELD_ID);
-    expect(markup).toContain("Standalone CLI Folder");
+    expect(markup).toContain("Standalone CLI folder");
     expect(markup).toContain("Browse");
   });
 });

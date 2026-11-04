@@ -26,11 +26,11 @@
     "keyboardShortcuts": "키보드 단축키",
     "settings": "설정",
     "kickoff": "킥오프",
-    "loadingTasks": "작업 불러오는 중...",
-    "loadingPanel": "패널 불러오는 중...",
+    "loadingIssues": "이슈 불러오는 중…",
+    "loadingPanel": "패널 불러오는 중…",
     "defaultModel": "기본 모델",
     "currentRepository": "현재 저장소",
-    "loadingSurface": "{{title}} 불러오는 중...",
+    "loadingSurface": "{{title}} 불러오는 중…",
     "zoomPercent": "확대/축소 {{percent}}%"
   },
   "confirmDialog": {
@@ -866,11 +866,19 @@
     "entries": {
       "back": {
         "title": "뒤로 가기",
-        "description": "워크스페이스를 넘나들며 직전에 보던 작업, 파일 또는 Lens 탭으로 돌아갑니다."
+        "description": "워크스페이스를 넘나들며 직전에 보던 작업, 파일, Lens 탭 또는 Fleet 같은 화면으로 돌아갑니다."
       },
       "forward": {
         "title": "앞으로 가기",
         "description": "뒤로 간 뒤 다시 앞으로 이동합니다."
+      },
+      "nextRegion": {
+        "title": "다음 영역으로 이동",
+        "description": "창의 다음 영역으로 포커스를 옮깁니다: 사이드바, 상단바, 본문, 사이드 패널, 오른쪽 레일."
+      },
+      "previousRegion": {
+        "title": "이전 영역으로 이동",
+        "description": "창의 이전 영역으로 포커스를 옮깁니다."
       },
       "reopenClosedTab": {
         "title": "닫은 탭 다시 열기",

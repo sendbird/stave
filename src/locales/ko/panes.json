@@ -1,5 +1,7 @@
 {
   "paneHeaderActions": {
+    "backToFleetView": "Fleet 보기로 돌아가기",
+    "fleetView": "Fleet 보기",
     "createNewPaneTab": "새 패널 탭 생성",
     "newTask": "새 작업",
     "newCLISession": "새 CLI 세션",
@@ -138,7 +140,8 @@
     "restartRenderer": "렌더러 다시 시작",
     "initializingTerminal": "터미널 초기화 중…",
     "workspacePathUnavailable": "워크스페이스 경로를 사용할 수 없습니다.",
-    "exitedWithCode": "종료됨 ({{code}})"
+    "exitedWithCode": "종료됨 ({{code}})",
+    "running": "실행 중"
   },
   "editorSurfaceToolbar": {
     "sendThisFileReviewComments_other": "이 파일의 코멘트 {{count}}개만 보내기",

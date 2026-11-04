@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useTranslation } from "@/i18n";
+import { TranscriptFind } from "@/components/system/TranscriptFind";
+import { useEffect, useRef, useState } from "react";
 import {
   TERMINAL_SURFACE_FRAME_CLASS_NAME,
   terminalSurfaceStyles,
@@ -28,6 +30,10 @@ export function TerminalTabSurface(args: {
     rows: number,
   ) => Promise<void> | void;
 }) {
+  const { t } = useTranslation();
+  const [finding, setFinding] = useState(false);
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState(true);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useTerminalInstance({
     containerRef,
@@ -47,6 +53,29 @@ export function TerminalTabSurface(args: {
     onData: (input) => args.onData(args.tabKey, input),
     onResize: (cols, rows) => args.onResize(args.tabKey, cols, rows),
   });
+
+  const closeFind = () => {
+    setFinding(false);
+    terminalInstance.controller.searchAddon?.clearDecorations();
+    terminalInstance.controller.focus();
+  };
+  const search = (value: string, backward = false) => {
+    const addon = terminalInstance.controller.searchAddon;
+    if (!value) { addon?.clearDecorations(); setFound(true); return; }
+    setFound(Boolean(backward ? addon?.findPrevious(value) : addon?.findNext(value)));
+  };
+  useEffect(() => {
+    if (!args.isVisible || !args.isActive) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f" &&
+          target instanceof Node && containerRef.current?.parentElement?.contains(target)) {
+        event.preventDefault(); event.stopPropagation(); setFinding(true);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [args.isVisible, args.isActive]);
 
   useEffect(
     () =>
@@ -101,11 +130,14 @@ export function TerminalTabSurface(args: {
   ]);
 
   return (
+    <>
+
     <div
       className={TERMINAL_SURFACE_FRAME_CLASS_NAME}
-      style={{ display: args.isActive ? "block" : "none" }}
+      style={{ display: args.isActive ? "flex" : "none" }}
       aria-hidden={!args.isActive}
     >
+    {finding ? <TranscriptFind query={query} onQuery={(value) => { setQuery(value); search(value); }} onStep={(backward) => search(query, backward)} onClose={closeFind} result={found ? "" : t("transcriptFind.none")} label={t("transcriptFind.terminal")} /> : null}
       <div
         ref={containerRef}
         data-terminal-surface
@@ -115,5 +147,6 @@ export function TerminalTabSurface(args: {
         )}
       />
     </div>
+    </>
   );
 }

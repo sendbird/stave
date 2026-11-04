@@ -35,6 +35,7 @@ import {
 import { DEFAULT_CRANE_CONNECTOR_BASE_URL } from "@/lib/crane-connector/types";
 import { useAppStore } from "@/store/app.store";
 import { craneConnectorStyles as styles } from "./settings-dialog-crane-connector.styles";
+import { SETTINGS_FIELD_SWITCH_SIZE } from "./settings-dialog.shared";
 
 function statusLabel(state: string | undefined) {
   switch (state) {
@@ -267,6 +268,7 @@ export function CraneConnectorSettingsSection() {
                 {t("settingsConnections:settingsDialogCraneConnector.offMeansNoConnectorTimerOr")}</p>
             </div>
             <Switch
+              size={SETTINGS_FIELD_SWITCH_SIZE}
               id="settings-crane-enabled"
               aria-label={t("settingsConnections:settingsDialogCraneConnector.enableOutboundPolling")}
               checked={enabled}

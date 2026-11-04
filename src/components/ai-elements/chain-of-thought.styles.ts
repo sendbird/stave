@@ -292,7 +292,7 @@ export const chainOfThoughtStyles = stylex.create({
   stepActive: { color: vars["--ads-color-text"] },
   stepDone: { color: vars["--ads-color-text-muted"] },
   stepPending: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   stepMotionRowTrace: {
     animationName: { default: traceRowIn, [reduced]: "none" },
@@ -321,7 +321,7 @@ export const chainOfThoughtStyles = stylex.create({
     width: "0.85em",
     height: "0.85em",
     flexShrink: 0,
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
+    color: vars["--ads-color-text-muted"],
     transitionProperty: "transform",
     transitionDuration: {
       default: vars["--ads-motion-duration-quick"],
@@ -378,7 +378,7 @@ export const chainOfThoughtStyles = stylex.create({
   iconAgent: { color: vars["--ads-color-text"] },
   iconDone: { color: vars["--ads-color-text-muted"] },
   iconPending: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   loaderColor: { color: vars["--ads-color-text"] },
   statusIcon: { width: "1.15em", height: "1.15em" },

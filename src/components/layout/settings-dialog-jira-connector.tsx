@@ -25,6 +25,7 @@ import {
 } from "@/lib/jira-connector/types";
 import { useAppStore } from "@/store/app.store";
 import { jiraConnectorStyles as styles } from "./settings-dialog-jira-connector.styles";
+import { SETTINGS_FIELD_SWITCH_SIZE } from "./settings-dialog.shared";
 
 // Security posture: the email and token are write-only from the renderer. They
 // leave through `setCredential`, the main process verifies and vaults them, and
@@ -276,6 +277,7 @@ export function JiraConnectorSettingsSection() {
             {t("settingsConnections:settingsDialogJiraConnector.readYourAssignedIssuesOverOutbound")}</p>
         </div>
         <Switch
+          size={SETTINGS_FIELD_SWITCH_SIZE}
           aria-label={t("settingsConnections:settingsDialogJiraConnector.enableJiraAsATaskSource")}
           checked={connector.enabled}
           disabled={busy !== null}

@@ -1,3 +1,4 @@
+import { Loader } from "@/components/ui";
 import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
 import { transition } from "@/components/ads/recipes/transition";
@@ -8,7 +9,6 @@ import {
   ArrowRight,
   Crosshair,
   Globe,
-  Loader2,
   Maximize2,
   MessageSquarePlus,
   Minimize2,
@@ -309,10 +309,7 @@ export function LensChrome(props: {
             xstyle={chromeStyles.addressStart}
           >
             {isLoading ? (
-              <Loader2
-                aria-hidden
-                className={sx(chromeStyles.compactIcon, chromeStyles.addressSpinner)}
-              />
+              <Loader aria-hidden size="xs" variant="spinner" />
             ) : (
               <Globe aria-hidden className={sx(chromeStyles.compactIcon)} />
             )}

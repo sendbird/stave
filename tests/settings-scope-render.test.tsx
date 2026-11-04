@@ -125,7 +125,7 @@ describe("Settings scope rendering", () => {
 
   test("project scope keeps posture fields editable and locks the rest in Providers", async () => {
     const html = await renderInScope(PROJECT_PATH, providersSection);
-    expect(html).toContain("Use the global value for Permission Mode");
+    expect(html).toContain("Use the global value for Permission mode");
     expect(html).toContain("data-settings-scope-locked");
   });
 
@@ -141,11 +141,11 @@ describe("Settings scope rendering", () => {
     const trigger = html.slice(groupAt, html.indexOf("</button>", groupAt));
     expect(trigger).toContain('aria-expanded="true"');
     const group = html.slice(groupAt);
-    expect(group).toContain("Use the global value for Permission Mode");
+    expect(group).toContain("Use the global value for Permission mode");
     expect(group).toContain("Project value");
     expect(group).toContain("Global value");
     // The preset row keeps its own badge for every field it sets.
-    expect(html.slice(0, groupAt)).toContain("Use the global value for Mode Preset");
+    expect(html.slice(0, groupAt)).toContain("Use the global value for Mode preset");
   });
 
   test("without a project override or Custom, Customize permissions stays closed", async () => {

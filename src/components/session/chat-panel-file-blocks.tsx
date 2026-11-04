@@ -29,6 +29,10 @@ import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelFileBlocksStyles as styles } from "./chat-panel-file-blocks.styles";
 import { useDiffLineHighlighter } from "./message/diff-highlighter";
 import {
+  DIFF_CONTEXT_LINES,
+  useDiffViewerMode,
+} from "./message/diff-viewer-options";
+import {
   toDiffRunState,
   toFileChangeRunState,
 } from "./message/turn-event-state";
@@ -66,7 +70,7 @@ function getFileChangeStatusPriority(
   }
 }
 
-function OpenedFileDiff(args: {
+export function OpenedFileDiff(args: {
   after: string;
   before: string;
   displayFilePath: string;
@@ -75,15 +79,20 @@ function OpenedFileDiff(args: {
   useTranslation();
   const language = languageFromFilePath(args.filePath);
   const highlighter = useDiffLineHighlighter(language);
+  const layout = useDiffViewerMode();
   return (
     <DiffViewer
+      ref={layout.ref}
       after={args.after}
       aria-label={i18n.t("session:chatPanelFileBlocks.ariaLabel", { value1: args.displayFilePath })}
       before={args.before}
+      // Long unchanged runs collapse, as in Review, so a one-line edit in a
+      // large file does not unroll the whole file into the conversation.
+      context={DIFF_CONTEXT_LINES}
       granularity="word"
       highlighter={highlighter}
       language={language}
-      mode="unified"
+      mode={layout.mode}
       xstyle={styles.inlineDiff}
     />
   );
@@ -220,7 +229,7 @@ export function ChangedFilesBlock(args: {
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>
-            {parts.length} {parts.length === 1 ? i18n.t("session:chatPanelFileBlocks.changedFilesBlock") : i18n.t("session:chatPanelFileBlocks.changedFilesBlock2")} {i18n.t("session:chatPanelFileBlocks.changedFilesBlock3")}</span>
+            {i18n.t("session:chatPanelFileBlocks.filesEdited", { count: parts.length })}</span>
           <ChangeCount value={totalAdded} hue="added" />
           <ChangeCount value={totalRemoved} hue="removed" />
           {/* "Pending" is a not-yet state, not a fault, and `failed` two
@@ -228,7 +237,7 @@ export function ChangedFilesBlock(args: {
               collapsed two counts that mean different things onto one pair.
               A queue length is a tally, so it reads neutral. */}
           {pendingCount > 0 ? (
-            <Badge variant="secondary">{pendingCount} {i18n.t("session:chatPanelFileBlocks.changedFilesBlock4")}</Badge>
+            <Badge variant="secondary">{i18n.t("session:chatPanelFileBlocks.pendingCount", { count: pendingCount })}</Badge>
           ) : null}
         </div>
         <div className={sx(styles.headerActions)}>
@@ -429,13 +438,13 @@ export function FileChangeSummaryBlock(args: {
               i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock", { value1: normalizedRows.length, count: normalizedRows.length })}
           </span>
           {appliedCount > 0 ? (
-            <Badge variant="success">{appliedCount} {i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock2")}</Badge>
+            <Badge variant="success">{i18n.t("session:chatPanelFileBlocks.appliedCount", { count: appliedCount })}</Badge>
           ) : null}
           {skippedCount > 0 ? (
-            <Badge variant="warning">{skippedCount} {i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock3")}</Badge>
+            <Badge variant="warning">{i18n.t("session:chatPanelFileBlocks.skippedCount", { count: skippedCount })}</Badge>
           ) : null}
           {failedCount > 0 ? (
-            <Badge variant="destructive">{failedCount} {i18n.t("session:chatPanelFileBlocks.fileChangeSummaryBlock4")}</Badge>
+            <Badge variant="destructive">{i18n.t("session:chatPanelFileBlocks.failedCount", { count: failedCount })}</Badge>
           ) : null}
         </div>
       </div>
@@ -515,8 +524,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
       <div className={sx(styles.cardHeader)}>
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>
-            {parts.length}{" "}
-            {parts.length === 1 ? i18n.t("session:chatPanelFileBlocks.referencedFilesBlock") : i18n.t("session:chatPanelFileBlocks.referencedFilesBlock2")}
+            {i18n.t("session:chatPanelFileBlocks.referencedFiles", { count: parts.length })}
           </span>
         </div>
         <Button

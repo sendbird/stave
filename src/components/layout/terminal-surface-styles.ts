@@ -18,8 +18,9 @@ export const terminalSurfaceStyles = stylex.create({
     position: "relative",
     width: "100%",
   },
-  frame: { borderRadius: "inherit", height: "100%", width: "100%" },
+  frame: { flexDirection: "column", borderRadius: "inherit", height: "100%", width: "100%" },
   surface: {
+    flex: 1, minHeight: 0,
     borderRadius: "inherit",
     height: "100%",
     outline: "none",

@@ -115,8 +115,8 @@ describe("Settings > Accounts", () => {
       // A signed-out CLI keeps its full row: that row is where sign-in starts.
       expect(raw).toContain('data-cli-provider="kiro"');
       expect(raw).toContain('data-cli-provider="opencode"');
-      expect(html).toContain("Kiro CLI Login Required");
-      expect(html).toContain("Copy Login Command");
+      expect(html).toContain("Kiro CLI Login required");
+      expect(html).toContain("Copy login command");
       // The CLI that was not found is one folded row whose panel can point Stave at it.
       expect(raw).toContain("data-cli-missing");
       expect(raw).not.toContain("data-cli-checking");
@@ -180,7 +180,7 @@ describe("Settings > Accounts", () => {
       const row = raw.slice(raw.indexOf('data-cli-provider="kiro"'), raw.indexOf("</li>", raw.indexOf('data-cli-provider="kiro"')));
       expect(row).toContain("data-cli-access-issue");
       expect(text(row)).toContain(reason);
-      expect(text(row)).toContain("Needs Attention");
+      expect(text(row)).toContain("Needs attention");
       expect(text(row)).not.toContain("Authenticated");
       // A CLI that is ready keeps its plain sign-in row.
       expect(raw.split("data-cli-access-issue").length - 1).toBe(1);
@@ -193,7 +193,7 @@ describe("Settings > Accounts", () => {
     const html = render(createElement(ToolingSection));
     expect(html).not.toContain("moved to Settings > Accounts");
     expect(html).not.toContain("Open Accounts");
-    expect(html).toContain("Native Tooling Status");
+    expect(html).toContain("Native tooling status");
     expect(html).not.toContain("Claude accounts");
     expect(html).not.toContain("Add a connection");
   });

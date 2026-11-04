@@ -658,7 +658,7 @@ test("keeps the Kiro provider settings usable at a narrow viewport", async ({
     .click();
 
   await expect(
-    settings.getByRole("heading", { name: "Kiro Runtime Controls" }),
+    settings.getByRole("heading", { name: "Kiro runtime controls" }),
   ).toBeVisible();
   await expect(settings.getByPlaceholder("kiro-cli")).toBeVisible();
   await expect(
@@ -675,7 +675,7 @@ test("keeps the Kiro provider settings usable at a narrow viewport", async ({
     ),
   ).toBe(false);
   const runtimeCardWidth = await settings
-    .getByRole("heading", { name: "Kiro Runtime Controls" })
+    .getByRole("heading", { name: "Kiro runtime controls" })
     .evaluate(
       (heading) =>
         heading.closest("section")?.getBoundingClientRect().width ?? 0,
@@ -815,7 +815,7 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
   // Kiro deliberately exposes two tiers, because its partial-trust flag cannot
   // be verified. A Guided control here would promise something unenforceable.
   const kiroApproval = settings.getByRole("radiogroup", {
-    name: /Approval Preset/,
+    name: /Approval preset/,
   });
   await expect(
     kiroApproval.getByRole("radio", { name: /^Manual/ }),
@@ -829,7 +829,7 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
 
   await providerTabs.getByRole("tab", { name: "Cursor", exact: true }).click();
   const cursorApproval = settings.getByRole("radiogroup", {
-    name: /Approval Preset/,
+    name: /Approval preset/,
   });
   // The composer pill writes a per-model override, so the Settings card still
   // shows the workspace's Auto default. Same layering as Claude and Codex.

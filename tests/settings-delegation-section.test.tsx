@@ -63,6 +63,6 @@ describe("Settings → Providers → Delegation while the Local MCP server is st
     expect(html.split("cannot delegate.").length - 1).toBe(2);
     expect(html.split("enabled but not running").length - 1).toBe(1);
     expect(html).toContain('data-testid="delegation-open-mcp-settings"');
-    expect(html).toContain("Open Settings → MCP → Local MCP Server.");
+    expect(html).toContain("Open Settings → MCP → Local MCP server.");
   });
 });

@@ -351,3 +351,7 @@ Fleet item, and the task records the answer the same way.
 - [Notifications](notifications.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
 - [Sidebar Views](sidebar-views.md)
+
+## Global surfaces and navigation
+
+Fleet, Agents, Schedules, Issues, and AI usage share a page header. Closing a global surface returns one step through navigation history. Back and Forward also include global surfaces. F6 and Shift+F6 cycle window regions; Skip to content moves directly to the main area. The sidebar marks the current surface and labels its repository/work queue view switch. Counts use warning colour only when user attention is required. Without repositories, Fleet offers one Open repository action and hides its filters and board controls.

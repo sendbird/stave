@@ -1,3 +1,4 @@
+import { setWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Bug,
@@ -348,6 +349,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <EmptyDescription>
               {i18n.t("session:chatArea.chatAreaImpl5")}</EmptyDescription>
           </EmptyHeader>
+          <Button onClick={() => setWorkspaceSidebarCollapsed(false)}>{i18n.t("common:transcriptFind.showSidebar")}</Button>
         </Empty>
       </div>
     );

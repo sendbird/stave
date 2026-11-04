@@ -168,24 +168,12 @@ describe("Commit graph toolbar", () => {
     );
 
     expect(ROW_HEIGHT).toBe(24);
-    expect(GIT_GRAPH_LANE_PALETTE).toEqual([
-      "#2B6FE8",
-      "#D43F82",
-      "#258A52",
-      "#C45A22",
-      "#8662D6",
-      "#D94848",
-      "#16869E",
-      "#B457C4",
-      "#5F8D2B",
-      "#A87412",
-      "#596ED9",
-      "#1D8572",
-    ]);
+    expect(GIT_GRAPH_LANE_PALETTE).toHaveLength(14);
+    expect(GIT_GRAPH_LANE_PALETTE.every((color) => /^var\(--ads-chart-\d+\)$/.test(color))).toBe(true);
     expect(html).toContain(sx(gitGraphCanvasStyles.svg));
     expect(html).not.toContain("stroke-dasharray");
     expect(html.match(/<circle/g)).toHaveLength(3);
     expect(html).toContain('stroke="var(--muted-foreground)"');
-    expect(html.match(/<circle[^>]+fill="#2B6FE8"/g)).toHaveLength(2);
+    expect(html.match(/<circle[^>]+fill="var\(--ads-chart-1\)"/g)).toHaveLength(2);
   });
 });

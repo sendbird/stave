@@ -73,6 +73,19 @@ describe("the turn's changed-files card", () => {
     expect(renderCard({ offerTurnReview: true, readOnly: true })).not.toContain(REVIEW_BUTTON);
     expect(renderCard({})).not.toContain(REVIEW_BUTTON);
   });
+
+  test("names the edited-file count as one phrase in each language", () => {
+    expect(renderCard({})).toContain("1 file edited");
+    expect(renderCard({})).not.toContain("Open in Editor");
+    try {
+      applyAppLocale("ko");
+      const html = renderCard({});
+      expect(html).toContain("파일 1개 편집됨");
+      expect(html).not.toContain("1 파일");
+    } finally {
+      applyAppLocale("en");
+    }
+  });
 });
 
 describe("task surface entry points", () => {

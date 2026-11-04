@@ -1,3 +1,4 @@
+import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { useTranslation } from "@/i18n";
 import { ListTodo, RefreshCw, X } from "lucide-react";
 
@@ -44,13 +45,7 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
   );
 
   return (
-    <header className={sx(taskLayoutStyles.header)}>
-      <div className={sx(taskLayoutStyles.headerLead)}>
-        <div className={sx(taskLayoutStyles.headerTitleRow)}>
-          <ListTodo className={sx(taskLayoutStyles.headerIcon)} />
-          <h1 className={sx(taskLayoutStyles.headerTitle)}>{tI18n("issues:issuesSurfaceHeader.issues")}</h1>
-        </div>
-        <p className={sx(taskLayoutStyles.headerStatus)}>
+    <GlobalPageHeader title={tI18n("issues:issuesSurfaceHeader.issues")} titleIcon={<ListTodo />} meta={        <p className={sx(taskLayoutStyles.headerStatus)}>
           {props.summaries.map((summary) => {
             const status = statusFor(props.statuses, summary.source);
             return (
@@ -92,8 +87,7 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
             );
           })}
         </p>
-      </div>
-      <div className={sx(taskLayoutStyles.headerActions)}>
+} actions={      <div className={sx(taskLayoutStyles.headerActions)}>
         <Tooltip content={tI18n("issues:issuesSurfaceHeader.refresh")}>
           <Button
             variant="ghost"
@@ -123,6 +117,6 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
           </Button>
         </Tooltip>
       </div>
-    </header>
+} />
   );
 }

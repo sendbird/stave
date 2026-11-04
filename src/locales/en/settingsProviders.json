@@ -12,12 +12,12 @@
       }
     },
     "trustedApprovals": {
-      "title": "Trusted Approvals",
+      "title": "Trusted approvals",
       "description": "Approvals marked as always allowed. A Bash entry trusts that command, also with more arguments, but never one chained, piped or redirected into another command.",
       "empty": "No trusted approvals yet. Use always allow from an approval prompt to add one."
     },
     "tabsAriaLabel": "Provider settings",
-    "modePresetTitle": "Mode Preset",
+    "modePresetTitle": "Mode preset",
     "customizePermissions": {
       "title": "Customize permissions",
       "claudeDescription": "Permission mode, sandbox and the Agent mode guardrails.",
@@ -33,7 +33,7 @@
       "ultra": "Ultra"
     },
     "claudeRuntime": {
-      "title": "Claude Runtime Controls",
+      "title": "Claude runtime controls",
       "description": "Permission, sandbox, thinking, and subagent progress behavior passed into each Claude turn.",
       "modePreset": {
         "description": "How much Claude may do without asking. Changing a field under Customize permissions switches to Custom.",
@@ -41,10 +41,10 @@
         "custom": "Custom ({{detail}}) matches no preset. Choose one to replace it."
       },
       "permissionMode": {
-        "title": "Permission Mode",
+        "title": "Permission mode",
         "description": "Controls how aggressively Claude asks for permission during a chat turn. Claude CLI sessions always launch in `auto`.",
         "guide": {
-          "title": "Claude Permission Mode",
+          "title": "Claude permission mode",
           "summary": "This is the main autonomy dial for Claude turns.",
           "tooltip": "Compare Claude permission modes"
         },
@@ -72,30 +72,30 @@
         }
       },
       "dangerousSkip": {
-        "title": "Dangerous Skip Permissions",
+        "title": "Dangerous skip permissions",
         "description": "Only applies when `bypassPermissions` is active."
       },
       "sandbox": {
-        "title": "Sandbox Enabled",
+        "title": "Sandbox enabled",
         "description": "Wrap Claude tool execution in its sandbox configuration."
       },
       "unsandboxedCommands": {
-        "title": "Allow Unsandboxed Commands",
+        "title": "Allow unsandboxed commands",
         "description": "Controls whether Claude may fall back to commands outside the sandbox."
       },
       "credentialFiles": {
-        "title": "Protected Credential Files",
+        "title": "Protected credential files",
         "description": "Comma-separated file paths Claude's sandbox must deny as credentials. Enter paths only, never secret contents."
       },
       "credentialVariables": {
-        "title": "Protected Credential Variables",
+        "title": "Protected credential variables",
         "description": "Comma-separated environment variable names Claude's sandbox must deny. Enter names only; values never belong here."
       },
       "settingSources": {
-        "title": "Setting Sources",
+        "title": "Setting sources",
         "description": "Controls which Claude filesystem setting layers are loaded. `project` is required for CLAUDE.md and project slash commands.",
         "guide": {
-          "title": "Claude Setting Sources",
+          "title": "Claude setting sources",
           "summary": "These layers decide which Claude configuration files and commands participate in each turn.",
           "tooltip": "What each Claude setting source does"
         },
@@ -117,13 +117,13 @@
         "activeNone": "Active: none"
       },
       "taskBudget": {
-        "title": "Task Budget (Tokens)",
+        "title": "Task budget (tokens)",
         "description": "Advisory token budget sent to Claude so it can pace tool use and wrap up earlier. Use `0` to disable."
       },
       "thinkingMode": {
-        "title": "Thinking Mode",
+        "title": "Thinking mode",
         "guide": {
-          "title": "Claude Thinking Mode",
+          "title": "Claude thinking mode",
           "summary": "Thinking controls whether Claude spends extra effort on explicit reasoning before answering.",
           "tooltip": "Compare Claude thinking modes"
         },
@@ -146,7 +146,7 @@
       "effort": {
         "title": "Effort",
         "guide": {
-          "title": "Claude Effort",
+          "title": "Claude effort",
           "summary": "Higher effort spends more model budget on reasoning and usually increases latency.",
           "tooltip": "Compare Claude effort levels"
         },
@@ -174,27 +174,27 @@
         }
       },
       "agentProgressSummaries": {
-        "title": "Agent Progress Summaries",
+        "title": "Agent progress summaries",
         "description": "Enables Claude SDK `task_progress.summary` updates for running subagents."
       },
       "promptSuggestions": {
-        "title": "Prompt Suggestions",
+        "title": "Prompt suggestions",
         "description": "Offers follow-up prompt chips after each completed turn. Costs one extra lightweight request per turn on top of the turn itself; background lanes never request suggestions."
       },
       "forwardSubagentText": {
-        "title": "Forward Subagent Text",
+        "title": "Forward subagent text",
         "description": "Streams nested subagent transcript text instead of only subagent progress heartbeats."
       },
       "fileCheckpointing": {
-        "title": "File Checkpointing",
+        "title": "File checkpointing",
         "description": "Enables Claude SDK file checkpoints so changed files can be rewound by session controls."
       },
       "forkSession": {
-        "title": "Fork Resumed Session",
+        "title": "Fork resumed session",
         "description": "When resuming a Claude session, fork to a new session instead of continuing the previous one."
       },
       "strictMcpConfig": {
-        "title": "Strict MCP Config",
+        "title": "Strict MCP config",
         "description": "Only use MCP servers passed by Stave and explicitly configured SDK agents."
       },
       "skills": {
@@ -202,25 +202,25 @@
         "description": "Comma- or newline-separated Claude skill names. Use `all` to enable every discovered skill."
       },
       "pluginPaths": {
-        "title": "Plugin Paths",
+        "title": "Plugin paths",
         "description": "Comma- or newline-separated local Claude plugin directories. Stave owns MCP discovery for these plugins."
       },
       "mainAgent": {
-        "title": "Main Agent",
+        "title": "Main agent",
         "description": "Optional Claude agent name from settings or loaded plugins for the main conversation."
       },
       "fallbackModels": {
-        "title": "Fallback Models",
+        "title": "Fallback models",
         "description": "Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5.5 automatically falls back to Opus 4.8 when left blank."
       },
       "resumeAt": {
-        "title": "Resume At Message",
+        "title": "Resume at message",
         "description": "Optional Claude assistant message UUID for partial resume from a previous session.",
         "placeholder": "message uuid"
       }
     },
     "codexRuntime": {
-      "title": "Codex Runtime Controls",
+      "title": "Codex runtime controls",
       "description": "Per-turn Codex file access, approvals, network, reasoning, and search settings.",
       "modePreset": {
         "description": "How much Codex may do without asking. Changing a field under Customize permissions switches to Custom.",
@@ -228,13 +228,13 @@
         "custom": "Custom ({{detail}}) matches no preset. Choose one to replace it."
       },
       "networkAccess": {
-        "title": "Network Access",
+        "title": "Network access",
         "description": "Controls whether Codex may use networked capabilities during a turn."
       },
       "fileAccess": {
-        "title": "File Access",
+        "title": "File access",
         "guide": {
-          "title": "Codex File Access",
+          "title": "Codex file access",
           "summary": "This setting controls where Codex can read and write on disk.",
           "tooltip": "Compare Codex file access levels"
         },
@@ -256,7 +256,7 @@
       "approvals": {
         "title": "Approvals",
         "guide": {
-          "title": "Codex Approvals",
+          "title": "Codex approvals",
           "summary": "Approval policy controls when Codex pauses to ask before acting.",
           "tooltip": "Compare Codex approval policies"
         },
@@ -280,10 +280,10 @@
         }
       },
       "appToolApprovals": {
-        "title": "App Tool Approvals",
+        "title": "App tool approvals",
         "description": "Controls App and MCP tools separately from shell command approvals.",
         "guide": {
-          "title": "Codex App Tool Approvals",
+          "title": "Codex app tool approvals",
           "summary": "This controls approval prompts for connected App and MCP tools, not shell commands or sandbox permissions.",
           "note": "`writes` trusts each tool's read-only annotation; it is not a security boundary.",
           "tooltip": "Compare App tool approval modes"
@@ -315,7 +315,7 @@
       "reasoning": {
         "title": "Reasoning",
         "guide": {
-          "title": "Codex Reasoning Effort",
+          "title": "Codex reasoning effort",
           "summary": "Higher effort gives Codex more room to reason, but it also tends to slow the turn down.",
           "tooltip": "Compare Codex reasoning effort levels"
         },
@@ -351,10 +351,10 @@
         }
       },
       "reasoningSummary": {
-        "title": "Reasoning Summary",
+        "title": "Reasoning summary",
         "description": "Codex config for model-side reasoning summaries when supported.",
         "guide": {
-          "title": "Codex Reasoning Summary",
+          "title": "Codex reasoning summary",
           "summary": "This controls how much reasoning summary Codex should try to return when the model supports it.",
           "tooltip": "Compare Codex reasoning summary modes"
         },
@@ -380,10 +380,10 @@
         }
       },
       "summarySupport": {
-        "title": "Summary Support",
+        "title": "Summary support",
         "description": "Override Codex capability detection when a model supports reasoning summaries but the runtime cannot infer it.",
         "guide": {
-          "title": "Reasoning Summary Capability Override",
+          "title": "Reasoning summary capability override",
           "summary": "Only touch this when automatic capability detection is wrong.",
           "tooltip": "How reasoning summary support override works"
         },
@@ -403,14 +403,14 @@
         }
       },
       "rawReasoning": {
-        "title": "Raw Reasoning",
+        "title": "Raw reasoning",
         "description": "Shows low-level reasoning traces when Codex emits them."
       },
       "webSearch": {
-        "title": "Web Search",
+        "title": "Web search",
         "description": "Default is `cached`, which allows lower-volatility search without turning on live external lookup.",
         "guide": {
-          "title": "Codex Web Search",
+          "title": "Codex web search",
           "summary": "Use this when Codex needs outside knowledge rather than only repo-local context.",
           "tooltip": "Compare Codex web search modes"
         },
@@ -438,7 +438,7 @@
         "indexedUnavailable": "Indexed search is unavailable in the selected Codex version; Stave will use cached search instead."
       },
       "fastMode": {
-        "title": "Fast Mode",
+        "title": "Fast mode",
         "description": "Enables Codex fast_mode feature flag for faster responses on simpler tasks."
       },
       "advanced": {
@@ -453,7 +453,7 @@
   },
   "cursorSection": {
     "runtime": {
-      "title": "Cursor Runtime Controls",
+      "title": "Cursor runtime controls",
       "description": "Session mode and approval behavior for interactive Cursor Agent turns."
     },
     "modes": {
@@ -474,21 +474,21 @@
       "description": "Sets the starting mode for each new or resumed session."
     },
     "approvalPreset": {
-      "title": "Approval Preset",
+      "title": "Approval preset",
       "description": "How much Cursor may run without asking. Delivered as Cursor Agent process flags, so it applies for the whole session rather than per tool call.",
       "note": "Guided uses Cursor's own Auto-review classifier, so which calls it runs unattended is decided by Cursor, not Stave."
     },
     "defaultModel": {
-      "title": "Default Model",
+      "title": "Default model",
       "description": "Use Auto unless the connected runtime advertises another model identifier. Unsupported values fall back to the runtime default."
     },
     "defaultEffort": {
-      "title": "Default Effort",
+      "title": "Default effort",
       "description": "Used when the connected Cursor session advertises a separate effort option. Individual model choices are remembered from the composer.",
       "ariaLabel": "Cursor default effort"
     },
     "fastMode": {
-      "title": "Fast Mode",
+      "title": "Fast mode",
       "description": "Uses the Cursor Fast session option when the connected runtime advertises it. Individual model choices are remembered from the composer."
     },
     "cli": {
@@ -496,26 +496,26 @@
       "description": "Stave resolves the Agent CLI from this path first, then checks supported environment overrides and standard executable locations."
     },
     "agentPath": {
-      "title": "Agent Path",
+      "title": "Agent path",
       "description": "Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
     }
   },
   "kiroSection": {
     "runtime": {
-      "title": "Kiro Runtime Controls",
+      "title": "Kiro runtime controls",
       "description": "Approval behavior for interactive Kiro turns."
     },
     "approvalPreset": {
-      "title": "Approval Preset",
+      "title": "Approval preset",
       "description": "How much Kiro may run without asking. Delivered as a Kiro CLI process flag, so it applies for the whole session rather than per tool call.",
       "note": "Kiro has no partial-trust tier: its CLI accepts unknown tool names for a partial grant without reporting an error, so Stave does not offer a middle setting it cannot verify."
     },
     "defaultModel": {
-      "title": "Default Model",
+      "title": "Default model",
       "description": "Use Auto unless the connected CLI reports another model identifier. The composer shows a warning if a saved model disappears from the runtime catalog."
     },
     "defaultEffort": {
-      "title": "Default Effort",
+      "title": "Default effort",
       "description": "Used for Kiro models without a task-specific effort choice. Individual model choices are remembered from the composer.",
       "ariaLabel": "Kiro default effort"
     },
@@ -524,7 +524,7 @@
       "description": "Stave resolves Kiro CLI from this path first, then checks supported environment overrides and standard executable locations."
     },
     "cliPath": {
-      "title": "CLI Path",
+      "title": "CLI path",
       "description": "Leave blank to use automatic discovery. The configured executable must support ACP and be signed in."
     }
   },
@@ -557,11 +557,11 @@
       "loadFailed": "Failed to load installed Claude plugins."
     },
     "field": {
-      "title": "Installed Plugins",
+      "title": "Installed plugins",
       "description": "Plugins installed with `claude plugin install`. Stave loads them itself, so they work without turning on the `user` setting source."
     },
     "guide": {
-      "title": "Claude Installed Plugins",
+      "title": "Claude installed plugins",
       "summary": "Stave re-states Claude's plugin decision through the SDK, so CLI-installed plugins load under the narrowed setting sources.",
       "tooltip": "How installed Claude plugins are loaded"
     },
@@ -573,15 +573,15 @@
   },
   "claudeGuardrails": {
     "writesOutsideRepo": {
-      "title": "Ask Before Writes Outside the Repository",
+      "title": "Ask before writes outside the repository",
       "description": "In Agent mode, stop before writing outside this repository's checkouts and worktrees. Temp folders and tool caches stay allowed. Chat turns never stop for this."
     },
     "credentials": {
-      "title": "Ask Before Touching Credentials",
+      "title": "Ask before touching credentials",
       "description": "In Agent mode, stop before reading or writing ~/.ssh, ~/.aws, ~/.npmrc and similar files, or the protected paths and variables below. Chat turns never stop for this."
     },
     "remoteActions": {
-      "title": "Ask Before Irreversible Remote Actions",
+      "title": "Ask before irreversible remote actions",
       "description": "In Agent mode, stop before force-pushing a default or protected branch, deleting remote refs, publishing a package or release, or running sudo. Chat turns never stop for this."
     }
   },
@@ -717,7 +717,7 @@
       "ready": "can delegate.",
       "checking": "checking the Local MCP server…",
       "blocked": "cannot delegate.",
-      "openSettings": "Open Settings → MCP → Local MCP Server."
+      "openSettings": "Open Settings → MCP → Local MCP server."
     },
     "advanced": {
       "title": "Advanced options",
@@ -735,7 +735,7 @@
     }
   },
   "modelVisibility": {
-    "title": "Selector Models",
+    "title": "Selector models",
     "description": "The model selector lists the current model of each family by default. Turn a model on to pin it into that list, or off to keep it out. Search and the selector's “Show all models” expansion still reach every catalog model.",
     "resetAll": "Reset all providers",
     "tabsAriaLabel": "Model visibility provider",
@@ -751,7 +751,7 @@
   },
   "toolingSection": {
     "card": {
-      "title": "Native Tooling Status",
+      "title": "Native tooling status",
       "description": "These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."
     },
     "purpose": {
@@ -766,13 +766,13 @@
     },
     "auth": {
       "authenticated": "Authenticated",
-      "unauthenticated": "Login Required",
-      "notRequired": "No Auth",
-      "unknown": "Unknown Auth",
+      "unauthenticated": "Login required",
+      "notRequired": "No auth",
+      "unknown": "Unknown auth",
       "managedInCli": "Managed in CLI"
     },
     "state": {
-      "warning": "Needs Attention",
+      "warning": "Needs attention",
       "error": "Unavailable"
     },
     "rows": {
@@ -781,9 +781,9 @@
     },
     "copyPathAriaLabel": "Copy {{label}}",
     "actions": {
-      "copyLoginCommand": "Copy Login Command",
-      "fixInTerminal": "Fix In Terminal",
-      "openTerminal": "Open Terminal"
+      "copyLoginCommand": "Copy login command",
+      "fixInTerminal": "Fix in terminal",
+      "openTerminal": "Open terminal"
     },
     "detail": {
       "loading": "Refreshing native tooling status...",
@@ -916,7 +916,7 @@
       "managedByStave": "Managed by Stave"
     },
     "card": {
-      "title": "MCP Connections",
+      "title": "MCP connections",
       "description": "Install native MCP servers for each provider. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route.",
       "addServer": "Add server",
       "refreshing": "Refreshing..."
@@ -1135,12 +1135,12 @@
   },
   "opencodeSection": {
     "runtime": {
-      "title": "OpenCode Runtime Controls",
+      "title": "OpenCode runtime controls",
       "description": "Approval behavior for interactive OpenCode turns.",
       "authentication": "OpenCode keeps its own provider sign-ins and models. Stave never reads or stores OpenCode credentials. To connect a provider, run \"opencode auth login\"; for Vercel AI Gateway, run \"npx vercel ai-gateway setup --agent opencode\"."
     },
     "approvalPreset": {
-      "title": "Approval Preset",
+      "title": "Approval preset",
       "description": "How much OpenCode may run without asking. \"opencode acp\" has no approval flag, so Manual runs each turn on a Stave-defined OpenCode agent that asks before every tool call and cannot start subagents.",
       "note": "OpenCode has no partial-trust tier that Stave can verify, so there is no middle setting. Auto keeps OpenCode's own build agent and rules: anything you set to deny there stays denied. In every preset, OpenCode never receives the Stave tools that answer another task's question. On OpenCode 2.x, MCP tools run only through the execute tool, which cannot ask first, so Manual and read-only agents remove it and cannot use Stave Local MCP tools; Auto keeps it."
     },

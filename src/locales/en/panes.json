@@ -1,5 +1,7 @@
 {
   "paneHeaderActions": {
+    "backToFleetView": "Back to Fleet View",
+    "fleetView": "Fleet View",
     "createNewPaneTab": "Create new pane tab",
     "newTask": "New Task",
     "newCLISession": "New CLI Session",
@@ -140,7 +142,8 @@
     "restartRenderer": "Restart renderer",
     "initializingTerminal": "Initializing terminal…",
     "workspacePathUnavailable": "Workspace path unavailable.",
-    "exitedWithCode": "Exited ({{code}})"
+    "exitedWithCode": "Exited ({{code}})",
+    "running": "Running"
   },
   "editorSurfaceToolbar": {
     "sendThisFileReviewComments_one": "Send only this file's comment",

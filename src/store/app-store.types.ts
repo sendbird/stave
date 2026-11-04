@@ -858,6 +858,15 @@ export interface AppState
   clearPendingEditorSelection: () => void;
   updateEditorContent: (args: { tabId: string; content: string }) => void;
   saveActiveEditorTab: () => Promise<{ ok: boolean; conflict?: boolean }>;
+  /**
+   * Settles a save conflict on one tab. `keep-mine` adopts the disk revision
+   * the tab conflicted with and saves the tab's content over it; `reload`
+   * drops the local edits and loads the file from disk.
+   */
+  resolveEditorTabConflict: (args: {
+    tabId: string;
+    resolution: "keep-mine" | "reload";
+  }) => Promise<{ ok: boolean; conflict?: boolean }>;
   checkOpenTabConflicts: () => Promise<void>;
   sendWorkspaceFileToChat: (args: { taskId: string; filePath: string }) => void;
   sendEditorContextToChat: (args: { taskId: string }) => void;

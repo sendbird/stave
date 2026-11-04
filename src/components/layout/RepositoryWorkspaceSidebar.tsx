@@ -1,3 +1,4 @@
+import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { i18n, useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -86,6 +87,8 @@ import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
 import { getLinkedWorktreePathSetForRepository } from "@/store/workspace-archive-cleanup";
 import {
   isWorkspaceActivationKey,
+  moveWorkspaceRowFocus,
+  WORKSPACE_ROW_FOCUS_ATTRIBUTE,
   WorkspaceHoverPreviewTooltip,
   WorkspaceLeadingStatusIcon,
   RepositoryAttentionAlertIcon,
@@ -245,6 +248,11 @@ export function RepositoryWorkspaceSidebar(args: {
         state.workspaceRuntimeCacheById,
       ] as const;
     }),
+  );
+  // While a global view owns the main column, the active workspace is only
+  // the last place opened: no selected fill and no `aria-current`.
+  const showingWorkspace = useAppStore(
+    (state) => state.activeAppSurface.kind === "workspace",
   );
   const highestAttentionByWorkspaceId = useFleetAttention((snapshot) => snapshot.highestAttentionByWorkspaceId);
   const attentionItemsByWorkspaceId = useFleetAttention((snapshot) => snapshot.attentionItemsByWorkspaceId);
@@ -694,6 +702,7 @@ export function RepositoryWorkspaceSidebar(args: {
     <>
       <aside
         data-testid="project-workspace-sidebar"
+        data-focus-region="sidebar"
         aria-label={tI18n("workspace:repositoryWorkspaceSidebar.accessibility.sidebar")}
         className={cx(
           "stave-project-sidebar",
@@ -750,7 +759,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   aria-label={i18n.t("shell:sidebarPrimaryNav.globalViews")}
                   className={sx(repositorySidebarStyles.columnCenter)}
                 >
-                  <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView} />
+                  <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView && repositories.length > 0} />
                 </nav>
               </div>
             ) : (
@@ -816,10 +825,17 @@ export function RepositoryWorkspaceSidebar(args: {
                           xstyle={[
                             repositorySidebarStyles.collapsedWorkspaceButton,
                             transition.colors,
-                            entry.isActive
+                            entry.isActive && showingWorkspace
                               ? repositorySidebarStyles.collapsedWorkspaceActive
-                              : repositorySidebarStyles.collapsedWorkspaceIdle,
+                              : entry.isActive
+                                ? repositorySidebarStyles.collapsedWorkspaceLastOpened
+                                : repositorySidebarStyles.collapsedWorkspaceIdle,
                           ]}
+                          aria-current={
+                            entry.isActive && showingWorkspace ? "page" : undefined
+                          }
+                          {...{ [WORKSPACE_ROW_FOCUS_ATTRIBUTE]: "" }}
+                          onKeyDown={moveWorkspaceRowFocus}
                           onClick={() =>
                             void handleRepositoryWorkspaceOpen({
                               repositoryPath: entry.repositoryPath,
@@ -858,7 +874,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   repositorySidebarStyles.navStackSpaced,
                 )}
               >
-                <SidebarPrimaryNav showFleetView={sidebarShowFleetView} />
+                <SidebarPrimaryNav showFleetView={sidebarShowFleetView && repositories.length > 0} />
               </nav>
               <div
                 className={sx(repositorySidebarStyles.viewBar, panelBarStyles.bar)}
@@ -866,45 +882,8 @@ export function RepositoryWorkspaceSidebar(args: {
                 {/* The toggle replaces the old static "Projects" heading: it
                     names the view you are in *and* is the control that leaves
                     it, so the bar never claims one thing while showing another. */}
-                <div className={sx(repositorySidebarStyles.viewToggle)}>
-                  {SIDEBAR_NAV_VIEW_OPTIONS.map((option) => {
-                    const isSelected = sidebarNavView === option.value;
-                    return (
-                      <Tooltip key={option.value}>
-                        <TooltipTrigger
-                          render={
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              xstyle={[
-                                repositorySidebarStyles.viewToggleButton,
-                                isSelected
-                                  ? repositorySidebarStyles.viewToggleButtonActive
-                                  : repositorySidebarStyles.viewToggleButtonIdle,
-                              ]}
-                              data-testid={`sidebar-view-${option.value}`}
-                              aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.sidebarView", { value1: option.label })}
-                              aria-pressed={isSelected}
-                              onClick={() =>
-                                updateSettings({
-                                  patch: { sidebarNavView: option.value },
-                                })
-                              }
-                            />
-                          }
-                        >
-                          <option.Icon
-                            className={sx(repositorySidebarStyles.iconSm)}
-                          />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          {option.label}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })}
-                </div>
+                <SegmentedControl value={sidebarNavView} onValueChange={(value) => updateSettings({ patch: { sidebarNavView: value } })} aria-label={tI18n("workspace:repositoryWorkspaceSidebar.view")}
+                  options={SIDEBAR_NAV_VIEW_OPTIONS.map((option) => ({ value: option.value, label: tI18n(option.value === "projects" ? "workspace:repositoryWorkspaceSidebar.shortRepos" : "workspace:repositoryWorkspaceSidebar.shortQueue"), title: option.label, icon: <option.Icon />, testId: `sidebar-view-${option.value}` }))} />
                 <div className={sx(repositorySidebarStyles.viewBarActions)}>
                   <Tooltip>
                     <TooltipTrigger
@@ -1018,11 +997,12 @@ export function RepositoryWorkspaceSidebar(args: {
                 ) : null}
               </div>
               {repositories.length === 0 ? (
-                <SidebarEmptyState kind="no-repositories" onOpenRepository={() => setOpenPathDialogOpen(true)} />
+                <SidebarEmptyState kind="no-repositories" onOpenRepository={() => setOpenPathDialogOpen(true)} hideAction={!currentRepositoryPath} />
               ) : visibleRepositories.length === 0 ? (
                 <SidebarEmptyState kind="no-matches" query={workspaceSearchQuery} onClearSearch={() => setWorkspaceSearchQuery("")} />
               ) : isWorkQueueView ? (
                 <WorkQueueLaneList
+                  onNewWorkspace={() => { if (currentRepositoryPath) void handleCreateWorkspaceRequest(currentRepositoryPath); else setOpenPathDialogOpen(true); }}
                   groups={workQueueGroups}
                   highestAttentionByWorkspaceId={highestAttentionByWorkspaceId}
                   attentionItemsByWorkspaceId={attentionItemsByWorkspaceId}
@@ -1426,6 +1406,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                       const isActive =
                                         repository.isCurrent &&
                                         workspace.id === activeWorkspaceId;
+                                      const isCurrentPlace =
+                                        isActive && showingWorkspace;
                                       const workspaceReorderingDisabled =
                                         repositoryBusy ||
                                         workspaceBusy ||
@@ -1474,7 +1456,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                               className={sx(
                                                 repositorySidebarStyles.workspaceItem,
                                                 // The row and its open tasks are one selected item.
-                                                isActive &&
+                                                isCurrentPlace &&
                                                   repositorySidebarStyles.workspaceGroupActive,
                                               )}
                                             >
@@ -1489,9 +1471,11 @@ export function RepositoryWorkspaceSidebar(args: {
                                                   className={sx(
                                                     repositorySidebarStyles.workspaceRow,
                                                     repositorySidebarStyles.row,
-                                                    isActive
+                                                    isCurrentPlace
                                                       ? repositorySidebarStyles.workspaceRowActive
-                                                      : repositorySidebarStyles.workspaceRowIdle,
+                                                      : isActive
+                                                        ? repositorySidebarStyles.workspaceRowLastOpened
+                                                        : repositorySidebarStyles.workspaceRowIdle,
                                                     isDragging &&
                                                       repositorySidebarStyles.workspaceRowDragging,
                                                   )}
@@ -1516,6 +1500,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       }
                                                       role="button"
                                                       tabIndex={0}
+                                                      aria-current={isCurrentPlace ? "page" : undefined}
+                                                      {...{ [WORKSPACE_ROW_FOCUS_ATTRIBUTE]: "" }}
                                                       aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name })}
                                                       aria-keyshortcuts={
                                                         !workspaceReorderingDisabled
@@ -1606,6 +1592,13 @@ export function RepositoryWorkspaceSidebar(args: {
                                                               total: repository.workspaces.length,
                                                             }),
                                                           );
+                                                          return;
+                                                        }
+                                                        if (
+                                                          moveWorkspaceRowFocus(
+                                                            event,
+                                                          )
+                                                        ) {
                                                           return;
                                                         }
                                                         if (

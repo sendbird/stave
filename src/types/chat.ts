@@ -574,7 +574,14 @@ export interface EditorTab {
   baseRevision?: string | null;
   fileSizeBytes?: number;
   fileSizeLimitBytes?: number;
+  /**
+   * The file changed on disk under unsaved edits. Saving is refused until the
+   * user picks Keep mine or Reload, so `baseRevision` keeps pointing at the
+   * revision the edits started from.
+   */
   hasConflict: boolean;
+  /** Disk revision the tab last conflicted with; set while `hasConflict`. */
+  conflictRevision?: string | null;
   isDirty: boolean;
   /**
    * How this `.html` tab shows: the rendered page or its source. Set when the

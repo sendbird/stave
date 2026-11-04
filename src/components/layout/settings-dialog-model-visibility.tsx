@@ -34,7 +34,10 @@ import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-cat
 import { providerReadsAllowed } from "@/lib/providers/provider-readiness-store";
 import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
-import { SettingsCard } from "./settings-dialog.shared";
+import {
+  SettingsCard,
+  SETTINGS_LIST_SWITCH_SIZE,
+} from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { modelVisibilityStyles as styles } from "./settings-dialog-model-visibility.styles";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
@@ -199,6 +202,7 @@ function ModelVisibilityProviderPanel(args: {
               ) : null}
             </div>
             <Switch
+              size={SETTINGS_LIST_SWITCH_SIZE}
               checked={row.visible}
               aria-label={i18n.t("settingsProviders:settingsDialogModelVisibility.showInTheModelSelector", { value1: row.label })}
               onCheckedChange={(checked) =>

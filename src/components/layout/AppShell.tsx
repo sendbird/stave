@@ -37,7 +37,9 @@ import { TaskReturnTracker } from "@/components/session/return-summary/TaskRetur
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
-import { Card, Toaster, toast } from "@/components/ui";
+import { Toaster, toast } from "@/components/ui";
+import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
+import { OverlayLoadingFallback } from "@/components/layout/OverlayLoadingFallback";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
 import { requestComparePreparation } from "@/components/compare/compare-prepare-request";
@@ -70,6 +72,10 @@ import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
 import { RightPanelSlot } from "@/components/layout/RightPanelSlot";
 import { RightRail } from "@/components/layout/RightRail";
+import {
+  MAIN_CONTENT_ID,
+  SkipToContentLink,
+} from "@/components/layout/SkipToContentLink";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
 import {
@@ -447,17 +453,6 @@ export function AppShell() {
 
   function scheduleLayoutResizePatch(key: ResizableLayoutKey, value: number) {
     scheduleLayoutPatch({ [key]: value } as Partial<LayoutState>);
-  }
-
-  function OverlayLoadingFallback(args: { title: string }) {
-  useTranslation();
-    return (
-      <div className={sx(layers.dialog, appShellStyles.overlayFallback)}>
-        <Card className={sx(appShellStyles.overlayCard)}>
-          <div className={sx(appShellStyles.overlayText)}>{i18n.t("shell:appShell.loadingSurface", { title: args.title })}</div>
-        </Card>
-      </div>
-    );
   }
 
   useEffect(() => {
@@ -1022,6 +1017,7 @@ export function AppShell() {
 
   return (
     <div className={sx(appShellStyles.root)}>
+      <SkipToContentLink />
       {zoomHudPercent !== null ? (
         <div className={sx(appShellStyles.zoomHud, layers.floatingChrome)}>
           <div className={sx(appShellStyles.zoomHudPill)}>{i18n.t("shell:appShell.zoomPercent", { percent: zoomHudPercent })}</div>
@@ -1159,7 +1155,11 @@ export function AppShell() {
               data-stave-content-row=""
               className={sx(appShellStyles.panelRow)}
             >
-              <main className={sx(appShellStyles.mainColumn)}>
+              <main
+                id={MAIN_CONTENT_ID}
+                data-focus-region="main"
+                className={sx(appShellStyles.mainColumn)}
+              >
                 <div className={sx(appShellStyles.mainSurface)}>
                   {showFleetView ? (
                     <FleetView />
@@ -1173,9 +1173,10 @@ export function AppShell() {
                   ) : showIssues ? (
                     <Suspense
                       fallback={
-                        <div className={sx(appShellStyles.suspenseCenter)}>
-                          {i18n.t("shell:appShell.loadingTasks")}
-                        </div>
+                        <LoadingSurface
+                          size="fill"
+                          label={i18n.t("shell:appShell.loadingIssues")}
+                        />
                       }
                     >
                       <IssuesView onClose={closeIssues} />

@@ -198,9 +198,11 @@ export function RightRail() {
 
   const lensActive = activeSurfaceKind === "lens";
   const terminalActive = activeSurfaceKind === "terminal";
+  if (!hasRepository) return null;
   return (
     <aside
       data-testid="workspace-bar"
+      data-focus-region="rail"
       aria-label={i18n.t("shell:rightRail.workspacePanels")}
       className={cx("stave-workspace-rail", sx(rightRailStyles.rail))}
     >

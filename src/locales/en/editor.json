@@ -99,5 +99,16 @@
   "markdownFrontmatterCard": {
     "label": "—",
     "frontmatter": "Frontmatter"
+  },
+  "saveConflict": {
+    "title": "This file changed on disk",
+    "description": "Your unsaved edits are kept. Saving is paused until you choose which version to keep.",
+    "compareDescription": "Comparing the file on disk with your unsaved edits. Saving is paused until you choose.",
+    "compare": "Compare",
+    "hideCompare": "Hide comparison",
+    "keepMine": "Keep mine",
+    "reload": "Reload from disk",
+    "saveFailed": "Couldn't save the file",
+    "reloadFailed": "Couldn't read the file from disk"
   }
 }

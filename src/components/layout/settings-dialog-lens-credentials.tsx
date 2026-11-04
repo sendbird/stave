@@ -6,7 +6,10 @@ import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { SettingsCard } from "./settings-dialog.shared";
+import {
+  SettingsCard,
+  SETTINGS_FIELD_SWITCH_SIZE,
+} from "./settings-dialog.shared";
 import { lensCredentialsStyles as styles } from "./settings-dialog-lens-credentials.styles";
 import {
   normalizeLensCredentialHosts,
@@ -315,6 +318,7 @@ export function LensCredentialsSettingsCard() {
                   {t("settingsConnections:settingsDialogLensCredentials.useThisAccountAfterLensLoads")}</p>
               </div>
               <Switch
+                size={SETTINGS_FIELD_SWITCH_SIZE}
                 checked={autoFill}
                 onCheckedChange={setAutoFill}
                 aria-label={t("settingsConnections:settingsDialogLensCredentials.fillSavedLensAccountAutomatically")}

@@ -222,6 +222,7 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:appShortcuts.openAssignedTrackerTicketsAndStartA",
     section: "navigation",
   }),
+  appChord("navigation.usage", { titleKey: "shell:sidebarPrimaryNav.aIUsage", descriptionKey: "shell:sidebarPrimaryNav.aIUsage", section: "navigation" }),
   appChord("navigation.agents", {
     titleKey: "shell:appShortcuts.openAgents",
     descriptionKey: "shell:appShortcuts.openSavedAgentsWorkflowsAndYourStandards",
@@ -230,7 +231,7 @@ export const KEYBINDING_REGISTRY = [
   {
     id: "navigation.back",
     keys: ["mod+["],
-    scope: "workspace",
+    scope: "global",
     editable: "block",
     titleKey: "shell:keybindings.entries.back.title",
     descriptionKey: "shell:keybindings.entries.back.description",
@@ -240,10 +241,32 @@ export const KEYBINDING_REGISTRY = [
   {
     id: "navigation.forward",
     keys: ["mod+]"],
-    scope: "workspace",
+    scope: "global",
     editable: "block",
     titleKey: "shell:keybindings.entries.forward.title",
     descriptionKey: "shell:keybindings.entries.forward.description",
+    section: "navigation",
+    handledBy: [APP_SHELL],
+  },
+  // Leaving a field (the composer, the editor, the terminal) is the point of
+  // region keys, so they fire while typing too.
+  {
+    id: "navigation.next-region",
+    keys: ["f6"],
+    scope: "global",
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.nextRegion.title",
+    descriptionKey: "shell:keybindings.entries.nextRegion.description",
+    section: "navigation",
+    handledBy: [APP_SHELL],
+  },
+  {
+    id: "navigation.previous-region",
+    keys: ["shift+f6"],
+    scope: "global",
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.previousRegion.title",
+    descriptionKey: "shell:keybindings.entries.previousRegion.description",
     section: "navigation",
     handledBy: [APP_SHELL],
   },

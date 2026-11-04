@@ -97,5 +97,16 @@
   "markdownFrontmatterCard": {
     "label": "—",
     "frontmatter": "프런트매터"
+  },
+  "saveConflict": {
+    "title": "디스크의 파일이 바뀌었습니다",
+    "description": "저장하지 않은 수정은 그대로 있습니다. 어느 버전을 남길지 고를 때까지 저장하지 않습니다.",
+    "compareDescription": "디스크의 파일과 저장하지 않은 내 수정을 비교합니다. 고를 때까지 저장하지 않습니다.",
+    "compare": "비교",
+    "hideCompare": "비교 닫기",
+    "keepMine": "내 버전 유지",
+    "reload": "디스크에서 다시 불러오기",
+    "saveFailed": "파일을 저장하지 못했습니다",
+    "reloadFailed": "디스크에서 파일을 읽지 못했습니다"
   }
 }

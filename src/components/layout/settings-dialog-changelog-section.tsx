@@ -1,66 +1,7 @@
-import { I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import changelogSource from "../../../CHANGELOG.md?raw";
-import { Badge } from "@/components/ui";
-import { ExternalAnchor } from "@/components/ui/external-anchor";
-import { sx } from "@/components/ads/utils/stylex";
-import { SectionStack, SettingsCard } from "./settings-dialog.shared";
-import { changelogSectionStyles as styles } from "./settings-dialog-changelog-section.styles";
+import { ChangelogView } from "./settings-dialog-changelog-view";
 
-function extractLatestVersion(source: string): string | null {
-  const match = source.match(/^##\s*\[([^\]]+)\]/m);
-  return match?.[1]?.trim() ?? null;
-}
-
+/** Settings → Changelog, read from the repository's CHANGELOG.md at build time. */
 export function ChangelogSection() {
-  const { t } = useTranslation(I18N_NAMESPACES);
-  const content = useMemo(() => changelogSource.trim(), []);
-  const latestVersion = useMemo(() => extractLatestVersion(content), [content]);
-
-  return (
-    <SectionStack>
-      <SettingsCard
-        title={t("settings:settingsDialogChangelogSection.releaseNotes")}
-        description={t("settings:settingsDialogChangelogSection.sourcedFromTheRepositoryCHANGELOGMd")}
-        titleAccessory={
-          latestVersion ? (
-            <Badge variant="outline">v{latestVersion}</Badge>
-          ) : undefined
-        }
-      >
-        <article className={sx(styles.article)}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              h2: ({ children }) => (
-                <h2 className={sx(styles.h2)}>{children}</h2>
-              ),
-              h3: ({ children }) => (
-                <h3 className={sx(styles.h3)}>{children}</h3>
-              ),
-              ul: ({ children }) => (
-                <ul className={sx(styles.ul)}>{children}</ul>
-              ),
-              li: ({ children }) => (
-                <li className={sx(styles.li)}>{children}</li>
-              ),
-              p: ({ children }) => <p className={sx(styles.p)}>{children}</p>,
-              code: ({ children }) => (
-                <code className={sx(styles.code)}>{children}</code>
-              ),
-              a: ({ href, children }) => (
-                <ExternalAnchor href={href ?? "#"} className={sx(styles.link)}>
-                  {children}
-                </ExternalAnchor>
-              ),
-            }}
-          >
-            {content}
-          </ReactMarkdown>
-        </article>
-      </SettingsCard>
-    </SectionStack>
-  );
+  return <ChangelogView source={changelogSource} />;
 }

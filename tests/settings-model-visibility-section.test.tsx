@@ -88,7 +88,7 @@ describe("Settings → Models → Selector Models", () => {
       createElement(SettingsModelVisibilitySection),
     );
 
-    expect(html).toContain("Selector Models");
+    expect(html).toContain("Selector models");
     for (const providerLabel of ["Claude", "Codex"]) {
       expect(html).toContain(`>${providerLabel}</button>`);
     }

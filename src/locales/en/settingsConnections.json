@@ -473,7 +473,7 @@
     "secureLensAccountStorageIsUnavailable": "Secure Lens account storage is unavailable.",
     "failedToDeleteLensAccount": "Failed to delete Lens account",
     "lensAccountDeleted": "Lens account deleted",
-    "savedAccounts": "Saved Accounts",
+    "savedAccounts": "Saved accounts",
     "storeMultipleAccountsEachCoveringOne": "Store multiple accounts, each covering one or more exact hostnames. Usernames and passwords are encrypted by the operating system and stay out of Stave settings, chat, and MCP responses.",
     "lensFillsMatchingLoginFieldsDirectly": "Lens fills matching login fields directly in Electron. Automatic fill never submits the form; an agent may submit only through a separate Lens tool call.",
     "hosts": "Hosts",

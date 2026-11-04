@@ -192,7 +192,7 @@ export const promptInputStyles = stylex.create({
   },
   cursorDisabled: { cursor: "not-allowed", opacity: vars["--ads-opacity-disabled"] },
   toneMutedHalf: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   iconThinking: { color: "var(--prompt-role-thinking)" },
   pendingShell: {
@@ -411,7 +411,7 @@ export const promptInputStyles = stylex.create({
   editorProgress: {
     cursor: "progress",
     userSelect: "none",
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   editorRevealing: {
     cursor: "progress",

@@ -8,6 +8,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { paneHost } from "@/components/panes/pane-host-controller";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { useDiffLineHighlighter } from "@/components/session/message/diff-highlighter";
+import { DIFF_CONTEXT_LINES, useDiffViewerMode } from "@/components/session/message/diff-viewer-options";
 import { languageFromFilePath } from "@/lib/syntax-highlight";
 import type { ReviewFile, ReviewFileStatus, ReviewScope } from "@/lib/review/review-scope";
 import { useAppStore } from "@/store/app.store";
@@ -30,9 +31,6 @@ export function isReviewDiffShown(state: { status: string }): boolean {
 /** The header's file glyph: a copy is a new file, a deletion is a removed one. */
 const CHANGE_KIND: Record<ReviewFileStatus, FileChangeKind> = { added: "added", modified: "modified", deleted: "removed", renamed: "renamed", copied: "added" };
 
-/** Unchanged lines kept around each change; longer unchanged runs collapse behind Expand. */
-const DIFF_CONTEXT_LINES = 3;
-
 /** A line a comment row asked to see: the side it was written on, and a nonce so the same line can be asked twice. */
 export interface ReviewDiffReveal {
   line: number;
@@ -42,14 +40,19 @@ export interface ReviewDiffReveal {
 
 /**
  * The diff row that shows `line` on `side`, or the nearest shown row when an
- * unchanged run around it is folded. Rows carry their old and new line
- * numbers in the viewer's two line-number cells.
+ * unchanged run around it is folded. A unified row carries its old and new
+ * line numbers in two line-number cells; a split row holds two halves, the
+ * original side first, each with one line-number cell.
  */
 export function findReviewDiffRow(root: ParentNode, line: number, side: ReviewCommentSide): HTMLElement | null {
   const cell = side === "original" ? 0 : 1;
   let nearest: { row: HTMLElement; distance: number } | null = null;
-  for (const row of Array.from(root.querySelectorAll<HTMLElement>("div:has(> [data-ads-slot='line-number'])"))) {
-    const number = Number(row.querySelectorAll(":scope > [data-ads-slot='line-number']")[cell]?.textContent ?? "");
+  for (const holder of Array.from(root.querySelectorAll<HTMLElement>("div:has(> [data-ads-slot='line-number'])"))) {
+    const numbers = holder.querySelectorAll(":scope > [data-ads-slot='line-number']");
+    const splitHalf = numbers.length === 1 ? holder : null;
+    if (splitHalf && splitHalf.parentElement?.children[cell] !== splitHalf) continue;
+    const row = splitHalf?.parentElement ?? holder;
+    const number = Number((splitHalf ? numbers[0] : numbers[cell])?.textContent ?? "");
     if (!Number.isInteger(number) || number < 1) continue;
     const distance = Math.abs(number - line);
     if (distance === 0) return row;
@@ -76,6 +79,7 @@ export function ReviewDiffPane(props: {
   const content = useReviewFileContent({ cwd: props.cwd, data: props.data, file });
   const language = languageFromFilePath(file.path);
   const highlighter = useDiffLineHighlighter(language);
+  const layout = useDiffViewerMode();
   const onShown = useRef(props.onShown);
   onShown.current = props.onShown;
   const onContent = useRef(props.onContent);
@@ -138,7 +142,7 @@ export function ReviewDiffPane(props: {
           ? <p className={sx(styles.note)}>{i18n.t("review:diff.noTextChange")}</p>
           // Shared Shiki highlighter, as in the chat's file diffs; plain text until it loads.
           // Long unchanged runs collapse so the first change is on screen in a large file.
-          : <DiffViewer aria-label={i18n.t("review:diff.ariaLabel", { path: file.path })} before={diff.oldContent} after={diff.newContent} mode="unified" granularity="word" context={DIFF_CONTEXT_LINES} highlighter={highlighter} language={language} xstyle={styles.diffBody} />}
+          : <DiffViewer ref={layout.ref} aria-label={i18n.t("review:diff.ariaLabel", { path: file.path })} before={diff.oldContent} after={diff.newContent} mode={layout.mode} granularity="word" context={DIFF_CONTEXT_LINES} highlighter={highlighter} language={language} xstyle={styles.diffBody} />}
       </AsyncBoundary>
     </div>
   );

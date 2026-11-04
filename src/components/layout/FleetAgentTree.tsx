@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { createFleetAgentFactsSelector } from "./fleet-agent-facts-selector";
 import { AgentFleet, type AgentFleetAgent } from "@/components/ads/components/AgentFleet";
 import { Button } from "@/components/ads/components/Button";
@@ -26,6 +26,7 @@ import {
 import type { FleetTaskRow, FleetTaskTableFilter } from "@/lib/fleet/task-rows";
 import { selectDelegatedTaskBlockedKinds } from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
+import { useFleetViewStore } from "@/store/fleet-view-store";
 import { sharedFilesParentKey, useSharedFilesStore } from "@/store/shared-files-store";
 
 type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: string };
@@ -71,12 +72,14 @@ function FleetAgentTreeBoard(props: {
   const selectFacts = useMemo(() => createFleetAgentFactsSelector(rows), [rows, i18n.resolvedLanguage]);
   const facts = useAppStore(selectFacts);
 
-  // The first agent opens until the user chooses; then the choice holds.
-  const [chosen, setChosen] = useState<string | null | undefined>(undefined);
+  // The first agent opens until the user chooses; then the choice holds, also
+  // across leaving Fleet and coming back.
+  const chosen = useFleetViewStore((state) => state.openAgentKey);
+  const setChosen = useFleetViewStore((state) => state.setOpenAgentKey);
   const firstKey = rows[0]?.key ?? null;
   useEffect(() => {
     if (chosen === undefined && firstKey !== null) setChosen(firstKey);
-  }, [chosen, firstKey]);
+  }, [chosen, firstKey, setChosen]);
   const openKey = chosen === undefined ? firstKey : chosen;
   const openRow = rows.find((row) => row.key === openKey) ?? null;
 

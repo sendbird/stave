@@ -14,6 +14,7 @@ import {
   LabeledField,
   SettingsFieldGuide,
   StatusBadge,
+  SETTINGS_LIST_SWITCH_SIZE,
 } from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { claudePluginsStyles as styles } from "./settings-dialog-claude-plugins.styles";
@@ -287,6 +288,7 @@ export function ClaudeInstalledPluginsField() {
                       ) : null}
                     </div>
                     <Switch
+                      size={SETTINGS_LIST_SWITCH_SIZE}
                       checked={plugin.enabled}
                       onCheckedChange={(enabled) =>
                         setPluginEnabled({ plugin, enabled })

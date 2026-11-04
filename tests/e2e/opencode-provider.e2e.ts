@@ -179,9 +179,9 @@ for (const themeMode of ["light", "dark"] as const) {
       .getByRole("tab", { name: "OpenCode", exact: true })
       .click();
     await expect(
-      settings.getByRole("heading", { name: "OpenCode Runtime Controls" }),
+      settings.getByRole("heading", { name: "OpenCode runtime controls" }),
     ).toBeVisible();
-    const approval = settings.getByRole("radiogroup", { name: /Approval Preset/ });
+    const approval = settings.getByRole("radiogroup", { name: /Approval preset/ });
     await expect(approval.getByRole("radio", { name: /^Manual/ })).toBeVisible();
     await expect(approval.getByRole("radio", { name: /^Auto/ })).toBeVisible();
     await expect(approval.getByRole("radio", { name: /^Guided/ })).toHaveCount(0);

@@ -3,6 +3,13 @@ import type { HTMLAttributes, ReactNode } from "react";
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  CodeBlock,
+  CodeBlockActions,
+  CodeBlockCopyButton,
+  CodeBlockHeader,
+  CodeBlockTitle,
+} from "@/components/ai-elements/code-block";
 import { MarkdownFrontmatterCard } from "@/components/layout/markdown-frontmatter-card";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
 import {
@@ -15,13 +22,21 @@ import {
 } from "@/components/ui/table";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { parseMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx, type XstyleProp } from "@/components/ads/utils/stylex";
 import { editorMarkdownPreviewStyles as styles } from "@/components/layout/editor-markdown-preview.styles";
 
-interface EditorMarkdownPreviewProps extends HTMLAttributes<HTMLDivElement> {
+interface EditorMarkdownPreviewProps
+  extends HTMLAttributes<HTMLDivElement>,
+    XstyleProp {
   content: string;
   fontSize: number;
   variant?: "editor" | "embedded";
+  /**
+   * `markdown` (default) wraps paragraphs like any Markdown renderer, so a
+   * hard-wrapped document reads as flowing text. `preserve` keeps every
+   * newline as a break, for free-form notes typed line by line.
+   */
+  lineBreaks?: "markdown" | "preserve";
 }
 
 interface MarkdownAstNode {
@@ -77,7 +92,9 @@ export function EditorMarkdownPreview({
   content,
   fontSize,
   variant = "editor",
+  lineBreaks = "markdown",
   className,
+  xstyle,
   ...props
 }: EditorMarkdownPreviewProps) {
   useTranslation();
@@ -89,7 +106,9 @@ export function EditorMarkdownPreview({
   );
 
   return (
-    <div className={cx(sx(styles.root), className)} {...props}>
+    // `xstyle` composes in the same `sx` call so it reliably overrides `root`
+    // (a separate StyleX `className` can lose to it on the same property).
+    <div className={cx(sx(styles.root, xstyle), className)} {...props}>
       <div
         className={sx(
           styles.page,
@@ -128,7 +147,12 @@ export function EditorMarkdownPreview({
                 </h4>
               ),
               p: ({ children }) => (
-                <p className={sx(styles.paragraph)}>
+                <p
+                  className={sx(
+                    styles.paragraph,
+                    lineBreaks === "preserve" && styles.paragraphPreserveBreaks,
+                  )}
+                >
                   {children}
                 </p>
               ),
@@ -158,18 +182,23 @@ export function EditorMarkdownPreview({
                 const isBlock = Boolean(language) || text.includes("\n");
 
                 if (isBlock) {
+                  // The conversation's code block: highlighting and a copy
+                  // button, sized to this preview rather than the chat setting.
                   return (
-                    <div className={sx(styles.codeBlock)}>
-                      <div className={sx(styles.codeBlockLanguage)}>
-                        {language ?? i18n.t("editor:editorMarkdownPreview.text")}
-                      </div>
-                      <pre
-                        className={sx(styles.codeBlockPre)}
-                        style={{ fontSize: `${codeFontSize}px`, lineHeight: 1.6 }}
-                      >
-                        <code>{code}</code>
-                      </pre>
-                    </div>
+                    <CodeBlock
+                      code={code}
+                      language={language}
+                      fontSize={codeFontSize}
+                    >
+                      <CodeBlockHeader>
+                        <CodeBlockTitle>
+                          {language ?? i18n.t("editor:editorMarkdownPreview.text")}
+                        </CodeBlockTitle>
+                        <CodeBlockActions>
+                          <CodeBlockCopyButton />
+                        </CodeBlockActions>
+                      </CodeBlockHeader>
+                    </CodeBlock>
                   );
                 }
 

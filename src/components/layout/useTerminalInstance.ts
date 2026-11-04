@@ -22,26 +22,22 @@ import {
   getResolvedTerminalThemeKey,
   resolveTerminalTheme,
 } from "@/components/layout/terminal-instance-theme";
-
 // This module stays the public entry point for the terminal instance hook, so
 // helpers that moved into sibling modules are re-exported here unchanged.
 export { focusTerminalInstanceSurface } from "@/components/layout/terminal-instance-focus";
 export { restoreTerminalScreenState } from "@/components/layout/terminal-instance-screen-state";
-
 const AUTO_FOCUS_MAX_ATTEMPTS = 60;
 const WEBGL_MAX_AUTOMATIC_RETRIES = 3;
-
 export const TERMINAL_WRITE_ERROR_THRESHOLD = 5;
-
 function describeTerminalError(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim()
     ? error.message.trim()
     : fallback;
 }
-
 export interface TerminalInstanceController {
   readonly terminal: XTerm | null;
   readonly fitAddon: FitAddon | null;
+  readonly searchAddon: SearchAddon | null;
   clear: () => void;
   restoreScreenState: (screenState: string) => void;
   write: (data: string, onParsed?: () => void) => void;
@@ -92,6 +88,7 @@ export function useTerminalInstance(
 ): UseTerminalInstanceReturn {
   useTranslation();
   const terminalRef = useRef<XTerm | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const outputSchedulerRef = useRef<TerminalOutputScheduler | null>(null);
   const webglCleanupRef = useRef<() => void>(() => {});
@@ -457,6 +454,7 @@ export function useTerminalInstance(
       ] as const) {
         try {
           terminal.loadAddon(addon);
+          if (name === "search") searchAddonRef.current = addon as SearchAddon;
         } catch (caughtError) {
           reportRendererIssue(`load-terminal-addon:${name}`, caughtError);
         }
@@ -615,6 +613,7 @@ export function useTerminalInstance(
       }
 
       cleanupRef.current = () => {
+        searchAddonRef.current = null;
         container.removeEventListener("focusin", onFocusIn);
         container.removeEventListener("focusout", onFocusOut);
         window.removeEventListener("focus", onWindowFocus);
@@ -787,6 +786,7 @@ export function useTerminalInstance(
       get terminal() {
         return terminalRef.current;
       },
+      get searchAddon() { return searchAddonRef.current; },
       get fitAddon() {
         return fitAddonRef.current;
       },

@@ -7,7 +7,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 // than a muted-on-light token.
 const invertedMuted = `color-mix(in oklch, ${vars["--ads-color-text-inverted"]} 70%, transparent)`;
 const invertedFaint = `color-mix(in oklch, ${vars["--ads-color-text-inverted"]} 20%, transparent)`;
-const triggerMuted = `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 60%, transparent)`;
+const triggerMuted = vars["--ads-color-text-muted"];
 
 export const messageUsageSummaryStyles = stylex.create({
   delegatedSection: {

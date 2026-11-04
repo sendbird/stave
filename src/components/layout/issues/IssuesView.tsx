@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -100,7 +100,10 @@ export function IssuesView(props: { onClose: () => void }) {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const actions = useTrackerIssueActions({ closeSurface: props.onClose });
+  // A run or draft that is ready leaves for the workspace; Close and Escape go back.
+  const exitToWorkspace = useAppStore((state) => state.exitToWorkspace);
+  const leaveForWorkspace = useCallback(() => exitToWorkspace("issues"), [exitToWorkspace]);
+  const actions = useTrackerIssueActions({ closeSurface: leaveForWorkspace });
   const supported = Boolean(window.api?.trackerIssues);
   useEffect(() => {
     const interval = window.setInterval(

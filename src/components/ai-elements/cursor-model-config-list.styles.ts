@@ -19,7 +19,7 @@ export const cursorModelConfigStyles = stylex.create({
     fontSize: vars["--ads-font-size-micro"],
     lineHeight: "1rem",
     fontWeight: vars["--ads-font-weight-medium"],
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 85%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   configButton: {
     display: "inline-flex",

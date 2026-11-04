@@ -174,11 +174,11 @@ describe("Providers settings after the Models consolidation", () => {
       'aria-expanded="false"',
     );
     for (const folded of [
-      "Resume At Message",
-      "Strict MCP Config",
-      "Setting Sources",
-      "Agent Progress Summaries",
-      "File Checkpointing",
+      "Resume at message",
+      "Strict MCP config",
+      "Setting sources",
+      "Agent progress summaries",
+      "File checkpointing",
     ]) {
       expect(before).not.toContain(folded);
       expect(panel.slice(panelStart)).toContain(folded);
@@ -188,7 +188,7 @@ describe("Providers settings after the Models consolidation", () => {
   test("keeps Thinking Mode and Prompt Suggestions in view", async () => {
     const html = await renderProviders();
     const advancedAt = html.indexOf("Advanced options");
-    for (const visible of ["Thinking Mode", "Prompt Suggestions"]) {
+    for (const visible of ["Thinking mode", "Prompt suggestions"]) {
       expect(html.indexOf(visible)).toBeGreaterThan(-1);
       expect(html.indexOf(visible)).toBeLessThan(advancedAt);
     }
@@ -198,9 +198,9 @@ describe("Providers settings after the Models consolidation", () => {
     const html = await renderProviders();
     const tabsAt = html.indexOf('role="tablist"');
     expect(tabsAt).toBeGreaterThan(-1);
-    const presetAt = html.indexOf("Mode Preset");
+    const presetAt = html.indexOf("Mode preset");
     expect(presetAt).toBeGreaterThan(tabsAt);
-    for (const shared of ["Account usage limit", "Trusted Approvals", "Delegated tasks"]) {
+    for (const shared of ["Account usage limit", "Trusted approvals", "Delegated tasks"]) {
       expect(html.indexOf(shared)).toBeGreaterThan(presetAt);
     }
     // Search and deep links still land on the shared cards.
@@ -217,13 +217,13 @@ describe("Providers settings after the Models consolidation", () => {
     // The default settings match the Auto preset.
     expect(above).toContain("Active preset: Auto (Permission auto / Sandbox Off");
     for (const folded of [
-      "Permission Mode",
-      "Dangerous Skip Permissions",
-      "Sandbox Enabled",
-      "Allow Unsandboxed Commands",
-      "Ask Before Writes Outside the Repository",
-      "Ask Before Touching Credentials",
-      "Ask Before Irreversible Remote Actions",
+      "Permission mode",
+      "Dangerous skip permissions",
+      "Sandbox enabled",
+      "Allow unsandboxed commands",
+      "Ask before writes outside the repository",
+      "Ask before touching credentials",
+      "Ask before irreversible remote actions",
     ]) {
       expect(above).not.toContain(folded);
       expect(group.panel).toContain(folded);
@@ -248,7 +248,7 @@ describe("Providers settings after the Models consolidation", () => {
   test("folds the Codex fields a preset sets", async () => {
     const closed = customizePermissions(await renderCodexPosture(), CODEX_PERMISSIONS);
     expect(closed.open).toBe(false);
-    for (const folded of ["Network Access", "File Access", "Approvals"]) {
+    for (const folded of ["Network access", "File access", "Approvals"]) {
       expect(closed.panel).toContain(folded);
     }
 
@@ -263,8 +263,8 @@ describe("Providers settings after the Models consolidation", () => {
     const group = customizePermissions(html, CODEX_PERMISSIONS);
     expect(group.open).toBe(true);
     // Web search is part of every Codex preset, so it is folded with them.
-    expect(html.slice(0, group.start)).not.toContain("Web Search");
-    expect(group.panel).toContain("Web Search");
+    expect(html.slice(0, group.start)).not.toContain("Web search");
+    expect(group.panel).toContain("Web search");
   });
 
   test("shows a tab only for providers that are set up", async () => {
@@ -296,8 +296,8 @@ describe("Models settings own every provider default", () => {
 
   test("renders model + effort rows for Claude and Codex, and none for providers that are not set up", async () => {
     const html = await renderModels();
-    expect(html).toContain("Default Models and Effort");
-    for (const effortLabel of ["Claude Effort", "Codex Effort"]) {
+    expect(html).toContain("Default models and effort");
+    for (const effortLabel of ["Claude effort", "Codex effort"]) {
       expect(html).toContain(`aria-label="${effortLabel}"`);
     }
     for (const label of [

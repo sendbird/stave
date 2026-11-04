@@ -10,6 +10,10 @@ import {
   shouldAbortTaskOnEscape,
   type PendingShortcutChord,
 } from "@/components/layout/app-shell.shortcuts";
+import {
+  cycleFocusRegion,
+  trackFocusRegions,
+} from "@/components/layout/focus-regions";
 import { reopenLastClosedPaneTab } from "@/components/panes/closed-tab-history";
 import {
   focusOrCreateLensSurface,
@@ -76,6 +80,9 @@ function runAppChordAction(
       return;
     case "navigation.issues":
       store.toggleIssues();
+      return;
+    case "navigation.usage":
+      store.openUsage();
       return;
     case "navigation.agents":
       store.toggleAgents();
@@ -238,6 +245,8 @@ function createAppKeybindingHandlers(
       void navigateSurfaceHistory("forward");
       return true;
     },
+    "navigation.next-region": () => cycleFocusRegion(1),
+    "navigation.previous-region": () => cycleFocusRegion(-1),
     "help.keyboard-shortcuts": () => {
       callbacks.onOpenKeyboardShortcuts();
       return true;
@@ -279,6 +288,7 @@ export function useAppKeybindings(callbacks: AppKeybindingCallbacks) {
   } = callbacks;
 
   useEffect(() => startSurfaceHistoryTracking(), []);
+  useEffect(() => trackFocusRegions(), []);
 
   useEffect(() => {
     window.addEventListener(

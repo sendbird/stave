@@ -47,6 +47,7 @@ import {
   LabeledField,
   SectionStack,
   SettingsCard,
+  SETTINGS_LIST_SWITCH_SIZE,
 } from "./settings-dialog.shared";
 import { kickoffSectionStyles } from "./settings-dialog-kickoff-section.styles";
 
@@ -379,6 +380,7 @@ export function KickoffSection() {
                 >
                   <div className={sx(kickoffSectionStyles.sourceHeader)}>
                     <Switch
+                      size={SETTINGS_LIST_SWITCH_SIZE}
                       checked={config.enabled}
                       aria-label={t(config.enabled ? "settings:messages.disableConfig" : "settings:messages.enableConfig", { label: config.label })}
                       onCheckedChange={(enabled) =>

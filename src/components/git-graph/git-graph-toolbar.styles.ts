@@ -41,7 +41,7 @@ export const gitGraphToolbarStyles = stylex.create({
     gap: vars["--ads-space-8"],
   },
   branchTrigger: {
-    height: 32,
+    height: vars["--ads-control-height-sm"],
     width: {
       default: "100%",
       [CONTAINER_30]: "auto",
@@ -155,7 +155,7 @@ export const gitGraphToolbarStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   searchInput: {
-    height: 32,
+    height: vars["--ads-control-height-sm"],
     borderRadius: vars["--ads-radius-control"],
     paddingLeft: vars["--ads-space-32"],
     fontSize: vars["--ads-font-size-caption"],
@@ -182,8 +182,8 @@ export const gitGraphToolbarStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   iconButtonSm: {
-    width: 24,
-    height: 24,
+    width: vars["--ads-control-height-xs"],
+    height: vars["--ads-control-height-xs"],
   },
   iconGlyphSm: {
     width: 12,
@@ -210,8 +210,8 @@ export const gitGraphToolbarStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   iconButtonMd: {
-    width: 32,
-    height: 32,
+    width: vars["--ads-control-height-sm"],
+    height: vars["--ads-control-height-sm"],
   },
   iconGlyphMd: {
     width: 14,

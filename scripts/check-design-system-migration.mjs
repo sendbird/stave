@@ -1,3 +1,4 @@
+import { tokenLiterals, tokenRatchetFailures } from "./stylex-token-literals.mjs";
 import { readFileSync, readdirSync } from "node:fs";
 import { sep } from "node:path";
 import ts from "typescript";
@@ -229,6 +230,24 @@ for (const dependency of adsSourceDependencies) {
     failures.push(`${dependency}: ADS source dependency is not declared`);
   }
 }
+if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?animation-duration:\s*0\.01ms\s*!important/.test(css)) {
+  failures.push("globals.css: preserve the global reduced-motion duration floor");
+}
+const tokenInventory = {};
+function collectTokenInventory(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) collectTokenInventory(path);
+    else if (/\.tsx?$/.test(path) && !path.includes("/ads/")) {
+      const counts = tokenLiterals(readFileSync(path, "utf8"), path);
+      if (Object.keys(counts).length) tokenInventory[path] = counts;
+    }
+  }
+}
+collectTokenInventory("src/components");
+const tokenFailures = tokenRatchetFailures(tokenInventory, JSON.parse(readFileSync("config/token-ratchet.json", "utf8")).files);
+failures.push(...tokenFailures);
+
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exitCode = 1;

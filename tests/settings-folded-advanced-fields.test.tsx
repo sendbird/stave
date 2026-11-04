@@ -75,12 +75,12 @@ describe("Settings folds expert fields into a closed Advanced disclosure", () =>
     );
     const html = await render(ChatSection);
     // The everyday fields stay in view.
-    expect(html.indexOf("Message Font Size")).toBeLessThan(
+    expect(html.indexOf("Message font size")).toBeLessThan(
       html.indexOf("Mono and Korean font families"),
     );
     expectFoldedClosed(html, {
       description: "Mono and Korean font families and the Information panel scale.",
-      fields: ["Mono Font Family", "Korean Font Family", "Information Panel Scale"],
+      fields: ["Mono font family", "Korean font family", "Information panel scale"],
       endMarker: "Streaming UI",
     });
   });
@@ -90,10 +90,10 @@ describe("Settings folds expert fields into a closed Advanced disclosure", () =>
       "../src/components/layout/settings-sections/settings-dialog-theme-section"
     );
     const html = await render(ThemeSection);
-    expect(html).toContain("Design Tokens");
+    expect(html).toContain("Design tokens");
     expectFoldedClosed(html, {
       description: "Override single light or dark tokens.",
-      fields: ["Light Tokens", "Dark Tokens"],
+      fields: ["Light tokens", "Dark tokens"],
     });
   });
 
@@ -103,12 +103,12 @@ describe("Settings folds expert fields into a closed Advanced disclosure", () =>
     );
     const html = await render(EditorSection);
     // The on/off switch stays in view.
-    expect(html.indexOf("Enable LSP Runtime")).toBeLessThan(
+    expect(html.indexOf("Enable LSP runtime")).toBeLessThan(
       html.indexOf("Language server commands."),
     );
     expectFoldedClosed(html, {
       description: "Language server commands.",
-      fields: ["TypeScript LSP Command", "Python LSP Command"],
+      fields: ["TypeScript LSP command", "Python LSP command"],
       endMarker: "ESLint",
     });
   });
@@ -118,7 +118,7 @@ describe("Settings folds expert fields into a closed Advanced disclosure", () =>
       "../src/components/layout/settings-sections/settings-dialog-lens-section"
     );
     const html = await render(LensSection);
-    expect(html.indexOf("Heuristic Search")).toBeLessThan(
+    expect(html.indexOf("Heuristic search")).toBeLessThan(
       html.indexOf("React debug source mapping for development builds."),
     );
     expectFoldedClosed(html, {
@@ -128,7 +128,7 @@ describe("Settings folds expert fields into a closed Advanced disclosure", () =>
     });
     expectFoldedClosed(html, {
       description: "CDP tools and approved CDP hosts.",
-      fields: ["CDP Tools", "Approved CDP Hosts"],
+      fields: ["CDP tools", "Approved CDP hosts"],
     });
   });
 });

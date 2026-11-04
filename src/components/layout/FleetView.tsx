@@ -1,3 +1,5 @@
+import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
+import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -200,6 +202,8 @@ export function FleetView() {
   const { t: tI18n } = useTranslation(["fleet"]);
   useAgentAssignmentsSync();
   const repositories = useFleetRepositories();
+  const [openPath, setOpenPath] = useState(false);
+  const openRepositoryFromPath = useAppStore((state) => state.openRepositoryFromPath);
   const [
     focusTaskAttention,
     closeFleetView,
@@ -658,7 +662,6 @@ export function FleetView() {
   // The table and the tree draw the same task rows, filters and counts.
   const showsTaskRows = boardLayout === "table" || boardLayout === "tree";
   const headerLiveCount = showsTaskRows ? (tableSummary?.liveWorkspaceCount ?? 0) : liveCount;
-  const headerShownCount = showsTaskRows ? (tableSummary?.shownRowCount ?? 0) : visibleCount;
 
   const toggleRepository = useCallback((repositoryPath: string) => {
     setCollapsedRepositories((current) => ({
@@ -669,23 +672,7 @@ export function FleetView() {
 
   return (
     <div className={sx(styles.root)}>
-      <header className={sx(styles.header)}>
-        <div className={sx(styles.headerIdentity)}>
-          <LayoutGrid className={sx(styles.headerIcon)} aria-hidden="true" />
-          <h1 className={sx(styles.headerTitle)}>{tI18n("fleet:fleetView.fleetView")}</h1>
-          {/* Fleet View is the sidebar Work queue's full view: same rows, same order. */}
-          <span className={sx(styles.headerSummary)}>{tI18n("fleet:fleetView.fullWorkQueue")}</span>
-          <span className={sx(styles.headerSummary)}>
-            {headerLiveCount > 0
-              ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount })
-              : tI18n("fleet:fleetView.noAgentTurnsInFlight")}
-            {headerShownCount > 0
-              ? showsTaskRows
-                ? tI18n("fleet:fleetView.valueTasksShown", { count: headerShownCount })
-                : tI18n("fleet:fleetView.valueShown", { visibleCount: headerShownCount })
-              : ""}
-          </span>
-        </div>
+      <GlobalPageHeader title={tI18n("fleet:fleetView.fleetView")} description={tI18n("fleet:fleetView.fullWorkQueue")} titleIcon={<LayoutGrid />} meta={headerLiveCount > 0 ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount }) : tI18n("fleet:fleetView.noAgentTurnsInFlight")} actions={
         <div className={sx(styles.headerActions)}>
           <Button
             type="button"
@@ -749,8 +736,10 @@ export function FleetView() {
             </Button>
           </Tooltip>
         </div>
-      </header>
+      } />
 
+      <OpenPathDialog open={openPath} onOpenChange={setOpenPath} onSubmitPath={(inputPath) => openRepositoryFromPath({ inputPath })} onBrowse={async () => { await useAppStore.getState().createRepository({}); setOpenPath(false); }} />
+      {repositories.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><FolderTree /></EmptyMedia><EmptyTitle>{tI18n("fleet:fleetView.noWorkspaces")}</EmptyTitle><EmptyDescription>{tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription></EmptyHeader><Button onClick={() => setOpenPath(true)}>{i18n.t("workspace:welcome.openRepository")}</Button></Empty> : <>
       {resultReviewError ? (
         <div
           role="alert"
@@ -1082,6 +1071,7 @@ export function FleetView() {
           </div>
         </div>
       </div>
+      </>}
     </div>
   );
 }

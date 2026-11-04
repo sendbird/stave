@@ -7,7 +7,6 @@ import {
   Badge,
   Button,
   Loader,
-  Switch,
   Table,
   TableBody,
   TableCell,
@@ -542,7 +541,8 @@ export function DeveloperSection() {
           title={t("settings:developerSection.debugLogging.title")}
           description={t("settings:developerSection.debugLogging.description")}
         >
-          <Switch
+          <SwitchField
+            title={t("common:status.enabled")}
             checked={providerDebugStream}
             onCheckedChange={(checked) =>
               updateSettings({ patch: { providerDebugStream: checked } })

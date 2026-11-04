@@ -19,6 +19,7 @@ import {
 } from "@/lib/tasks";
 import type { ScriptTrigger } from "@/lib/workspace-scripts";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
+import { withSurfaceTransition } from "@/lib/panes/surface-transition";
 import type { AppState } from "@/store/app-store.types";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import type { NotificationAttentionSync } from "@/store/notification-attention-sync";
@@ -100,7 +101,9 @@ export function createTaskCoreActions(args: {
   } = args;
 
   return {
-    focusTaskAttention: async ({
+    // One back/forward step however many repository and workspace switches
+    // it takes to show the task.
+    focusTaskAttention: withSurfaceTransition(async ({
       taskId,
       workspaceId,
       repositoryPath,
@@ -197,7 +200,7 @@ export function createTaskCoreActions(args: {
           nonce: (state.focusPendingInteractionRequest?.nonce ?? 0) + 1,
         },
       }));
-    },
+    }),
     requestTaskScrollToLatest: ({ taskId }) =>
       set((state) => reduceTaskScrollToLatestRequest({ state, taskId })),
     focusTranscriptTool: ({ taskId, toolUseId }) => {

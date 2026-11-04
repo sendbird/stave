@@ -643,4 +643,198 @@ describe("editor save/conflict behavior", () => {
     expect(tab?.isDirty).toBe(true);
     expect(tab?.content).toBe("dirty local edit\n");
   });
+
+  test("a second save after a conflict does not overwrite the disk change", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "alpha\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    const opened = useAppStore.getState().editorTabs[0];
+    const startRevision = opened.baseRevision;
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change\n" });
+    await Bun.sleep(5);
+    await writeFile(fullPath, "agent change\n", "utf8");
+
+    expect(await useAppStore.getState().saveActiveEditorTab()).toEqual({
+      ok: false,
+      conflict: true,
+    });
+    // Typing on does not count as a choice.
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change 2\n" });
+    expect(await useAppStore.getState().saveActiveEditorTab()).toEqual({
+      ok: false,
+      conflict: true,
+    });
+
+    expect(await readFile(fullPath, "utf8")).toBe("agent change\n");
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === opened.id);
+    expect(tab?.hasConflict).toBe(true);
+    expect(tab?.baseRevision).toBe(startRevision);
+    expect(tab?.conflictRevision).toBeString();
+    expect(tab?.conflictRevision).not.toBe(startRevision);
+    expect(tab?.content).toBe("local change 2\n");
+  });
+
+  test("a conflict found by the disk poll also blocks the save", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "alpha\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    const opened = useAppStore.getState().editorTabs[0];
+    const startRevision = opened.baseRevision;
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change\n" });
+    await Bun.sleep(5);
+    await writeFile(fullPath, "agent change\n", "utf8");
+    await useAppStore.getState().checkOpenTabConflicts();
+
+    let tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === opened.id);
+    expect(tab?.hasConflict).toBe(true);
+    expect(tab?.baseRevision).toBe(startRevision);
+
+    // A repeated poll against the same disk version changes nothing.
+    const versionBefore = useAppStore.getState().workspaceSnapshotVersion;
+    await useAppStore.getState().checkOpenTabConflicts();
+    expect(useAppStore.getState().workspaceSnapshotVersion).toBe(versionBefore);
+
+    expect(await useAppStore.getState().saveActiveEditorTab()).toEqual({
+      ok: false,
+      conflict: true,
+    });
+    expect(await readFile(fullPath, "utf8")).toBe("agent change\n");
+    tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === opened.id);
+    expect(tab?.content).toBe("local change\n");
+  });
+
+  test("Keep mine saves the local copy over the disk version it was shown", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "alpha\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    const opened = useAppStore.getState().editorTabs[0];
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change\n" });
+    await Bun.sleep(5);
+    await writeFile(fullPath, "agent change\n", "utf8");
+    await useAppStore.getState().saveActiveEditorTab();
+
+    expect(
+      await useAppStore
+        .getState()
+        .resolveEditorTabConflict({ tabId: opened.id, resolution: "keep-mine" }),
+    ).toEqual({ ok: true });
+    expect(await readFile(fullPath, "utf8")).toBe("local change\n");
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === opened.id);
+    expect(tab?.hasConflict).toBe(false);
+    expect(tab?.conflictRevision).toBeNull();
+    expect(tab?.isDirty).toBe(false);
+    expect(tab?.savedContent).toBe("local change\n");
+
+    // The tab is back to normal: the next save goes through.
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change 2\n" });
+    expect(await useAppStore.getState().saveActiveEditorTab()).toEqual({
+      ok: true,
+    });
+    expect(await readFile(fullPath, "utf8")).toBe("local change 2\n");
+  });
+
+  test("Keep mine asks again when the file moved after the conflict", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "alpha\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    const opened = useAppStore.getState().editorTabs[0];
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change\n" });
+    await Bun.sleep(5);
+    await writeFile(fullPath, "agent change\n", "utf8");
+    await useAppStore.getState().saveActiveEditorTab();
+    await Bun.sleep(5);
+    await writeFile(fullPath, "agent change, longer\n", "utf8");
+
+    expect(
+      await useAppStore
+        .getState()
+        .resolveEditorTabConflict({ tabId: opened.id, resolution: "keep-mine" }),
+    ).toEqual({ ok: false, conflict: true });
+    expect(await readFile(fullPath, "utf8")).toBe("agent change, longer\n");
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === opened.id);
+    expect(tab?.hasConflict).toBe(true);
+    expect(tab?.content).toBe("local change\n");
+  });
+
+  test("Reload from disk drops the local copy and clears the conflict", async () => {
+    const rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-"));
+    const filePath = "note.txt";
+    const fullPath = path.join(rootPath, filePath);
+    await writeFile(fullPath, "alpha\n", "utf8");
+
+    const { useAppStore } = await setupStore({ rootPath, filePath });
+    await useAppStore.getState().openFileFromTree({ filePath });
+    const opened = useAppStore.getState().editorTabs[0];
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "local change\n" });
+    await Bun.sleep(5);
+    await writeFile(fullPath, "agent change\n", "utf8");
+    await useAppStore.getState().saveActiveEditorTab();
+
+    expect(
+      await useAppStore
+        .getState()
+        .resolveEditorTabConflict({ tabId: opened.id, resolution: "reload" }),
+    ).toEqual({ ok: true });
+    expect(await readFile(fullPath, "utf8")).toBe("agent change\n");
+    const tab = useAppStore
+      .getState()
+      .editorTabs.find((item) => item.id === opened.id);
+    expect(tab?.hasConflict).toBe(false);
+    expect(tab?.isDirty).toBe(false);
+    expect(tab?.content).toBe("agent change\n");
+    expect(tab?.savedContent).toBe("agent change\n");
+
+    useAppStore
+      .getState()
+      .updateEditorContent({ tabId: opened.id, content: "edit on top\n" });
+    expect(await useAppStore.getState().saveActiveEditorTab()).toEqual({
+      ok: true,
+    });
+    expect(await readFile(fullPath, "utf8")).toBe("edit on top\n");
+  });
 });

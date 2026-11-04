@@ -26,11 +26,11 @@
     "keyboardShortcuts": "Keyboard Shortcuts",
     "settings": "Settings",
     "kickoff": "Kickoff",
-    "loadingTasks": "Loading tasks...",
-    "loadingPanel": "Loading panel...",
+    "loadingIssues": "Loading issues…",
+    "loadingPanel": "Loading panel…",
     "defaultModel": "default model",
     "currentRepository": "Current repository",
-    "loadingSurface": "Loading {{title}}...",
+    "loadingSurface": "Loading {{title}}…",
     "zoomPercent": "Zoom {{percent}}%"
   },
   "confirmDialog": {
@@ -164,7 +164,7 @@
   },
   "sidebarPrimaryNav": {
     "globalViews": "Global views",
-    "fleetView": "Fleet View",
+    "fleetView": "Fleet",
     "agentsAtWork": "Agents, {{value1}} at work",
     "agents": "Agents",
     "agent": "Agent {{value1}}{{value2}}",
@@ -872,11 +872,19 @@
     "entries": {
       "back": {
         "title": "Go back",
-        "description": "Return to the previous task, file, or Lens tab you were on, across workspaces."
+        "description": "Return to the previous task, file, Lens tab, or view such as Fleet, across workspaces."
       },
       "forward": {
         "title": "Go forward",
         "description": "Go forward again after going back."
+      },
+      "nextRegion": {
+        "title": "Focus next region",
+        "description": "Move focus to the next part of the window: sidebar, top bar, main content, side panel, right rail."
+      },
+      "previousRegion": {
+        "title": "Focus previous region",
+        "description": "Move focus to the previous part of the window."
       },
       "reopenClosedTab": {
         "title": "Reopen closed tab",

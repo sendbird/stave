@@ -2,11 +2,16 @@ import { describe, expect, test } from "bun:test";
 import {
   EMPTY_SURFACE_HISTORY,
   findSurfaceHistoryStep,
+  getBackAppSurfaceKind,
   moveSurfaceHistory,
   recordSurfaceVisit,
   type SurfaceHistory,
   type SurfaceHistoryLocation,
 } from "@/lib/panes/surface-history";
+
+const view = (kind: "fleet-view" | "agents"): SurfaceHistoryLocation => ({
+  appSurface: { kind },
+});
 
 const at = (workspaceId: string, taskId: string): SurfaceHistoryLocation => ({
   repositoryPath: "/tmp/repo",
@@ -75,5 +80,31 @@ describe("surface history", () => {
   test("an empty history has nowhere to go", () => {
     expect(findSurfaceHistoryStep(EMPTY_SURFACE_HISTORY, "back", () => true)).toBeNull();
     expect(moveSurfaceHistory(EMPTY_SURFACE_HISTORY, 3)).toBe(EMPTY_SURFACE_HISTORY);
+  });
+
+  test("records global views beside workspace places and steps through both", () => {
+    // Fleet, then Agents opened from Fleet, then a task.
+    let history = visitAll([at("ws", "a"), view("fleet-view"), view("agents"), at("ws", "b")]);
+    expect(history.entries).toHaveLength(4);
+    const back = findSurfaceHistoryStep(history, "back", () => true);
+    expect(back?.location).toEqual(view("agents"));
+    history = moveSurfaceHistory(history, back!.index);
+    expect(findSurfaceHistoryStep(history, "back", () => true)?.location).toEqual(view("fleet-view"));
+  });
+
+  test("the same global view twice is one entry; usage scopes are distinct", () => {
+    const usage = (providerId?: "codex"): SurfaceHistoryLocation => ({
+      appSurface: providerId ? { kind: "usage", providerId } : { kind: "usage" },
+    });
+    const history = visitAll([view("fleet-view"), view("fleet-view"), usage(), usage("codex"), usage("codex")]);
+    expect(history.entries).toEqual([view("fleet-view"), usage(), usage("codex")]);
+  });
+
+  test("names the global view one step back, only when it is directly behind", () => {
+    let history = visitAll([at("ws", "a"), view("fleet-view"), at("ws", "b")]);
+    expect(getBackAppSurfaceKind(history)).toBe("fleet-view");
+    history = recordSurfaceVisit(history, at("ws", "c"));
+    expect(getBackAppSurfaceKind(history)).toBeNull();
+    expect(getBackAppSurfaceKind(EMPTY_SURFACE_HISTORY)).toBeNull();
   });
 });

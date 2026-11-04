@@ -31,7 +31,7 @@ export const turnActivityStatusIconStyles = stylex.create({
     color: vars["--ads-color-warning"],
   },
   pending: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 45%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   running: {
     color: vars["--ads-color-text-muted"],

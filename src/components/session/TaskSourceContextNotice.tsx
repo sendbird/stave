@@ -1,3 +1,4 @@
+import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -123,7 +124,7 @@ export function TaskSourceContextNotice(props: {
       ) : null}
 
       <details className={sx(styles.details)}>
-        <summary className={sx(styles.summary)}>
+        <summary className={sx(styles.summary, focusRing.ring)}>
           {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice5")}<ChevronDown
             className={sx(styles.summaryChevron)}
             aria-hidden="true"

@@ -612,3 +612,13 @@ Screenshot links point at the `main` branch on GitHub. Once re-captured screensh
 - Labels and behavior were checked against the Stave 0.29.2 source and its Korean and English copy files.
 - Screenshots were captured from development screens with synthetic data. Behavior with a real signed-in provider was not re-run for this edition.
 - The Lens screenshot comes from the browser build, so only the toolbar is shown.
+
+## Finding text and navigating views
+
+Use Find in conversation above a transcript, or Cmd+F / Ctrl+F while focused in the conversation. It searches loaded message text, including messages outside the viewport, and excludes thinking and tool parts. Load older messages to search earlier history. Enter and Shift+Enter move between matching messages.
+
+In a terminal, Cmd+F / Ctrl+F searches the retained terminal buffer. Enter and Shift+Enter move between matches; Escape closes the search. The terminal header shows Running or the completed command's exit code.
+
+Closing Fleet, Agents, Schedules, Issues, or AI usage returns to the previous view. F6 and Shift+F6 cycle window regions. The sidebar view switch has text labels. Fleet without repositories offers Open repository.
+
+When saving conflicts with a file changed on disk, use Compare, Keep mine, or Reload from disk in the editor banner. Saving again does not overwrite disk silently. Chat and Review diffs follow your diff display setting and collapse unchanged lines. Settings aligns short controls at the end of each row, and older changelog releases are collapsed. Markdown previews wrap paragraphs normally and offer highlighted code with copying.
