@@ -3,20 +3,6 @@
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
   "migrations": [
     {
-      "id": "atelier-retired-host",
-      "description": "Atelier moved from https://atelier.delight-tools.ai to the UI host https://atelier.sdix.io on 2026-10-30; the old host only redirects, which drops the connector's bearer token. Settings rehydration rewrites a saved craneConnector.baseUrl on the old host to the new UI host, persisted with the next settings save. The Atelier connector vault reads a saved pairing on the old host (atelier-connector.v1.json, or the legacy crane-connector.v1.json it imports) as the new UI host and persists it with the next vault write (pairing, job lease or disconnect). Only the host changes; the pairing, secret and leases are kept. At expiry, delete the marked blocks; a profile that skipped these releases, or a vault never written since, keeps the old host and its connector requests fail until the user disconnects and pairs again with the new Atelier URL.",
-      "introducedAfter": "0.28.3",
-      "removeInVersion": "0.31.0",
-      "files": [
-        "electron/main/atelier-connector/credential-vault.ts",
-        "src/lib/atelier-connector/retired-host-migration.ts",
-        "src/store/app-store-persistence.ts"
-      ],
-      "tests": [
-        "tests/atelier-retired-host-migration.test.ts"
-      ]
-    },
-    {
       "id": "fleet-tree-default",
       "description": "Through 0.29.2 Fleet View opened on workspace cards and every profile saved fleetBoardLayout: cards, so a saved cards cannot tell a choice from the old default. After 0.29.2 the Tree layout is the default. Settings rehydration moves a saved cards (or a profile saved without the key) to tree once, keeps table, and writes the fleetTreeDefaultApplied marker so a later choice of Cards is kept; it runs only while the marker is absent. At expiry, delete the marked blocks; a profile that skipped these releases keeps its saved cards, and the leftover marker key is ignored.",
       "introducedAfter": "0.29.2",

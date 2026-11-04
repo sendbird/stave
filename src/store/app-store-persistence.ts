@@ -45,9 +45,6 @@ import {
   normalizeAuxInferenceDefault,
   normalizeAuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
-// temporary-migration: atelier-retired-host
-import { migrateCraneConnectorRetiredHost } from "@/lib/atelier-connector/retired-host-migration";
-// end temporary-migration: atelier-retired-host
 // temporary-migration: fleet-tree-default
 import { migrateFleetTreeDefault } from "@/lib/fleet/fleet-tree-default-migration";
 // end temporary-migration: fleet-tree-default
@@ -270,13 +267,6 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       const persistedSettings = state.settings;
-      // temporary-migration: atelier-retired-host
-      // A connector saved for the retired Atelier host reads as the new UI host
-      // and is written back with the next save.
-      if (persistedSettings) {
-        migrateCraneConnectorRetiredHost(persistedSettings as unknown as Record<string, unknown>);
-      }
-      // end temporary-migration: atelier-retired-host
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
       );
