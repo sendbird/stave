@@ -247,6 +247,8 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.
 
+**Transcript**: messages you send back to back, such as steers, stack together with one note under the last (**Steered into active turn · 3**); hover any of them for its own copy and time actions. When a reply ran on a different provider, model or effort than the reply before it, a line above it names the change (**Claude Sonnet 4.6 · Medium → Claude Opus 4.8 · High**).
+
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
 

@@ -17,10 +17,13 @@ import {
   useRef,
   useState,
   type ClipboardEvent as ReactClipboardEvent,
+  type CSSProperties,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Undo2 } from "lucide-react";
 import { Button, Loader, toast } from "@/components/ui";
+import { Separator } from "@/components/ads/components/Separator";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +79,14 @@ import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { TurnModelTooltip } from "@/components/session/TurnModelTooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelStyles as styles } from "./chat-panel.styles";
+import {
+  buildModelChangeMarkers,
+  buildUserMessageGroups,
+  formatUserMessageGroupNotes,
+  formatUserMessageNoteLabel,
+  getUserMessageNoteKind,
+  type UserMessageGroupPosition,
+} from "./chat-panel-row-groups";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
 import { useAppStore } from "@/store/app.store";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
@@ -123,6 +134,19 @@ import {
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const EMPTY_PROVIDER_SESSION: TaskProviderSessionState = {};
+
+/**
+ * Back-to-back user bubbles share their right edge, so the corners where one
+ * meets the next tighten to the mark radius (top-left, top-right, bottom-right,
+ * bottom-left).
+ */
+const PANEL_RADIUS = vars["--ads-radius-panel"];
+const JOINED_RADIUS = vars["--ads-radius-mark"];
+const USER_GROUP_BUBBLE_RADIUS: Record<UserMessageGroupPosition, string> = {
+  first: `${PANEL_RADIUS} ${PANEL_RADIUS} ${JOINED_RADIUS} ${PANEL_RADIUS}`,
+  middle: `${PANEL_RADIUS} ${JOINED_RADIUS} ${JOINED_RADIUS} ${PANEL_RADIUS}`,
+  last: `${PANEL_RADIUS} ${JOINED_RADIUS} ${PANEL_RADIUS} ${PANEL_RADIUS}`,
+};
 
 function escapeAttributeSelectorValue(value: string) {
   return value.replace(/["\\]/g, "\\$&");
@@ -199,6 +223,13 @@ interface MessageRowProps {
   revealToolUseId?: string;
   /** The approval or answer the return summary is revealing in this message. */
   revealRequestId?: string;
+  /** On a reply whose model differs from the reply before it: both models. */
+  modelChangeFrom?: string;
+  modelChangeTo?: string;
+  /** On a user message sent right after another: its place in that group. */
+  userGroupPosition?: UserMessageGroupPosition;
+  /** On a group's last message: the group's steer and queue notes. */
+  userGroupNote?: string;
 }
 
 /**
@@ -344,18 +375,15 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const turnModelInfoLabel = turnAccountName
     ? `${turnModelLabel} · ${i18n.t("providers:turnModelInfo.account", { name: turnAccountName })}`
     : turnModelLabel;
-  const steerDeliveryLabel =
-    message.steerDeliveryState === "accepted"
-      ? i18n.t("session:chatPanel.steerDeliveryLabel")
-      : message.steerDeliveryState === "pending"
-        ? i18n.t("session:chatPanel.steerDeliveryLabel2")
-        : message.steerDeliveryState === "unknown"
-          ? i18n.t("session:chatPanel.steerDeliveryLabel3")
-          : message.steerDeliveryState === "rejected"
-            ? i18n.t("session:chatPanel.steerDeliveryLabel4")
-            : message.dispatchedFromQueue
-              ? i18n.t("session:chatPanel.steerDeliveryLabel5")
-              : null;
+  // A group of back-to-back messages names its steers once, under its last.
+  const ownNoteKind = getUserMessageNoteKind(message);
+  const steerDeliveryLabel = args.userGroupPosition
+    ? args.userGroupPosition === "last"
+      ? args.userGroupNote
+      : null
+    : ownNoteKind
+      ? formatUserMessageNoteLabel(ownNoteKind)
+      : null;
 
   function handleUserMessageCopy(event: ReactClipboardEvent<HTMLDivElement>) {
     if (message.role !== "user") {
@@ -440,7 +468,11 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
         !isFirst &&
           !args.opensTranscript &&
           message.role === "user" &&
+          (!args.userGroupPosition || args.userGroupPosition === "first") &&
           styles.rowTurnStart,
+        args.userGroupPosition &&
+          args.userGroupPosition !== "last" &&
+          styles.rowGroupedWithNext,
       )}
     >
       {args.dateSeparator ? (
@@ -453,8 +485,34 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
       {message.role === "user" ? (
         <StageDivider taskId={taskId} turnId={startedTurnId} />
       ) : null}
+      {message.role === "assistant" &&
+      args.modelChangeFrom &&
+      args.modelChangeTo ? (
+        <Separator
+          data-testid="model-change-separator"
+          label={i18n.t("session:chatPanel.modelChange", {
+            from: args.modelChangeFrom,
+            to: args.modelChangeTo,
+          })}
+          aria-label={i18n.t("session:chatPanel.modelChangeLabel", {
+            from: args.modelChangeFrom,
+            to: args.modelChangeTo,
+          })}
+          xstyle={styles.modelChange}
+        />
+      ) : null}
       {/* A stage card is Stave's, so its turn sits on the agent's side. */}
-      <Message from={promptLayout.stage ? "assistant" : message.role}>
+      <Message
+        from={promptLayout.stage ? "assistant" : message.role}
+        style={
+          args.userGroupPosition && !promptLayout.stage
+            ? ({
+                "--message-bubble-radius":
+                  USER_GROUP_BUBBLE_RADIUS[args.userGroupPosition],
+              } as CSSProperties)
+            : undefined
+        }
+      >
         <div
           className={sx(
             styles.shell,
@@ -882,6 +940,16 @@ function ChatPanelMessageList(props: {
   const dateSeparators = useMemo(
     () => buildConversationDateSeparators(visibleMessages),
     [visibleMessages],
+  );
+  // Primitive strings per row, so a memoized row only re-renders when its own
+  // marker or group changes.
+  const modelChangeMarkers = useMemo(
+    () => buildModelChangeMarkers(visibleMessages),
+    [visibleMessages, i18n.language],
+  );
+  const userMessageGroups = useMemo(
+    () => buildUserMessageGroups(visibleMessages, dateSeparators),
+    [dateSeparators, visibleMessages],
   );
   const threadActionStateByMessageId = useMemo(
     () =>
@@ -1465,6 +1533,12 @@ function ChatPanelMessageList(props: {
                     ? revealedStep.requestId
                     : undefined
                 }
+                modelChangeFrom={modelChangeMarkers.get(message.id)?.from}
+                modelChangeTo={modelChangeMarkers.get(message.id)?.to}
+                userGroupPosition={userMessageGroups.get(message.id)?.position}
+                userGroupNote={formatUserMessageGroupNotes(
+                  userMessageGroups.get(message.id)?.notes,
+                )}
               />
             )}
           />
