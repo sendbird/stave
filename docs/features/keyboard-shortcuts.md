@@ -41,6 +41,17 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 - `Cmd/Ctrl+Z` outside a text field undoes the last **Settle** or **Snooze** in
   the Work queue while its Undo toast is still showing.
 
+## Moving Between Regions
+
+- `F6` moves focus to the next part of the window: the sidebar, the top bar, the
+  main content, the side panel when it is open, and the right rail. `Shift+F6`
+  goes the other way. Each region takes focus back where you left it, so F6 is
+  also the way out of the composer, the editor, or the terminal.
+- The first Tab press in the window shows **Skip to content**, which jumps past
+  the sidebar and the top bar into the main content.
+- In the sidebar, the Up and Down arrow keys move between workspace rows;
+  Alt+Up and Alt+Down still move the focused workspace in the list.
+
 ## Navigation
 
 | Action | Keys | Where |
@@ -52,6 +63,8 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Open Agents | `Cmd/Ctrl+K` then `G` | Anywhere |
 | Go back | `Cmd/Ctrl+[` | Anywhere, not while typing |
 | Go forward | `Cmd/Ctrl+]` | Anywhere, not while typing |
+| Focus next region | `F6` | Anywhere, also while typing |
+| Focus previous region | `Shift+F6` | Anywhere, also while typing |
 | Select workspace | `Cmd/Ctrl+Shift+1..9` | Sidebar order, not while typing |
 | Quick open file | `Cmd/Ctrl+P` | Anywhere |
 | Open command palette | `Cmd/Ctrl+Shift+P` | Anywhere |

@@ -201,6 +201,7 @@ export function RightRail() {
   return (
     <aside
       data-testid="workspace-bar"
+      data-focus-region="rail"
       aria-label={i18n.t("shell:rightRail.workspacePanels")}
       className={cx("stave-workspace-rail", sx(rightRailStyles.rail))}
     >

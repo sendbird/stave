@@ -247,6 +247,28 @@ export const KEYBINDING_REGISTRY = [
     section: "navigation",
     handledBy: [APP_SHELL],
   },
+  // Leaving a field (the composer, the editor, the terminal) is the point of
+  // region keys, so they fire while typing too.
+  {
+    id: "navigation.next-region",
+    keys: ["f6"],
+    scope: "global",
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.nextRegion.title",
+    descriptionKey: "shell:keybindings.entries.nextRegion.description",
+    section: "navigation",
+    handledBy: [APP_SHELL],
+  },
+  {
+    id: "navigation.previous-region",
+    keys: ["shift+f6"],
+    scope: "global",
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.previousRegion.title",
+    descriptionKey: "shell:keybindings.entries.previousRegion.description",
+    section: "navigation",
+    handledBy: [APP_SHELL],
+  },
   {
     id: "workspace.select-visible",
     keys: ["mod+shift+1-9"],

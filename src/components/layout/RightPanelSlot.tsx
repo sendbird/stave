@@ -63,6 +63,8 @@ export function RightPanelSlot(props: {
         style={slot.style}
         data-stave-right-panel=""
         data-state={props.open ? "open" : "closing"}
+        // F6 visits the panel while it is open, not while it slides away.
+        data-focus-region={props.open ? "panel" : undefined}
       >
         <div
           className={sx(styles.panel, props.open ? toggled && styles.enter : styles.exit)}

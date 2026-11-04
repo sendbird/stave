@@ -35,6 +35,7 @@ const KEY_EVENTS: Record<string, Array<Pick<KeyEventLike, "key" | "code">>> = {
   Tab: [{ key: "Tab", code: "Tab" }],
   ArrowUp: [{ key: "ArrowUp", code: "ArrowUp" }],
   ArrowDown: [{ key: "ArrowDown", code: "ArrowDown" }],
+  F6: [{ key: "F6", code: "F6" }],
   F12: [{ key: "F12", code: "F12" }],
 };
 

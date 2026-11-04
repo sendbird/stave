@@ -86,6 +86,8 @@ import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
 import { getLinkedWorktreePathSetForRepository } from "@/store/workspace-archive-cleanup";
 import {
   isWorkspaceActivationKey,
+  moveWorkspaceRowFocus,
+  WORKSPACE_ROW_FOCUS_ATTRIBUTE,
   WorkspaceHoverPreviewTooltip,
   WorkspaceLeadingStatusIcon,
   RepositoryAttentionAlertIcon,
@@ -699,6 +701,7 @@ export function RepositoryWorkspaceSidebar(args: {
     <>
       <aside
         data-testid="project-workspace-sidebar"
+        data-focus-region="sidebar"
         aria-label={tI18n("workspace:repositoryWorkspaceSidebar.accessibility.sidebar")}
         className={cx(
           "stave-project-sidebar",
@@ -830,6 +833,8 @@ export function RepositoryWorkspaceSidebar(args: {
                           aria-current={
                             entry.isActive && showingWorkspace ? "page" : undefined
                           }
+                          {...{ [WORKSPACE_ROW_FOCUS_ATTRIBUTE]: "" }}
+                          onKeyDown={moveWorkspaceRowFocus}
                           onClick={() =>
                             void handleRepositoryWorkspaceOpen({
                               repositoryPath: entry.repositoryPath,
@@ -1531,6 +1536,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       role="button"
                                                       tabIndex={0}
                                                       aria-current={isCurrentPlace ? "page" : undefined}
+                                                      {...{ [WORKSPACE_ROW_FOCUS_ATTRIBUTE]: "" }}
                                                       aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name })}
                                                       aria-keyshortcuts={
                                                         !workspaceReorderingDisabled
@@ -1621,6 +1627,13 @@ export function RepositoryWorkspaceSidebar(args: {
                                                               total: repository.workspaces.length,
                                                             }),
                                                           );
+                                                          return;
+                                                        }
+                                                        if (
+                                                          moveWorkspaceRowFocus(
+                                                            event,
+                                                          )
+                                                        ) {
                                                           return;
                                                         }
                                                         if (

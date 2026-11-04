@@ -103,6 +103,7 @@ export function TopBar() {
   return (
     <header
       data-testid="top-bar"
+      data-focus-region="top-bar"
       className={sx(topBarStyles.header)}
       style={TOP_BAR_DRAG_STYLE}
     >

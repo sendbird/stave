@@ -70,6 +70,10 @@ import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
 import { RightPanelSlot } from "@/components/layout/RightPanelSlot";
 import { RightRail } from "@/components/layout/RightRail";
+import {
+  MAIN_CONTENT_ID,
+  SkipToContentLink,
+} from "@/components/layout/SkipToContentLink";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
 import {
@@ -1022,6 +1026,7 @@ export function AppShell() {
 
   return (
     <div className={sx(appShellStyles.root)}>
+      <SkipToContentLink />
       {zoomHudPercent !== null ? (
         <div className={sx(appShellStyles.zoomHud, layers.floatingChrome)}>
           <div className={sx(appShellStyles.zoomHudPill)}>{i18n.t("shell:appShell.zoomPercent", { percent: zoomHudPercent })}</div>
@@ -1159,7 +1164,11 @@ export function AppShell() {
               data-stave-content-row=""
               className={sx(appShellStyles.panelRow)}
             >
-              <main className={sx(appShellStyles.mainColumn)}>
+              <main
+                id={MAIN_CONTENT_ID}
+                data-focus-region="main"
+                className={sx(appShellStyles.mainColumn)}
+              >
                 <div className={sx(appShellStyles.mainSurface)}>
                   {showFleetView ? (
                     <FleetView />

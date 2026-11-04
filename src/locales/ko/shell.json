@@ -872,6 +872,14 @@
         "title": "앞으로 가기",
         "description": "뒤로 간 뒤 다시 앞으로 이동합니다."
       },
+      "nextRegion": {
+        "title": "다음 영역으로 이동",
+        "description": "창의 다음 영역으로 포커스를 옮깁니다: 사이드바, 상단바, 본문, 사이드 패널, 오른쪽 레일."
+      },
+      "previousRegion": {
+        "title": "이전 영역으로 이동",
+        "description": "창의 이전 영역으로 포커스를 옮깁니다."
+      },
       "reopenClosedTab": {
         "title": "닫은 탭 다시 열기",
         "description": "이 워크스페이스에서 가장 최근에 닫은 작업, 파일 또는 Lens 탭을 다시 엽니다."

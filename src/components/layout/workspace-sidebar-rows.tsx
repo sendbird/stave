@@ -143,6 +143,42 @@ export function isWorkspaceActivationKey(event: ReactKeyboardEvent<HTMLElement>)
   return event.key === "Enter" || event.key === " ";
 }
 
+/** Marks a workspace row's open control for Up/Down movement. */
+export const WORKSPACE_ROW_FOCUS_ATTRIBUTE = "data-workspace-row-focus";
+
+/**
+ * Up and Down (no modifier) move focus to the previous or next workspace row
+ * in the sidebar, across repositories; Alt+Up/Down stays the reorder key.
+ * Returns true when it handled the key, so the caller prevents the default
+ * scroll.
+ */
+export function moveWorkspaceRowFocus(
+  event: ReactKeyboardEvent<HTMLElement>,
+): boolean {
+  if (
+    (event.key !== "ArrowUp" && event.key !== "ArrowDown") ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey
+  ) {
+    return false;
+  }
+  const from = event.currentTarget;
+  const list = from.closest("[data-focus-region]") ?? from.ownerDocument;
+  const rows = [
+    ...list.querySelectorAll<HTMLElement>(`[${WORKSPACE_ROW_FOCUS_ATTRIBUTE}]`),
+  ];
+  const index = rows.indexOf(from);
+  const next = rows[index + (event.key === "ArrowUp" ? -1 : 1)];
+  if (index < 0 || !next) {
+    return false;
+  }
+  event.preventDefault();
+  next.focus();
+  return true;
+}
+
 function formatCountLabel(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
@@ -533,6 +569,8 @@ export function WorkQueueRow(args: {
                   : repositorySidebarStyles.workspaceRowIdle,
             ]}
             aria-current={isCurrentPlace ? "page" : undefined}
+            {...{ [WORKSPACE_ROW_FOCUS_ATTRIBUTE]: "" }}
+            onKeyDown={moveWorkspaceRowFocus}
           >
             <WorkspaceLeadingStatusIcon
               workspaceId={entry.workspaceId}

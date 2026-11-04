@@ -878,6 +878,14 @@
         "title": "Go forward",
         "description": "Go forward again after going back."
       },
+      "nextRegion": {
+        "title": "Focus next region",
+        "description": "Move focus to the next part of the window: sidebar, top bar, main content, side panel, right rail."
+      },
+      "previousRegion": {
+        "title": "Focus previous region",
+        "description": "Move focus to the previous part of the window."
+      },
       "reopenClosedTab": {
         "title": "Reopen closed tab",
         "description": "Bring back the most recently closed task, file, or Lens tab in this workspace."
