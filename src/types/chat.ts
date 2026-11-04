@@ -387,6 +387,8 @@ export interface DocumentContextPart extends MessagePartBase {
 }
 
 export interface SystemEventPart extends MessagePartBase {
+  /** Renderer observation of compaction start; absent on older saved parts. */
+  startedAt?: string;
   type: "system_event";
   content: string;
   compactBoundary?: {

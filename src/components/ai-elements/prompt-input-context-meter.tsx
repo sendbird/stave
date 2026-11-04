@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "../ads/utils/stylex";
+import { contextTokenLabel } from "./context-token-label";
 import { contextMeterStyles } from "./prompt-input-context-meter.styles";
 import {
   PromptInputContextBreakdown,
@@ -131,6 +132,7 @@ export function PromptInputContextMeter(args: {
   useTranslation();
   const tone = conversationContextUsageTone(args.usage.usedPercent);
   const percentLabel = formatConversationContextPercent(args.usage.usedPercent);
+  const tokenLabel = contextTokenLabel(args.usage);
   const countLabel = formatConversationContextCounts(args.usage);
   const fillPercent = Math.min(100, Math.max(0, args.usage.usedPercent));
   const remainingTokens = resolveContextRemainingTokens(args.usage);
@@ -169,7 +171,9 @@ export function PromptInputContextMeter(args: {
               size="sm"
               className={sx(contextMeterStyles.trigger)}
               aria-label={
-                remainingTokens !== undefined
+                countLabel
+                  ? i18n.t("composer:promptInputContextMeter.ariaLabelCounts", { percent: percentLabel, used: formatNumber(resolveUsedTokens(args.usage) ?? 0), limit: formatNumber(args.usage.windowTokens ?? 0), remaining: formatNumber(remainingTokens ?? 0) })
+                  : remainingTokens !== undefined
                   ? i18n.t("composer:promptInputContextMeter.ariaLabelRemaining", {
                       percent: percentLabel,
                       remaining: formatNumber(remainingTokens),
@@ -188,7 +192,8 @@ export function PromptInputContextMeter(args: {
               style={{ width: `${fillPercent}%` }}
             />
           </span>
-          <span className={sx(contextMeterStyles.percent)}>
+          {tokenLabel ? <span className={sx(contextMeterStyles.percent, contextMeterStyles.tokens)}>{tokenLabel}</span> : null}
+          <span className={sx(contextMeterStyles.percent, Boolean(tokenLabel) && contextMeterStyles.narrowPercent)}>
             {percentLabel}
           </span>
         </PopoverTrigger>

@@ -3,6 +3,8 @@ import { useState, type HTMLAttributes } from "react";
 import { BookmarkIcon, RotateCcw } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
 import { cx, sx } from "@/components/ads/utils/stylex";
+import { ElapsedClock } from "@/components/agent-runs/ElapsedClock";
+import { compactionElapsed } from "./compaction-progress";
 import { checkpointStyles as s } from "./checkpoint.styles";
 
 /**
@@ -10,19 +12,28 @@ import { checkpointStyles as s } from "./checkpoint.styles";
  * Renders a subtle spinner + label inline in the conversation.
  */
 export function CompactingIndicator({
+  startedAt,
+  active = true,
   className,
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: HTMLAttributes<HTMLDivElement> & { startedAt?: string; active?: boolean }) {
   useTranslation();
   return (
     <div className={cx(sx(s.compacting), className)} {...props}>
-      <Loader
+      {active ? <Loader
         aria-hidden
         className={sx(s.compactingLoader)}
         size="xs"
         variant="persist"
-      />
-      <span>{i18n.t("composer:checkpoint.compactingIndicator")}</span>
+      /> : null}
+      <ElapsedClock live={active && Boolean(startedAt) && Number.isFinite(Date.parse(startedAt!))} now={Date.now()}>
+        {(now) => {
+          const duration = active ? compactionElapsed(startedAt, now) : null;
+          return <span>{duration
+            ? i18n.t("composer:checkpoint.compactingWithElapsed", { duration })
+            : i18n.t("composer:checkpoint.compactingIndicator")}</span>;
+        }}
+      </ElapsedClock>
     </div>
   );
 }

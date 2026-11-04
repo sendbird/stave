@@ -30,6 +30,7 @@
     "reasoningTime": "Reasoning time: {{duration}}"
   },
   "checkpoint": {
+    "compactingWithElapsed": "Compacting context · {{duration}}",
     "compactingIndicator": "Compacting conversation context…",
     "contextCompactedCheckpoint": "Context compacted",
     "title": "Discards uncommitted changes in the worktree and restores this checkpoint.",
@@ -246,6 +247,7 @@
     "confirmSwitch": "{{agent}} may do more than {{current}} ({{permission}}). Switch from the next turn?"
   },
   "promptInputContextMeter": {
+    "ariaLabelCounts": "Conversation context {{percent}} used: {{used}} of {{limit}} tokens, {{remaining}} tokens left",
     "ariaLabel": "Conversation context {{value1}} used",
     "promptInputContextMeter": "Conversation context",
     "promptInputContextMeter2": "Latest context usage for the selected provider. Compact summarizes this provider's session.",

@@ -31,6 +31,8 @@ export const contextMeterStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
+  tokens: { display: { default: "inline", "@container composer (max-width: 480px)": "none" } },
+  narrowPercent: { display: { default: "none", "@container composer (max-width: 480px)": "inline" } },
   popover: {
     width: "16rem",
     gap: 0,
