@@ -606,6 +606,15 @@ export const repositorySidebarStyles = stylex.create({
     borderColor: accent40,
     color: vars["--ads-color-accent"],
   },
+  // See `workspaceRowLastOpened`: a neutral hairline instead of the accent fill.
+  collapsedWorkspaceLastOpened: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars["--ads-color-overlay-hover"],
+    },
+    borderColor: vars["--ads-color-border"],
+    color: vars["--ads-color-text"],
+  },
   collapsedWorkspaceIdle: {
     backgroundColor: {
       default: "transparent",
@@ -965,6 +974,18 @@ export const repositorySidebarStyles = stylex.create({
   // tone sits over the group's (`workspaceGroupActive`).
   workspaceRowActive: {
     backgroundColor: { default: accent10, ":hover": accent14 },
+    borderColor: "transparent",
+    color: vars["--ads-color-text"],
+  },
+  // The active workspace while a global view (Fleet, Agents…) owns the main
+  // column: the last place opened, not where the user is. No fill — the view's
+  // nav row is the one selected item — only the full ink and the label's
+  // weight (`labelActive`) mark it among the muted idle rows.
+  workspaceRowLastOpened: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars["--ads-color-overlay-hover"],
+    },
     borderColor: "transparent",
     color: vars["--ads-color-text"],
   },

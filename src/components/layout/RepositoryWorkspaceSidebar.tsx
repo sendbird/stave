@@ -246,6 +246,11 @@ export function RepositoryWorkspaceSidebar(args: {
       ] as const;
     }),
   );
+  // While a global view owns the main column, the active workspace is only
+  // the last place opened: no selected fill and no `aria-current`.
+  const showingWorkspace = useAppStore(
+    (state) => state.activeAppSurface.kind === "workspace",
+  );
   const highestAttentionByWorkspaceId = useFleetAttention((snapshot) => snapshot.highestAttentionByWorkspaceId);
   const attentionItemsByWorkspaceId = useFleetAttention((snapshot) => snapshot.attentionItemsByWorkspaceId);
   const isWorkQueueView = sidebarNavView === "work-queue";
@@ -816,10 +821,15 @@ export function RepositoryWorkspaceSidebar(args: {
                           xstyle={[
                             repositorySidebarStyles.collapsedWorkspaceButton,
                             transition.colors,
-                            entry.isActive
+                            entry.isActive && showingWorkspace
                               ? repositorySidebarStyles.collapsedWorkspaceActive
-                              : repositorySidebarStyles.collapsedWorkspaceIdle,
+                              : entry.isActive
+                                ? repositorySidebarStyles.collapsedWorkspaceLastOpened
+                                : repositorySidebarStyles.collapsedWorkspaceIdle,
                           ]}
+                          aria-current={
+                            entry.isActive && showingWorkspace ? "page" : undefined
+                          }
                           onClick={() =>
                             void handleRepositoryWorkspaceOpen({
                               repositoryPath: entry.repositoryPath,
@@ -1426,6 +1436,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                       const isActive =
                                         repository.isCurrent &&
                                         workspace.id === activeWorkspaceId;
+                                      const isCurrentPlace =
+                                        isActive && showingWorkspace;
                                       const workspaceReorderingDisabled =
                                         repositoryBusy ||
                                         workspaceBusy ||
@@ -1474,7 +1486,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                               className={sx(
                                                 repositorySidebarStyles.workspaceItem,
                                                 // The row and its open tasks are one selected item.
-                                                isActive &&
+                                                isCurrentPlace &&
                                                   repositorySidebarStyles.workspaceGroupActive,
                                               )}
                                             >
@@ -1489,9 +1501,11 @@ export function RepositoryWorkspaceSidebar(args: {
                                                   className={sx(
                                                     repositorySidebarStyles.workspaceRow,
                                                     repositorySidebarStyles.row,
-                                                    isActive
+                                                    isCurrentPlace
                                                       ? repositorySidebarStyles.workspaceRowActive
-                                                      : repositorySidebarStyles.workspaceRowIdle,
+                                                      : isActive
+                                                        ? repositorySidebarStyles.workspaceRowLastOpened
+                                                        : repositorySidebarStyles.workspaceRowIdle,
                                                     isDragging &&
                                                       repositorySidebarStyles.workspaceRowDragging,
                                                   )}
@@ -1516,6 +1530,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       }
                                                       role="button"
                                                       tabIndex={0}
+                                                      aria-current={isCurrentPlace ? "page" : undefined}
                                                       aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name })}
                                                       aria-keyshortcuts={
                                                         !workspaceReorderingDisabled

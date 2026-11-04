@@ -489,13 +489,18 @@ export function WorkQueueRow(args: {
   actions?: ReactNode;
 }) {
   const { entry } = args;
+  // On a global view the active workspace is only the last place opened.
+  const showingWorkspace = useAppStore(
+    (state) => state.activeAppSurface.kind === "workspace",
+  );
+  const isCurrentPlace = entry.isActive && showingWorkspace;
 
   return (
     <div
       className={sx(
         repositorySidebarStyles.queueRow,
         // The row and its open tasks are one selected item.
-        entry.isActive && repositorySidebarStyles.workspaceGroupActive,
+        isCurrentPlace && repositorySidebarStyles.workspaceGroupActive,
       )}
     >
       <div className={sx(repositorySidebarStyles.queueItem)}>
@@ -521,10 +526,13 @@ export function WorkQueueRow(args: {
               repositorySidebarStyles.row,
               repositorySidebarStyles.rowHit,
               transition.colors,
-              entry.isActive
+              isCurrentPlace
                 ? repositorySidebarStyles.workspaceRowActive
-                : repositorySidebarStyles.workspaceRowIdle,
+                : entry.isActive
+                  ? repositorySidebarStyles.workspaceRowLastOpened
+                  : repositorySidebarStyles.workspaceRowIdle,
             ]}
+            aria-current={isCurrentPlace ? "page" : undefined}
           >
             <WorkspaceLeadingStatusIcon
               workspaceId={entry.workspaceId}
