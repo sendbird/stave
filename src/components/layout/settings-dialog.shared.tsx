@@ -392,6 +392,18 @@ export function LabeledField(args: {
   );
 }
 
+/**
+ * The two switch sizes Settings uses, so a section never picks a third.
+ *
+ * - Field rows (`lg`): a setting with its own title and description beside
+ *   the switch: `SwitchField`, and hand-built rows of the same shape.
+ * - List rows (`sm`): a per-item toggle inside a list of sources, plugins,
+ *   models, providers or rules, where the row is denser than a field.
+ */
+export const SETTINGS_FIELD_SWITCH_SIZE = "lg" as const;
+export const SETTINGS_LIST_SWITCH_SIZE = "sm" as const;
+
+/** A field row whose control is one switch. Uses `SETTINGS_FIELD_SWITCH_SIZE`. */
 export function SwitchField(args: {
   title: string;
   description?: string;
@@ -418,7 +430,7 @@ export function SwitchField(args: {
         ) : null}
       </div>
       <Switch
-        size="lg"
+        size={SETTINGS_FIELD_SWITCH_SIZE}
         checked={args.checked}
         onCheckedChange={args.onCheckedChange}
         aria-labelledby={titleId}

@@ -84,6 +84,7 @@ import {
   SettingsCard,
   SwitchField,
   ToggleChipGroup,
+  SETTINGS_LIST_SWITCH_SIZE,
 } from "./settings-dialog.shared";
 import { SearchablePicker } from "./settings-searchable-picker";
 import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";
@@ -447,7 +448,7 @@ function RuleRow(args: {
       <div className={sx(styles.ruleHeader)}>
         <div className={sx(styles.ruleHeaderLead)}>
           <Switch
-            size="sm"
+            size={SETTINGS_LIST_SWITCH_SIZE}
             checked={rule.enabled}
             onCheckedChange={(enabled) => args.onChange({ ...rule, enabled })}
             aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.enableRule", { value1: rule.id })}

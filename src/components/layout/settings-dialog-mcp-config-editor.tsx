@@ -43,6 +43,7 @@ import {
 import { resolveMcpShareDestinationScope } from "@/lib/providers/mcp-config-share";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { mcpConfigEditorStyles as styles } from "./settings-dialog-mcp-config-editor.styles";
+import { SETTINGS_FIELD_SWITCH_SIZE, SETTINGS_LIST_SWITCH_SIZE } from "./settings-dialog.shared";
 
 const MCP_PROVIDER_LABELS = [
   ["claude-code", "Claude"],
@@ -357,6 +358,7 @@ export function McpServerConfigEditorDialog(props: {
                             {label}
                           </span>
                           <Switch
+                            size={SETTINGS_LIST_SWITCH_SIZE}
                             checked={form.installProviders.includes(provider)}
                             onCheckedChange={(checked) =>
                               setInstallProvider(provider, checked)
@@ -492,6 +494,7 @@ export function McpServerConfigEditorDialog(props: {
                         <p className={sx(styles.toggleHint)}>{t("settingsProviders:whole.hiddenArguments", { count: props.snapshot.argumentCount })}</p>
                       </div>
                       <Switch
+                        size={SETTINGS_FIELD_SWITCH_SIZE}
                         checked={form.replaceArgs}
                         onCheckedChange={(checked) =>
                           setForm((current) => ({
@@ -555,6 +558,7 @@ export function McpServerConfigEditorDialog(props: {
                           {t("settingsProviders:mcpConfigEditor.editor.replaceUrl.hint")}</p>
                       </div>
                       <Switch
+                        size={SETTINGS_FIELD_SWITCH_SIZE}
                         checked={form.replaceUrl}
                         onCheckedChange={(checked) =>
                           setForm((current) => ({
@@ -673,6 +677,7 @@ export function McpServerConfigEditorDialog(props: {
                       {t("settingsProviders:mcpConfigEditor.editor.enabled.hint")}</p>
                   </div>
                   <Switch
+                    size={SETTINGS_FIELD_SWITCH_SIZE}
                     checked={form.enabled}
                     onCheckedChange={(checked) =>
                       setForm((current) => ({

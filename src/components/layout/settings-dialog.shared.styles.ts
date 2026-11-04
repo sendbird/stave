@@ -115,7 +115,8 @@ export const settingsSharedStyles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-relaxed"],
     marginBlockStart: vars["--ads-space-4"],
-    maxInlineSize: "56rem",
+    // About 90 characters a line at body size; wider reads as a wall of text.
+    maxInlineSize: "40rem",
   },
   cardBody: {
     display: "flex",
