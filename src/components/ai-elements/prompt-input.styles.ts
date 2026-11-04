@@ -23,8 +23,8 @@ export const promptInputStyles = stylex.create({
   // ---- Editor typography (shared by editor + reveal overlay) ----
   editorTypographyMinimal: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: "15px",
-    lineHeight: "1.75rem",
+    fontSize: "var(--composer-font-size)",
+    lineHeight: "var(--composer-line-height)",
     letterSpacing: "-0.01em",
   },
   editorTypographyDefault: {
@@ -35,9 +35,9 @@ export const promptInputStyles = stylex.create({
     // app's. `vars["--ads-font-sans"]` resolves to `var(--font-sans)` through
     // `ads-theme.ts`, so both follow the one font setting.
     fontFamily: vars["--ads-font-sans"],
-    // 16px on a 26px line, the same reading size as the transcript default.
-    fontSize: vars["--ads-font-size-lead"],
-    lineHeight: vars["--ads-line-height-relaxed"],
+    // The editor, placeholder and reveal inherit the same reader setting.
+    fontSize: "var(--composer-font-size)",
+    lineHeight: "var(--composer-line-height)",
   },
   enhancementEditorInset: {
     paddingInlineEnd: "2.25rem",
@@ -398,7 +398,7 @@ export const promptInputStyles = stylex.create({
     outline: { default: "none", ":focus-visible": "none" },
   },
   editorSizeMinimal: {
-    minBlockSize: 32,
+    minBlockSize: "2lh",
     maxBlockSize: 168,
     caretColor: vars["--ads-color-accent"],
   },
