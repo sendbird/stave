@@ -98,6 +98,45 @@ test("Expand moves keyboard focus to the first line it revealed", async ({ page 
   await expect(diff.locator(":focus")).toHaveCount(1);
 });
 
+/** Each diff row's line-number layout: 2 cells in a unified row, 1 per half in a split row. */
+const lineNumberCellsPerHolder = (diff: ReturnType<Page["locator"]>) =>
+  diff.evaluate((root) => [...new Set(
+    [...root.querySelectorAll("div:has(> [data-ads-slot='line-number'])")]
+      .map((holder) => holder.querySelectorAll(":scope > [data-ads-slot='line-number']").length),
+  )]);
+
+test("Review draws the split layout from Settings, and unified when the pane is narrow", async ({ page }) => {
+  await page.evaluate(async (modules) => {
+    const { useAppStore } = await import(modules.appStore);
+    useAppStore.getState().updateSettings({ patch: { diffViewMode: "split" } });
+  }, MODULES);
+  // Review's diff column is about half the surface, so split needs a wide window.
+  await page.setViewportSize({ width: 1920, height: 900 });
+  const wide = await mountReview(page, "split-wide", 1920);
+  await wide.getByRole("button", { name: /format\.ts/ }).click();
+  const wideDiff = wide.getByRole("group", { name: "Changes in src/lib/billing/format.ts" });
+  await expect(wideDiff).toBeVisible();
+  expect(await lineNumberCellsPerHolder(wideDiff)).toEqual([1]);
+
+  // A commented line is found on either side of a split row.
+  const found = await wideDiff.evaluate(async (root, modules) => {
+    const { findReviewDiffRow } = await import(modules.reviewDiffPane);
+    const original = findReviewDiffRow(root, 121, "original");
+    const modified = findReviewDiffRow(root, 121, "modified");
+    return { original: original?.children[0]?.textContent ?? "", modified: modified?.children[1]?.textContent ?? "" };
+  }, { reviewDiffPane: "/src/components/review/ReviewDiffPane.tsx" });
+  expect(found.original).toContain("121");
+  expect(found.original).toContain("formatRow40(row: Row): string");
+  expect(found.modified).toContain("121");
+  expect(found.modified).toContain("currency = \"USD\"");
+
+  const narrow = await mountReview(page, "split-narrow", 480);
+  await narrow.getByRole("button", { name: /format\.ts/ }).click();
+  const narrowDiff = narrow.getByRole("group", { name: "Changes in src/lib/billing/format.ts" });
+  await expect(narrowDiff).toBeVisible();
+  expect(await lineNumberCellsPerHolder(narrowDiff)).toEqual([2]);
+});
+
 test("the file header keeps its comment action's full label in a narrow pane", async ({ page }) => {
   const surface = await mountReview(page, "narrow-header", 420);
   const comment = surface.getByRole("button", { name: "Comment in editor" });

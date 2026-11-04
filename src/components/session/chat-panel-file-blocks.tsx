@@ -28,7 +28,10 @@ import { toBaseName } from "@/lib/message-file-links";
 import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelFileBlocksStyles as styles } from "./chat-panel-file-blocks.styles";
 import { useDiffLineHighlighter } from "./message/diff-highlighter";
-import { DIFF_CONTEXT_LINES } from "./message/diff-viewer-options";
+import {
+  DIFF_CONTEXT_LINES,
+  useDiffViewerMode,
+} from "./message/diff-viewer-options";
 import {
   toDiffRunState,
   toFileChangeRunState,
@@ -76,8 +79,10 @@ export function OpenedFileDiff(args: {
   useTranslation();
   const language = languageFromFilePath(args.filePath);
   const highlighter = useDiffLineHighlighter(language);
+  const layout = useDiffViewerMode();
   return (
     <DiffViewer
+      ref={layout.ref}
       after={args.after}
       aria-label={i18n.t("session:chatPanelFileBlocks.ariaLabel", { value1: args.displayFilePath })}
       before={args.before}
@@ -87,7 +92,7 @@ export function OpenedFileDiff(args: {
       granularity="word"
       highlighter={highlighter}
       language={language}
-      mode="unified"
+      mode={layout.mode}
       xstyle={styles.inlineDiff}
     />
   );
