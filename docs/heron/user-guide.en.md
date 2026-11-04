@@ -234,6 +234,8 @@ S --> U: Reply · changed files · summary
 @caption A simplified turn. The approval step may not appear, depending on the permission preset.
 ```
 
+**Reading and composing**: code blocks without a language have no syntax colors. The composer follows the conversation reading size, including the smaller Task panel size; the minimal composer scales its monospace text and caret together.
+
 **Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
