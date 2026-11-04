@@ -196,6 +196,10 @@ if (preview === "question-reply") {
   void import("@/dev/command-palette-preview").then(({ CommandPalettePreview }) => {
     root.render(<StrictMode><StaveDesignProvider><CommandPalettePreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "context-progress") {
+  void import("@/dev/context-progress-preview").then(({ ContextProgressPreview }) => {
+    root.render(<StaveDesignProvider><ContextProgressPreview /></StaveDesignProvider>);
+  });
 } else if (preview === "composer-frame") {
   void import("@/dev/composer-frame-preview").then(
     ({ ComposerFramePreviewApp }) => {

@@ -17,7 +17,7 @@ import { localStack } from "../../lib/ui-layers.stylex";
  * beside `space8` controls is a rung nothing else in the composer uses.
  */
 export const frameStyles = stylex.create({
-  frame: { isolation: "isolate", display: "grid", alignItems: "stretch", gridTemplateColumns: "minmax(0, 1fr)" },
+  frame: { containerType: "inline-size", containerName: "composer", isolation: "isolate", display: "grid", alignItems: "stretch", gridTemplateColumns: "minmax(0, 1fr)" },
   withWings: { gridTemplateColumns: "3.125rem minmax(0, 1fr) 3.125rem" },
   cardColumn: { gridColumnStart: 1 },
   wingCardColumn: { gridColumnStart: 2 },
