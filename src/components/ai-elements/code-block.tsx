@@ -125,7 +125,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
   // Fallback: plain text while highlighter loads
   return (
     <pre
-      className={sx(styles.fallbackPre)}
+      className={sx(styles.fallbackPre, !resolvedLang && styles.plainPre)}
       style={{ fontSize: `${messageCodeFontSize}px` }}
     >
       <code>{code}</code>

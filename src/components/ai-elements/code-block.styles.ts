@@ -21,6 +21,10 @@ export const codeBlockStyles = stylex.create({
     paddingInline: vars["--ads-space-16"],
     paddingBlock: vars["--ads-space-12"],
     fontFamily: vars["--ads-font-mono"],
+    color: "var(--editor-foreground)",
+  },
+  plainPre: {
+    backgroundColor: "var(--background)",
     color: "inherit",
   },
   header: {

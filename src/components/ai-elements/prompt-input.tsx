@@ -607,6 +607,7 @@ export function PromptInput(args: PromptInputProps) {
                   className={sx(
                     minimal ? promptInputStyles.minimalRow : promptInputStyles.stackSm,
                   )}
+                  style={composerTextStyle}
                 >
                   {minimal ? (
                     <span className={sx(promptInputStyles.promptCaretGlyph)}>
