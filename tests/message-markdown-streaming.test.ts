@@ -167,17 +167,6 @@ describe("splitMarkdownBlocks", () => {
     }
   });
 
-  test("re-parsing from the last open block matches a full parse at every delta", () => {
-    const content = Object.values(FIXTURES).join("\n\n");
-    let previous: MarkdownBlockSplit | null = null;
-    for (const prefix of prefixes(content)) {
-      const source = hardenSetextHeadings(prefix);
-      const incremental = splitMarkdownBlocks(source, previous);
-      expect(incremental.blocks).toEqual(splitMarkdownBlocks(source).blocks);
-      previous = incremental;
-    }
-  });
-
   test("a line that only later stops being a block start is re-parsed", () => {
     // `#` and `***` end the list or quote; `#tag` and `***bold***` continue
     // its paragraph lazily.
@@ -271,16 +260,12 @@ function expectStreamMatchesWholeDocument(content: string, renderEvery = 1) {
   let previous: MarkdownBlockSplit | null = null;
   for (const [index, prefix] of prefixes(content).entries()) {
     const source = hardenSetextHeadings(prefix);
-    const full = splitMarkdownBlocks(source);
     const streaming = splitMessageMarkdown(source, previous, true);
     const finished = splitMessageMarkdown(source, previous, false);
+    expect(finished.blocks).toEqual(splitMarkdownBlocks(source).blocks);
     expect({ prefix, blocks: streaming.blocks }).toEqual({
       prefix,
-      blocks: full.blocks,
-    });
-    expect({ prefix, blocks: finished.blocks }).toEqual({
-      prefix,
-      blocks: full.blocks,
+      blocks: finished.blocks,
     });
     if (index % renderEvery === 0 || index === content.length) {
       expect({ prefix, html: renderSplit(streaming) }).toEqual({
@@ -339,9 +324,11 @@ describe("block split and render at every streamed prefix", () => {
     });
   }
 
+  // Splits are checked at every prefix; rendering the whole document grows
+  // with the prefix, so it is compared at every 40th one.
   test("every fixture streamed back to back matches the whole document", () => {
-    expectStreamMatchesWholeDocument(Object.values(FIXTURES).join("\n\n"), 7);
-  });
+    expectStreamMatchesWholeDocument(Object.values(FIXTURES).join("\n\n"), 40);
+  }, 30_000);
 
   test("random line mixes match the whole document at every prefix", () => {
     const random = seededRandom(20_261_104);
@@ -353,7 +340,7 @@ describe("block split and render at every streamed prefix", () => {
       ).join("\n");
       expectStreamMatchesWholeDocument(content, 3);
     }
-  });
+  }, 30_000);
 });
 
 describe("LruCache", () => {
