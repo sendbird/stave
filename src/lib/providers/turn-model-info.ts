@@ -88,12 +88,23 @@ export function peelContextWindowFromName(name: string): {
   };
 }
 
+/**
+ * Details arrive as display text: Cursor's own English wording, or Stave's
+ * labels in the current language, so both are recognized.
+ */
 export function classifyTurnModelDetail(detail: string): TurnModelDetailKind {
   const normalized = detail.trim();
-  if (/^fast$/i.test(normalized)) {
+  if (
+    /^fast$/i.test(normalized) ||
+    normalized === i18n.t("providers:turnModelInfo.fast") ||
+    normalized === i18n.t("providers:cursorLabels.fast")
+  ) {
     return "fast";
   }
-  if (/^thinking$/i.test(normalized)) {
+  if (
+    /^thinking$/i.test(normalized) ||
+    normalized === i18n.t("providers:cursorLabels.thinking")
+  ) {
     return "thinking";
   }
   if (CONTEXT_DETAIL.test(normalized)) {
