@@ -1674,21 +1674,13 @@ export function RepositoryWorkspaceSidebar(args: {
                                                             workspaceName={workspace.name}
                                                             branch={workspace.branch}
                                                             isDefault={workspace.isDefault}
-                                                            layout={isExpandedWorkspaceItem ? "stacked" : "trailing"}
                                                           />
                                                         );
-                                                        // Expanded: a muted second line inside the row's height.
-                                                        // Compact: the same text trails the title.
-                                                        return isExpandedWorkspaceItem ? (
-                                                          <span className={sx(repositorySidebarStyles.rowStack)}>
+                                                        return (
+                                                          <span className={sx(repositorySidebarStyles.rowIdentity)}>
                                                             {title}
                                                             {secondary}
                                                           </span>
-                                                        ) : (
-                                                          <>
-                                                            {title}
-                                                            {secondary}
-                                                          </>
                                                         );
                                                       })()}
                                                     </div>

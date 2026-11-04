@@ -84,3 +84,51 @@ for (const locale of ["en", "ko"] as const) {
     }
   }
 }
+
+for (const locale of ["en", "ko"] as const) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const density of ["regular", "compact"] as const) {
+      test(`default workspace identity stays inline: ${locale}/${theme}/${density}`, async ({ page }) => {
+        await page.goto(`/?stavePreview=sidebar-run-states&lang=${locale}&theme=${theme}`);
+        const row = page.locator('[data-preview-workspace="default"]');
+        await expect(row).toBeVisible();
+        await page.evaluate(async (density) => {
+          document.documentElement.dataset.uiDensity = density;
+          await document.fonts.ready;
+        }, density);
+        for (const width of [200, 360]) {
+          await page.locator('nav').evaluate((element, width) => { element.style.width = `${width}px`; }, width);
+          for (const id of ["default", "default-long"]) {
+            const branch = page.locator(`[data-preview-workspace="${id}"] [data-workspace-row-branch]`);
+            const geometry = await branch.evaluate((element) => {
+              const separator = element.previousElementSibling!;
+              const title = separator.previousElementSibling!;
+              const parent = element.parentElement!;
+              const boxes = [title, separator, element].map((node) => node.getBoundingClientRect());
+              const gap = Number.parseFloat(getComputedStyle(parent).gap);
+              return {
+                centerDelta: Math.max(...boxes.map((box) => Math.abs(box.y + box.height / 2 - (boxes[0].y + boxes[0].height / 2)))),
+                gapDelta: Math.max(Math.abs(boxes[1].left - boxes[0].right - gap), Math.abs(boxes[2].left - boxes[1].right - gap)),
+                overflow: boxes[2].right - parent.getBoundingClientRect().right,
+                truncated: element.scrollWidth > element.clientWidth,
+                titleTruncated: title.scrollWidth > title.clientWidth,
+                separator: separator.textContent,
+              };
+            });
+            // Subpixel layout can round each edge by half a CSS pixel.
+            expect(geometry.centerDelta).toBeLessThanOrEqual(0.5);
+            expect(geometry.gapDelta).toBeLessThanOrEqual(0.5);
+            expect(geometry.overflow).toBeLessThanOrEqual(0.5);
+            expect(geometry.titleTruncated).toBe(false);
+            expect(geometry.separator).toBe("·");
+            if (id === "default-long" && width === 200) expect(geometry.truncated).toBe(true);
+            await expect(branch).toHaveCSS("text-overflow", "ellipsis");
+          }
+        }
+        const noBranch = page.locator('[data-preview-workspace="default-no-branch"]');
+        await expect(noBranch.locator('[data-workspace-row-branch]')).toHaveCount(0);
+        await expect(noBranch).not.toContainText("·");
+      });
+    }
+  }
+}

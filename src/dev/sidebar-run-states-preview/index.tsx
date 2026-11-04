@@ -28,6 +28,7 @@ interface PreviewRow {
   name: string;
   branch: string;
   providerId: ProviderId;
+  isDefault?: boolean;
   busy?: boolean;
   attentionKind?: FleetAttentionKind;
   /** Events the turn reported, oldest first, each `msAgo` before now. */
@@ -46,6 +47,9 @@ function tool(
 }
 
 const ROWS: PreviewRow[] = [
+  { id: "default", name: "Default", branch: "main", isDefault: true, providerId: "codex" },
+  { id: "default-long", name: "Default", branch: "feat/a-long-branch-name-that-must-truncate", isDefault: true, providerId: "codex" },
+  { id: "default-no-branch", name: "Default", branch: "", isDefault: true, providerId: "codex" },
   {
     id: "working-claude",
     name: "Search index rewrite",
@@ -177,36 +181,35 @@ export function SidebarRunStatesPreview() {
       <main className={sx(styles.page)}>
         <nav className={sx(styles.sidebar)} aria-label="Workspaces">
           {ROWS.map((row) => (
-            <div key={row.id} className={sx(s.workspaceItem, row.id === "working-claude" && s.workspaceGroupActive)}>
+            <div key={row.id} data-preview-workspace={row.id} className={sx(s.workspaceItem, row.id === "working-claude" && s.workspaceGroupActive)}>
               <div className={sx(s.workspaceRow, s.row, row.id === "working-claude" ? s.workspaceRowActive : s.workspaceRowIdle)}>
                 <div className={sx(s.workspaceOpen, s.rowHit)}>
                   <span className={sx(s.workspaceLeadSlot)}>
                     <WorkspaceLeadingStatusIcon
                       workspaceId={row.id}
                       workspaceName={row.name}
-                      isDefault={false}
+                      isDefault={Boolean(row.isDefault)}
                       busy={Boolean(row.busy)}
                       attentionKind={row.attentionKind}
                     />
                   </span>
-                  <span className={sx(s.rowStack)}>
-                  <InlineWorkspaceLabel
-                    workspaceId={row.id}
-                    workspaceName={row.name}
-                    branch={row.branch}
-                    isDefault={false}
-                    isActive={false}
-                    compact={false}
-                    showBranchContext={false}
-                    onRename={async () => ({ ok: true })}
-                  />
-                  <WorkspaceRowSecondary
-                    workspaceId={row.id}
-                    workspaceName={row.name}
-                    branch={row.branch}
-                    isDefault={false}
-                    layout="stacked"
-                  />
+                  <span className={sx(s.rowIdentity)}>
+                    <InlineWorkspaceLabel
+                      workspaceId={row.id}
+                      workspaceName={row.name}
+                      branch={row.branch}
+                      isDefault={Boolean(row.isDefault)}
+                      isActive={false}
+                      compact={false}
+                      showBranchContext={false}
+                      onRename={async () => ({ ok: true })}
+                    />
+                    <WorkspaceRowSecondary
+                      workspaceId={row.id}
+                      workspaceName={row.name}
+                      branch={row.branch}
+                      isDefault={Boolean(row.isDefault)}
+                    />
                   </span>
                 </div>
               </div>

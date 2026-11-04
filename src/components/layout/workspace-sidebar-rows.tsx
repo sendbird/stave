@@ -793,20 +793,12 @@ export function InlineWorkspaceLabel(args: {
   );
 }
 
-/**
- * The muted text that follows a workspace row's title: the branch under the
- * generic Default title. `stacked` sits under the title inside the row's
- * height; `trailing` follows the title on the same line. Renders nothing when
- * there is nothing new to say. What a running turn is doing is not said here:
- * it belongs to one task, so it sits on that task's row in the list below
- * (`TaskRunProgressMeta`), where each running task says its own.
- */
+/** The default workspace's branch follows its title on the same line. */
 export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
   workspaceId: string;
   workspaceName: string;
   branch?: string;
   isDefault: boolean;
-  layout: "stacked" | "trailing";
 }) {
   const branch = resolveWorkspaceRowBranch({
     name: args.workspaceName,
@@ -817,15 +809,16 @@ export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
     return null;
   }
   return (
-    <span
-      className={sx(
-        repositorySidebarStyles.rowSecondary,
-        args.layout === "trailing" && repositorySidebarStyles.rowSecondaryTrailing,
-      )}
-      data-workspace-row-branch=""
-    >
-      {branch}
-    </span>
+    <>
+      <span className={sx(repositorySidebarStyles.rowSeparator)} aria-hidden="true">·</span>
+      <span
+        className={sx(repositorySidebarStyles.rowSecondary)}
+        data-workspace-row-branch=""
+        title={branch}
+      >
+        {branch}
+      </span>
+    </>
   );
 });
 
