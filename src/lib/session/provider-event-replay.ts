@@ -445,6 +445,8 @@ function normalizeEventToPart(args: {
       return sanitizeMessagePartPayload({
         type: "system_event",
         content: event.content,
+        ...(event.content.trim().toLowerCase().startsWith("compacting conversation context")
+          ? { startedAt: buildRecentTimestamp() } : {}),
         ...(event.compactBoundary
           ? {
               compactBoundary: {

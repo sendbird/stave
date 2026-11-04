@@ -226,6 +226,7 @@ const DocumentContextPartSchema = z.object({
 
 const SystemEventPartSchema = z.object({
   type: z.literal("system_event"),
+  startedAt: z.string().optional(),
   content: z.string(),
   compactBoundary: z
     .object({
