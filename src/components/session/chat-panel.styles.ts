@@ -28,6 +28,16 @@ export const chatPanelStyles = stylex.create({
   rowTurnStart: {
     paddingTop: vars["--ads-space-20"],
   },
+  // A user message sent right after another sits 2px under it: this row's
+  // margin takes back all but 2px of the list's in-turn gap below it.
+  rowGroupedWithNext: {
+    marginBottom: `calc(${vars["--ads-space-2"]} - ${vars["--ads-space-8"]})`,
+  },
+  // Quiet metadata above the reply it introduces; the reply keeps the usual
+  // in-turn gap below the bubble above.
+  modelChange: {
+    paddingBottom: vars["--ads-space-8"],
+  },
   rowFirst: {
     paddingTop: {
       default: vars["--ads-space-12"],
