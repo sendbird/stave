@@ -56,10 +56,10 @@ If you prefer, the task itself also shows the pending approval as a row above th
 ## In-App Toasts
 
 - Notices that need a glance — a finished turn, an approval request, a
-  workspace result, a failed save — appear as toasts in one stack at the
-  bottom-right of the window.
-- The stack shows up to three toasts at once; older ones fold behind the newest.
-- It sits above the composer and the status bar instead of covering them, and
+  workspace result, a failed save — appear as toasts at the top-center of
+  the window. Branch status notices appear separately at the bottom-right.
+- Each stack shows up to three toasts at once; older ones fold behind the newest.
+- The bottom-right stack sits above the composer and the status bar instead of covering them, and
   moves up as the composer grows.
 
 ## System Notifications

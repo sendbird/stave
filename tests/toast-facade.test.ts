@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { toast, toastManager } from "@/lib/notifications/toast";
+import { toast, toastManager, workspaceToastManager } from "@/lib/notifications/toast";
 
 type ManagerEvent = { action: string; options: Record<string, unknown> & { id?: string; updates?: Record<string, unknown> } };
 type Subscribable = { " subscribe": (listener: (event: ManagerEvent) => void) => () => void };
@@ -33,14 +33,22 @@ describe("toast facade", () => {
     expect(notifications.events.filter((event) => event.action === "add")).toHaveLength(1);
   });
 
-  test("every notice and its update go to the one host", () => {
+  test("workspace status stays in its corner through update, action and dismiss", () => {
     const notifications = record(toastManager);
-    stops.push(notifications.stop);
-    const exported = toast.loading("Exporting");
-    toast.warning("Default workspace changed branches");
-    toast.update(exported, { tone: "error", title: "Export failed" });
-    expect(notifications.events.map((event) => event.action)).toEqual(["add", "add", "update"]);
-    expect(notifications.events[2]?.options.updates).toMatchObject({ type: "danger", priority: "high" });
+    const workspace = record(workspaceToastManager);
+    stops.push(notifications.stop, workspace.stop);
+    const id = toast.loading("Exporting", { position: "bottom-right", action: { label: "Cancel", onClick: () => {} } });
+    toast.warning("Approval needed");
+    expect(notifications.events.filter((event) => event.action === "add")).toHaveLength(1);
+    expect(workspace.events.filter((event) => event.action === "add")).toHaveLength(1);
+    toast.update(id, { tone: "error", title: "Export failed" });
+    expect(workspace.events.at(-1)?.options.updates).toMatchObject({ type: "danger", priority: "high" });
+    const action = workspace.events[0].options.actionProps as { onClick: (event: unknown) => void };
+    action.onClick({ defaultPrevented: false });
+    expect(workspace.events.at(-1)).toMatchObject({ action: "close", options: { id } });
+    toast.dismiss();
+    expect(workspace.events.at(-1)?.action).toBe("close");
+    expect(notifications.events.at(-1)?.action).toBe("close");
   });
 
   test("an explicit duration wins over the settled default", () => {

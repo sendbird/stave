@@ -2,14 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../tokens/tokens.stylex";
 
-/**
- * The toast stack's own geometry and paint, split out of `ToastHost.tsx`
- * verbatim.
- *
- * A move, not a rewrite: the declarations below are byte-identical to the ones
- * that lived at the bottom of `ToastHost.tsx`, and they left because the stable
- * theme-target attributes pushed that file over the 500-line source limit.
- */
+/** Geometry and token-based paint for the shared toast stack. */
 export const styles = stylex.create({
   viewport: {
     inlineSize: `min(360px, calc(100dvw - ${vars["--ads-space-32"]}))`,
@@ -114,8 +107,10 @@ export const styles = stylex.create({
     flexShrink: 1,
     gap: vars["--ads-space-4"],
     minInlineSize: 0,
+    gridTemplateColumns: "minmax(0, 1fr)",
   },
   title: {
+    overflowWrap: "anywhere",
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-semibold"],
@@ -123,6 +118,7 @@ export const styles = stylex.create({
     margin: 0,
   },
   description: {
+    overflowWrap: "anywhere",
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],

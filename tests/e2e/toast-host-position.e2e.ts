@@ -1,11 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/**
- * The app has one toast stack, anchored bottom-right. Every notice — a store
- * notification, a workspace result, a pinned loading toast — lands in it, and
- * the stack rises above the composer and the status bar instead of covering
- * Send or a meter. Measured on the real shell at a wide and a narrow window.
- */
+/** Bottom-right workspace notices avoid controls; general notices stay top-center. */
 
 type Locale = "en" | "ko";
 
@@ -73,10 +68,11 @@ async function raiseToasts(page: Page) {
   await page.evaluate(async () => {
     const modulePath = "/src/lib/notifications/toast.ts";
     const { toast } = await import(modulePath);
-    toast.warning("Approval needed", { description: "Sort the Fleet table (2) · billing-table", duration: 0 });
-    toast.loading("Creating workspace…", { description: "feat/meter-primitive" });
+    toast.warning("Approval needed", { description: "Sort the Fleet table (2) · billing-table", duration: 0, position: "bottom-right" });
+    toast.loading("Creating workspace…", { description: "feat/meter-primitive", position: "bottom-right" });
     toast.error("Check failed", {
       duration: 0,
+      position: "bottom-right",
       description: "Open the task to inspect the result.",
       action: { label: "Open task", onClick: () => undefined },
     });
@@ -128,7 +124,7 @@ for (const { name, width, height } of [
       await expect(page.locator("footer[data-toast-avoid]")).toBeVisible();
 
       await raiseToasts(page);
-      const region = page.getByRole("region", { name: REGION[locale] });
+      const region = page.getByRole("region", { name: REGION[locale] }).filter({ has: page.locator(".atelier-toast-stack") });
       await expect(region).toHaveCount(1);
       await expect(page.locator(".atelier-toast-stack")).toHaveCount(3);
 
@@ -232,8 +228,8 @@ test("collapsed, the newest toast stays in front of the older ones", async ({ pa
   await page.evaluate(async () => {
     const modulePath = "/src/lib/notifications/toast.ts";
     const { toast } = await import(modulePath);
-    toast.loading("Creating workspace…", { description: "feat/meter-primitive" });
-    toast.warning("Approval needed", { description: "Sort the Fleet table (2) · billing-table", duration: 0 });
+    toast.loading("Creating workspace…", { description: "feat/meter-primitive", position: "bottom-right" });
+    toast.warning("Approval needed", { description: "Sort the Fleet table (2) · billing-table", duration: 0, position: "bottom-right" });
   });
   await expect(page.locator(".atelier-toast-stack")).toHaveCount(2);
   // Keep the pointer away so the stack stays collapsed.
@@ -250,3 +246,62 @@ test("collapsed, the newest toast stays in front of the older ones", async ({ pa
     )
     .toBe(true);
 });
+
+for (const width of [900, 1440]) {
+  for (const locale of ["en", "ko"] as const) {
+    for (const dark of [false, true]) {
+      for (const density of ["regular", "compact"]) {
+        test(`top-center long notice stays contained (${width}, ${locale}, ${dark}, ${density})`, async ({ page }) => {
+          await seedShell(page, locale);
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto("/");
+          await expect(page.locator("[data-toast-avoid]:not(footer)")).toBeVisible();
+          await page.evaluate(async ({ locale, dark, density }) => {
+            document.documentElement.classList.toggle("dark", dark);
+            document.documentElement.dataset.uiDensity = density;
+            const { toast } = await import("/src/lib/notifications/toast.ts");
+            toast.warning(locale === "ko" ? "입력이 필요합니다 — 서비스 요금제를 검토해 주세요" : "Input needed — Review service subscription tiers", {
+              duration: 0,
+              description: (locale === "ko" ? "서비스 재개는 완료됐습니다. 후속 수정은 별도 PR로 검토해 주세요. " : "Service has resumed. Please review the follow-up change in a separate pull request. ") + "https://example.com/review/" + "long-identifier".repeat(15),
+              action: { label: locale === "ko" ? "작업 열기" : "Open task", onClick: () => { document.documentElement.dataset.toastOpened = "true"; } },
+            });
+            await document.fonts.ready;
+          }, { locale, dark, density });
+          const card = page.locator(".atelier-toast-stack");
+          await expect(card).toBeVisible();
+          await expect.poll(() => card.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBe(density === "compact" ? 16 : GAP_PX);
+          const geometry = await card.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            const title = element.querySelector('[data-ads-slot="title"]') ?? element.querySelector("h2");
+            const close = element.querySelector('button[aria-label]')!;
+            const copy = title!.parentElement!;
+            const description = copy.lastElementChild!;
+            const icon = element.querySelector("svg")!;
+            const titleBox = title!.getBoundingClientRect();
+            const glyph = icon.getBoundingClientRect();
+            return {
+              center: rect.left + rect.width / 2,
+              copyRight: copy.getBoundingClientRect().right,
+              closeLeft: close.getBoundingClientRect().left,
+              closeWidth: close.getBoundingClientRect().width,
+              copyOverflow: copy.scrollWidth - copy.clientWidth,
+              descriptionOverflow: description.scrollWidth - description.clientWidth,
+              firstLineDelta: glyph.top + glyph.height / 2 - titleBox.top - parseFloat(getComputedStyle(title!).lineHeight) / 2,
+              background: getComputedStyle(element).backgroundColor,
+            };
+          });
+          expect(Math.abs(geometry.center - width / 2)).toBeLessThanOrEqual(1);
+          expect(geometry.copyRight).toBeLessThan(geometry.closeLeft);
+          expect(geometry.closeWidth).toBeGreaterThanOrEqual(24);
+          expect(geometry.copyOverflow).toBeLessThanOrEqual(1);
+          expect(geometry.descriptionOverflow).toBeLessThanOrEqual(1);
+          expect(Math.abs(geometry.firstLineDelta)).toBeLessThanOrEqual(1);
+          expect(geometry.background).not.toBe("rgba(0, 0, 0, 0)");
+          await card.getByRole("button", { name: locale === "ko" ? "작업 열기" : "Open task" }).click();
+          await expect(card).toHaveCount(0);
+          await expect(page.locator("html")).toHaveAttribute("data-toast-opened", "true");
+        });
+      }
+    }
+  }
+}
