@@ -6,15 +6,13 @@ import {
 } from "@/components/ads/components/ToastHost.promise";
 import type { ToastSecondaryAction } from "@/components/ads/components/ToastHost";
 
-/**
- * The one toast stack. Every notice — a store notification, a workspace
- * result, a save failure — lands in the same bottom-right host, so at most
- * `limit` cards show at once and none is split across two corners.
- */
+/** General notices appear at the top; workspace status has a separate corner. */
 export const toastManager = createToastManager();
+export const workspaceToastManager = createToastManager();
 
 type NoticeOptions = {
   id?: string;
+  position?: "top-center" | "bottom-right";
   description?: ReactNode;
   duration?: number;
   action?: { label: ReactNode; onClick: MouseEventHandler<HTMLButtonElement> };
@@ -54,7 +52,8 @@ const MANAGER_TYPE: Record<SettledKind, string> = {
 function notice(type: string) {
   return (title: ReactNode, options: NoticeOptions = {}) => {
     const id = options.id ?? crypto.randomUUID();
-    return toastManager.add({
+    const manager = options.position === "bottom-right" ? workspaceToastManager : toastManager;
+    return manager.add({
       id,
       title,
       type,
@@ -69,7 +68,7 @@ function notice(type: string) {
             children: options.action.label,
             onClick: (event) => {
               options.action?.onClick(event);
-              if (!event.defaultPrevented) toastManager.close(id);
+              if (!event.defaultPrevented) manager.close(id);
             },
           }
         : undefined,
@@ -79,7 +78,7 @@ function notice(type: string) {
               label: options.secondaryAction.label,
               onClick: (event: Parameters<MouseEventHandler<HTMLButtonElement>>[0]) => {
                 options.secondaryAction?.onClick(event);
-                if (!event.defaultPrevented) toastManager.close(id);
+                if (!event.defaultPrevented) manager.close(id);
               },
             } satisfies ToastSecondaryAction,
           }
@@ -94,7 +93,7 @@ function notice(type: string) {
  * card stacked under it.
  */
 function update(id: string, options: UpdateOptions) {
-  toastManager.update(id, {
+  for (const manager of [toastManager, workspaceToastManager]) manager.update(id, {
     ...(options.title !== undefined ? { title: options.title } : null),
     ...(options.description !== undefined ? { description: options.description } : null),
     ...(options.tone !== undefined
@@ -141,5 +140,8 @@ export const toast = Object.assign(notice("neutral"), {
   loading,
   update,
   promise,
-  dismiss: (id?: string) => toastManager.close(id),
+  dismiss: (id?: string) => {
+    toastManager.close(id);
+    workspaceToastManager.close(id);
+  },
 });

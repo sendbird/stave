@@ -516,7 +516,7 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 
 ## Notifications and issues
 
-- **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View. New notices also show as toasts in one stack at the bottom-right, above the composer and the status bar.
+- **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View. New notices also show as toasts at the top-center. Branch status notices appear at the bottom-right, above the composer and the status bar.
 - **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.
 
 @page tools | Tools | Workspace tools | reference
