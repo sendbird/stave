@@ -144,6 +144,8 @@ edge provider -> turn dashed : runs
 | Task       | One conversation inside a workspace     | Closing its tab does not archive it; archive with **Archive** in the tab menu. You can switch providers mid-task          |
 | Turn       | One response to one request             | Tool calls, approval requests and questions happen inside a turn. Messages sent while a turn runs wait in the queue       |
 
+The default workspace label and branch share one line in the sidebar (`Default · main`); long branches truncate, and the dot is hidden when there is no branch.
+
 ## Why split work into workspaces
 
 You can work directly in the Default workspace.

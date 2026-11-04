@@ -232,13 +232,17 @@ export const repositorySidebarStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  /** Title over a muted second line, both inside the one row height. */
-  rowStack: {
+  /** Keep the title, separator and branch centered on one line. */
+  rowIdentity: {
     display: "flex",
     flex: 1,
-    flexDirection: "column",
-    justifyContent: "center",
+    alignItems: "center",
+    gap: vars["--ads-space-4"],
     minWidth: 0,
+  },
+  rowSeparator: {
+    color: rowSecondaryInk,
+    flexShrink: 0,
   },
   rowSecondary: {
     color: rowSecondaryInk,

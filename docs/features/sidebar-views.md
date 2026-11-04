@@ -60,6 +60,9 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 The repository → workspace tree, unchanged: drag to reorder, rename in place, the
 `⋮` row menu for task history, workspace settings, and archive, and the row
 density menu (`Expanded` / `Compact`) in the header bar.
+The default workspace shows its label and branch on one line, separated by a
+middle dot (`Default · main`), in both densities. Long branches truncate; when
+no branch is available, only the label appears.
 
 - A workspace with a running task lists its open tasks under its row. The active
   workspace and those tasks share one selection fill, with the workspace row a
