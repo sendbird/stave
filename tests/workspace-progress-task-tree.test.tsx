@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { useSharedNow } from "@/components/ads/components/DurationTimer";
 import { WorkspaceProgressTaskTreeView } from "@/components/layout/WorkspaceProgressTaskTree";
 import { workspaceProgressTaskTreeStyles } from "@/components/layout/workspace-progress-task-tree.styles";
 import { sx } from "@/components/ads/utils/stylex";
@@ -76,7 +77,14 @@ describe("WorkspaceProgressTaskTreeView", () => {
     afterEach(() => Object.assign(initial, original));
 
     const render = (showProgress: boolean) => {
-      const now = Date.now();
+      // SSR does not subscribe to the ticker. Seed activity relative to the
+      // same snapshot as the row, even in a long-lived shared test process.
+      let now = 0;
+      function ClockSnapshot() {
+        now = useSharedNow(false);
+        return null;
+      }
+      renderToStaticMarkup(createElement(ClockSnapshot));
       const activity = applyProviderTurnActivityEvents({
         activityByTask: {},
         taskId: "task-running",
@@ -108,10 +116,8 @@ describe("WorkspaceProgressTaskTreeView", () => {
       const html = render(true);
       expect(html.match(/data-task-run-progress="working"/g)).toHaveLength(1);
       expect(html).toContain(">Read file<");
-      // The time sits in its own span after the words. Its value follows the
-      // shared clock, which does not tick under server rendering, so only its
-      // one-unit form is fixed here.
-      expect(html).toMatch(/>Read file<\/span><span[^>]*>\d+(?:s|m)<\/span>/);
+      // The time sits in its own span after the words, using the seeded clock.
+      expect(html).toMatch(/>Read file<\/span><span[^>]*>1m<\/span>/);
       expect(html).toContain(sx(workspaceProgressTaskTreeStyles.progress));
     });
 
