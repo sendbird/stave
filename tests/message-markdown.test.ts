@@ -466,7 +466,7 @@ describe("MarkdownMessage", () => {
     }
   });
 
-  test("wraps the streaming text fallback with the streaming-body style", () => {
+  test("wraps streaming paragraphs with the same paragraph style", () => {
     const html = renderToStaticMarkup(
       createElement(MarkdownMessage, {
         content:
@@ -477,24 +477,11 @@ describe("MarkdownMessage", () => {
       }),
     );
 
-    const streamingClass = sx(markdownStyles.streamingBody);
-    for (const token of streamingClass.split(/\s+/)) {
+    const paragraphClass = sx(markdownStyles.paragraph);
+    expect(html).toContain("<p ");
+    for (const token of paragraphClass.split(/\s+/)) {
       expect(html).toContain(token);
     }
-  });
-
-  test("keeps streaming text fallback as plain text for hot-path performance", () => {
-    const html = renderToStaticMarkup(
-      createElement(MarkdownMessage, {
-        content: "Local preview: https://stave.localhost:3000/test.",
-        isStreaming: true,
-        messageFontSize: 18,
-        messageCodeFontSize: 14,
-      }),
-    );
-
-    expect(html).toContain("https://stave.localhost:3000/test");
-    expect(html).not.toContain("<a");
   });
 });
 

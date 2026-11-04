@@ -1,14 +1,21 @@
 import { i18n, useTranslation } from "@/i18n";
-import type { HTMLAttributes, MouseEvent, ReactNode } from "react";
+import type {
+  HTMLAttributes,
+  MouseEvent,
+  ReactElement,
+  ReactNode,
+  RefObject,
+} from "react";
 import {
   createContext,
+  Fragment,
   isValidElement,
   useContext,
   useMemo,
   useRef,
 } from "react";
 import { ExternalLink, Globe2 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
@@ -39,6 +46,12 @@ import {
 } from "@/components/ui/table";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import { hardenSetextHeadings } from "./message-markdown.setext";
+import {
+  LruCache,
+  markdownRenderBlocks,
+  splitMarkdownBlocks,
+  type MarkdownBlockSplit,
+} from "./message-markdown-blocks";
 import { TranscriptWideBlock, TranscriptWideScope } from "./transcript-wide";
 
 export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
@@ -61,6 +74,8 @@ export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
     language?: string;
     fileHref?: string;
     resolvedFileLink?: ResolvedWorkspaceFileLink | null;
+    /** The code sits in the block a streaming reply is still writing. */
+    isStreaming?: boolean;
   }) => ReactNode;
 }
 
@@ -292,6 +307,328 @@ export function MessageFileLink({
   );
 }
 
+type MarkdownRenderHandlers = Pick<
+  MarkdownMessageProps,
+  "resolveFileLink" | "onFileLinkClick" | "renderBlockCode"
+>;
+
+interface MarkdownRenderContextValue {
+  handlers: RefObject<MarkdownRenderHandlers>;
+  messageCodeFontSize: number;
+}
+
+// ---------------------------------------------------------------------------
+// Module-level Markdown `components`.
+//
+// Markdown uses each component function as a React component type. A function
+// created per render would be a *different* type, unmount the subtree, and make
+// CodeBlockContent flash its plain fallback while highlighting re-runs. Keeping
+// the functions at module scope also makes a rendered block independent of the
+// message that rendered it, so finished blocks can be cached and reused. The
+// message's callbacks reach the components through this context.
+// ---------------------------------------------------------------------------
+const MarkdownRenderContext = createContext<MarkdownRenderContextValue>({
+  handlers: { current: {} },
+  messageCodeFontSize: 14,
+});
+
+/** True inside the block a streaming reply is still writing. */
+const MarkdownStreamingBlockContext = createContext(false);
+
+const markdownComponents: Components = {
+  hr: () => (
+    <hr className={sx(styles.hr)} />
+  ),
+  h1: ({ children }: { children?: ReactNode }) => (
+    <h1 className={sx(styles.heading, styles.heading1)}>{children}</h1>
+  ),
+  h2: ({ children }: { children?: ReactNode }) => (
+    <h2 className={sx(styles.heading, styles.heading2)}>{children}</h2>
+  ),
+  h3: ({ children }: { children?: ReactNode }) => (
+    <h3 className={sx(styles.heading, styles.heading3)}>{children}</h3>
+  ),
+  h4: ({ children }: { children?: ReactNode }) => (
+    <h4 className={sx(styles.heading, styles.heading4)}>{children}</h4>
+  ),
+  h5: ({ children }: { children?: ReactNode }) => (
+    <h5 className={sx(styles.heading, styles.heading4)}>{children}</h5>
+  ),
+  h6: ({ children }: { children?: ReactNode }) => (
+    <h6 className={sx(styles.heading, styles.heading4)}>{children}</h6>
+  ),
+  strong: ({ children }: { children?: ReactNode }) => (
+    <strong className={sx(styles.strong)}>{children}</strong>
+  ),
+  p: ({ children }: { children?: ReactNode }) => (
+    <p className={sx(styles.paragraph)}>
+      {children}
+    </p>
+  ),
+  ul: ({ children }: { children?: ReactNode }) => (
+    <ul className={sx(styles.list, styles.listUnordered)}>
+      {children}
+    </ul>
+  ),
+  ol: ({ children }: { children?: ReactNode }) => (
+    <ol className={sx(styles.list, styles.listOrdered)}>
+      {children}
+    </ol>
+  ),
+  // Items and quotes are indented, so blocks inside them keep their width.
+  li: ({ children }: { children?: ReactNode }) => (
+    <li className={sx(styles.listItem)}>
+      <TranscriptWideScope enabled={false}>{children}</TranscriptWideScope>
+    </li>
+  ),
+  blockquote: ({ children }: { children?: ReactNode }) => (
+    <blockquote>
+      <TranscriptWideScope enabled={false}>{children}</TranscriptWideScope>
+    </blockquote>
+  ),
+  code: function MarkdownCode(rawCodeProps: unknown) {
+    const { handlers, messageCodeFontSize } = useContext(
+      MarkdownRenderContext,
+    );
+    const isStreamingBlock = useContext(MarkdownStreamingBlockContext);
+    // Click handlers read `handlers.current` when clicked, so a block rendered
+    // earlier in a stream still calls the latest callback.
+    const { resolveFileLink, renderBlockCode } = handlers.current;
+    const {
+      className: codeClassName,
+      children,
+      node,
+      ...codeProps
+    } = (rawCodeProps ?? {}) as {
+      className?: string;
+      children?: ReactNode;
+      node?: MarkdownCodeNodeLike;
+      metastring?: string;
+      meta?: string;
+      "data-meta"?: string;
+    };
+    const languageToken = /language-([^\s]+)/.exec(
+      codeClassName ?? "",
+    )?.[1];
+    const languageFromClassName =
+      languageToken && !isLikelyCodeFenceFilePath(languageToken)
+        ? languageToken
+        : undefined;
+    const fileHrefFromClassName =
+      languageToken && isLikelyCodeFenceFilePath(languageToken)
+        ? normalizeCodeFencePathCandidate(languageToken)
+        : null;
+    const meta = extractCodeFenceMeta({ node, props: codeProps });
+    const fileHrefFromMeta = parseCodeFenceMetaForFilePath(meta);
+    const text = String(children ?? "");
+    const code = text.replace(/\n$/, "");
+    const fileHref = fileHrefFromMeta ?? fileHrefFromClassName ?? undefined;
+    const isBlock =
+      Boolean(languageFromClassName) ||
+      Boolean(fileHref) ||
+      text.includes("\n");
+    if (isBlock) {
+      const resolvedFileLink = fileHref
+        ? (resolveFileLink?.({
+            href: fileHref,
+            allowUnknownPath: true,
+          }) ?? null)
+        : null;
+      if (renderBlockCode) {
+        return renderBlockCode({
+          code,
+          language: languageFromClassName,
+          fileHref,
+          resolvedFileLink,
+          isStreaming: isStreamingBlock,
+        });
+      }
+      return (
+        <pre>
+          <code>{code}</code>
+        </pre>
+      );
+    }
+
+    const inlineHref = text.trim();
+    const resolvedFileLink = inlineHref
+      ? (resolveFileLink?.({ href: inlineHref }) ??
+        (inlineHref.includes("/")
+          ? resolveFileLink?.({
+              href: inlineHref,
+              allowUnknownPath: true,
+            })
+          : null))
+      : null;
+    if (resolvedFileLink) {
+      return (
+        <MessageFileLink
+          href={inlineHref}
+          filePath={resolvedFileLink.filePath}
+          fileName={resolvedFileLink.fileName}
+          line={resolvedFileLink.line}
+          column={resolvedFileLink.column}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) =>
+            void handlers.current.onFileLinkClick?.({
+              event,
+              href: inlineHref,
+              resolvedFileLink,
+            })
+          }
+        />
+      );
+    }
+
+    return (
+      <InlineCode fontSize={messageCodeFontSize}>
+        {children}
+      </InlineCode>
+    );
+  },
+  pre: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  a: function MarkdownLink({
+    href,
+    children,
+  }: {
+    href?: string;
+    children?: ReactNode;
+  }) {
+    useTranslation();
+    const { handlers } = useContext(MarkdownRenderContext);
+    const { resolveFileLink } = handlers.current;
+    const isInTableCell = useContext(MarkdownTableCellContext);
+    const resolvedFileLink =
+      resolveFileLink?.({ href }) ??
+      (href && href.includes("/")
+        ? resolveFileLink?.({ href, allowUnknownPath: true })
+        : null);
+    if (resolvedFileLink) {
+      return (
+        <MessageFileLink
+          href={href}
+          filePath={resolvedFileLink.filePath}
+          fileName={resolvedFileLink.fileName}
+          line={resolvedFileLink.line}
+          column={resolvedFileLink.column}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) =>
+            void handlers.current.onFileLinkClick?.({
+              event,
+              href,
+              resolvedFileLink,
+            })
+          }
+        />
+      );
+    }
+
+    const serviceLinkBadge = resolveServiceLinkBadge(href);
+    if (href && serviceLinkBadge) {
+      const childText = extractPlainText(children).trim();
+      return (
+        <ServiceLinkBadge
+          href={href}
+          badge={serviceLinkBadge}
+          label={childText && childText !== href ? childText : undefined}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) =>
+            void handlers.current.onFileLinkClick?.({ event, href })
+          }
+        />
+      );
+    }
+
+    const childText = extractPlainText(children).trim();
+    if (
+      href &&
+      childText &&
+      (childText !== href || isInTableCell) &&
+      isHttpExternalLink(href)
+    ) {
+      return (
+        <MessageExternalLinkChip
+          href={href}
+          onClick={(event: MouseEvent<HTMLAnchorElement>) =>
+            void handlers.current.onFileLinkClick?.({ event, href })
+          }
+        >
+          {children}
+        </MessageExternalLinkChip>
+      );
+    }
+
+    return (
+      <ExternalAnchor
+        href={href}
+        className={sx(styles.link)}
+        onClick={(event: MouseEvent<HTMLAnchorElement>) =>
+          void handlers.current.onFileLinkClick?.({ event, href })
+        }
+      >
+        {children}
+      </ExternalAnchor>
+    );
+  },
+  table: ({ children }: { children?: ReactNode }) => (
+    <TranscriptWideBlock>
+      <Table className={sx(styles.table)}>
+        {children}
+      </Table>
+    </TranscriptWideBlock>
+  ),
+  thead: ({ children }: { children?: ReactNode }) => (
+    <TableHeader className={sx(styles.tableHeader)}>{children}</TableHeader>
+  ),
+  tbody: ({ children }: { children?: ReactNode }) => (
+    <TableBody>{children}</TableBody>
+  ),
+  tr: ({ children }: { children?: ReactNode }) => (
+    <TableRow className={sx(styles.tableRow)}>{children}</TableRow>
+  ),
+  th: ({ children }: { children?: ReactNode }) => (
+    <TableHead className={sx(styles.tableHead)}>
+      {children}
+    </TableHead>
+  ),
+  td: ({ children }: { children?: ReactNode }) => (
+    <MarkdownTableCellContext.Provider value>
+      <TableCell className={sx(styles.tableCell)}>
+        {children}
+      </TableCell>
+    </MarkdownTableCellContext.Provider>
+  ),
+};
+
+const remarkPlugins = [remarkGfm];
+
+/**
+ * Render Markdown text as one document with the message components. Each
+ * top-level block goes through it; tests use it on a whole message as the
+ * reference a block-by-block render must match.
+ */
+export function renderMarkdownBlock(text: string): ReactElement {
+  return Markdown({
+    children: text,
+    remarkPlugins,
+    components: markdownComponents,
+  });
+}
+
+// Rendered output of finished blocks, shared by every message: reopening a
+// task or re-rendering a finished reply reuses it instead of parsing again.
+// The elements hold no per-message state; callbacks come from context.
+const finishedBlockElements = new LruCache<string, ReactElement>(2_000);
+// Block splits of finished replies, keyed by the (setext-hardened) source.
+const finishedReplySplits = new LruCache<string, MarkdownBlockSplit>(200);
+
+function finishedBlockElement(text: string): ReactElement {
+  const cached = finishedBlockElements.get(text);
+  if (cached) {
+    return cached;
+  }
+  const element = renderMarkdownBlock(text);
+  finishedBlockElements.set(text, element);
+  return element;
+}
+
 export function MarkdownMessage({
   content,
   isStreaming,
@@ -304,281 +641,43 @@ export function MarkdownMessage({
   ...props
 }: MarkdownMessageProps) {
   useTranslation();
-  // ---------------------------------------------------------------------------
-  // Stable ReactMarkdown `components` object.
-  //
-  // ReactMarkdown uses each component function as a React component type via
-  // createElement(). If the function reference changes between renders, React
-  // treats it as a *different* component and unmounts/remounts the subtree.
-  // For CodeBlockContent this means losing the highlighted-HTML state and
-  // flashing the un-highlighted fallback while Shiki re-runs.
-  //
-  // We keep the component functions stable by storing mutable props in refs
-  // and reading them inside the (stable) component closures.
-  // ---------------------------------------------------------------------------
-  const renderBlockCodeRef = useRef(renderBlockCode);
-  renderBlockCodeRef.current = renderBlockCode;
-  const messageCodeFontSizeRef = useRef(messageCodeFontSize);
-  messageCodeFontSizeRef.current = messageCodeFontSize;
-  const resolveFileLinkRef = useRef(resolveFileLink);
-  resolveFileLinkRef.current = resolveFileLink;
-  const onFileLinkClickRef = useRef(onFileLinkClick);
-  onFileLinkClickRef.current = onFileLinkClick;
+  const handlers = useRef<MarkdownRenderHandlers>({});
+  handlers.current = { resolveFileLink, onFileLinkClick, renderBlockCode };
+  const streamingContext = useMemo(
+    () => ({ handlers, messageCodeFontSize }),
+    [messageCodeFontSize],
+  );
+  // While a reply streams, finished blocks keep what they rendered and only
+  // the growing block re-renders. Otherwise every render hands code and link
+  // components a new context value, so they re-resolve file links and re-run
+  // `renderBlockCode` (for example once the reply stops streaming).
+  const renderContext = isStreaming
+    ? streamingContext
+    : { handlers, messageCodeFontSize };
 
-  const components = useMemo(
-    () => ({
-      hr: () => (
-        <hr className={sx(styles.hr)} />
-      ),
-      h1: ({ children }: { children?: ReactNode }) => (
-        <h1 className={sx(styles.heading, styles.heading1)}>{children}</h1>
-      ),
-      h2: ({ children }: { children?: ReactNode }) => (
-        <h2 className={sx(styles.heading, styles.heading2)}>{children}</h2>
-      ),
-      h3: ({ children }: { children?: ReactNode }) => (
-        <h3 className={sx(styles.heading, styles.heading3)}>{children}</h3>
-      ),
-      h4: ({ children }: { children?: ReactNode }) => (
-        <h4 className={sx(styles.heading, styles.heading4)}>{children}</h4>
-      ),
-      h5: ({ children }: { children?: ReactNode }) => (
-        <h5 className={sx(styles.heading, styles.heading4)}>{children}</h5>
-      ),
-      h6: ({ children }: { children?: ReactNode }) => (
-        <h6 className={sx(styles.heading, styles.heading4)}>{children}</h6>
-      ),
-      strong: ({ children }: { children?: ReactNode }) => (
-        <strong className={sx(styles.strong)}>{children}</strong>
-      ),
-      p: ({ children }: { children?: ReactNode }) => (
-        <p className={sx(styles.paragraph)}>
-          {children}
-        </p>
-      ),
-      ul: ({ children }: { children?: ReactNode }) => (
-        <ul className={sx(styles.list, styles.listUnordered)}>
-          {children}
-        </ul>
-      ),
-      ol: ({ children }: { children?: ReactNode }) => (
-        <ol className={sx(styles.list, styles.listOrdered)}>
-          {children}
-        </ol>
-      ),
-      // Items and quotes are indented, so blocks inside them keep their width.
-      li: ({ children }: { children?: ReactNode }) => (
-        <li className={sx(styles.listItem)}>
-          <TranscriptWideScope enabled={false}>{children}</TranscriptWideScope>
-        </li>
-      ),
-      blockquote: ({ children }: { children?: ReactNode }) => (
-        <blockquote>
-          <TranscriptWideScope enabled={false}>{children}</TranscriptWideScope>
-        </blockquote>
-      ),
-      code: (rawCodeProps: unknown) => {
-        const {
-          className: codeClassName,
-          children,
-          node,
-          ...codeProps
-        } = (rawCodeProps ?? {}) as {
-          className?: string;
-          children?: ReactNode;
-          node?: MarkdownCodeNodeLike;
-          metastring?: string;
-          meta?: string;
-          "data-meta"?: string;
-        };
-        const languageToken = /language-([^\s]+)/.exec(
-          codeClassName ?? "",
-        )?.[1];
-        const languageFromClassName =
-          languageToken && !isLikelyCodeFenceFilePath(languageToken)
-            ? languageToken
-            : undefined;
-        const fileHrefFromClassName =
-          languageToken && isLikelyCodeFenceFilePath(languageToken)
-            ? normalizeCodeFencePathCandidate(languageToken)
-            : null;
-        const meta = extractCodeFenceMeta({ node, props: codeProps });
-        const fileHrefFromMeta = parseCodeFenceMetaForFilePath(meta);
-        const text = String(children ?? "");
-        const code = text.replace(/\n$/, "");
-        const fileHref = fileHrefFromMeta ?? fileHrefFromClassName ?? undefined;
-        const isBlock =
-          Boolean(languageFromClassName) ||
-          Boolean(fileHref) ||
-          text.includes("\n");
-        if (isBlock) {
-          const resolvedFileLink = fileHref
-            ? (resolveFileLinkRef.current?.({
-                href: fileHref,
-                allowUnknownPath: true,
-              }) ?? null)
-            : null;
-          const renderFn = renderBlockCodeRef.current;
-          if (renderFn) {
-            return renderFn({
-              code,
-              language: languageFromClassName,
-              fileHref,
-              resolvedFileLink,
-            });
-          }
-          return (
-            <pre>
-              <code>{code}</code>
-            </pre>
-          );
-        }
+  const previousSplit = useRef<MarkdownBlockSplit | null>(null);
+  const split = useMemo(() => {
+    const source = hardenSetextHeadings(content);
+    if (isStreaming) {
+      return splitMarkdownBlocks(source, previousSplit.current);
+    }
+    const cached = finishedReplySplits.get(source);
+    if (cached) {
+      return cached;
+    }
+    const next = splitMarkdownBlocks(source, previousSplit.current);
+    finishedReplySplits.set(source, next);
+    return next;
+  }, [content, isStreaming]);
+  previousSplit.current = split;
 
-        const inlineHref = text.trim();
-        const resolvedFileLink = inlineHref
-          ? (resolveFileLinkRef.current?.({ href: inlineHref }) ??
-            (inlineHref.includes("/")
-              ? resolveFileLinkRef.current?.({
-                  href: inlineHref,
-                  allowUnknownPath: true,
-                })
-              : null))
-          : null;
-        if (resolvedFileLink) {
-          return (
-            <MessageFileLink
-              href={inlineHref}
-              filePath={resolvedFileLink.filePath}
-              fileName={resolvedFileLink.fileName}
-              line={resolvedFileLink.line}
-              column={resolvedFileLink.column}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) =>
-                void onFileLinkClickRef.current?.({
-                  event,
-                  href: inlineHref,
-                  resolvedFileLink,
-                })
-              }
-            />
-          );
-        }
-
-        return (
-          <InlineCode fontSize={messageCodeFontSizeRef.current}>
-            {children}
-          </InlineCode>
-        );
-      },
-      pre: ({ children }: { children?: ReactNode }) => <>{children}</>,
-      a: function MarkdownLink({
-        href,
-        children,
-      }: {
-        href?: string;
-        children?: ReactNode;
-      }) {
-  useTranslation();
-        const isInTableCell = useContext(MarkdownTableCellContext);
-        const resolvedFileLink =
-          resolveFileLinkRef.current?.({ href }) ??
-          (href && href.includes("/")
-            ? resolveFileLinkRef.current?.({ href, allowUnknownPath: true })
-            : null);
-        if (resolvedFileLink) {
-          return (
-            <MessageFileLink
-              href={href}
-              filePath={resolvedFileLink.filePath}
-              fileName={resolvedFileLink.fileName}
-              line={resolvedFileLink.line}
-              column={resolvedFileLink.column}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) =>
-                void onFileLinkClickRef.current?.({
-                  event,
-                  href,
-                  resolvedFileLink,
-                })
-              }
-            />
-          );
-        }
-
-        const serviceLinkBadge = resolveServiceLinkBadge(href);
-        if (href && serviceLinkBadge) {
-          const childText = extractPlainText(children).trim();
-          return (
-            <ServiceLinkBadge
-              href={href}
-              badge={serviceLinkBadge}
-              label={childText && childText !== href ? childText : undefined}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) =>
-                void onFileLinkClickRef.current?.({ event, href })
-              }
-            />
-          );
-        }
-
-        const childText = extractPlainText(children).trim();
-        if (
-          href &&
-          childText &&
-          (childText !== href || isInTableCell) &&
-          isHttpExternalLink(href)
-        ) {
-          return (
-            <MessageExternalLinkChip
-              href={href}
-              onClick={(event: MouseEvent<HTMLAnchorElement>) =>
-                void onFileLinkClickRef.current?.({ event, href })
-              }
-            >
-              {children}
-            </MessageExternalLinkChip>
-          );
-        }
-
-        return (
-          <ExternalAnchor
-            href={href}
-            className={sx(styles.link)}
-            onClick={(event: MouseEvent<HTMLAnchorElement>) =>
-              void onFileLinkClickRef.current?.({ event, href })
-            }
-          >
-            {children}
-          </ExternalAnchor>
-        );
-      },
-      table: ({ children }: { children?: ReactNode }) => (
-        <TranscriptWideBlock>
-          <Table className={sx(styles.table)}>
-            {children}
-          </Table>
-        </TranscriptWideBlock>
-      ),
-      thead: ({ children }: { children?: ReactNode }) => (
-        <TableHeader className={sx(styles.tableHeader)}>{children}</TableHeader>
-      ),
-      tbody: ({ children }: { children?: ReactNode }) => (
-        <TableBody>{children}</TableBody>
-      ),
-      tr: ({ children }: { children?: ReactNode }) => (
-        <TableRow className={sx(styles.tableRow)}>{children}</TableRow>
-      ),
-      th: ({ children }: { children?: ReactNode }) => (
-        <TableHead className={sx(styles.tableHead)}>
-          {children}
-        </TableHead>
-      ),
-      td: ({ children }: { children?: ReactNode }) => (
-        <MarkdownTableCellContext.Provider value>
-          <TableCell className={sx(styles.tableCell)}>
-            {children}
-          </TableCell>
-        </MarkdownTableCellContext.Provider>
-      ),
-    }),
-    [],
+  const blocks = useMemo(() => markdownRenderBlocks(split), [split]);
+  const streamingIndex = isStreaming ? blocks.length - 1 : -1;
+  const streamingText = blocks[streamingIndex];
+  const streamingElement = useMemo(
+    () =>
+      streamingText === undefined ? null : renderMarkdownBlock(streamingText),
+    [streamingText],
   );
 
   return (
@@ -591,15 +690,22 @@ export function MarkdownMessage({
       data-streaming={isStreaming ? "true" : undefined}
       {...props}
     >
-      {isStreaming ? (
-        <div className={sx(styles.streamingBody)}>
-          {content}
-        </div>
-      ) : (
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-          {hardenSetextHeadings(content)}
-        </ReactMarkdown>
-      )}
+      <MarkdownRenderContext.Provider value={renderContext}>
+        {blocks.map((text, index) => (
+          // Blocks only grow at the end, so an index keeps each one mounted.
+          <Fragment key={index}>
+            {/* The newline a whole-document render puts between blocks. */}
+            {index > 0 ? "\n" : null}
+            <MarkdownStreamingBlockContext.Provider
+              value={index === streamingIndex}
+            >
+              {index === streamingIndex
+                ? streamingElement
+                : finishedBlockElement(text)}
+            </MarkdownStreamingBlockContext.Provider>
+          </Fragment>
+        ))}
+      </MarkdownRenderContext.Provider>
     </div>
   );
 }
