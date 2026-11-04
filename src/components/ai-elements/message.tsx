@@ -297,9 +297,19 @@ export function MessageResponse({
       messageCodeFontSize={messageCodeFontSize}
       resolveFileLink={resolveFileLink}
       onFileLinkClick={handleFileLinkClick}
-      renderBlockCode={({ code, language, fileHref, resolvedFileLink }) => {
+      renderBlockCode={({
+        code,
+        language,
+        fileHref,
+        resolvedFileLink,
+        isStreaming: isStreamingBlock,
+      }) => {
         const block = (
-          <CodeBlock code={code} language={language}>
+          <CodeBlock
+            code={code}
+            language={language}
+            isStreaming={isStreamingBlock}
+          >
             <CodeBlockHeader>
               <CodeBlockTitle className={sx(styles.codeTitle)}>
                 {resolvedFileLink ? (
