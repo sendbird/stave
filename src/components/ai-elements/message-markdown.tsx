@@ -49,7 +49,7 @@ import { hardenSetextHeadings } from "./message-markdown.setext";
 import {
   LruCache,
   markdownRenderBlocks,
-  splitMarkdownBlocks,
+  splitMessageMarkdown,
   type MarkdownBlockSplit,
 } from "./message-markdown-blocks";
 import { TranscriptWideBlock, TranscriptWideScope } from "./transcript-wide";
@@ -659,13 +659,13 @@ export function MarkdownMessage({
   const split = useMemo(() => {
     const source = hardenSetextHeadings(content);
     if (isStreaming) {
-      return splitMarkdownBlocks(source, previousSplit.current);
+      return splitMessageMarkdown(source, previousSplit.current, true);
     }
     const cached = finishedReplySplits.get(source);
     if (cached) {
       return cached;
     }
-    const next = splitMarkdownBlocks(source, previousSplit.current);
+    const next = splitMessageMarkdown(source, previousSplit.current, false);
     finishedReplySplits.set(source, next);
     return next;
   }, [content, isStreaming]);

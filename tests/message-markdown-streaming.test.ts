@@ -9,6 +9,7 @@ import {
   LruCache,
   markdownRenderBlocks,
   splitMarkdownBlocks,
+  splitMessageMarkdown,
   type MarkdownBlockSplit,
 } from "@/components/ai-elements/message-markdown-blocks";
 import { hardenSetextHeadings } from "@/components/ai-elements/message-markdown.setext";
@@ -145,15 +146,16 @@ describe("splitMarkdownBlocks", () => {
         `${FIXTURES.looseList}\n\n${FIXTURES.fencedWithBlankLines}\n\n${FIXTURES.table}`,
       ),
     );
+    // Each block keeps the newlines up to the next one.
     expect(markdownRenderBlocks(split)).toEqual([
-      "- first\n\n- second\n\n\n- third after two blank lines",
-      "After the list.",
-      "Run this:",
-      "```ts\nconst a = 1;\n\n\nconst b = 2;\n```",
-      "Then this:",
-      "~~~\nplain\n~~~",
-      "Results:",
-      "| Name | Value |\n| --- | ---: |\n| `alpha` | 1 |\n| beta | [link](https://example.com) |",
+      "- first\n\n- second\n\n\n- third after two blank lines\n\n",
+      "After the list.\n\n",
+      "Run this:\n\n",
+      "```ts\nconst a = 1;\n\n\nconst b = 2;\n```\n\n",
+      "Then this:\n\n",
+      "~~~\nplain\n~~~\n\n",
+      "Results:\n\n",
+      "| Name | Value |\n| --- | ---: |\n| `alpha` | 1 |\n| beta | [link](https://example.com) |\n\n",
       "Done.",
     ]);
   });
@@ -177,10 +179,11 @@ describe("splitMarkdownBlocks", () => {
   });
 
   test("a line that only later stops being a block start is re-parsed", () => {
-    // `#` and `***` interrupt the paragraph; `#tag` and `***bold***` continue it.
+    // `#` and `***` end the list or quote; `#tag` and `***bold***` continue
+    // its paragraph lazily.
     for (const [before, after] of [
-      ["para\n#", "para\n#tag"],
-      ["para\n***", "para\n***bold***"],
+      ["- item\n#", "- item\n#tag"],
+      ["> quote\n***", "> quote\n***bold***"],
     ] as const) {
       const previous = splitMarkdownBlocks(before);
       expect(previous.blocks).toHaveLength(2);
@@ -193,22 +196,163 @@ describe("splitMarkdownBlocks", () => {
   test("an edited (not appended) source is parsed from scratch", () => {
     const previous = splitMarkdownBlocks("one\n\ntwo\n\nthree");
     const edited = splitMarkdownBlocks("uno\n\ntwo\n\nthree", previous);
-    expect(edited.blocks.map((block) => block.text)).toEqual(["uno", "two", "three"]);
+    expect(edited.blocks.map((block) => block.text)).toEqual([
+      "uno\n\n",
+      "two\n\n",
+      "three",
+    ]);
   });
 
   test("reuses every block before the one that can still change", () => {
-    // The last block's first line is complete: only that block is re-parsed.
-    const complete = splitMarkdownBlocks("one\n\ntwo\n\nthree\n");
-    const next = splitMarkdownBlocks("one\n\ntwo\n\nthree\nfour", complete);
+    // The last block's first two lines are complete: only it is re-parsed.
+    const complete = splitMarkdownBlocks("one\n\ntwo\n\nthree\nmore\n");
+    const next = splitMarkdownBlocks(
+      "one\n\ntwo\n\nthree\nmore\nfour",
+      complete,
+    );
     expect(next.blocks[0]).toBe(complete.blocks[0]!);
     expect(next.blocks[1]).toBe(complete.blocks[1]!);
-    expect(next.blocks[2]?.text).toBe("three\nfour");
+    expect(next.blocks[2]?.text).toBe("three\nmore\nfour");
+
+    // Its second line is still being written (it could still turn the first
+    // line into a table header): the block before is re-parsed too.
+    const oneLine = splitMarkdownBlocks("one\n\ntwo\n\nthree\n");
+    const grown = splitMarkdownBlocks("one\n\ntwo\n\nthree\nfour", oneLine);
+    expect(grown.blocks[0]).toBe(oneLine.blocks[0]!);
+    expect(grown.blocks[1]).not.toBe(oneLine.blocks[1]!);
 
     // Its first line is still being written: the block before is re-parsed too.
     const partial = splitMarkdownBlocks("one\n\ntwo\n\nthr");
     const after = splitMarkdownBlocks("one\n\ntwo\n\nthree", partial);
     expect(after.blocks[0]).toBe(partial.blocks[0]!);
     expect(after.blocks[1]).not.toBe(partial.blocks[1]!);
+  });
+});
+
+/**
+ * Inputs where a block's structure depends on the text around it: a later
+ * line that merges a block back into the one before, a block that loses its
+ * closing newline, a node the parser reads differently after a paragraph or an
+ * indented code block, setext underlines, tables, HTML blocks, lazy
+ * continuation, and definitions.
+ */
+const CONTEXT_SENSITIVE: Record<string, string> = {
+  tableThatTurnsBackIntoParagraph: "x\n2. b\n|---|-\n\nafter",
+  closingTagAfterList:
+    "1. a\n</script>\n\n- b\n</style>\n\n- c\n</pre>\n\nafter",
+  tableInterruptingParagraph: "x\n2)\n|:-|\n\n| a | b |\n| --- | --- |\nrow\n\nend",
+  emptyListItemAfterParagraph: "para\n- -\n- b\n\npara\n> -",
+  indentedCode: "    code\n\n-\n\n>\n    code\n\n*\n\ndone",
+  orderedListNotAtOne: "intro\n2. two\n3. three\n\n2. list\n3. more",
+  setext:
+    "Title\n=====\nSub\n---\nprose\n--\n- item\n---\n\nAnother\n===\n\n> q\n---",
+  htmlBlocks:
+    "<div>\n*a*\n</div>\n\n<script>\nlet a = 1;\n\n</script>\nafter\n<!-- c\n\n-->\n<pre>\nx\n</pre>\n<x-y>\ntext",
+  lazyContinuation:
+    "> quote\nlazy\n- item\nlazy item\n\n1. one\n2. two\nlazy\n\n> - nested\nlazy too",
+  definitions:
+    "See [x] and [^n].\n\n[x]: /u\n  \"title\nmore\"\n\n[^n]: note\n    more\n\ntail",
+};
+
+/** Render a split the way `MarkdownMessage` does: block by block. */
+function renderSplit(split: MarkdownBlockSplit) {
+  return markdownRenderBlocks(split)
+    .map((text) => normalizeIds(renderToStaticMarkup(renderMarkdownBlock(text))))
+    .join("\n");
+}
+
+/**
+ * Stream `content` one character at a time. At every prefix, the streaming
+ * split and the split of the reply finished at that point (after the same
+ * streaming history) must equal a full parse and render like the whole
+ * document.
+ */
+function expectStreamMatchesWholeDocument(content: string, renderEvery = 1) {
+  let previous: MarkdownBlockSplit | null = null;
+  for (const [index, prefix] of prefixes(content).entries()) {
+    const source = hardenSetextHeadings(prefix);
+    const full = splitMarkdownBlocks(source);
+    const streaming = splitMessageMarkdown(source, previous, true);
+    const finished = splitMessageMarkdown(source, previous, false);
+    expect({ prefix, blocks: streaming.blocks }).toEqual({
+      prefix,
+      blocks: full.blocks,
+    });
+    expect({ prefix, blocks: finished.blocks }).toEqual({
+      prefix,
+      blocks: full.blocks,
+    });
+    if (index % renderEvery === 0 || index === content.length) {
+      expect({ prefix, html: renderSplit(streaming) }).toEqual({
+        prefix,
+        html: renderWholeDocument(prefix),
+      });
+    }
+    previous = streaming;
+  }
+}
+
+/** A small deterministic generator, so a failure names a reproducible seed. */
+function seededRandom(seed: number) {
+  let state = seed;
+  return () => {
+    state = (state * 1_103_515_245 + 12_345) & 0x7f_ff_ff_ff;
+    return state / 0x7f_ff_ff_ff;
+  };
+}
+
+const RANDOM_LINES = [
+  "x", "para", "2. b", "1. a", "- a", "-", "- -", "*", "1.", "2)", "  - nested",
+  "   more", "|---|", "|---|-", "| a | b |", "| --- | --- |", "|:-", "a|b",
+  "---", "===", "--", "***", "# h", "#tag", "> q", ">", "> -", "```", "~~~ts",
+  "    code", "\tcode", "</script>", "</pre>", "<div>", "</div>", "<!-- c",
+  "-->", "", "", "", "[x]: /u", "[^1]: note", "\"title\"", "10. ten",
+  "- [ ] t", "foo\\",
+];
+
+describe("block split and render at every streamed prefix", () => {
+  test("a table that turns back into a paragraph does not freeze the list before it", () => {
+    const before = splitMessageMarkdown("x\n2. b\n|---|", null, true);
+    const streaming = splitMessageMarkdown("x\n2. b\n|---|-", before, true);
+    const finished = splitMessageMarkdown("x\n2. b\n|---|-", streaming, false);
+    for (const split of [streaming, finished]) {
+      expect(markdownRenderBlocks(split)).toEqual(["x\n2. b\n|---|-"]);
+      expect(renderSplit(split)).toBe(renderWholeDocument("x\n2. b\n|---|-"));
+    }
+    expect(renderSplit(streaming)).not.toContain("<ol");
+  });
+
+  test("a finished reply keeps the newline that ends each block", () => {
+    for (const tag of ["</script>", "</style>", "</pre>"]) {
+      for (const marker of ["1.", "-"]) {
+        const content = `${marker} a\n${tag}\n\nafter`;
+        const html = renderSplit(splitMessageMarkdown(content, null, false));
+        expect(html).toBe(renderWholeDocument(content));
+        expect(html).toMatch(/<li[^>]*>a\n&lt;\//);
+      }
+    }
+  });
+
+  for (const [name, content] of Object.entries(CONTEXT_SENSITIVE)) {
+    test(`${name}: streamed and finished renders equal the whole document`, () => {
+      expectStreamMatchesWholeDocument(content);
+    });
+  }
+
+  test("every fixture streamed back to back matches the whole document", () => {
+    expectStreamMatchesWholeDocument(Object.values(FIXTURES).join("\n\n"), 7);
+  });
+
+  test("random line mixes match the whole document at every prefix", () => {
+    const random = seededRandom(20_261_104);
+    for (let doc = 0; doc < 40; doc += 1) {
+      const lineCount = 2 + Math.floor(random() * 7);
+      const content = Array.from(
+        { length: lineCount },
+        () => RANDOM_LINES[Math.floor(random() * RANDOM_LINES.length)],
+      ).join("\n");
+      expectStreamMatchesWholeDocument(content, 3);
+    }
   });
 });
 
