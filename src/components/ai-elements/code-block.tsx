@@ -41,15 +41,26 @@ interface CodeBlockProps extends HTMLAttributes<HTMLDivElement> {
   code: string;
   language?: string;
   showLineNumbers?: boolean;
+  /**
+   * The code is still being written. It shows as plain text and is highlighted
+   * once it stops changing, so a streaming block neither queues a highlight per
+   * delta nor fills the highlight cache with partial code.
+   */
+  isStreaming?: boolean;
 }
 
-export function CodeBlock({ code, language, showLineNumbers, className, children, ...props }: CodeBlockProps) {
+export function CodeBlock({ code, language, showLineNumbers, isStreaming, className, children, ...props }: CodeBlockProps) {
   useTranslation();
   return (
     <CodeBlockContext.Provider value={{ code }}>
       <div className={cx(sx(styles.root), className)} {...props}>
         {children}
-        <CodeBlockContent code={code} language={language} showLineNumbers={showLineNumbers} />
+        <CodeBlockContent
+          code={code}
+          language={language}
+          showLineNumbers={showLineNumbers}
+          isStreaming={isStreaming}
+        />
       </div>
     </CodeBlockContext.Provider>
   );
@@ -70,20 +81,24 @@ interface CodeBlockContentProps {
   code: string;
   language?: string;
   showLineNumbers?: boolean;
+  isStreaming?: boolean;
 }
 
-export const CodeBlockContent = memo(function CodeBlockContent({ code, language }: CodeBlockContentProps) {
+export const CodeBlockContent = memo(function CodeBlockContent({ code, language, isStreaming }: CodeBlockContentProps) {
   useTranslation();
   const resolvedLang = resolveCodeBlockLanguage(language);
   const cacheKey = _highlightCache.keyFor(code, resolvedLang ?? "text");
   const cached = _highlightCache.get(cacheKey);
-  const [html, setHtml] = useState<string | null>(cached ?? null);
+  const [highlightedHtml, setHtml] = useState<string | null>(cached ?? null);
+  // A cache hit always matches the current code; while streaming, anything
+  // else would be the highlight of an older, shorter version.
+  const html = cached ?? (isStreaming ? null : highlightedHtml);
   const textScale = useMessageTextScale();
   const settingsCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
   const messageCodeFontSize = scaleMessageCodeFontSize(textScale, settingsCodeFontSize);
 
   useEffect(() => {
-    if (!resolvedLang) {
+    if (isStreaming || !resolvedLang) {
       setHtml(null);
       return;
     }
@@ -109,7 +124,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
     return () => {
       cancelled = true;
     };
-  }, [code, resolvedLang, cacheKey]);
+  }, [code, resolvedLang, cacheKey, isStreaming]);
 
   if (html && resolvedLang) {
     return (

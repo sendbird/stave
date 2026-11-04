@@ -150,6 +150,10 @@ if (preview === "question-reply") {
       </StrictMode>,
     );
   });
+} else if (preview === "markdown-streaming") {
+  void import("@/dev/markdown-streaming-preview").then(({ MarkdownStreamingPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><MarkdownStreamingPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "agent-messages") {
   void import("@/dev/agent-preview").then(({ AgentPreviewApp }) => {
     root.render(

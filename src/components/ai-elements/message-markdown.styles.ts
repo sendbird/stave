@@ -265,9 +265,4 @@ export const markdownStyles = stylex.create({
     minWidth: 0,
     maxWidth: "100%",
   },
-  streamingBody: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    overflowWrap: "anywhere",
-  },
 });
