@@ -23,6 +23,10 @@ export const codeBlockStyles = stylex.create({
     fontFamily: vars["--ads-font-mono"],
     color: "var(--editor-foreground)",
   },
+  plainPre: {
+    backgroundColor: "var(--background)",
+    color: "inherit",
+  },
   header: {
     display: "flex",
     alignItems: "center",
