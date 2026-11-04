@@ -144,6 +144,8 @@ edge provider -> turn dashed : runs
 | Task       | One conversation inside a workspace     | Closing its tab does not archive it; archive with **Archive** in the tab menu. You can switch providers mid-task          |
 | Turn       | One response to one request             | Tool calls, approval requests and questions happen inside a turn. Messages sent while a turn runs wait in the queue       |
 
+The default workspace label and branch share one line in the sidebar (`Default · main`); long branches truncate, and the dot is hidden when there is no branch.
+
 ## Why split work into workspaces
 
 You can work directly in the Default workspace.
@@ -232,6 +234,8 @@ S --> U: Reply · changed files · summary
 @caption A simplified turn. The approval step may not appear, depending on the permission preset.
 ```
 
+**Reading and composing**: code blocks without a language have no syntax colors. The composer follows the conversation reading size, including the smaller Task panel size; the minimal composer scales its monospace text and caret together.
+
 **Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
@@ -242,6 +246,8 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 **Questions**: when the AI asks a question with choices, the number keys pick an option. A Claude option can carry a preview, such as a code snippet; it shows under the options while that option has focus or the pointer.
 
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.
+
+**Transcript**: messages you send back to back, such as steers, stack together with one note under the last (**Steered into active turn · 3**); hover any of them for its own copy and time actions. When a reply ran on a different provider, model or effort than the reply before it, a line above it names the change (**Claude Sonnet 4.6 · Medium → Claude Opus 4.8 · High**).
 
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)

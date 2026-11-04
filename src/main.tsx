@@ -42,6 +42,10 @@ if (preview === "question-reply") {
   void import("@/dev/question-reply-preview").then(({ QuestionReplyPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><QuestionReplyPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "transcript-rows") {
+  void import("@/dev/transcript-rows-preview").then(({ TranscriptRowsPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><TranscriptRowsPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "kickoff") {
   void import("@/dev/kickoff-preview").then(({ KickoffPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><KickoffPreview /></StaveDesignProvider></StrictMode>);
@@ -199,6 +203,10 @@ if (preview === "question-reply") {
 } else if (preview === "command-palette") {
   void import("@/dev/command-palette-preview").then(({ CommandPalettePreview }) => {
     root.render(<StrictMode><StaveDesignProvider><CommandPalettePreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "reader-sizing") {
+  void import("@/dev/reader-sizing-preview").then(({ ReaderSizingPreview }) => {
+    root.render(<StaveDesignProvider><ReaderSizingPreview /></StaveDesignProvider>);
   });
 } else if (preview === "composer-frame") {
   void import("@/dev/composer-frame-preview").then(

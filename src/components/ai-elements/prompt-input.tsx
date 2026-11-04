@@ -69,6 +69,7 @@ import { PromptInputAttachmentsRow } from "./prompt-input-attachments";
 import { PromptInputActions } from "./prompt-input-actions";
 import { buildComposerFrameChrome } from "./prompt-input-frame-chrome";
 import { PromptInputControlLane } from "./prompt-input-control-lane";
+import { useComposerTextSize } from "./use-composer-text-size";
 import { useComposerToolbarFit } from "./use-composer-toolbar-fit";
 
 export function PromptInput(args: PromptInputProps) {
@@ -219,6 +220,7 @@ export function PromptInput(args: PromptInputProps) {
   const modelVisibility = useAppStore(
     (state) => state.settings.modelVisibility,
   );
+  const composerTextStyle = useComposerTextSize(minimal);
   const interactionsDisabled = Boolean(disabled);
   const drop = usePromptInputDrop({ onAttachTask, acceptsFiles: acceptsFiles && !interactionsDisabled, attachTransfer });
   const promptEnhancementBusy =
@@ -605,6 +607,7 @@ export function PromptInput(args: PromptInputProps) {
                   className={sx(
                     minimal ? promptInputStyles.minimalRow : promptInputStyles.stackSm,
                   )}
+                  style={composerTextStyle}
                 >
                   {minimal ? (
                     <span className={sx(promptInputStyles.promptCaretGlyph)}>
@@ -612,6 +615,7 @@ export function PromptInput(args: PromptInputProps) {
                   ) : null}
                   <div
                     className={sx(promptInputStyles.editorArea)}
+                    style={composerTextStyle}
                     data-prompt-enhancement-surface={promptEnhancementState}
                   >
                     {shouldShowPromptEnhancement ? (

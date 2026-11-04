@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { applyAppLocale } from "@/i18n";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import {
   classifyTurnModelDetail,
@@ -10,6 +11,10 @@ import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-re
 import { WorkspaceSnapshotSchema } from "@/lib/task-context/schemas";
 import { buildPendingProviderTurnState } from "@/store/chat-state-helpers";
 import type { ChatMessage } from "@/types/chat";
+
+afterEach(() => {
+  applyAppLocale("en");
+});
 
 describe("turn model info", () => {
   test("captures the effective Claude effort and fast mode", () => {
@@ -71,6 +76,15 @@ describe("turn model info", () => {
     expect(classifyTurnModelDetail("X-High")).toBe("effort");
     expect(classifyTurnModelDetail("Fast")).toBe("fast");
     expect(classifyTurnModelDetail("Thinking")).toBe("thinking");
+  });
+
+  test("classifies the translated fast and thinking labels", () => {
+    applyAppLocale("ko");
+    expect(classifyTurnModelDetail("빠르게")).toBe("fast");
+    expect(classifyTurnModelDetail("빠름")).toBe("fast");
+    expect(classifyTurnModelDetail("추론")).toBe("thinking");
+    expect(classifyTurnModelDetail("Fast")).toBe("fast");
+    expect(classifyTurnModelDetail("높음")).toBe("effort");
   });
 
   test("formats Claude 1M context and effort in the model chip", () => {

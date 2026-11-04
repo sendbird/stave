@@ -8,6 +8,7 @@ import { transition } from "@/components/ads/recipes/transition";
 import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
 import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { highlightCodeBlockHtml } from "@/lib/syntax-highlight-client";
+import { resolveCodeBlockLanguage } from "./code-block-language";
 import { createHighlightCache } from "./code-block-highlight-cache";
 import { useAppStore } from "@/store/app.store";
 import { codeBlockStyles as styles } from "./code-block.styles";
@@ -85,8 +86,8 @@ interface CodeBlockContentProps {
 
 export const CodeBlockContent = memo(function CodeBlockContent({ code, language, isStreaming }: CodeBlockContentProps) {
   useTranslation();
-  const resolvedLang = language ?? "bash";
-  const cacheKey = _highlightCache.keyFor(code, resolvedLang);
+  const resolvedLang = resolveCodeBlockLanguage(language);
+  const cacheKey = _highlightCache.keyFor(code, resolvedLang ?? "text");
   const cached = _highlightCache.get(cacheKey);
   const [highlightedHtml, setHtml] = useState<string | null>(cached ?? null);
   // A cache hit always matches the current code; while streaming, anything
@@ -97,10 +98,11 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
   const messageCodeFontSize = scaleMessageCodeFontSize(textScale, settingsCodeFontSize);
 
   useEffect(() => {
-    if (isStreaming) {
+    if (isStreaming || !resolvedLang) {
       setHtml(null);
       return;
     }
+    setHtml(null);
     // Already cached – apply immediately and skip the async path.
     const existing = _highlightCache.get(cacheKey);
     if (existing) {
@@ -124,7 +126,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
     };
   }, [code, resolvedLang, cacheKey, isStreaming]);
 
-  if (html) {
+  if (html && resolvedLang) {
     return (
       <div
         className={sx(styles.content)}
@@ -138,7 +140,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
   // Fallback: plain text while highlighter loads
   return (
     <pre
-      className={sx(styles.fallbackPre)}
+      className={sx(styles.fallbackPre, !resolvedLang && styles.plainPre)}
       style={{ fontSize: `${messageCodeFontSize}px` }}
     >
       <code>{code}</code>
