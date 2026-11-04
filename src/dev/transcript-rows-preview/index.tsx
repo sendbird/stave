@@ -51,11 +51,19 @@ function buildTranscript(): ChatMessage[] {
     prompt("u3", 6, "Run the tests too."),
     reply("a3", 7, "All 42 layout tests pass.", { providerId: "codex", model: "gpt-5.5", modelInfo: { effort: "high" } }),
     prompt("u4", 9, "Check the dark theme as well."),
-    reply("a4", 10, "Checking the dark theme surfaces now.", { providerId: "codex", model: "gpt-5.5", modelInfo: { effort: "high" }, turnId: "t4" }),
+    // Fast mode alone is not a model change, so no line above this reply.
+    reply("a4", 10, "Checking the dark theme surfaces now.", { providerId: "codex", model: "gpt-5.5", modelInfo: { effort: "high", fastMode: true }, turnId: "t4" }),
     prompt("s1", 11, "Also check the Korean copy.", { steeredIntoTurnId: "t4", steerDeliveryState: "accepted" }),
     prompt("s2", 11, "Keep the composer as it is.", { steeredIntoTurnId: "t4", steerDeliveryState: "accepted" }),
     prompt("s3", 12, "Skip the docs for now; I will update them after review.", { steeredIntoTurnId: "t4", steerDeliveryState: "accepted" }),
-    reply("a5", 12, "Dark theme and Korean copy are fine. I left the composer and docs unchanged.", { providerId: "codex", model: "gpt-5.5", modelInfo: { effort: "high" }, turnId: "t4" }),
+    reply("a5", 12, "Dark theme and Korean copy are fine. I left the composer and docs unchanged.", { providerId: "codex", model: "gpt-5.5", modelInfo: { effort: "high", fastMode: true }, turnId: "t4" }),
+    prompt("u5", 14, "Plan the next settings pass."),
+    // Auto routed this reply; the line compares the model that ran.
+    reply("a6", 15, "Plan: align the section headers, then the footer actions.", {
+      model: "claude-opus-4-8",
+      modelInfo: { effort: "high" },
+      modelResolution: { selectedProviderId: "claude-code", selectedModel: "claude-opus-4-8", source: "heuristic", rationale: "Planning work goes to the planning model.", confidence: null, taskType: "plan" },
+    }),
   ];
 }
 

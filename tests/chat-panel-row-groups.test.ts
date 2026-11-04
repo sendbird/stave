@@ -118,18 +118,126 @@ describe("model change markers", () => {
     expect(marker?.from).not.toBe(marker?.to);
   });
 
-  test("skip Stave notices and auto-routed replies, but keep comparing against them", () => {
+  test("skip Stave notices without resetting the comparison", () => {
     const notice = reply({ providerId: "user", model: "system" });
+    const after = reply({ model: "claude-opus-4-8", modelInfo: { effort: "high" } });
+    expect(
+      markers([reply({ modelInfo: { effort: "high" } }), notice, user(), after]),
+    ).toEqual([{ id: after.id, from: "Claude Sonnet 4.6 · High", to: "Claude Opus 4.8 · High" }]);
+  });
+});
+
+describe("model change markers with Auto routing", () => {
+  // Auto picked Sonnet; the runtime ran the model on the reply itself.
+  const autoPickedSonnet = {
+    source: "classifier",
+    selectedProviderId: "claude-code",
+    selectedModel: "claude-sonnet-4-6",
+  } as ChatMessage["modelResolution"];
+
+  test("auto -> manual compares against the model Auto ran", () => {
     const routed = reply({
       model: "claude-opus-4-8",
       modelInfo: { effort: "high" },
-      modelResolution: { source: "classifier" } as ChatMessage["modelResolution"],
+      modelResolution: autoPickedSonnet,
     });
-    const after = reply({ modelInfo: { effort: "high" } });
-    expect(
-      markers([reply({ modelInfo: { effort: "high" } }), notice, user(), routed, user(), after]),
-    ).toEqual([{ id: after.id, from: "Claude Opus 4.8 · High", to: "Claude Sonnet 4.6 · High" }]);
+    const manual = reply({ modelInfo: { effort: "high" } });
+    expect(markers([routed, user(), manual])).toEqual([
+      { id: manual.id, from: "Claude Opus 4.8 · High", to: "Claude Sonnet 4.6 · High" },
+    ]);
   });
+
+  test("manual -> auto on the same effective model shows no line", () => {
+    const routed = reply({
+      modelInfo: { effort: "high" },
+      modelResolution: autoPickedSonnet,
+    });
+    expect(markers([reply({ modelInfo: { effort: "high" } }), user(), routed])).toEqual([]);
+  });
+
+  test("manual -> auto on another effective model shows the line", () => {
+    const routed = reply({
+      providerId: "codex",
+      model: "gpt-5.5",
+      modelInfo: { effort: "medium" },
+      modelResolution: autoPickedSonnet,
+    });
+    expect(markers([reply({ modelInfo: { effort: "high" } }), user(), routed])).toEqual([
+      { id: routed.id, from: "Claude Sonnet 4.6 · High", to: "GPT-5.5 · Medium" },
+    ]);
+  });
+
+  test("auto -> auto compares both effective models", () => {
+    const first = reply({
+      model: "claude-opus-4-8",
+      modelInfo: { effort: "high" },
+      modelResolution: autoPickedSonnet,
+    });
+    const same = reply({
+      model: "claude-opus-4-8",
+      modelInfo: { effort: "high" },
+      modelResolution: autoPickedSonnet,
+    });
+    const other = reply({ modelInfo: { effort: "high" }, modelResolution: autoPickedSonnet });
+    expect(markers([first, user(), same, user(), other])).toEqual([
+      { id: other.id, from: "Claude Opus 4.8 · High", to: "Claude Sonnet 4.6 · High" },
+    ]);
+  });
+});
+
+describe("model change markers in every language", () => {
+  for (const locale of ["en", "ko"] as const) {
+    test(`fast mode alone shows no line (${locale})`, () => {
+      applyAppLocale(locale);
+      const codex = { providerId: "codex", model: "gpt-5.5" } as const;
+      expect(
+        markers([
+          reply({ ...codex, modelInfo: { effort: "high", fastMode: false } }),
+          user(),
+          reply({ ...codex, modelInfo: { effort: "high", fastMode: true } }),
+          user(),
+          reply({ ...codex, modelInfo: { effort: "high", fastMode: false } }),
+        ]),
+      ).toEqual([]);
+      expect(
+        markers([
+          reply({ modelInfo: { effort: "high", fastMode: false } }),
+          user(),
+          reply({ modelInfo: { effort: "high", fastMode: true } }),
+        ]),
+      ).toEqual([]);
+      expect(
+        markers([
+          reply({ providerId: "cursor", model: "gpt-5.6-sol[reasoning=high,fast=false]" }),
+          user(),
+          reply({ providerId: "cursor", model: "gpt-5.6-sol[fast=true,reasoning=high]" }),
+          user(),
+          reply({
+            providerId: "cursor",
+            model: "gpt-5.6-sol",
+            modelInfo: { effort: "high", fastMode: true },
+          }),
+        ]),
+      ).toEqual([]);
+    });
+
+    test(`a model change leaves fast mode out of the line (${locale})`, () => {
+      applyAppLocale(locale);
+      const second = reply({
+        providerId: "codex",
+        model: "gpt-5.5",
+        modelInfo: { effort: "medium", fastMode: true },
+      });
+      const [marker] = markers([
+        reply({ providerId: "codex", model: "gpt-5.5", modelInfo: { effort: "high", fastMode: true } }),
+        user(),
+        second,
+      ]);
+      expect(marker?.id).toBe(second.id);
+      expect(marker?.from).toMatch(/^GPT-5\.5 · [^·]+$/);
+      expect(marker?.to).toMatch(/^GPT-5\.5 · [^·]+$/);
+    });
+  }
 
   test("reply segments split by a steer stay on one model", () => {
     const before = reply({ turnId: "turn-1", isStreaming: true, modelInfo: { effort: "high" } });

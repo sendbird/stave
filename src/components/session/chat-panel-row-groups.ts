@@ -1,5 +1,9 @@
 import { formatList } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
+import {
+  getCursorModelBaseId,
+  parseCursorModelParameters,
+} from "@/lib/providers/cursor-model-id";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
   classifyTurnModelDetail,
@@ -24,38 +28,55 @@ export interface ModelChangeMarker {
 
 type ModelMessage = Pick<
   ChatMessage,
-  "id" | "role" | "providerId" | "model" | "modelInfo" | "modelResolution"
+  "id" | "role" | "providerId" | "model" | "modelInfo"
 >;
 
 interface ReplyModelIdentity {
   providerId: ProviderId;
-  /** Name plus the details that pick a model variant (context, thinking). */
+  /**
+   * The model id plus the settings that pick a model variant (Cursor's context
+   * or thinking), without effort or fast mode.
+   */
   model: string;
-  /** Effort labels; empty when the reply recorded none. */
+  /** Raw effort value; empty when the reply recorded none. */
   effort: string;
-  label: string;
 }
 
+// Fast mode changes speed, not the model or its effort.
+const CURSOR_NON_MODEL_PARAMETERS = new Set(["fast", "effort", "reasoning"]);
+
+function normalizeEffort(effort: string | undefined) {
+  return effort?.trim().toLowerCase().replace(/[-_]/g, "") ?? "";
+}
+
+/**
+ * Reads what ran from the stored ids and values, never from display labels, so
+ * the comparison is the same in every language.
+ */
 function toReplyModelIdentity(
   message: ModelMessage,
   providerId: ProviderId,
 ): ReplyModelIdentity {
-  const { name, details } = getTurnModelInfoParts(message);
-  const variant: string[] = [];
-  const effort: string[] = [];
-  const shown: string[] = [];
-  for (const detail of details) {
-    const kind = classifyTurnModelDetail(detail);
-    // Fast mode changes speed, not the model or its effort.
-    if (kind === "fast") continue;
-    (kind === "effort" ? effort : variant).push(detail);
-    shown.push(detail);
+  if (providerId !== "cursor") {
+    return {
+      providerId,
+      model: message.model.trim(),
+      effort: normalizeEffort(message.modelInfo?.effort),
+    };
   }
+  // Cursor carries its settings inside the model id.
+  const parameters = parseCursorModelParameters(message.model);
+  const variant = [...parameters]
+    .filter(([key]) => !CURSOR_NON_MODEL_PARAMETERS.has(key))
+    .map(([key, value]) => `${key}=${value}`)
+    .sort();
+  const effort = message.model.includes("[")
+    ? (parameters.get("effort") ?? parameters.get("reasoning"))
+    : message.modelInfo?.effort;
   return {
     providerId,
-    model: [name, ...variant].join(" · "),
-    effort: effort.join(" · "),
-    label: [name, ...shown].join(" · "),
+    model: [getCursorModelBaseId(message.model), ...variant].join(","),
+    effort: normalizeEffort(effort),
   };
 }
 
@@ -67,37 +88,53 @@ function isModelChange(previous: ReplyModelIdentity, next: ReplyModelIdentity) {
   return Boolean(previous.effort && next.effort && previous.effort !== next.effort);
 }
 
-function withProvider(identity: ReplyModelIdentity) {
-  return `${getProviderLabel({ providerId: identity.providerId })} · ${identity.label}`;
+/** The reply's model as the transcript names it, without fast mode. */
+function formatReplyModelLabel(message: ModelMessage) {
+  const { name, details } = getTurnModelInfoParts(message);
+  return [
+    name,
+    ...details.filter((detail) => classifyTurnModelDetail(detail) !== "fast"),
+  ].join(" · ");
+}
+
+function withProvider(providerId: ProviderId, label: string) {
+  return `${getProviderLabel({ providerId })} · ${label}`;
 }
 
 /**
  * Marks each assistant reply whose provider, model or effort differs from the
  * assistant reply before it, keyed by the later reply's id. Stave's own notices
  * (`providerId: "user"`) and rows without a model neither carry nor reset the
- * comparison. A reply Auto routed already names its model on its route line, so
- * it gets no second marker; the reply after it still compares against it.
+ * comparison. An Auto-routed reply compares the model that ran, not the Auto
+ * selection, both as the later reply and as the earlier one.
  */
 export function buildModelChangeMarkers(
   messages: readonly ModelMessage[],
 ): Map<string, ModelChangeMarker> {
   const markers = new Map<string, ModelChangeMarker>();
-  let previous: ReplyModelIdentity | null = null;
+  let previous: { message: ModelMessage; identity: ReplyModelIdentity } | null =
+    null;
   for (const message of messages) {
     const providerId = message.providerId;
     if (message.role !== "assistant" || providerId === "user" || !message.model) {
       continue;
     }
     const identity = toReplyModelIdentity(message, providerId);
-    if (previous && !message.modelResolution && isModelChange(previous, identity)) {
+    if (previous && isModelChange(previous.identity, identity)) {
+      const from = formatReplyModelLabel(previous.message);
+      const to = formatReplyModelLabel(message);
       // Two providers can serve a model under one name; say which ran.
-      const sameLabel = previous.label === identity.label;
-      markers.set(message.id, {
-        from: sameLabel ? withProvider(previous) : previous.label,
-        to: sameLabel ? withProvider(identity) : identity.label,
-      });
+      const marker =
+        from === to
+          ? {
+              from: withProvider(previous.identity.providerId, from),
+              to: withProvider(providerId, to),
+            }
+          : { from, to };
+      // Ids that differ only by an alias read the same; nothing to show.
+      if (marker.from !== marker.to) markers.set(message.id, marker);
     }
-    previous = identity;
+    previous = { message, identity };
   }
   return markers;
 }
