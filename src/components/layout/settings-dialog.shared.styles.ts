@@ -368,6 +368,24 @@ export const settingsSharedStyles = stylex.create({
   fieldControl: {
     minInlineSize: 0,
   },
+  /**
+   * Short controls (switches, segmented choices) keep their content width.
+   * In a two-column field row they end on the control column's right edge,
+   * the same edge full-width inputs and their trailing buttons reach. Stacked
+   * under 640px they sit under the label instead.
+   */
+  shortControlEnd: {
+    display: "flex",
+    inlineSize: "fit-content",
+    marginInlineStart: {
+      default: 0,
+      "@media (min-width: 640px)": "auto",
+    },
+  },
+  /** A short control placed directly in a card body: content width, start edge. */
+  shortControlStart: {
+    alignSelf: "flex-start",
+  },
 
   /**
    * Composed ON TOP of `fieldGrid` — a switch row is a field row, so the grid
@@ -389,7 +407,12 @@ export const settingsSharedStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    justifySelf: "start",
+    // End on the control column's right edge like full-width inputs. Stacked
+    // under 640px, the switch sits under its label.
+    justifySelf: {
+      default: "start",
+      "@media (min-width: 640px)": "end",
+    },
     // Centre the switch on the label's first text line instead of nudging it
     // with an off-scale `marginTop: 2`.
     minBlockSize: vars["--ads-line-height-control"],

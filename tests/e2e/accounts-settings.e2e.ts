@@ -293,7 +293,7 @@ for (const themeMode of ["light", "dark"] as const) {
     await shot(page, testInfo, `settings-accounts-${themeMode}`);
 
     await settings.getByRole("tab", { name: "Tooling", exact: true }).click();
-    await expect(settings.getByRole("heading", { name: "Native Tooling Status" })).toBeVisible();
+    await expect(settings.getByRole("heading", { name: "Native tooling status" })).toBeVisible();
     await expect(settings.getByText("Company gateway")).toHaveCount(0);
     await shot(page, testInfo, `settings-tooling-${themeMode}`);
     // Accounts is the neighbouring tab, so Tooling carries no pointer back to it.
@@ -463,7 +463,7 @@ test("the picker foot leaves out CLIs that are not installed and opens a signed-
   await expect(foot).not.toContainText("not installed");
   await foot.locator('[data-provider="kiro"]').getByRole("button", { name: "Sign in" }).click();
   const row = page.getByRole("dialog", { name: "Settings" }).locator("#settings-field-cli-provider-kiro");
-  await expect(row.getByRole("button", { name: "Copy Login Command" })).toBeFocused();
+  await expect(row.getByRole("button", { name: "Copy login command" })).toBeFocused();
 });
 
 for (const themeMode of ["light", "dark"] as const) {
@@ -566,7 +566,7 @@ test("Go to sign-in lands on a CLI-managed provider's row when it is the one to 
   await expect(settings.getByRole("list", { name: "Getting started" }).getByRole("button", { name: "How to sign in to Kiro CLI" })).toBeVisible({ timeout: 20_000 });
   await settings.locator('[data-billing-choice="subscription"]').getByRole("button", { name: "Go to sign-in" }).click();
   const kiroRow = settings.locator("#settings-field-cli-provider-kiro");
-  await expect(kiroRow.getByRole("button", { name: "Copy Login Command" })).toBeFocused();
+  await expect(kiroRow.getByRole("button", { name: "Copy login command" })).toBeFocused();
   // Kiro's provider tab stays hidden until it signs in, so its row carries the CLI path, folded.
   const pathToggle = kiroRow.getByRole("button", { name: "CLI path" });
   await expect(pathToggle).toHaveAttribute("aria-expanded", "false");

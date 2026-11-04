@@ -628,7 +628,7 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
     .first()
     .click();
   const settingSources = settings.getByRole("group", {
-    name: "Setting Sources",
+    name: "Setting sources",
   });
   const repositorySource = settingSources.getByRole("button", {
     name: "Project",

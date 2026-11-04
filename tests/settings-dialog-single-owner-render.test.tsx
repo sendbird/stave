@@ -105,8 +105,8 @@ describe("Prompts no longer owns pre-PR review", () => {
     expect(html).not.toContain("Review Before Opening PR");
     expect(html).not.toContain("Review Provider");
     // The prompt texts stay editable here.
-    expect(html).toContain("Completion System Prompt");
-    expect(html).toContain("Summary Prompt");
+    expect(html).toContain("Completion system prompt");
+    expect(html).toContain("Summary prompt");
   });
 });
 
@@ -117,7 +117,7 @@ describe("Editor owns inline completion on/off", () => {
       "../src/components/layout/settings-sections/settings-dialog-editor-section"
     );
     const html = render(EditorSection, { onNavigateSection: navigate });
-    expect(html).toContain("Enable AI Completions");
+    expect(html).toContain("Enable AI completions");
     expect(html).toContain("Completion model");
     expect(html).toContain("Open Background AI");
   });

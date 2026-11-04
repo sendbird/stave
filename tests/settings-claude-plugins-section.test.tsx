@@ -7,7 +7,7 @@ describe("Settings → Providers → Installed Plugins", () => {
   const html = renderToStaticMarkup(createElement(ClaudeInstalledPluginsField));
 
   test("explains that CLI-installed plugins work without the user setting source", () => {
-    expect(html).toContain("Installed Plugins");
+    expect(html).toContain("Installed plugins");
     expect(html).toContain("claude plugin install");
     expect(html).toContain("user");
   });

@@ -4,6 +4,7 @@ import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import { LabeledField, SelectField, SettingsCard, SwitchField } from "../settings-dialog.shared";
+import { settingsSharedStyles } from "../settings-dialog.shared.styles";
 import {
   normalizeWorkspaceSettleAfterDays,
   WORKSPACE_SETTLE_AFTER_DAY_OPTIONS,
@@ -69,6 +70,7 @@ export function SidebarSettingsCard() {
         <SegmentedControl
           aria-label={t("settings:themeSection.sidebar.view.title")}
           density="regular"
+          xstyle={settingsSharedStyles.shortControlEnd}
           value={sidebarNavView}
           onValueChange={(value) => updateSettings({ patch: { sidebarNavView: value } })}
           options={SIDEBAR_NAV_VIEW_FIELDS.map((option) => ({

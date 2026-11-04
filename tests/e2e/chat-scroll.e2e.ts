@@ -417,7 +417,7 @@ test("conversation turn rail visibility is configurable in Chat settings", async
   await settings.getByRole("button", { name: "Chat", exact: true }).click();
 
   const railToggle = settings.getByRole("switch", {
-    name: "Show Conversation Turn Rail",
+    name: "Show conversation turn rail",
   });
   await expect(railToggle).toHaveAttribute("aria-checked", "true");
   await railToggle.click();

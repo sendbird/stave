@@ -47,6 +47,15 @@ import type {
 import { settingsSharedStyles as styles } from "./settings-dialog.shared.styles";
 
 const SettingsControlLabelContext = createContext<string | null>(null);
+/**
+ * Where a control renders: directly in a card body, in the control column of
+ * a two-column field row, or under a stacked field label. Short controls
+ * (switches, segmented choices) read it to keep their content width and, in a
+ * field row, end on the same right edge as full-width inputs.
+ */
+type SettingsControlPlacement = "card" | "field" | "stackedField";
+const SettingsControlPlacementContext =
+  createContext<SettingsControlPlacement | null>(null);
 const TOGGLE_ALL_VALUE = "__stave_toggle_all__";
 
 type DraftTextareaProps = Omit<
@@ -163,7 +172,9 @@ export function SettingsCard(args: {
         ) : null}
       </header>
       <SettingsControlLabelContext.Provider value={titleId}>
-        <div className={sx(styles.cardBody)}>{args.children}</div>
+        <SettingsControlPlacementContext.Provider value="card">
+          <div className={sx(styles.cardBody)}>{args.children}</div>
+        </SettingsControlPlacementContext.Provider>
       </SettingsControlLabelContext.Provider>
     </section>
   );
@@ -197,6 +208,7 @@ export function ChoiceButtons<T extends string>(args: {
   const { t } = useTranslation(I18N_NAMESPACES);
   const hasDescriptions = args.options.some((option) => option.description);
   const labelledBy = useContext(SettingsControlLabelContext);
+  const placement = useContext(SettingsControlPlacementContext);
 
   return (
     <RadioGroup
@@ -210,6 +222,8 @@ export function ChoiceButtons<T extends string>(args: {
       }
       className={sx(
         hasDescriptions ? styles.radioGroupGrid : styles.radioGroupInline,
+        !hasDescriptions && placement === "card" && styles.shortControlStart,
+        !hasDescriptions && placement === "field" && styles.shortControlEnd,
         hasDescriptions &&
           (args.columns === 3
             ? styles.radioGroupGridCols3
@@ -368,7 +382,11 @@ export function LabeledField(args: {
         ) : null}
       </div>
       <SettingsControlLabelContext.Provider value={titleId}>
-        <div className={sx(styles.fieldControl)}>{args.children}</div>
+        <SettingsControlPlacementContext.Provider
+          value={args.layout === "stacked" ? "stackedField" : "field"}
+        >
+          <div className={sx(styles.fieldControl)}>{args.children}</div>
+        </SettingsControlPlacementContext.Provider>
       </SettingsControlLabelContext.Provider>
     </div>
   );

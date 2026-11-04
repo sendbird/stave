@@ -479,7 +479,7 @@ test("settings modal and workspace modal open", async ({ page }) => {
     .click();
   await settingsDialog.getByRole("tab", { name: "Lens", exact: true }).click();
   await expect(
-    settingsDialog.getByRole("heading", { name: "Agent Activity" }),
+    settingsDialog.getByRole("heading", { name: "Agent activity" }),
   ).toBeVisible();
   const showBesideTask = settingsDialog.getByRole("radio", {
     name: /Show beside task/,
