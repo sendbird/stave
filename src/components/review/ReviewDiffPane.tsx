@@ -8,6 +8,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { paneHost } from "@/components/panes/pane-host-controller";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { useDiffLineHighlighter } from "@/components/session/message/diff-highlighter";
+import { DIFF_CONTEXT_LINES } from "@/components/session/message/diff-viewer-options";
 import { languageFromFilePath } from "@/lib/syntax-highlight";
 import type { ReviewFile, ReviewFileStatus, ReviewScope } from "@/lib/review/review-scope";
 import { useAppStore } from "@/store/app.store";
@@ -29,9 +30,6 @@ export function isReviewDiffShown(state: { status: string }): boolean {
 
 /** The header's file glyph: a copy is a new file, a deletion is a removed one. */
 const CHANGE_KIND: Record<ReviewFileStatus, FileChangeKind> = { added: "added", modified: "modified", deleted: "removed", renamed: "renamed", copied: "added" };
-
-/** Unchanged lines kept around each change; longer unchanged runs collapse behind Expand. */
-const DIFF_CONTEXT_LINES = 3;
 
 /** A line a comment row asked to see: the side it was written on, and a nonce so the same line can be asked twice. */
 export interface ReviewDiffReveal {

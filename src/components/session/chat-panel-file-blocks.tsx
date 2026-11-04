@@ -28,6 +28,7 @@ import { toBaseName } from "@/lib/message-file-links";
 import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelFileBlocksStyles as styles } from "./chat-panel-file-blocks.styles";
 import { useDiffLineHighlighter } from "./message/diff-highlighter";
+import { DIFF_CONTEXT_LINES } from "./message/diff-viewer-options";
 import {
   toDiffRunState,
   toFileChangeRunState,
@@ -66,7 +67,7 @@ function getFileChangeStatusPriority(
   }
 }
 
-function OpenedFileDiff(args: {
+export function OpenedFileDiff(args: {
   after: string;
   before: string;
   displayFilePath: string;
@@ -80,6 +81,9 @@ function OpenedFileDiff(args: {
       after={args.after}
       aria-label={i18n.t("session:chatPanelFileBlocks.ariaLabel", { value1: args.displayFilePath })}
       before={args.before}
+      // Long unchanged runs collapse, as in Review, so a one-line edit in a
+      // large file does not unroll the whole file into the conversation.
+      context={DIFF_CONTEXT_LINES}
       granularity="word"
       highlighter={highlighter}
       language={language}
