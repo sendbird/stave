@@ -1,32 +1,182 @@
 import { useEffect, useRef } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { Button, Input } from "@/components/ui";
+import { Button } from "@/components/ads/components/Button";
+import { TextField } from "@/components/ads/components/TextField";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
+import { elevations, localStack } from "@/lib/ui-layers.stylex";
 
+/**
+ * A find widget that floats over the top-end corner of the surface it searches
+ * (the transcript or a terminal).
+ * It never takes layout space, so opening it does not push the content down
+ * or resize a terminal. The host must be `position: relative`.
+ *
+ * Enter / Shift+Enter step to the next / previous match; Escape closes it and
+ * hands focus back to whatever had it before the widget opened, unless the
+ * host's `onClose` already moved focus somewhere on purpose.
+ */
 export function TranscriptFind(props: {
-  query: string; onQuery: (value: string) => void;
-  onStep: (backward: boolean) => void; onClose: () => void;
-  result: string; label: string;
+  query: string;
+  onQuery: (value: string) => void;
+  onStep: (backward: boolean) => void;
+  /**
+   * `restoresFocus` is false when the element focused before opening is gone
+   * (the trigger that unmounted to make room); the host then picks a target.
+   */
+  onClose: (restoresFocus: boolean) => void;
+  /** Match position or "No matches"; empty while there is nothing to report. */
+  result: string;
+  label: string;
+  /** False disables Previous / Next (no query or no matches). */
+  canStep?: boolean;
+  /** Bump to re-focus and select the field while the widget is already open. */
+  focusRequest?: number;
 }) {
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => { input.current?.focus(); }, []);
-  return <div role="search" aria-label={props.label} className={sx(styles.row)}
-    onKeyDown={(event) => {
-      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); props.onClose(); }
-      if (event.key === "Enter") { event.preventDefault(); props.onStep(event.shiftKey); }
-    }}>
-    <Input ref={input} value={props.query} aria-label={props.label} placeholder={props.label}
-      onChange={(event) => props.onQuery(event.target.value)} />
-    <span role="status" className={sx(styles.result)}>{props.result}</span>
-    <Button size="sm" variant="ghost" onClick={() => props.onStep(true)}>{t("transcriptFind.previous")}</Button>
-    <Button size="sm" variant="ghost" onClick={() => props.onStep(false)}>{t("transcriptFind.next")}</Button>
-    <Button size="sm" variant="ghost" onClick={props.onClose}>{t("transcriptFind.close")}</Button>
-  </div>;
+  const returnFocus = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const active = document.activeElement;
+    returnFocus.current = active instanceof HTMLElement && active !== document.body ? active : null;
+  }, []);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, [props.focusRequest]);
+
+  const close = () => {
+    const previous = returnFocus.current;
+    props.onClose(Boolean(previous?.isConnected));
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (previous?.isConnected && (!active || active === document.body)) {
+        previous.focus({ preventScroll: true });
+      }
+    });
+  };
+  const canStep = props.canStep ?? true;
+
+  return (
+    <div
+      role="search"
+      aria-label={props.label}
+      data-transcript-find=""
+      className={sx(styles.widget, elevations.floating)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          close();
+        }
+        if (event.key === "Enter" && event.target === input.current) {
+          event.preventDefault();
+          if (canStep) props.onStep(event.shiftKey);
+        }
+      }}
+    >
+      <Search aria-hidden {...stylex.props(styles.icon)} />
+      <TextField
+        controlOnly
+        size="xs"
+        ref={input}
+        value={props.query}
+        aria-label={props.label}
+        placeholder={props.label}
+        spellCheck={false}
+        autoComplete="off"
+        xstyle={styles.field}
+        onChange={(event) => props.onQuery(event.target.value)}
+      />
+      <span role="status" aria-live="polite" className={sx(styles.result)}>
+        {props.result}
+      </span>
+      <Tooltip content={t("transcriptFind.previous")} side="bottom">
+        <Button
+          type="button"
+          size="xs"
+          variant="quiet"
+          iconOnly
+          disabled={!canStep}
+          aria-label={t("transcriptFind.previous")}
+          onClick={() => props.onStep(true)}
+        >
+          <ChevronUp aria-hidden />
+        </Button>
+      </Tooltip>
+      <Tooltip content={t("transcriptFind.next")} side="bottom">
+        <Button
+          type="button"
+          size="xs"
+          variant="quiet"
+          iconOnly
+          disabled={!canStep}
+          aria-label={t("transcriptFind.next")}
+          onClick={() => props.onStep(false)}
+        >
+          <ChevronDown aria-hidden />
+        </Button>
+      </Tooltip>
+      <Tooltip content={t("transcriptFind.close")} side="bottom">
+        <Button
+          type="button"
+          size="xs"
+          variant="quiet"
+          iconOnly
+          aria-label={t("transcriptFind.close")}
+          onClick={close}
+        >
+          <X aria-hidden />
+        </Button>
+      </Tooltip>
+    </div>
+  );
 }
+
 const styles = stylex.create({
-  row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: vars["--ads-space-4"], padding: vars["--ads-space-8"], flexShrink: 0 },
-  result: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], whiteSpace: "nowrap" },
+  widget: {
+    position: "absolute",
+    top: vars["--ads-space-8"],
+    insetInlineEnd: vars["--ads-space-12"],
+    zIndex: localStack["--stave-stack-floating"],
+    display: "flex",
+    alignItems: "center",
+    gap: vars["--ads-space-2"],
+    maxWidth: `calc(100% - 2 * ${vars["--ads-space-12"]})`,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInlineStart: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-4"],
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: vars["--ads-color-surface-raised"],
+    color: vars["--ads-color-text"],
+  },
+  icon: {
+    flexShrink: 0,
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-text-muted"],
+  },
+  field: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: "6rem",
+    width: "14rem",
+  },
+  result: {
+    flexShrink: 0,
+    minWidth: "4.5rem",
+    paddingInline: vars["--ads-space-4"],
+    textAlign: "end",
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "nowrap",
+  },
 });

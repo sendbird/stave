@@ -1,4 +1,11 @@
 import { TranscriptFind } from "@/components/system/TranscriptFind";
+import { ConversationFindTrigger } from "./conversation-find";
+import { conversationFindMarker } from "./conversation-find.stylex";
+import {
+  findMatchingMessageIndexes,
+  isConversationFindShortcut,
+  stepFindPosition,
+} from "./conversation-find-matching";
 import { TranscriptDelegationsProvider } from "./message/transcript-delegations-context";
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
 import { EmptyState } from "@/components/ads/components/EmptyState";
@@ -878,6 +885,8 @@ function ChatPanelMessageList(props: {
   const [finding, setFinding] = useState(false);
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(-1);
+  const [findFocusRequest, setFindFocusRequest] = useState(0);
+  const [focusFindTrigger, setFocusFindTrigger] = useState(false);
   const hasFailedSends = useAppStore(
     (state) => (state.failedSendsByTask[taskId]?.length ?? 0) > 0,
   );
@@ -1387,29 +1396,61 @@ function ChatPanelMessageList(props: {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "f") return;
-      const target = event.target;
-      if (!(target instanceof HTMLElement) || target.closest(".xterm, .monaco-editor") || target.closest("[data-chat-panel]")?.getAttribute("data-chat-panel") !== props.findScopeId) return;
-      event.preventDefault(); setFinding(true);
+      if (!isConversationFindShortcut(event, props.findScopeId)) return;
+      event.preventDefault();
+      setFinding(true);
+      setFindFocusRequest((request) => request + 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [props.findScopeId]);
-  const findMatches = visibleMessages.flatMap((message, index) =>
-    findQuery.trim() && (message.parts.some((part) => part.type === "text") ? message.parts.filter((part) => part.type === "text").map((part) => part.text).join("\n") : message.content).toLocaleLowerCase().includes(findQuery.trim().toLocaleLowerCase()) ? [index] : []);
+  const findMatches = useMemo(
+    () => (finding ? findMatchingMessageIndexes(visibleMessages, findQuery) : []),
+    [finding, visibleMessages, findQuery],
+  );
   const stepFind = (backward: boolean) => {
-    if (!findMatches.length) return;
-    const next = findIndex < 0 ? (backward ? findMatches.length - 1 : 0) : (findIndex + (backward ? -1 : 1) + findMatches.length) % findMatches.length;
+    const next = stepFindPosition(findIndex, findMatches.length, backward);
+    if (next < 0) return;
     setFindIndex(next);
     manualScrollIntentRef.current?.markManualScrollIntent();
     virtuosoRef.current?.scrollToIndex({ index: findMatches[next]!, align: "center", behavior: "auto" });
   };
   return (
     <>
-      {finding ? <TranscriptFind query={findQuery} onQuery={(value) => { setFindQuery(value); setFindIndex(-1); }} onStep={stepFind} onClose={() => setFinding(false)}
-        label={i18n.t("common:transcriptFind.loaded")}
-        result={findMatches.length ? i18n.t("common:transcriptFind.matches", { current: Math.min(findIndex + 1, findMatches.length), total: findMatches.length }) : i18n.t("common:transcriptFind.none")} /> :
-        <Button size="sm" variant="ghost" onClick={() => setFinding(true)}>{i18n.t("common:transcriptFind.chat")}</Button>}
+      {finding ? (
+        <TranscriptFind
+          query={findQuery}
+          onQuery={(value) => {
+            setFindQuery(value);
+            setFindIndex(-1);
+          }}
+          onStep={stepFind}
+          onClose={(restoresFocus) => {
+            setFocusFindTrigger(!restoresFocus);
+            setFinding(false);
+          }}
+          label={i18n.t("common:transcriptFind.loaded")}
+          canStep={findMatches.length > 0}
+          focusRequest={findFocusRequest}
+          result={
+            !findQuery.trim()
+              ? ""
+              : !findMatches.length
+                ? i18n.t("common:transcriptFind.none")
+                : findIndex < 0
+                  ? i18n.t("common:transcriptFind.count", { count: findMatches.length })
+                  : i18n.t("common:transcriptFind.matches", {
+                      current: Math.min(findIndex + 1, findMatches.length),
+                      total: findMatches.length,
+                    })
+          }
+        />
+      ) : (
+        <ConversationFindTrigger
+          autoFocus={focusFindTrigger}
+          onOpen={() => setFinding(true)}
+        />
+      )}
       <ConversationContent
         data-testid={`conversation-scroll-${taskId}`}
         autoScrollKey={autoScrollKey}
@@ -1625,7 +1666,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   const taskId = useScopedTaskId();
   return (
     <TranscriptDelegationsProvider key={taskId} taskId={taskId}>
-    <Conversation data-chat-panel={findScopeId}>
+    <Conversation data-chat-panel={findScopeId} className={sx(conversationFindMarker)}>
       <div className={sx(styles.panelColumn)}>
         <MemoizedChatPanelMessageList
           findScopeId={findScopeId}
