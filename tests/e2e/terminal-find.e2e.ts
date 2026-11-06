@@ -10,6 +10,8 @@ test("terminal find searches the retained buffer, reports no match and restores 
   const before = await page.locator(".xterm-screen").boundingBox();
   await page.keyboard.press("Control+f");
   const input = page.getByRole("textbox", { name: "Find in terminal" });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveCSS("font-size", "12px");
   await input.fill("needle");
   await expect.poll(() => page.evaluate(() => (window as any).terminalFindFixture.terminal.getSelection())).toBe("needle");
   await input.press("Enter"); await input.press("Shift+Enter");

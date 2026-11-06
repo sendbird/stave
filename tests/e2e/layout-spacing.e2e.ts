@@ -134,3 +134,69 @@ for (const locale of ["en", "ko"] as const) {
     }
   }
 }
+
+// Find overlays keep their ADS typography and action targets in split panes.
+for (const lang of ["en", "ko"] as const) {
+  for (const theme of ["light", "dark"] as const) {
+    for (const density of ["regular", "compact"] as const) {
+      test(`conversation find typography and action containment: ${lang}/${theme}/${density}`, async ({ page }) => {
+        await page.goto(`/tests/e2e/fixtures/conversation-time.html?theme=${theme}&lang=${lang}`);
+        await page.evaluate((density) => {
+          document.documentElement.dataset.uiDensity = density;
+        }, density);
+        const panel = page.locator("[data-chat-panel]");
+        const trigger = panel.locator("button[aria-keyshortcuts]");
+        await trigger.focus();
+        await page.keyboard.press("Control+f");
+        const widget = panel.getByRole("search");
+        const field = widget.getByRole("textbox");
+        await expect(field).toBeFocused();
+        await page.evaluate(() => document.fonts.ready);
+        expect(await page.evaluate(() => [...document.fonts].filter((font) => font.status === "error").map((font) => font.family))).toEqual([]);
+        // The fixture must use the app's layer prelude, not inherit the 16px reset.
+        await expect(field).toHaveCSS("font-size", "12px");
+        const colors = await field.evaluate(async (input) => {
+          const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+          const probe = document.createElement("span");
+          input.parentElement!.append(probe);
+          probe.style.color = vars["--ads-color-text-placeholder"];
+          const placeholder = getComputedStyle(probe).color;
+          probe.style.color = vars["--ads-color-border-focus"];
+          const focus = getComputedStyle(probe).color;
+          probe.remove();
+          return { placeholder, focus };
+        });
+        await expect.poll(() => field.evaluate((input) => getComputedStyle(input, "::placeholder").color)).toBe(colors.placeholder);
+        await expect(field).toHaveCSS("border-top-color", colors.focus);
+        for (const width of [640, 360, 300]) {
+          await panel.evaluate((element, width) => {
+            element.style.width = `${width}px`;
+            element.style.flex = "none";
+          }, width);
+          for (const query of ["", "no such phrase", "Check"]) {
+            await field.fill(query);
+            const geometry = await widget.evaluate((element) => {
+              const box = element.getBoundingClientRect();
+              const input = element.querySelector("input")!.getBoundingClientRect();
+              return {
+                inputWidth: input.width,
+                actions: [...element.querySelectorAll("button")].map((button) => {
+                  const b = button.getBoundingClientRect();
+                  const glyph = button.querySelector("svg")!.getBoundingClientRect();
+                  return { width: b.width, height: b.height, outside: Math.max(0, b.right - box.right, box.left - b.left), glyphOutside: Math.max(0, b.left - glyph.left, glyph.right - b.right) };
+                }),
+              };
+            });
+            expect(geometry.inputWidth).toBeGreaterThan(0);
+            for (const action of geometry.actions) {
+              expect(action.width).toBe(density === "compact" ? 24 : 28);
+              expect(action.height).toBe(density === "compact" ? 24 : 28);
+              expect(action.outside).toBeLessThanOrEqual(0.5);
+              expect(action.glyphOutside).toBeLessThanOrEqual(0.5);
+            }
+          }
+        }
+      });
+    }
+  }
+}

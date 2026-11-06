@@ -101,6 +101,7 @@ export function TranscriptFind(props: {
           size="xs"
           variant="quiet"
           iconOnly
+          xstyle={styles.action}
           disabled={!canStep}
           aria-label={t("transcriptFind.previous")}
           onClick={() => props.onStep(true)}
@@ -114,6 +115,7 @@ export function TranscriptFind(props: {
           size="xs"
           variant="quiet"
           iconOnly
+          xstyle={styles.action}
           disabled={!canStep}
           aria-label={t("transcriptFind.next")}
           onClick={() => props.onStep(false)}
@@ -127,6 +129,7 @@ export function TranscriptFind(props: {
           size="xs"
           variant="quiet"
           iconOnly
+          xstyle={styles.action}
           aria-label={t("transcriptFind.close")}
           onClick={close}
         >
@@ -163,10 +166,11 @@ const styles = stylex.create({
     height: vars["--ads-control-icon-size-sm"],
     color: vars["--ads-color-text-muted"],
   },
+  action: { flexShrink: 0 },
   field: {
     flexGrow: 1,
     flexShrink: 1,
-    minWidth: "6rem",
+    minWidth: 0,
     width: "14rem",
   },
   result: {
