@@ -4,7 +4,7 @@ import { i18n, useTranslation, type AppTFunction } from "@/i18n";
 import type { ReactNode } from "react";
 import { memo, useMemo } from "react";
 import { sameAssistantTraceEntry } from "./assistant-trace-entry-equality";
-import { FileCode2 } from "lucide-react";
+import { FileCode2, Wrench } from "lucide-react";
 import type { AgentStepState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { ToolRun } from "@/components/ads/components/ToolRun";
@@ -14,6 +14,7 @@ import {
   ChainOfThoughtTrigger,
   MessageResponse,
 } from "@/components/ai-elements";
+import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
 import { TranscriptWideBlock } from "@/components/ai-elements/transcript-wide";
 import {
   ChangedFilesBlock,
@@ -41,6 +42,12 @@ import type {
   MessagePart,
   ThinkingPart,
 } from "@/types/chat";
+import {
+  buildCompletedTurnTitle,
+  countTraceCategories,
+  TRACE_CATEGORY_COUNT_KEYS,
+  type TraceCategoryCount,
+} from "./trace-summary";
 import {
   buildAssistantTrace,
   joinReasoningText,
@@ -101,6 +108,30 @@ function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
       ) : null}
     </span>
   );
+}
+
+/* ─── Trace summary (collapsed trigger stats) ────────────────────── */
+
+function buildTraceSummary(
+  counts: readonly TraceCategoryCount[],
+  t: AppTFunction,
+): TraceSummaryItem[] {
+  // Keep the roll-up short enough to leave room for the completion summary.
+  const toolCount = counts.reduce(
+    (sum, item) => item.category === "change" ? sum : sum + item.count,
+    0,
+  );
+  if (toolCount > 0) {
+    return [{
+      id: "tool",
+      icon: <Wrench />,
+      label: t(TRACE_CATEGORY_COUNT_KEYS.tool, { count: toolCount }),
+    }];
+  }
+  const changedFiles = counts.find((item) => item.category === "change")?.count ?? 0;
+  return changedFiles > 0
+    ? [{ id: "change", icon: <FileCode2 />, label: t(TRACE_CATEGORY_COUNT_KEYS.change, { count: changedFiles }) }]
+    : [];
 }
 
 /* ─── Reasoning step (message-duration summary) ──────────────────── */
@@ -526,7 +557,30 @@ export function AssistantMessageBody(args: {
     [revealRequestId, revealToolUseId, trace.entries],
   );
 
+  const categoryCounts = useMemo(
+    () => countTraceCategories(trace.entries),
+    [trace.entries],
+  );
+  // Fixed to the display language, so a language change rebuilds the labels.
   const t = useMemo(() => i18n.getFixedT(language) as AppTFunction, [language]);
+  const summaryItems = useMemo(
+    () => buildTraceSummary(categoryCounts, t),
+    [categoryCounts, t],
+  );
+  /* What a finished turn did, without another model call: the reply's first
+     sentence, or else a summary of the counted work. */
+  const completedTitle = useMemo(
+    () =>
+      isStreaming
+        ? undefined
+        : buildCompletedTurnTitle({
+            responseText: trace.responseParts.map((part) => part.text).join("\n\n"),
+            counts: categoryCounts,
+            t,
+          }),
+    [categoryCounts, isStreaming, trace.responseParts, t],
+  );
+
   // Human decisions remain visible when work history is collapsed.
   const historyEntries = useMemo(
     () => trace.entries.filter((entry) => entry.kind !== "user_input"),
@@ -642,13 +696,14 @@ export function AssistantMessageBody(args: {
             shouldAutoExpandTrace &&
             !isStreaming
           }
+          summaryItems={summaryItems}
           durationSeconds={traceDurationSeconds}
         >
           <ChainOfThoughtTrigger
             completionLabel={
               hasActionableCapacityFailure
                 ? i18n.t("session:assistantTrace.completionLabel")
-                : t("session:assistantTrace.workHistory")
+                : completedTitle
             }
             streamingActivity={streamingActivity}
           />

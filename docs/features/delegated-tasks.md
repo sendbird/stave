@@ -11,7 +11,7 @@ restart — and the child's answer comes back to the parent on its own.
 ## Results in the conversation
 
 The message that launched a subagent shows **Subagent results** outside its collapsed
-**Work history**. Each row previews the result or failure; select it to read the original
+trace summary. Each row previews the result or failure; select it to read the original
 answer and execution details. **Result received** confirms arrival, not incorporation into
 or verification of the parent answer. A pending asynchronous launch is not a completed result.
 

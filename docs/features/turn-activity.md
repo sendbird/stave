@@ -23,7 +23,10 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 ## Before You Start
 
 The running conversation trace header shows only the current step, or **Thinking**
-before a step is available. The turn elapsed time remains in the message footer.
+before a step is available. Once complete, it folds into a one-line summary of
+the reply (or counted work when there is no reply), with the tool-call count on the right.
+Expand the header to read the steps; pending questions stay outside it.
+The turn elapsed time remains in the message footer.
 Thinking bodies render Markdown while streaming and after completion, including
 bold text, lists and code. Tool argument/output blocks and command lines have
 a copy icon beside their content; it changes to a check mark after copying the
