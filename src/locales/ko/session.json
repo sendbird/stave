@@ -1358,5 +1358,11 @@
     "unreadable_other": "비교하지 못함: {{agents}}. worktree가 없거나 읽지 못했습니다.",
     "scope": "각 worktree가 기본 브랜치에서 갈라진 뒤부터 · 파일 단위이며 같은 줄인지는 확인하지 않습니다.",
     "notChangedSpoken": "바뀌지 않음"
+  },
+  "subagentCard": {
+    "viewResult": "결과 보기",
+    "collapseResult": "결과 접기",
+    "reportedHistory": "보고된 작업 이력",
+    "returnedNote": "하위 작업이 반환한 결과"
   }
 }

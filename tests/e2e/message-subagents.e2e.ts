@@ -36,18 +36,19 @@ for (const locale of ["en", "ko"] as const) {
           const geometry = await row.evaluate(async (element) => {
             const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
             const button = element.querySelector("button")!;
+            const head = button.firstElementChild!;
             const probe = document.createElement("div");
-            probe.style.padding = vars["--ads-space-8"];
+            probe.style.paddingLeft = vars["--ads-space-12"];
+            probe.style.gap = vars["--ads-space-8"];
             button.append(probe);
-            const expected = parseFloat(getComputedStyle(probe).paddingLeft);
+            const expectedPadding = parseFloat(getComputedStyle(probe).paddingLeft);
+            const expectedGap = parseFloat(getComputedStyle(probe).gap);
             probe.remove();
-            const style = getComputedStyle(button);
-            const mark = button.firstElementChild!.getBoundingClientRect();
-            const body = button.children[1]!.getBoundingClientRect();
-            return Math.max(Math.abs(parseFloat(style.paddingLeft) - expected),
-              Math.abs(body.left - mark.right - expected));
+            const mark = head.children[0].getBoundingClientRect();
+            const identity = head.children[1].getBoundingClientRect();
+            return Math.max(Math.abs(parseFloat(getComputedStyle(button).paddingLeft) - expectedPadding),
+              Math.abs(identity.left - mark.right - expectedGap));
           });
-          // Token padding and mark-to-copy gap are the same at each density.
           expect(geometry).toBeLessThanOrEqual(0.5);
           const trigger = row.getByRole("button").first();
           await trigger.focus();
@@ -79,7 +80,7 @@ test("one ledger subscription links a child question to its task and updates its
       runId: "run-1", stepId: "step-1", parentTaskId: "parent", delegationKey: "review",
       delegatedTaskId: "child", delegatedWorkspaceId: "workspace", delegatedTurnId: "child-turn",
       providerId: "codex", requestedModel: "gpt-6.1-sol", requestedEffort: "high", lifecycle: "one-turn",
-      phase: "running", reason: null, attempt: 0, createdAt: "2026-01-01T00:00:00.000Z",
+      phase: "running", reason: null, attempt: 0, createdAt: new Date(Date.now() - 84_000).toISOString(),
       updatedAt: "2026-01-01T00:00:00.000Z", completedAt: null,
     };
     let calls = 0;
@@ -117,15 +118,36 @@ test("one ledger subscription links a child question to its task and updates its
       change({ parentTaskId: "parent" });
     };
     document.body.append(settle);
+    const fail = document.createElement("button");
+    fail.textContent = "Fixture: fail child";
+    fail.onclick = () => {
+      Object.assign(child, { phase: "failed", reason: "Permission check failed", completedAt: new Date().toISOString() });
+      change({ parentTaskId: "parent" });
+    };
+    document.body.append(fail);
   });
   const region = page.locator("#results-harness").getByTestId("message-subagents");
   await expect(region).toHaveCount(1);
-  await expect(region).toContainText("Needs you");
+  await expect(region).toContainText(/needs you/i);
+  const liveRow = region.getByTestId("exchange-row");
+  await expect(liveRow.locator('[data-motion="moving"]')).toHaveCount(0);
+  for (const width of [360, 1200]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => document.fonts.ready);
+    expect(await liveRow.evaluate((el) => el.getBoundingClientRect().right <= innerWidth)).toBe(true);
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator("body")).toHaveAttribute("data-list-calls", "1");
-  await region.getByRole("button").first().click();
   await region.getByRole("button", { name: "Answer in the subagent task" }).click();
   await expect(page.locator("body")).toHaveAttribute("data-opened-child", "child");
   await page.getByRole("button", { name: "Fixture: return result" }).click();
-  await expect(region).toContainText("Result received · The redirect needs a guard.");
+  await expect(region).toContainText("The redirect needs a guard.");
   await expect(region.getByRole("button", { name: "Answer in the subagent task" })).toHaveCount(0);
+  await expect(liveRow.locator('[data-motion="moving"]')).toHaveCount(0);
+  await liveRow.getByRole("button").first().click();
+  await expect(liveRow.getByTestId("exchange-detail")).toBeVisible();
+  await page.getByRole("button", { name: "Fixture: fail child" }).click();
+  await expect(liveRow).toHaveAttribute("data-exchange-status", "failed");
+  await expect(liveRow).toContainText("Permission check failed");
+  await expect(liveRow).not.toContainText("Result returned by the subagent");
 });

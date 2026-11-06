@@ -11,8 +11,13 @@ restart — and the child's answer comes back to the parent on its own.
 ## Results in the conversation
 
 The message that launched a subagent shows **Subagent results** outside its collapsed
-trace summary. Each row previews the result or failure; select it to read the original
-answer and execution details. **Result received** confirms arrival, not incorporation into
+trace summary. Its heading shows the number of subagents. Live subagents appear as
+compact monitors with their identity, current work, observed duration and reported history.
+Fold a monitor with its header; **View result** opens its execution details.
+Returned results and failures appear as summary cards with a preview and any observed
+duration. Select **View result** to read the original answer and execution details.
+Unknown durations and costs are omitted. Reported history is narration, not a count of
+completed tool calls. The composer keeps its compact subagent summary. **Result received** confirms arrival, not incorporation into
 or verification of the parent answer. A pending asynchronous launch is not a completed result.
 
 For a durable child, **Open task** opens its conversation. A current question or approval
