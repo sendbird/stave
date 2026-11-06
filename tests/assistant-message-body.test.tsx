@@ -60,7 +60,7 @@ async function loadAssistantMessageBodies() {
 }
 
 describe("AssistantMessageBody", () => {
-  test("does not repeat the final answer in a completed history trigger", async () => {
+  test("restores a completed summary and tool counts in the history trigger", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const text = "Fixed the missing redirect guard.";
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
@@ -69,9 +69,22 @@ describe("AssistantMessageBody", () => {
         { type: "text", text },
       ] }), taskId: "parent", messageId: "reply", streamingEnabled: false,
     }));
-    expect(html).toContain("Work history");
-    expect(html.split(text)).toHaveLength(2);
-    expect(html).not.toContain("1 command");
+    expect(html).not.toContain("Work history");
+    expect(html).toContain("Fixed the missing redirect guard");
+    expect(html).toContain("1 tool call");
+  });
+
+  test("summarizes counted work when a turn has no final reply, including failed calls", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ parts: [
+        { type: "tool_use", toolName: "Read", input: "README.md", state: "output-available", output: "read" },
+        { type: "tool_use", toolName: "Bash", input: "bun test", state: "output-error", output: "failed" },
+      ] }), taskId: "parent", messageId: "reply", streamingEnabled: false,
+    }));
+    expect(html).toContain("Ran 1 command, read 1 file");
+    expect(html).toContain("2 tool calls");
+    expect(html).not.toContain("Work history");
   });
 
   test("a pending question stays visible when history is manually collapsed", async () => {

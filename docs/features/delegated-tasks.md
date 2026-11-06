@@ -11,7 +11,7 @@ restart — and the child's answer comes back to the parent on its own.
 ## Results in the conversation
 
 The message that launched a subagent shows **Subagent results** outside its collapsed
-**Work history**. Its heading shows the number of subagents. Live subagents appear as
+trace summary. Its heading shows the number of subagents. Live subagents appear as
 compact monitors with their identity, current work, observed duration and reported history.
 Fold a monitor with its header; **View result** opens its execution details.
 Returned results and failures appear as summary cards with a preview and any observed
