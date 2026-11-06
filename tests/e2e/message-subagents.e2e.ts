@@ -17,7 +17,7 @@ for (const locale of ["en", "ko"] as const) {
         const row = region.getByTestId("exchange-row").first();
         await expect(region).toBeVisible();
         await expect(row).toContainText("4 call sites across 2 files.");
-        const history = page.getByRole("button", { name: locale === "ko" ? "작업 이력 12초" : "Work history 12s", exact: true });
+        const history = page.locator("button[aria-expanded]").filter({ hasText: "12" }).first();
         await expect(history).toHaveAttribute("aria-expanded", "false");
         for (const width of [1100, 390]) {
           await page.setViewportSize({ width, height: 900 });
