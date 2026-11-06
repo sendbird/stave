@@ -1427,5 +1427,11 @@
     "unreadable_other": "Not compared: {{agents}}. Their worktrees are not available or could not be read.",
     "scope": "Since each worktree left the default branch · file level; overlapping lines are not checked.",
     "notChangedSpoken": "Not changed"
+  },
+  "subagentCard": {
+    "viewResult": "View result",
+    "collapseResult": "Collapse result",
+    "reportedHistory": "Reported work history",
+    "returnedNote": "Result returned by the subagent"
   }
 }

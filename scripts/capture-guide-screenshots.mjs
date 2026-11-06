@@ -590,6 +590,14 @@ const SHOTS = [
     },
   },
   {
+    name: "subagent-results",
+    async capture({ page, locale, file }) {
+      await openPreview(page, locale, "agent-messages");
+      await settle(page);
+      await save(page, page.getByTestId("message-subagents"), file, { padding: 16 });
+    },
+  },
+  {
     name: "new-workspace",
     async capture({ page, locale, file, t }) {
       await openApp(page, locale);

@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
+import { formatNumber } from "@/i18n/format";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { isDelegationExchangeLive, type DelegationExchange } from "@/lib/delegation/exchange";
-import { ExchangeRow } from "@/components/delegation/ExchangeRow";
+import { SubagentExchangeCard } from "./SubagentExchangeCard";
+import { GitBranch } from "lucide-react";
 import { useAppStore } from "@/store/app.store";
 import { selectMessageSubagents } from "@/lib/delegation/message-subagents";
 import { describeSubagentState, subagentResultLine, type SubagentMessage } from "@/lib/delegation/subagent-summary";
@@ -29,7 +31,7 @@ export function MessageSubagents(props: { message: SubagentMessage; taskId: stri
   }), [props.message, props.taskId, props.readOnly, children, blocked, graph]);
   if (!rows.length) return null;
   return <section className={sx(styles.section)} aria-label={i18n.t("session:assistantTrace.subagents")} data-testid="message-subagents">
-    <h3 className={sx(styles.heading)}>{i18n.t("session:assistantTrace.subagents")}</h3>
+    <h3 className={sx(styles.heading)}><GitBranch className={sx(styles.icon)} aria-hidden="true" />{i18n.t("session:assistantTrace.subagents")}<span className={sx(styles.count)}>{formatNumber(rows.length)}</span></h3>
     {rows.map((exchange) => <ResultRow key={exchange.id} exchange={exchange}
       blockedKind={!props.readOnly && exchange.outcome.status === "needs_user" && exchange.ref.delegationKey
         ? blocked[exchange.ref.delegationKey] : undefined} />)}
@@ -60,8 +62,8 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
       setError(i18n.t("session:delegatedTaskRows.extraCopy91"));
     } finally { setOpening(false); }
   };
-  return <ExchangeRow exchange={{ ...exchange, actions: [] }} nowMs={now} resultFirst expandCopy
-    preview={`${status} · ${preview}`} statusNote={error}
+  return <SubagentExchangeCard exchange={exchange} nowMs={now} status={status}
+    preview={preview} statusNote={error}
     extraActions={exchange.ref.delegatedTaskId ? <Button size="xs" variant="outline" disabled={opening} onClick={() => void open()}>
       {blockedKind === "user-input" ? i18n.t("session:assistantTrace.needsAnswer")
         : blockedKind === "approval" ? i18n.t("session:assistantTrace.needsApproval")
@@ -72,5 +74,7 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
 
 const styles = stylex.create({
   section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0, marginBlock: vars["--ads-space-12"] },
-  heading: { margin: 0, paddingInline: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text-muted"] },
+  icon: { width: "1rem", height: "1rem", flexShrink: 0 },
+  count: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-regular"] },
+  heading: { margin: 0, display: "flex", alignItems: "center", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text"] },
 });
