@@ -145,13 +145,14 @@
     "copyFailed": "클립보드에 복사하지 못했습니다"
   },
   "transcriptFind": {
-    "previous": "이전",
-    "next": "다음",
+    "previous": "이전 결과",
+    "next": "다음 결과",
     "close": "닫기",
     "chat": "대화에서 찾기",
     "terminal": "터미널에서 찾기",
     "none": "검색 결과 없음",
     "matches": "{{current}} / {{total}}",
+    "count_other": "{{count}}개 일치",
     "loaded": "불러온 메시지에서 검색",
     "showSidebar": "사이드바 열기"
   }

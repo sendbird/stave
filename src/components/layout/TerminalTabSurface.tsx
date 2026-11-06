@@ -34,6 +34,7 @@ export function TerminalTabSurface(args: {
   const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState("");
   const [found, setFound] = useState(true);
+  const [findFocusRequest, setFindFocusRequest] = useState(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useTerminalInstance({
     containerRef,
@@ -71,6 +72,7 @@ export function TerminalTabSurface(args: {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f" &&
           target instanceof Node && containerRef.current?.parentElement?.contains(target)) {
         event.preventDefault(); event.stopPropagation(); setFinding(true);
+        setFindFocusRequest((request) => request + 1);
       }
     };
     window.addEventListener("keydown", onKey, true);
@@ -137,7 +139,18 @@ export function TerminalTabSurface(args: {
       style={{ display: args.isActive ? "flex" : "none" }}
       aria-hidden={!args.isActive}
     >
-    {finding ? <TranscriptFind query={query} onQuery={(value) => { setQuery(value); search(value); }} onStep={(backward) => search(query, backward)} onClose={closeFind} result={found ? "" : t("transcriptFind.none")} label={t("transcriptFind.terminal")} /> : null}
+    {finding ? (
+      <TranscriptFind
+        query={query}
+        onQuery={(value) => { setQuery(value); search(value); }}
+        onStep={(backward) => search(query, backward)}
+        onClose={closeFind}
+        canStep={Boolean(query)}
+        focusRequest={findFocusRequest}
+        result={found ? "" : t("transcriptFind.none")}
+        label={t("transcriptFind.terminal")}
+      />
+    ) : null}
       <div
         ref={containerRef}
         data-terminal-surface

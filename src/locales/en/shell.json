@@ -950,6 +950,14 @@
         "title": "Send review comments",
         "description": "Send the task's pending diff review comments to the agent from the diff editor."
       },
+      "conversationFind": {
+        "title": "Find in conversation",
+        "description": "Search the loaded messages of the conversation. Works from the transcript or the composer."
+      },
+      "terminalFind": {
+        "title": "Find in terminal",
+        "description": "Search the terminal's retained output."
+      },
       "gitGraphSearch": {
         "title": "Search the commit graph",
         "description": "Focus the commit graph search field."
@@ -1073,6 +1081,7 @@
         "editor": "Editor",
         "lens": "Lens",
         "gitGraph": "Commit graph",
+        "terminal": "Terminal",
         "sideChat": "Side question panel"
       },
       "or": "or",

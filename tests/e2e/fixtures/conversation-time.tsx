@@ -11,6 +11,7 @@ import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
+import "@/components/ads/styles.css";
 import "@/globals.css";
 
 const params = new URLSearchParams(location.search);
@@ -90,6 +91,7 @@ const styles = stylex.create({
     backgroundColor: vars["--ads-color-canvas"],
     color: vars["--ads-color-text"],
   },
+  area: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 },
 });
 
 createRoot(document.getElementById("root")!).render(
@@ -97,7 +99,15 @@ createRoot(document.getElementById("root")!).render(
     <main className={sx(styles.frame)}>
       <TooltipProvider>
         <TaskScopeProvider taskId={taskId}>
-          <ChatPanel />
+          {params.has("composer") ? (
+            // Stands in for ChatArea: its root tags the area Cmd/Ctrl+F finds in.
+            <div data-conversation-find-scope="" className={sx(styles.area)}>
+              <ChatPanel />
+              <textarea aria-label="Composer stand-in" />
+            </div>
+          ) : (
+            <ChatPanel />
+          )}
           {params.has("split") ? <ChatPanel /> : null}
         </TaskScopeProvider>
       </TooltipProvider>

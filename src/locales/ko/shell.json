@@ -944,6 +944,14 @@
         "title": "리뷰 코멘트 보내기",
         "description": "diff 편집기에서 이 작업의 보내지 않은 리뷰 코멘트를 에이전트에 보냅니다."
       },
+      "conversationFind": {
+        "title": "대화에서 찾기",
+        "description": "불러온 대화 메시지에서 검색합니다. 대화 내용이나 입력창에서 사용할 수 있습니다."
+      },
+      "terminalFind": {
+        "title": "터미널에서 찾기",
+        "description": "터미널에 보관된 출력에서 검색합니다."
+      },
       "gitGraphSearch": {
         "title": "커밋 그래프 검색",
         "description": "커밋 그래프 검색 입력란에 포커스합니다."
@@ -1067,6 +1075,7 @@
         "editor": "편집기",
         "lens": "Lens",
         "gitGraph": "커밋 그래프",
+        "terminal": "터미널",
         "sideChat": "곁질문 패널"
       },
       "or": "또는",
