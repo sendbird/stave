@@ -173,7 +173,11 @@ not want sent anywhere, choose **Common CDNs only** or **Block all**.
   shared after you restart Stave until you clear it.
 - Archiving a workspace removes its pages and their shared state along with
   its conversation.
-- A page is at most 512,000 characters of HTML.
+- A page is at most 5,120,000 characters of HTML, for both showing it and
+  checking it before display.
+- Workspace `.html` and `.htm` files can be opened in the file preview up to
+  10 MiB (10,485,760 bytes), in both the desktop app and browser mode. Other text
+  files keep their 1 MiB preview limit. The file preview does not need a server.
 
 ## Limitations And Advanced Options
 

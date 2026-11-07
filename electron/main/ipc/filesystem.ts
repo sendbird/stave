@@ -20,7 +20,7 @@ import { openExternalWithFallback } from "../utils/external-url";
 import { toAsarUnpackedPath } from "../../providers/executable-path";
 import {
   WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
-  WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+  workspaceTextFilePreviewMaxBytes,
   formatFileSize,
 } from "../../../src/lib/fs/file-preview-limits";
 import {
@@ -528,14 +528,15 @@ export function registerFilesystemHandlers() {
         size: stat.size,
         mtimeMs: stat.mtimeMs,
       });
-      if (stat.size > WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES) {
+      const maxSizeBytes = workspaceTextFilePreviewMaxBytes(absolutePath);
+      if (stat.size > maxSizeBytes) {
         return {
           ok: false,
           content: "",
           revision,
           tooLarge: true,
           sizeBytes: stat.size,
-          maxSizeBytes: WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+          maxSizeBytes,
           stderr: `File is too large to preview (${formatFileSize(stat.size)}).`,
         };
       }

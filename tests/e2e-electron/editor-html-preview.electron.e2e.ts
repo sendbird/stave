@@ -184,3 +184,37 @@ test("each HTML tab's mode comes back after a restart", async () => {
     await rm(profileDir, { recursive: true, force: true });
   }
 });
+
+
+test("HTML preview reads and renders a file over 1 MiB and enforces its new byte boundary", async () => {
+  test.setTimeout(180_000);
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-large-html-"));
+  const maxBytes = 10 * 1024 * 1024;
+  const prefix = '<!doctype html><h1 id="large">Large HTML preview</h1><!--';
+  const html = prefix + "x".repeat(maxBytes - prefix.length - 3) + "-->";
+  await writeFile(path.join(repositoryPath, "large.html"), html);
+  await writeFile(path.join(repositoryPath, "oversized.HTM"), html + "x");
+  await writeFile(path.join(repositoryPath, "large.txt"), "x".repeat(1024 * 1024 + 1));
+  execFileSync("git", ["init", "-q", "-b", "main", repositoryPath]);
+  const stave = await launchStave();
+  try {
+    const { page } = stave;
+    await seedRepository(page, { repositoryPath });
+    const read = (filePath: string) => page.evaluate(async ({ rootPath, filePath }) => {
+      const result = await window.api.fs.readFile({ rootPath, filePath });
+      return { ...result, content: undefined, contentLength: result.content.length };
+    }, { rootPath: repositoryPath, filePath });
+    expect(await read("large.html")).toMatchObject({ ok: true, contentLength: maxBytes });
+    expect(await read("oversized.HTM")).toMatchObject({
+      ok: false, tooLarge: true, sizeBytes: maxBytes + 1, maxSizeBytes: maxBytes,
+    });
+    expect(await read("large.txt")).toMatchObject({ ok: false, tooLarge: true, maxSizeBytes: 1024 * 1024 });
+    await page.getByRole("button", { name: "Explorer", exact: true }).click();
+    await openFromExplorer(page, "large.html");
+    await expect(page.frameLocator('iframe[title="large.html"]').locator("#large"))
+      .toHaveText("Large HTML preview", { timeout: 30_000 });
+  } finally {
+    await stave.close();
+    await rm(repositoryPath, { recursive: true, force: true });
+  }
+});
