@@ -1,5 +1,14 @@
 import { i18n } from "@/i18n/runtime";
 export const WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES = 1024 * 1024;
+export const WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
+
+/** HTML artifacts may embed scripts, styles, and data; other text keeps its existing cap. */
+export function workspaceTextFilePreviewMaxBytes(filePath: string): number {
+  return /\.html?$/i.test(filePath)
+    ? WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES
+    : WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES;
+}
+
 export const WORKSPACE_IMAGE_PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
 
 export function formatFileSize(bytes: number | null | undefined) {

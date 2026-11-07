@@ -38,7 +38,7 @@ export const INLINE_RENDER_SCHEME_PRIVILEGES = {
   secure: true,
 } as const;
 
-export const INLINE_RENDER_MAX_HTML_CHARS = 512_000;
+export const INLINE_RENDER_MAX_HTML_CHARS = 5_120_000;
 export const INLINE_RENDER_MAX_TITLE_CHARS = 120;
 export const INLINE_RENDER_MIN_HEIGHT = 80;
 export const INLINE_RENDER_MAX_HEIGHT = 2_000;

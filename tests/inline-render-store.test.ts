@@ -8,7 +8,7 @@ import {
   type InlineRenderStore,
 } from "../electron/main/inline-render/inline-render-store";
 import { respondToInlineRenderRequest } from "../electron/main/inline-render/inline-render-protocol";
-import { buildInlineRenderUrl, isInlineRenderId } from "@/lib/inline-render/inline-render";
+import { buildInlineRenderUrl, isInlineRenderId, INLINE_RENDER_MAX_HTML_CHARS, readInlineRenderInputHtml } from "@/lib/inline-render/inline-render";
 
 let root: string;
 let store: InlineRenderStore;
@@ -45,6 +45,22 @@ describe("inline render store", () => {
     expect(page?.record).toMatchObject({ taskId: "task-1", turnId: "turn-1", title: "Weekly spend" });
   });
 
+  test("round-trips the new character limit through storage, delivery, and browser replay", async () => {
+    const prefix = "<!doctype html><p>큰 HTML</p><!--";
+    const html = prefix + "한".repeat(INLINE_RENDER_MAX_HTML_CHARS - prefix.length - 3) + "-->";
+    const reference = await publish({ html });
+    expect((await store.read(reference.renderId))?.html).toBe(html);
+    expect(readInlineRenderInputHtml(JSON.stringify({ html }))).toBe(html);
+    expect(readInlineRenderInputHtml(JSON.stringify({ html: html + "x" }))).toBeNull();
+    const response = await respondToInlineRenderRequest({
+      url: buildInlineRenderUrl({ renderId: reference.renderId, networkPolicy: "blocked" }),
+      method: "GET",
+      store,
+    });
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain(html.slice(html.indexOf("<p>")));
+  });
+
   test("never reads outside its own files", async () => {
     await publish();
     expect(await store.read("../../etc/passwd")).toBeNull();
@@ -52,8 +68,8 @@ describe("inline render store", () => {
   });
 
   test("refuses an empty or oversized page", async () => {
-    expect(publish({ html: "" })).rejects.toThrow();
-    expect(publish({ html: "x".repeat(512_001) })).rejects.toThrow();
+    await expect(publish({ html: "" })).rejects.toThrow();
+    await expect(publish({ html: "x".repeat(INLINE_RENDER_MAX_HTML_CHARS + 1) })).rejects.toThrow();
     expect(await readdir(root)).toEqual([]);
   });
 

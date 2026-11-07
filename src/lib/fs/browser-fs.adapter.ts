@@ -10,7 +10,7 @@ import type {
 } from "@/lib/fs/fs.types";
 import {
   WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
-  WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+  workspaceTextFilePreviewMaxBytes,
 } from "@/lib/fs/file-preview-limits";
 
 interface WindowWithPicker extends Window {
@@ -183,13 +183,14 @@ export class BrowserFsAdapter implements WorkspaceFsAdapter {
       size: file.size,
       lastModified: file.lastModified,
     });
-    if (file.size > WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES) {
+    const maxSizeBytes = workspaceTextFilePreviewMaxBytes(args.filePath);
+    if (file.size > maxSizeBytes) {
       return {
         content: "",
         revision,
         tooLarge: true,
         sizeBytes: file.size,
-        maxSizeBytes: WORKSPACE_TEXT_FILE_PREVIEW_MAX_BYTES,
+        maxSizeBytes,
       };
     }
 

@@ -189,3 +189,30 @@ test("stave_preview_html renders a page offscreen and reports what the agent can
     await stave.close();
   }
 });
+
+test("HTML tools accept the expanded character limit and preview the full page", async () => {
+  test.setTimeout(180_000);
+  const stave = await launchStave({ env: HOOK_ENV });
+  try {
+    const maxChars = 5_120_000;
+    const prefix = '<!doctype html><p>Large inline page</p><!--';
+    const html = prefix + "한".repeat(maxChars - prefix.length - 3) + "-->";
+    const endpoint = await waitForStaveMcpEndpoint(stave.userDataDir);
+    for (const tool of ["stave_render_html", "stave_preview_html"]) {
+      // A valid full-size input reaches the caller guard; an extra character
+      // must fail schema validation before the caller is considered.
+      const accepted = await callStaveMcpTool(endpoint, tool, { html, title: "Large page" });
+      expect(accepted.isError).toBe(true);
+      expect(accepted.text).toContain("only works inside a Stave task turn");
+      const rejected = await callStaveMcpTool(endpoint, tool, { html: html + "x", title: "Large page" });
+      expect(rejected.isError).toBe(true);
+      expect(rejected.text).not.toContain("only works inside a Stave task turn");
+    }
+    const { summary, images } = readResult((await preview(stave, { html, width: 640 })).content);
+    expect(summary.width).toBe(640);
+    expect(images.length).toBeGreaterThan(0);
+    expect(summary.consoleMessages).toEqual([]);
+  } finally {
+    await stave.close();
+  }
+});

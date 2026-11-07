@@ -538,6 +538,8 @@ Fleet 보기는 모든 워크스페이스의 작업을 내가 할 일 순서로 
 | 독립 CLI          | 상단 바 **독립 CLI 열기**                                  | 워크스페이스와 상관없이 CLI를 엽니다. 폴더는 설정 > 일반에서 정합니다                 |
 | MCP               | 설정 > MCP                                                 | **서버 추가** 후 **변경 사항 검토**와 **변경 사항 적용**. **로컬 MCP 서버** 카드      |
 
+인라인 HTML 페이지와 에이전트의 표시 전 검사는 최대 5,120,000자까지 지원합니다. 워크스페이스의 `.html`·`.htm` 파일은 개발 서버 없이 최대 10MiB(10,485,760바이트)까지 미리 볼 수 있습니다. 다른 텍스트 파일의 미리보기 제한은 1MiB입니다.
+
 화면 보기: [명령 팔레트](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/command-palette.png) · [워크스페이스 도구](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/workspace-tools.png) · [정보 패널](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/information-panel.png) · [Lens 도구 막대](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/lens.png) · [설정 > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/settings-mcp.png)
 
 ```callout tip "로컬 MCP 서버를 켜 두세요"
