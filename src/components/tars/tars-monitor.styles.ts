@@ -8,10 +8,10 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
  * AUI tokens only.
  */
 export const tarsMonitorStyles = stylex.create({
-  count: { flexShrink: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums" },
+  count: { flexShrink: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], fontVariantNumeric: "tabular-nums" },
   stateTag: { flexShrink: 0, gap: vars["--aui-space-4"] },
   attentionMark: { flexShrink: 0 },
-  attentionLabel: { flexShrink: 0, color: vars["--aui-color-warning-text"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-caption"] },
+  attentionLabel: { flexShrink: 0, color: vars["--aui-color-warning-text"], fontSize: vars["--aui-font-size-row"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"] },
 
   /** The recap is a section of the tray, not a card: its header, then the returned runs as lifted objects. */
   recap: {
@@ -22,8 +22,8 @@ export const tarsMonitorStyles = stylex.create({
   recapHeading: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0 },
   /** The AUI #809 in-surface section title, as the lane headers below. */
   recapTitle: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"] },
-  recapSince: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"] },
+  recapSince: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
   recapCounts: { display: "flex", flexWrap: "wrap", gap: vars["--aui-space-4"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
   recapList: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
-  recapMore: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
+  recapMore: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"] },
 });

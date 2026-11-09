@@ -26,7 +26,7 @@ test("global conversation works without a workspace, admits one decision, and su
     const fakeCli = path.join(import.meta.dirname, "harness", "fake-claude-cli.cjs");
     const wrapper = path.join(fakeDir, "claude");
     const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=currentMessage exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
+    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=currentMessage,tars-attachment-proof,c2NyZWVu exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
     await chmod(wrapper, 0o755);
     const env = { STAVE_CLAUDE_CLI_PATH: wrapper };
     const reasoningCount = async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean)
@@ -36,15 +36,25 @@ test("global conversation works without a workspace, admits one decision, and su
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input), settings);
     await stave.page.getByRole("button", { name: /^(Tars|Tars)$/ }).click();
     const conversationView = stave.page.getByTestId("tars-view");
+    await conversationView.locator('input[type="file"]').setInputFiles([
+      { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("tars-attachment-proof: preserve the saved labels") },
+      { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("screen") },
+    ]);
+    await expect(conversationView.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
     await conversationView.getByRole("textbox").fill("Help clarify this work.");
     await conversationView.getByRole("button", { name: /^(Send|보내기)$/ }).click();
     await expect.poll(() => stave!.page.evaluate(async () => (await window.api!.tars!.getConversation!()).messages.length)).toBe(1);
     const first = (await stave.page.evaluate(() => window.api!.tars!.getConversation!())).messages[0]!;
-    const discussion = { requestId: first.requestId, text: first.text };
+    const discussion = { requestId: first.requestId, text: first.text, attachments: first.attachments };
+    expect(first.attachments).toHaveLength(2);
     await expect.poll(() => stave!.page.evaluate(async (id) =>
       (await window.api!.tars!.getConversation!()).messages.find((row) => row.id === id)?.state, first.id), { timeout: 60_000 }).toBe("answered");
     expect((await stave.page.evaluate(() => window.api!.tars!.get())).responsibilities).toHaveLength(0);
     expect(await reasoningCount()).toBe(1);
+    const recorded = (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line)).find((entry) => entry.markers?.currentMessage);
+    expect(recorded.markers["tars-attachment-proof"]).toBe(true);
+    expect(recorded.markers.c2NyZWVu).toBe(true);
+    await expect(conversationView.locator("[data-tars-message-attachments]")).toContainText("notes.txt");
     await expect(conversationView.getByText("We can discuss before starting work.", { exact: true })).toBeVisible();
 
     await seedRepository(stave.page, { repositoryPath, settings: { autoRoutingEnabled: false } });
@@ -91,6 +101,7 @@ test("global conversation works without a workspace, admits one decision, and su
     stave = await launchStave({ userDataDir: profileDir, env });
     const restored = await stave.page.evaluate(() => window.api!.tars!.getConversation!());
     expect(restored.settings).toEqual(settings);
+    expect(restored.messages[0]?.attachments).toEqual(first.attachments);
     expect(restored.messages.map((row) => row.state)).toEqual(["answered", "answered", "cancelled"]);
     expect(restored.receipts).toHaveLength(1);
     expect(restored.receipts[0]?.status).toBe("applied");
@@ -136,7 +147,7 @@ test("a message that includes working changes starts its work from the uncommitt
     const fakeCli = path.join(import.meta.dirname, "harness", "fake-claude-cli.cjs");
     const wrapper = path.join(fakeDir, "claude");
     const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=currentMessage exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
+    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=currentMessage,tars-attachment-proof,c2NyZWVu exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
     await chmod(wrapper, 0o755);
     stave = await launchStave({ userDataDir: profileDir, env: { STAVE_CLAUDE_CLI_PATH: wrapper } });
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input),

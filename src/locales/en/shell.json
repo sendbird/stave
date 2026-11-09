@@ -1114,7 +1114,7 @@
     "identity": "Name and standing instructions",
     "name": "Name",
     "instructions": "Standing instructions",
-    "instructionsHint": "These instructions guide new work. They do not grant permissions or change work already running.",
+    "instructionsHint": "Applies to new work; does not grant permissions.",
     "save": "Save",
     "delegate": "Delegate a responsibility",
     "outcome": "Outcome",
@@ -1189,8 +1189,8 @@
       "activityHint": "Owned work and its current state.",
       "noWork": "No work is running on your behalf yet. Describe an outcome in the conversation to get started.",
       "settings": "Conversation settings",
-      "settingsDescription": "These preferences belong to your global conversation.",
-      "settingsHint": "Model and account changes apply to new messages. Existing messages and work keep their saved choices. Each delegated work unit, with its helpers, can use up to the turn limit.",
+      "settingsDescription": "Preferences for this conversation.",
+      "settingsHint": "Changes apply to new messages and work. The turn limit includes helpers.",
       "accountLabel": "Account",
       "searchAccounts": "Search accounts",
       "noAccounts": "No matching accounts",
@@ -1202,7 +1202,7 @@
       "cancel": "Cancel message",
       "confirm": "Confirm",
       "loading": "Loading conversation…",
-      "empty": "One conversation for your work. Ask for a status update, work through a decision, or describe what you want done.",
+      "empty": "Ask about progress, work through a decision, or describe what you want done.",
       "unavailable": "Conversation requires a desktop version with the resident conversation service.",
       "failed": "The conversation request failed. Your draft and saved messages are preserved.",
       "failedHint": "This message will not run again automatically. Send a new message to try again.",
@@ -1419,18 +1419,23 @@
       "publish": "Publish {{title}} as a draft pull request",
       "workingChanges": {
         "toggle": "Include my working changes",
-        "hint": "Work this message starts begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
+        "hint": "Start this message’s work from uncommitted changes, including new files. Ignored files stay out. Resets after sending.",
         "badge": "Includes working changes"
+      },
+      "attachments": {
+        "select": "Select files",
+        "sent": "Attached files",
+        "failed": "Could not attach files. Use up to 8 text files (32 KB total) or PNG, JPEG, GIF or WebP images (4 MB each, 6 MB total)."
       }
     },
     "execution": {
       "model": "Execution model",
       "auto": "Automatic",
       "autoDescription": "Stave Auto picks the model for each step of delegated work.",
-      "autoHint": "Delegated work routes automatically, and reviews can run on the other provider. The conversation model above is used only for talking with Tars.",
-      "pinnedHint": "Delegated work and its helpers, including reviewers, stay on this model and provider. Choose Automatic to let Stave Auto route each step.",
+      "autoHint": "Stave chooses a model for each step, including reviews.",
+      "pinnedHint": "All work and helpers use this model. Choose Automatic to allow routing.",
       "systemAccount": "This model runs with the {{provider}} System default account.",
-      "unsupported": "Tars runs delegated work only on Claude and Codex. Cursor, Kiro and OpenCode are not supported."
+      "unsupported": "Delegated work uses Claude or Codex."
     },
     "agents": {
       "title": "Agents Tars may use",

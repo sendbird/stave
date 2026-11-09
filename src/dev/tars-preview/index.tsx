@@ -248,7 +248,7 @@ export function TarsPreview() {
       getConversation: async () => structuredClone(conversation),
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
-        if (!["requestId,text", "includeWorkingChanges,requestId,text"].includes(Object.keys(input).sort().join()))
+        if (Object.keys(input).some((key) => !["requestId", "text", "includeWorkingChanges", "attachments"].includes(key)))
           throw new Error("Global messages accept only requestId, text and the working-changes choice.");
         if (!conversation.settings) throw new Error("Missing global settings.");
         let message = conversation.messages.find((item) => item.requestId === input.requestId);

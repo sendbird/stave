@@ -261,3 +261,40 @@ test("a reply streamed as many small deltas reaches the planner whole, not trunc
   });
   expect(result).toMatchObject({ status: "completed", truncated: false, text: reply });
 });
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`saved mixed attachments reach the ${providerId} conversation and native image inputs without a paid call`, async () => {
+    const { executeSecondaryProviderRun } = await import("../electron/providers/secondary-run-executor");
+    const { StreamTurnArgsSchema } = await import("../electron/main/ipc/provider-conversation-schemas");
+    const { collectNativeImageInputs, buildCodexNativeImageItems, buildClaudeNativeImageBlocks } = await import("../electron/providers/native-image-input");
+    const attachments = [
+      { type: "file_context" as const, filePath: "plan.md", content: "Keep the Korean labels. 첨부 본문", language: "md" },
+      { type: "image_context" as const, label: "screen.png", dataUrl: "data:image/png;base64,c2NyZWVu", mimeType: "image/png" as const },
+    ];
+    const f = fixture(async (request) => {
+      expect(request.input.attachments).toEqual(attachments);
+      const result = await executeSecondaryProviderRun(request, {
+        streamTurn: async (raw) => {
+          const { executionPolicy, ...payload } = raw;
+          expect(executionPolicy).toBe("secondary-read-only");
+          const args = StreamTurnArgsSchema.parse(payload);
+          expect(args.conversation?.contextParts).toEqual(attachments);
+          expect(args.runtimeOptions?.toolsDisabled).toBe(true);
+          const { inputs } = collectNativeImageInputs({ cwd: args.cwd!, conversation: args.conversation });
+          if (providerId === "codex") expect(buildCodexNativeImageItems(inputs)).toEqual([{ type: "image", url: attachments[1]!.dataUrl!, detail: "original" }]);
+          else expect((await buildClaudeNativeImageBlocks({ inputs })).blocks[0]?.source.data).toBe("c2NyZWVu");
+          return [{ type: "text", text: JSON.stringify({ reply: "Read both attachments.", actions: [] }) }, { type: "done", stop_reason: "end_turn" }];
+        }, cleanupTask: () => ({ ok: true, message: "cleaned" }),
+      });
+      return result.text;
+    });
+    f.conversations.configure({ ...SETTINGS, providerId });
+    const input = { requestId: "files", text: "", attachments };
+    const message = f.conversations.create(input, NOW);
+    expect(f.conversations.create(input, NOW).id).toBe(message.id);
+    expect(() => f.conversations.create({ ...input, attachments: attachments.slice(1) }, NOW)).toThrow("different message");
+    await processTarsMessage(message.id, f.ports);
+    expect(f.conversations.get(message.id)).toMatchObject({ state: "answered", attachments, reply: "Read both attachments." });
+    expect(f.requests).toHaveLength(1);
+    f.database.close();
+  });
+}

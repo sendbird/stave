@@ -30,7 +30,7 @@ export const tarsSideViewStyles = stylex.create({
     borderBlockEndWidth: vars["--aui-border-width-hairline"], borderBlockEndStyle: "solid", borderBlockEndColor: vars["--aui-color-border-subtle"],
   },
   heading: { display: "flex", flexDirection: "column", flex: "1 1 12rem", minWidth: 0, margin: 0 },
-  eyebrow: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], fontWeight: vars["--aui-font-weight-regular"] },
+  eyebrow: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], fontWeight: vars["--aui-font-weight-regular"] },
   title: {
     color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-semibold"], lineHeight: vars["--aui-line-height-normal"],
     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
@@ -43,8 +43,8 @@ export const tarsSideViewStyles = stylex.create({
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
   /** The AUI #809 in-surface section title: 15/500. */
   sectionTitle: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"] },
-  meta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], overflowWrap: "anywhere" },
-  text: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
+  meta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  text: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
   list: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], margin: 0, padding: 0, listStyle: "none", minWidth: 0 },
   /**
    * A list of rows inside one AUI #809 raised panel (`raisedPanel.panel` +

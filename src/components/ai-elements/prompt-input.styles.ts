@@ -291,6 +291,8 @@ export const promptInputStyles = stylex.create({
   },
   /** `chrome="tray"`: the form is the raised input (`composerTray.field`); no top hairline. */
   formTray: {
+    // Override the terminal chrome's top edge along with the other three sides.
+    borderTopColor: { default: vars["--aui-color-ring"], ":focus-within": vars["--aui-color-border-focus"], ":hover:not(:focus-within)": vars["--aui-color-border-strong"] },
     borderTopWidth: vars["--aui-border-width-hairline"],
     gap: vars["--aui-space-4"],
     paddingBlock: vars["--aui-space-8"],

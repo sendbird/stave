@@ -1,3 +1,5 @@
+import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
+import type { AttachmentContext } from "@/lib/providers/attachment-context";
 import { useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
@@ -135,7 +137,8 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       : origin?.kind === "followUp" ? <p className={sx(styles.actionRecord)} data-tars-follow-up={origin.reason}><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
         <span>{t(`shell:tars.followUp.line.${origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
-        : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p></MessageContent></Message>}
+        : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p>
+          {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index}>{attachmentName(part)}</li>)}</ul> : null}</MessageContent></Message>}
     <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
       {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}
@@ -191,11 +194,12 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
 }) {
   const { t } = useTranslation(["shell"]);
   const [text, setText] = useState("");
+  const attached = useTarsAttachments();
   // Per message and off by default: the next send carries it, then it resets.
   const [includeWorkingChanges, setIncludeWorkingChanges] = useState(false);
   const [answerErrors, setAnswerErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [answering, setAnswering] = useState(false);
-  const request = useRef<{ text: string; includeWorkingChanges: boolean; id: string } | null>(null);
+  const request = useRef<{ text: string; includeWorkingChanges: boolean; attachments: AttachmentContext[]; id: string } | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const composerErrorId = useId();
   const settings = state.conversation?.settings ?? initialSettings;
@@ -221,7 +225,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
     + (publish?.open ? `|open:${publish.open.id}` : "");
   const tooLong = text.length > TARS_MESSAGE_LIMIT;
-  const composerDisabled = !state.available || !state.conversation || state.busy;
+  const composerDisabled = !state.available || !state.conversation || state.busy || attached.reading;
   const focusComposer = () => composerRef.current?.querySelector<HTMLElement>("[contenteditable='true'], textarea")?.focus();
   /** Click, key and words take this one path; only Stave's "ask for new verification work" stays in the composer. */
   const answer: TarsDecisionAnswerHandler = (decision, optionIndex, source) => {
@@ -294,27 +298,31 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     <div ref={composerRef} className={sx(styles.composer)} data-tars-composer="">
       <div className={sx(composerTray.tray)}>
       {composerStatus}
+      <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />
       <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={composerDisabled}
         sendAccessory={<Switch size="xs" checked={includeWorkingChanges} onCheckedChange={setIncludeWorkingChanges} disabled={composerDisabled}
           label={t("shell:tars.conversation.workingChanges.toggle")} title={t("shell:tars.conversation.workingChanges.hint")} data-tars-working-changes-toggle="" />}
         selectedModel={buildModelSelectorValue({ providerId: settings.providerId, model: settings.model })} modelOptions={[]} onModelSelect={() => undefined}
-        attachedFilePaths={[]} plainText onAttachFilesChange={() => undefined} windowShortcutsEnabled={false}
+        attachedFilePaths={attached.parts.map(attachmentName)} plainText allowPlainTextAttachments
+        onAttachFilesChange={({ filePaths }) => attached.keep(filePaths)} onOpenFileSelector={() => attached.picker.current?.click()}
+        onPasteFiles={({ files }) => attached.add(files)} windowShortcutsEnabled={false}
         onSubmit={async ({ text: submitted }) => {
-          if (state.busy || !submitted.trim() || submitted.length > TARS_MESSAGE_LIMIT) return;
+          if (composerDisabled || (!submitted.trim() && !attached.parts.length) || submitted.length > TARS_MESSAGE_LIMIT) return;
           // A short answer binds to the one waiting decision; anything else is a message to Tars.
-          const bound = onAnswer ? bindTarsShortAnswer(submitted, selectAnswerableTarsDecisions(decisions)) : null;
+          const bound = onAnswer && !attached.parts.length ? bindTarsShortAnswer(submitted, selectAnswerableTarsDecisions(decisions)) : null;
           if (bound) {
             if (bound.decision.options[bound.optionIndex]?.kind !== "verify") setText("");
             answer(bound.decision, bound.optionIndex, "words");
             return;
           }
           // An unchanged draft and choice retries the same request; changing either is a new message.
-          if (request.current?.text !== submitted || request.current.includeWorkingChanges !== includeWorkingChanges)
-            request.current = { text: submitted, includeWorkingChanges, id: crypto.randomUUID() };
-          const message = await state.send({ requestId: request.current.id, text: submitted, ...(includeWorkingChanges ? { includeWorkingChanges: true } : {}) },
+          if (request.current?.text !== submitted || request.current.includeWorkingChanges !== includeWorkingChanges || request.current.attachments !== attached.parts)
+            request.current = { text: submitted, includeWorkingChanges, attachments: attached.parts, id: crypto.randomUUID() };
+          const message = await state.send({ requestId: request.current.id, text: submitted, ...(attached.parts.length ? { attachments: attached.parts } : {}), ...(includeWorkingChanges ? { includeWorkingChanges: true } : {}) },
             initialSettings);
-          if (message) { request.current = null; if (message.state !== "failed") { setText(""); setIncludeWorkingChanges(false); } }
+          if (message) { request.current = null; if (message.state !== "failed") { setText(""); attached.clear(); setIncludeWorkingChanges(false); } }
         }} />
+      {attached.error ? <p role="alert" className={sx(composerTray.footnote, composerTray.footnoteError)}>{attached.error}</p> : null}
       {tooLong ? <p id={composerErrorId} className={sx(composerTray.footnote, composerTray.footnoteError)} role="alert" data-tars-composer-error="tooLong">{t("shell:tars.conversation.tooLong")}</p> : null}
       </div>
     </div>
