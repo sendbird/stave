@@ -122,7 +122,7 @@ export function SignOffCard(props: {
           <Button size="sm" onClick={props.onSignOff} disabled={props.busy} loading={props.busy}>
             {describeSignOffAction(current.stage)}
           </Button>
-          <Button size="sm" variant="outline" onClick={props.onReviewChanges}>
+          <Button size="sm" variant="outlined" onClick={props.onReviewChanges}>
             {i18n.t("agentRuns:signOffCard.signOffCard6")}</Button>
           {canAskForChanges ? (
             <Button size="sm" variant="quiet" onClick={() => setAsking(true)} disabled={props.busy}>

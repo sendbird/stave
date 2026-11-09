@@ -86,6 +86,7 @@ describe("resolveHostServiceRequestTimeoutMs", () => {
   });
 
   test("exempts turns and long-lived runs that have no meaningful deadline", () => {
+    expect(resolveHostServiceRequestTimeoutMs({ method: "tars.invoke" })).toBeNull();
     expect(
       resolveHostServiceRequestTimeoutMs({ method: "provider.stream-turn" }),
     ).toBeNull();

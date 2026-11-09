@@ -38,6 +38,8 @@ export type AgentInvokeResult<T> =
 export interface AgentAssignmentsListArgs {
   agentConfigId?: string;
   limit?: number;
+  /** Leave out work Tars delegated (assignment request id `tars-<responsibility id>`). */
+  excludeTars?: boolean;
 }
 
 export interface AgentsBridgeApi {

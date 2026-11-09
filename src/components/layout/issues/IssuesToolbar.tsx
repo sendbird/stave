@@ -156,7 +156,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
 
       <div className={sx(taskLayoutStyles.toolbarRow)}>
         <SearchableMultiPicker
-          trigger={<Button size="sm" variant={selectedValues.length > 0 ? "secondary" : "outline"} />}
+          trigger={<Button size="sm" variant={selectedValues.length > 0 ? "secondary" : "outlined"} />}
           triggerContent={
             <>
               <ListFilter aria-hidden />

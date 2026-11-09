@@ -127,7 +127,7 @@ export function StageRow(props: StageRowProps) {
         <Tooltip content={i18n.t("agentRuns:stageRow.ariaLabel2", { value1: stage.title })}>
           <Button
             variant="quiet"
-            size="iconSm"
+            size="sm"
             iconOnly
             press="none"
             aria-label={i18n.t("agentRuns:stageRow.ariaLabel2", { value1: stage.title })}
@@ -181,7 +181,7 @@ export function StageRow(props: StageRowProps) {
           <Tooltip content={askLabel}>
             <Button
               variant="quiet"
-              size="iconSm"
+              size="sm"
               iconOnly
               press="none"
               aria-label={first ? i18n.t("agentRuns:stageRow.ariaLabel4") : i18n.t("agentRuns:stageRow.ariaLabel5")}
@@ -196,7 +196,7 @@ export function StageRow(props: StageRowProps) {
           <Tooltip content={props.expanded ? i18n.t("agentRuns:stageRow.ariaLabel6", { value1: stage.title }) : i18n.t("agentRuns:stageRow.ariaLabel7", { value1: stage.title })}>
             <Button
               variant="quiet"
-              size="iconSm"
+              size="sm"
               iconOnly
               press="none"
               aria-label={props.expanded ? i18n.t("agentRuns:stageRow.ariaLabel6", { value1: stage.title }) : i18n.t("agentRuns:stageRow.ariaLabel7", { value1: stage.title })}
@@ -210,16 +210,16 @@ export function StageRow(props: StageRowProps) {
           <UiTooltip>
             <DropdownMenu
               placement="bottom-end"
-              triggerAsChild
-              trigger={
-                <TooltipTrigger
-                  render={
-                    <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:stageRow.ariaLabel8", { value1: stage.title })}>
-                      <Ellipsis aria-hidden />
-                    </Button>
-                  }
-                />
-              }
+              trigger={<Ellipsis aria-hidden />}
+              triggerProps={{
+                render: (
+                  <TooltipTrigger
+                    render={
+                      <Button variant="quiet" size="sm" iconOnly aria-label={i18n.t("agentRuns:stageRow.ariaLabel8", { value1: stage.title })} />
+                    }
+                  />
+                ),
+              }}
               groups={[
                 {
                   items: [

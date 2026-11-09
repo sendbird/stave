@@ -8,6 +8,7 @@ import {
   CollapsibleRoot,
   CollapsibleTrigger,
 } from "../headless/collapsible";
+import { agentMotion } from "../recipes/agent-motion";
 import { agentSurface } from "../recipes/agent-surface";
 import { controlHeights, controlIconSizes } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
@@ -37,6 +38,7 @@ import {
   toolRunStyles,
 } from "./ToolRun.parts";
 import { InlineDisclosureIcon } from "./inline-disclosure-icon";
+import { useChangeCount, useSelfEntrance } from "./agent-motion";
 import { VisuallyHidden } from "./VisuallyHidden";
 import {
   AgentRetryButton,
@@ -44,6 +46,7 @@ import {
   isRetryableAgentState,
 } from "./agent-retry";
 import { ToolRunGroup } from "./ToolRun.group";
+import { ToolRunWell } from "./ToolRun.well";
 
 export type { ToolRunSectionProps, ToolRunSummaryProps } from "./ToolRun.parts";
 export { aggregateRunStatus, isLiveRunState } from "./ToolRun.parts";
@@ -99,7 +102,17 @@ export type ToolRunProps = ToolRunBaseProps & {
   title: React.ReactNode;
   /** The machine name of the tool: `repo.grep`, `bash`, `web.search`. */
   tool?: React.ReactNode;
+  /**
+   * `well` (#809 · A4): one tint row per call — status mark, mono tool name,
+   * what it did, duration — that opens to Arguments / Result plates on the
+   * same well. `row` is the bare text row below. Host default: `row` (upstream
+   * defaults to `well`); a surface opts in so the transcript keeps its look.
+   * @default "row"
+   */
+  variant?: ToolRunVariant;
 } & XstyleProp;
+
+export type ToolRunVariant = "well" | "row";
 
 /**
  * One tool invocation — `decisions/agent-surface-grammar.md` §7.C.
@@ -149,12 +162,14 @@ function ToolRunRoot({
   statusLabel,
   title,
   tool,
+  variant = "row",
   xstyle,
   ...props
 }: ToolRunProps) {
   useTranslation();
   const panel = usePanelMount("lazy");
   const live = isLiveRunState(status);
+  const selfEntrance = useSelfEntrance();
   const elapsedMs = useMeasuredElapsed(
     { durationMs, now, settledAt, startedAt },
     live,
@@ -180,6 +195,9 @@ function ToolRunRoot({
     onOpenChange,
     open: openProp,
   });
+  // Host: the body sections mount lazily (born open), so the row tracks
+  // whether the reader opened it after mount (`useOpenBodyEntrance`).
+  const opened = useChangeCount(open) > 0;
 
   const summary = (
     <ToolRunSummary
@@ -205,12 +223,45 @@ function ToolRunRoot({
     </VisuallyHidden>
   );
 
+  if (variant === "well") {
+    return (
+      <ToolRunWell
+        {...props}
+        className={className}
+        count={count}
+        elapsedText={elapsedText}
+        error={error}
+        extra={extra}
+        hasPayload={hasPayload}
+        liveRegion={liveRegion}
+        icon={icon}
+        input={input}
+        inputLabel={inputLabel}
+        onRetry={retryable ? onRetry : undefined}
+        open={open}
+        output={output}
+        outputLabel={outputLabel}
+        retryLabel={retryLabel}
+        setOpen={setOpen}
+        status={status}
+        statusLabel={statusLabel}
+        title={title}
+        tool={tool}
+        xstyle={xstyle}
+      />
+    );
+  }
+
+  // A call arriving rises in; inside a `ToolRun.Group` (or the transcript's
+  // `AgentEntranceScope`) the enclosing container owns the entrance instead.
+  const enter = selfEntrance && agentMotion.enter;
+
   if (!hasPayload) {
     return (
       <div
         {...props}
         className={cx(
-          sx(agentSurface.row, toolRunStyles.row, xstyle),
+          sx(agentSurface.row, toolRunStyles.row, enter, xstyle),
           className,
         )}
         data-tool-run-status={status}
@@ -225,7 +276,7 @@ function ToolRunRoot({
   return (
     <CollapsibleRoot
       className={cx(
-        sx(inlineDisclosure.root, toolRunStyles.root, xstyle),
+        sx(inlineDisclosure.root, toolRunStyles.root, enter, xstyle),
         className,
       )}
       data-tool-run-status={status}
@@ -273,17 +324,17 @@ function ToolRunRoot({
           )}
         >
           {input != null ? (
-            <ToolRunSection label={inputLabel} open={open}>
+            <ToolRunSection label={inputLabel} open={open} opened={opened}>
               {input}
             </ToolRunSection>
           ) : null}
           {output != null ? (
-            <ToolRunSection label={outputLabel} open={open}>
+            <ToolRunSection label={outputLabel} open={open} opened={opened}>
               {output}
             </ToolRunSection>
           ) : null}
           {error != null ? (
-            <ToolRunSection danger label={i18n.t("ui:toolrun.error")} open={open}>
+            <ToolRunSection danger label={i18n.t("ui:toolrun.error")} open={open} opened={opened}>
               {error}
             </ToolRunSection>
           ) : null}

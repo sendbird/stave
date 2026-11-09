@@ -5,7 +5,6 @@ import type * as React from "react";
 import type { TextareaRootProps } from "../headless/textarea";
 import { controlChrome } from "../recipes/control-chrome";
 import { focusRing } from "../recipes/focus-ring";
-import { transition } from "../recipes/transition";
 import { themeProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
@@ -37,6 +36,12 @@ export type TextareaProps = Omit<TextareaRootProps, "className" | "ref"> & {
    * contract as Select/NativeSelect (shared Field/FieldError anatomy).
    */
   error?: React.ReactNode;
+  /**
+   * Invalid without a message of its own (a form-level summary carries it):
+   * paints the danger boundary and sets `aria-invalid`. Prefer `error`.
+   * @default false
+   */
+  invalid?: boolean;
   label?: string;
   /**
    * Ceiling for `autoResize`, in text rows. Past it the box stops growing and
@@ -98,6 +103,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       disabled,
       error,
       id,
+      invalid,
       label,
       maxLength,
       maxRows = 8,
@@ -109,13 +115,19 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       size = "md",
       style,
       successMessage,
-      tone = "default",
+      tone = "neutral",
       xstyle,
       ...props
     },
     ref,
   ) {
-    const anatomy = useFieldAnatomy({ description, error, id, tone });
+    const anatomy = useFieldAnatomy({
+      description,
+      error,
+      id,
+      invalid,
+      tone,
+    });
     // Stable theme target: the `<textarea>` is the box a brand restyles, with
     // its size and RESOLVED tone reflected (see `text-field` in the pilot).
     const theme = themeProps("textarea", { size, tone: anatomy.tone });
@@ -154,8 +166,10 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         aria-invalid={anatomy.invalid || props["aria-invalid"]}
         className={cx(
           sx(
+            // Field chrome first: its focus halo and the transition that grows
+            // it. The local `input` ladder below still owns border and fill.
+            controlChrome.field,
             styles.input,
-            transition.colors,
             // Dropping `focusRing.ring` is not enough to stop painting: the
             // recipe's `outlineStyle: "none"` default is also what suppresses
             // the UA's own `outline: auto 1px` on a focused textarea. Measured
@@ -279,6 +293,10 @@ const styles = stylex.create({
    */
   ringDelegated: {
     outlineStyle: "none",
+    // The wrapper owns the edge and any focus treatment; the borderless control
+    // inside it paints none of them — otherwise `controlChrome.field`'s focus
+    // halo (F3) drew a second ring inside the wrapper's edge.
+    boxShadow: vars["--aui-elevation-flat"],
   },
   input: {
     appearance: "none",

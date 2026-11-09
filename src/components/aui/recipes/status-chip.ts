@@ -10,12 +10,18 @@ export type StatusChipTone =
   | "warning"
   | "success"
   | "danger";
-export type StatusChipVariant = "soft" | "outline";
+/** `outlined` is the bordered weight, spelled as `Button` spells it. */
+export type StatusChipVariant = "soft" | "outlined";
 
 /**
  * Shared visual contract for small semantic status objects. It deliberately
  * reads the existing semantic role pairs (`*Soft` + `*Text`) rather than
  * introducing component-specific color values.
+ *
+ * SHAPE (F1, 2026-11-08): a pill, `md` 24px tall with 12px type, `sm` 20px
+ * with 11px. #809 (R0 · S9) had cut the boxes to 20/16 on a 4px `radiusMark`
+ * corner while the type stayed put, which left the label pinched against its
+ * edges; upstream brought the pill (`radiusFull`) back for every chip.
  */
 export const statusChip = stylex.create({
   root: {
@@ -25,6 +31,10 @@ export const statusChip = stylex.create({
     borderStyle: "solid",
     borderWidth: vars["--aui-border-width-hairline"],
     display: "inline-flex",
+    // A status chip is an object, not a run of its parent's text: inside a
+    // mono row (a step name, a log line) it would otherwise inherit the mono
+    // face and show the same Badge in two typefaces on one panel.
+    fontFamily: vars["--aui-font-sans"],
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--aui-font-weight-medium"],
     gap: vars["--aui-space-4"],

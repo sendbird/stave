@@ -9,7 +9,7 @@ import { applyAppLocale } from "../src/i18n";
 describe("Meter", () => {
   test("is a named meter whose value and words reach assistive technology", () => {
     const html = renderToStaticMarkup(createElement(Meter, {
-      label: "Weekly limit", value: 42, tone: "warning", size: "sm", hideLabel: true, hideValue: true,
+      label: "Weekly limit", value: 42, tone: "warning", size: "sm", showLabel: false, hideValue: true,
       getAriaValueText: () => "42% used",
     }));
     expect(html).toContain('role="meter"');

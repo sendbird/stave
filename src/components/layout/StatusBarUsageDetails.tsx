@@ -67,7 +67,7 @@ function UsageWindowRow({
       {/* A quota window is a measurement against a known limit, so it is a meter, not task progress. */}
       <Meter
         label={label}
-        hideLabel
+        showLabel={false}
         hideValue
         size="sm"
         tone={usageTone(normalizedPercent)}

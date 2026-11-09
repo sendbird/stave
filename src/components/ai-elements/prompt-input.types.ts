@@ -36,6 +36,16 @@ import type { LocalChangeReviewRequest } from "./local-change-review-dialog";
 export interface PromptInputProps {
   value: string;
   minimal?: boolean;
+  /**
+   * Chrome of the `minimal` composer. `terminal` (default) is the prompt-glyph
+   * line under a hairline; `tray` is the AUI #809 tray composer's raised input
+   * (`composerTray.field`), for a host that draws the tray band around it.
+   */
+  chrome?: "terminal" | "tray";
+  /** Paints the tray field's danger edge (the draft is over a limit) and marks the editor `aria-invalid`. */
+  invalid?: boolean;
+  /** The id of the host's message that explains `invalid`, read with the editor while it is invalid. */
+  errorMessageId?: string;
   disabled?: boolean;
   isTurnActive?: boolean;
   /**
@@ -71,6 +81,8 @@ export interface PromptInputProps {
   modelShortcutEfforts?: readonly ModelShortcutEffort[];
   windowShortcutsEnabled?: boolean;
   attachedFilePaths: string[];
+  /** Plain global chat: no attachments, task token palettes, model shortcuts or task-context hints. */
+  plainText?: boolean;
   attachments?: Attachment[];
   attachmentScopeId?: string;
   promptHistoryEntries?: readonly string[];
@@ -168,6 +180,11 @@ export interface PromptInputProps {
    */
   macroQuickPicks?: ReactNode;
   compareControl?: ReactNode;
+  /**
+   * A control of the `minimal` composer drawn just before Send, such as a
+   * per-message option the next send carries. The full composer ignores it.
+   */
+  sendAccessory?: ReactNode;
   composerControlPlacements?: ComposerControlPlacements;
   onComposerControlPlacementsChange?: (next: ComposerControlPlacements) => void;
   workspaceCwd?: string;

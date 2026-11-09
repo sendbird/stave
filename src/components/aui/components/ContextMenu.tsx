@@ -27,6 +27,8 @@ import {
 } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import type { MenuItemTone } from "./Menu";
+import { resolveNeutralTone } from "../utils/neutral-tone";
 import {
   Menu,
   type MenuCheckboxItemProps,
@@ -173,16 +175,16 @@ function GroupLabel({
 export type ContextMenuItemProps = React.ComponentProps<
   typeof ContextMenuItem
 > & {
-  tone?: "danger" | "default";
+  tone?: MenuItemTone;
 } & XstyleProp;
 
 function Item({
   className,
-  tone = "default",
+  tone = "neutral",
   xstyle,
   ...props
 }: ContextMenuItemProps) {
-  const theme = themeProps("menu-item", { tone });
+  const theme = themeProps("menu-item", { tone: resolveNeutralTone(tone) });
   return (
     <ContextMenuItem
       {...props}
@@ -336,7 +338,7 @@ export type ContextMenuItemConfig = {
   shortcut?: string;
   /** Nested actions rendered in a real Base UI submenu. */
   submenu?: ContextMenuItemConfig[];
-  tone?: "default" | "danger";
+  tone?: MenuItemTone;
 };
 
 export type ContextMenuGroupConfig = {

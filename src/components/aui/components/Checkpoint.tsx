@@ -3,25 +3,18 @@ import * as stylex from "@stylexjs/stylex";
 import { Bookmark, RotateCcw } from "lucide-react";
 import * as React from "react";
 
+import { agentMotion } from "../recipes/agent-motion";
 import { agentSurface } from "../recipes/agent-surface";
 import { controlIconSizes } from "../recipes/control-metrics";
 import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx, type XstyleProp } from "../utils/stylex";
+import { cx, sx } from "../utils/stylex";
+import { useSelfEntrance } from "./agent-motion";
 import { Button } from "./Button";
+import { CheckpointRow } from "./Checkpoint.row";
+import type { CheckpointProps } from "./Checkpoint.types";
 
-export type CheckpointProps = Omit<React.ComponentProps<"div">, "title"> & {
-  /** One sentence about what the boundary contains. Wraps; the title does not. */
-  description?: React.ReactNode;
-  disabled?: boolean;
-  /** A machine value — a timestamp, a message count, a commit sha. */
-  meta?: React.ReactNode;
-  onRestore?: React.MouseEventHandler<HTMLButtonElement>;
-  restoreLabel?: React.ReactNode;
-  restoringLabel?: string;
-  restoring?: boolean;
-  title?: React.ReactNode;
-} & XstyleProp;
+export type { CheckpointProps, CheckpointRailState } from "./Checkpoint.types";
 
 /**
  * A restorable boundary in a long transcript: **a separator with an action,
@@ -62,7 +55,15 @@ export type CheckpointProps = Omit<React.ComponentProps<"div">, "title"> & {
  * item's own `marginBlockStart`. A numbered row that renders nothing must cost
  * nothing, and an empty grid track still collects the gaps on both sides of it.
  */
-export function Checkpoint({
+export function Checkpoint(allProps: CheckpointProps) {
+  return allProps.variant === "row" ? (
+    <CheckpointRow {...allProps} />
+  ) : (
+    <CheckpointSeparator {...allProps} />
+  );
+}
+
+function CheckpointSeparator({
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
   className,
@@ -75,11 +76,21 @@ export function Checkpoint({
   restoring = false,
   title = i18n.t("ui:checkpoint.checkpointSaved"),
   xstyle,
+  // Row-only props, kept off the separator's DOM.
+  branchLabel: _branchLabel,
+  icon: _icon,
+  index: _index,
+  onBranch: _onBranch,
+  rail: _rail,
+  railEdge: _railEdge,
+  selected: _selected,
+  variant: _variant,
   ...props
 }: CheckpointProps) {
   useTranslation();
   const titleId = `${React.useId()}title`;
   const theme = themeProps("checkpoint");
+  const enter = useSelfEntrance() && agentMotion.enter;
 
   return (
     <div
@@ -91,7 +102,7 @@ export function Checkpoint({
       // would have to invent a generic fallback exactly when the caller passed
       // an element instead of a string, i.e. when they named it most precisely.
       aria-labelledby={ariaLabelledBy ?? (ariaLabel ? undefined : titleId)}
-      className={cx(sx(styles.root, xstyle), theme.className, className)}
+      className={cx(sx(styles.root, enter, xstyle), theme.className, className)}
       // `group`, not `separator`: `role="separator"` is a leaf and would hide
       // the Restore control from assistive tech, and not `region`, because a
       // transcript with twenty checkpoints would publish twenty landmarks.

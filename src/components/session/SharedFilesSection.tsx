@@ -169,7 +169,7 @@ export function SharedFilesSection(props: {
                 <TableCell>
                   <span className={sx(styles.fileCell)}>
                     <span className={sx(styles.path)} title={file.path}>{file.path}</span>
-                    <Badge tone="warning" variant="outline" size="sm">{i18n.t("session:sharedFiles.agents", { count: file.workspaceIds.length })}</Badge>
+                    <Badge tone="warning" variant="outlined" size="sm">{i18n.t("session:sharedFiles.agents", { count: file.workspaceIds.length })}</Badge>
                   </span>
                 </TableCell>
                 {headers.map((header) => {

@@ -284,7 +284,11 @@ export const styles = stylex.create({
   triggerError: {
     borderColor: {
       default: vars["--aui-color-danger-border"],
-      ":focus-within": vars["--aui-color-border-focus"],
+      // `:focus-visible`, matching `controlChrome.fieldTriggerBorder` and its
+      // keyboard-only focus halo. The trigger is a native `<button>`, which
+      // holds DOM focus after a click, so `:focus-within` left an invalid
+      // trigger wearing the focus border instead of its own red one.
+      ":focus-visible": vars["--aui-color-border-focus"],
     },
   },
   error: {

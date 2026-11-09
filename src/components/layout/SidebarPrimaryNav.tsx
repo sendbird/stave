@@ -5,6 +5,7 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 import { Bot, Gauge, LayoutGrid } from "lucide-react";
+import { TarsMark } from "@/components/tars/TarsMark";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { transition } from "@/components/aui/recipes/transition";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
@@ -74,6 +75,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
+  const openTars = useAppStore((state) => state.openTars);
   const openAgents = useAppStore((state) => state.openAgents);
   const openUsage = useAppStore((state) => state.openUsage);
   const selectAgent = useAgentsViewStore((state) => state.selectAgent);
@@ -81,6 +83,13 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const agentsWithWork = useAgentsWithWork();
   return (
     <>
+      <AuiButton layout="host" type="button" onClick={openTars}
+        aria-current={surface === "tars" ? "page" : undefined}
+        xstyle={[repositorySidebarStyles.navButton, transition.colors,
+          surface === "tars" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
+        <TarsMark className={sx(repositorySidebarStyles.iconMd)} />
+        <span className={sx(styles.label)}>{i18n.t("shell:tars.title")}</span>
+      </AuiButton>
       {props.showFleetView ? (
         <AuiTooltip content={i18n.t("shell:sidebarPrimaryNav.fleetView")} shortcut={fleetShortcut}><AuiButton
           layout="host"
@@ -170,6 +179,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const showAiUsage = useAppStore((state) => state.settings.sidebarShowAiUsage);
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
+  const openTars = useAppStore((state) => state.openTars);
   const openAgents = useAppStore((state) => state.openAgents);
   const openUsage = useAppStore((state) => state.openUsage);
   const agentsWithWork = useAgentsWithWork();
@@ -181,6 +191,11 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   ];
   return (
     <>
+      <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm"
+        xstyle={railButton(surface === "tars")} onClick={openTars}
+        aria-label={i18n.t("shell:tars.title")} aria-current={surface === "tars" ? "page" : undefined} />}>
+        <TarsMark className={sx(repositorySidebarStyles.iconMd)} />
+      </TooltipTrigger><TooltipContent side="right">{i18n.t("shell:tars.title")}</TooltipContent></Tooltip>
       {props.showFleetView ? (
         <Tooltip>
           <TooltipTrigger

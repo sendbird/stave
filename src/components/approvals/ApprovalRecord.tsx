@@ -124,7 +124,7 @@ export function ApprovalRecordView(props: {
   return (
     <div className={sx(styles.record)} data-testid={props.testId}>
       {summary.total && props.showCounts !== false ? <p className={sx(styles.counts)} data-testid="approval-record-counts">{describeApprovalCounts(summary).join(" · ")}</p> : null}
-      <ActivityFeed density="compact" items={items} emptyText={props.emptyText} />
+      <ActivityFeed density="compact" items={items} emptyState={props.emptyText} />
       {summary.total > APPROVAL_RECORD_LIST_LIMIT ? (
         <p className={sx(styles.note)}>{i18n.t("session:approvalRecord.truncated", { shown: APPROVAL_RECORD_LIST_LIMIT, count: summary.total })}</p>
       ) : null}

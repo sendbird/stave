@@ -1,11 +1,18 @@
 import { i18n, useTranslation } from "@/i18n";
-import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
+import { agentMotion, agentStagger } from "../recipes/agent-motion";
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
 import { themeProps, themeSlotProps } from "../theming/theme-props";
-import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import {
+  AgentGlyphSwap,
+  AgentHighlight,
+  useArrivalRank,
+  useChangeCount,
+  useSelfEntrance,
+  type AgentArrivalRank,
+} from "./agent-motion";
 import {
   PlanStatusMark,
   describePlanDelta,
@@ -15,6 +22,8 @@ import {
   type PlanStepItem,
   type PlanStepStatus,
 } from "./Plan.parts";
+import { PlanAppliedNote, PlanNoteRow } from "./Plan.note";
+import { planStyles as styles } from "./Plan.styles";
 import { VisuallyHidden } from "./VisuallyHidden";
 
 export type { PlanStepItem, PlanStepStatus } from "./Plan.parts";
@@ -41,8 +50,22 @@ export type PlanProps = Omit<React.ComponentProps<"section">, "title"> & {
   steps?: readonly PlanStepItem[];
   /** @default "indent" */
   substeps?: PlanSubsteps;
+  /**
+   * `row` (default) insets the title and steps 8px, the agent-row edge they
+   * share with ToolRun and Thinking rows in a transcript. `flush` puts them on
+   * the host's content edge, for a plan composed in a panel beside filled
+   * surfaces (an inspector's main column).
+   * @default "row"
+   */
+  inset?: "row" | "flush";
   /** @default "Plan" */
   title?: React.ReactNode;
+  /**
+   * Keep the title row for assistive tech only — for a plan inside a host
+   * that already shows the progress (a `RunMonitor` panel). #809 addition.
+   * @default false
+   */
+  titleHidden?: boolean;
 } & XstyleProp;
 
 const NO_STEPS: readonly PlanStepItem[] = [];
@@ -94,8 +117,10 @@ export function Plan({
   count,
   emptyState,
   steps = NO_STEPS,
+  inset = "row",
   substeps = "indent",
   title = i18n.t("ui:plan.plan"),
+  titleHidden = false,
   xstyle,
   ...props
 }: PlanProps) {
@@ -106,9 +131,10 @@ export function Plan({
   // reader is looking at; counting nested leaves as well makes "3 of 12" a
   // number that appears nowhere on screen. A caller folding steps away passes
   // the whole plan's count instead.
+  // Steering notes ride in the list but are not steps.
   const { done, total } = count || {
-    done: steps.filter((step) => step.status === "done").length,
-    total: steps.length,
+    done: steps.filter((step) => step.kind !== "note" && step.status === "done").length,
+    total: steps.filter((step) => step.kind !== "note").length,
   };
 
   const { announce: say, region } = usePlanAnnouncer(announce);
@@ -127,6 +153,16 @@ export function Plan({
   }, [done, flat, say, total]);
 
   const theme = themeProps("plan");
+  const arrivalRank = useArrivalRank(steps.map((step) => step.id));
+  /*
+   * Host: upstream always cascades the steps in. Inside an enclosing
+   * `AgentEntranceScope` the plan's arrival is already owned — or, in the chat
+   * transcript, deliberately suppressed (see `ChatPanel`): that list is
+   * virtualized, so a plan remounts on every scroll and `useArrivalRank` would
+   * rank (and replay) every step again. State-change motion (the glyph swap,
+   * a highlight or approval word on a real status change) still plays.
+   */
+  const entrance = useSelfEntrance();
 
   return (
     <section
@@ -142,7 +178,14 @@ export function Plan({
       // landmark per plan makes the landmark list useless.
       role="group"
     >
-      <div className={sx(agentSurface.metaRow, styles.header)}>
+      <div
+        className={sx(
+          agentSurface.metaRow,
+          styles.header,
+          inset === "flush" && styles.flush,
+          titleHidden && styles.headerOffscreen,
+        )}
+      >
         <span
           className={sx(agentSurface.metaRowLabel, styles.title)}
           id={titleId}
@@ -182,9 +225,12 @@ export function Plan({
             <PlanStepRow
               depth={0}
               first={index === 0}
+              entrance={entrance}
               item={step}
               key={step.id}
+              rank={arrivalRank}
               substeps={substeps}
+              xstyle={inset === "flush" ? styles.flush : undefined}
             />
           ))}
         </ol>
@@ -218,19 +264,41 @@ export function Plan({
  */
 function PlanStepRow({
   depth,
+  entrance,
   first,
   item,
+  rank,
   substeps,
-}: {
+  xstyle,
+}: XstyleProp & {
   depth: number;
+  /** Host: `false` inside an `AgentEntranceScope` (the chat transcript). */
+  entrance: boolean;
   first: boolean;
   item: PlanStepItem;
+  /** Arrival ranks of this row's siblings — the stagger order. */
+  rank: AgentArrivalRank;
   substeps: PlanSubsteps;
 }) {
   useTranslation();
   const status = item.status ?? "pending";
   const nested = item.steps ?? NO_STEPS;
   const top = depth === 0;
+  const childRank = useArrivalRank(nested.map((child) => child.id));
+  // `0` on mount: a row that remounts in its final state replays nothing.
+  const statusChanged = useChangeCount(status) > 0;
+  // Steps (and substeps, within their parent) cascade in on a short stagger;
+  // a step appended mid-run enters on its own.
+  const enter = entrance
+    ? ([agentMotion.enter, agentStagger(rank(item.id))] as const)
+    : ([] as const);
+  // Mount-played cues (the current-step highlight, the approval word's fade) are
+  // state cues; under a suppressed entrance they play only on a real change.
+  const stateCue = entrance || statusChanged;
+
+  if (item.kind === "note") {
+    return <PlanNoteRow enter={enter} first={first} item={item} top={top} />;
+  }
 
   return (
     <li
@@ -243,10 +311,17 @@ function PlanStepRow({
         top && agentSurface.rowGroupItem,
         top && first && agentSurface.rowGroupItemFirst,
         !top && styles.substep,
+        ...enter,
+        status === "running" && agentMotion.layerHost,
+        xstyle,
       )}
     >
+      {/* The step that just became current is highlighted once. */}
+      {status === "running" && stateCue ? <AgentHighlight /> : null}
       <span className={sx(styles.markCell)}>
-        <PlanStatusMark status={status} />
+        <AgentGlyphSwap swapKey={status}>
+          <PlanStatusMark status={status} />
+        </AgentGlyphSwap>
       </span>
       <span
         {...themeSlotProps("plan", "title")}
@@ -268,7 +343,11 @@ function PlanStepRow({
          */}
         {status === "approval" ? (
           <span
-            className={sx(styles.statusWord, agentStatusWord.warning)}
+            className={sx(
+              styles.statusWord,
+              agentStatusWord.warning,
+              stateCue && agentMotion.textIn,
+            )}
             data-plan-step-status="approval"
           >
             {planStatusLabel.approval}
@@ -285,8 +364,13 @@ function PlanStepRow({
           {item.meta}
         </span>
       )}
-      {item.detail == null ? null : (
-        <span className={sx(styles.detail)}>{item.detail}</span>
+      {item.detail == null && item.appliedNote == null ? null : (
+        <span className={sx(styles.detail)}>
+          {item.detail}
+          {item.appliedNote == null ? null : (
+            <PlanAppliedNote note={item.appliedNote} />
+          )}
+        </span>
       )}
       {nested.length === 0 ? null : (
         <ol
@@ -302,9 +386,11 @@ function PlanStepRow({
           {nested.map((child, index) => (
             <PlanStepRow
               depth={depth + 1}
+              entrance={entrance}
               first={index === 0}
               item={child}
               key={child.id}
+              rank={childRank}
               substeps={substeps}
             />
           ))}
@@ -313,124 +399,3 @@ function PlanStepRow({
     </li>
   );
 }
-
-// One title line box. The mark and the machine value are centred inside a cell
-// of exactly this height, which is what pins them to the title's FIRST line
-// rather than to the middle of a wrapped one.
-const TITLE_LINE = `calc(${vars["--aui-font-size-body"]} * ${vars["--aui-line-height-tight"]})`;
-
-const styles = stylex.create({
-  root: {
-    gap: vars["--aui-space-8"],
-  },
-  header: {
-    // Matches `agentSurface.row`'s inline padding so the plan title sits in the
-    // same column as the step titles below it.
-    paddingInline: vars["--aui-space-8"],
-  },
-  headerEnd: {
-    alignItems: "baseline",
-    display: "inline-flex",
-    flexShrink: 0,
-    gap: vars["--aui-space-8"],
-  },
-  title: {
-    color: vars["--aui-color-text"],
-    fontSize: vars["--aui-font-size-body"],
-    // §3: medium for a row/section title. Semibold is the page-title weight.
-    fontWeight: vars["--aui-font-weight-medium"],
-    lineHeight: vars["--aui-line-height-tight"],
-  },
-  empty: {
-    color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-body"],
-    lineHeight: vars["--aui-line-height-normal"],
-    margin: 0,
-    paddingBlock: vars["--aui-space-8"],
-    paddingInline: vars["--aui-space-12"],
-  },
-  list: {
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-  },
-  step: {
-    alignItems: "start",
-    columnGap: vars["--aui-space-12"],
-    gridTemplateColumns: "auto minmax(0, 1fr) auto",
-    rowGap: 0,
-  },
-  substep: {
-    // No rule and no radius; the inset (or the parent's spine) is the whole
-    // containment. Tighter block padding keeps a nested run denser than the
-    // top-level rows it belongs to.
-    paddingBlock: vars["--aui-space-4"],
-    paddingInline: 0,
-  },
-  markCell: {
-    alignItems: "center",
-    blockSize: TITLE_LINE,
-    display: "inline-flex",
-    gridColumn: "1",
-    gridRow: "1",
-    justifyContent: "center",
-  },
-  /**
-   * The visible status word for the one attention state. Tertiary type size,
-   * medium weight, colour from `agentStatusWord` — no fill, no border, no dot,
-   * exactly the one-colored-word anatomy `ToolRun` uses for the same job. It
-   * sits *inside* the title cell so it wraps with the sentence it annotates
-   * rather than fighting the machine value in column 3 for the row's width.
-   */
-  statusWord: {
-    fontSize: vars["--aui-font-size-caption"],
-    fontWeight: vars["--aui-font-weight-medium"],
-    marginInlineStart: vars["--aui-space-8"],
-    whiteSpace: "nowrap",
-  },
-  stepTitle: {
-    color: vars["--aui-color-text"],
-    fontSize: vars["--aui-font-size-body"],
-    fontWeight: vars["--aui-font-weight-medium"],
-    gridColumn: "2",
-    gridRow: "1",
-    lineHeight: vars["--aui-line-height-tight"],
-    minInlineSize: 0,
-    overflowWrap: "anywhere",
-  },
-  metaCell: {
-    alignItems: "center",
-    blockSize: TITLE_LINE,
-    display: "inline-flex",
-    gridColumn: "3",
-    gridRow: "1",
-    whiteSpace: "nowrap",
-  },
-  detail: {
-    color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-caption"],
-    gridColumn: "2 / -1",
-    gridRow: "2",
-    lineHeight: vars["--aui-line-height-normal"],
-    marginBlockStart: vars["--aui-space-4"],
-    minInlineSize: 0,
-    overflowWrap: "anywhere",
-  },
-  substepList: {
-    display: "grid",
-    gridColumn: "2 / -1",
-    gridRow: "3",
-    listStyle: "none",
-    margin: 0,
-    marginBlockStart: vars["--aui-space-4"],
-    minInlineSize: 0,
-    padding: 0,
-  },
-  substepRail: {
-    backgroundColor: `color-mix(in oklab, ${vars["--aui-color-surface-tint"]} 72%, transparent)`,
-    borderRadius: vars["--aui-radius-control"],
-    gap: 0,
-    paddingBlock: vars["--aui-space-4"],
-    paddingInline: vars["--aui-space-8"],
-  },
-});

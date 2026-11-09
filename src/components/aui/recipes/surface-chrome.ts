@@ -40,11 +40,12 @@ export const surfaceChrome = stylex.create({
     justifyContent: "center",
     padding: 0,
     transitionDuration: {
-      default: vars["--aui-motion-duration-fast"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
+      default: vars["--aui-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)":
+        vars["--aui-motion-duration-micro"],
     },
     transitionProperty: "background-color, border-color, color",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
   },
   /**
    * The `+1` optical nudge that drops a leading glyph onto the first line of

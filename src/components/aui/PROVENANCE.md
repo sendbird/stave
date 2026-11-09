@@ -300,14 +300,14 @@ Further host extensions:
 - StyleX is now compiled per ORIGIN. `scripts/vite-aui-stylex.mjs` and its
   `.core.mjs`/`.d.mts` siblings replace `stylex.vite()` in `vite.config.ts` and
   `electron.vite.config.ts`: ADS modules (everything under this directory, named
-  by `adsRoots`) keep StyleX's default `x` class name prefix, everything else
+  by `auiRoots`) keep StyleX's default `x` class name prefix, everything else
   compiles under `p`, and each origin's rules are emitted as
-  `@layer ads.priority*` / `@layer product.priority*`. An atomic class is a pure
+  `@layer aui.priority*` / `@layer product.priority*`. An atomic class is a pure
   function of its declaration, so ADS and product code writing the same
   declaration used to produce the SAME class and therefore one cascade
   position; distinct prefixes are what let the two origins hold different ones.
   The canonical order is now
-  `reset, theme, base, ads, aui-theme, product, components, utilities`, stated
+  `reset, theme, base, aui, aui-theme, product, components, utilities`, stated
   identically in `index.html`, `src/globals.css` and this directory's
   `styles.css`, and enforced by `scripts/check-design-system-migration.mjs`.
   `aui-theme` ships empty; it is the seam a brand recipe would occupy.
@@ -321,22 +321,22 @@ Further host extensions:
 
   Two deliberate departures from the upstream instructions. The origin
   classifier has no built-in ADS root, because upstream's default is its own
-  workspace package path and this is a source install; `adsRoots` is the only
-  thing that names ADS here. And `adsCascadeLayers()` is not installed: the
+  workspace package path and this is a source install; `auiRoots` is the only
+  thing that names AUI here. And `auiCascadeLayers()` is not installed: the
   `#stave-style-layers` block in `index.html` already publishes the statement
   ahead of every bundled sheet, which is the same mechanism, and the migration
   gate already compares it against `src/globals.css`.
 
   `src/main.tsx` no longer imports `virtual:stylex:runtime`. That module is
   served by `@stylexjs/unplugin`'s own Vite adapter, which this plugin replaces;
-  `adsStylex` injects the equivalent `/virtual:aui-stylex.css` link and dev
+  `auiStylex` injects the equivalent `/virtual:aui-stylex.css` link and dev
   client itself. Left in place it is an unresolvable import and the dev server
   returns 500 on the entry module.
 
 - Not yet adopted from `consumer-changes/2026-09-09-layered-motion-and-font-imports.json`:
   the ADS motion sheets and `fonts.css` are still imported UNLAYERED here.
   Unlayered declarations outrank every layer, which is their behaviour today, so
-  annotating them `layer(ads)` would move them below product StyleX — a real
+  annotating them `layer(aui)` would move them below product StyleX — a real
   change with no consumer for it yet, because no product theme exists. Adopt it
   with the theming module, not before.
 
@@ -585,9 +585,10 @@ Further host extensions:
 
   New files, all byte-identical to upstream `589cfc4c`: `Dialog.styles.ts`,
   `Menu.styles.ts`, `Menu.density.tsx`, `Menu.merge-class-name.ts`,
-  `Tooltip.group.tsx` and `ToastHost.styles.ts`. `Menu`, `Tooltip` and
-  `overlay-motion.css` carry no other host delta; `Menu.tsx` is now
-  byte-identical to upstream.
+  `Tooltip.group.tsx` and `ToastHost.styles.ts`. `Menu` and `Tooltip` carry
+  no other host delta; `Menu.tsx` is now byte-identical to upstream.
+  (`overlay-motion.css` was later brought to #813 with three host deltas; see
+  the #810–#813 entry.)
 
   One upstream API change reached product code. The `surface` key these
   components used to export no longer exists, because paint moved to
@@ -911,21 +912,266 @@ Further host extensions:
   installed because its closure needs a windowing package the host does not
   ship.
 
-- AUI #814 (sendbird/atelier `3e9653d5`, "refactor(aui)!: rename ADS to
-  Atelier UI"), adopted 2026-11-09. Browser keys, identifiers, paths and copy
-  follow upstream: this directory is `src/components/aui`; `.aui-source*.json`
-  replace `.ads-source*.json` (only paths and copy changed, so the recorded
-  `integrity` values still name the pre-rename upstream bytes); `--ads-*` →
-  `--aui-*`, `data-ads-*` → `data-aui-*`, `ads-*` classes → `aui-*`; cascade
-  layers `aui`, `aui.priority*` and `aui-theme` (`index.html`,
-  `src/globals.css`, `styles.css`); the StyleX origin plugin is
-  `scripts/vite-aui-stylex*.mjs` (`auiRoots`, origin `aui`, HMR event
-  `aui-stylex:update`); the theme bridge is `src/components/system/aui-theme.ts`
-  (`auiThemeVariables`); the dev preview is `?stavePreview=aui-regressions`;
-  focused tests are `tests/aui-*.test.*`. Nothing renamed is persisted: no
-  storage key, IPC channel or database value carried the old name. Unchanged
-  on purpose: history (this file's earlier entries keep "ADS", and
-  `CHANGELOG.md`), quoted upstream commit titles such as `refactor(ads)!:`,
-  and user-input test fixtures. When refreshing, call
-  `aui_check_source_updates`; upstream accepts the legacy `.ads-source.json`
-  name only as a migration path.
+- ADS #809 (sendbird/atelier `feat/jacob/aui-reference-expansion`, head
+  `ffa6bf15`; the ported files are byte-identical at `e8e58f34`, which only
+  touched charts) was taken for the agent surfaces Tars uses. Consumer-change
+  records: `2026-11-06-r0-system-foundation`, `2026-11-06-r1-controls`,
+  `2026-11-07-r2-agent`, `2026-11-07-r3-conversation`. New files are listed in
+  `.aui-source.json` with the sha256 of the upstream bytes; every one of them is
+  host-modified as below, so the hashes are provenance, not checksums of the
+  installed copies.
+
+  Taken, additive:
+
+  - Tokens: `colorTextFaint` (fourth ink, under 3:1, decorative marks only),
+    `colorRing` (the resting edge paired with `elevationRaised`),
+    `controlHeight2xs` (24px), `lineHeightProse` (22px), in `tokens.stylex.ts`,
+    `themes.stylex.ts` and `theme-values.ts` for light, dark and high contrast.
+    `src/components/system/aui-theme.ts` derives the two colors from every saved
+    Stave theme (`colorTextFaint` = 46% `--background` into `--muted-foreground`,
+    `colorRing` = 18% `--foreground` over transparent, #810 F3), so built-in
+    and user themes need no new values.
+  - Type roles as named steps: `fontSizeRow` (13px, upstream's new
+    `fontSizeBody`) and `fontSizeSection` (15px), with `typeRoles.row`,
+    `typeRoles.section` and `typeRoles.prose`.
+  - Button `2xs` (24px in-surface secondary rung; `ButtonScale`,
+    `buttonHeightStyles`, `buttonSquareStyles`, `buttonIconSizes`,
+    `Button.sizeContext.ts`), applied as hunks. The `ui` adapter maps `2xs` and
+    `icon-2xs`, and the `button` theme target's size axis lists `2xs`.
+  - `RunMonitor` (+ `RunMonitor.styles.ts`, host split `RunMonitor.parts.tsx`)
+    with `run-monitor` and `run-recap` theme targets.
+  - `Approval` split into `Approval.types.ts`, `Approval.shared.tsx` and the
+    scoped permission request `Approval.scoped.tsx` (`scopes`, `scope`,
+    `defaultScope`, `onScopeChange`, `scopeLabel`, `allowLabel`, `icon`,
+    `meta`, `footnote`, `ApprovalOutcome.scope`). Without `scopes` the
+    transcript decision is unchanged.
+  - `ToolRun.well.tsx`, `Plan.note.tsx`, `Checkpoint.row.tsx` and
+    `Checkpoint.types.ts` (details in the host modifications below).
+
+  Host-authored recipes derived from #809 rules, not upstream files:
+  `recipes/raised-panel.ts` (ring + raised static panel, 13px rows with
+  hairlines, faint ink, 15/500 section title), `recipes/text-wrap.ts` (the
+  Korean line-break policy, `word-break: keep-all` + `overflow-wrap: anywhere`)
+  and `recipes/composer-tray.ts` (the R3 tray composer's band, raised field,
+  focus/hover ladder and footnote, lifted from `Composer.styles.ts` because the
+  host composer is `PromptInput`, not the bundle's `Composer`; `PromptInput`
+  reaches it with `minimal chrome="tray"`).
+
+  Host modifications, kept when refreshing:
+
+  - No English copy in these files. `RunMonitor` (every variant) takes a
+    required `statusLabel` (the bundle's English `runStatusLabel` table was not
+    installed) and read their other defaults from `ui:runMonitor.*` and
+    `ui:runRecap.*`; scoped `Approval` reads `ui:approval.allow`,
+    `ui:approval.scope` and the existing approval keys; `decisionWord` and the
+    audit line keep their `ui:` keys in `Approval.shared.tsx`.
+  - Button variant name `outline` (the bundle says `outlined`); `AgentStepState`
+    (the bundle says `AgentRunState`).
+  - `RunMonitor` draws its state tag with `StateMark` on a pill Badge
+    (`RunStatusTag`), not a dot. Host extensions: `statusTag` (a domain's own
+    tag), `workState` (the mark's state when the domain is finer than
+    `status`), `actions` and `trailingActions` (footer slots for controls
+    beyond Pause/Cancel), `logAriaLabel`, `progress.segments` + `stripLabel`
+    (one labelled `<li>` per stage, including a `stopped` warning segment,
+    instead of the anonymous `role="img"` strip) and `progress.label: false`
+    (no readout rather than a guessed count). A settled current step draws its
+    `StateMark`; only a live run shows the spinner. Titles and meta wrap instead
+    of ending in an ellipsis, so the header aligns to the first line.
+  - The recap claims no review state unless `review` is passed (upstream
+    defaults to "not yet reviewed").
+  - Scoped `Approval` keeps the host's `busy` prop (no `loading` alias) and
+    restates the ring + raised edge on its card, because the installed
+    `agentSurface.tile` still rests on `colorBorder`. The transcript layout
+    keeps `density`, `allowOnceShortcut` and `risk`.
+  - `ToolRun` gained `variant` ("well" | "row") but the host default stays
+    "row" (upstream defaults to "well"), so the transcript keeps its look; the
+    well reads `ui:toolrun.error` and draws the host `skipped` state as the
+    neutral dash. `Plan` gained `kind: "note"` (`noteStatus`, `noteMeta`,
+    `noteActions`), `appliedNote` and `titleHidden`, keeping `actions`,
+    `count` and `current`; notes are not counted; the words read
+    `ui:plan.appliedNote` / `ui:plan.applied`. `Checkpoint` gained
+    `variant: "separator" | "row"` with `onBranch` and `ui:checkpoint.branch`;
+    Branch uses `outline` on `2xs`. `Plan.schedule` was not installed (no
+    consumer).
+  - Every 13px use in a ported file reads `fontSizeRow` and every 14px use
+    reads `fontSizeBody`, because the host did not move `fontSizeBody`.
+
+  Not yet adopted (each is an upstream default change that would restyle
+  existing screens): the 13px `fontSizeBody` / 20px `lineHeightNormal` body
+  baseline and `styles.css` body size; `colorRing` + `elevationRaised` as the
+  resting edge of fields, triggers, the `outline` Button, popups and static
+  panels; the tray shell / inset workspace and 30px nav rows; ToolRun's `well` default;
+  Composer and Suggestions (not installed; `Suggestions` chips stay with
+  `ai-elements`); and the rest of #809's families (charts, DatePicker,
+  FilterBar, FileUpload list, ProseDiff, Thread stream, Board agent columns).
+
+- ADS #810–#813 (sendbird/atelier main `46a7ccd9`, 2026-11-08) were reviewed
+  against the #809 port above. Consumer-change records read:
+  `2026-11-08-f1-f2-type-and-shell`, `-f3-f5-interaction-and-alignment`,
+  `-f4-f6-motion-and-dots`, `-f7-consolidation`, `-merge-duplicates`,
+  `-agent-motion`, `-motion-pass`, `-motion-review-signature`,
+  `-selection-and-row-actions`, `-soft-warm-palette`, `-point-colour-themes`.
+  `.aui-source.json` records the `46a7ccd9` hashes for the files brought to
+  main (`RunMonitor.tsx`, `RunMonitor.styles.ts`, `RunMonitor.recap.tsx`,
+  `ToolRun.well.tsx`, `ToolRun.well.styles.ts`, `Plan.note.tsx`,
+  `Plan.styles.ts`, `Checkpoint.row.tsx`, `Approval.scoped.tsx`,
+  `Approval.shared.tsx`, `agent-motion.tsx`, `recipes/agent-motion.ts`); the
+  other #809 entries keep their `ffa6bf15` hashes. All are host-modified.
+
+  Taken:
+
+  - Status chips are pills again (F1): `md` 24px, `sm` 20px, `radiusFull`,
+    sans face inside mono rows. The host's 4px tag shape (`statusChip.tag*`,
+    Badge `shape`) was removed with upstream's; every Tars consumer uses the
+    plain Badge.
+  - `colorRing` 18% (F3), in the token defaults and the theme derivation.
+  - `RunRecap` merged into `RunMonitor variant="recap"` (F7 / merge
+    duplicates); `RunMonitor.recap.tsx` carries the old host modifications and
+    the `run-recap` theme target. `RunMonitorStepStatus` is Plan's step state
+    narrowed to three; `planStatusLabel` reads `agentStateLabel` ("Completed").
+  - The agent motion layer (`recipes/agent-motion.ts`,
+    `components/agent-motion.tsx`) on RunMonitor (card and recap), ToolRun
+    (row, group, well), Plan (steps, notes), Checkpoint (separator, row) and
+    scoped Approval. Upstream's structure is kept (entrance scope, arrival
+    rank, stagger, pulse, breathe, flow, bar, bar draw, live fill, tone,
+    `useFlipReorder`; `agentStagger` gained a strict-index fallback), but the
+    entrance, the status glyph swap, the label change and the current-step
+    cue are HOST-AUTHORED replacements, not upstream code: rows fade in
+    without travel and cards settle from 98% scale (`enter`, `enterCard`);
+    a glyph grows from 70% while the old one shrinks out, no overshoot
+    (`glyphIn`/`glyphOut`); a changed label fades in place after the old one
+    has mostly gone (`AgentTextSwap`, `swapKey`, `textIn`/`textOut`, no
+    travel, blur or width glide); a newly current step gets a one-shot tint
+    that fades (`AgentHighlight`, `highlightKey`, `agentMotion.highlight`).
+    Upstream's `AgentCollapse` and its collapse styles were not installed (no
+    consumer). Do not take upstream's versions of these four motions when
+    refreshing; keep the host ones. Rendered behaviour (one readable copy,
+    the leaving copy dropped, Reduce Motion swapping in place) is covered by
+    `tests/e2e/agent-motion.e2e.ts`.
+  - Narrow-layout and fidelity fixes: RunMonitor and Approval titles wrap and
+    the state badge never shrinks; a ToolRun well under 360px puts its summary
+    on its own line; Plan `inset="flush"`; a one-line Plan step centres
+    vertically; ToolRun well and Plan styles moved to upstream's split files.
+
+  Host modifications:
+
+  - Entrance motion never plays in the virtualized transcript.
+    `src/components/session/transcript-entrance-scope.tsx` wraps the chat
+    transcript, the recorded turn dialog, the task turn plan and the composer
+    shelf plan in ADS `AgentEntranceScope`; besides leaf components, the
+    containers (`ToolRun.Group` items, Plan steps and notes) skip their
+    `useArrivalRank` cascade inside that scope, and Plan's running sweep and
+    approval roll there play only after a real change (`useChangeCount > 0`).
+    Upstream plays them on every mount, which replays on scroll and history
+    load in a virtualized list. An open ToolRun payload body (row section and
+    well plate) uses `useOpenBodyEntrance` (`ToolRun.parts.tsx`): inside the
+    scope it enters only when the reader opened it after mount, so a body
+    mounted `defaultOpen` (a running MCP App result) does not replay.
+  - `RunMonitor` `current.key` (step id + attempt) restarts the sweep and
+    rolls the label when the step changes; a JSX label has no text to key on.
+  - `RunMonitor` rolls the state word keyed by the label, not `status`
+    (Tars maps paused and blocked to one status), and sweeps/shimmers the
+    current step only while the run is live (a settled step shows its
+    StateMark and must not read as running).
+  - Badge kept `outline` and `warm` here (both folded into `outlined` and
+    `warning` with #811, see below); accent chips keep the host `accent`
+    tokens (upstream's `control-on` role belongs to the point-colour layer,
+    not installed).
+  - Plan has no `AnimatedNumber` (not installed); the count is plain text.
+
+  Adopted afterwards (user decision, 2026-11-08):
+
+  - F3 field focus halo: `controlChrome.field` on `:focus-within` and the
+    trigger keys (`fieldTriggerBorder`, new `fieldTriggerBorderReadOnly`,
+    `triggerFocusBorder`) on `:focus-visible` paint
+    `0 0 0 3px color-mix(in oklab, colorBorderFocus 25%, transparent)`, the
+    field keys own their transition (150ms `ease-color`, box-shadow included,
+    so the halo grows from 0), call sites no longer compose
+    `transition.colors` after them, and `Textarea ringOwner="wrapper"` paints
+    no inner shadow. Select uses the `fieldTriggerBorder(ReadOnly)` stack and
+    `triggerError` focuses on `:focus-visible`. Host modifications: the halo
+    colour is the theme's `--ring` (`aui-theme.ts`); text fields rest flat
+    (upstream rests on `elevationRaised`); triggers keep the host's `:active`
+    press collapse; `disabledField` keeps its shadow.
+    `src/components/usage/UsageDateRangeField.tsx` hand-copied the Select
+    trigger stack and was moved to the same keys. Test:
+    `tests/aui-control-chrome.test.ts`. The host's global reduced-motion rule
+    (`src/globals.css`, `transition-duration: 0.01ms`) still wins over the
+    recipe's 80ms fade, so the halo appears at once under Reduce Motion.
+  - Motion timing at #813's final state: `--atelier-motion-duration-normal`
+    220ms, `-panel` 340ms, new `-tooltip` 100ms, `-spin` 600ms, `-signature`
+    220ms; `ease-out` `cubic-bezier(0.22, 1, 0.36, 1)` with `ease-standard`
+    and `ease-expressive` aliased to it; strong `ease-in-out`; new
+    `ease-loop`, `ease-color`, `ease-spring`, `ease-spring-snappy`,
+    `ease-signature` (and `--aui-motion-duration-spin`, `-ease-loop`,
+    `-ease-color` in `tokens.stylex.ts`). Overlays enter and exit on the
+    ease-out without overshoot (#813 reversed F4's overlay spring); drawers
+    enter on the snappy spring; tooltips fade 100ms; toasts travel 8px;
+    keyboard-opened/closed `CommandDialog` is instant (`data-instant`), and
+    (host fix) choosing an item closes it the way it was chosen, Enter at
+    once and a click with the fade (upstream leaves the open's mode in place;
+    `tests/e2e/agent-motion.e2e.ts`);
+    Reduce Motion keeps an 80ms opacity fade on overlays. Colour transitions
+    (`transition.ts`) run 150ms on `ease-color`; every spinner turns once per
+    600ms; disclosure chevrons rotate on `normal`. `transition.ts`,
+    `motion-presets.ts`, `inline-disclosure-motion.css` and the three Loader
+    style files are byte-identical to `46a7ccd9`. Host deltas in
+    `overlay-motion.css`: the NavigationMenu arm and `.atelier-toast-stack-tight`
+    are not installed (no component), and the top toast stack is listed in the
+    reduced-motion guard (`tests/aui-motion-layer.test.ts`). Loop animations
+    outside ADS read `ease-loop` (`chain-of-thought.styles.ts`). Test:
+    `tests/aui-motion-spring-easing.test.ts` (with a host check that every
+    `motionDurations` value equals its `--atelier-motion-duration-*`). Not
+    taken: the sidebar signature bounce and `reveal-motion` (no host
+    consumer), ToggleGroup chip settle and Gauge (not installed), and the
+    Accordion/Collapsible chevron selector fix (`[data-panel-open]`), which
+    is a behaviour fix to take separately.
+
+  Not adopted (each restyles screens outside the agent surfaces, or replaces
+  the host's colour authority):
+
+  - F1's 14px body baseline is already the host's; the host keeps 13px rows on
+    `fontSizeRow`. Heading/group-label/Alert/EmptyState sizing, the shell and
+    LNB defaults (F2) and nav rows: the host shell is its own.
+  - `check:interaction-states` (an upstream lint over its own components).
+  - #812 selection grammar (selection ink/fill/edge tokens; colour, declined
+    by the user) and 24px nested row actions (no host consumer).
+  - #813 soft warm palette, chart walk, status tints and point-colour themes:
+    saved Stave themes stay the colour authority (`aui-theme.ts`).
+  - #811 alias removals: adopted afterwards (see the #811 and #814 entry).
+
+- AUI #811 and #814 (sendbird/atelier main: "refactor(ads): merge same-role
+  duplicates into their main form" and `3e9653d5` "refactor(aui)!: rename ADS
+  to Atelier UI"), adopted 2026-11-09 at the user's request.
+
+  - #811: every consumer moved to the main spelling and the duplicate was
+    removed. Gone from this directory and its consumers: Button
+    `variant="outline"`/`"danger"` (use `outlined`, `tone="danger"`),
+    `size="icon*"` (use `iconOnly`), `tone="default"` (use `neutral`; still
+    reflected as `data-tone="default"`), Badge `outline`/`warm` (use
+    `outlined`/`warning`), `LoadingSurface` (use `Skeleton.Surface`,
+    `components/Skeleton.surface.tsx`), `MeasuredSkeleton`,
+    `TooltipIconButton` and `RunRecap`. No `@deprecated` alias is left in this
+    directory. Button `floating` stays (not a duplicate). `size="icon-sm"`
+    outside this directory belongs to the host's `src/components/ui/button.tsx`,
+    not to AUI.
+  - #814: browser keys, identifiers, paths and copy follow upstream. This
+    directory is `src/components/aui`; `.aui-source*.json` replace
+    `.ads-source*.json` (only paths and copy changed, so the recorded
+    `integrity` values still name the pre-rename upstream bytes and most files
+    will read as locally modified on the next update check); `--ads-*` →
+    `--aui-*`, `data-ads-*` → `data-aui-*`, `ads-*` classes → `aui-*`; cascade
+    layers `aui`, `aui.priority*` and `aui-theme` (`index.html`,
+    `src/globals.css`, `styles.css`); the StyleX origin plugin is
+    `scripts/vite-aui-stylex*.mjs` (`auiRoots`, origin `aui`, HMR event
+    `aui-stylex:update`); the theme bridge is
+    `src/components/system/aui-theme.ts` (`auiThemeVariables`); the dev preview
+    is `?stavePreview=aui-regressions`; focused tests are `tests/aui-*.test.*`.
+    Nothing renamed is persisted: no storage key, IPC channel or database value
+    carried the old name.
+  - Unchanged on purpose: history (this file's earlier entries keep "ADS #…",
+    and `CHANGELOG.md`), quoted upstream commit titles such as
+    `refactor(ads)!:`, and user-input test fixtures.
+  - When refreshing, call `aui_check_source_updates`; upstream accepts the
+    legacy `.ads-source.json` name only as a migration path, and this install
+    already uses `.aui-source.json`.

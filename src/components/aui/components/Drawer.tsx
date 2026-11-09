@@ -51,8 +51,6 @@ export type DrawerSide = "bottom" | "left" | "right" | "top";
  * each step is a measure the system already stands on somewhere else.
  */
 export type DrawerWidth = "sm" | "md" | "lg" | "full";
-/** @deprecated Use `DrawerWidth`; `size` was a panel-measure axis. */
-export type DrawerSize = DrawerWidth;
 
 export type DrawerProps = Omit<DrawerRootProps, "children"> & {
   children: React.ReactNode;
@@ -60,8 +58,6 @@ export type DrawerProps = Omit<DrawerRootProps, "children"> & {
   /** Internal surface air. @default "regular" */
   density?: OverlayDensity;
   side?: DrawerSide;
-  /** @deprecated Use `width`. */
-  size?: DrawerSize;
   title: React.ReactNode;
   trigger: React.ReactNode;
   /**
@@ -97,10 +93,9 @@ export function Drawer({
   description,
   density = "regular",
   side = "right",
-  size,
   title,
   trigger,
-  width = size ?? "md",
+  width = "md",
   xstyle,
   ...props
 }: DrawerProps) {

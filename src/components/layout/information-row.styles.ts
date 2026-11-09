@@ -108,7 +108,7 @@ export const informationRow = stylex.create({
     whiteSpace: "nowrap",
   },
   /* A branch, a path, a ref. It truncates rather than wrapping: breaking
-     `fix/ads-regressions → main` across two lines splits one identifier into
+     `fix/aui-regressions → main` across two lines splits one identifier into
      two half-words, which is harder to read than an ellipsis. */
   metaMono: {
     color: vars["--aui-color-text-muted"],

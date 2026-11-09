@@ -66,8 +66,8 @@ describe("fleet table sort", () => {
   test("every header is a sort button that states aria-sort, none until pressed", () => {
     applyAppLocale("en");
     const html = renderToStaticMarkup(createElement(FleetTaskTableView, { rows: [row("a"), row("b")], nowMs: NOW, onOpenTask: () => {} }));
-    expect(html.match(/aria-sort="none"/g)).toHaveLength(6);
-    expect(html.match(/data-table-sort="none"/g)).toHaveLength(6);
+    expect(html.match(/aria-sort="none"/g)).toHaveLength(7);
+    expect(html.match(/data-table-sort="none"/g)).toHaveLength(7);
     expect(html).toContain(">Waiting</span>");
   });
 });

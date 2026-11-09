@@ -3,6 +3,7 @@ import { registerHandlers } from "./main/ipc";
 import { startHostService, stopHostService } from "./main/host-service-client";
 import { configurePersistenceUserDataPath } from "./main/runtime-profile";
 import { resetMainProcessState } from "./main/state";
+import { startTarsConversationService, stopTarsConversationService } from "./main/tars-conversation-instance";
 import {
   startStorageCleanupRuntime,
   stopStorageCleanupRuntime,
@@ -104,6 +105,11 @@ function runBeforeQuitCleanup() {
     });
     if (!mayQuit) return false;
 
+    // Stop resident reasoning before its coordinator's host port is torn down.
+    await stopTarsConversationService().catch(() => {
+      console.error("[tars] conversation shutdown failed");
+    });
+
     const results = await Promise.allSettled([
       Promise.resolve(stopCraneConnectorRuntime()),
       Promise.resolve(stopMartinSyncRuntime()),
@@ -146,6 +152,9 @@ if (hasSingleInstanceLock) {
       Menu.setApplicationMenu(buildApplicationMenu());
     });
     registerHandlers();
+    void startTarsConversationService().catch(() => {
+      console.error("[tars] failed to start conversation service");
+    });
     installInlineRenderProtocol();
     exposeInlineRenderPreviewForE2e();
     createMainWindow();

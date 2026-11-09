@@ -32,6 +32,66 @@ const raisedWashPressed = `color-mix(in srgb, ${vars["--aui-color-surface-raised
 // control that hovers to a colour following its surface and presses to one that
 // does not reads as two different buttons.
 
+/**
+ * Soft focus halo for the field family (upstream F3, 2026-11-08). A focused
+ * field only recoloured its 1px border, which read as almost no change; buttons
+ * get the 2px `focusRing.ring` outline, while fields compose
+ * `focusRing.borderOnly` and so had nothing outside the edge. This adds a
+ * `ringWidthMd` (3px) wash of `colorBorderFocus` at 25% OUTSIDE the border, on
+ * the same state that recolours it. It never pairs with the outline ring:
+ * every consumer of these keys composes `borderOnly`. Forced colors drops
+ * `box-shadow` by spec, and `borderOnly` restores a `Highlight` outline there.
+ *
+ * Host adaptation: `colorBorderFocus` stays the Stave theme's `--ring`
+ * (`system/aui-theme.ts`), so the halo follows the saved theme. A clipping
+ * ancestor owes it 3px of room; `focusRing.gutter` already reserves 4px.
+ */
+const focusHalo = `0 0 0 ${vars["--aui-ring-width-md"]} color-mix(in oklab, ${vars["--aui-color-border-focus"]} 25%, transparent)`;
+const raisedWithHalo = `${vars["--aui-elevation-raised"]}, ${focusHalo}`;
+/**
+ * Halo on the state a field-shaped TRIGGER recolours on: keyboard only — a
+ * button keeps DOM focus after a click, and a 3px wash left on a closed trigger
+ * reads as stuck.
+ *
+ * Host adaptation: Stave's `trigger` still collapses its contact shadow to
+ * `elevationFlat` on `:active` (upstream R0 dropped that press step). These
+ * keys replace `trigger`'s whole `boxShadow` group, so the press step is
+ * restated here rather than silently lost. A mouse press never matches
+ * `:focus-visible`, and a keyboard press opens a popup that takes focus, so the
+ * two rungs do not fight.
+ */
+const triggerBoxShadow = {
+  default: vars["--aui-elevation-raised"],
+  ":focus-visible": raisedWithHalo,
+  ":active": vars["--aui-elevation-flat"],
+} as const;
+
+/**
+ * The field family's state transition, owned HERE — by the recipe that paints
+ * the ladder — so every field that composes `field`, `fieldTriggerBorder(ReadOnly)`
+ * or `triggerFocusBorder` eases its border AND the focus halo without the call
+ * site having to remember a transition key (upstream 2026-11-08 motion pass).
+ *
+ * `transition.colors` has no `box-shadow`, so composing it AFTER one of these
+ * keys replaces this list and the halo pops in one frame again — call sites
+ * drop it. 150ms (`motionDurationQuick`) both directions, with an 80ms micro
+ * fade under Reduce Motion; the halo is a shadow growing from nothing, which
+ * CSS interpolates by padding the shorter shadow list with a transparent zero
+ * shadow, so it grows 0 → 3px rather than popping.
+ *
+ * The curve is `motionEaseColor` (CSS `ease`), the one every colour
+ * transition in `transition.ts` uses, so the halo and the border settle
+ * together.
+ */
+const fieldTransitionDuration = {
+  default: vars["--aui-motion-duration-quick"],
+  "@media (prefers-reduced-motion: reduce)":
+    vars["--aui-motion-duration-micro"],
+} as const;
+const fieldTransitionProperty =
+  "background-color, border-color, color, box-shadow";
+const fieldTransitionTiming = vars["--aui-motion-ease-color"];
+
 export const controlChrome = stylex.create({
   /** Resting/hover/press surface of a bordered "secondary"-weight control. */
   trigger: {
@@ -125,6 +185,11 @@ export const controlChrome = stylex.create({
       default: vars["--aui-color-border"],
       ":focus-within": vars["--aui-color-border-focus"],
     },
+    // The halo follows the keyboard only (see `triggerBoxShadow`).
+    boxShadow: triggerBoxShadow,
+    transitionDuration: fieldTransitionDuration,
+    transitionProperty: fieldTransitionProperty,
+    transitionTimingFunction: fieldTransitionTiming,
   },
   /**
    * Border ladder for a field-shaped BUTTON trigger (`Combobox.FieldTrigger`):
@@ -144,6 +209,30 @@ export const controlChrome = stylex.create({
         ":focus-visible": vars["--aui-color-border-focus"],
       },
     },
+    // Replaces `field`'s `:focus-within` halo with the `:focus-visible` one,
+    // for the same reason the border ladder above is keyed that way.
+    boxShadow: triggerBoxShadow,
+    transitionDuration: fieldTransitionDuration,
+    transitionProperty: fieldTransitionProperty,
+    transitionTimingFunction: fieldTransitionTiming,
+  },
+  /**
+   * The same ladder without the pointer rung, for a **read-only** trigger.
+   *
+   * A read-only Select does not open — `Select.Trigger` swallows pointer-down
+   * and the opening keys — so a hover step would advertise a target that does
+   * nothing. Focus stays: the control is deliberately still focusable so its
+   * value is announced.
+   */
+  fieldTriggerBorderReadOnly: {
+    borderColor: {
+      default: vars["--aui-color-border"],
+      ":focus-visible": vars["--aui-color-border-focus"],
+    },
+    boxShadow: triggerBoxShadow,
+    transitionDuration: fieldTransitionDuration,
+    transitionProperty: fieldTransitionProperty,
+    transitionTimingFunction: fieldTransitionTiming,
   },
   /**
    * Engaged state for an overlay trigger. While its popup is on screen the
@@ -177,7 +266,19 @@ export const controlChrome = stylex.create({
       ":hover": vars["--aui-color-border-strong"],
       ":focus-within": vars["--aui-color-border-focus"],
     },
+    // Focus adds the soft halo (F3) on the same `:focus-within` that recolours
+    // the border. Host adaptation: Stave's text fields rest FLAT — upstream
+    // R0 · S4 moved them to `elevationRaised`, which Stave has not adopted —
+    // so the halo stands alone here. A field-shaped trigger that composes this
+    // after `trigger` restores its raised rest through `fieldTriggerBorder`.
+    boxShadow: {
+      default: vars["--aui-elevation-flat"],
+      ":focus-within": focusHalo,
+    },
     color: vars["--aui-color-text"],
+    transitionDuration: fieldTransitionDuration,
+    transitionProperty: fieldTransitionProperty,
+    transitionTimingFunction: fieldTransitionTiming,
   },
 
   // ---- One disabled language, three shapes ---------------------------------

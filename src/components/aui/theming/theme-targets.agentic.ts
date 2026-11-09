@@ -332,13 +332,38 @@ export const agenticThemeTargets = {
     properties: ink,
     root: "the `EmptyState` `ThreadEmptyState` renders",
   },
+  "run-monitor": {
+    /*
+     * One agent run as a lifted object (#809 · G1): `card` for side panels and
+     * inboxes, `panel` for the steering surface. `data-run-status` is a
+     * lifecycle attribute, not an axis.
+     */
+    axes: { variant: ["card", "panel"] },
+    exports: ["RunMonitor"],
+    properties: [...surface, ...themeSpaceProperties],
+    root: "the `<section>` `RunMonitor` renders",
+  },
+  "run-recap": {
+    /*
+     * A returned run (#809 · G1): title, state, what came back, review state.
+     * Since F7 (2026-11-08) `RunMonitor variant="recap"` renders it; the recap
+     * keeps this target, not a `recap` value on `run-monitor`'s axis, so
+     * themes written for it still match. `RunMonitor` itself is claimed by
+     * `run-monitor`, so this variant target lists no export of its own.
+     */
+    exports: [],
+    properties: [...surface, ...themeSpaceProperties],
+    root: 'the `<section>` `RunMonitor variant="recap"` renders',
+  },
   "tool-run": {
     /*
      * One tool invocation, rung 0: a text row, not a card. The container
      * carries the payload ink and its gaps; the pressable summary header is
      * `tool-run-trigger` below. `data-tool-run-status` is a lifecycle
-     * attribute, not an axis.
+     * attribute, not an axis. `variant="well"` (#809 · A4, opt-in here) is a
+     * tint row on a recessed well; only that path publishes the axis.
      */
+    axes: { variant: ["well", "row"] },
     exports: ["ToolRun", "ToolRunSection", "ToolRunSummary"],
     properties: [...surface, ...themeSpaceProperties],
     root: "the outer `<div>` `ToolRun` renders — the static row, or the collapsible root",

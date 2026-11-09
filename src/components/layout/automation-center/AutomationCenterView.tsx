@@ -1232,7 +1232,7 @@ export function AutomationCenterView() {
               state={error && !snapshotLoaded ? { status: "error", error } : { status: "ready", data: visibleRuns }}
               onRetry={() => void loadSnapshot()}
               isEmpty={(runs) => runs.length === 0}
-              empty={
+              emptyState={
               <Empty xstyle={centerStyles.emptyPaneFull}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">

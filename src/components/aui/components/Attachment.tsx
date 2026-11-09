@@ -307,7 +307,7 @@ const styles = stylex.create({
       default: indeterminate,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
     inlineSize: "100%",
   },
 });

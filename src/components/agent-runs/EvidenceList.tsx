@@ -19,10 +19,13 @@ function isLink(ref: string | undefined): ref is string {
 export function EvidenceList({
   evidence,
   onShowTool,
+  revisions,
 }: {
   evidence: readonly ClassifiedEvidence[];
   /** Scrolls the transcript to a cited tool call. */
   onShowTool?: (toolCallId: string) => void;
+  /** Per item, by index: the revision it was checked on and whether it is still current, as one phrase. */
+  revisions?: readonly (string | null)[];
 }) {
   useTranslation();
   if (evidence.length === 0) return null;
@@ -56,13 +59,15 @@ export function EvidenceList({
             </div>
             {item.command ? <code className={sx(styles.mono, styles.evidenceCommand)}>{item.command}</code> : null}
             <div className={sx(styles.evidenceMetadata)}>
-              <Badge size="sm" tone={verified ? "success" : "neutral"} variant={verified ? "soft" : "outline"}>
+              <Badge size="sm" tone={verified ? "success" : "neutral"} variant={verified ? "soft" : "outlined"}>
                 <Icon aria-hidden className={sx(styles.iconSm)} />
                 {evidenceSourceLabel(item)}
                 {item.outcome === "failed" ? i18n.t("agentRuns:evidenceList.copy2") : null}
               </Badge>
               {item.exitCode !== undefined ? <span>{item.exitCode === null ? i18n.t("agentRuns:evidenceList.copy3") : i18n.t("agentRuns:evidenceList.copy4", { value1: item.exitCode })}</span> : null}
-              {item.freshness === "stale" ? <span>{i18n.t("agentRuns:evidenceList.copy5")}</span> : item.freshness === "unknown" && item.kind === "check" ? <span>{i18n.t("agentRuns:evidenceList.copy6")}</span> : null}
+              {revisions?.[index] ? <span data-evidence-revision="">{revisions[index]}</span> : null}
+              {/* The revision line adds where it was checked; the stale warning still says the check no longer holds. */}
+              {item.freshness === "stale" ? <span data-evidence-stale="">{i18n.t("agentRuns:evidenceList.copy5")}</span> : item.freshness === "unknown" && item.kind === "check" ? <span>{i18n.t("agentRuns:evidenceList.copy6")}</span> : null}
             </div>
           </li>
         );

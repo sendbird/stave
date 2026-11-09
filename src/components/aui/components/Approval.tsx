@@ -1,4 +1,4 @@
-import { i18n, useTranslation, Trans } from "@/i18n";
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
@@ -8,119 +8,19 @@ import { transition } from "../recipes/transition";
 import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import { ApprovalAudit, decisionTone, decisionWord } from "./Approval.shared";
+import { ScopedApproval } from "./Approval.scoped";
+import type { ApprovalDecision, ApprovalProps } from "./Approval.types";
 import { Button } from "./Button";
 
-/** What a human can decide about a proposed agent action. */
-export type ApprovalDecision = "allow-once" | "allow-always" | "deny";
-
-/**
- * What a *recorded* approval can say, which is strictly more than what a human
- * can choose.
- *
- * `ApprovalDecision` is the input union — the three buttons. A transcript,
- * though, has to be able to render two records that are not any of them, and
- * §5's rule (never invent precision) is what forces them to be separate values
- * rather than the nearest decision:
- *
- * - `allowed` — the action was permitted, and the host does not retain *which*
- *   grant was used. Many permission stores keep "answered: yes" and drop the
- *   scope. Rendering that as `allow-once` states a scope nobody recorded, and
- *   `allow-always` states a standing grant that may not exist.
- * - `lapsed` — no decision was ever made: the run was interrupted, or the
- *   request was withdrawn, and the gate closed unanswered. It is not `deny`,
- *   because nobody denied anything, and it is not pending, because leaving the
- *   buttons live on a request the host can no longer answer is an affordance
- *   that does nothing.
- *
- * Both are neutral-to-success ink and never `danger`: a lapse is not a refusal.
- */
-export type ApprovalResolution = ApprovalDecision | "allowed" | "lapsed";
-
-export type ApprovalOutcome = {
-  /**
-   * When the decision was recorded. Rendered in the machine register, so pass
-   * a formatted timestamp (or a `RelativeTime`) rather than a `Date`.
-   */
-  at?: React.ReactNode;
-  /** Who decided. Omit for an unattributed or automated grant. */
-  by?: React.ReactNode;
-  decision: ApprovalResolution;
-  /** Free text kept with the decision — why it was allowed, or why not. */
-  note?: React.ReactNode;
-};
-
-export type ApprovalArgument = {
-  id: string;
-  label: React.ReactNode;
-  /** A value the agent produced, rendered in the machine register. */
-  value: React.ReactNode;
-};
-
-export type ApprovalProps = Omit<React.ComponentProps<"section">, "title"> & {
-  /** App-owned actions rendered after the built-in decision set. */
-  actions?: React.ReactNode;
-  /**
-   * Offer "always allow". Turn it off where the host cannot persist a standing
-   * grant — an option that silently decays to "once" is worse than no option.
-   * @default true
-   */
-  allowAlways?: boolean;
-  allowAlwaysLabel?: React.ReactNode;
-  allowOnceLabel?: React.ReactNode;
-  /**
-   * Host extension. A keyboard shortcut for "Allow once" that is live only
-   * while focus is inside this decision: Enter with Ctrl or Cmd (the app-wide
-   * `mod`), never repeated or composed. `ariaKeyShortcuts` names it on the
-   * button and `hint` is the keycap drawn inside it. Escape is deliberately
-   * not bound: a refusal is never one stray key away.
-   */
-  allowOnceShortcut?: { ariaKeyShortcuts: string; hint: React.ReactNode };
-  /** What is being approved, as `label → value` pairs. Rung 4. */
-  arguments?: readonly ApprovalArgument[];
-  /** A decision is being recorded. Blocks the controls without faking one. */
-  busy?: boolean;
-  /**
-   * Host extension. `compact` fits a decision into a host surface that draws
-   * its own boundary — a composer slot, an inbox row, a side panel: no
-   * transcript rule, tighter rhythm, and the description and argument values
-   * clamped to a few lines. The decision set and its behavior are unchanged.
-   * @default "default"
-   */
-  density?: "default" | "compact";
-  denyLabel?: React.ReactNode;
-  description?: React.ReactNode;
-  onDecide?: (decision: ApprovalDecision) => void;
-  /**
-   * The recorded decision. Its presence is what switches the surface from
-   * pending to resolved; `null`/`undefined` means "still waiting".
-   */
-  outcome?: ApprovalOutcome | null;
-  /**
-   * Host extension. What makes the request riskier than a routine call, read
-   * from the request itself, as a word before the status word. It is text in
-   * muted ink, not a colored badge: the status word stays the one signal.
-   */
-  risk?: React.ReactNode;
-  title: React.ReactNode;
-} & XstyleProp;
-
-const decisionWord: Record<ApprovalResolution, string> = {
-  get "allow-always"() { return i18n.t("ui:decisionWord.aAllowed"); },
-  get "allow-once"() { return i18n.t("ui:decisionWord.aOnce"); },
-  get allowed() { return i18n.t("ui:decisionWord.allowed"); },
-  get deny() { return i18n.t("ui:decisionWord.denied"); },
-  // "Withdrawn", not "Expired": nothing timed out on its own — the run that
-  // asked the question ended, so the question went with it.
-  get lapsed() { return i18n.t("ui:decisionWord.withdrawn"); },
-};
-
-const decisionTone = {
-  "allow-always": agentStatusWord.success,
-  "allow-once": agentStatusWord.success,
-  allowed: agentStatusWord.success,
-  deny: agentStatusWord.danger,
-  lapsed: agentStatusWord.neutral,
-} as const satisfies Record<ApprovalResolution, stylex.StyleXStyles>;
+export type {
+  ApprovalArgument,
+  ApprovalDecision,
+  ApprovalOutcome,
+  ApprovalProps,
+  ApprovalResolution,
+  ApprovalScopeOption,
+} from "./Approval.types";
 
 /**
  * A human decision inside an agent transcript: allow this action once, allow
@@ -150,14 +50,21 @@ const decisionTone = {
  * described by the audit line, so the move announces "Allowed once, by Jae
  * Park, 14:32" rather than nothing.
  */
-export function Approval({
+export function Approval(props: ApprovalProps) {
+  if (props.scopes != null && props.scopes.length > 0) {
+    return <ScopedApproval {...props} scopes={props.scopes} />;
+  }
+  return <TranscriptApproval {...props} />;
+}
+
+function TranscriptApproval({
   actions,
   allowAlways = true,
   allowAlwaysLabel = i18n.t("ui:approval.alwaysAllow"),
   allowOnceLabel = i18n.t("ui:approval.allowOnce"),
   allowOnceShortcut,
   arguments: argumentRows,
-  busy = false,
+  loading: busy = false,
   className,
   density = "default",
   denyLabel = i18n.t("ui:approval.deny"),
@@ -168,6 +75,16 @@ export function Approval({
   risk,
   title,
   xstyle,
+  // Scoped-layout props: never forwarded to the `<section>`.
+  allowLabel: _allowLabel,
+  defaultScope: _defaultScope,
+  footnote: _footnote,
+  icon: _icon,
+  meta: _meta,
+  onScopeChange: _onScopeChange,
+  scope: _scope,
+  scopeLabel: _scopeLabel,
+  scopes: _scopes,
   ...props
 }: ApprovalProps) {
   useTranslation();
@@ -410,7 +327,7 @@ export function Approval({
             onClick={() => decide("deny")}
             size="sm"
             tone="danger"
-            variant="outline"
+            variant="outlined"
           >
             {denyLabel}
           </Button>
@@ -421,46 +338,14 @@ export function Approval({
   );
 }
 
-/**
- * The audit line: who and when, plus any note.
- *
- * Rendered only when the caller supplied at least one of the three. With no
- * attribution the status word alone is the whole record, and an empty "by —"
- * row would be chrome pretending to be evidence.
- */
-function ApprovalAudit({
-  id,
-  outcome,
-}: {
-  id: string;
-  outcome: ApprovalOutcome;
-}) {
-  useTranslation();
-  return (
-    <div
-      {...themeSlotProps("approval", "audit")}
-      className={sx(styles.audit)}
-      id={id}
-    >
-      {outcome.by == null && outcome.at == null ? null : (
-        <div className={sx(agentSurface.metaRow)}>
-          <span className={sx(agentSurface.metaRowLabel, styles.by)}>
-            {outcome.by == null ? null : <Trans i18n={i18n} ns="ui" i18nKey="approval.byAuthor" components={{ author: <span>{outcome.by}</span> }} />}
-          </span>
-          {outcome.at == null ? null : (
-            <span className={sx(agentSurface.meta)}>{outcome.at}</span>
-          )}
-        </div>
-      )}
-      {outcome.note == null ? null : (
-        <p className={sx(styles.note)}>{outcome.note}</p>
-      )}
-    </div>
-  );
-}
-
 const styles = stylex.create({
+  // The title wraps (overriding `metaRowLabel`'s single-line truncation):
+  // a narrow rail cut "Human takeover s…" beside the status word.
   title: {
+    overflow: "visible",
+    overflowWrap: "anywhere",
+    textOverflow: "clip",
+    whiteSpace: "normal",
     color: vars["--aui-color-text"],
     fontSize: vars["--aui-font-size-body"],
     // Medium, not semibold: §3 reserves semibold for page titles, and a weight
@@ -501,7 +386,13 @@ const styles = stylex.create({
     gap: vars["--aui-space-4"],
     margin: 0,
   },
+  // The term keeps its words (up to 45% of the row); the value wraps.
   term: {
+    flexShrink: 0,
+    maxInlineSize: "45%",
+    overflow: "visible",
+    textOverflow: "clip",
+    whiteSpace: "normal",
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],
     lineHeight: vars["--aui-line-height-normal"],
@@ -512,23 +403,6 @@ const styles = stylex.create({
     overflowWrap: "anywhere",
     textAlign: "end",
     whiteSpace: "pre-wrap",
-  },
-  audit: {
-    display: "grid",
-    gap: vars["--aui-space-4"],
-    minInlineSize: 0,
-  },
-  by: {
-    color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-caption"],
-    lineHeight: vars["--aui-line-height-tight"],
-  },
-  note: {
-    color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-caption"],
-    lineHeight: vars["--aui-line-height-normal"],
-    margin: 0,
-    overflowWrap: "anywhere",
   },
   actions: {
     alignItems: "center",

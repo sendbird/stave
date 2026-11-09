@@ -37,8 +37,12 @@ export interface RunEventCounts {
   turnFailures: number;
 }
 
-export function countRunEvents(events: readonly Pick<AgentRunEvent, "kind">[]): RunEventCounts {
-  const count = (...kinds: AgentRunEvent["kind"][]) => events.filter((event) => kinds.includes(event.kind)).length;
+/** A turn a pause or takeover stopped was held on purpose; it did not fail. */
+const isHeldInterruption = (event: Pick<AgentRunEvent, "kind"> & { detail?: AgentRunEvent["detail"] }) =>
+  event.kind === "turn-interrupted" && (event.detail?.reason === "paused-by-user" || event.detail?.reason === "taken-over");
+
+export function countRunEvents(events: readonly (Pick<AgentRunEvent, "kind"> & { detail?: AgentRunEvent["detail"] })[]): RunEventCounts {
+  const count = (...kinds: AgentRunEvent["kind"][]) => events.filter((event) => kinds.includes(event.kind) && !isHeldInterruption(event)).length;
   return {
     userReplies: count("user-turn"),
     changesRequested: count("changes-requested"),

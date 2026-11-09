@@ -40,7 +40,7 @@ export type ClarificationProps = Omit<
   currentStep?: number;
   description?: React.ReactNode;
   /** A submission is being recorded. */
-  busy?: boolean;
+  loading?: boolean;
   continueLabel?: React.ReactNode;
   onContinue?: () => void;
   onSkip?: () => void;
@@ -76,7 +76,7 @@ const resultTone = {
  * owns step truth, submit/skip intent, focus recovery, and the durable answer.
  */
 export function Clarification({
-  busy = false,
+  loading: busy = false,
   children,
   className,
   continueLabel = i18n.t("ui:clarification.continue"),

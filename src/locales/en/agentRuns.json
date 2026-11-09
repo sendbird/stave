@@ -451,6 +451,8 @@
     "describeTurnStart3": "{{value1}} — continuing after your reply",
     "describeTurnStart4": "{{value1}} — resumed after Stave's local tools came back",
     "describeTurnStart5": "{{value1}} — resumed after Stave restarted",
+    "describeTurnStartAfterTakeover": "{{value1}} — continued after you handed it back",
+    "describeTurnStartAfterPause": "{{value1}} — continued after the pause",
     "describeTurnStart6": "{{value1}} — signed off by you at {{value2}}",
     "describeTurnStart7": "{{value1}} — after you asked for changes",
     "describeTurnStart8": "{{value1}} — started automatically after {{value2}} {{value3}}",
@@ -495,7 +497,9 @@
     "extraCopy243": "Describe the changes you want.",
     "extraCopy244": "No earlier AI stage can take changes. Skip this stage or cancel the run.",
     "extraCopy245": "This pause clears on its own once its condition lifts.",
-    "extraCopy246": "This turn already has {{value1}} reports; the latest one counts."
+    "extraCopy246": "This turn already has {{value1}} reports; the latest one counts.",
+    "restartNeedsTakeover": "Only a run you took over can restart its stage for a hand-back.",
+    "restartedAfterHandBack": "Restarted to verify the work you handed back."
   },
   "domain": {
     "message": "A blocked stage must carry a block reason.",

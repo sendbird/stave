@@ -386,7 +386,8 @@ const compoundParts = {
 // Array (back-compat convenience) API — re-implemented on the compound parts
 // ---------------------------------------------------------------------------
 
-export type TabItem = {
+/** One tab of the array API — the `options` vocabulary every choice list shares. */
+export type TabOption = {
   content: React.ReactNode;
   disabled?: boolean;
   label: React.ReactNode;
@@ -394,7 +395,11 @@ export type TabItem = {
 };
 
 export type TabsProps = Omit<TabsRootProps, "children" | "className"> & {
-  items: TabItem[];
+  /**
+   * The tabs, in order. `options` is the word every choice list in the
+   * system uses (`RadioGroup`, `Select`, `ToggleGroup`).
+   */
+  options: TabOption[];
   /** Forwarded to every panel. Omitted = Base UI's unmount-when-hidden. */
   mount?: PanelMount;
   /** Tab height. @default "sm" */
@@ -404,8 +409,8 @@ export type TabsProps = Omit<TabsRootProps, "children" | "className"> & {
 
 function TabsArray({
   defaultValue,
-  items,
   mount,
+  options: items,
   value,
   xstyle,
   ...props
@@ -441,7 +446,7 @@ function TabsArray({
 /**
  * Tabs supports two coexisting APIs (non-breaking):
  *
- * - **Array (convenience):** `<Tabs items={[…]} />`
+ * - **Array (convenience):** `<Tabs options={[…]} />`
  * - **Compound (compositional):** `<Tabs.Root>…<Tabs.Tab render={…}/>…</Tabs.Root>`
  *
  * The compound namespace is attached via `Object.assign`, so both call styles

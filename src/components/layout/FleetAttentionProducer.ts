@@ -16,7 +16,14 @@ import { hasDurableResultReviewStore } from "@/lib/reviews/result-review-client"
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { useFleetAttentionSnoozes } from "@/lib/fleet/useFleetAttentionSnoozes";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
-import { resolveFleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
+import {
+  resolveFleetQueueStatus,
+  resolveTarsSourceStatus,
+  TARS_SOURCE_WAIT_MS,
+  type FleetSourceLoadStatus,
+} from "@/lib/fleet/fleet-queue-status";
+import { collectTarsAttention } from "@/lib/tars/attention";
+import { readTarsSnapshot, tarsBridge, useTarsSnapshotRefresh, useTarsSnapshotStore } from "@/store/tars-snapshot-store";
 import {
   publishFleetAttention,
   type FleetAttentionSnapshot,
@@ -49,6 +56,33 @@ function loadColdWorkspaceTasks(workspaceId: string) {
     });
   shellTaskLoadByWorkspaceId.set(workspaceId, pending);
   return pending;
+}
+
+/**
+ * Whether the Tars snapshot has answered (`resolveTarsSourceStatus`). A read
+ * that fails, or does not settle within `TARS_SOURCE_WAIT_MS`, leaves the
+ * queue not fully checked until a snapshot arrives from any read or push.
+ */
+function useTarsSourceStatus(hasSnapshot: boolean): FleetSourceLoadStatus {
+  const [failed, setFailed] = useState(false);
+  const [waitedOut, setWaitedOut] = useState(false);
+  const bridge = tarsBridge();
+  useEffect(() => {
+    if (!bridge) return;
+    let cancelled = false;
+    // Shares the read the refresh started; only its outcome is new here.
+    void readTarsSnapshot(bridge).then(
+      () => { if (!cancelled) setFailed(false); },
+      () => { if (!cancelled) setFailed(true); },
+    );
+    return () => { cancelled = true; };
+  }, [bridge]);
+  useEffect(() => {
+    if (!bridge || hasSnapshot) return;
+    const timer = setTimeout(() => setWaitedOut(true), TARS_SOURCE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [bridge, hasSnapshot]);
+  return resolveTarsSourceStatus({ hasBridge: Boolean(bridge), hasSnapshot, failed, waitedOut });
 }
 
 /**
@@ -94,6 +128,11 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
 
   const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
   const agentRunsLoaded = useFleetAgentRunsStore((state) => state.loaded);
+  // Tars-owned work that waits on the user joins the same projection.
+  useTarsSnapshotRefresh();
+  const tarsSnapshot = useTarsSnapshotStore((state) => state.snapshot);
+  const tarsStatus = useTarsSourceStatus(tarsSnapshot !== null);
+  const tarsAttention = useMemo(() => collectTarsAttention(tarsSnapshot), [tarsSnapshot]);
   const reviewWorkspaceIds = useMemo(() => Array.from(new Set([
     ...workspaces.map((workspace) => workspace.id),
     ...recentRepositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)),
@@ -264,6 +303,8 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
 
     const projection = buildFleetAttentionProjection({
       agentRuns,
+      tarsAttention,
+      workspaceNamesById: identityByWorkspaceId,
       notifications,
       resultReviews: durableResultStore ? reviews.page.results : undefined,
       liveWorkspaces,
@@ -299,6 +340,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
         },
         notifications: notificationsLoadStatus,
         snoozeError: snoozes.error,
+        tars: tarsStatus,
       }),
       resultReviewError: reviews.error,
       resultReviewTracked: durableResultStore,
@@ -336,6 +378,8 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
     snoozes.refresh,
     agentRunDetails,
     agentRunsLoaded,
+    tarsAttention,
+    tarsStatus,
   ]);
 }
 

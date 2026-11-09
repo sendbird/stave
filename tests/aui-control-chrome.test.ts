@@ -195,4 +195,64 @@ describe("AUI control chrome", () => {
       "color-mix(in oklab, var(--foreground) 8%, var(--destructive))",
     );
   });
+
+  test("focused fields grow a soft halo that the field recipe also transitions", () => {
+    // Upstream F3 (#810, refined by #812): a 3px `colorBorderFocus` 25% wash
+    // outside the border. `colorBorderFocus` stays the theme's `--ring`.
+    const chrome = read(`${AUI}/recipes/control-chrome.ts`);
+    expect(chrome).toContain(
+      'const focusHalo = `0 0 0 ${vars["--aui-ring-width-md"]} color-mix(in oklab, ${vars["--aui-color-border-focus"]} 25%, transparent)`',
+    );
+    const keyBody = (name: string) => {
+      const start = chrome.indexOf(`  ${name}: {`);
+      expect(start).toBeGreaterThan(-1);
+      return chrome.slice(start, chrome.indexOf("\n  },", start));
+    };
+    // Text entry recolours on `:focus-within`; the halo rides the same state.
+    expect(keyBody("field")).toContain('":focus-within": focusHalo');
+    // Button-shaped triggers keep DOM focus after a click, so their halo is
+    // keyboard-only.
+    expect(chrome).toContain('":focus-visible": raisedWithHalo');
+    for (const name of [
+      "field",
+      "fieldTriggerBorder",
+      "fieldTriggerBorderReadOnly",
+      "triggerFocusBorder",
+    ]) {
+      const body = keyBody(name);
+      expect(body).toContain("transitionProperty: fieldTransitionProperty");
+      if (name !== "field") expect(body).toContain("boxShadow: triggerBoxShadow");
+    }
+    expect(chrome).toContain(
+      'const fieldTransitionProperty =\n  "background-color, border-color, color, box-shadow"',
+    );
+    // `transition.colors` has no `box-shadow`; composed after a field key it
+    // replaces the list and the halo pops in one frame again.
+    for (const file of [
+      "TextField.tsx",
+      "Textarea.tsx",
+      "InputGroup.tsx",
+      "NativeSelect.tsx",
+      "Combobox.input.tsx",
+      "Combobox.fieldTrigger.tsx",
+      "Select.parts.tsx",
+      "Popover.tsx",
+    ]) {
+      const source = read(`${AUI}/components/${file}`);
+      expect(source).toMatch(/controlChrome\.(field|fieldTriggerBorder|triggerFocusBorder)\b/);
+      const firstKey = source.search(
+        /controlChrome\.(field|fieldTriggerBorder|triggerFocusBorder)\b/,
+      );
+      const call = source.slice(firstKey, source.indexOf("focusRing.", firstKey));
+      // Composed keys only — the call sites' comments name the recipe on purpose.
+      expect(call).not.toMatch(/^\s*transition\.colors,/m);
+    }
+    // A delegated textarea sits inside a wrapper that owns the edge; it must
+    // not paint a second halo inside it.
+    const textarea = read(`${AUI}/components/Textarea.tsx`);
+    const delegated = textarea.slice(textarea.indexOf("  ringDelegated: {"));
+    expect(delegated.slice(0, delegated.indexOf("},"))).toContain(
+      'boxShadow: vars["--aui-elevation-flat"]',
+    );
+  });
 });

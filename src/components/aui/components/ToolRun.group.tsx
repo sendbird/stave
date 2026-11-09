@@ -8,12 +8,18 @@ import {
   CollapsibleRoot,
   CollapsibleTrigger,
 } from "../headless/collapsible";
+import { agentMotion, agentStagger } from "../recipes/agent-motion";
 import { agentSurface } from "../recipes/agent-surface";
 import { controlHeights, controlIconSizes } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { inlineDisclosure } from "../recipes/inline-disclosure";
 import { transition } from "../recipes/transition";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import {
+  AgentEntranceScope,
+  useArrivalRank,
+  useSelfEntrance,
+} from "./agent-motion";
 import { isActionRequiredState, type AgentStepState } from "./agent-state";
 import { InlineDisclosureIcon } from "./inline-disclosure-icon";
 import {
@@ -138,6 +144,14 @@ export function ToolRunGroup({
     statusProp ?? aggregateRunStatus(runs.map((run) => run.status)) ?? "done";
   const live = runs.some((run) => isActionRequiredState(run.status));
   const totalMs = totalMeasuredDuration(runs);
+  const itemKeys = items.map((item, index): React.Key => item.key ?? index);
+  const arrivalRank = useArrivalRank(itemKeys);
+  // Host: upstream always cascades the items in. Inside an enclosing
+  // `AgentEntranceScope` the group's arrival is already owned (or, in the chat
+  // transcript, deliberately suppressed — see `ChatPanel`), so a remounted
+  // group does not replay its cascade. `useArrivalRank` ranks every item on
+  // first mount, which is exactly the replay a virtualized list must avoid.
+  const itemEntrance = useSelfEntrance();
 
   const { open, setOpen } = useSettleDisclosure({
     defaultOpen,
@@ -154,15 +168,26 @@ export function ToolRunGroup({
       className={sx(agentSurface.rowGroup, toolRunStyles.groupList)}
       role="list"
     >
-      {items.map((item, index) => (
-        <div
-          className={sx(toolRunStyles.groupItem)}
-          key={item.key ?? index}
-          role="listitem"
-        >
-          {item}
-        </div>
-      ))}
+      <AgentEntranceScope>
+        {items.map((item, index) => {
+          const key = itemKeys[index] ?? index;
+          return (
+            <div
+              className={sx(
+                toolRunStyles.groupItem,
+                // Calls cascade in on a short stagger; a call appended mid-run
+                // enters on its own instead of waiting behind the ones shown.
+                itemEntrance && agentMotion.enter,
+                itemEntrance && agentStagger(arrivalRank(key)),
+              )}
+              key={key}
+              role="listitem"
+            >
+              {item}
+            </div>
+          );
+        })}
+      </AgentEntranceScope>
     </div>
   );
 

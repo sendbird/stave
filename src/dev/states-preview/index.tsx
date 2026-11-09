@@ -57,7 +57,7 @@ export function StatesPreview() {
               state={state}
               onRetry={() => {}}
               isEmpty={(rows) => rows.length === 0}
-              empty={<EmptyState title="No files yet" description="Files you add appear here." />}
+              emptyState={<EmptyState title="No files yet" description="Files you add appear here." />}
             >
               {(rows) => (
                 <ul className={sx(styles.list)}>

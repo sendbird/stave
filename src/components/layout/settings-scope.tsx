@@ -134,7 +134,7 @@ export function ScopedFieldStatus(args: {
       <Badge
         size="sm"
         tone={overridden ? "accent" : "neutral"}
-        variant={overridden ? "soft" : "outline"}
+        variant={overridden ? "soft" : "outlined"}
       >
         {overridden
           ? t("settings:scope.field.project")

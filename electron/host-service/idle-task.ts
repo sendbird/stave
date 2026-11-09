@@ -14,11 +14,13 @@ import type { ChatMessage, PromptDraft, Task } from "../../src/types/chat";
 
 /**
  * The session with a new, idle task. With `model`, the task's composer starts
- * on that model, so the task — and an agent run on it — runs there.
+ * on that model, so the task — and an agent run on it — runs there. Without a
+ * model, `autoRouting` starts its composer on Auto, so every turn of a run on
+ * it is routed by Stave Auto instead of staying on the provider default.
  */
 export function addIdleTask(
   session: WorkspaceSessionState,
-  args: { title: string; provider: ProviderId; model?: string | null; taskId?: string; parentTaskId?: string },
+  args: { title: string; provider: ProviderId; model?: string | null; autoRouting?: boolean; taskId?: string; parentTaskId?: string },
 ): { session: WorkspaceSessionState; taskId: string } {
   const existing = args.taskId ? session.tasks.find((task) => task.id === args.taskId) : null;
   if (existing) {
@@ -39,7 +41,7 @@ export function addIdleTask(
   } satisfies Task;
   const draft: PromptDraft | null = args.model
     ? { text: "", attachedFilePaths: [], attachments: [], runtimeOverrides: { model: args.model, modelProviderId: args.provider } }
-    : null;
+    : args.autoRouting ? { text: "", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } } : null;
   return {
     taskId: task.id,
     session: {

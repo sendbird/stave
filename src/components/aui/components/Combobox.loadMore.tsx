@@ -322,7 +322,7 @@ export function LoadFailure({
           className={sx(styles.failureAction)}
           onClick={onRetry}
           size={footer ? "xs" : "sm"}
-          variant="outline"
+          variant="outlined"
         >
           {retryLabel}
         </Button>

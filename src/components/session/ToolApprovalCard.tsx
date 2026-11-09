@@ -341,7 +341,7 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
             ]
           : undefined
       }
-      busy={busy}
+      loading={busy}
       data-approval-request-id={part.requestId}
       density={density}
       description={part.description || undefined}

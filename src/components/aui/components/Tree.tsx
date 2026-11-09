@@ -46,7 +46,7 @@ import { VisuallyHidden } from "./VisuallyHidden";
  *
  * Expansion is uncontrolled (`defaultExpandedIds`) or controlled
  * (`expandedIds` + `onExpandedIdsChange`); selection likewise
- * (`defaultSelectedId` / `selectedId` + `onSelect`).
+ * (`defaultSelectedId` / `selectedId` + `onSelectedIdChange`).
  *
  * Two independent selections, because a tree needs both. `selectedId` is the
  * one *current* row — what the user is looking at, and what a detail pane
@@ -105,8 +105,9 @@ export type TreeProps = Omit<
   onRename?: (id: string, next: string) => void;
   /** Move a node to a parent and zero-based position. Enables drag and Alt+Arrow moves. */
   onMove?: (id: string, parentId: string | null, index: number) => void;
-  onSelect?: (id: string) => void;
-  /** Controlled selected id. */
+  /** Fired with the newly selected id (both modes). */
+  onSelectedIdChange?: (id: string) => void;
+  /** Controlled selected id. Pair with `onSelectedIdChange`. */
   selectedId?: string;
   /**
    * What one checkbox stands for. `cascade` checks every checkable leaf under
@@ -133,7 +134,7 @@ export function Tree({
   onExpandedIdsChange,
   onMove,
   onRename,
-  onSelect,
+  onSelectedIdChange,
   selectedId: controlledSelectedId,
   selectionBehavior = "cascade",
   xstyle,
@@ -246,7 +247,7 @@ export function Tree({
     if (controlledSelectedId === undefined) {
       setInternalSelectedId(id);
     }
-    onSelect?.(id);
+    onSelectedIdChange?.(id);
   };
 
   const toggleCheck = (item: TreeFlatNode) => {

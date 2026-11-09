@@ -4,7 +4,7 @@ import type { StatusDotTone } from "./StatusDot";
 import { WORK_STATE, type WorkState } from "./state-vocabulary";
 
 /** Badge tones used by the shared agent-state vocabulary. */
-export type AgentStatusTone = Exclude<BadgeTone, "info" | "warm">;
+export type AgentStatusTone = Exclude<BadgeTone, "info">;
 
 /**
  * The lifecycle of one unit of agent work — a tool invocation, a reasoning

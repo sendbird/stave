@@ -83,7 +83,7 @@ const halo = stylex.keyframes({
 const loop = {
   animationDuration: vars["--aui-motion-duration-loop-slow"],
   animationIterationCount: "infinite",
-  animationTimingFunction: vars["--aui-motion-ease-in-out"],
+  animationTimingFunction: vars["--aui-motion-ease-loop"],
 } as const;
 const reduced = (name: string) => ({
   animationName: {

@@ -7,7 +7,7 @@ versionLabel: v1
 status: Current · Stave 0.29.2
 statusTone: current
 captured: 2026-11-02
-updated: 2026-11-02
+updated: 2026-11-05
 recorder: jacob.kim
 footer: Stave User Guide v1 · Stave 0.29.2 (main 6e7a65a7) · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
@@ -39,7 +39,7 @@ Heron documents cannot embed images, so each section's **Screens** link opens th
 Screens: [Whole window](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/overview.png)
 
 ```diagram architecture "Regions of the Stave window"
-box sidebar 1,1 | Sidebar | Repositories and workspaces | Fleet View · Agents · AI usage
+box sidebar 1,1 | Sidebar | Repositories and workspaces | Tars · Fleet View · Agents · AI usage
 box topbar 2,1 | Top bar | Path · branch · Create PR | Go to file · Schedules · Notifications
 box center 2,2 primary | Work area | Task · terminal · Lens tabs | Composer at the bottom
 box rail 3,2 | Right panels | Explorer · Source Control · Information | Skills · Workspace Tools · Task
@@ -51,7 +51,7 @@ edge rail -> center dashed : context and tools
 
 | Region       | What is there                                                                                                                         |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Sidebar      | **Fleet View**, **Agents** and **AI usage** at the top; repositories and workspaces below. The list has two views: **Repositories** and **Work queue** |
+| Sidebar      | **Tars**, **Fleet View**, **Agents** and **AI usage** at the top; repositories and workspaces below. The list has two views: **Repositories** and **Work queue** |
 | Top bar      | Workspace path and branch, **Commit graph**, **Create PR**, go to file (Cmd/Ctrl+P), Fleet, Issues, Schedules, Standalone CLI, notifications, app update |
 | Work area    | Tasks (conversations), terminals, CLI sessions, editors and Lens open as tabs. The composer for writing messages sits under a task tab |
 | Right panels | **Explorer**, **Source Control**, **Information**, **Skills**, **Workspace Tools**, **Task**, Lens and **Terminal** buttons. They stay disabled until a repository is open |
@@ -419,7 +419,7 @@ edge halted -> stopped dashed : stop
 
 A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Progress** shows what its turns spent: a cost for Claude, tokens for Codex.
 
-The run line above the composer shows the buttons that fit: **Retry**, **Extend (+10 turns)**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model).
+The run line above the composer shows the buttons that fit: **Retry**, **Extend (+10 turns)**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
 Task panel > **Progress** shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
 Each done-when condition shows **Met · checked by Stave**, **Met · agent reported**, **Not met** or **Not verified**.
 Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agent-run-panel.png) · [Stage sign-off card](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/run-sign-off.png)
@@ -434,6 +434,204 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 6. Walk away. The run handles safe approvals, waits for PR checks and reviews, and waits for usage resets on its own.
 7. Come back when Fleet View's **Action required** or a notification points at the run, then answer the card or continue with the run line buttons.
 8. At the end, add the run report from Outputs to the PR description or share it to Slack.
+
+## Keep responsibilities with Tars
+
+Open **Tars** in the sidebar to delegate an outcome across registered
+repositories. Unlike the saved Supervisor Agent, Tars keeps one personal
+name, standing instructions and responsibility list outside any one task.
+
+The main surface is one ongoing conversation. Write a message to ask about
+progress, shape a plan, change priorities or explicitly delegate work. You can
+keep talking while work runs. There is no per-message workspace, mode or task
+setup form; an unclear execution target is resolved in the conversation.
+Switching workspaces keeps the same history, and you can chat before adding a
+repository.
+
+Open **Settings** in the header for the name, standing instructions,
+conversation model and account, execution model, the agents Tars may use and
+the turn limit each work unit can use. Initial model/account choices come from your app
+settings and are saved for this conversation. The conversation model is only
+for talking with Tars. **Execution model** defaults to **Automatic**: Stave
+Auto routes delegated work, and reviews can run on the other provider. Pin a
+model only when every step and its review should stay on it. Tars runs work
+only on Claude and Codex; Cursor, Kiro and OpenCode are not supported.
+
+Built-in agents are always available to Tars. Allow a saved agent under
+**Agents Tars may use** before Tars can hand it work. Agents that publish,
+such as Shipper, are never used: only Stave publishes, and only after you
+confirm a publish card.
+Tars refuses an agent that is unknown, not allowed, unable to take delegated
+work, unable to run on a pinned execution model or above the permission
+delegated work allows, and the conversation shows why. Admitted
+work retains its account and execution choice. A reply is a proposal; action
+outcomes show whether work was admitted, and saved status changes appear back
+in the conversation.
+
+The header shows where your work stands, such as "2 running · 1 needs you ·
+3 done". Select it to open the work tray; on a wide window the tray stays open
+beside the conversation. The tray lists **Needs you**, **Running** and **Done**
+(folded). Each card shows its title, a state tag, the owner, the turns left and
+helpers working when Stave knows them, and what waits on you. A card whose run
+Stave has read is a run monitor: the stage it is on (such as "Now: Cause,
+attempt 2") with how long it has been on it, one segment per stage (done, in
+progress, not started or stopped), the step count such as "2/3", and
+**Timeline**, which opens the run's timeline at that stage. A value Stave does
+not know is left out, never shown as zero. The card keeps two buttons in view,
+the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
+responsibility** are under the card's more-actions menu. Queued work follows
+the work that started, in the order it will start; its menu adds **Do first**
+and **Do later**, and its grip lets you drag it among the queued cards or move
+it with **Alt+Up** and **Alt+Down**. Each move leaves a one-line record with
+the new priority. When Tars proposes
+something and waits for you, the main action becomes that confirmation, such as
+**Confirm resume**. When you come back to Tars after being away (Tars was
+closed or the window was hidden), a **While you were away** summary sits at the
+top of the tray: how much came to need you, failed or finished since you last
+saw Tars, and the latest of them, each opening its report or timeline. Close it
+with its X; it does not appear on a first visit or when nothing changed. Stave
+remembers when you last saw Tars on this device only. Before the first read the tray says it is checking, and it
+never reports "no work" unless the read succeeded. The tray counts
+the same rows Fleet View shows for Tars work, so the two always agree. When Tars
+delegates work, its message carries a work flow: request, Tars's decision,
+each stage of the run and completion. It is folded to one line such as "1 of 3
+stages done · Running" and updates in place. Select a stage to see it on the
+run timeline, the review stage to see the review, or completion to see the
+result report; **Show in Fleet** is in each stage's more menu.
+The conversation keeps only words, decisions and the moments work finishes,
+stops or needs you. Updates arrive as soon as Tars saves them, without waiting
+for a refresh.
+
+The tray's fourth section, **Outputs**, lists what work produced: the
+**Result report** once a run ended, **Changes** when it changed files, the
+**Review** once the reviewer reported, and links the report recorded, such as a
+pull request (which opens in the browser). The header adds the outputs count,
+such as "1 done · 4 outputs", only when there are some. An output opens the
+side view beside the conversation; on a wide window it takes the tray's place
+and the tray folds to its header until you close it, and the conversation always
+keeps at least 440 px. On a narrow window it opens between the conversation and
+the message box, at most 40% of the height, and scrolls. Switch between
+**Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
+close button closes it and returns focus to what opened it. You can also ask,
+such as "show me the report" or "보고서 보여줘"; Tars only opens the view and
+cannot change work that way. Opening and closing it is never recorded in the
+conversation.
+
+- **Result report**: each criterion's status and what decided it (the agent's
+  report in a stage, or a Stave check and its result), with the revision it was
+  checked on and whether that is the final revision. Evidence is listed once
+  under the stage that reported it, labelled **Verified by Stave**, **Provider
+  result** or **Agent reported**.
+  It shows what was true when the run ended, with that time, then what is unmet
+  and what the run left behind.
+- **Changes**: the execution workspace's changed files and each file's diff, as
+  the workspace is now (not frozen with the report); **Refresh** reads it again.
+  Select lines in the diff and choose **Ask about this** to quote the file, line
+  range and lines into the message box; nothing is sent until you send it.
+- **Timeline**: stages with attempts, the run's own decisions (routes, waits,
+  retries), hand-offs and controls, and the commands and tool calls, folded.
+- **Review**: the reviewer's verdict and findings in its own words.
+
+Completed work that Stave verified can become a draft pull request. Choose
+**Create draft PR** on its card in **Done** or in its report, or ask Tars
+("open a draft PR for it"). A confirmation card shows the repository, the base
+and head branch, the changed files, the commit message and pull request title
+(you can edit both and change the commit type) and the body built from the
+report. **Open draft PR** or Enter publishes; **Decline** or Esc publishes
+nothing. Stave then commits, pushes the work's branch and opens a draft pull
+request; it never merges, deploys or force-pushes, and it asks again every
+time. The card folds to a line such as "Draft PR #12 opened", and the pull
+request appears in **Outputs** and the report. If a step fails, **Retry** opens
+the card again and continues from that step.
+
+A blocked card in the tray shows why and offers **Open report**, which opens
+the report on its unmet criteria with the next steps that work allows:
+**Resume**, **Take over** or **Cancel responsibility**, or for a completion Stave
+could not verify, its decision card. A blocked or stuck stage in the work flow
+shows its reason and opens the same place.
+
+Work runs in an
+isolated worktree with execution, independent review and verification.
+Uncommitted source changes are not copied unless you turn on **Include my
+working changes** next to **Send** for that message: Stave then snapshots the
+workspace's uncommitted changes (ignored files stay out) without touching your
+files, starts the work from that snapshot and says so on its tray card with the
+short commit. The switch turns off after each send. **Pause**, **Resume**, **Take
+over**, **Hand back** and **Cancel responsibility** control owned work. You can
+also ask in words, such as "stop it" or "I'll take it from here"; both go
+through the same check, and each click leaves a one-line record in the
+conversation. Work Tars holds shows a **Tars** label in Fleet View and on the
+task's run line. **Pause** and **Take over** in a Fleet row's panel, **Take
+control** on the run line, and every **Stop** of its turn (composer, Esc,
+command palette, run line) go through Tars too: the run is paused rather than
+cancelled, and the record names where you pressed it, such as "Paused · Fleet"
+or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
+own turn. Take the work over before changing its agent in the composer. Resume, hand back and cancel asked in words wait for you as a
+decision card with **Confirm**. Work you take over stays yours until you hand it back, and Tars
+verifies handed-back work again before completing it. A run reporting its
+criteria as met is not enough on its own: Tars completes work only when Stave
+saw a check pass on the current revision in the final stage, or its
+independent review passed on that same revision. Otherwise a decision card
+asks what to do: **Accept as done**, **Cancel responsibility**, or **Ask Tars
+for new verification work**, which only drafts that request in the message box.
+
+When Tars needs you to choose, it shows a decision card in the conversation:
+a question with two to four options, each with a short reason, and a
+recommended option when Tars has one. A confirmation (a control Tars proposed,
+or a completion Stave could not verify) leads with what it does, such as
+"Cancel this work?", and the work it is about, then rows for the repository,
+workspace, revision and effect when Stave knows them. Effects that cannot be
+undone, cancelling and accepting as done, carry a **Can't be undone** tag. Its
+footer shows **Not now** (Esc), which leaves the decision waiting and returns
+you to the message box, and **Confirm** with its key. While it waits, the card has an
+attention outline. Choose by clicking, or focus the card and press **1** to
+**4** (**Enter** picks the recommended or focused option); keys typed in the
+message box stay text. When exactly one decision waits in Tars's latest reply
+and you have not written since, a short reply such as "1", "yes" or "응"
+answers it: a number picks that option, a yes picks the recommended one.
+Anything else goes to Tars as a message. Cancelling and accepting as done are
+never a default: choose them by click or by number, never with Enter or "yes". An answered card
+folds to one line such as "Keep it running · click". Answering twice applies
+once, and a different answer to an answered decision is refused; if Stave
+could not apply your choice for another reason, the card stays open. If the work
+changes before you answer, the card says it is no longer valid and Tars asks
+again once by itself. Decision cards also wait in **Needs you** and in Fleet
+View; cards with several options open Tars from Fleet. In **Agents**, the
+Supervisor's work list hides what Tars delegated; turn on **Show Tars work** to
+include it. **Cancel message** stops unfinished
+reasoning; it does not undo admitted work. Interrupted reasoning requires a
+new message and is not run again automatically.
+
+Higher numeric priorities start first, with oldest first on a tie. A waiting
+responsibility lets independent queued work begin; admitted runs may resume
+concurrently. Use **Settings** to guide newly admitted
+work without changing an existing run or granting permissions.
+
+Tars also follows up by itself when work needs judgment: it became blocked,
+its run or one of its helpers stopped to ask you for a decision (followed up
+at once), its completion could not be verified, it ended with criteria unmet,
+it waited an hour without change (a run you paused, a usage-limit pause, or
+an approval or question you answer in its task), or a question Tars asked
+became invalid. The message
+reads **Automatic follow-up ·** with its reason and the work's title. It can
+ask, propose a resume or cancel that waits for your **Confirm**, change a
+queued priority or open a view. It never starts work by itself (it asks you
+instead), never pauses, takes over or accepts work as done, and proposes
+nothing about work you paused, took over or that ended. Each change gets one
+follow-up; at most six start per hour, and each counts as one turn toward the
+turn limit, counted since your last message, answer or click toward Tars.
+When the limit is used up, Tars says so and waits for you. A tray card shows when Tars looks next, such
+as **Next check** on waiting work.
+
+Work continues while Stave runs and is reconciled after restart. It does not
+run while Stave is closed or the computer sleeps, and a manual pause remains
+paused. Publication and external communication need a separate request; no
+publishing action stage is authorized by delegation. Existing provider safety
+controls still apply: these instructions are not an extra shell sandbox.
+Existing tasks are not adopted automatically. A run's acceptance report is distinct from host-verified checks
+or a live external outcome.
+
+Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
 
 @page review | Hand off | Review and delegation | guide
 @lead Check changes yourself in Review mode, hand them to another model as an AI review, or let an agent create delegated tasks. Results gather in the Task panel's Outputs.
@@ -510,7 +708,7 @@ Idle | Tasks with nothing to do right now
 | In review       | Tasks with a ready result, a PR, or no updates for a while           |
 | Idle            | Tasks with nothing to do                                             |
 
-Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you". J and K move between rows like the arrow keys. A wait's age turns to the warning color after an hour and the failed color after a day.
+Approve right in the row with **Allow** and **Deny** (A and D keys), and answer short questions by picking an option. **Always allow** is in the expanded panel. Work Tars holds is marked **Tars**; its expanded panel offers **Pause** and **Take over**, which go through Tars and are recorded in the Tars conversation, and shows why if Tars refuses. Tars work that waits on you also gets its own rows in **Action required**: **Tars decision** for a decision waiting on you (confirm a single proposal in the row; a question or an unverified completion has **Open in Tars**), and **Tars blocked** when Tars could not finish the work, which stays until it is resolved. The **Table** view has an **Owner** column (Tars, Agent run or You), and the **Owner** menu in the toolbar narrows Tree and Table to one owner. **Show in Fleet** from Tars opens this view on that task with its panel expanded, clearing only a filter that hid it. Rows also offer Open, Mark read, Dismiss, Open PR and Snooze. When a row leaves after one of these, focus moves to the next row, and the **Action required** count reads as a sentence such as "2 waiting on you". J and K move between rows like the arrow keys. A wait's age turns to the warning color after an hour and the failed color after a day.
 Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
 
 Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. A task whose Subagents tab you opened also counts the files its subagents changed in common. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task; select a column header to sort by it (again to reverse, a third time for the Work queue order). If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.

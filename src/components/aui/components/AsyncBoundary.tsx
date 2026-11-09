@@ -18,17 +18,17 @@ export type AsyncBoundaryProps<T> = {
    * Rendered instead of `children` when the data loaded but `isEmpty(data)`
    * is true — typically an `EmptyState`.
    */
-  empty?: React.ReactNode;
+  emptyState?: React.ReactNode;
   /** Title of the error `EmptyState`, in the host's words. */
   errorTitle: React.ReactNode;
-  /** Decide whether loaded data counts as empty (pairs with `empty`). */
+  /** Decide whether loaded data counts as empty (pairs with `emptyState`). */
   isEmpty?: (data: T) => boolean;
   /**
    * Re-run the load after an error; renders a retry action on the error
    * state (typically `refresh` from `useAsync`).
    */
   onRetry?: () => void;
-  /** The pending surface, typically a `LoadingSurface` with the host's label. */
+  /** The pending surface, typically a `Skeleton.Surface` with the host's label. */
   pending: React.ReactNode;
   /** Label of the retry button, in the host's words. */
   retryLabel: React.ReactNode;
@@ -46,8 +46,8 @@ function defaultDescribe(error: unknown): string {
 /**
  * The pending / error / empty / ready switch every data-backed surface
  * repeats, in one place. Pairs with `useAsync`: pending renders an honest
- * `LoadingSurface`, errors render an `EmptyState` with an optional retry
- * action, and `empty`/`isEmpty` cover loaded-but-blank data. A failed refresh
+ * `Skeleton.Surface`, errors render an `EmptyState` with an optional retry
+ * action, and `emptyState`/`isEmpty` cover loaded-but-blank data. A failed refresh
  * keeps the last successful result visible and places one recovery banner
  * before it instead of replacing the work surface with an initial-load error.
  * Slots take ready elements, so apps can swap any state for their own surface.
@@ -55,7 +55,7 @@ function defaultDescribe(error: unknown): string {
 export function AsyncBoundary<T>({
   children,
   describeError = defaultDescribe,
-  empty,
+  emptyState,
   errorTitle,
   isEmpty,
   onRetry,
@@ -83,7 +83,9 @@ export function AsyncBoundary<T>({
     );
   }
   const content =
-    empty != null && isEmpty?.(state.data) ? empty : children(state.data);
+    emptyState != null && isEmpty?.(state.data)
+      ? emptyState
+      : children(state.data);
 
   if (!state.stale) return content;
 
@@ -92,7 +94,7 @@ export function AsyncBoundary<T>({
       <Banner
         action={
           onRetry ? (
-            <Button onClick={onRetry} size="sm" variant="outline">
+            <Button onClick={onRetry} size="sm" variant="outlined">
               {retryLabel}
             </Button>
           ) : undefined

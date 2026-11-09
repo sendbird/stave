@@ -10,7 +10,6 @@ import {
   type ControlScale,
 } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
-import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx } from "../utils/stylex";
 import { Label } from "./Label";
@@ -102,8 +101,10 @@ export function NativeSelect({
         aria-describedby={describedBy || undefined}
         aria-invalid={error ? true : undefined}
         className={sx(
+          // Field chrome first: its focus halo and the transition that grows
+          // it. The local `control` ladder still owns border and fill.
+          controlChrome.field,
           styles.control,
-          transition.colors,
           focusRing.borderOnly,
           controlHeightBySize[size],
           sizeStyles[size],

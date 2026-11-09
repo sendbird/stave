@@ -1,5 +1,5 @@
 import { i18n, useTranslation, Trans } from "@/i18n";
-import { ArrowRight, CornerDownRight, ListPlus, Square, X } from "lucide-react";
+import { ArrowRight, CornerDownRight, ListPlus, Pause, Square, UserRoundCheck, X } from "lucide-react";
 import {
   useEffect,
   useId,
@@ -48,6 +48,12 @@ import {
   findPendingUserInputMessageByRequestId,
 } from "@/store/provider-message.utils";
 import type { ChatMessage } from "@/types/chat";
+import { TarsOwnerBadge } from "@/components/tars/TarsOwnerBadge";
+import { useTarsOwner, useTarsSnapshotRefresh } from "@/store/tars-snapshot-store";
+import { routeTarsOwnedIntent, tarsOwnedOutcomeMessage, tarsStopEndsTurn, type TarsOwnedControlOutcome } from "@/store/tars-owned-control";
+import { findActiveTaskRun, isRecordedUserTurn, tarsTaskTarget, type TarsOwnedIntent } from "@/lib/tars/ownership";
+import { useFleetTaskRun } from "@/components/tars/fleet-tars-owner";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -62,7 +68,7 @@ export interface FleetTaskExpectedInteraction {
 }
 
 type FleetControlAction =
-  "approval" | "user-input" | "steer" | "queue" | "stop";
+  "approval" | "user-input" | "steer" | "queue" | "stop" | "takeover";
 
 function restoreTriggerFocus(elementId?: string) {
   if (!elementId) {
@@ -113,6 +119,12 @@ function resolveActionStatus(
   }
 }
 
+/** The panel's status once Tars settled a stop or take-over: what changed, or the translated refusal. */
+export function describeFleetTarsOutcome(outcome: Exclude<TarsOwnedControlOutcome, { kind: "direct" | "held" }>) {
+  const message = tarsOwnedOutcomeMessage(outcome);
+  return { tone: message.tone, text: i18n.t(message.key) };
+}
+
 export function FleetTaskControlPanel(args: {
   target: FleetTaskControlTarget;
   expectedInteraction?: FleetTaskExpectedInteraction;
@@ -122,7 +134,7 @@ export function FleetTaskControlPanel(args: {
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onClose: () => void;
 }) {
-  const { t: tI18n } = useTranslation(["fleet"]);
+  const { t: tI18n } = useTranslation(["fleet", "shell"]);
   const panelId = useId();
   const panelRef = useRef<HTMLElement | null>(null);
   const [
@@ -353,6 +365,14 @@ export function FleetTaskControlPanel(args: {
     });
   const canQuickReply =
     !args.interactionOnly && Boolean(activeTurnId) && Boolean(task) && !managed && !pendingPart;
+  // Work an active Tars responsibility holds: its stop and take-over go through
+  // Tars, so the responsibility follows and the conversation records them.
+  // Judged by the task's own active run, as the task view does: a run you started there is never Tars's.
+  const fleetRun = useFleetTaskRun(args.target.workspaceId, args.target.taskId);
+  const tarsOwner = useTarsOwner(tarsTaskTarget(args.target.taskId, args.target.workspaceId, fleetRun));
+  useTarsSnapshotRefresh(!args.interactionOnly);
+  // Once Tars paused it there is nothing to pause; Stop then ends only your own turn.
+  const tarsPauses = tarsOwner !== null && tarsOwner.state !== "paused";
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
@@ -541,26 +561,64 @@ export function FleetTaskControlPanel(args: {
     }
   };
 
-  const stopTurn = () => {
-    if (!activeTurnId || busyAction) {
+  /**
+   * Stop and take over. Work Tars holds goes through Tars's control path
+   * (a stop pauses it; a take-over never cancels its run), and a stop then
+   * ends only the in-flight turn. Other work stops its active turn as before,
+   * after the same fresh identity check.
+   */
+  const runOwnershipControl = async (intent: TarsOwnedIntent) => {
+    if (busyAction) {
       return;
     }
-    const expected = {
-      ...args.target,
-      turnId: activeTurnId,
-    };
-    const validation = validateFleetTurnAction({
-      expected,
-      current: getFreshCurrentState(),
+    const turnId = intent === "pause" ? activeTurnId : null;
+    const expected = { ...args.target, turnId };
+    if (turnId) {
+      const validation = validateFleetTurnAction({ expected, current: getFreshCurrentState() });
+      if (!validation.ok) {
+        setStatus({ tone: "error", text: validation.reason });
+        return;
+      }
+    }
+    setBusyAction(intent === "pause" ? "stop" : "takeover");
+    const runs = useFleetAgentRunsStore.getState();
+    const run = findActiveTaskRun(runs.details, args.target.workspaceId, args.target.taskId) ?? (runs.loaded ? null : undefined);
+    const outcome = await routeTarsOwnedIntent({
+      target: tarsTaskTarget(args.target.taskId, args.target.workspaceId, run),
+      intent,
+      source: "fleet",
     });
-    if (!validation.ok) {
-      setStatus({ tone: "error", text: validation.reason });
+    if (outcome.kind === "direct" && !turnId) {
+      setStatus({ tone: "neutral", text: i18n.t("shell:tars.owner.notHeld") });
+      setBusyAction(null);
       return;
     }
-    setBusyAction("stop");
-    abortTaskTurn({ taskId: args.target.taskId });
-    setStatus({ tone: "success", text: tI18n("fleet:fleetTaskControlPanel.stopRequestedForTheActiveTurn") });
+    // The ownership read took a moment: the turn must still be the one shown.
+    const validation = turnId ? validateFleetTurnAction({ expected, current: getFreshCurrentState() }) : null;
+    // A pause Tars refused or could not send leaves the run going: only your own turn stops then.
+    if (validation?.ok && tarsStopEndsTurn(outcome, isRecordedUserTurn(run?.events, turnId))) {
+      // Tars already settled the run, so only the turn stops; the store never cancels Tars's run either.
+      abortTaskTurn({ taskId: args.target.taskId, keepAgentRun: outcome.kind !== "direct" });
+    }
+    if (outcome.kind === "held") {
+      setStatus(turnId
+        ? { tone: "success", text: i18n.t("shell:tars.owner.turnOnly") }
+        : { tone: "neutral", text: i18n.t("shell:tars.controlReasons.alreadyPaused") });
+    } else if (outcome.kind !== "direct") {
+      setStatus(describeFleetTarsOutcome(outcome));
+    } else if (validation?.ok) {
+      setStatus({ tone: "success", text: tI18n("fleet:fleetTaskControlPanel.stopRequestedForTheActiveTurn") });
+    } else if (validation) {
+      setStatus({ tone: "error", text: validation.reason });
+    }
     setBusyAction(null);
+  };
+
+  const stopTurn = () => {
+    if (!activeTurnId && !tarsPauses) {
+      return;
+    }
+    void runOwnershipControl("pause");
   };
 
   return (
@@ -581,6 +639,7 @@ export function FleetTaskControlPanel(args: {
             {tI18n("fleet:fleetTaskControlPanel.reviewActivityAnswerRequestsOrDirectThe")}</p> : null}
         </div>
         <div className={sx(styles.headerActions)}>
+          {tarsOwner ? <TarsOwnerBadge /> : null}
           {!args.interactionOnly ? <Button
             type="button"
             size="sm"
@@ -754,21 +813,51 @@ export function FleetTaskControlPanel(args: {
           {tI18n("fleet:fleetTaskControlPanel.thisTaskIsExternallyManagedOpenIt")}</p>
       ) : null}
 
-      {activeTurnId && !args.interactionOnly ? (
+      {(activeTurnId || tarsOwner) && !args.interactionOnly ? (
         <div className={sx(styles.turnFooter)}>
-          <p className={sx(styles.turnText)}>
-          <Trans t={tI18n} i18nKey="fleet:fleetTaskControlPanel.activeTurn" values={{ id: activeTurnId.slice(0, 8) }} components={{ turn: <span className={sx(styles.turnId)} /> }} />
-        </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            xstyle={styles.action}
-            disabled={busyAction != null}
-            onClick={stopTurn}
-          >
-            <Square className={sx(styles.stopIcon)} aria-hidden="true" />
-            {tI18n("fleet:fleetTaskControlPanel.stop")}</Button>
+          <div className={sx(styles.headerText)}>
+            {tarsOwner ? <p className={sx(styles.turnText)}>{tI18n("shell:tars.owner.fleetHint")}</p> : null}
+            {activeTurnId ? <p className={sx(styles.turnText)}>
+              <Trans t={tI18n} i18nKey="fleet:fleetTaskControlPanel.activeTurn" values={{ id: activeTurnId.slice(0, 8) }} components={{ turn: <span className={sx(styles.turnId)} /> }} />
+            </p> : null}
+          </div>
+          <div className={sx(styles.headerActions)}>
+            {tarsOwner ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                xstyle={styles.action}
+                disabled={busyAction != null}
+                onClick={() => void runOwnershipControl("takeover")}
+              >
+                <UserRoundCheck className={sx(styles.actionIcon)} aria-hidden="true" />
+                {tI18n("shell:tars.takeOver")}</Button>
+            ) : null}
+            {tarsPauses ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                xstyle={styles.action}
+                disabled={busyAction != null}
+                onClick={stopTurn}
+              >
+                <Pause className={sx(styles.actionIcon)} aria-hidden="true" />
+                {tI18n("shell:tars.pause")}</Button>
+            ) : activeTurnId ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                xstyle={styles.action}
+                disabled={busyAction != null}
+                onClick={stopTurn}
+              >
+                <Square className={sx(styles.stopIcon)} aria-hidden="true" />
+                {tI18n("fleet:fleetTaskControlPanel.stop")}</Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

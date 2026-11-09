@@ -15,7 +15,7 @@ import { vars } from "../tokens/tokens.stylex";
  * Compose one *property* key with an optional *duration* key:
  *
  * ```ts
- * sx(styles.trigger, transition.colors)             // 120ms, the default
+ * sx(styles.trigger, transition.colors)             // 120ms, both ways
  * sx(styles.panel, transition.colors, transition.motionDurationNormal)
  * ```
  *
@@ -24,10 +24,49 @@ import { vars } from "../tokens/tokens.stylex";
  * - Never add `transform` here — Motion owns transform on its own element
  *   (see `decisions/motion-architecture.md`). `transformFallback` exists only
  *   for the CSS press path used when a component renders a non-Motion element.
- * - Non-spatial color/opacity feedback keeps an 80ms micro transition under
- *   reduced motion. Transform and layout-adjacent timing becomes instant.
+ * - Non-spatial colour/opacity/shadow STATE feedback (`colors`, `control`,
+ *   `ring`) eases over 150ms on `--aui-motion-ease-color`, and keeps an 80ms
+ *   micro transition under reduced motion. Transform and layout-adjacent
+ *   timing becomes instant.
+ * - Two curves, by what moves: travel (`bar`, `slide`, `transform`, the
+ *   duration overrides) rides the ease-out `--aui-motion-ease-standard`,
+ *   `cubic-bezier(0.22, 1, 0.36, 1)`; a colour change rides the CSS `ease`
+ *   curve `--aui-motion-ease-color` (2026-11-08 motion pass, below). That
+ *   split is Emil Kowalski's own easing table — "hover / color change →
+ *   ease", entering and exiting → ease-out — so the 2026-11-08 motion review
+ *   kept it.
+ */
+
+/**
+ * Colour feedback eases over 150ms (`--aui-motion-duration-quick`) on the
+ * colour curve (`--aui-motion-ease-color`, CSS `ease`), in both directions.
+ *
+ * History, because each step was a real complaint: it answered in 120ms and let
+ * go in 80ms, but a CSS transition takes the duration of the state it moves
+ * INTO, so the 80ms rest arm was what every press, focus and release played —
+ * effectively a cut (F3, 2026-11-08: "transitions look absent"). F3 moved both
+ * arms to 120ms and the complaint came back the same day for a field's hover
+ * border: the curve, not the duration, was the cut. On the travel ease-out
+ * `cubic-bezier(0.22, 1, 0.36, 1)` a 120ms colour change is 50% done at 16ms
+ * and 90% done at 45ms — one frame, then three. On `ease` over 150ms it is
+ * 50% done at 44ms and 90% at 94ms: still quick enough that a hover never
+ * trails the pointer, and long enough to read as easing (2026-11-08 motion
+ * pass). Under Reduce Motion both directions stay the 80ms micro fade —
+ * non-spatial, so it is kept rather than removed. Press transforms are not
+ * here: Motion owns them (`whileTap`), and the CSS fallback keeps the spatial
+ * timing below.
  */
 const nonSpatialDuration = {
+  default: vars["--aui-motion-duration-quick"],
+  "@media (prefers-reduced-motion: reduce)":
+    vars["--aui-motion-duration-micro"],
+} as const;
+
+/**
+ * A reveal driven by an ANCESTOR's hover (row actions, selection boxes) never
+ * matches `:hover` itself, so it keeps one symmetric duration.
+ */
+const revealDuration = {
   default: vars["--aui-motion-duration-fast"],
   "@media (prefers-reduced-motion: reduce)":
     vars["--aui-motion-duration-micro"],
@@ -46,7 +85,7 @@ export const transition = stylex.create({
   colors: {
     transitionDuration: nonSpatialDuration,
     transitionProperty: "background-color, border-color, color",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
   },
   /**
    * Colors plus `opacity` plus `box-shadow`, for controls that fade as a whole
@@ -60,7 +99,7 @@ export const transition = stylex.create({
     transitionDuration: nonSpatialDuration,
     transitionProperty:
       "background-color, border-color, color, opacity, box-shadow",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
   },
   /**
    * Colors plus `box-shadow`, for controls that actually grow a ring or halo
@@ -70,11 +109,11 @@ export const transition = stylex.create({
   ring: {
     transitionDuration: nonSpatialDuration,
     transitionProperty: "background-color, border-color, color, box-shadow",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
   },
   /** Reveal-on-hover chrome (row actions, table selection checkboxes). */
   fade: {
-    transitionDuration: nonSpatialDuration,
+    transitionDuration: revealDuration,
     transitionProperty: "opacity",
     transitionTimingFunction: vars["--aui-motion-ease-standard"],
   },
@@ -153,7 +192,7 @@ export const transition = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
   },
-  /** 180ms — a small layout/size change. */
+  /** 220ms — a small layout/size change. */
   motionDurationNormal: {
     transitionDuration: {
       default: vars["--aui-motion-duration-normal"],

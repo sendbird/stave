@@ -35,7 +35,7 @@ export type ActivityFeedProps = React.ComponentProps<"section"> & {
    */
   density?: ActivityFeedDensity;
   /** Shown when `items` is empty. Host modification: required, from the host's translations. */
-  emptyText: React.ReactNode;
+  emptyState: React.ReactNode;
   items: ActivityItem[];
 } & XstyleProp;
 
@@ -72,7 +72,7 @@ function feedRows(items: ActivityItem[]): FeedRow[] {
 export function ActivityFeed({
   className,
   density = "regular",
-  emptyText,
+  emptyState,
   items,
   xstyle,
   ...props
@@ -86,7 +86,7 @@ export function ActivityFeed({
         {...theme}
         className={cx(sx(styles.root, xstyle), theme.className, className)}
       >
-        <p className={sx(styles.empty)}>{emptyText}</p>
+        <p className={sx(styles.empty)}>{emptyState}</p>
       </section>
     );
   }

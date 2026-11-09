@@ -50,7 +50,8 @@ export type FileUploadProps = Omit<
   multiple?: boolean;
   /** Cancel intent for an uploading item. Network ownership stays with the caller. */
   onCancel?: (item: FileUploadItem) => void;
-  onChange?: (files: File[]) => void;
+  /** Fires with the next file list whenever files are added or removed. */
+  onValueChange?: (files: File[]) => void;
   /** Remove intent for a queued, uploaded, or failed item. */
   onRemove?: (item: FileUploadItem) => void;
   /** Retry intent for a failed item. */
@@ -91,7 +92,6 @@ export function FileUpload({
   label = i18n.t("ui:fileUpload.label"),
   multiple = false,
   onCancel,
-  onChange,
   onRemove,
   onRetry,
   removeLabel = defaultRemoveLabel,
@@ -99,6 +99,7 @@ export function FileUpload({
   statusLabels,
   uploadedAnnouncement = defaultUploadedAnnouncement,
   uploadingLabel = defaultUploadingLabel,
+  onValueChange,
   uploads,
   variant = "dropzone",
   xstyle,
@@ -125,9 +126,9 @@ export function FileUpload({
       if (!isControlled) {
         setInternalFiles(next);
       }
-      onChange?.(next);
+      onValueChange?.(next);
     },
-    [isControlled, onChange],
+    [isControlled, onValueChange],
   );
 
   const addFiles = useCallback(
@@ -341,11 +342,12 @@ const styles = stylex.create({
     fontFamily: vars["--aui-font-sans"],
     inlineSize: "100%",
     transitionDuration: {
-      default: vars["--aui-motion-duration-fast"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
+      default: vars["--aui-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)":
+        vars["--aui-motion-duration-micro"],
     },
     transitionProperty: "background-color, border-color",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
   },
   dropzone: {
     alignItems: "center",

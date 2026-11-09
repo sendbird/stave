@@ -10,8 +10,10 @@
     transition:
       opacity var(--atelier-motion-duration-quick)
         var(--atelier-motion-ease-expressive),
-      transform var(--atelier-motion-duration-quick)
-        var(--atelier-motion-ease-expressive);
+      /* The turn shares every other disclosure's timing
+         (recipes/disclosure-chevron.ts); only the glyph cross-fade is quick. */
+        transform var(--atelier-motion-duration-normal)
+        var(--atelier-motion-ease-standard);
   }
 
   .atelier-inline-disclosure-chevron {

@@ -39,11 +39,14 @@ import { ShelfSubagentLine } from "./ShelfSubagentLine";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
 import type { AgentRunActions } from "./useAgentRunActions";
+import { TarsOwnerBadge } from "@/components/tars/TarsOwnerBadge";
 import { describeRunPlan } from "@/lib/agent-runs/progress";
 import { agentRunStoredPlan } from "@/lib/agent-runs/agent-run-status";
 import type { StagePlan } from "@/lib/agent-runs/domain";
 
 export const TAKE_CONTROL_HINT = "agentRuns:agentRunLine.tAKECONTROLHINT";
+/** For a run Tars holds: Take control is Tars's takeover, which pauses the run for you. */
+export const TARS_TAKE_CONTROL_HINT = "shell:tars.owner.takeControlHint";
 
 /**
  * An agent run's line in the composer shelf: the agent, its badge (`Running`,
@@ -200,6 +203,7 @@ export function AgentRunLineView(props: {
         }
         actions={
           <>
+            {actions.tarsOwned ? <TarsOwnerBadge /> : null}
             {status.recovery === "retry-stage" && actions.onRetry ? (
               <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
                 {i18n.t("agentRuns:agentRunLine.actions")}</Button>
@@ -226,7 +230,7 @@ export function AgentRunLineView(props: {
                 {i18n.t("agentRuns:agentRunLine.actions2")}</Button>
             ) : null}
             {actions.onTakeControl ? (
-              <Tooltip content={i18n.t(TAKE_CONTROL_HINT)}>
+              <Tooltip content={i18n.t(actions.tarsOwned ? TARS_TAKE_CONTROL_HINT : TAKE_CONTROL_HINT)}>
                 <Button
                   variant="quiet"
                   size="xs"

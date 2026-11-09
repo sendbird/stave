@@ -1,0 +1,557 @@
+import { z } from "zod";
+import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
+import { TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlOperationSchema, TarsSnapshotSchema, type TarsControlOperation } from "./types";
+import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
+import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
+
+const IdSchema = z.string().trim().min(1).max(256);
+const RevisionSchema = z.number().int().min(1);
+const ErrorSchema = z.string().trim().min(1).max(2_000);
+const TimestampSchema = z.iso.datetime();
+/** Stated to the model and enforced on every saved reply. */
+export const TARS_REPLY_MAX_CHARS = 8_000;
+/** Stated to the model; a longer delegation reason is cut. */
+export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
+
+/**
+ * The global conversation accepts only the user's words, retry identity and
+ * one per-message choice: `includeWorkingChanges` starts the work this message
+ * admits from the target workspace's uncommitted changes, which the host
+ * snapshots at admission. Optional so earlier messages still parse; absent or
+ * false starts from the branch.
+ */
+export const TarsMessageInputSchema = z.object({
+  requestId: IdSchema,
+  text: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS),
+  includeWorkingChanges: z.boolean().optional(),
+}).strict();
+export type TarsMessageInput = z.infer<typeof TarsMessageInputSchema>;
+
+/** Tars executes only on these providers; the rest are explicitly unsupported. */
+export const TARS_EXECUTION_PROVIDERS = ["claude-code", "codex"] as const;
+/** At most as many as the agent library can save. */
+export const TARS_MAX_ALLOWED_AGENTS = 50;
+
+/** An explicit execution pin. Absent: delegated work runs on automatic routing. */
+export const TarsExecutionModelSchema = z.object({
+  providerId: z.enum(TARS_EXECUTION_PROVIDERS),
+  model: z.string().trim().min(1).max(200),
+}).strict();
+export type TarsExecutionModel = z.infer<typeof TarsExecutionModelSchema>;
+
+/**
+ * Persisted independently of workspace selection; copied immutably into every
+ * admitted message. `providerId`, `model` and `runtimeHints` are the
+ * conversation's reasoning choice. `executionModel` pins delegated work;
+ * `allowedAgentIds` lists the saved agents the user allowed (built-ins are
+ * always allowed). Both are optional so an absent value keeps the default.
+ */
+export const TarsConversationSettingsSchema = z.object({
+  providerId: z.enum(TARS_EXECUTION_PROVIDERS),
+  model: z.string().trim().min(1).max(200),
+  runtimeHints: SecondaryRunRuntimeHintsSchema.optional(),
+  maxTurns: z.number().int().min(1).max(100),
+  executionModel: TarsExecutionModelSchema.optional(),
+  allowedAgentIds: z.array(TarsAgentIdSchema).max(TARS_MAX_ALLOWED_AGENTS)
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((ids) => new Set(ids).size === ids.length, "Each allowed agent is listed once.").optional(),
+}).strict();
+export type TarsConversationSettings = z.infer<typeof TarsConversationSettingsSchema>;
+
+/**
+ * One control vocabulary for words, clicks and keys. `takeover` hands the work
+ * to the user; only an explicit `handBack` returns it, never `resume`.
+ */
+export { TarsControlOperationSchema, type TarsControlOperation } from "./types";
+
+/**
+ * Why the host refused a control. The interface translates the code; the
+ * English `error` beside it is a diagnostic only. `unknown` covers any
+ * failure without a specific rule, such as an unreadable run.
+ */
+export const TarsControlReasonSchema = z.enum([
+  "notOwned", "stale", "ended", "takenOver", "alreadyPaused", "notResumable", "alreadyTakenOver",
+  "notTakenOver", "notAcceptable", "outOfScope", "ownershipLost", "runEnded", "runHeld", "unknown",
+  // An automatic follow-up asked for something only the user may start (see `tarsFollowUpRefusal`).
+  "notByFollowUp",
+  // A priority change or queue move: only queued work moves, and work already at that end of the queue cannot move further.
+  "notQueued", "queueEdge",
+]);
+export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
+
+/**
+ * Why the host refused a delegate action: its agent does not exist or is
+ * archived, the user has not allowed it, it publishes or delivers outside the
+ * workspace (which needs a separate request), it cannot take delegated work on
+ * Claude or Codex, it conflicts with the pinned execution model, or it would
+ * exceed the delegated permission ceiling; or the user's working changes,
+ * which the message asked to include, could not be snapshotted.
+ */
+export const TarsDelegateReasonSchema = z.enum([
+  "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
+  // The message asked to include the user's working changes, and the host could not snapshot them.
+  "workingChangesUnavailable",
+]);
+export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
+/** A publish proposal refused when it was made carries a `TarsPublishReason`. */
+export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema, TarsPublishReasonSchema]);
+export type TarsActionReason = z.infer<typeof TarsActionReasonSchema>;
+
+/** Fixed across the host boundary: a saved agent cannot be judged until the renderer syncs the catalog. */
+// i18n-ignore: protocol diagnostic matched by callers, never rendered
+export const TARS_AGENT_CATALOG_PENDING_MESSAGE = "Saved agents have not been loaded yet. The decision stays pending and will be retried.";
+
+/** Fixed across the host boundary so callers can recognize a retryable lock wait. */
+// i18n-ignore: protocol diagnostic matched by callers, never rendered
+export const TARS_STORAGE_BUSY_MESSAGE = "The representative's database stayed busy. The unsettled work remains saved and will be retried.";
+
+export const TarsControlActionSchema = z.object({
+  kind: z.literal("control"),
+  responsibilityId: IdSchema,
+  expectedRevision: RevisionSchema,
+  operation: TarsControlOperationSchema,
+}).strict();
+export type TarsControlAction = z.infer<typeof TarsControlActionSchema>;
+
+/**
+ * Controls that return authority to Tars or end work. When the model proposes
+ * one, it waits for the user's confirming click; pause and takeover, which only
+ * reduce Tars's authority, apply at once.
+ */
+export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack", "cancel", "acceptCompletion"]);
+/** Effects that cannot be undone. They are never a default: no recommended option, no Enter, no "yes". */
+export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion"]);
+export function tarsConfirmationRequestId(messageId: string, actionIndex: number) {
+  return `confirm:${messageId}:${actionIndex}`;
+}
+export function parseTarsConfirmationRequestId(requestId: string): { messageId: string; actionIndex: number } | null {
+  const match = /^confirm:(.+):([0-7])$/.exec(requestId);
+  return match ? { messageId: match[1]!, actionIndex: Number(match[2]) } : null;
+}
+
+/** How an answer was given: a click, a key on the focused card, or a short answer bound to the one waiting decision. */
+export const TarsAnswerSourceSchema = z.enum(["click", "key", "words"]);
+export type TarsAnswerSource = z.infer<typeof TarsAnswerSourceSchema>;
+
+/**
+ * What choosing an ask option does: a control on one responsibility at its
+ * revision (the host admits it as it admits a click), or `reply`, which sends
+ * the chosen option back to Tars as the user's answer. Nothing else.
+ */
+export const TarsAskEffectSchema = z.discriminatedUnion("kind", [
+  TarsControlActionSchema,
+  z.object({ kind: z.literal("reply") }).strict(),
+]);
+export type TarsAskEffect = z.infer<typeof TarsAskEffectSchema>;
+
+export const TARS_ASK_MIN_OPTIONS = 2;
+export const TARS_ASK_MAX_OPTIONS = 4;
+
+export const TarsAskOptionSchema = z.object({
+  label: z.string().trim().min(1).max(60),
+  rationale: z.string().trim().min(1).max(200),
+  effect: TarsAskEffectSchema,
+}).strict();
+export type TarsAskOption = z.infer<typeof TarsAskOptionSchema>;
+
+/**
+ * A question with 2–4 options. It grants nothing by itself: only the user's
+ * choice applies an option's effect, through the same host check as a click.
+ */
+export const TarsAskActionSchema = z.object({
+  kind: z.literal("ask"),
+  question: z.string().trim().min(1).max(500),
+  options: z.array(TarsAskOptionSchema).min(TARS_ASK_MIN_OPTIONS).max(TARS_ASK_MAX_OPTIONS),
+  recommended: z.number().int().min(0).max(TARS_ASK_MAX_OPTIONS - 1).optional(),
+}).strict().superRefine((ask, context) => {
+  // i18n-ignore: schema diagnostic, not user-facing copy
+  if (ask.recommended !== undefined && ask.recommended >= ask.options.length) context.addIssue({ code: "custom", message: "The recommended option does not exist." });
+  const labels = ask.options.map((option) => option.label.toLocaleLowerCase());
+  // i18n-ignore: schema diagnostic, not user-facing copy
+  if (new Set(labels).size !== labels.length) context.addIssue({ code: "custom", message: "Each option needs its own label." });
+  const controls = ask.options.flatMap((option) => option.effect.kind === "control" ? [`${option.effect.responsibilityId}:${option.effect.operation}`] : []);
+  // i18n-ignore: schema diagnostic, not user-facing copy
+  if (new Set(controls).size !== controls.length) context.addIssue({ code: "custom", message: "Two options apply the same control." });
+});
+export type TarsAskAction = z.infer<typeof TarsAskActionSchema>;
+
+/** Whether an ask option's effect cannot be undone. */
+export function isTarsIrreversibleEffect(effect: TarsAskEffect) {
+  return effect.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(effect.operation);
+}
+
+/** The ask with any recommendation of an irreversible option dropped; the question itself is kept. */
+export function withoutIrreversibleRecommendation(ask: TarsAskAction): TarsAskAction {
+  if (ask.recommended === undefined || !isTarsIrreversibleEffect(ask.options[ask.recommended]!.effect)) return ask;
+  const { recommended: _dropped, ...rest } = ask;
+  return rest;
+}
+
+/** What a `show` action opens in the Tars side view. */
+export const TarsShowViewSchema = z.enum(["report", "changes", "timeline", "review"]);
+export type TarsShowView = z.infer<typeof TarsShowViewSchema>;
+
+/**
+ * Opens the side view on one of the user's Tars responsibilities. View-only:
+ * it grants no authority and changes no work; its receipt only says it opened.
+ */
+export const TarsShowActionSchema = z.object({
+  kind: z.literal("show"),
+  responsibilityId: IdSchema,
+  view: TarsShowViewSchema,
+}).strict();
+export type TarsShowAction = z.infer<typeof TarsShowActionSchema>;
+
+export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("delegate"),
+    workspaceId: IdSchema,
+    title: z.string().trim().min(1).max(120),
+    instruction: z.string().trim().min(1).max(8_000),
+    acceptanceCriteria: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+    priority: z.number().int().min(0).max(100),
+    /** Optional: the host admits it against the saved allowlist and delegation ceiling. */
+    agentId: TarsAgentIdSchema.optional(),
+    /**
+     * Optional proposal under the repository's naming rule; the host sanitizes it and adds a unique suffix.
+     * It grants nothing, so a null, empty or overlong value is dropped or cut instead of failing the reply.
+     */
+    branchName: z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim().slice(0, 200) : undefined,
+      z.string().min(1).max(200).optional()),
+    /** Optional one line on why this unit and agent; shown under the flow block. Display only, so it is cut, never fatal. */
+    reason: z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim().slice(0, TARS_DELEGATION_REASON_MAX_CHARS) : undefined,
+      z.string().min(1).max(TARS_DELEGATION_REASON_MAX_CHARS).optional()),
+  }).strict(),
+  z.object({
+    kind: z.literal("reprioritize"),
+    responsibilityId: IdSchema,
+    expectedRevision: RevisionSchema,
+    priority: z.number().int().min(0).max(100),
+  }).strict(),
+  TarsControlActionSchema,
+  TarsAskActionSchema,
+  TarsShowActionSchema,
+  TarsPublishActionSchema,
+]);
+export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
+
+/** A proposal is not an execution receipt or an authorization grant. One reply asks at most one question. */
+export const TarsDecisionSchema = z.object({
+  reply: z.string().max(TARS_REPLY_MAX_CHARS),
+  actions: z.array(TarsDecisionActionSchema).max(8)
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((actions) => actions.filter((action) => action.kind === "ask").length <= 1, "A reply asks at most one question.")
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((actions) => actions.filter((action) => action.kind === "show").length <= 1, "A reply opens at most one view.")
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((actions) => actions.filter((action) => action.kind === "publish").length <= 1, "A reply proposes at most one publish."),
+}).strict();
+export type TarsDecision = z.infer<typeof TarsDecisionSchema>;
+
+/**
+ * Why a message failed, for the interface to translate. The English `error`
+ * beside it stays a diagnostic; messages saved before codes existed carry
+ * only the English sentence (see `TARS_MESSAGE_FAILURE_TEXT`).
+ */
+export const TarsMessageFailureCodeSchema = z.enum(["interrupted", "reasoningFailed"]);
+export type TarsMessageFailureCode = z.infer<typeof TarsMessageFailureCodeSchema>;
+/** The fixed English diagnostic saved with each failure code. */
+export const TARS_MESSAGE_FAILURE_TEXT: Readonly<Record<TarsMessageFailureCode, string>> = Object.freeze({
+  // i18n-ignore: persisted diagnostic; the interface translates the code
+  interrupted: "Reasoning was interrupted before its result was saved. Send a new message to try again.",
+  // i18n-ignore: persisted diagnostic; the interface translates the code
+  reasoningFailed: "The representative could not finish this message. Retry explicitly after inspecting its state.",
+});
+
+/**
+ * A decision's stable identity: `confirm:<message>:<action>` (a proposed
+ * control, also its confirmation request id), `ask:<message>:<action>` or
+ * `unverified:<responsibility>:<revision>`.
+ */
+export const TarsDecisionIdSchema = z.string().max(300)
+  .regex(/^(?:(?:confirm|ask):[A-Za-z0-9._-]+:[0-7]|unverified:[A-Za-z0-9._-]+:[1-9][0-9]{0,8})$/);
+
+/**
+ * Why a message exists when the user did not type it: `answer`, a reply option
+ * the user chose (by click, key or a short answer); `reask`, Tars asking once
+ * more because a waiting decision's target changed; `followUp`, Tars's one
+ * automatic look at a responsibility after an inbox event that needs
+ * judgment (`eventKey`). Absent: the user's words.
+ */
+export const TarsMessageOriginSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("answer"), decisionId: TarsDecisionIdSchema, optionIndex: z.number().int().min(0).max(3),
+    source: TarsAnswerSourceSchema, question: z.string().max(500), rationale: z.string().max(200),
+  }).strict(),
+  z.object({
+    kind: z.literal("reask"), decisionId: TarsDecisionIdSchema, reason: z.enum(["targetMoved", "targetEnded"]),
+    /** Model-facing summary of the decision that became invalid. */
+    summary: z.string().max(2_000),
+  }).strict(),
+  z.object({
+    kind: z.literal("followUp"), eventKey: TarsEventSchema.shape.key, responsibilityId: IdSchema, reason: TarsFollowUpReasonSchema,
+    observedRevision: RevisionSchema,
+    /** Model-facing summary of what changed. */
+    summary: z.string().max(2_000),
+  }).strict(),
+]);
+export type TarsMessageOrigin = z.infer<typeof TarsMessageOriginSchema>;
+
+export const TarsMessageStateSchema = z.enum(["queued", "reasoning", "answered", "failed", "cancelled"]);
+export const TarsMessageSchema = TarsMessageInputSchema.extend({
+  ...TarsConversationSettingsSchema.shape,
+  id: IdSchema,
+  state: TarsMessageStateSchema,
+  revision: RevisionSchema,
+  reply: z.string().max(TARS_REPLY_MAX_CHARS).nullable(),
+  error: ErrorSchema.nullable(),
+  /** Optional so earlier rows still parse; only a failed message carries one. */
+  errorCode: TarsMessageFailureCodeSchema.nullable().optional(),
+  decision: TarsDecisionSchema.nullable(),
+  /** Optional so earlier rows still parse; absent on messages the user typed. */
+  origin: TarsMessageOriginSchema.optional(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+}).strict().superRefine((message, context) => {
+  const answered = message.state === "answered";
+  if ((message.errorCode != null && message.state !== "failed") || (answered
+    ? !message.decision || message.reply !== message.decision.reply || message.error !== null
+    : message.decision !== null || message.reply !== null || (message.state === "failed" ? message.error === null : message.error !== null))) {
+    // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+    context.addIssue({ code: "custom", message: "Message state and decision fields disagree." });
+  }
+});
+export type TarsMessage = z.infer<typeof TarsMessageSchema>;
+
+export const TarsActionReceiptSchema = z.object({
+  messageId: IdSchema,
+  actionIndex: z.number().int().min(0).max(7),
+  requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+  action: TarsDecisionActionSchema,
+  /** `proposed`: a model-proposed control awaiting the user's confirming click, or an ask awaiting the user's answer. */
+  status: z.enum(["pending", "applied", "rejected", "proposed"]),
+  responsibilityId: IdSchema.nullable(),
+  error: ErrorSchema.nullable(),
+  /** Only a refused control or agent carries a code; other rejections keep their diagnostic. */
+  reason: TarsActionReasonSchema.nullable(),
+  revision: RevisionSchema,
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+}).strict().superRefine((receipt, context) => {
+  // An ask always waits for the user's answer, and a publish for the user's confirmation on its card; neither applies anything itself.
+  const proposable = (receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)) || receipt.action.kind === "ask"
+    || receipt.action.kind === "publish";
+  // An automatic follow-up's refusal carries its one code on any kind of action.
+  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize"
+    ? TarsControlReasonSchema.safeParse(receipt.reason).success
+    : receipt.action.kind === "publish" ? TarsPublishReasonSchema.safeParse(receipt.reason).success
+      : receipt.action.kind === "delegate" && TarsDelegateReasonSchema.safeParse(receipt.reason).success)));
+  const valid = coded &&
+    (receipt.status === "proposed" || receipt.status === "pending" ? receipt.responsibilityId === null && receipt.error === null &&
+      (receipt.status === "pending" || proposable)
+      : receipt.status === "applied" ? receipt.responsibilityId !== null && receipt.error === null
+        : receipt.responsibilityId === null && receipt.error !== null);
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (!valid) context.addIssue({ code: "custom", message: "Receipt status and outcome fields disagree." });
+});
+export type TarsActionReceipt = z.infer<typeof TarsActionReceiptSchema>;
+
+export const TarsReceiptOutcomeSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("applied"), responsibilityId: IdSchema }).strict(),
+  z.object({ status: z.literal("proposed") }).strict(),
+  z.object({ status: z.literal("rejected"), error: ErrorSchema, reason: TarsActionReasonSchema.optional() }).strict(),
+]);
+export type TarsReceiptOutcome = z.infer<typeof TarsReceiptOutcomeSchema>;
+
+/**
+ * Where a direct control came from: a click in Tars, a Fleet row's controls,
+ * a task's own run controls, or a decision card answered by key or by a
+ * bound short answer. Every source takes the same admission path and
+ * is recorded in the conversation; only the record's wording differs.
+ */
+export const TarsActSourceSchema = z.enum(["click", "fleet", "task", "key", "words"]);
+export type TarsActSource = z.infer<typeof TarsActSourceSchema>;
+
+/** A direct control (a click) admitted by the host on the same path as a proposed control. */
+export const TarsActInputSchema = z.object({
+  requestId: IdSchema.regex(/^[A-Za-z0-9._:-]+$/),
+  responsibilityId: IdSchema,
+  expectedRevision: RevisionSchema,
+  operation: TarsControlOperationSchema,
+  source: TarsActSourceSchema,
+}).strict();
+export type TarsActInput = z.infer<typeof TarsActInputSchema>;
+
+/**
+ * Moves queued work one place earlier or later, or with `relativeTo` directly
+ * before (earlier) or after (later) that other queued work, as a drop does.
+ * The host computes the new priority from the queue as it is when it admits
+ * the move.
+ */
+export const TarsQueueMoveSchema = z.object({
+  direction: z.enum(["earlier", "later"]),
+  relativeTo: IdSchema.optional(),
+}).strict();
+export type TarsQueueMove = z.infer<typeof TarsQueueMoveSchema>;
+
+/** How a queue move was asked: a menu item (by pointer or keyboard) or a drag in the tray. */
+export const TarsQueueMoveSourceSchema = z.enum(["click", "drag"]);
+export type TarsQueueMoveSource = z.infer<typeof TarsQueueMoveSourceSchema>;
+
+/**
+ * A direct queue move, admitted by the host on the same rules as a
+ * `reprioritize` decision: the work is the user's Tars responsibility at the
+ * revision they saw, it is still queued and its registered scope holds.
+ * Recorded in the conversation like a click on a control.
+ */
+export const TarsReprioritizeInputSchema = z.object({
+  requestId: IdSchema.regex(/^[A-Za-z0-9._:-]+$/),
+  responsibilityId: IdSchema,
+  expectedRevision: RevisionSchema,
+  move: TarsQueueMoveSchema,
+  source: TarsQueueMoveSourceSchema,
+}).strict();
+export type TarsReprioritizeInput = z.infer<typeof TarsReprioritizeInputSchema>;
+
+/** A queue move as its record names it. */
+export const TarsQueueMoveActionSchema = z.object({
+  kind: z.literal("move"),
+  responsibilityId: IdSchema,
+  expectedRevision: RevisionSchema,
+  move: TarsQueueMoveSchema,
+}).strict();
+export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
+
+/** Where a recorded action came from: a control's sources, plus a drag for a queue move. */
+export const TarsActionRecordSourceSchema = z.enum([...TarsActSourceSchema.options, "drag"]);
+export type TarsActionRecordSource = z.infer<typeof TarsActionRecordSourceSchema>;
+
+/**
+ * Timeline record of a direct control or queue move. It is never a user
+ * message or a model proposal. Records saved before queue moves existed are
+ * all controls.
+ */
+export const TarsActionRecordSchema = z.object({
+  requestId: IdSchema,
+  source: TarsActionRecordSourceSchema,
+  requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+  action: z.discriminatedUnion("kind", [TarsControlActionSchema, TarsQueueMoveActionSchema]),
+  status: z.enum(["pending", "applied", "rejected"]),
+  /** English diagnostic for logs and support; the interface shows the translated `reason`. */
+  error: ErrorSchema.nullable(),
+  reason: TarsControlReasonSchema.nullable(),
+  /** An applied queue move's new priority for the moved work. */
+  priority: z.number().int().min(0).max(100).optional(),
+  revision: RevisionSchema,
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+}).strict().superRefine((record, context) => {
+  const rejected = record.status === "rejected";
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
+  const move = record.action.kind === "move";
+  if ((record.source === "drag" && !move) || (record.priority !== undefined && !(move && record.status === "applied")))
+    // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+    context.addIssue({ code: "custom", message: "Only an applied queue move records a priority, and only a queue move comes from a drag." });
+});
+export type TarsActionRecord = z.infer<typeof TarsActionRecordSchema>;
+
+export const TarsActResultSchema = z.object({
+  record: TarsActionRecordSchema,
+  snapshot: TarsSnapshotSchema,
+}).strict();
+export type TarsActResult = z.infer<typeof TarsActResultSchema>;
+
+/** One decision card option chosen by the user. The host reads the option from saved state; the caller names only its index. */
+export const TarsAnswerInputSchema = z.object({
+  decisionId: TarsDecisionIdSchema,
+  optionIndex: z.number().int().min(0).max(TARS_ASK_MAX_OPTIONS - 1),
+  source: TarsAnswerSourceSchema,
+}).strict();
+export type TarsAnswerInput = z.infer<typeof TarsAnswerInputSchema>;
+
+/** The effect an answer applies, read from the saved decision when the answer was recorded. */
+export const TarsAnswerEffectSchema = TarsAskEffectSchema;
+
+/**
+ * The first answer to a decision. Its identity is the decision: a repeated
+ * answer with the same option joins it, a different option is refused.
+ */
+export const TarsDecisionAnswerSchema = z.object({
+  decisionId: TarsDecisionIdSchema,
+  optionIndex: z.number().int().min(0).max(TARS_ASK_MAX_OPTIONS - 1),
+  source: TarsAnswerSourceSchema,
+  effect: TarsAnswerEffectSchema,
+  /** The option as the model wrote it; null for Stave's own options, named by their operation. */
+  label: z.string().trim().min(1).max(60).nullable(),
+  status: z.enum(["pending", "applied", "rejected"]),
+  reason: TarsControlReasonSchema.nullable(),
+  error: ErrorSchema.nullable(),
+  /** A control's `tars:act` request id; a reply's answer message. */
+  actRequestId: IdSchema.nullable(),
+  /** Counts attempts after a retryable refusal (`isTarsAnswerRetryable`); absent on the first. */
+  attempt: z.number().int().min(1).max(1_000).optional(),
+  messageId: IdSchema.nullable(),
+  revision: RevisionSchema,
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+}).strict().superRefine((answer, context) => {
+  const rejected = answer.status === "rejected";
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (rejected !== (answer.error !== null) || (!rejected && answer.reason !== null)) context.addIssue({ code: "custom", message: "Answer status and outcome fields disagree." });
+});
+export type TarsDecisionAnswer = z.infer<typeof TarsDecisionAnswerSchema>;
+
+/**
+ * A refused answer leaves its decision open, for a retry or another option,
+ * unless the refusal says the decision itself is gone: its work changed or
+ * ended (a superseded proposal is refused as stale).
+ */
+export function isTarsAnswerRetryable(answer: Pick<TarsDecisionAnswer, "status" | "reason">) {
+  return answer.status === "rejected" && answer.reason !== "stale" && answer.reason !== "ended";
+}
+
+/**
+ * Why an answer was refused before anything applied: the decision already has
+ * a different answer, it no longer waits (answered elsewhere, superseded or
+ * invalid), or the option does not exist.
+ */
+export const TarsAnswerRefusalSchema = z.enum(["alreadyAnswered", "notWaiting", "invalidOption"]);
+export type TarsAnswerRefusal = z.infer<typeof TarsAnswerRefusalSchema>;
+
+export const TarsAnswerResultSchema = z.object({
+  answer: TarsDecisionAnswerSchema.nullable(),
+  refusal: TarsAnswerRefusalSchema.nullable(),
+}).strict();
+export type TarsAnswerResult = z.infer<typeof TarsAnswerResultSchema>;
+
+export const GetTarsConversationInputSchema = z.object({
+  limit: z.number().int().min(1).max(1_000).default(100),
+  activityLimit: z.number().int().min(1).max(1_000).default(100),
+}).strict();
+export type GetTarsConversationInput = z.input<typeof GetTarsConversationInputSchema>;
+
+export const CancelTarsMessageInputSchema = z.object({
+  messageId: IdSchema,
+  expectedRevision: RevisionSchema,
+}).strict();
+export type CancelTarsMessageInput = z.infer<typeof CancelTarsMessageInputSchema>;
+
+/** Internal host admission accepts only the identity of an already saved proposal. */
+export const ApplyTarsDecisionInputSchema = CancelTarsMessageInputSchema;
+export type ApplyTarsDecisionInput = z.infer<typeof ApplyTarsDecisionInputSchema>;
+
+export const TarsConversationSchema = z.object({
+  settings: TarsConversationSettingsSchema.nullable(),
+  activity: z.array(TarsActivitySchema).max(1_000),
+  messages: z.array(TarsMessageSchema).max(1_000),
+  receipts: z.array(TarsActionReceiptSchema).max(8_000),
+  records: z.array(TarsActionRecordSchema).max(1_000),
+  /** Optional so older hosts' conversations still parse. */
+  answers: z.array(TarsDecisionAnswerSchema).max(1_000).optional(),
+  /** Recent inbox events, for the notices they leave; optional so older hosts' conversations still parse. */
+  events: z.array(TarsEventSchema).max(1_000).optional(),
+  /** Publish confirmations and their outcomes; optional so older hosts' conversations still parse. */
+  publications: z.array(TarsPublishRecordSchema).max(1_000).optional(),
+}).strict();
+export type TarsConversation = z.infer<typeof TarsConversationSchema>;

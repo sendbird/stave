@@ -90,6 +90,11 @@ import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-fil
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
+import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
+import { applyTarsDecision } from "./host-service/tars-decisions";
+import { actTars } from "./host-service/tars-control";
+import { reprioritizeTars } from "./host-service/tars-queue";
+import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
@@ -99,6 +104,8 @@ import { withConstrainedRoutingCancellation } from "./providers/constrained-rout
 import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
   createHostAssignRuntime,
+  hostAgentCatalogSynced,
+  hostAgents,
   invokeAgentAction,
 } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
@@ -662,6 +669,13 @@ const wakeUpRuntime = createWakeUpRuntime({
     emitEvent("wake-up.changed", event);
   },
 });
+const tarsRuntime = createHostTarsRuntime({
+  agentRuns: agentRunRuntime,
+  assignments: assignRuntime,
+  emitChanged: (event) => emitEvent("tars.changed", event),
+});
+// Publishing runs beside the runtime's queue: a push never holds up observation or controls.
+const tarsPublisher = createHostTarsPublisher({ agentRuns: agentRunRuntime });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -1430,6 +1444,7 @@ async function shutdown() {
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
   wakeUpRuntime.stop();
+  tarsRuntime.stop();
   agentRunRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
@@ -2183,6 +2198,46 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "tars.invoke":
+      await respond(request.id, await (request.params.action === "get" ? tarsRuntime.get() : tarsRuntime[request.params.action](request.params.args)));
+      return;
+    case "tars.apply-decision": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await applyTarsDecision(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        readRegistry: () => persistence.loadRepositoryRegistry(),
+        agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
+        requestTick: () => tarsRuntime.requestTick(),
+        control: (action, ledger) => tarsRuntime.act(action, ledger),
+        snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
+          workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
+          ref: tarsWorkingChangesRef(messageId, workspaceId),
+          // i18n-ignore: Git commit message, kept in the repository's history
+          message: `chore(tars): start from working changes\n\nSnapshot of the uncommitted changes in workspace ${workspaceId} for Tars message ${messageId}.`,
+          date,
+        }),
+      }));
+      return;
+    }
+    case "tars.act":
+      await respond(request.id, await actTars(request.params, {
+        conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
+      }));
+      return;
+    case "tars.publish":
+      await respond(request.id, await tarsPublisher.publish(request.params));
+      return;
+    case "tars.publish-preview":
+      await respond(request.id, await tarsPublisher.preview(request.params));
+      return;
+    case "tars.reprioritize": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await reprioritizeTars(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        readRegistry: () => persistence.loadRepositoryRegistry(), requestTick: () => tarsRuntime.requestTick(),
+      }));
+      return;
+    }
     case "delegated-agent.prepare":
       await respond(request.id, await prepareDelegatedAgentRun({ start: request.params, runtime: agentRunRuntime,
         assignmentForTask: (taskId) => assignRuntime.assignmentForTask(taskId), createTask: localMcpRuntime.createIdleTask }));
@@ -2232,6 +2287,9 @@ async function main() {
   wakeUpRuntime.start();
   agentRunRuntime.start();
   assignRuntime.start();
+  tarsRuntime.start();
+  // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
+  tarsPublisher.recover();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

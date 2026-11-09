@@ -27,7 +27,8 @@ export type SliderMark = {
 };
 
 export type SliderProps = Omit<SliderRootProps, "className"> & {
-  ariaLabel?: string;
+  /** Accessible name for the thumb(s) when there is no visible `label`. */
+  "aria-label"?: string;
   density?: "compact" | "regular";
   /** Helper copy under the control, wired into `aria-describedby`. */
   description?: React.ReactNode;
@@ -55,7 +56,7 @@ export type SliderProps = Omit<SliderRootProps, "className"> & {
 } & XstyleProp;
 
 export function Slider({
-  ariaLabel,
+  "aria-label": ariaLabel,
   density = "regular",
   description,
   error,

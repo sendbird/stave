@@ -32,7 +32,7 @@ const loopAnimation = {
   animationDuration: vars["--aui-motion-duration-loop"],
   animationFillMode: "both",
   animationIterationCount: "infinite",
-  animationTimingFunction: vars["--aui-motion-ease-in-out"],
+  animationTimingFunction: vars["--aui-motion-ease-loop"],
 } as const;
 
 export const extendedLoaderStyles = stylex.create({

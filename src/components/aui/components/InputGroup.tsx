@@ -8,8 +8,8 @@ import {
 } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { surfaceChrome } from "../recipes/surface-chrome";
-import { transition } from "../recipes/transition";
 import { themeProps, themeSlotProps } from "../theming/theme-props";
+import { resolveNeutralTone } from "../utils/neutral-tone";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   actionSizeStyles,
@@ -23,7 +23,12 @@ import { Label } from "./Label";
 
 /** Control height: xs 28px / sm 32px / md 36px (default) / lg 40px. */
 export type InputGroupSize = ControlScale;
-export type InputGroupTone = "default" | "success" | "danger";
+/**
+ * The group's validation tone: `neutral` at rest (reflected as
+ * `data-tone="default"`) or `success`. The danger state is `invalid` or
+ * `error`, which also set `aria-invalid`.
+ */
+export type InputGroupTone = "neutral" | "success";
 
 type InputGroupContextValue = {
   size: InputGroupSize;
@@ -101,15 +106,14 @@ export type InputGroupProps = Omit<
   React.ComponentProps<"input">,
   "className" | "prefix" | "size"
 > & {
-  /**
-   * Inline actions that operate directly on this input value, such as reveal,
-   * copy, clear, or apply. Primary create/save/submit actions belong after the
-   * field or in the containing form footer.
-   */
-  actions?: React.ReactNode;
   className?: string;
   description?: React.ReactNode;
   error?: React.ReactNode;
+  /**
+   * Invalid without a message of its own: paints the danger boundary and sets
+   * `aria-invalid`. Prefer `error`. @default false
+   */
+  invalid?: boolean;
   label?: React.ReactNode;
   /**
    * Icon-only slot before the value. The group owns the glyph box, so pass a
@@ -117,10 +121,10 @@ export type InputGroupProps = Omit<
    */
   leading?: React.ReactNode;
   /**
-   * The leading counterpart of `actions`: an interactive addon wide enough
-   * that the fixed `leading` glyph box cannot hold it — a scope `Select`, a
-   * colour swatch, an HTTP-method picker. Sits outside the group's gutter on
-   * the same 4px inset as `actions`.
+   * The leading counterpart of `trailingActions`: an interactive addon wide
+   * enough that the fixed `leading` glyph box cannot hold it — a scope
+   * `Select`, a colour swatch, an HTTP-method picker. Sits outside the group's
+   * gutter on the same 4px inset as `trailingActions`.
    */
   leadingActions?: React.ReactNode;
   prefixText?: React.ReactNode;
@@ -129,24 +133,31 @@ export type InputGroupProps = Omit<
   size?: InputGroupSize;
   tone?: InputGroupTone;
   trailing?: React.ReactNode;
+  /**
+   * Inline actions that operate directly on this input value, such as reveal,
+   * copy, clear, or apply. Primary create/save/submit actions belong after the
+   * field or in the containing form footer.
+   */
+  trailingActions?: React.ReactNode;
 } & XstyleProp;
 
 function InputGroupImpl(
   {
-    actions,
     className,
     description,
     disabled,
     error,
     id,
+    invalid = false,
     label,
     leading,
     leadingActions,
     prefixText,
     size = "md",
     suffixText,
-    tone = "default",
+    tone = "neutral",
     trailing,
+    trailingActions: actions,
     xstyle,
     ...props
   }: InputGroupProps,
@@ -157,7 +168,9 @@ function InputGroupImpl(
   const descriptionId = description ? `${inputId}-description` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
   const describedBy = [descriptionId, errorId].filter(Boolean).join(" ");
-  const resolvedTone = error ? "danger" : tone;
+  // The field family's two invalid channels: a message, or the bare flag.
+  const isInvalid = Boolean(error) || invalid;
+  const resolvedTone = isInvalid ? "danger" : resolveNeutralTone(tone);
   // The bordered group is the target: it owns the border, the tint, and the
   // state. `tone` is the RESOLVED validity, so an `error` shows up as `danger`.
   const theme = themeProps("input-group", { size, tone: resolvedTone });
@@ -174,8 +187,10 @@ function InputGroupImpl(
           {...theme}
           className={cx(
             sx(
+              // Field chrome first: its focus halo and the transition that grows
+              // it. The local `group` ladder still owns border and fill.
+              controlChrome.field,
               styles.group,
-              transition.colors,
               focusRing.borderOnly,
               controlHeightBySize[size],
               sizeStyles[size],
@@ -217,7 +232,7 @@ function InputGroupImpl(
           <input
             {...props}
             aria-describedby={describedBy || undefined}
-            aria-invalid={error ? true : undefined}
+            aria-invalid={isInvalid ? true : undefined}
             className={sx(styles.input)}
             disabled={disabled}
             id={inputId}

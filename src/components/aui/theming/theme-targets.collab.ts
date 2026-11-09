@@ -199,41 +199,6 @@ export const collabThemeTargets = {
       toolbar: [...themeSpaceProperties],
     },
   },
-  "csat-rating": {
-    axes: {
-      /*
-       * `size` reaches the option target's box through the group. `variant`
-       * (`star` / `emoji`) is NOT reflected: the two variants differ only in
-       * the glyph the option renders, whose fill is the CSAT scale — signal a
-       * brand does not repaint — so a `data-variant` here would advertise a
-       * distinction the themeable surface cannot act on.
-       */
-      size: ["sm", "md", "lg"],
-    },
-    /*
-     * The strip: a radiogroup (or a read-only `role="img"` span) that owns only
-     * the gap between the five faces. One target for the item below, one for
-     * the strip — not one per emoji.
-     */
-    exports: ["CsatRating"],
-    properties: ["columnGap", "rowGap"],
-    root: "the Base UI radiogroup `<div>` (or the read-only `<span>`) `CsatRating` renders",
-  },
-  "csat-rating-option": {
-    axes: { size: ["sm", "md", "lg"] },
-    /*
-     * One star or face: a radio with hover-preview fill, its own box, focus
-     * ring and disabled state — pressable, so its own target, reached only as
-     * a part. Its glyph fill is the CSAT ramp (signal), so the target paints
-     * its box and ring, not the mark's colour: `control` minus nothing here is
-     * safe because the fill lives on the inner `<svg>`, which carries no target
-     * class, and the box itself is transparent.
-     */
-    exports: [],
-    properties: [...themeSpaceProperties, ...themeFocusProperties, "borderRadius", "opacity"],
-    root: "each radio `<button>` in the rating group",
-    states: ["hover", "active", "focus-visible", "disabled"],
-  },
   evaluation: {
     /*
      * A document section (`agentSurface.bare` — a grid and a gap). Its criteria

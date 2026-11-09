@@ -14,6 +14,15 @@ test("an idle task starts its composer on the chosen model, and that is the mode
   const plain = addIdleTask(session, { title: "", provider: "claude-code" });
   expect(plain.session.promptDraftByTask[plain.taskId]).toBeUndefined();
   expect(plain.session.tasks[0]!.title).toBe("Run");
+
+  // Without a model, Auto starts the composer on automatic routing at the provider default.
+  const routed = addIdleTask(session, { title: "Routed", provider: "codex", autoRouting: true });
+  expect(routed.session.promptDraftByTask[routed.taskId]?.runtimeOverrides).toEqual({ autoRouting: true });
+  expect(resolveTaskModel({ messages: [], draft: routed.session.promptDraftByTask[routed.taskId], providerId: "codex" }))
+    .toBe(resolveTaskModel({ messages: [], draft: undefined, providerId: "codex" }));
+  // A pinned model wins over Auto.
+  const pinned = addIdleTask(session, { title: "Pinned", provider: "codex", model: "gpt-6-luna", autoRouting: true });
+  expect(pinned.session.promptDraftByTask[pinned.taskId]?.runtimeOverrides).toEqual({ model: "gpt-6-luna", modelProviderId: "codex" });
 });
 
 test("a message's model wins, and a drafted model of another provider is ignored", () => {

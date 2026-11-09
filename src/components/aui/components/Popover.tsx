@@ -30,7 +30,6 @@ import {
   overlayTitleGroupDensity,
 } from "../recipes/overlay-surface";
 import { surfaceChrome } from "../recipes/surface-chrome";
-import { transition } from "../recipes/transition";
 import {
   PortalProductThemeScope,
   usePortalProductThemeProps,
@@ -46,42 +45,63 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type PopoverTriggerSize = "sm" | "md" | "lg";
 
+/** Internal surface air; no air at all is `padding={false}`. */
+export type PopoverDensity = Exclude<OverlayContentDensity, "flush">;
+
+/**
+ * Props passed straight through to the trigger part — the one place the
+ * trigger is configured: `size` (sm 32 / md 36 / lg 40, from the shared
+ * control-metrics map; `lg` aligns a popover trigger with a `lg` Button or
+ * TextField in the same row), plus `id`, `aria-*`, handlers and `disabled`.
+ */
+export type PopoverTriggerProps = Omit<
+  React.ComponentProps<typeof PopoverTrigger>,
+  "children" | "className" | "render"
+> & {
+  /** @default "md" */
+  size?: PopoverTriggerSize;
+};
+
 export type PopoverProps = Omit<PopoverRootProps, "children"> & {
   children: React.ReactNode;
   description?: React.ReactNode;
+  /** Internal surface air: `regular` or `compact`. @default "regular" */
+  density?: PopoverDensity;
   /**
-   * Internal surface air. `flush` removes the panel's own padding and gap so
-   * the content can run its rules and rows edge to edge; the header keeps one
-   * gutter of its own and the body owns the rest. @default "regular"
+   * `false` removes the panel's own padding and gap so the content can run its
+   * rules and rows edge to edge; the header keeps one gutter of its own and the
+   * body owns the rest. The popup reflects it as `data-density="flush"`.
+   * @default true
    */
-  density?: OverlayContentDensity;
+  padding?: boolean;
   /** Where the panel opens against its trigger. @default "bottom-start" */
   placement?: PopupPlacement;
   title: React.ReactNode;
   trigger: React.ReactNode;
-  /**
-   * Trigger control height, from the shared control-metrics map (sm 32 /
-   * md 36 / lg 40). `lg` exists so a popover trigger can align with a `lg`
-   * Button or TextField in the same row.
-   * @default "md"
-   */
-  triggerSize?: PopoverTriggerSize;
+  /** Props for the trigger part, including its `size`. */
+  triggerProps?: PopoverTriggerProps;
 } & XstyleProp;
 
 export function Popover({
   children,
   description,
-  density = "regular",
+  density: densityProp = "regular",
+  padding = true,
   placement,
   title,
   trigger,
-  triggerSize = "md",
+  triggerProps,
   xstyle,
   ...props
 }: PopoverProps) {
   useTranslation();
   const anchored = resolvePlacement(placement);
-  const flush = density === "flush";
+  // `padding={false}` keeps reflecting `data-density="flush"` (the theme
+  // contract the surface has always published).
+  const flush = padding === false;
+  const density: OverlayContentDensity = flush ? "flush" : densityProp;
+  const { size: triggerSize = "md", ...triggerPassThrough } =
+    triggerProps ?? {};
   // The trigger stays in the provider's tree; only the popup portals out, so
   // only the popup carries the brand across the portal (see Dialog).
   const triggerTheme = themeProps("popover-trigger", { size: triggerSize });
@@ -90,6 +110,7 @@ export function Popover({
   return (
     <PopoverRoot {...props}>
       <PopoverTrigger
+        {...triggerPassThrough}
         {...triggerTheme}
         className={(state) =>
           cx(
@@ -100,8 +121,9 @@ export function Popover({
               // reacts exactly like the `Button variant="secondary"` it visually
               // quotes (§2), and stays visibly held while the popup is open.
               controlChrome.trigger,
+              // Owns the transition (border AND keyboard focus halo); no
+              // `transition.colors` after it, which would drop the halo.
               controlChrome.triggerFocusBorder,
-              transition.colors,
               focusRing.borderOnly,
               controlHeightBySize[triggerSize],
               state.open && controlChrome.triggerOpen,

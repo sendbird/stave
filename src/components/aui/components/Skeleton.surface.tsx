@@ -6,7 +6,18 @@ import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Loader } from "./Loader";
 
-export type LoadingSurfaceProps = Omit<
+/**
+ * How a `Skeleton.Surface` takes its space.
+ *
+ * - `block` — its own region in the flow, at least `size` tall.
+ * - `fill` — stretches to a bounded parent, never shorter than `size`.
+ */
+export type SkeletonSurfaceLayout = "block" | "fill";
+
+/** The floor a surface keeps: `sm` 160px, `md` 240px. */
+export type SkeletonSurfaceSize = "md" | "sm";
+
+export type SkeletonSurfaceProps = Omit<
   React.ComponentProps<"section">,
   "children"
 > & {
@@ -17,18 +28,17 @@ export type LoadingSurfaceProps = Omit<
   /** Custom activity indicator for a task-specific wait. Defaults to `Loader`. */
   indicator?: React.ReactNode;
   /**
-   * Minimum block size for a standalone loading region: `sm` 160px, `md`
-   * 240px, `fill` stretches to the parent with a 240px floor.
-   *
-   * The values are the `size` vocabulary rather than `compact`/`regular`
-   * because this is a `size` prop. Density words in a size union is the same
-   * axis confusion the field controls carried, one direction reversed.
-   * `fill` earns its place beside them for the reason `DataTableColumnSize`
-   * admits `"fill"`: it is a layout mode, not another step on the ramp.
+   * How the surface takes its space — its own block, or the bounded parent's
+   * full height. See `SkeletonSurfaceLayout`. @default "block"
+   */
+  layout?: SkeletonSurfaceLayout;
+  /**
+   * The floor the surface keeps: `sm` 160px, `md` 240px. How the surface sits
+   * is `layout`.
    *
    * @default "md"
    */
-  size?: "sm" | "md" | "fill";
+  size?: SkeletonSurfaceSize;
 } & XstyleProp;
 
 /**
@@ -36,17 +46,24 @@ export type LoadingSurfaceProps = Omit<
  * available. Use this instead of drawing fake skeleton rows that do not match
  * the rendered component. Use `Skeleton` only inside a component that owns the
  * final layout and can place placeholders in the exact content slots.
+ *
+ * Rendered as `Skeleton.Surface`; this module is its implementation.
  */
-export function LoadingSurface({
+export function SkeletonSurface({
   className,
   indicator,
   label,
+  layout = "block",
   showLabel = false,
   size = "md",
   xstyle,
   ...props
-}: LoadingSurfaceProps) {
-  const theme = themeProps("loading-surface", { size });
+}: SkeletonSurfaceProps) {
+  // The theme axis keeps reflecting the layout where it is not the plain
+  // block, so a brand rule written against `data-size="fill"` still matches.
+  const theme = themeProps("loading-surface", {
+    size: layout === "block" ? size : layout,
+  });
 
   return (
     <section
@@ -54,7 +71,12 @@ export function LoadingSurface({
       {...theme}
       aria-busy={props["aria-busy"] ?? true}
       className={cx(
-        sx(styles.root, sizeStyles[size], xstyle),
+        sx(
+          styles.root,
+          floorStyles[size],
+          layout === "fill" && styles.fill,
+          xstyle,
+        ),
         theme.className,
         className,
       )}
@@ -81,15 +103,13 @@ const styles = stylex.create({
   },
   fill: {
     blockSize: "100%",
-    minBlockSize: 240,
   },
   md: {
     minBlockSize: 240,
   },
 });
 
-const sizeStyles = {
-  fill: styles.fill,
+const floorStyles = {
   md: styles.md,
   sm: styles.sm,
 } as const;

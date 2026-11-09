@@ -128,9 +128,13 @@ export const styles = stylex.create({
     fontSize: vars["--aui-font-size-body"],
     lineHeight: vars["--aui-line-height-tight"],
     padding: 0,
-    transitionDuration: vars["--aui-motion-duration-fast"],
+    transitionDuration: {
+      default: vars["--aui-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)":
+        vars["--aui-motion-duration-micro"],
+    },
     transitionProperty: "background-color, border-color, color",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
     ":disabled": {
       color: vars["--aui-color-text-subtle"],
       cursor: "not-allowed",

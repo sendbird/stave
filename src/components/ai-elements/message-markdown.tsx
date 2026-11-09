@@ -19,6 +19,7 @@ import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
+import { normalizeExternalUrl } from "@/lib/external-links";
 import { ServiceLinkBadge } from "@/components/ui/service-link-badge";
 import {
   formatFileLinkLocation,
@@ -56,6 +57,8 @@ import { TranscriptWideBlock, TranscriptWideScope } from "./transcript-wide";
 
 export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
+  /** Render local/relative destinations as text when no file context owns this message. */
+  disableLocalLinks?: boolean;
   isStreaming?: boolean;
   messageFontSize: number;
   messageCodeFontSize: number;
@@ -309,7 +312,7 @@ export function MessageFileLink({
 
 type MarkdownRenderHandlers = Pick<
   MarkdownMessageProps,
-  "resolveFileLink" | "onFileLinkClick" | "renderBlockCode"
+  "resolveFileLink" | "onFileLinkClick" | "renderBlockCode" | "disableLocalLinks"
 >;
 
 interface MarkdownRenderContextValue {
@@ -497,6 +500,7 @@ const markdownComponents: Components = {
     const { handlers } = useContext(MarkdownRenderContext);
     const { resolveFileLink } = handlers.current;
     const isInTableCell = useContext(MarkdownTableCellContext);
+    if (handlers.current.disableLocalLinks && !normalizeExternalUrl(href)) return <span>{children}</span>;
     const resolvedFileLink =
       resolveFileLink?.({ href }) ??
       (href && href.includes("/")
@@ -631,6 +635,7 @@ function finishedBlockElement(text: string): ReactElement {
 
 export function MarkdownMessage({
   content,
+  disableLocalLinks,
   isStreaming,
   messageFontSize,
   messageCodeFontSize,
@@ -642,7 +647,7 @@ export function MarkdownMessage({
 }: MarkdownMessageProps) {
   useTranslation();
   const handlers = useRef<MarkdownRenderHandlers>({});
-  handlers.current = { resolveFileLink, onFileLinkClick, renderBlockCode };
+  handlers.current = { resolveFileLink, onFileLinkClick, renderBlockCode, disableLocalLinks };
   const streamingContext = useMemo(
     () => ({ handlers, messageCodeFontSize }),
     [messageCodeFontSize],

@@ -79,7 +79,7 @@ export function TopBar() {
   const workspaceSidebarCollapsed = useWorkspaceSidebarCollapsed();
   const sidebarShortcut = useShortcutHint("view.toggle-workspace-sidebar");
   const surfaceKind = useAppStore((state) => state.activeAppSurface.kind);
-  const surfaceLabel = surfaceKind === "fleet-view" ? i18n.t("shell:sidebarPrimaryNav.fleetView") : surfaceKind === "agents" ? i18n.t("shell:sidebarPrimaryNav.agents") : surfaceKind === "usage" ? i18n.t("shell:sidebarPrimaryNav.aIUsage") : surfaceKind === "issues" ? i18n.t("shell:appShortcuts.openIssues") : i18n.t("shell:appShortcuts.openSchedules");
+  const surfaceLabel = surfaceKind === "tars" ? i18n.t("shell:tars.title") : surfaceKind === "fleet-view" ? i18n.t("shell:sidebarPrimaryNav.fleetView") : surfaceKind === "agents" ? i18n.t("shell:sidebarPrimaryNav.agents") : surfaceKind === "usage" ? i18n.t("shell:sidebarPrimaryNav.aIUsage") : surfaceKind === "issues" ? i18n.t("shell:appShortcuts.openIssues") : i18n.t("shell:appShortcuts.openSchedules");
   const hasRepositoryContext = Boolean(repositoryPath?.trim());
   const activeWorkspacePath = hasRepositoryContext
     ? (workspacePathById[activeWorkspaceId] ?? repositoryPath ?? "")

@@ -54,10 +54,16 @@ export const vars = stylex.defineVars({
   // between two existing ones over renaming the scale.
   "--aui-color-text-muted": "oklch(0.505 0.007 89)",
   "--aui-color-text-subtle": "oklch(0.62 0.007 89)",
+  // Fourth ink (#809 · R0 S7): under 3:1, never load-bearing — a separator
+  // dot, a disabled hint, a decorative count. Text a reader needs stays muted.
+  "--aui-color-text-faint": "oklch(0.735 0.007 89)",
   "--aui-color-text-placeholder": "oklch(0.505 0.007 89)",
   "--aui-color-text-inverted": "oklch(0.97 0.007 89)",
   "--aui-color-border": "oklch(0.89 0.007 89)",
   "--aui-color-border-subtle": "oklch(0.275 0.007 89 / 0.06)",
+  // Resting ring of a raised surface, paired with `elevationRaised` (#809 · R0
+  // §1.5): a translucent 12% ink edge instead of the opaque `colorBorder`.
+  "--aui-color-ring": "oklch(0.275 0.007 89 / 0.18)",
   // Edge where *media* (a photo, a thumbnail) meets a surface. Transparent in
   // light and dark on purpose: §1.3 bans rings on small inline objects, and in
   // dark a pale image already has an edge against the surface. The high
@@ -108,9 +114,6 @@ export const vars = stylex.defineVars({
   "--aui-color-selection-fill": "oklch(0.93 0.007 89)", // Selection-only fill; §1.7 has the split, the HC fix, and the measured light cap. Do NOT darken light to match dark.
   "--aui-color-accent-soft": "oklch(0.97 0.007 89)",
   "--aui-color-accent-text": "oklch(0.97 0.007 89)",
-  /** @deprecated Alias of `colorWarning` (identical in every theme). Use `colorWarning`; removal reserved for the next major. */
-  /** @deprecated Alias of `colorWarningSoft` (identical in every theme). Use `colorWarningSoft`; removal reserved for the next major. */
-  /** @deprecated Alias of `colorWarningText` (identical in every theme). Use `colorWarningText`; removal reserved for the next major. */
   "--aui-color-info": "oklch(0.546 0.245 262)",
   "--aui-color-info-soft": "oklch(0.943 0.027 292)",
   "--aui-color-info-text": "oklch(0.424 0.194 262)",
@@ -119,9 +122,6 @@ export const vars = stylex.defineVars({
   "--aui-color-warning-soft": "oklch(0.965 0.043 90)",
   "--aui-color-warning-text": "oklch(0.49 0.115 48)",
   "--aui-color-warning-border": "oklch(0.555 0.14 50)",
-  /** @deprecated Alias of `colorInfoSoft` (identical in every theme). Use `colorInfoSoft`; removal reserved for the next major. */
-  /** @deprecated Alias of `colorInfoBorder` (identical in every theme; also equals `colorInfo` in light/high-contrast). Use `colorInfoBorder` for outlines or `colorInfo` for fills; removal reserved for the next major. */
-  /** @deprecated Off-scale one-off with no consumers. Use `colorSuccessSoft` (nearest semantic soft green); removal reserved for the next major. */
   "--aui-color-success": "oklch(0.53 0.138 152)",
   "--aui-color-success-soft": "oklch(0.962 0.045 152)",
   "--aui-color-success-text": "oklch(0.47 0.121 152)",
@@ -225,11 +225,6 @@ export const vars = stylex.defineVars({
   "--aui-chart-13": "oklch(0.808 0.106 30)",
   "--aui-chart-14": "oklch(0.811 0.101 292)",
 
-  // DEPRECATED: use elevationRaised/elevationOverlay — kept as aliases for compat.
-  /** @deprecated Alias of `elevationRaised`. Use `elevationRaised`; removal reserved for the next major. */
-  /** @deprecated No elevation-scale equivalent (inset hairline edge, static across themes). Inline the value if needed; removal reserved for the next major. */
-  /** @deprecated Alias of `elevationOverlay`. Use `elevationOverlay`; removal reserved for the next major. */
-
   // Layering scheme (low → high). In-surface layers first: sticky chrome
   // (table headers, pinned code-block actions) must stay below in-surface
   // docked panels (PeekPanel/side peeks), which slide OVER that chrome. Above
@@ -318,6 +313,9 @@ export const vars = stylex.defineVars({
   "--aui-rail-width": "3px",
 
   // Control-height scale (4px grid; common headless-UI heights). Same across themes.
+  // `2xs` (#809 · R1 A1): Button-only in-surface rung at the WCAG 24px floor;
+  // the compact preset keeps it at 24.
+  "--aui-control-height-2xs": "24px",
   "--aui-control-height-xs": "28px",
   "--aui-control-height-sm": "32px",
   "--aui-control-height-md": "36px",
@@ -394,6 +392,12 @@ export const vars = stylex.defineVars({
   "--aui-font-size-micro": "0.6875rem",
   "--aui-font-size-caption": "0.75rem",
   "--aui-font-size-body": "0.875rem",
+  // #809 · R0 S2 type roles, as named steps beside the host's 14px body
+  // (upstream moved `fontSizeBody` itself to 13px; Stave has not adopted that
+  // default — see PROVENANCE). `row` is the 13px interface row/control text on
+  // a 20px line, `section` the 15/500 in-surface section title.
+  "--aui-font-size-row": "0.8125rem",
+  "--aui-font-size-section": "0.9375rem",
   // 16px, and there is deliberately no 15px or 17px any more: the scale is
   // 11/12/14/16/20/24/36 and every step is a whole even pixel at the 16px root,
   // so a size never lands on a half-pixel line box. `fontSizeLead` absorbed the
@@ -421,6 +425,8 @@ export const vars = stylex.defineVars({
   // aligned to the same 4px vertical grid as controls and headings.
   "--aui-line-height-normal": "1.428571",
   "--aui-line-height-relaxed": "1.625",
+  // 22px reading line for 14px prose (#809 · R0).
+  "--aui-line-height-prose": "22px",
   // Heading line boxes snap to the 4px layout grid. Prefer these over a
   // generic ratio when the text size is one of the heading steps above.
   "--aui-line-height-lead": "24px",
@@ -445,6 +451,8 @@ export const vars = stylex.defineVars({
   "--aui-motion-duration-normal": "var(--atelier-motion-duration-normal)",
   "--aui-motion-duration-emphasis": "var(--atelier-motion-duration-emphasis)",
   "--aui-motion-duration-panel": "var(--atelier-motion-duration-panel)",
+  // One revolution of every rotating loading indicator.
+  "--aui-motion-duration-spin": "var(--atelier-motion-duration-spin)",
   // Looping/indeterminate cadences. Transitions answer "how fast does this
   // settle"; loops answer "how fast does this breathe", so they are a separate
   // family — 19 sites used to hard-code values between 0.9s and 2.9s.
@@ -454,8 +462,8 @@ export const vars = stylex.defineVars({
   "--aui-motion-ease-standard": "var(--atelier-motion-ease-standard)",
   "--aui-motion-ease-expressive": "var(--atelier-motion-ease-expressive)",
   "--aui-motion-ease-in-out": "var(--atelier-motion-ease-in-out)",
-  // Overshoot curve for "bouncy" reveals (accordion/collapsible panels). It
-  // existed as a raw CSS custom property that StyleX styles could not reach.
+  "--aui-motion-ease-loop": "var(--atelier-motion-ease-loop)",
+  "--aui-motion-ease-color": "var(--atelier-motion-ease-color)", // §3.3
 
   // Tokenized enter/exit primitives for the CSS motion layer (transitions.dev
   // principles: distance · blur · scale). JS spring presets for the Motion
@@ -481,7 +489,9 @@ export { breakpoints } from "./breakpoints.stylex";
 export {
   motionExitRatio,
   motionPrimitives,
+  motionSignature,
   springBouncy,
+  springSignature,
   springSmooth,
   springSnappy,
   springs,

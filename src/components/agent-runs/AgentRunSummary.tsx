@@ -176,7 +176,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
               {metric.meter !== undefined ? (
                 <Meter
                   label={metric.label}
-                  hideLabel
+                  showLabel={false}
                   hideValue
                   size="sm"
                   tone={metric.tone === "warning" ? "warning" : "neutral"}

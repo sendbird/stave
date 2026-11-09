@@ -129,7 +129,9 @@
     "trusted": "신뢰됨: <entry/>",
     "removeTrusted": "제거",
     "removeTrustedLabel": "신뢰된 승인에서 {{entry}} 제거",
-    "trustedRemoved": "신뢰된 승인에서 제거했습니다"
+    "trustedRemoved": "신뢰된 승인에서 제거했습니다",
+    "allow": "허용",
+    "scope": "범위"
   },
   "commandParts": {
     "navigate": "이동",
@@ -139,7 +141,9 @@
   "plan": {
     "plan": "계획",
     "noStepsYetThePlanAppearsOnceTheAgentCommitsToOne": "아직 단계가 없습니다. 에이전트가 계획을 확정하면 표시됩니다.",
-    "progress": "전체 {{total}}단계 중 {{done}}단계 완료됨"
+    "progress": "전체 {{total}}단계 중 {{done}}단계 완료됨",
+    "appliedNote": "반영한 메모",
+    "applied": "반영됨"
   },
   "selectArray": {
     "clearSelection": "선택 해제",
@@ -155,7 +159,8 @@
   "checkpoint": {
     "restore": "복원",
     "restoring": "복원 중",
-    "checkpointSaved": "체크포인트 저장됨"
+    "checkpointSaved": "체크포인트 저장됨",
+    "branch": "여기서 분기"
   },
   "thinking": {
     "reasoningTrace": "추론 기록",
@@ -429,5 +434,20 @@
       "uploading": "업로드 중",
       "uploaded": "업로드됨"
     }
+  },
+  "runMonitor": {
+    "pause": "일시 정지",
+    "pauseRun": "실행 일시 정지",
+    "cancel": "취소",
+    "stop": "실행 중지",
+    "log": "로그",
+    "allowOnce": "이번만 허용",
+    "deny": "거부",
+    "doneOf": "{{total}}개 중 {{completed}}개 완료",
+    "stepOf": "{{total}}단계 중 {{step}}단계"
+  },
+  "runRecap": {
+    "reviewed": "검토함",
+    "unreviewed": "아직 검토 안 함"
   }
 }

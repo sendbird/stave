@@ -21,7 +21,9 @@
     "assignments_one": "{{count}} assignment",
     "assignments_other": "{{count}} assignments",
     "extraCopy23": "{{value1}} couldn't start",
-    "stalled": "No updates"
+    "stalled": "No updates",
+    "showTarsWork": "Show Tars work",
+    "noOwnWork": "No work besides what Tars delegated."
   },
   "agentCanCallField": {
     "ariaLabel": "Can call",

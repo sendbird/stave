@@ -40,7 +40,7 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
     {/* The meter's value is the spent turns; the reserved turns ride after them as an overlay on the same track,
         and the track itself is what remains. The legend below names all three in words. */}
     <div className={sx(metrics.frame)} data-team-turn-meter="">
-      <Meter label={i18n.t("agentRuns:teamLimits.sharedTurns")} hideLabel hideValue size="sm"
+      <Meter label={i18n.t("agentRuns:teamLimits.sharedTurns")} showLabel={false} hideValue size="sm"
         tone={nearLimit ? "warning" : "neutral"} min={0} max={Math.max(1, resources.teamTurns)} value={Math.min(resources.spent, Math.max(1, resources.teamTurns))}
         getAriaValueText={() => i18n.t("agentRuns:teamLimits.budget", values)} />
       {resources.reserved > 0 ? <span aria-hidden className={sx(metrics.reservedOverlay)}

@@ -24,10 +24,15 @@ import {
   EMPTY_FLEET_AGENT_FACTS,
 } from "@/lib/fleet/agent-tree";
 import type { FleetTaskRow, FleetTaskTableFilter } from "@/lib/fleet/task-rows";
+import type { FleetOwnerFilter } from "@/lib/fleet/task-owner";
 import { selectDelegatedTaskBlockedKinds } from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
 import { useFleetViewStore } from "@/store/fleet-view-store";
 import { sharedFilesParentKey, useSharedFilesStore } from "@/store/shared-files-store";
+import { findActiveTaskRun, findTarsResponsibility, tarsTaskTarget } from "@/lib/tars/ownership";
+import { FleetTarsOwnerLabel } from "@/components/tars/fleet-tars-owner";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { useTarsResponsibilities } from "@/store/tars-snapshot-store";
 
 type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: string };
 
@@ -40,6 +45,7 @@ type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: str
 export function FleetAgentTree(props: {
   repositories: readonly FleetTaskTableRepository[];
   filter: FleetTaskTableFilter;
+  owner?: FleetOwnerFilter;
   searchQuery: string;
   nowMs: number;
   onOpenTask: (target: OpenTaskTarget) => void;
@@ -67,8 +73,13 @@ function FleetAgentTreeBoard(props: {
   nowMs: number;
   onOpenTask: (target: OpenTaskTarget) => void;
 }) {
-  const { t } = useTranslation(["fleet"]);
+  const { t } = useTranslation(["fleet", "shell"]);
   const { rows } = props;
+  // A card names its owner beside the model when an active Tars responsibility holds the task.
+  const tarsResponsibilities = useTarsResponsibilities();
+  // Ownership needs the task's own active run, so a run you started there is never Tars's.
+  const fleetRuns = useFleetAgentRunsStore((state) => state.details);
+  const fleetRunsLoaded = useFleetAgentRunsStore((state) => state.loaded);
   const selectFacts = useMemo(() => createFleetAgentFactsSelector(rows), [rows, i18n.resolvedLanguage]);
   const facts = useAppStore(selectFacts);
 
@@ -92,8 +103,14 @@ function FleetAgentTreeBoard(props: {
     () =>
       rows.map((row) => {
         const sharedFileCount = sharedFilesByParent[sharedFilesParentKey(row.workspaceId, row.task.id)]?.shared.length ?? 0;
+        const main = buildMainAgent(row, facts[row.key] ?? EMPTY_FLEET_AGENT_FACTS);
+        const run = findActiveTaskRun(fleetRuns, row.workspaceId, row.task.id) ?? (fleetRunsLoaded ? null : undefined);
+        const tarsOwned = findTarsResponsibility(tarsResponsibilities, tarsTaskTarget(row.task.id, row.workspaceId, run)) !== null;
         const agent: AgentFleetAgent = {
-          ...buildMainAgent(row, facts[row.key] ?? EMPTY_FLEET_AGENT_FACTS),
+          ...main,
+          ...(tarsOwned
+            ? { model: main.model ? t("shell:tars.owner.withModel", { model: main.model }) : t("shell:tars.owner.label") }
+            : {}),
           avatar: <FleetProviderIcon provider={row.task.provider} />,
           ...(sharedFileCount > 0 ? { sharedFileCount } : {}),
         };
@@ -107,7 +124,7 @@ function FleetAgentTreeBoard(props: {
           : agent;
       }),
     // The agents carry translated words; a language switch rebuilds them.
-    [children, facts, openRow?.key, rows, sharedFilesByParent, i18n.resolvedLanguage],
+    [children, facts, fleetRuns, fleetRunsLoaded, openRow?.key, rows, sharedFilesByParent, t, tarsResponsibilities, i18n.resolvedLanguage],
   );
 
   const openChild = (agent: AgentFleetAgent) => {
@@ -134,22 +151,25 @@ function FleetAgentTreeBoard(props: {
           const row = rows.find((candidate) => candidate.key === agent.id);
           if (!row) return null;
           return (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              aria-label={t("fleet:taskTable.openTask", { title: agent.name, workspace: row.workspaceName })}
-              onClick={() =>
-                props.onOpenTask({
-                  repositoryPath: row.repositoryPath,
-                  workspaceId: row.workspaceId,
-                  taskId: row.task.id,
-                })
-              }
-            >
-              {t("fleet:agentTree.openTask")}
-              <ArrowUpRight aria-hidden="true" />
-            </Button>
+            <>
+              <FleetTarsOwnerLabel workspaceId={row.workspaceId} taskId={row.task.id} />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                aria-label={t("fleet:taskTable.openTask", { title: agent.name, workspace: row.workspaceName })}
+                onClick={() =>
+                  props.onOpenTask({
+                    repositoryPath: row.repositoryPath,
+                    workspaceId: row.workspaceId,
+                    taskId: row.task.id,
+                  })
+                }
+              >
+                {t("fleet:agentTree.openTask")}
+                <ArrowUpRight aria-hidden="true" />
+              </Button>
+            </>
           );
         }}
       />

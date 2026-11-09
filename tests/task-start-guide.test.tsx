@@ -47,7 +47,7 @@ describe("TaskStartGuide", () => {
     expect(html).not.toContain("Browse workflows, macros");
     expect(html).toContain("Add shared instructions");
     expect(html).toMatch(
-      /data-variant="outline"[^>]*>[\s\S]*Add shared instructions/,
+      /data-variant="outlined"[^>]*>[\s\S]*Add shared instructions/,
     );
     expect(html).toContain('data-testid="task-start-guide"');
   });

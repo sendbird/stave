@@ -3,7 +3,7 @@ import {
   AsyncBoundary as AuiAsyncBoundary,
   type AsyncBoundaryProps,
 } from "@/components/aui/components/AsyncBoundary";
-import { LoadingSurface } from "@/components/aui/components/LoadingSurface";
+import { Skeleton } from "@/components/aui/components/Skeleton";
 
 import type { AsyncState } from "@/components/aui/utils/async";
 
@@ -46,7 +46,7 @@ export function AsyncBoundary<T>(props: HostAsyncBoundaryProps<T>) {
   useTranslation();
   return (
     <AuiAsyncBoundary
-      pending={<LoadingSurface label={i18n.t("common:asyncBoundary.loading")} size="sm" />}
+      pending={<Skeleton.Surface label={i18n.t("common:asyncBoundary.loading")} size="sm" />}
       errorTitle={i18n.t("common:asyncBoundary.errorTitle")}
       retryLabel={i18n.t("common:actions.retry")}
       refreshErrorTitle={i18n.t("common:asyncBoundary.refreshFailed")}

@@ -13,17 +13,20 @@ import { createContext, useContext, useLayoutEffect } from "react";
 export type SidebarCollapsible = "icon" | "none" | "offcanvas";
 
 /**
- * The rail keeps `comfortable` rather than joining the `compact | regular`
- * vocabulary the other surfaces use, and that is a semantic difference, not
- * drift: `compact` is the Sidebar's DEFAULT (every product rail in the repo
- * asked for it by hand), so the other arm is a tier *roomier than the
- * baseline*. Calling it `regular` would claim it is the baseline it is not.
- * Elsewhere — `Card`, `Table`, `Tree`, `Collapsible`, `Item` — `regular` IS the
- * default, which is why those all read `compact | regular`.
+ * The rail reads the `compact | regular` vocabulary every other surface uses.
+ * `compact` is the Sidebar's DEFAULT (every product rail in the repo asked for
+ * it by hand), so `regular` is the roomier 36px tier here; the rail spelled it
+ * `comfortable` until 2026-11. A reader picking a density does not know which
+ * component's default it is; one word per tier does more for them than a word
+ * that encodes that history.
  */
-export type SidebarDensity = "comfortable" | "compact";
+export type SidebarDensity = "compact" | "regular";
 export type SidebarDirection = "ltr" | "rtl";
-export type SidebarMenuButtonVariant = "default" | "outline";
+/**
+ * `outlined` is the word every bordered control uses (`Button`, `Badge` and
+ * `ReviewStatus`).
+ */
+export type SidebarMenuButtonVariant = "default" | "outlined";
 export type SidebarMenuButtonSize = "sm" | "md" | "lg";
 export type SidebarMenuSubButtonSize = "sm" | "md";
 

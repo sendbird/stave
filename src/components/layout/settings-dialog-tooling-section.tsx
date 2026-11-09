@@ -211,7 +211,7 @@ function ToolCard(args: {
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="outlined"
               onClick={() =>
                 void args.onCopyRepairCommand(repairCommand, args.tool.label)
               }
@@ -236,7 +236,7 @@ function ToolCard(args: {
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="outlined"
             disabled={!args.canOpenTerminal}
             onClick={() => void args.onOpenTerminal()}
           >
@@ -414,7 +414,7 @@ export function ToolingSection() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="outlined"
               disabled={viewState.loading}
               onClick={() => setRefreshNonce((value) => value + 1)}
             >

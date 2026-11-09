@@ -46,7 +46,7 @@ const legacyVariants: Record<
   success: { tone: "success", variant: "soft" },
   warning: { tone: "warning", variant: "soft" },
   destructive: { tone: "danger", variant: "soft" },
-  outline: { tone: "neutral", variant: "outline" },
+  outline: { tone: "neutral", variant: "outlined" },
   ghost: { tone: "neutral", variant: "soft" },
   link: { tone: "accent", variant: "soft" },
 };
@@ -58,8 +58,8 @@ const isLegacyVariant = (
 /**
  * `variant` accepts BOTH vocabularies. Previously it accepted only the legacy
  * words, so a caller reaching for the AUI spelling (`variant="soft"`) fell
- * through the tone map to `undefined` and rendered an untoned badge. The two
- * unions overlap only on `"outline"`, which means the same thing in each.
+ * through the tone map to `undefined` and rendered an untoned badge. The
+ * legacy `"outline"` and the AUI `"outlined"` name the same bordered weight.
  *
  * `tone` is the AUI axis and always wins when given; without it the legacy word
  * supplies the tone, so every existing caller renders byte-identically.
@@ -92,11 +92,11 @@ export function badgeVariants({
       statusChip.root,
       statusChipSizeStyles[size],
       transition.colors,
-      resolved.variant === "outline" && statusChip.outline,
-      resolved.variant === "outline"
+      resolved.variant === "outlined" && statusChip.outline,
+      resolved.variant === "outlined"
         ? badgeOutlineToneStyles[resolved.tone]
         : resolved.variant === "solid"
-          ? statusChipSolidToneStyles[resolved.tone === "warm" ? "warning" : resolved.tone]
+          ? statusChipSolidToneStyles[resolved.tone]
           : badgeToneStyles[resolved.tone],
       xstyle,
     ),

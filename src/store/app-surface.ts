@@ -18,6 +18,7 @@ export type AppActiveSurface =
   | { kind: "automation-center" }
   | { kind: "issues" }
   | { kind: "agents" }
+  | { kind: "tars" }
   | { kind: "usage"; providerId?: ProviderId; accountProfileId?: string };
 
 export type AppOverlaySurfaceKind = Exclude<
@@ -43,6 +44,8 @@ export const AGENTS_APP_SURFACE = {
   kind: "agents",
 } satisfies AppActiveSurface;
 
+export const TARS_APP_SURFACE = { kind: "tars" } satisfies AppActiveSurface;
+
 export const USAGE_APP_SURFACE = { kind: "usage" } satisfies AppActiveSurface;
 
 const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
@@ -50,6 +53,7 @@ const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
   issues: ISSUES_APP_SURFACE,
   agents: AGENTS_APP_SURFACE,
+  tars: TARS_APP_SURFACE,
   usage: USAGE_APP_SURFACE,
 };
 
@@ -96,6 +100,9 @@ export interface AppSurfaceActions {
   openIssues: () => void;
   closeIssues: () => void;
   toggleIssues: () => void;
+  openTars: () => void;
+  closeTars: () => void;
+  toggleTars: () => void;
   openAgents: () => void;
   closeAgents: () => void;
   toggleAgents: () => void;
@@ -167,6 +174,9 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     openIssues: open("issues"),
     closeIssues: close("issues"),
     toggleIssues: toggle("issues"),
+    openTars: open("tars"),
+    closeTars: close("tars"),
+    toggleTars: toggle("tars"),
     openAgents,
     closeAgents: close("agents"),
     toggleAgents: toggle("agents"),

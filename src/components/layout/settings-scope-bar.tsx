@@ -94,7 +94,7 @@ function ScopePicker(args: {
           id={SETTINGS_SCOPE_PICKER_ID}
           type="button"
           size="sm"
-          variant="outline"
+          variant="outlined"
           xstyle={styles.trigger}
         />
       }

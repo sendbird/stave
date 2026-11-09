@@ -48,7 +48,7 @@ const space = [...themeSpaceProperties] as const;
  */
 export const stepperThemeTargets = {
   breadcrumb: {
-    axes: { density: ["compact", "default"] },
+    axes: { density: ["compact", "regular"] },
     /*
      * One target, five slots. The trail has no surface of its own and its
      * crumbs are the same face in two states — navigable and current — so a

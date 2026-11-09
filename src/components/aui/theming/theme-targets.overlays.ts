@@ -304,7 +304,7 @@ export const overlaysThemeTargets = {
     },
   },
   "popover-trigger": {
-    /* `Popover` spells this axis `triggerSize`; the values are its own. */
+    /* `Popover` spells this axis `triggerProps.size`; the values are its own. */
     axes: { size: ["sm", "md", "lg"] },
     exports: [],
     /*
@@ -339,12 +339,8 @@ export const overlaysThemeTargets = {
     },
   },
   tooltip: {
-    /*
-     * One target for both exports. `Tooltip` and `TooltipIconButton` render the
-     * same popup — the second only adds a `Button` trigger, which already
-     * carries `.aui-button` — so a brand that restyles a hint restyles both.
-     */
-    exports: ["Tooltip", "TooltipIconButton"],
+    /* The popup every `Tooltip` renders; its trigger keeps its own target. */
+    exports: ["Tooltip"],
     properties: panel,
     root: "the Base UI tooltip popup element",
     slots: { arrow: ["color"], content: air },

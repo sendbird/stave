@@ -2,7 +2,9 @@ import { i18n } from "@/i18n";
 import { useTranslation } from "@/i18n";
 import * as React from "react";
 
+import { agentMotion } from "../recipes/agent-motion";
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
+import { textShimmer } from "../recipes/text-shimmer";
 import { themeSlotProps } from "../theming/theme-props";
 import { sx, type XstyleProp } from "../utils/stylex";
 import {
@@ -12,6 +14,7 @@ import {
   type AgentStepState,
   type AgentStatusTone,
 } from "./agent-state";
+import { AgentTextSwap, useChangeCount, useSelfEntrance } from "./agent-motion";
 import { Loader, type LoaderVariant } from "./Loader";
 import { nodeText, type ElapsedSource } from "./Thinking.parts";
 import { toolRunStyles } from "./ToolRun.styles";
@@ -49,7 +52,7 @@ export function isLiveRunState(state: AgentStepState): boolean {
   );
 }
 
-function toolLoaderVariant(state: AgentStepState): LoaderVariant | null {
+export function toolLoaderVariant(state: AgentStepState): LoaderVariant | null {
   switch (state) {
     case "pending":
       return "spinner";
@@ -241,7 +244,15 @@ export function ToolRunSummary({
       className={sx(toolRunStyles.summary, xstyle)}
     >
       <span className={sx(toolRunStyles.primary)}>
-        <span className={sx(agentSurface.rowLabel, toolRunStyles.title)}>
+        <span
+          className={sx(
+            agentSurface.rowLabel,
+            toolRunStyles.title,
+            // The running call's words carry the "working" sweep; it stops
+            // the moment the run settles.
+            loaderVariant != null && textShimmer.sweep,
+          )}
+        >
           {title}
         </span>
         {quiet ? (
@@ -262,7 +273,7 @@ export function ToolRunSummary({
                 variant={loaderVariant}
               />
             ) : null}
-            {word}
+            <AgentTextSwap swapKey={status}>{word}</AgentTextSwap>
           </span>
         )}
       </span>
@@ -307,6 +318,12 @@ export type ToolRunSectionProps = {
   label: React.ReactNode;
   /** Keeps the public controlled-open contract aligned with `ToolRun`. */
   open: boolean;
+  /**
+   * Host: whether `open` changed after the OWNING row mounted. A lazily
+   * mounted body is born open on its first expand, so it cannot see that
+   * change itself; the always-mounted row passes it down.
+   */
+  opened?: boolean;
 } & XstyleProp;
 
 /**
@@ -321,14 +338,29 @@ export type ToolRunSectionProps = {
  * aria-label>`: a section with a name is a landmark, and forty landmarks in a
  * transcript is a worse navigation experience than none.
  */
+/**
+ * Host: whether an open payload body plays its entrance. Upstream plays it
+ * whenever the body is open, so a body that mounts already open (a running
+ * MCP App result renders `defaultOpen`) replays it each time the virtualized
+ * transcript remounts the row. Inside an `AgentEntranceScope` it plays only
+ * when `open` actually changed after mount, i.e. the reader opened it.
+ */
+export function useOpenBodyEntrance(open: boolean, opened?: boolean): boolean {
+  const selfEntrance = useSelfEntrance();
+  const openChanged = useChangeCount(open) > 0;
+  return open && (selfEntrance || (opened ?? openChanged));
+}
+
 export function ToolRunSection({
   children,
   danger = false,
   label,
   open,
+  opened,
   xstyle,
 }: ToolRunSectionProps) {
   const labelId = React.useId();
+  const enter = useOpenBodyEntrance(open, opened);
 
   return (
     <div
@@ -337,6 +369,7 @@ export function ToolRunSection({
       className={sx(
         toolRunStyles.section,
         open && toolRunStyles.wellOpen,
+        enter && agentMotion.enter,
         danger && toolRunStyles.wellDanger,
         xstyle,
       )}

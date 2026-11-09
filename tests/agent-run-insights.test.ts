@@ -55,6 +55,9 @@ test("event counts read replies, requested changes, reminders, stuck stages and 
     stuckStages: 1,
     turnFailures: 2,
   });
+  // A turn a pause or takeover stopped is not a failure; one a restart cut off is.
+  const held = ["paused-by-user", "taken-over", undefined].map((reason) => ({ kind: "turn-interrupted" as const, detail: reason ? { reason } : {} }));
+  expect(countRunEvents(held).turnFailures).toBe(1);
 });
 
 test("the summary splits outcomes and prices a ready result", () => {

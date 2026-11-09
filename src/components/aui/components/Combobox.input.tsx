@@ -10,7 +10,6 @@ import {
 } from "../recipes/control-metrics";
 import { fieldShell } from "../recipes/field-shell";
 import { focusRing } from "../recipes/focus-ring";
-import { transition } from "../recipes/transition";
 import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { ComboboxInChipsContext } from "./Combobox.chips";
@@ -97,7 +96,6 @@ export function InputGroup({
               controlChrome.field,
               fieldShell.base,
               styles.inputGroup,
-              transition.colors,
               focusRing.borderOnly,
               controlHeightBySize[size],
               inPopup && styles.inputGroupInPopup,

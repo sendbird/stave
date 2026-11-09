@@ -50,7 +50,7 @@ const loopAnimation = {
   animationDuration: vars["--aui-motion-duration-loop"],
   animationFillMode: "both",
   animationIterationCount: "infinite",
-  animationTimingFunction: vars["--aui-motion-ease-in-out"],
+  animationTimingFunction: vars["--aui-motion-ease-loop"],
 } as const;
 
 export const loaderMarkStyles = stylex.create({
@@ -62,7 +62,10 @@ export const loaderMarkStyles = stylex.create({
     overflow: "hidden",
   },
   spinner: {
-    animationDuration: vars["--aui-motion-duration-loop"],
+    // One revolution per `durationSpin` (600ms), shared with Button loading,
+    // Gauge indeterminate and `.atelier-icon-spinner`: a faster spinner makes
+    // the same wait feel shorter. Was 1200ms here, 800ms on the other two.
+    animationDuration: vars["--aui-motion-duration-spin"],
     animationIterationCount: "infinite",
     animationName: {
       default: spin,
@@ -77,13 +80,15 @@ export const loaderMarkStyles = stylex.create({
     overflow: "visible",
   },
   spinnerArc: {
-    animationDuration: vars["--aui-motion-duration-loop"],
+    // The arc grows and shrinks once per two revolutions, so its length and
+    // its rotation never fall into step.
+    animationDuration: `calc(${vars["--aui-motion-duration-spin"]} * 2)`,
     animationIterationCount: "infinite",
     animationName: {
       default: spinnerDash,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
     fill: "none",
     stroke: "currentColor",
     // Dashboard's default spinner uses a 3px stroke at 24px. The matching AUI
@@ -254,7 +259,7 @@ export const loaderMarkStyles = stylex.create({
       default: scan,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
     backgroundColor: "currentColor",
     borderRadius: vars["--aui-radius-full"],
     inlineSize: "58%",
@@ -280,7 +285,7 @@ export const loaderMarkStyles = stylex.create({
       default: parallel,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
     backgroundColor: "currentColor",
     blockSize: "100%",
     borderRadius: vars["--aui-radius-full"],

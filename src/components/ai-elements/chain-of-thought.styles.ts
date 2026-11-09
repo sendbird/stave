@@ -346,7 +346,9 @@ export const chainOfThoughtStyles = stylex.create({
     color: vars["--aui-color-text"],
     animationName: { default: thinkingShimmer, [reduced]: "none" },
     animationDuration: vars["--aui-motion-duration-loop-slow"],
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    // A breathing loop reads the loop curve; `ease-in-out` is the strong
+    // system-glide curve since the AUI motion review.
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
     animationIterationCount: "infinite",
   },
   iconAgent: { color: vars["--aui-color-text"] },

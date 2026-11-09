@@ -87,7 +87,7 @@ export function EditorSaveConflictBanner({
           <>
             <Button
               size="sm"
-              variant="outline"
+              variant="outlined"
               aria-pressed={comparing}
               disabled={busy}
               onClick={handleCompare}
@@ -98,7 +98,7 @@ export function EditorSaveConflictBanner({
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="outlined"
               disabled={busy}
               onClick={() => resolve("keep-mine")}
             >
@@ -106,7 +106,7 @@ export function EditorSaveConflictBanner({
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="outlined"
               disabled={busy}
               onClick={() => resolve("reload")}
             >

@@ -9,7 +9,9 @@ import {
   optionToStringLabel,
   optionToStringValue,
   type ComboboxProps,
+  type ComboboxResolvedProps,
 } from "./Combobox.arrayProps";
+import { resolveComboboxPaging } from "./Combobox.paging";
 import {
   defaultCreateLabel,
   getCreateOption,
@@ -93,7 +95,7 @@ function ComboboxArraySingle({
   values: _values,
   zIndex,
   ...props
-}: ComboboxProps) {
+}: ComboboxResolvedProps) {
   useTranslation();
   // A `Fieldset` disables what it contains; the caller's own prop still wins.
   const disabled = useFieldDisabled(props.disabled);
@@ -251,7 +253,7 @@ function ComboboxArrayMultiple({
   values,
   zIndex,
   ...props
-}: ComboboxProps) {
+}: ComboboxResolvedProps) {
   useTranslation();
   // A `Fieldset` disables what it contains; the caller's own prop still wins.
   const disabled = useFieldDisabled(props.disabled);
@@ -390,9 +392,21 @@ function ComboboxArrayMultiple({
 }
 
 export function ComboboxArray(props: ComboboxProps) {
-  return props.multiple ? (
-    <ComboboxArrayMultiple {...props} />
+  // The public spellings (`paging`, `loadingLabel`, `aria-label`) unfolded
+  // onto the flat internal contract the two modes render from.
+  const {
+    "aria-label": ariaLabel,
+    loadingLabel,
+    ...rest
+  } = resolveComboboxPaging(props);
+  const resolved: ComboboxResolvedProps = {
+    ...rest,
+    inputAriaLabel: ariaLabel,
+    ...(loadingLabel === undefined ? null : { loadingText: loadingLabel }),
+  };
+  return resolved.multiple ? (
+    <ComboboxArrayMultiple {...resolved} />
   ) : (
-    <ComboboxArraySingle {...props} />
+    <ComboboxArraySingle {...resolved} />
   );
 }

@@ -32,6 +32,8 @@ export const INBOX_KIND_TONE: Record<FleetAttentionKind, BadgeTone> = {
   "agent-run-sign-off": "warning",
   "agent-run-blocked": "danger",
   "agent-run-stuck": "danger",
+  "tars-decision": "warning",
+  "tars-blocked": "danger",
 };
 
 export function InboxEntryIcon(props: {
@@ -47,6 +49,8 @@ export function InboxEntryIcon(props: {
     case "agent-run-sign-off":
     case "agent-run-blocked":
     case "agent-run-stuck":
+    case "tars-decision":
+    case "tars-blocked":
       return <StateMark state={FLEET_ATTENTION_WORK_STATE[props.kind]!} />;
     case "result-ready":
       return <CheckCircle2 className={sx(styles.needIcon)} aria-hidden="true" />;
@@ -262,7 +266,7 @@ export function InboxRow(props: {
       >
         <span className={sx(styles.rowTop)}>
           {entry.unread ? <span aria-hidden="true" className={sx(styles.unreadDot)} /> : null}
-          <Badge variant="outline" tone={INBOX_KIND_TONE[entry.kind]} xstyle={styles.needBadge}>
+          <Badge variant="outlined" tone={INBOX_KIND_TONE[entry.kind]} xstyle={styles.needBadge}>
             <InboxEntryIcon kind={entry.kind} prStatus={entry.item?.prStatus} />
             {FLEET_ATTENTION_KIND_LABEL[entry.kind]}
           </Badge>

@@ -6,6 +6,7 @@ import { transition } from "../recipes/transition";
 import { themeTargetClassName } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { sx, cx, type XstyleProp } from "../utils/stylex";
+import { agentStateLabel } from "./agent-state";
 import { Loader } from "./Loader";
 import { VisuallyHidden } from "./VisuallyHidden";
 
@@ -33,12 +34,19 @@ export type PlanStepStatus =
   | "done"
   | "failed";
 
+/**
+ * The spoken word per step state — read from `agentStateLabel` (F7,
+ * 2026-11-08) rather than typed again, so a plan step, a tool run and a run
+ * monitor name the same state with the same word ("Completed", not "Done").
+ */
 export const planStatusLabel: Record<PlanStepStatus, string> = {
-  get approval() { return i18n.t("ui:planParts.awaitingApproval"); },
-  get done() { return i18n.t("ui:planParts.done"); },
-  get failed() { return i18n.t("ui:planParts.failed"); },
-  get pending() { return i18n.t("ui:planParts.pending"); },
-  get running() { return i18n.t("ui:planParts.running"); },
+  // Host: getters, so each read follows the current language (the
+  // `agentStateLabel` entries are getters over `ui:agentState.*`).
+  get approval() { return agentStateLabel.approval; },
+  get done() { return agentStateLabel.done; },
+  get failed() { return agentStateLabel.failed; },
+  get pending() { return agentStateLabel.pending; },
+  get running() { return agentStateLabel.running; },
 };
 
 export type PlanStepItem = {
@@ -48,9 +56,22 @@ export type PlanStepItem = {
    * runs, so a reader still knows where it stands.
    */
   current?: boolean;
+  /**
+   * A steering note the agent applied while doing this step (#809 · P2
+   * agent-steering): prints the host's "applied your note" line with a
+   * success tag under the step.
+   */
+  appliedNote?: React.ReactNode;
   /** Secondary prose under the title. Rung 0, muted ink. */
   detail?: React.ReactNode;
   id: string;
+  /**
+   * `note`: a steering note queued for a later step instead of a step —
+   * `title` is the note text; `noteStatus`, `noteMeta` and `noteActions`
+   * render only when supplied. Notes are not announced or counted as steps.
+   * @default "step"
+   */
+  kind?: "step" | "note";
   /**
    * What a screen reader should call this step when it changes. Only needed
    * when `title` is not a string; otherwise the title is the name.
@@ -58,6 +79,12 @@ export type PlanStepItem = {
   label?: string;
   /** A machine value for this step — an elapsed time, a file count. */
   meta?: React.ReactNode;
+  /** Note rows: actions the runtime supports, e.g. Edit / Remove buttons. */
+  noteActions?: React.ReactNode;
+  /** Note rows: who sent it and when — "from you · 12s ago". */
+  noteMeta?: React.ReactNode;
+  /** Note rows: the state tag, caller-worded — "Queued for step 3". */
+  noteStatus?: React.ReactNode;
   status?: PlanStepStatus;
   /** Nested work. Rendered at rung 1 or rung 2, never as a nested card. */
   steps?: readonly PlanStepItem[];
@@ -238,6 +265,8 @@ export function flattenPlan(
   const flat: PlanStepSnapshot[] = [];
 
   steps.forEach((step, index) => {
+    // A steering note is not a step: it has no status to announce.
+    if (step.kind === "note") return;
     const here = [...path, index + 1];
     flat.push({
       id: step.id,

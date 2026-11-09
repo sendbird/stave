@@ -115,7 +115,7 @@ export function ApiConnectionModelPicker(props: {
       <label htmlFor={searchId} className={sx(accountStyles.label)}>{t("settingsConnections:apiConnectionModelPicker.findModelsOnVercelAIGateway")}</label>
       {suggestions.length > 0 && <div className={sx(styles.suggestions)} role="group" aria-label={t("settingsConnections:apiConnectionModelPicker.suggestions")}>
         <span className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.suggestions")}</span>
-        {suggestions.map((model) => <Button key={model.id} size="xs" variant="outline" disabled={full} onClick={() => pin(model)}>{model.name}</Button>)}
+        {suggestions.map((model) => <Button key={model.id} size="xs" variant="outlined" disabled={full} onClick={() => pin(model)}>{model.name}</Button>)}
       </div>}
       <Input id={searchId} placeholder={t("settingsConnections:apiConnectionModelPicker.forExampleKimiGlmSonnetOr")} value={query} onChange={(event) => setQuery(event.target.value)} />
       {catalogError ? <p role="alert" className={sx(accountStyles.error)}>{catalogError}</p>
@@ -123,7 +123,7 @@ export function ApiConnectionModelPicker(props: {
           : results.length === 0 ? <p className={sx(accountStyles.muted)}>{t("settingsConnections:messages.noMatchingModels", { query: query })}</p>
             : <ul className={sx(styles.results)} aria-label={t("settingsConnections:apiConnectionModelPicker.modelsYouCanPin")}>
               {results.map((model) => <ModelLine key={model.id} model={model} servesClaude={props.servesClaude} action={
-                <Button size="xs" variant="outline" disabled={full} onClick={() => pin(model)}>{i18n.t("settings:commandPaletteSection.visibility.pin")}</Button>} />)}
+                <Button size="xs" variant="outlined" disabled={full} onClick={() => pin(model)}>{i18n.t("settings:commandPaletteSection.visibility.pin")}</Button>} />)}
             </ul>}
       <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.codingModelsOnlyLanguageModelsThat")}</p>
     </div>}
@@ -132,7 +132,7 @@ export function ApiConnectionModelPicker(props: {
       <div className={sx(accountStyles.row)}>
         <Input id={manualId} placeholder={t("settingsConnections:apiConnectionModelPicker.creatorModelForExampleMoonshotaiKimi")} value={manual}
           onChange={(event) => setManual(event.target.value)} xstyle={accountStyles.field} />
-        <Button size="sm" variant="outline" disabled={!manualValid || full} onClick={addManual}>{t("settingsConnections:apiConnectionModelPicker.addModel")}</Button>
+        <Button size="sm" variant="outlined" disabled={!manualValid || full} onClick={addManual}>{t("settingsConnections:apiConnectionModelPicker.addModel")}</Button>
       </div>
       {manual.trim() && !manualValid && <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.useTheGatewaySModelIDs")}</p>}
     </div>

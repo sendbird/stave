@@ -402,7 +402,7 @@ function ScanStep(props: {
         <>
           <div className={sx(styles.headingRow)}>
             <h4 className={sx(styles.heading)}>{t("settingsConnections:settingsDialogAutoRoutingWizard.whatYourHistoryShows")}</h4>
-            <Badge tone={CONFIDENCE_TONE[analysis.confidence]} variant="outline" dot>
+            <Badge tone={CONFIDENCE_TONE[analysis.confidence]} variant="outlined" dot>
               {CONFIDENCE_LABEL[analysis.confidence]}
             </Badge>
           </div>

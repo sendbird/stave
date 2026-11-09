@@ -10,7 +10,6 @@ import {
   triggerHeightsBySize,
   triggerStylesBySize,
 } from "../recipes/select-styles";
-import { transition } from "../recipes/transition";
 import { themeSlotProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { mergeClassName } from "./merge-class-name";
@@ -62,8 +61,9 @@ export function FieldTrigger({
               triggerStylesBySize[size],
               controlChrome.trigger,
               controlChrome.field,
+              // Owns the transition (border AND keyboard focus halo); no
+              // `transition.colors` after it, which would drop the halo.
               controlChrome.fieldTriggerBorder,
-              transition.colors,
               focusRing.borderOnly,
               triggerHeightsBySize[size],
               state.open && selectStyles.triggerOpen,

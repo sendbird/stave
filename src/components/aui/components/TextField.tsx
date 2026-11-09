@@ -6,7 +6,6 @@ import { InputRoot, type InputRootProps } from "../headless/input";
 import { controlChrome } from "../recipes/control-chrome";
 import { controlHeightBySize } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
-import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
 import { themeProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
@@ -71,6 +70,12 @@ export type TextFieldProps = Omit<InputRootProps, "className" | "size"> & {
    * contract as Select/NativeSelect (shared Field/FieldError anatomy).
    */
   error?: React.ReactNode;
+  /**
+   * Invalid without a message of its own (a form-level summary carries it):
+   * paints the danger boundary and sets `aria-invalid`. Prefer `error`.
+   * @default false
+   */
+  invalid?: boolean;
   label?: string;
   /**
    * Trailing `n/maxLength` counter on the message row. Ignored when the field
@@ -109,6 +114,7 @@ export function TextField({
   disabled,
   error,
   id,
+  invalid,
   label,
   loading,
   loadingLabel = i18n.t("ui:textfield.validating"),
@@ -118,12 +124,12 @@ export function TextField({
   showCount = false,
   size = "md",
   successMessage,
-  tone = "default",
+  tone = "neutral",
   xstyle,
   ...props
 }: TextFieldProps) {
   useTranslation();
-  const anatomy = useFieldAnatomy({ description, error, id, tone });
+  const anatomy = useFieldAnatomy({ description, error, id, invalid, tone });
   // A count with no limit is a fact about nothing, so the counter resolves to
   // the limit itself: present ⇒ count, absent ⇒ no row and no value mirror.
   const countLimit = showCount ? maxLength : undefined;
@@ -157,8 +163,10 @@ export function TextField({
       aria-invalid={anatomy.invalid || props["aria-invalid"]}
       className={cx(
         sx(
+          // Field chrome first: its focus halo and the transition that grows it.
+          // The local `input` ladder below still owns border and fill.
+          controlChrome.field,
           styles.input,
-          transition.colors,
           focusRing.borderOnly,
           controlHeightBySize[size],
           sizeStyles[size],

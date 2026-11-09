@@ -40,7 +40,8 @@ export type CommandProps = {
   items: CommandItem[];
   label?: React.ReactNode;
   loading?: boolean;
-  loadingText?: React.ReactNode;
+  /** Copy for the palette-wide `loading` row. @default "Loading commands..." */
+  loadingLabel?: React.ReactNode;
   /** Maximum recent leaf commands retained. @default 5 */
   maxRecents?: number;
   /** Called after a leaf command runs. */

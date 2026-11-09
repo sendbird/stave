@@ -1107,5 +1107,876 @@
       "new": "New",
       "archived": "Archived"
     }
+  },
+  "tars": {
+    "title": "Tars",
+    "description": "Your responsibilities, followed through across workspaces.",
+    "identity": "Name and standing instructions",
+    "name": "Name",
+    "instructions": "Standing instructions",
+    "instructionsHint": "These instructions guide new work. They do not grant permissions or change work already running.",
+    "save": "Save",
+    "delegate": "Delegate a responsibility",
+    "outcome": "Outcome",
+    "assignment": "What should be done",
+    "acceptance": "Done when (one criterion per line)",
+    "workspace": "Source workspace",
+    "chooseWorkspace": "Choose a workspace",
+    "searchWorkspaces": "Search workspaces",
+    "noWorkspaces": "No matching workspaces",
+    "provider": "Provider",
+    "searchProviders": "Search providers",
+    "noProviders": "No matching providers",
+    "maxTurns": "Turn limit per work unit",
+    "priority": "Priority (0–100, higher first)",
+    "priorityValue": "Priority {{priority}}",
+    "scope": "Tars may create isolated worktrees, execute, repair and review work within this goal. Publishing and external messages require a separate request.",
+    "providersHint": "This first version uses supervised Claude and Codex runs with the provider’s default model. Cursor and Kiro are not supported here yet.",
+    "start": "Delegate and start",
+    "openTask": "Open task",
+    "resume": "Resume",
+    "pause": "Pause",
+    "cancel": "Cancel responsibility",
+    "takeOver": "Take over",
+    "handBack": "Hand back",
+    "reverify": "Tars will verify this work again before completing it.",
+    "controlReasons": {
+      "notOwned": "Tars does not own this responsibility.",
+      "stale": "This work changed after you last saw it. Check its current state and try again.",
+      "ended": "This responsibility has already ended.",
+      "takenOver": "You took over this work. Hand it back before Tars can act on it.",
+      "alreadyPaused": "This responsibility is already paused.",
+      "notResumable": "Only paused or blocked work can resume.",
+      "alreadyTakenOver": "You already took over this work.",
+      "notTakenOver": "Only work you took over can be handed back.",
+      "outOfScope": "Tars could not confirm this work’s registered workspace.",
+      "ownershipLost": "This task’s ownership changed, so Tars cannot continue it. Continue it in its task.",
+      "runEnded": "This run has already ended, so Tars cannot continue it. Open its task to check the result, or cancel this responsibility and ask for new work.",
+      "runHeld": "The run is paused for a reason only its task can clear, such as its turn limit. Open its task to continue it, then hand it back.",
+      "storageBusy": "Tars’s storage stayed busy and nothing changed. Try again.",
+      "unknown": "Tars could not apply this control. Check the work’s current state and try again.",
+      "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
+      "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it.",
+      "notQueued": "Only queued work can change its place in the queue.",
+      "queueEdge": "This work is already at that end of the queue."
+    },
+    "close": "Close Tars",
+    "availability": "Work continues while Stave is running and recovers after restart. It does not run while Stave is closed or this computer is asleep.",
+    "unavailable": "Tars requires the desktop app and its host connection.",
+    "failed": "The request failed. Your saved responsibilities remain available.",
+    "openFailed": "This responsibility’s task could not be opened.",
+    "retry": "Retry",
+    "loading": "Loading responsibilities…",
+    "responsibilities": "Responsibilities",
+    "empty": "Delegate an outcome with clear completion criteria to begin.",
+    "states": {
+      "queued": "Queued",
+      "preparing": "Preparing",
+      "running": "Running",
+      "waiting": "Waiting",
+      "paused": "Paused",
+      "completed": "Completed",
+      "blocked": "Blocked",
+      "cancelled": "Cancelled",
+      "takenOver": "Taken over"
+    },
+    "conversation": {
+      "welcome": "Talk with {{name}}",
+      "workUpdate": "Work update",
+      "tooLong": "Keep this message under 32,000 characters.",
+      "activity": "Activity",
+      "activityHint": "Owned work and its current state.",
+      "noWork": "No work is running on your behalf yet. Describe an outcome in the conversation to get started.",
+      "settings": "Conversation settings",
+      "settingsDescription": "These preferences belong to your global conversation.",
+      "settingsHint": "Model and account changes apply to new messages. Existing messages and work keep their saved choices. Each delegated work unit, with its helpers, can use up to the turn limit.",
+      "accountLabel": "Account",
+      "searchAccounts": "Search accounts",
+      "noAccounts": "No matching accounts",
+      "title": "Conversation",
+      "message": "Message",
+      "model": "Conversation model",
+      "chooseModel": "Choose a model",
+      "send": "Send message",
+      "cancel": "Cancel message",
+      "confirm": "Confirm",
+      "loading": "Loading conversation…",
+      "empty": "One conversation for your work. Ask for a status update, work through a decision, or describe what you want done.",
+      "unavailable": "Conversation requires a desktop version with the resident conversation service.",
+      "failed": "The conversation request failed. Your draft and saved messages are preserved.",
+      "failedHint": "This message will not run again automatically. Send a new message to try again.",
+      "actions": "Action results",
+      "reprioritize": "Set priority {{priority}} for {{title}}",
+      "control": {
+        "pause": "Pause {{title}}",
+        "resume": "Resume {{title}}",
+        "cancel": "Cancel {{title}}",
+        "takeover": "Take over {{title}}",
+        "handBack": "Hand back {{title}}",
+        "acceptCompletion": "Accept {{title}} as done"
+      },
+      "records": {
+        "click": {
+          "pending": {
+            "pause": "Pause pending · click",
+            "resume": "Resume pending · click",
+            "cancel": "Cancel pending · click",
+            "takeover": "Take over pending · click",
+            "handBack": "Hand back pending · click",
+            "acceptCompletion": "Accept as done pending · click"
+          },
+          "applied": {
+            "pause": "Paused · click",
+            "resume": "Resumed · click",
+            "cancel": "Cancelled · click",
+            "takeover": "Taken over · click",
+            "handBack": "Handed back · click",
+            "acceptCompletion": "Accepted as done · click"
+          },
+          "rejected": {
+            "pause": "Pause not applied · click",
+            "resume": "Resume not applied · click",
+            "cancel": "Cancel not applied · click",
+            "takeover": "Take over not applied · click",
+            "handBack": "Hand back not applied · click",
+            "acceptCompletion": "Accept as done not applied · click"
+          }
+        },
+        "fleet": {
+          "pending": {
+            "pause": "Pause pending · Fleet",
+            "resume": "Resume pending · Fleet",
+            "cancel": "Cancel pending · Fleet",
+            "takeover": "Take over pending · Fleet",
+            "handBack": "Hand back pending · Fleet",
+            "acceptCompletion": "Accept as done pending · Fleet"
+          },
+          "applied": {
+            "pause": "Paused · Fleet",
+            "resume": "Resumed · Fleet",
+            "cancel": "Cancelled · Fleet",
+            "takeover": "Taken over · Fleet",
+            "handBack": "Handed back · Fleet",
+            "acceptCompletion": "Accepted as done · Fleet"
+          },
+          "rejected": {
+            "pause": "Pause not applied · Fleet",
+            "resume": "Resume not applied · Fleet",
+            "cancel": "Cancel not applied · Fleet",
+            "takeover": "Take over not applied · Fleet",
+            "handBack": "Hand back not applied · Fleet",
+            "acceptCompletion": "Accept as done not applied · Fleet"
+          }
+        },
+        "task": {
+          "pending": {
+            "pause": "Pause pending · task view",
+            "resume": "Resume pending · task view",
+            "cancel": "Cancel pending · task view",
+            "takeover": "Take over pending · task view",
+            "handBack": "Hand back pending · task view",
+            "acceptCompletion": "Accept as done pending · task view"
+          },
+          "applied": {
+            "pause": "Paused · task view",
+            "resume": "Resumed · task view",
+            "cancel": "Cancelled · task view",
+            "takeover": "Taken over · task view",
+            "handBack": "Handed back · task view",
+            "acceptCompletion": "Accepted as done · task view"
+          },
+          "rejected": {
+            "pause": "Pause not applied · task view",
+            "resume": "Resume not applied · task view",
+            "cancel": "Cancel not applied · task view",
+            "takeover": "Take over not applied · task view",
+            "handBack": "Hand back not applied · task view",
+            "acceptCompletion": "Accept as done not applied · task view"
+          }
+        },
+        "key": {
+          "pending": {
+            "pause": "Pause pending · click",
+            "resume": "Resume pending · click",
+            "cancel": "Cancel pending · click",
+            "takeover": "Take over pending · click",
+            "handBack": "Hand back pending · click",
+            "acceptCompletion": "Accept as done pending · click"
+          },
+          "applied": {
+            "pause": "Paused · click",
+            "resume": "Resumed · click",
+            "cancel": "Cancelled · click",
+            "takeover": "Taken over · click",
+            "handBack": "Handed back · click",
+            "acceptCompletion": "Accepted as done · click"
+          },
+          "rejected": {
+            "pause": "Pause not applied · click",
+            "resume": "Resume not applied · click",
+            "cancel": "Cancel not applied · click",
+            "takeover": "Take over not applied · click",
+            "handBack": "Hand back not applied · click",
+            "acceptCompletion": "Accept as done not applied · click"
+          }
+        },
+        "words": {
+          "pending": {
+            "pause": "Pause pending · click",
+            "resume": "Resume pending · click",
+            "cancel": "Cancel pending · click",
+            "takeover": "Take over pending · click",
+            "handBack": "Hand back pending · click",
+            "acceptCompletion": "Accept as done pending · click"
+          },
+          "applied": {
+            "pause": "Paused · click",
+            "resume": "Resumed · click",
+            "cancel": "Cancelled · click",
+            "takeover": "Taken over · click",
+            "handBack": "Handed back · click",
+            "acceptCompletion": "Accepted as done · click"
+          },
+          "rejected": {
+            "pause": "Pause not applied · click",
+            "resume": "Resume not applied · click",
+            "cancel": "Cancel not applied · click",
+            "takeover": "Take over not applied · click",
+            "handBack": "Hand back not applied · click",
+            "acceptCompletion": "Accept as done not applied · click"
+          }
+        },
+        "move": {
+          "click": {
+            "pending": {
+              "earlier": "Do first pending · click",
+              "later": "Do later pending · click"
+            },
+            "applied": {
+              "earlier": "Moved earlier · click",
+              "later": "Moved later · click"
+            },
+            "rejected": {
+              "earlier": "Do first not applied · click",
+              "later": "Do later not applied · click"
+            }
+          },
+          "drag": {
+            "pending": {
+              "earlier": "Move earlier pending · drag",
+              "later": "Move later pending · drag"
+            },
+            "applied": {
+              "earlier": "Moved earlier · drag",
+              "later": "Moved later · drag"
+            },
+            "rejected": {
+              "earlier": "Move earlier not applied · drag",
+              "later": "Move later not applied · drag"
+            }
+          }
+        },
+        "movePriority": "Priority {{priority}}"
+      },
+      "states": {
+        "queued": "Queued",
+        "reasoning": "Thinking",
+        "answered": "Answered",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "receipts": {
+        "pending": "Awaiting execution",
+        "applied": "Accepted for execution",
+        "rejected": "Not applied",
+        "proposed": "Awaiting your confirmation"
+      },
+      "delegateAgent": "Agent: {{name}}",
+      "ask": "Question: {{question}}",
+      "show": {
+        "report": "Opened the result report of {{title}}",
+        "changes": "Opened the changes of {{title}}",
+        "timeline": "Opened the run timeline of {{title}}",
+        "review": "Opened the review of {{title}}"
+      },
+      "publish": "Publish {{title}} as a draft pull request",
+      "workingChanges": {
+        "toggle": "Include my working changes",
+        "hint": "Work this message starts begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
+        "badge": "Includes working changes"
+      }
+    },
+    "execution": {
+      "model": "Execution model",
+      "auto": "Automatic",
+      "autoDescription": "Stave Auto picks the model for each step of delegated work.",
+      "autoHint": "Delegated work routes automatically, and reviews can run on the other provider. The conversation model above is used only for talking with Tars.",
+      "pinnedHint": "Delegated work and its helpers, including reviewers, stay on this model and provider. Choose Automatic to let Stave Auto route each step.",
+      "systemAccount": "This model runs with the {{provider}} System default account.",
+      "unsupported": "Tars runs delegated work only on Claude and Codex. Cursor, Kiro and OpenCode are not supported."
+    },
+    "agents": {
+      "title": "Agents Tars may use",
+      "hint": "Built-in agents are always available. Allow a saved agent here before Tars can hand it work.",
+      "search": "Search saved agents",
+      "empty": "You have no saved agents. Create one in Agents to make it available here.",
+      "noMatch": "No saved agents match your search.",
+      "notDelegable": "This agent cannot take delegated work.",
+      "publishes": "This agent publishes outside the workspace, which needs a separate request.",
+      "missing": "This agent is no longer available. Uncheck it to remove it."
+    },
+    "delegateReasons": {
+      "agentUnknown": "Tars named an agent that does not exist or is archived, so this work was not started.",
+      "agentNotAllowed": "This saved agent is not allowed for Tars. Allow it in Tars settings, then ask again.",
+      "agentPublishes": "This agent publishes or delivers work outside the workspace, which needs a separate request from you, so this work was not started.",
+      "agentNotDelegable": "This agent cannot take delegated work on Claude or Codex, so this work was not started.",
+      "agentModelConflict": "This agent cannot run on the pinned execution model. Choose Automatic or a matching model in Tars settings, then ask again.",
+      "agentOverCap": "This agent would run with more permission than Tars's delegated work allows, so this work was not started.",
+      "workingChangesUnavailable": "Your working changes could not be saved as a snapshot, so this work was not started. Check the workspace, then ask again."
+    },
+    "owner": {
+      "label": "Tars",
+      "title": "Tars owns this work. Stopping or taking it over goes through Tars and is recorded in its conversation.",
+      "withModel": "Tars · {{model}}",
+      "fleetHint": "Tars owns this work. Pause and Take over go through Tars and are recorded in its conversation.",
+      "paused": "Tars paused this work. The Tars conversation records it.",
+      "resumed": "Tars resumed this work. The Tars conversation records it.",
+      "tookOver": "You took over this work from Tars. Its run stays paused for you; continue it in its task.",
+      "notHeld": "Tars no longer owns this work, so nothing changed.",
+      "notApplied": "Tars did not apply this control",
+      "takeControlHint": "Tars owns this run. Take control pauses it for you without ending it. Tars continues only after you hand it back.",
+      "turnOnly": "Your turn stopped. Tars keeps this work paused, and its run is not cancelled.",
+      "agentLocked": "Tars owns this task's agent",
+      "agentLockedHint": "Changing or clearing the agent would end Tars's run. Take the work over first (Take control here, or Take over in Fleet or Tars), then change it."
+    },
+    "tray": {
+      "title": "Work",
+      "indicator": {
+        "running_one": "{{count}} running",
+        "running_other": "{{count}} running",
+        "needsYou_one": "{{count}} needs you",
+        "needsYou_other": "{{count}} need you",
+        "done_one": "{{count}} done",
+        "done_other": "{{count}} done",
+        "empty": "No work yet",
+        "show": "Show work",
+        "hide": "Hide work",
+        "checking": "Checking work…",
+        "unavailable": "Work unavailable",
+        "outputs_one": "{{count}} output",
+        "outputs_other": "{{count}} outputs"
+      },
+      "lanes": {
+        "needsYou": "Needs you",
+        "running": "Running",
+        "done": "Done",
+        "outputs": "Outputs"
+      },
+      "emptyLane": {
+        "needsYou": "Nothing needs you right now.",
+        "running": "Nothing is running.",
+        "done": "Nothing has finished yet.",
+        "outputs": "Nothing has been produced yet."
+      },
+      "owner": {
+        "tars": "Owner: Tars",
+        "you": "Owner: you"
+      },
+      "stage": "Stage {{current}} of {{total}} · {{title}}",
+      "stageAttempt": "Stage {{current}} of {{total}} · {{title}}, attempt {{attempt}}",
+      "stagesDone": "{{finished}} of {{total}} stages done",
+      "progressLabel": "Stage progress",
+      "turnsLeft_one": "{{count}} turn left",
+      "turnsLeft_other": "{{count}} turns left",
+      "helpers_one": "{{count}} helper working",
+      "helpers_other": "{{count}} helpers working",
+      "runPending": "Run details are not loaded yet.",
+      "attention": {
+        "decision": "Tars decision waiting",
+        "blocked": "Blocked",
+        "other": "Needs your attention"
+      },
+      "decision": {
+        "pause": "Tars proposes to pause this work.",
+        "resume": "Tars proposes to resume this work.",
+        "cancel": "Tars proposes to cancel this work.",
+        "takeover": "Tars proposes that you take over this work.",
+        "handBack": "Tars proposes to take this work back.",
+        "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check.",
+        "answerInConversation": "Answer it in the conversation."
+      },
+      "blockedDetail": "Tars could not finish this work. Check it and choose what to do.",
+      "showInFleet": "Show in Fleet",
+      "controls": "Controls for {{title}}",
+      "body": {
+        "checking": "Reading Tars's work…",
+        "unavailable": "Tars's work could not be read. Use Retry above to try again."
+      },
+      "proposalSuperseded": "No longer pending",
+      "confirm": {
+        "pause": "Confirm pause",
+        "resume": "Confirm resume",
+        "cancel": "Confirm cancel",
+        "takeover": "Confirm take over",
+        "handBack": "Confirm hand back",
+        "acceptCompletion": "Confirm accept as done"
+      },
+      "moreActions": "More actions for {{title}}",
+      "moreActionsHint": "More actions",
+      "outputs": {
+        "report": {
+          "completed": "Result report",
+          "cancelled": "Result report · cancelled",
+          "stopped": "Result report · stopped"
+        },
+        "changes_one": "Changes · {{count}} file",
+        "changes_other": "Changes · {{count}} files",
+        "changesUncounted": "Changes",
+        "review": {
+          "passed": "Review · passed",
+          "changesRequested": "Review · changes requested",
+          "none": "Review"
+        },
+        "open": "Open {{label}} for {{title}}"
+      },
+      "openReport": "Open report",
+      "followUp": {
+        "pending": "Tars is about to follow up on this change.",
+        "deferred": "Tars follows up after {{time}}: the hourly limit for automatic follow-ups was reached.",
+        "following": "Tars is following up on this change.",
+        "exhausted": "No automatic follow-up: automatic turns reached the turn limit. Send Tars a message to continue.",
+        "nextCheck": "Next check: {{time}}, if nothing changes before then."
+      },
+      "monitor": {
+        "label": "Run of {{title}}",
+        "current": "Now: {{title}}",
+        "currentAttempt": "Now: {{title}}, attempt {{attempt}}",
+        "elapsedLabel": "On this stage for {{duration}}",
+        "stepCountLabel": "Stage {{position}} of {{total}}",
+        "stepCount": "{{position}}/{{total}}",
+        "stagesLabel": "Stages of {{title}}",
+        "segment": {
+          "finished": "{{title}}: done",
+          "current": "{{title}}: in progress",
+          "pending": "{{title}}: not started",
+          "stopped": "{{title}}: stopped"
+        },
+        "timeline": "Timeline",
+        "timelineLabel": "Open the timeline for {{title}}"
+      },
+      "branch": "Branch",
+      "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time.",
+      "moveEarlier": "Do first",
+      "moveLater": "Do later",
+      "reorder": {
+        "handle": "Reorder {{title}}",
+        "hint": "Drag to change the order. Do first and Do later in More actions do the same.",
+        "moved": "{{title}} is now {{position}} of {{total}} in the queue.",
+        "refused": "{{title}} kept its place: {{reason}}"
+      }
+    },
+    "flow": {
+      "label": "Work flow for {{title}}",
+      "summary": "{{finished}} of {{total}} stages done · {{state}}",
+      "request": "Request",
+      "criteria_one": "{{count}} completion criterion",
+      "criteria_other": "{{count}} completion criteria",
+      "decision": "Tars decision",
+      "agent": "Assigned to {{name}}",
+      "agentAuto": "The run's lead chooses the agent.",
+      "attempt": "Attempt {{attempt}}",
+      "stagesPending": "Stages appear once the run starts.",
+      "stagesUnavailable": "Stage details are no longer loaded.",
+      "openStage": "Show {{title}} in Fleet",
+      "completion": "Completion",
+      "criteriaMet": "{{met}} of {{total}} criteria met",
+      "notFinished": "Not finished yet",
+      "notice": {
+        "completed": "Done",
+        "blocked": "Needs you",
+        "cancelled": "Stopped"
+      },
+      "nodeMenu": "More for {{title}}",
+      "openTimeline": "Open {{title}} in the run timeline",
+      "openReview": "Open the findings of {{title}}",
+      "openUnmet": "{{title}} cannot continue: open the report's unmet criteria",
+      "openReport": "Open the result report"
+    },
+    "detail": {
+      "waitingForUser": "The task is waiting for your answer or approval.",
+      "runPaused": "The run is paused.",
+      "runStopped": "The run stopped.",
+      "incompleteReport": "The run ended without reporting every required criterion as met.",
+      "staleVerification": "This work was handed back after its final check started. Tars needs a fresh check before completing it.",
+      "scopeUnregistered": "The source workspace is no longer part of its registered repository.",
+      "taskIdentityChanged": "The prepared task changed before Tars could start supervising it.",
+      "taskInUse": "This task is already in use, so Tars cannot claim it.",
+      "executionAgentUnavailable": "The Supervisor agent that Tars runs work with is unavailable.",
+      "assignmentUnavailable": "The task’s agent assignment is unavailable.",
+      "executionExists": "This task already has a run. Tars checks that run before starting new work.",
+      "ownershipUnverified": "Tars could not confirm that it still owns this task’s work.",
+      "ownershipChanged": "This task’s ownership changed, so Tars cannot continue it.",
+      "taskUnavailable": "The task is unavailable, or its repository changed.",
+      "takenOverInTask": "This task was taken over. Continue it in its task.",
+      "admissionWithdrawn": "The work was paused or cancelled before its run started.",
+      "observationFailed": "Tars could not check this work’s progress.",
+      "pauseReason": {
+        "pausedByUser": "The run is paused.",
+        "takenOver": "You took over the run.",
+        "taskIdentityChanged": "The run is paused because its task changed.",
+        "runtimeChanged": "The run is paused because its provider settings changed.",
+        "usageLimit": "The run is paused until the provider’s usage limit resets.",
+        "waitExpired": "The run is paused because what it waited for did not happen in time.",
+        "limitReached": "The run used all its turns. Extend it in its task to continue."
+      },
+      "stopReason": {
+        "taskUnavailable": "The run stopped because its task is no longer available.",
+        "turnCapReached": "The run stopped after using all its turns.",
+        "acceptanceUnmet": "The run stopped with a required criterion unmet.",
+        "expired": "The run stopped because it took too long."
+      },
+      "unverifiedCompletion": "The run reported its criteria as met, but Stave has no verified check or passed review for it. Accept it as done, or ask Tars for new work to verify it.",
+      "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check.",
+      "workingChangesUnavailable": "The snapshot of your working changes is no longer in the repository, so Tars could not create this work's workspace. Cancel it and ask again."
+    },
+    "messageFailure": {
+      "interrupted": "Reasoning was interrupted before its answer was saved. Send a new message to try again.",
+      "reasoningFailed": "Tars could not finish this message. Check its state, then send it again."
+    },
+    "acceptCompletion": "Accept as done",
+    "decision": {
+      "waiting": "Waiting for your answer",
+      "enterKey": "Enter",
+      "recommended": "Recommended. {{rationale}}",
+      "keysHint": {
+        "single": "With this card focused, press 1 or Enter to confirm.",
+        "singleExplicit": "With this card focused, press 1 to confirm.",
+        "withRecommended": "With this card focused, press 1–{{count}} to choose, or Enter for the recommended option.",
+        "plain": "With this card focused, press 1–{{count}} to choose."
+      },
+      "unverified": {
+        "question": "Stave could not verify that “{{title}}” is done. What should happen?"
+      },
+      "option": {
+        "pause": "Pause",
+        "resume": "Resume",
+        "cancel": "Cancel responsibility",
+        "takeover": "Take over",
+        "handBack": "Hand back",
+        "acceptCompletion": "Accept as done",
+        "verify": "Ask Tars for new verification work",
+        "acceptRationale": "Completes it without a Stave-verified check.",
+        "cancelRationale": "Ends its supervision. Changes already made stay.",
+        "verifyRationale": "Puts a request for a fresh check in the message box. Nothing runs until you send it."
+      },
+      "verifyRequest": "Start new work to verify “{{title}}”: check the current result against each of its criteria and report what Stave can confirm.",
+      "source": {
+        "click": "click",
+        "key": "key",
+        "words": "words"
+      },
+      "record": {
+        "pending": "{{option}} · {{source}} · applying",
+        "applied": "{{option}} · {{source}}",
+        "rejected": "{{option}} not applied · {{source}}"
+      },
+      "invalid": {
+        "targetMoved": "No longer valid: the work changed after this was asked.",
+        "targetEnded": "No longer valid: the work ended."
+      },
+      "retired": {
+        "movedOn": "No longer waiting: the conversation moved on.",
+        "settled": "No longer waiting: it was settled another way."
+      },
+      "reask": {
+        "pending": "Tars will ask again.",
+        "done": "Tars asked again below."
+      },
+      "reaskLine": {
+        "targetMoved": "Tars asks again because the work changed.",
+        "targetEnded": "Tars follows up because the work ended."
+      },
+      "refusal": {
+        "alreadyAnswered": "This decision was already answered with a different option.",
+        "notWaiting": "This decision no longer waits for an answer.",
+        "invalidOption": "That option is not available.",
+        "failed": "Your answer could not be sent. Try again."
+      },
+      "card": {
+        "title": {
+          "pause": "Pause this work?",
+          "resume": "Resume this work?",
+          "cancel": "Cancel this work?",
+          "takeover": "Take over this work?",
+          "handBack": "Hand this work back to Tars?",
+          "acceptCompletion": "Accept this work as done?"
+        },
+        "unverifiedTitle": "Stave could not verify this completion",
+        "risk": "Can't be undone",
+        "details": "Details of this decision",
+        "rows": {
+          "repository": "Repository",
+          "workspace": "Workspace",
+          "revision": "Revision",
+          "effect": "Effect"
+        },
+        "revision": "r{{revision}}",
+        "effect": {
+          "pause": "Tars pauses the run. You can resume it later.",
+          "resume": "Tars continues the run from where it stopped.",
+          "cancel": "Ends Tars's supervision. Changes already made stay.",
+          "takeover": "You hold the work. Tars stops acting on it until you hand it back.",
+          "handBack": "Tars takes the work back and verifies it again before it counts as done.",
+          "acceptCompletion": "Completes it without a Stave-verified check."
+        },
+        "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
+        "notNow": "Not now",
+        "notNowHint": "Leave it waiting and go back to the message box",
+        "escKey": "Esc"
+      }
+    },
+    "side": {
+      "kinds": {
+        "report": "Result report",
+        "changes": "Changes",
+        "timeline": "Run timeline",
+        "review": "Review"
+      },
+      "kindsShort": {
+        "report": "Report",
+        "changes": "Changes",
+        "timeline": "Timeline",
+        "review": "Review"
+      },
+      "switch": "What the side view shows",
+      "close": "Close side view",
+      "closeHint": "Close (Esc)",
+      "revision": {
+        "current": "Checked on {{revision}} · the final revision",
+        "superseded": "Checked on {{revision}} · not the final revision",
+        "unknown": "Checked revision unknown",
+        "finalUnknown": "Checked on {{revision}} · final revision unknown"
+      },
+      "report": {
+        "frozenAt": "As of {{time}}, when the run ended",
+        "finalRevision": "final revision {{revision}}",
+        "pending": "The run has not ended, so there is no report yet. The delegated criteria are listed as not reported.",
+        "unavailable": "The run's details are not loaded, so its report cannot be shown.",
+        "outcome": {
+          "completed": "Run completed",
+          "cancelled": "Run cancelled",
+          "stopped": "Run stopped"
+        },
+        "blockedTitle": "Blocked",
+        "unmetTitle_one": "{{count}} criterion not met",
+        "unmetTitle_other": "{{count}} criteria not met",
+        "allMet": "Every criterion is met.",
+        "criteriaTitle": "Criteria",
+        "status": {
+          "met": "Met",
+          "unmet": "Not met",
+          "unverified": "Unverified",
+          "notReported": "Not reported"
+        },
+        "noReport": "The run did not report on this criterion.",
+        "leftBehind": "Left behind",
+        "evidenceIn": "Evidence reported in {{stage}}",
+        "source": {
+          "agent": "Reported by the agent in {{stage}}",
+          "checkPassed": "Stave check {{name}} passed in {{stage}}",
+          "checkFailed": "Stave check {{name}} failed with exit code {{code}} in {{stage}}",
+          "checkNotRun": "Stave check {{name}} has not run in {{stage}}",
+          "none": "No stage reported this criterion."
+        },
+        "spent": "spent {{value}}"
+      },
+      "review": {
+        "none": "No independent review has reported yet.",
+        "verdict": {
+          "passed": "Review passed",
+          "changesRequested": "Changes requested",
+          "none": "No verdict yet"
+        },
+        "blocked": "The reviewer could not review",
+        "findings_one": "{{count}} finding",
+        "findings_other": "{{count}} findings",
+        "noFindings": "The reviewer reported no findings."
+      },
+      "timeline": {
+        "none": "The run's details are not loaded yet.",
+        "stages": "Stages",
+        "handOffs": "Hand-offs and controls",
+        "tools_one": "{{count}} command or tool call",
+        "tools_other": "{{count}} commands and tool calls",
+        "exit": "exit code {{code}}",
+        "exitUnknown": "exit code unknown",
+        "toolOk": "succeeded",
+        "toolFailed": "failed"
+      },
+      "changes": {
+        "noRun": "The run's details are not loaded, so its changes cannot be read.",
+        "ask": "Ask about this",
+        "askCount_one": "Ask about {{count}} line",
+        "askCount_other": "Ask about {{count}} lines",
+        "askHint": "Quote the selected lines into the message box. Nothing is sent.",
+        "selectHint": "Select lines in the diff, then choose Ask about this.",
+        "quoteHeader": "About {{path}}, lines {{range}}:",
+        "quoteHeaderRemoved": "About {{path}}, removed lines {{range}} (before the change):",
+        "live": "The execution workspace as it is now, read live; it is not frozen with the report.",
+        "refresh": "Refresh"
+      }
+    },
+    "followUp": {
+      "line": {
+        "blocked": "Automatic follow-up · Blocked: {{title}}",
+        "unverifiedCompletion": "Automatic follow-up · Completion not verified: {{title}}",
+        "verificationFailed": "Automatic follow-up · Criteria not met: {{title}}",
+        "stageAsksUser": "Automatic follow-up · Needs your decision: {{title}}",
+        "waitExpired": "Automatic follow-up · Waiting without change: {{title}}"
+      },
+      "exhausted": "No automatic follow-up for {{title}}: automatic turns reached the turn limit. Send a message to continue.",
+      "superseded": "Tars did not follow up: the work changed before it could."
+    },
+    "recap": {
+      "title": "While you were away",
+      "since": "Since {{time}}",
+      "needsYou_one": "{{count}} needs you",
+      "needsYou_other": "{{count}} need you",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "done_one": "{{count}} done",
+      "done_other": "{{count}} done",
+      "kind": {
+        "needsYou": "Needs you",
+        "failed": "Failed",
+        "done": "Done"
+      },
+      "open": "Open {{title}}: {{kind}}",
+      "openAction": "Open",
+      "more_one": "And {{count}} more in the lanes below.",
+      "more_other": "And {{count}} more in the lanes below.",
+      "dismiss": "Dismiss the summary of changes while you were away"
+    },
+    "guide": {
+      "help": "How Tars works",
+      "canDoTitle": "What Tars can do",
+      "limitsTitle": "Limits",
+      "examplesTitle": "Try asking",
+      "canDo1": "Answers questions about your work from what Stave observed, even before you add a repository.",
+      "canDo2": "Turns an explicit request into bounded work in a registered workspace, with acceptance criteria.",
+      "canDo3": "Runs it in a new workspace of that repository, on a branch named by the repository's naming rule, with an agent team, an independent review and a verification.",
+      "canDo4": "Asks you to decide with a card you answer by click, number key or a short word.",
+      "canDo5": "Follows up by itself when work blocks, asks you or cannot be verified.",
+      "canDo6": "Shows each result's report, changes, timeline and review beside the conversation.",
+      "limit1": "Commits, pushes and opens a draft pull request only after you confirm its card each time; never merges or deploys.",
+      "limit2": "Works only while Stave is open and this computer is awake.",
+      "limit3": "Runs one piece of work at a time; the rest waits in Work.",
+      "limit4": "Starts from the workspace's branch unless you turn on Include my working changes for that message; ignored files are never included.",
+      "limit5": "Uses Claude Code or Codex, and only saved agents you allowed in settings.",
+      "limit6": "Calls work done only with a check Stave saw pass or a passed review; otherwise it asks you.",
+      "example1": "What is running right now, and does anything need me?",
+      "example2": "In the web workspace, fix the flaky date-picker test. Done means its test passes.",
+      "example3": "Pause the date-picker work and show me what changed.",
+      "exampleLabel1": "What's running now?",
+      "exampleLabel2": "Fix a flaky test",
+      "exampleLabel3": "Pause and show changes"
+    },
+    "publish": {
+      "open": "Create draft PR",
+      "openHint": "Opens a confirmation card. Nothing is committed or pushed until you confirm it.",
+      "card": {
+        "title": "Open a draft pull request?",
+        "description": "Tars commits this work, pushes its branch and opens a draft pull request. It never merges or deploys.",
+        "draftTag": "Draft PR",
+        "risk": "Can't be undone",
+        "details": "What will be published",
+        "rows": {
+          "work": "Work",
+          "repository": "Repository",
+          "base": "Base branch",
+          "head": "Head branch",
+          "changedFiles": "Changed files",
+          "commitType": "Commit type",
+          "commitMessage": "Commit message",
+          "title": "Pull request title",
+          "body": "Pull request body",
+          "resume": "Continues from"
+        },
+        "changedFiles_one": "{{count}} file",
+        "changedFiles_other": "{{count}} files",
+        "unknown": "Unknown",
+        "loading": "Reading the workspace…",
+        "previewFailed": "Stave could not read the workspace. Close the card and try again.",
+        "publish": "Open draft PR",
+        "decline": "Decline",
+        "enterKey": "Enter",
+        "escKey": "Esc",
+        "keysHint": "Enter opens the draft pull request. Esc declines.",
+        "bodyHint": "Built by Stave from the frozen report and sent as shown.",
+        "required": "Write a commit message and a pull request title.",
+        "resumeStep": {
+          "commit": "Commit",
+          "push": "Push",
+          "pr": "Draft pull request"
+        },
+        "failed": "Stave could not send the confirmation. Try again."
+      },
+      "reason": {
+        "notOwned": "Tars does not hold this work.",
+        "notCompleted": "Only completed work can be published.",
+        "notVerified": "Stave did not verify this work: it was accepted as done without a check. Publish it yourself if you want it.",
+        "stale": "The work changed since this card was shown. Open it again.",
+        "noWorkspace": "The work's workspace is no longer available.",
+        "noChanges": "There is nothing to publish: no uncommitted change and no commit ahead of the base branch.",
+        "noRemote": "The repository has no GitHub remote named origin.",
+        "ghUnavailable": "GitHub CLI is not installed or not signed in. Run gh auth login, then try again.",
+        "wrongBranch": "The workspace is not on the work's own branch, or that branch is the base branch.",
+        "alreadyPublished": "Its draft pull request is already open.",
+        "inProgress": "This work is already being published.",
+        "publishFailed": "A publish step failed.",
+        "notByFollowUp": "An automatic follow-up cannot propose publishing; only your own request can.",
+        "unknown": "The work could not be published."
+      },
+      "record": {
+        "progress": {
+          "pending": "Publishing…",
+          "committing": "Publishing · committing",
+          "committed": "Publishing · pushing the branch",
+          "pushed": "Publishing · opening the draft pull request",
+          "opened": "Publishing · finishing",
+          "failed": "Publishing · stopped"
+        },
+        "opened": "Draft PR #{{number}} opened · {{source}}",
+        "openedUnnumbered": "Draft PR opened · {{source}}",
+        "existing": "Draft PR #{{number}} was already open · {{source}}",
+        "existingUnnumbered": "A draft PR was already open · {{source}}",
+        "rejected": "Not published · {{source}}",
+        "source": {
+          "click": "click",
+          "key": "key"
+        },
+        "failedStep": "Stopped at: {{step}}",
+        "retry": "Retry",
+        "view": "Open on GitHub"
+      },
+      "proposal": {
+        "invalid": "This publish proposal is no longer valid: the work changed. Ask Tars again or use Create draft PR.",
+        "declined": "Declined. Nothing was published."
+      },
+      "status": {
+        "opened": "Draft PR #{{number}} open",
+        "openedUnnumbered": "Draft PR open",
+        "failed": "Publishing stopped",
+        "running": "Publishing…"
+      },
+      "outputs": {
+        "pullRequest": "Draft PR #{{number}}",
+        "pullRequestUnnumbered": "Draft pull request"
+      }
+    },
+    "workingChanges": {
+      "snapshot": "From your working changes · {{commit}}",
+      "clean": "No working changes to include · from the branch"
+    }
   }
 }

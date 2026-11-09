@@ -17,7 +17,7 @@ export function ShortcutListCard() {
     >
       <div>
         <Button
-          variant="outline"
+          variant="outlined"
           data-testid="settings-open-keyboard-shortcuts"
           onClick={requestOpenKeyboardShortcuts}
         >

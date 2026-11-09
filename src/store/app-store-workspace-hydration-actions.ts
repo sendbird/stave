@@ -12,8 +12,9 @@ import {
 } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import {
+  listRepositoryWorktrees,
   normalizeComparablePath,
-  parseGitWorktrees,
+  worktreeComparablePaths,
 } from "@/lib/source-control-worktrees";
 import type { AppState } from "@/store/app-store.types";
 import type {
@@ -503,14 +504,10 @@ export function createWorkspaceHydrationActions(args: {
       });
       if (runner && repositoryPath) {
         await runner({ cwd: repositoryPath, command: "git worktree prune" });
-        const listResult = await runner({
-          cwd: repositoryPath,
-          command: "git worktree list --porcelain",
-        });
-        if (listResult.ok) {
-          const discoveredWorktrees = parseGitWorktrees({
-            stdout: listResult.stdout,
-          });
+        // Paths as registered, so a symbolic link in the repository path keeps worktree ids.
+        const listedWorktrees = await listRepositoryWorktrees({ repositoryPath, run: runner });
+        if (listedWorktrees) {
+          const discoveredWorktrees = listedWorktrees;
           const rowPathEntries = await Promise.all(
             rows.map(async (row) => {
               const comparablePath = normalizeComparablePath(
@@ -567,11 +564,8 @@ export function createWorkspaceHydrationActions(args: {
             }
             return bestRowByPath.get(comparablePath)?.row.id === row.id;
           });
-          const registeredPaths = new Set(
-            discoveredWorktrees
-              .map((entry) => normalizeComparablePath(entry.path))
-              .filter(Boolean),
-          );
+          // Both path forms: a workspace saved under Git's resolved path is not gone.
+          const registeredPaths = new Set(discoveredWorktrees.flatMap(worktreeComparablePaths));
           const staleIds: string[] = [];
           for (const row of rows) {
             if (row.id === defaultWorkspaceId) continue;
@@ -634,7 +628,10 @@ export function createWorkspaceHydrationActions(args: {
               !normalizedWorktreePath ||
               normalizedWorktreePath === currentRepositoryPath ||
               knownPaths.has(normalizedWorktreePath) ||
-              archivedWorktreePathSet.has(normalizedWorktreePath)
+              // Already saved under the path Git reported before it was aligned.
+              (worktree.gitPath !== undefined && knownPaths.has(normalizeComparablePath(worktree.gitPath))) ||
+              // Archived under either path form: never resurrect it.
+              worktreeComparablePaths(worktree).some((path) => archivedWorktreePathSet.has(path))
             ) {
               continue;
             }
@@ -988,16 +985,11 @@ export function createWorkspaceHydrationActions(args: {
 
       // Prune and list current git worktrees.
       await runner({ cwd: repositoryPath, command: "git worktree prune" });
-      const listResult = await runner({
-        cwd: repositoryPath,
-        command: "git worktree list --porcelain",
-      });
-      if (!listResult.ok) {
+      // Paths as registered, so a symbolic link in the repository path keeps worktree ids.
+      const discoveredWorktrees = await listRepositoryWorktrees({ repositoryPath, run: runner });
+      if (!discoveredWorktrees) {
         return;
       }
-      const discoveredWorktrees = parseGitWorktrees({
-        stdout: listResult.stdout,
-      });
 
       const defaultWorkspaceId = resolveCurrentRepositoryDefaultWorkspaceId({
         repositoryPath,
@@ -1028,11 +1020,8 @@ export function createWorkspaceHydrationActions(args: {
         }
       }
 
-      const registeredWorktreePaths = new Set(
-        discoveredWorktrees
-          .map((entry) => normalizeComparablePath(entry.path))
-          .filter(Boolean),
-      );
+      // Both path forms: a workspace saved under Git's resolved path is not gone.
+      const registeredWorktreePaths = new Set(discoveredWorktrees.flatMap(worktreeComparablePaths));
       const currentRepositoryPath = normalizeComparablePath(repositoryPath);
 
       // Detect new worktrees not yet tracked as workspaces.
@@ -1046,9 +1035,12 @@ export function createWorkspaceHydrationActions(args: {
           !normalizedWorktreePath ||
           normalizedWorktreePath === currentRepositoryPath ||
           knownPathToId.has(normalizedWorktreePath) ||
+          // Already saved under the path Git reported before it was aligned.
+          (worktree.gitPath !== undefined && knownPathToId.has(normalizeComparablePath(worktree.gitPath))) ||
           // Skip worktrees the user archived; re-registering preserved
           // dirty worktrees is the "archive resurrection" bug.
-          archivedWorktreePathSet.has(normalizedWorktreePath)
+          // Archived under either path form: never resurrect it.
+          worktreeComparablePaths(worktree).some((path) => archivedWorktreePathSet.has(path))
         ) {
           continue;
         }

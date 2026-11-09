@@ -28,12 +28,14 @@ export type BadgeTone =
   | "accent"
   | "info"
   | "warning"
-  /** @deprecated Alias of `"warning"` (renders identically) — use `tone="warning"`; removal reserved for the next major. */
-  | "warm"
   | "success"
   | "danger";
 
-export type BadgeVariant = "soft" | "outline" | "solid";
+/**
+ * `outlined` is the bordered weight — the word `Button` and
+ * `SidebarMenuButton` use for it.
+ */
+export type BadgeVariant = "soft" | "outlined" | "solid";
 
 /**
  * Chip scale. `md` (24px) is the in-content default; `sm` (20px) is the dense
@@ -45,7 +47,7 @@ export type BadgeSize = "sm" | "md";
 export type BadgeProps = Omit<React.ComponentProps<"span">, "onRemove"> & {
   /**
    * Render a small leading status dot in the tone color — semantic color on a
-   * small element for quieter tone signaling (pairs well with `outline`).
+   * small element for quieter tone signaling (pairs well with `outlined`).
    */
   dot?: boolean;
   /** Render a trailing remove (×) button; called on click. */
@@ -55,13 +57,11 @@ export type BadgeProps = Omit<React.ComponentProps<"span">, "onRemove"> & {
   /** Chip scale: `sm` 20px for dense rows, `md` 24px in content. @default "md" */
   size?: BadgeSize;
   /**
-   * Semantic color family. `"warm"` is a deprecated alias of `"warning"`
-   * (identical rendering); it keeps working until the next major.
-   * @default "neutral"
+   * Semantic color family. @default "neutral"
    */
   tone?: BadgeTone;
   /**
-   * Visual weight: `soft` = tinted fill (default), `outline` = hairline border
+   * Visual weight: `soft` = tinted fill (default), `outlined` = hairline border
    * on a transparent background with tone-colored text, `solid` = filled chip
    * with inverted text for the one status in a view that must be read before
    * anything else.
@@ -98,7 +98,7 @@ export function Badge({
           statusChip.root,
           statusChipSizeStyles[size],
           transition.colors,
-          variant === "outline" && statusChip.outline,
+          variant === "outlined" && statusChip.outline,
           variantToneStyles[variant][tone],
           onRemove ? styles.removable : null,
           xstyle,
@@ -190,40 +190,25 @@ const styles = stylex.create({
   removeInk: {
     color: "inherit",
   },
-  // `warm` is a deprecated alias of `warning` and rendered identically because
-  // the hue-named tokens it read held the same values. Those tokens are gone
-  // (they named a shade, not a role); the alias reads the role tokens directly
-  // now, so the prop keeps working with no rendered change.
 });
 
-const toneStyles = {
-  ...statusChipSoftToneStyles,
-  warm: statusChipSoftToneStyles.warning,
-} as const;
+const toneStyles = statusChipSoftToneStyles;
 
-const outlineToneStyles = {
-  ...statusChipOutlineToneStyles,
-  warm: statusChipOutlineToneStyles.warning,
-} as const;
+const outlineToneStyles = statusChipOutlineToneStyles;
 
 /**
- * The seven `solid` pairs now live in `recipes/status-chip` — `Badge solid` is
- * no longer the system's only solid semantic object, and `Indicator`'s corner
- * mark reads the same rows. `warm` keeps its deprecated alias here, where the
- * rest of `Badge`'s back-compat lives, rather than leaking a deprecated name
- * into a shared recipe.
+ * The seven `solid` pairs live in `recipes/status-chip` — `Badge solid` is not
+ * the system's only solid semantic object, and `Indicator`'s corner mark
+ * reads the same rows.
  */
-const solidToneStyles = {
-  ...statusChipSolidToneStyles,
-  warm: statusChipSolidToneStyles.warning,
-} as const;
+const solidToneStyles = statusChipSolidToneStyles;
 
 /**
  * variant → tone → style. One lookup instead of the previous ternary chain, so
  * a third variant cannot be added without deciding its tone row.
  */
 const variantToneStyles = {
-  outline: outlineToneStyles,
+  outlined: outlineToneStyles,
   soft: toneStyles,
   solid: solidToneStyles,
 } as const satisfies Record<BadgeVariant, Record<BadgeTone, unknown>>;

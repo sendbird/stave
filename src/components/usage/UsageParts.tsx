@@ -286,7 +286,7 @@ function ShareCell(props: { name: string; value: number; total: number; measured
   if (share === null) return <NotReported />;
   const text = share > 0 && share < 0.005 ? t("usage:compare.underOnePercent") : formatPercent(share);
   return <span className={sx(parts.share)} data-usage-share="">
-    <Meter label={t("usage:usageParts.shareOf", { name: props.name })} hideLabel hideValue size="sm" value={share * 100}
+    <Meter label={t("usage:usageParts.shareOf", { name: props.name })} showLabel={false} hideValue size="sm" value={share * 100}
       getAriaValueText={() => text} xstyle={parts.shareMeter} />
     <span className={sx(styles.number, parts.sharePercent)} aria-hidden>{text}</span>
   </span>;
@@ -384,9 +384,9 @@ export function UsageTurnHistory(props: { report: UsageStatisticsReport; profile
     </section>)}
     <p className={sx(styles.note)}>{t("usage:usageParts.historyMeasurements")}</p>
     <div className={sx(styles.row)}>
-      <Button variant="outline" size="sm" disabled={props.offset === 0} onClick={() => props.onPage(Math.max(0, props.offset - USAGE_TURN_PAGE_SIZE))}>{t("usage:usageParts.previousTurns")}</Button>
+      <Button variant="outlined" size="sm" disabled={props.offset === 0} onClick={() => props.onPage(Math.max(0, props.offset - USAGE_TURN_PAGE_SIZE))}>{t("usage:usageParts.previousTurns")}</Button>
       <p className={sx(styles.note)}>{props.report.totals.turns === 0 ? t("usage:usageParts.turns") : t("usage:usageParts.ofTurns", { value1: props.offset + 1, value2: props.offset + props.report.turns.length, value3: exactNumber(props.report.totals.turns) })}</p>
-      <Button variant="outline" size="sm" disabled={props.offset + USAGE_TURN_PAGE_SIZE >= props.report.totals.turns} onClick={() => props.onPage(props.offset + USAGE_TURN_PAGE_SIZE)}>{t("usage:usageParts.nextTurns")}</Button>
+      <Button variant="outlined" size="sm" disabled={props.offset + USAGE_TURN_PAGE_SIZE >= props.report.totals.turns} onClick={() => props.onPage(props.offset + USAGE_TURN_PAGE_SIZE)}>{t("usage:usageParts.nextTurns")}</Button>
     </div>
   </section>;
 }

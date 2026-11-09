@@ -8,7 +8,9 @@ import { i18n } from "@/i18n/runtime";
  *   until the run writes its first user row, because the host routes the
  *   run's turn before it writes anything.
  * - Stop: stopping a task's turn while its run is active cancels the run first,
- *   so the run never continues after the turn the user stopped.
+ *   so the run never continues after the turn the user stopped. A run an
+ *   active Tars responsibility holds is never cancelled: Tars pauses it
+ *   instead (`tars-owned-control.ts`), and only the turn stops.
  *
  * The agent runs store registers the bridge below, so the send path and the stop
  * action never import it (it imports the app store).
@@ -33,6 +35,8 @@ import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { readProviderAccountIdentity, useProviderAccountIdentities } from "@/lib/providers/use-provider-account-identity";
 import { toast } from "@/lib/notifications/toast";
 import { isTaskArchived } from "@/lib/tasks";
+import { reportTarsOwnedOutcome, routeTarsOwnedIntent, tarsStopEndsTurn } from "@/store/tars-owned-control";
+import type { TarsOwnershipTarget } from "@/lib/tars/ownership";
 
 /** How a run's first prompt left the pending row: written by the run, or never. */
 export type AgentRunFirstPromptEnd = { outcome: "landed" } | { outcome: "ended"; reason: string | null };
@@ -42,7 +46,15 @@ export interface AgentRunBridge {
    * The task's active agent run (an agent run or a legacy run), null for
    * none, undefined while the workspace's agent runs are not loaded.
    */
-  activeAgentRun: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean; providerId?: import("@/lib/providers/provider.types").ProviderId } | null | undefined;
+  activeAgentRun: (workspaceId: string, taskId: string) => {
+    id: string;
+    agentOrigin: boolean;
+    providerId?: import("@/lib/providers/provider.types").ProviderId;
+    /** The run's workflow id; a Tars run's names its responsibility. */
+    workflowId?: string;
+  } | null | undefined;
+  /** Whether the run recorded the turn as the user's own (not one of its automatic turns). */
+  isUserTurn?: (agentRunId: string, turnId: string) => boolean;
   /** Resolve unknown workspace state before deciding whether to start a run. */
   ensureWorkspaceLoaded?: (workspaceId: string) => Promise<void>;
   start: (input: AgentRunStartArgs) => Promise<AgentRunCommandResponse>;
@@ -61,6 +73,16 @@ let bridge: AgentRunBridge | null = null;
 
 export function registerAgentRunBridge(next: AgentRunBridge | null) {
   bridge = next;
+}
+
+/**
+ * The Tars ownership target of a task as the agent runs mirror sees it: its
+ * active run, none, or (outside the loaded workspace) unknown.
+ */
+export function tarsTargetForTask(workspaceId: string, taskId: string): TarsOwnershipTarget {
+  const active = bridge?.activeAgentRun(workspaceId, taskId);
+  if (active === undefined) return { taskId, workspaceId };
+  return { taskId, workspaceId, agentRunId: active?.id ?? null, agentRunWorkflowId: active?.workflowId ?? null };
 }
 
 /** Auto replies keep the provider the active Run admitted; host admission remains authoritative. */
@@ -343,25 +365,51 @@ export async function startAgentRunForSend(args: AgentRunSendArgs): Promise<Send
 const stoppingTaskIds = new Set<string>();
 
 /**
- * Cancels the task's active agent run before its turn is stopped, then stops
- * the turn through `stopTurn`. True when the stop waits on the cancel; false
- * when there is no run to cancel and the caller stops the turn itself.
+ * Settles the run before its turn stops, and says whether the turn may then
+ * stop. Every Stop reaches this through `abortTaskTurn`, so it is the one
+ * place a stop could cancel a run. A run an active Tars responsibility holds
+ * is paused through Tars and recorded as a task-view control; one Tars already
+ * paused, or whose ownership cannot be read while the last snapshot or the
+ * run's marker shows Tars holding it, is left as it is. When Tars refused or
+ * could not be asked, only the user's own turn stops. Any other run is
+ * cancelled, as before.
+ */
+async function settleAgentRunBeforeStop(activeBridge: AgentRunBridge, args: {
+  workspaceId: string; taskId: string; agentRunId: string; workflowId?: string; turnId: string | null;
+}) {
+  const outcome = await routeTarsOwnedIntent({
+    target: { taskId: args.taskId, agentRunId: args.agentRunId, agentRunWorkflowId: args.workflowId ?? null, workspaceId: args.workspaceId },
+    intent: "pause",
+    source: "task",
+  });
+  if (!reportTarsOwnedOutcome(outcome)) await activeBridge.cancel(args.agentRunId);
+  return tarsStopEndsTurn(outcome, Boolean(args.turnId && activeBridge.isUserTurn?.(args.agentRunId, args.turnId)));
+}
+
+/**
+ * Settles the task's active agent run before its turn is stopped (it cancels
+ * the run, or pauses it through Tars when Tars holds it), then stops the turn
+ * through `stopTurn`. True when the stop waits on the run; false when there is
+ * no run and the caller stops the turn itself.
  */
 export function cancelAgentRunBeforeStop(args: {
   workspaceId: string | null | undefined;
   taskId: string;
+  /** The in-flight turn, to tell the user's own turn from the run's automatic one. */
+  turnId?: string | null;
   stopTurn: () => void;
 }): boolean {
-  if (!bridge || !args.workspaceId || stoppingTaskIds.has(args.taskId)) return false;
-  const active = bridge.activeAgentRun(args.workspaceId, args.taskId);
+  const activeBridge = bridge;
+  if (!activeBridge || !args.workspaceId || stoppingTaskIds.has(args.taskId)) return false;
+  const active = activeBridge.activeAgentRun(args.workspaceId, args.taskId);
   if (!active?.agentOrigin) return false;
   stoppingTaskIds.add(args.taskId);
-  void bridge
-    .cancel(active.id)
-    .catch(() => undefined)
-    .finally(() => {
+  void settleAgentRunBeforeStop(activeBridge, { workspaceId: args.workspaceId, taskId: args.taskId, agentRunId: active.id,
+    workflowId: active.workflowId, turnId: args.turnId ?? null })
+    .catch(() => true)
+    .then((endTurn) => {
       try {
-        args.stopTurn();
+        if (endTurn) args.stopTurn();
       } finally {
         stoppingTaskIds.delete(args.taskId);
       }

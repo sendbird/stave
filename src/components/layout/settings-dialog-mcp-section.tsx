@@ -854,7 +854,7 @@ function McpServerConnectionsCard() {
         onRetry={() => void refresh()}
         pending={<p className={sx(styles.mutedText)}>{t("settingsProviders:mcpSection.loading")}</p>}
         isEmpty={(list) => list.length === 0}
-        empty={<p className={sx(styles.emptyBox)}>{t("settingsProviders:mcpSection.empty")}</p>}
+        emptyState={<p className={sx(styles.emptyBox)}>{t("settingsProviders:mcpSection.empty")}</p>}
       >
         {(list) => (
           <div

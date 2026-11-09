@@ -46,6 +46,16 @@ afterEach(() => {
 });
 
 describe("run store", () => {
+  test("latest task run lookup preserves a terminal execution for restart reconciliation", () => {
+    const ended = startChange("finished-before-acknowledgement", "tars-task");
+    ended.agentRun.state = "completed";
+    store.create(ended, AGENT_RUN_NOW);
+    expect(store.getActiveAgentRunForTask("tars-task")).toBeNull();
+    const restored = new AgentRunStore(database);
+    expect(restored.getLatestAgentRunForTask("tars-task")?.id).toBe("finished-before-acknowledgement");
+    expect(restored.getLatestAgentRunForTask("missing-task")).toBeNull();
+  });
+
   test("pending expired runs survive bounded history and exclude superseded outcomes", () => {
     const expired = startChange("expired", "pending-task");
     expired.agentRun.state = "stopped";

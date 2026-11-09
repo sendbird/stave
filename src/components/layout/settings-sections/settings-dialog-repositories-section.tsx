@@ -178,7 +178,7 @@ function RepositorySettingsPanel(args: {
         <div className={sx(styles.rowCenter)}>
           <Button
             size="sm"
-            variant="outline"
+            variant="outlined"
             disabled={repositoryState.status === "loading"}
             onClick={() => setRepositoryRefreshNonce((value) => value + 1)}
           >

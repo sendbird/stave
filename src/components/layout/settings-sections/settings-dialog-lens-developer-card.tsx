@@ -93,7 +93,7 @@ export function LensDeveloperModeCard() {
             />
             <Button
               type="button"
-              variant="outline"
+              variant="outlined"
               size="sm"
               xstyle={styles.cdpAddButton}
               onClick={addCdpApprovedHost}

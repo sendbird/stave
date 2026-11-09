@@ -315,7 +315,7 @@ export type SidebarProps = React.ComponentProps<"nav"> & {
    * Row + padding density. @default "compact"
    *
    * Compact rows are the product default. Hosts that need roomier 36px rows
-   * opt into comfortable density explicitly.
+   * opt into `"regular"` explicitly.
    */
   density?: SidebarDensity;
   /** Bottom-pinned navigation and utility actions, outside the scrolling content region. */
@@ -667,14 +667,20 @@ export function SidebarGroup({
   );
 }
 
-export type SidebarGroupLabelProps = React.ComponentProps<"div">;
+export type SidebarGroupLabelProps = React.ComponentProps<"div"> & {
+  /**
+   * Render the part as this element (Base UI's `render`): its props and
+   * classes merge onto it and the part's own content becomes its children.
+   */
+  render?: React.ReactElement;
+};
 
 export function SidebarGroupLabel({
-  asChild = false,
   children,
   className,
+  render,
   ...props
-}: SidebarGroupLabelProps & { asChild?: boolean }) {
+}: SidebarGroupLabelProps) {
   useTranslation();
   const sidebarLayout = useOptionalSidebarLayout();
   const resolvedClassName = cx(
@@ -685,17 +691,17 @@ export function SidebarGroupLabel({
     className,
   );
 
-  if (asChild && isValidElement(children)) {
+  if (isValidElement(render)) {
     type ChildProps = React.HTMLAttributes<HTMLElement> & {
       "data-aui-control-icon-button"?: string;
     };
-    const child = children as React.ReactElement<ChildProps>;
+    const child = render as React.ReactElement<ChildProps>;
 
     return cloneElement(child, {
       ...props,
       "data-aui-control-icon-button": "true",
       className: cx(resolvedClassName, child.props.className),
-    });
+    }, children);
   }
 
   return (
@@ -734,13 +740,17 @@ export function SidebarGroupContent({
 }
 
 export type SidebarGroupActionProps = React.ComponentProps<"button"> & {
-  asChild?: boolean;
+  /**
+   * Render the part as this element (Base UI's `render`): its props and
+   * classes merge onto it and the part's own content becomes its children.
+   */
+  render?: React.ReactElement;
 };
 
 export function SidebarGroupAction({
-  asChild = false,
   children,
   className,
+  render,
   type = "button",
   ...props
 }: SidebarGroupActionProps) {
@@ -759,14 +769,14 @@ export function SidebarGroupAction({
     className,
   );
 
-  if (asChild && isValidElement(children)) {
+  if (isValidElement(render)) {
     type ChildProps = React.HTMLAttributes<HTMLElement>;
-    const child = children as React.ReactElement<ChildProps>;
+    const child = render as React.ReactElement<ChildProps>;
 
     return cloneElement(child, {
       ...props,
       className: cx(resolvedClassName, child.props.className),
-    });
+    }, children);
   }
 
   return (
@@ -858,7 +868,6 @@ export type SidebarMenuButtonProps = Omit<
   React.ComponentProps<"a">,
   "children"
 > & {
-  asChild?: boolean;
   badge?: React.ReactNode;
   children: React.ReactNode;
   closeOnSelect?: boolean;
@@ -878,13 +887,17 @@ export type SidebarMenuButtonProps = Omit<
   description?: React.ReactNode;
   disabled?: boolean;
   icon?: React.ReactNode;
+  /**
+   * Render the part as this element (Base UI's `render`): its props and
+   * classes merge onto it and the row's icon, label, description and badge become its children.
+   */
+  render?: React.ReactElement;
   size?: SidebarMenuButtonSize;
   tooltip?: React.ReactNode;
   variant?: SidebarMenuButtonVariant;
 };
 
 export function SidebarMenuButton({
-  asChild = false,
   badge,
   children,
   className,
@@ -895,6 +908,7 @@ export function SidebarMenuButton({
   href,
   icon,
   onClick,
+  render,
   size = "md",
   style,
   tooltip,
@@ -925,12 +939,12 @@ export function SidebarMenuButton({
         ? controlHeights.sm
         : controlHeights[size],
       focusRing.ring,
-      variant === "outline" && styles.sidebarItemOutline,
+      variant === "outlined" && styles.sidebarItemOutline,
       size === "sm" && styles.sidebarItemSm,
       description != null && styles.sidebarItemStacked,
       current && styles.sidebarItemCurrent,
       disabled && styles.sidebarItemDisabled,
-      !asChild && !icon && styles.sidebarItemNoIcon,
+      !icon && styles.sidebarItemNoIcon,
       // The icon rail's squares follow the rail's density like every other
       // control in it. Pinned at `md`, a collapsed compact rail rendered 36px
       // nav squares between a 32px collapse trigger and a 32px search button —
@@ -962,61 +976,6 @@ export function SidebarMenuButton({
       </SidebarMenuTooltip>
     );
   };
-
-  if (asChild && isValidElement(children)) {
-    type ChildProps = React.HTMLAttributes<HTMLElement> & {
-      "aria-current"?: React.AriaAttributes["aria-current"];
-      "aria-disabled"?: React.AriaAttributes["aria-disabled"];
-      "data-current"?: string;
-      "data-disabled"?: string;
-      "data-aui-control"?: string;
-      "data-aui-control-size"?: SidebarMenuButtonSize;
-      "data-size"?: SidebarMenuButtonSize;
-      "data-variant"?: SidebarMenuButtonVariant;
-      href?: string;
-      style?: React.CSSProperties;
-    };
-    const child = children as React.ReactElement<ChildProps>;
-    const childProps = child.props;
-
-    return renderWithTooltip(
-      cloneElement(child, {
-        ...props,
-        "aria-current": current ? "page" : childProps["aria-current"],
-        "aria-disabled": disabled || childProps["aria-disabled"],
-        className: cx(resolvedClassName, childProps.className),
-        "data-aui-control": "sidebar-menu-button",
-        "data-aui-control-size": size,
-        "data-current": current ? "true" : childProps["data-current"],
-        "data-disabled": disabled ? "true" : childProps["data-disabled"],
-        "data-size": size,
-        "data-variant": variant,
-        href: disabled ? undefined : (href ?? childProps.href),
-        onClick: (event: React.MouseEvent<HTMLElement>) => {
-          if (disabled) {
-            event.preventDefault();
-            return;
-          }
-
-          childProps.onClick?.(event);
-
-          if (!event.defaultPrevented) {
-            onClick?.(event as unknown as React.MouseEvent<HTMLAnchorElement>);
-            if (!event.defaultPrevented) {
-              closeMobileSidebar();
-            }
-          }
-        },
-        style: {
-          ...childProps.style,
-          ...style,
-          "--aui-control-icon-size": controlIconSizes[size],
-        } as React.CSSProperties,
-        tabIndex: disabled ? -1 : (props.tabIndex ?? childProps.tabIndex),
-        title: title ?? childProps.title,
-      }),
-    );
-  }
 
   const content = (
     <>
@@ -1058,6 +1017,62 @@ export function SidebarMenuButton({
       {badge ? <SidebarMenuBadge>{badge}</SidebarMenuBadge> : null}
     </>
   );
+
+  if (isValidElement(render)) {
+    type ChildProps = React.HTMLAttributes<HTMLElement> & {
+      "aria-current"?: React.AriaAttributes["aria-current"];
+      "aria-disabled"?: React.AriaAttributes["aria-disabled"];
+      "data-current"?: string;
+      "data-disabled"?: string;
+      "data-aui-control"?: string;
+      "data-aui-control-size"?: SidebarMenuButtonSize;
+      "data-size"?: SidebarMenuButtonSize;
+      "data-variant"?: SidebarMenuButtonVariant;
+      href?: string;
+      style?: React.CSSProperties;
+    };
+    const child = render as React.ReactElement<ChildProps>;
+    const childProps = child.props;
+
+    return renderWithTooltip(
+      cloneElement(child, {
+        ...props,
+        "aria-current": current ? "page" : childProps["aria-current"],
+        "aria-disabled": disabled || childProps["aria-disabled"],
+        className: cx(resolvedClassName, childProps.className),
+        "data-aui-control": "sidebar-menu-button",
+        "data-aui-control-size": size,
+        "data-current": current ? "true" : childProps["data-current"],
+        "data-disabled": disabled ? "true" : childProps["data-disabled"],
+        "data-size": size,
+        "data-variant": variant,
+        href: disabled ? undefined : (href ?? childProps.href),
+        onClick: (event: React.MouseEvent<HTMLElement>) => {
+          if (disabled) {
+            event.preventDefault();
+            return;
+          }
+
+          childProps.onClick?.(event);
+
+          if (!event.defaultPrevented) {
+            onClick?.(event as unknown as React.MouseEvent<HTMLAnchorElement>);
+            if (!event.defaultPrevented) {
+              closeMobileSidebar();
+            }
+          }
+        },
+        style: {
+          ...childProps.style,
+          ...style,
+          "--aui-control-icon-size": controlIconSizes[size],
+        } as React.CSSProperties,
+        tabIndex: disabled ? -1 : (props.tabIndex ?? childProps.tabIndex),
+        title: title ?? childProps.title,
+      }, content),
+    );
+  }
+
 
   if (href === undefined) {
     return renderWithTooltip(
@@ -1193,16 +1208,19 @@ export type SidebarMenuSubButtonProps = Omit<
   React.ComponentProps<"a">,
   "children"
 > & {
-  asChild?: boolean;
   children: React.ReactNode;
   closeOnSelect?: boolean;
   current?: boolean;
   disabled?: boolean;
+  /**
+   * Render the part as this element (Base UI's `render`): its props and
+   * classes merge onto it and the part's own content becomes its children.
+   */
+  render?: React.ReactElement;
   size?: SidebarMenuSubButtonSize;
 };
 
 export function SidebarMenuSubButton({
-  asChild = false,
   children,
   className,
   closeOnSelect = true,
@@ -1210,6 +1228,7 @@ export function SidebarMenuSubButton({
   disabled,
   href,
   onClick,
+  render,
   size = "md",
   ...props
 }: SidebarMenuSubButtonProps) {
@@ -1248,7 +1267,7 @@ export function SidebarMenuSubButton({
       children
     );
 
-  if (asChild && isValidElement(children)) {
+  if (isValidElement(render)) {
     type ChildProps = React.HTMLAttributes<HTMLElement> & {
       "aria-current"?: React.AriaAttributes["aria-current"];
       "aria-disabled"?: React.AriaAttributes["aria-disabled"];
@@ -1257,7 +1276,7 @@ export function SidebarMenuSubButton({
       "data-size"?: SidebarMenuSubButtonSize;
       href?: string;
     };
-    const child = children as React.ReactElement<ChildProps>;
+    const child = render as React.ReactElement<ChildProps>;
     const childProps = child.props;
 
     return cloneElement(child, {
@@ -1286,7 +1305,7 @@ export function SidebarMenuSubButton({
       },
       tabIndex: disabled ? -1 : (props.tabIndex ?? childProps.tabIndex),
       title: title ?? childProps.title,
-    });
+    }, label);
   }
 
   if (href === undefined) {

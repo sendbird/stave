@@ -24,7 +24,7 @@ const optionValue = (option: SearchablePickerOption) => option.value;
 
 function OptionBadge(props: { label?: string }) {
   return props.label ? (
-    <Badge size="sm" tone="neutral" variant="outline" xstyle={styles.badge}>
+    <Badge size="sm" tone="neutral" variant="outlined" xstyle={styles.badge}>
       {props.label}
     </Badge>
   ) : null;

@@ -88,7 +88,7 @@ function AccountsBillingChoices() {
           <span className={sx(styles.rowDetail)}>{choice.body}</span>
         </span>
         <span className={sx(styles.rowActions)}>
-          <Button size="sm" variant="outline" onClick={choice.onSelect}>{choice.action}</Button>
+          <Button size="sm" variant="outlined" onClick={choice.onSelect}>{choice.action}</Button>
         </span>
       </li>)}
     </ul>
@@ -156,7 +156,7 @@ function CliManagedProviderRow({ providerId, tool, path }: {
       </span>
     </span>
     <span className={sx(styles.rowActions)}>
-      <Button size="sm" variant="outline" onClick={copy}><Copy aria-hidden />{t("settingsProviders:toolingSection.actions.copyLoginCommand")}</Button>
+      <Button size="sm" variant="outlined" onClick={copy}><Copy aria-hidden />{t("settingsProviders:toolingSection.actions.copyLoginCommand")}</Button>
     </span>
     {path ? <div className={sx(styles.rowPath)} data-cli-path={providerId}>
       <SettingsAdvancedDisclosure
@@ -237,7 +237,7 @@ function CliNotInstalledGroup(args: {
     >
       {args.providerIds.map((providerId) => <CliPathField key={providerId} providerId={providerId} />)}
       <span className={sx(styles.rowActions)}>
-        <Button size="sm" variant="outline" onClick={openToolingSettings}>{t("settingsConnections:accountsOnboarding.actions.openTooling")}</Button>
+        <Button size="sm" variant="outlined" onClick={openToolingSettings}>{t("settingsConnections:accountsOnboarding.actions.openTooling")}</Button>
       </span>
     </SettingsAdvancedDisclosure>
   </li>;

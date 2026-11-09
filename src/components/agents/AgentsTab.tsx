@@ -54,7 +54,7 @@ import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { ExportAgent } from "./ExportAgent";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentEditor } from "./AgentEditor";
-import { AgentActivity } from "./AgentActivity";
+import { AgentActivity, useTarsWorkFilter } from "./AgentActivity";
 import { AgentHistory } from "./AgentHistory";
 import { AgentProfileHeader } from "./AgentProfileHeader";
 import { AgentsListResizeHandle, useAgentsListWidthStyle } from "./AgentsListResizeHandle";
@@ -84,7 +84,7 @@ function initialAgentDetailTab(): (typeof AGENT_DETAIL_TABS)[number] {
 }
 
 /** Recent assignments of one agent, refreshed when the host reports a change. */
-function useAssignments(agentConfigId: string | null) {
+function useAssignments(agentConfigId: string | null, excludeTars = false) {
   const [assignments, setAssignments] = useState<AgentAssignment[]>([]);
   const load = useCallback(async () => {
     const api = window.api?.agents;
@@ -92,9 +92,9 @@ function useAssignments(agentConfigId: string | null) {
       setAssignments([]);
       return;
     }
-    const result = await api.listAssignments({ agentConfigId, limit: 10 });
+    const result = await api.listAssignments({ agentConfigId, limit: 10, ...(excludeTars ? { excludeTars } : {}) });
     setAssignments(result.ok ? result.value : []);
-  }, [agentConfigId]);
+  }, [agentConfigId, excludeTars]);
   useEffect(() => {
     void load();
     return window.api?.agents?.subscribeChanged(() => void load());
@@ -199,7 +199,8 @@ function AgentDetail(props: {
 }) {
   useTranslation();
   const { agent } = props;
-  const assignments = useAssignments(agent.id);
+  const tarsWork = useTarsWorkFilter(agent.id);
+  const assignments = useAssignments(agent.id, tarsWork.excludeTars);
   const editable = agent.source === "custom";
   const storedSuggestions = useAppStore((state) => state.settings.agentSuggestions[agent.id]);
   const suggestions = storedSuggestions ?? NO_SUGGESTIONS;
@@ -321,8 +322,8 @@ function AgentDetail(props: {
             ) : null}
           </div>
         </div>
-        <AgentActivity assignments={assignments} />
-        {tabs ? <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} /> : settingsTab}
+        <AgentActivity assignments={assignments} tarsWork={tarsWork.toggle} />
+        {tabs ? <Tabs variant="line" options={tabs} defaultValue={initialAgentDetailTab()} /> : settingsTab}
       </div>
     </div>
   );

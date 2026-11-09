@@ -28,6 +28,7 @@ import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
 import { AssistantMessageBody } from "./message/assistant-trace";
 import { runTurnDialogStyles as styles } from "./run-turn-dialog.styles";
+import { TranscriptEntranceScope } from "./transcript-entrance-scope";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -210,20 +211,23 @@ export function RunTurnTranscript(props: {
   const showInterimMessages = useAppStore(
     (state) => state.settings.showInterimMessages,
   );
+  // A recorded turn opens all at once: a replay, not an arrival.
   return (
-    <ol aria-label={i18n.t("session:runTurnDialog.ariaLabel")} className={sx(styles.transcript)}>
-      {messages.map((message, index) => (
-        <RunTurnMessageRow
-          key={message.id}
-          message={message}
-          taskId={props.taskId}
-          startedTurnId={
-            index === 0 && message.role === "user" ? props.turnId : undefined
-          }
-          showInterimMessages={showInterimMessages}
-        />
-      ))}
-    </ol>
+    <TranscriptEntranceScope>
+      <ol aria-label={i18n.t("session:runTurnDialog.ariaLabel")} className={sx(styles.transcript)}>
+        {messages.map((message, index) => (
+          <RunTurnMessageRow
+            key={message.id}
+            message={message}
+            taskId={props.taskId}
+            startedTurnId={
+              index === 0 && message.role === "user" ? props.turnId : undefined
+            }
+            showInterimMessages={showInterimMessages}
+          />
+        ))}
+      </ol>
+    </TranscriptEntranceScope>
   );
 }
 

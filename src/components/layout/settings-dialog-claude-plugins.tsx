@@ -248,7 +248,7 @@ export function ClaudeInstalledPluginsField() {
             onRetry={() => void loadPlugins()}
             pending={<p className={sx(styles.empty)}>{t("settingsProviders:claudePlugins.checking")}</p>}
             isEmpty={(list) => list.length === 0}
-            empty={
+            emptyState={
               <p className={sx(styles.empty)}>
                 {t("settingsProviders:settingsDialogClaudePlugins.noClaudeCLIPluginsFoundInstall")}
               </p>

@@ -18,7 +18,8 @@ import { springSmooth, vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Tooltip } from "./Tooltip";
 
-export type ToggleGroupItem = {
+/** One choice — the `options` vocabulary every choice list shares. */
+export type ToggleGroupOption = {
   disabled?: boolean;
   icon?: React.ReactNode;
   label: React.ReactNode;
@@ -51,8 +52,12 @@ export type ToggleGroupProps = Omit<
    * switches (list/board) that should read as quiet, icon-only chrome.
    */
   iconOnly?: boolean;
-  items: ToggleGroupItem[];
   label?: React.ReactNode;
+  /**
+   * The choices, in order — `options`, as on `RadioGroup`, `Select` and
+   * `Tabs`.
+   */
+  options: ToggleGroupOption[];
 } & XstyleProp;
 
 export function ToggleGroup({
@@ -61,10 +66,10 @@ export function ToggleGroup({
   density = "regular",
   description,
   iconOnly = false,
-  items,
   label,
   multiple = false,
   onValueChange,
+  options: items,
   orientation = "horizontal",
   value,
   xstyle,

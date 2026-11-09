@@ -134,7 +134,7 @@ function StageDecisions(props: DecisionProps & { scope: Extract<ReviewScope, { k
         state={state}
         stateLabel={stateLabel}
         summary={readSummary(props) ?? undefined}
-        busy={busy}
+        loading={busy}
         approveLabel={next ? next.label : i18n.t("review:decisions.stage.signOff")}
         requestChangesLabel={i18n.t("review:decisions.stage.askForChanges")}
         onApprove={decision.status === "waiting" ? () => runCommand("signOff", decision.signOff).then((result) => {

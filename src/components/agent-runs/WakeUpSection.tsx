@@ -66,7 +66,7 @@ export function WakeUpSectionView(props: {
           {confirmingRemove ? (
             <>
               <span className={sx(styles.notice)}>{i18n.t("agentRuns:wakeUpSection.wakeUpSectionView2")}</span>
-              <Button size="xs" variant="danger" disabled={busy} onClick={props.onRemove}>
+              <Button size="xs" variant="primary" tone="danger" disabled={busy} onClick={props.onRemove}>
                 {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView3")}</Button>
               <Button size="xs" variant="quiet" onClick={() => setConfirmingRemove(false)}>
                 {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView4")}</Button>

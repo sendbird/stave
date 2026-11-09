@@ -41,9 +41,12 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
     const repositoryPath = "/tmp/stave-fleet-needs";
     const workspaceId = "ws-fleet-needs";
     const taskId = "task-fleet-needs";
+    // The finished result belongs to its own task: a result on a task whose
+    // newer turn is running is superseded and asks for nothing.
+    const reviewTaskId = "task-fleet-review";
     const workspaceSnapshot = {
       activeTaskId: taskId,
-      openTaskTabIds: [taskId],
+      openTaskTabIds: [taskId, reviewTaskId],
       activeSurface: { kind: "task", taskId },
       tasks: [
         {
@@ -51,6 +54,14 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           title: "Fleet fixture",
           provider: "codex",
           updatedAt: "2026-07-26T01:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+        {
+          id: reviewTaskId,
+          title: "Review summary",
+          provider: "codex",
+          updatedAt: "2026-07-26T01:05:00.000Z",
           unread: false,
           archivedAt: null,
         },
@@ -125,7 +136,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           repositoryName: "stave-fleet-needs",
           workspaceId,
           workspaceName: "fleet-needs",
-          taskId,
+          taskId: reviewTaskId,
           taskTitle: "Review summary",
           turnId: "turn-result",
           providerId: "codex",

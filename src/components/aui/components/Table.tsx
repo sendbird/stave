@@ -112,22 +112,16 @@ export function TableFooter({ className, xstyle, ...props }: TableFooterProps) {
 export type TableRowProps = React.ComponentProps<"tr"> & {
   /** Marks the one row currently represented by an inspector or detail view. */
   current?: boolean;
-  /**
-   * @deprecated Use `current`. This alias preserves the previous current-row
-   * presentation; it does not model checkbox selection.
-   */
-  selected?: boolean;
 } & XstyleProp;
 
 export function TableRow({
   className,
   current = false,
-  selected = false,
   xstyle,
   ...props
 }: TableRowProps) {
   const direction = useDirection();
-  const isCurrent = current || selected;
+  const isCurrent = current;
 
   return (
     <tr
@@ -148,7 +142,6 @@ export function TableRow({
         className,
       )}
       data-current={isCurrent ? "true" : undefined}
-      data-selected={selected ? "true" : undefined}
     />
   );
 }
