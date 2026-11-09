@@ -106,8 +106,12 @@ collaboration panels use the same coordinator as these Local MCP tools:
 Inside a Stave turn these tools take the calling task from the host's caller
 grant: the parent ids are optional, and a `parentTaskId` that names another task
 is refused with `invalid-ownership`. A subagent cannot start subagents of its
-own. A client Stave did not start (a terminal CLI with your token) names the
-parent explicitly.
+own: a turn a delegation started, or any turn of the agent run it supervises,
+is refused with `invalid-request`. The task a delegation created is still an
+ordinary task, so a turn or agent run you start in it yourself (for example
+`$ship` with a review stage) may delegate within its own run's limits. A client
+Stave did not start (a terminal CLI with your token) names the parent
+explicitly.
 
 The Subagents tab shows each subagent's agent (or model), what it is doing,
 its state and how long it ran (still counting while it runs; a finished one also
