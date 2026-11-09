@@ -245,6 +245,10 @@ test("a confirmed publish card commits, pushes the work's branch and opens a dra
       row = (await stave!.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)!;
       return { state: row.state, run: Boolean(row.agentRunId) };
     }, { timeout: 90_000 }).toEqual({ state: "running", run: true });
+    // Take over only once the run's first turn reached the provider: a takeover before it interrupts no turn.
+    await expect.poll(async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((entry) => entry.runTurn).length,
+      { timeout: 60_000 }).toBe(2);
+    row = (await stave.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)!;
     const takeover = await stave.page.evaluate((entry) => window.api!.tars!.act({ requestId: "publish-takeover", responsibilityId: entry.id,
       expectedRevision: entry.revision, operation: "takeover", source: "click" }), row);
     expect(takeover.record.status).toBe("applied");

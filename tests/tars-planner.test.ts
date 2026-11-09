@@ -4,7 +4,8 @@ import { TarsConversationStore, TarsStorageBusyError } from "../electron/persist
 import { TarsStore } from "../electron/persistence/tars-store";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { createSecondaryRunCoordinator } from "../electron/main/runs/secondary-run-coordinator";
-import { parseTarsDecisionOutput, processTarsMessage } from "../electron/main/tars-planner";
+import { parseTarsDecisionOutput, processTarsMessage, TARS_PLANNER_MAX_EVENTS } from "../electron/main/tars-planner";
+import { executeSecondaryProviderRun } from "../electron/providers/secondary-run-executor";
 import type { SecondaryProviderExecutionRequest } from "../src/lib/runs/secondary-run";
 
 import { SETTINGS, testContext } from "./tars-test-context";
@@ -194,4 +195,54 @@ test("a lock that never clears still fails the message after the bounded retries
   await processTarsMessage(message.id, f.ports);
   expect(f.requests).toHaveLength(1);
   expect(f.conversations.get(message.id)?.state).toBe("failed");
+});
+
+test("a failure keeps its phase and cause on the message, before the model call as well as after it", async () => {
+  const errors: unknown[][] = [];
+  const log = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  try {
+    // Before the model call there is no run in the ledger: the message is the only record.
+    const early = fixture(async () => JSON.stringify({ reply: "Never asked.", actions: [] }));
+    const first = early.create("early");
+    await processTarsMessage(first.id, { ...early.ports, context: async () => { throw new Error("The workspace registry could not be read."); } });
+    expect(early.requests).toEqual([]);
+    expect(early.conversations.get(first.id)).toMatchObject({ state: "failed", errorCode: "reasoningFailed",
+      error: "The representative could not finish this message. Retry explicitly after inspecting its state. Failed at context: The workspace registry could not be read." });
+    early.database.close();
+    // A provider that refuses at once names why, instead of a generic sentence.
+    const refused = fixture(async () => "");
+    const claimRun = refused.ports.coordinator;
+    const second = refused.create("refused");
+    await processTarsMessage(second.id, { ...refused.ports, coordinator: { ...claimRun, execute: async (args: Parameters<typeof claimRun.execute>[0]) => {
+      const accepted = await claimRun.execute(args);
+      return { ...accepted, execution: { ...accepted.execution!, status: "failed" as const, text: "", stopReason: "runtime_failure", error: "Claude usage limit reached." } };
+    } } });
+    expect(refused.conversations.get(second.id)?.error).toContain("Failed at model: The provider ended the reasoning turn failed (runtime_failure): Claude usage limit reached.");
+    refused.database.close();
+    // An invalid decision says where it went wrong without quoting the model's output.
+    const invalid = fixture(async () => '{"reply":"Secret plan","actions":[{"kind":"publish"}]}');
+    const third = invalid.create("invalid");
+    await processTarsMessage(third.id, invalid.ports);
+    const saved = invalid.conversations.get(third.id)?.error ?? "";
+    expect(saved).toContain("Failed at decision: The decision did not match its schema at actions.0");
+    expect(saved).not.toContain("Secret plan");
+    invalid.database.close();
+    expect(errors.map(([line, detail]) => [line, (detail as { phase: string }).phase])).toEqual([["[tars] reasoning failed", "context"],
+      ["[tars] reasoning failed", "model"], ["[tars] reasoning failed", "decision"]]);
+  } finally { console.error = log; }
+});
+
+test("a reply streamed as many small deltas reaches the planner whole, not truncated", async () => {
+  const reply = JSON.stringify({ reply: "The decisive check still fails in vendor/clock.test.ts. Should I ask for permission to edit vendor/, or stop here?".repeat(4), actions: [] });
+  const f = fixture(async () => reply);
+  const message = f.create(); await processTarsMessage(message.id, f.ports);
+  const request = f.requests[0]!;
+  expect(request.policy.maxEvents).toBe(TARS_PLANNER_MAX_EVENTS);
+  // The real executor counts every streamed event against the claimed policy.
+  const result = await executeSecondaryProviderRun(request, {
+    streamTurn: async () => [...[...reply].map((text) => ({ type: "text" as const, text })), { type: "done" as const, stop_reason: "end_turn" }],
+    cleanupTask: () => ({ ok: true, message: "cleaned" }),
+  });
+  expect(result).toMatchObject({ status: "completed", truncated: false, text: reply });
 });

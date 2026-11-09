@@ -300,7 +300,7 @@ function check(expectations: Expectation[], name: string, ok: boolean | null, ev
 /** The planner's work: messages it reasoned about, their actions and how the host received them. */
 function plannerRecord(conversation: TarsConversation) {
   return conversation.messages.map((message) => ({ id: message.id, origin: message.origin?.kind ?? "user",
-    reason: message.origin?.kind === "followUp" ? message.origin.reason : undefined, state: message.state, errorCode: message.errorCode ?? null,
+    reason: message.origin?.kind === "followUp" ? message.origin.reason : undefined, state: message.state, errorCode: message.errorCode ?? null, error: message.error?.slice(0, 1200) ?? null,
     model: `${message.providerId}/${message.model}`, actions: message.decision?.actions.map((action) => action.kind) ?? [],
     reply: message.reply?.slice(0, 400) ?? null,
     receipts: conversation.receipts.filter((receipt) => receipt.messageId === message.id).map((receipt) => ({ status: receipt.status, reason: receipt.reason ?? null, error: receipt.error?.slice(0, 300) ?? null })) }));
