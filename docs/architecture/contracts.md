@@ -639,6 +639,10 @@ Agent run and provider paths:
   forwarding them to the host
 - `electron/host-service/protocol.ts` and `electron/host-service.ts` —
   `tars.invoke` request/result maps, awaited dispatch, startup and shutdown
+- `src/lib/tars/brief.ts` — the request view's read (`tars:get-brief` →
+  `tars.brief`): the user's message and Tars's instruction a unit keeps from
+  admission (`request`, `delegatedInstruction`), which `tarsSnapshotForWindow`
+  leaves out of every snapshot like `mandate`
 - `electron/host-service/tars-runtime.ts` — serialized admission,
   reconciliation and the one `act` control path
 - `electron/host-service/tars-control.ts` — deterministic control admission,

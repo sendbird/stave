@@ -3118,7 +3118,9 @@ interface WindowApi {
    * publish card and `previewPublish` (`tars:publish-preview`) reads what it
    * shows; the host commits, pushes and opens a draft pull request only on
    * that confirmation. `reprioritize` (`tars:reprioritize`) moves queued work
-   * in the queue on a `reprioritize` decision's host rules. `onChanged`
+   * in the queue on a `reprioritize` decision's host rules. `getBrief`
+   * (`tars:get-brief`) reads one responsibility's saved message and Tars's
+   * instruction, which the snapshot leaves out. `onChanged`
    * pushes `tars:changed` (`{ scope: "snapshot" | "conversation" }`).
    */
   tars?: TarsBridgeApi;

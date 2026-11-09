@@ -32,6 +32,7 @@ import { tarsStyles as styles } from "./tars.styles";
 import { tarsTrayStyles as trayStyles } from "./tars-tray.styles";
 import { TarsConversation, type TarsConversationController, type TarsFlowContext } from "./TarsConversation";
 import { TarsSideView } from "./TarsSideView";
+import type { TarsBriefLoader } from "./use-tars-brief";
 import { TarsBlockedNextSteps } from "./TarsBlockedNextSteps";
 import { useTarsExecutionPath, useTarsRunDetails } from "./use-tars-run-details";
 import { TarsSettings } from "./TarsSettings";
@@ -262,10 +263,12 @@ export function TarsView() {
     if (side) { closeSide(); setPinnedTrayOpen(true); } else setPinnedTrayOpen(next);
   };
   const placement = tarsSideViewPlacement(size ?? { width: 0, height: 0 });
+  // The bridge object never changes, so the request view reads again only when its work changes.
+  const loadBrief = useMemo<TarsBriefLoader | undefined>(() => api?.getBrief ? (input) => api.getBrief!(input) : undefined, [api]);
   const sideView = side && sideRow ? <TarsSideView target={side.target} row={sideRow} run={tarsRunOf(sideRow, runs)} cwd={sideCwd}
     placement={pinned ? { placement: "column" } : { placement: "inline", maxHeight: placement.placement === "inline" ? placement.maxHeight : 0 }}
     records={conversation.conversation?.records.filter((record) => record.action.responsibilityId === sideRow.id) ?? []}
-    publishAction={sideRow.state === "completed" ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined}
+    publishAction={sideRow.state === "completed" ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined} loadBrief={loadBrief}
     takeFocus={side.takeFocus} onClose={closeSide} onKind={(kind) => setSide({ target: { responsibilityId: sideRow.id, kind }, takeFocus: false })}
     onQuote={(text) => controller.current?.insert(text)}
     blockedActions={sideRow.state !== "blocked" ? undefined : <TarsBlockedNextSteps row={sideRow} actions={trayActions} titleOf={(id) => responsibilities.find((row) => row.id === id)?.title}

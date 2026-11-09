@@ -118,11 +118,19 @@ export function TarsFlowNodes({ flow, agentNameOf, onShowInFleet, onOpenSide }: 
     : flow.state === "completed" || flow.state === "cancelled" ? t(`shell:tars.states.${flow.state}`) : t("shell:tars.flow.notFinished");
   return <StepRail density="compact" role="list" xstyle={styles.nodes} data-tars-flow-nodes="">
     <StepRail.Step role="listitem" marker={<NodeMarker state="ready" />}>
-      <div className={sx(styles.node)}>
+      {/* The request opens what the work was handed: the user's message, Tars's instruction and the criteria. */}
+      {onOpenSide ? <Button variant="ghost" size="sm" layout="host" xstyle={styles.stageButton} data-tars-flow-request=""
+        title={t("shell:tars.flow.openBrief")} onClick={() => onOpenSide({ responsibilityId: flow.responsibilityId, kind: "brief" })}>
+        <span className={sx(styles.node, styles.nodeFlush)}>
+          <span className={sx(styles.nodeLabel)}>{t("shell:tars.flow.request")}</span>
+          <span className={sx(styles.nodeText)}>{flow.title}</span>
+          <span className={sx(styles.nodeLabel)}>{t("shell:tars.flow.criteria", { count: flow.criteriaCount })}</span>
+        </span>
+      </Button> : <div className={sx(styles.node)} data-tars-flow-request="">
         <p className={sx(styles.nodeLabel)}>{t("shell:tars.flow.request")}</p>
         <p className={sx(styles.nodeText)}>{flow.title}</p>
         <p className={sx(styles.nodeLabel)}>{t("shell:tars.flow.criteria", { count: flow.criteriaCount })}</p>
-      </div>
+      </div>}
     </StepRail.Step>
     <StepRail.Step role="listitem" marker={<NodeMarker state="ready" />}>
       <div className={sx(styles.node)} data-tars-flow-decision="">

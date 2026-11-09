@@ -1581,7 +1581,9 @@
           "stopped": "{{title}}: stopped"
         },
         "timeline": "Timeline",
-        "timelineLabel": "Open the timeline for {{title}}"
+        "timelineLabel": "Open the timeline for {{title}}",
+        "brief": "Request",
+        "briefLabel": "Open the request and instruction for {{title}}"
       },
       "branch": "Branch",
       "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time.",
@@ -1619,7 +1621,8 @@
       "openTimeline": "Open {{title}} in the run timeline",
       "openReview": "Open the findings of {{title}}",
       "openUnmet": "{{title}} cannot continue: open the report's unmet criteria",
-      "openReport": "Open the result report"
+      "openReport": "Open the result report",
+      "openBrief": "Open the request and Tars's instruction"
     },
     "detail": {
       "waitingForUser": "The task is waiting for your answer or approval.",
@@ -1759,12 +1762,14 @@
     },
     "side": {
       "kinds": {
+        "brief": "Request and instruction",
         "report": "Result report",
         "changes": "Changes",
         "timeline": "Run timeline",
         "review": "Review"
       },
       "kindsShort": {
+        "brief": "Request",
         "report": "Report",
         "changes": "Changes",
         "timeline": "Timeline",
@@ -1778,6 +1783,28 @@
         "superseded": "Checked on {{revision}} · not the final revision",
         "unknown": "Checked revision unknown",
         "finalUnknown": "Checked on {{revision}} · final revision unknown"
+      },
+      "brief": {
+        "request": "Your message",
+        "sentAt": "Sent {{time}}",
+        "answered": "Sent {{time}} · your choice on Tars's question: {{question}}",
+        "requestMissing": "The original message was not saved for this work: it was delegated before Stave kept the message with its work.",
+        "instruction": "Tars's instruction",
+        "instructionHint": "What Tars wrote for this work. The run receives it together with your message.",
+        "assignment": "Instruction as saved",
+        "assignmentHint": "This work was delegated before your message and Tars's instruction were saved apart, so they cannot be shown separately. This is the full instruction the run received.",
+        "context": "Attached in full",
+        "contextHint": "Too long for the run's instruction, so the run's lead receives it whole as context on every turn.",
+        "criteria_one": "{{count}} completion criterion",
+        "criteria_other": "{{count}} completion criteria",
+        "copyRequest": "Copy your message",
+        "copyInstruction": "Copy the instruction",
+        "copyContext": "Copy the attached text",
+        "status": {
+          "loading": "Loading the saved request…",
+          "failed": "The saved request could not be loaded.",
+          "unavailable": "This version of Stave cannot read the saved request."
+        }
       },
       "report": {
         "frozenAt": "As of {{time}}, when the run ended",

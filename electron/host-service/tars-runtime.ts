@@ -3,6 +3,7 @@ import {
   UpdateTarsIdentityInputSchema, tarsSnapshotForWindow,
   type TarsDetailCode, type TarsDetailParams, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation,
 } from "../../src/lib/tars/types";
+import { buildTarsBrief, TarsBriefInputSchema } from "../../src/lib/tars/brief";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError } from "./tars-ownership";
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
@@ -174,6 +175,13 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       ports.store.updateIdentity(UpdateTarsIdentityInputSchema.parse(raw), now());
       return tarsSnapshotForWindow(ports.store.snapshot());
     }),
+    /** One responsibility's saved message and instruction, read from its row; like `get`, it need not queue. */
+    brief: async (raw: unknown) => {
+      const { responsibilityId } = TarsBriefInputSchema.parse(raw);
+      const row = ports.store.get(responsibilityId);
+      if (!row) throw new Error("The responsibility was not found.");
+      return buildTarsBrief(row);
+    },
     /**
      * The one admitted control path for words and clicks. Admission is
      * deterministic and rechecked at dispatch; the run is controlled before the
