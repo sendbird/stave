@@ -556,3 +556,82 @@ test("Korean decision text wraps between words, not inside one", async ({ page }
   const geometry = await card.evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
 });
+
+// The publish card: every theme and language at a narrow and a wide width, with no horizontal overflow; then Enter publishes and Esc declines.
+for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
+  test(`publish card fits ${theme} ${lang} at 420px and 1280px, publishes on Enter and declines on Esc`, async ({ page }, testInfo) => {
+    await page.goto(`/?stavePreview=tars&publish=true&theme=${theme}&lang=${lang}`);
+    const view = page.getByTestId("tars-view");
+    const card = view.locator("[data-tars-publish-card^='publish:']");
+    await expect(card).toHaveAttribute("data-tars-publish-state", "waiting");
+    await expect(card.locator("[data-tars-publish-row='head']")).toContainText("tars/checkout");
+    await expect(card.locator("[data-tars-publish-message]")).toHaveValue("feat: show the saved card first at checkout");
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [420, 1280]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await card.scrollIntoViewIfNeeded();
+      for (const target of [view, card, card.locator("[data-tars-publish-body]")]) {
+        const geometry = await target.evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
+        expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
+      }
+      const box = await card.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+      await card.screenshot({ path: testInfo.outputPath(`publish-card-${theme}-${lang}-${width}.png`) });
+      if (process.env.STAVE_PUBLISH_SCREENSHOTS) await card.screenshot({ path: `${process.env.STAVE_PUBLISH_SCREENSHOTS}/publish-card-${theme}-${lang}-${width}.png` });
+    }
+    // The words are editable and the type is a choice; Enter in a field publishes what the card shows.
+    await card.locator("[data-tars-publish-type]").selectOption("fix");
+    await expect(card.locator("[data-tars-publish-message]")).toHaveValue("fix: show the saved card first at checkout");
+    await card.locator("[data-tars-publish-message]").fill("fix(checkout): show the saved card first");
+    await card.locator("[data-tars-publish-message]").press("Enter");
+    const line = view.locator("[data-tars-publish-record='applied']");
+    await expect(line).toContainText(lang === "ko" ? "Draft PR #12 열림 · 키" : "Draft PR #12 opened · key");
+    await expect(view.locator("[data-tars-publish-card^='publish:']")).toHaveCount(0);
+    // The pull request is an output of the work: the pinned tray lists it beside the conversation.
+    await expect(view.locator("[data-tars-output='pullRequest']")).toContainText(lang === "ko" ? "Draft PR #12 보기" : "Draft PR #12");
+    if (process.env.STAVE_PUBLISH_SCREENSHOTS) await view.screenshot({ path: `${process.env.STAVE_PUBLISH_SCREENSHOTS}/published-view-${theme}-${lang}-1280.png` });
+    const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+    expect(saved.publications[0]).toMatchObject({ commitMessage: "fix(checkout): show the saved card first", source: "key", status: "applied" });
+    // Esc declines a proposal; the report's Create draft PR then opens the same card, and Esc closes it without closing the report.
+    // The preview keeps its conversation in session storage across loads; start this one fresh.
+    await page.evaluate(() => sessionStorage.clear());
+    await page.goto(`/?stavePreview=tars&publish=failed&theme=${theme}&lang=${lang}`);
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const proposal = view.locator("[data-tars-publish-card^='publish:']");
+    await expect(proposal).toHaveAttribute("data-tars-publish-state", "waiting");
+    await proposal.locator("[data-tars-publish-title]").focus();
+    await page.keyboard.press("Escape");
+    await expect(view.locator("[data-tars-publish-proposal='declined']")).toBeVisible();
+    await view.locator("[data-tars-output='report']").filter({ hasText: "Show the saved card first at checkout" }).getByRole("button").click();
+    await view.locator("[data-tars-report-publish] [data-tars-publish-open]").click();
+    const opened = view.locator("[data-tars-publish-card^='publish-click:']");
+    await expect(opened).toHaveAttribute("data-tars-publish-state", "waiting");
+    await expect(opened.locator("[data-tars-publish-message]")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(opened).toHaveCount(0);
+    await expect(view.locator("[data-tars-report-publish]")).toBeVisible();
+    // Nothing was published, so the preview never even saved a publish record.
+    expect((await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation") ?? "null")))?.publications ?? []).toHaveLength(0);
+  });
+}
+
+test("a failed publish folds to its reason with Retry, which reopens the card and continues", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&publish=failed");
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  const view = page.getByTestId("tars-view");
+  const card = view.locator("[data-tars-publish-card^='publish:']");
+  await expect(card).toHaveAttribute("data-tars-publish-state", "waiting");
+  await card.locator("[data-tars-publish-confirm]").click();
+  const failed = view.locator("[data-tars-publish-record='rejected']");
+  await expect(failed).toContainText("Not published · click");
+  await expect(failed).toContainText("Stopped at: Push");
+  await failed.locator("[data-tars-publish-retry]").click();
+  const retry = view.locator("[data-tars-publish-card^='publish-click:']");
+  await expect(retry).toHaveAttribute("data-tars-publish-state", "waiting");
+  await expect(retry.locator("[data-tars-publish-message]")).toBeFocused();
+  await expect(retry.locator("[data-tars-publish-row='resume']")).toContainText("Push");
+  await page.keyboard.press("Enter");
+  await expect(view.locator("[data-tars-publish-record='applied']")).toContainText("Draft PR #12 opened · key");
+  await expect(view.locator("[data-tars-publish-card]")).toHaveCount(0);
+});

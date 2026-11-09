@@ -1356,7 +1356,8 @@
         "changes": "Opened the changes of {{title}}",
         "timeline": "Opened the run timeline of {{title}}",
         "review": "Opened the review of {{title}}"
-      }
+      },
+      "publish": "Publish {{title}} as a draft pull request"
     },
     "execution": {
       "model": "Execution model",
@@ -1810,7 +1811,7 @@
       "canDo4": "Asks you to decide with a card you answer by click, number key or a short word.",
       "canDo5": "Follows up by itself when work blocks, asks you or cannot be verified.",
       "canDo6": "Shows each result's report, changes, timeline and review beside the conversation.",
-      "limit1": "Never commits, pushes, opens pull requests or publishes without a separate request.",
+      "limit1": "Commits, pushes and opens a draft pull request only after you confirm its card each time; never merges or deploys.",
       "limit2": "Works only while Stave is open and this computer is awake.",
       "limit3": "Runs one piece of work at a time; the rest waits in Work.",
       "limit4": "Starts from the workspace's branch, so uncommitted changes are not included.",
@@ -1822,6 +1823,99 @@
       "exampleLabel1": "What's running now?",
       "exampleLabel2": "Fix a flaky test",
       "exampleLabel3": "Pause and show changes"
+    },
+    "publish": {
+      "open": "Create draft PR",
+      "openHint": "Opens a confirmation card. Nothing is committed or pushed until you confirm it.",
+      "card": {
+        "title": "Open a draft pull request?",
+        "description": "Tars commits this work, pushes its branch and opens a draft pull request. It never merges or deploys.",
+        "draftTag": "Draft PR",
+        "risk": "Can't be undone",
+        "details": "What will be published",
+        "rows": {
+          "work": "Work",
+          "repository": "Repository",
+          "base": "Base branch",
+          "head": "Head branch",
+          "changedFiles": "Changed files",
+          "commitType": "Commit type",
+          "commitMessage": "Commit message",
+          "title": "Pull request title",
+          "body": "Pull request body",
+          "resume": "Continues from"
+        },
+        "changedFiles_one": "{{count}} file",
+        "changedFiles_other": "{{count}} files",
+        "unknown": "Unknown",
+        "loading": "Reading the workspace…",
+        "previewFailed": "Stave could not read the workspace. Close the card and try again.",
+        "publish": "Open draft PR",
+        "decline": "Decline",
+        "enterKey": "Enter",
+        "escKey": "Esc",
+        "keysHint": "Enter opens the draft pull request. Esc declines.",
+        "bodyHint": "Built by Stave from the frozen report and sent as shown.",
+        "required": "Write a commit message and a pull request title.",
+        "resumeStep": {
+          "commit": "Commit",
+          "push": "Push",
+          "pr": "Draft pull request"
+        },
+        "failed": "Stave could not send the confirmation. Try again."
+      },
+      "reason": {
+        "notOwned": "Tars does not hold this work.",
+        "notCompleted": "Only completed work can be published.",
+        "notVerified": "Stave did not verify this work: it was accepted as done without a check. Publish it yourself if you want it.",
+        "stale": "The work changed since this card was shown. Open it again.",
+        "noWorkspace": "The work's workspace is no longer available.",
+        "noChanges": "There is nothing to publish: no uncommitted change and no commit ahead of the base branch.",
+        "noRemote": "The repository has no GitHub remote named origin.",
+        "ghUnavailable": "GitHub CLI is not installed or not signed in. Run gh auth login, then try again.",
+        "wrongBranch": "The workspace is not on the work's own branch, or that branch is the base branch.",
+        "alreadyPublished": "Its draft pull request is already open.",
+        "inProgress": "This work is already being published.",
+        "publishFailed": "A publish step failed.",
+        "notByFollowUp": "An automatic follow-up cannot propose publishing; only your own request can.",
+        "unknown": "The work could not be published."
+      },
+      "record": {
+        "progress": {
+          "pending": "Publishing…",
+          "committing": "Publishing · committing",
+          "committed": "Publishing · pushing the branch",
+          "pushed": "Publishing · opening the draft pull request",
+          "opened": "Publishing · finishing",
+          "failed": "Publishing · stopped"
+        },
+        "opened": "Draft PR #{{number}} opened · {{source}}",
+        "openedUnnumbered": "Draft PR opened · {{source}}",
+        "existing": "Draft PR #{{number}} was already open · {{source}}",
+        "existingUnnumbered": "A draft PR was already open · {{source}}",
+        "rejected": "Not published · {{source}}",
+        "source": {
+          "click": "click",
+          "key": "key"
+        },
+        "failedStep": "Stopped at: {{step}}",
+        "retry": "Retry",
+        "view": "Open on GitHub"
+      },
+      "proposal": {
+        "invalid": "This publish proposal is no longer valid: the work changed. Ask Tars again or use Create draft PR.",
+        "declined": "Declined. Nothing was published."
+      },
+      "status": {
+        "opened": "Draft PR #{{number}} open",
+        "openedUnnumbered": "Draft PR open",
+        "failed": "Publishing stopped",
+        "running": "Publishing…"
+      },
+      "outputs": {
+        "pullRequest": "Draft PR #{{number}}",
+        "pullRequestUnnumbered": "Draft pull request"
+      }
     }
   }
 }

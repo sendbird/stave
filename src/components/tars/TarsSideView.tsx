@@ -30,6 +30,8 @@ export interface TarsSideViewProps {
   takeFocus: boolean;
   /** The next steps a blocked responsibility admits, shown in its report. */
   blockedActions?: ReactNode;
+  /** Completed work's draft pull request link or the button that opens its confirmation card, in the report. */
+  publishAction?: ReactNode;
   onKind: (kind: TarsSideViewKind) => void;
   onClose: () => void;
   onQuote: (text: string) => void;
@@ -56,7 +58,7 @@ export function TarsSideView(props: TarsSideViewProps) {
     event.preventDefault();
     props.onClose();
   };
-  const body = target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} />
+  const body = target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} publish={props.publishAction} />
     : target.kind === "changes" ? <TarsChangesPanel detail={run} cwd={props.cwd} onQuote={props.onQuote} />
       : target.kind === "timeline" ? <TarsTimelinePanel detail={run} records={props.records} title={row.title}
         focusStageId={target.focus && "stageId" in target.focus ? target.focus.stageId : undefined} />

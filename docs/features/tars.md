@@ -45,9 +45,13 @@ across workspaces, tasks and restarts.
    claim is not enough: Tars completes the work only when the final stage has
    a check Stave saw pass on the current revision, or a stage has a passed
    independent review. Otherwise it asks you whether to accept it.
-7. **Report.** A completed or ended run leaves a frozen **Result report**, its
-   **Changes** and **Review**. Changes stay uncommitted in the Tars workspace
-   for you to inspect, commit or publish yourself.
+7. **Report and publish.** A completed or ended run leaves a frozen **Result
+   report**, its **Changes** and **Review**. Changes stay uncommitted in the
+   Tars workspace until you decide. For completed, verified work, **Create
+   draft PR** (or asking Tars, such as "open a draft PR for it") opens a
+   confirmation card; only your confirmation on that card makes Stave commit,
+   push the work's branch and open a draft pull request. See
+   [Publish completed work](#publish-completed-work).
 
 **Follow-ups.** Saved status changes appear in the conversation and the
 **Work** tray without you asking. When a change needs judgment (the work
@@ -93,14 +97,18 @@ service.
   stuck work does not wait for you to ask.
 - Open a responsibility's report, changes, timeline or review beside the
   conversation, also on request ("show me the report", "what changed?").
+- Commit, push and open a draft pull request for completed, verified work,
+  each time only after you confirm its card.
 - Quote selected diff lines into your message so you can ask about them.
 - Recover saved work after a restart without duplicating it.
 
 ## Limits
 
 - **No publishing on its own.** Delegated work does not commit, push, open
-  pull requests, merge, deploy, send messages or spend money without a
-  separate explicit request. Agents that publish or deliver outside the
+  pull requests, merge, deploy, send messages or spend money. Stave itself
+  commits, pushes and opens a **draft** pull request only when you confirm a
+  publish card, every time; there is no "always allow", and nothing is ever
+  merged, deployed or force-pushed. Agents that publish or deliver outside the
   workspace, such as Shipper, are never used. This is enforced by refusing
   publishing agents and by authorizing no publishing stage; it is not a shell
   sandbox, so the task's provider permissions and safety controls still apply.
@@ -224,7 +232,23 @@ target workspace's branch. Commit what Tars should build on to that branch
 before delegating.
 
 **Where are the results?** In the work's own workspace (its branch follows
-the repository's naming rule, with a short suffix), left uncommitted. Open **Changes** in the side view, or **Open task**.
+the repository's naming rule, with a short suffix), left uncommitted until you
+publish them. Open **Changes** in the side view, or **Open task**.
+
+**How do I get a pull request for Tars's work?** Choose **Create draft PR** on
+the completed work's card in **Done** or in its report, or ask Tars ("open a
+draft PR for it", "PR 올려줘"). Either way a confirmation card shows the
+repository, base and head branch, changed files, the commit message and pull
+request title you can edit, and the body. Press **Open draft PR** or Enter to
+publish; Decline or Esc publishes nothing. The pull request opens as a draft
+and is never merged by Stave.
+
+**Publishing was refused or stopped.** The card or its line says why: the work
+is not completed or was accepted without a Stave-verified check, it changed
+since the card was shown, its workspace has no changes, it is not on its own
+branch, the repository has no GitHub `origin`, or the GitHub CLI (`gh`) is not
+installed or signed in. A step that failed (commit, push or the pull request)
+offers **Retry**, which opens the card again and continues from that step.
 
 **Why am I asked to "Accept as done"?** The run reported completion but Stave
 saw no passing check on the final revision and no passed independent review.
@@ -291,7 +315,8 @@ Polisher, Reviewer and Researcher) are always available. Your saved agents are
 available only after you allow them under **Agents Tars may use** in Tars
 settings; none are allowed at first. Agents that publish or deliver outside
 the workspace, such as Shipper or a saved agent with a pull request or publish
-stage, are never used, because publication needs a separate request from you.
+stage, are never used: publishing happens only through a publish card you
+confirm, and Stave, not an agent, carries it out.
 When reasoning, Tars sees only the agents it may use, with each one's name,
 kind of work, and "use when" and "don't use when" descriptions.
 
@@ -405,9 +430,9 @@ last-visible time is kept in this device's local storage only.
 
 The tray's **Outputs** section lists what each responsibility produced: its
 **Result report** once the run ended, its **Changes** when the run recorded
-changed files, its **Review** once the independent reviewer reported, and the
-links the run's report recorded, such as a pull request, which open in the
-browser. The header indicator adds the outputs count only when there is at
+changed files, its **Review** once the independent reviewer reported, the
+draft pull request Stave opened after you confirmed it, and the links the
+run's report recorded, which open in the browser. The header indicator adds the outputs count only when there is at
 least one; **Needs you** keeps counting Fleet's rows.
 
 An output opens the side view: one panel about one responsibility, with a
@@ -459,6 +484,44 @@ lets Tars propose a `show` of one responsibility's report, changes, timeline or
 review. The host admits it only for a responsibility Tars holds for you; it
 grants nothing, changes no work and its receipt only says what opened. A reply
 opens at most one view, and reopening Tars never replays an earlier one.
+
+### Publish completed work
+
+Completed work that Stave verified can become a draft pull request, and only
+through a confirmation card each time:
+
+- **Words**: ask Tars to commit, push or open a pull request for one completed
+  piece of work. Tars may propose a `publish` at the revision it saw; it is
+  saved as proposed and shows as the card under the reply. An automatic
+  follow-up can never propose it.
+- **Click**: **Create draft PR** on a **Done** card or in the work's report
+  opens the same card at the end of the conversation (or brings Tars's waiting
+  proposal for that work into view).
+
+The card shows the repository, the base branch (the source workspace's branch,
+otherwise the repository's default branch), the head branch (the work's own
+branch, `tars/<id>` for older work), the number of changed files, an editable
+commit message and pull request title prefilled as a Conventional Commit
+subject from the work's title (such as `feat: show the saved card first`; the
+type is a choice on the card), and a preview of the body: each acceptance
+criterion with its met or unmet status and the verification evidence from the
+frozen report. A **Draft PR** tag and a **Can't be undone** tag say what it is.
+Enter, while the card or one of its fields has focus, or **Open draft PR**
+publishes; Esc or **Decline** publishes nothing and records nothing.
+
+When you confirm, the host checks everything again from saved state, not from
+the card or Tars's words: Tars holds the work, it is completed with Stave's
+verification, its revision is still the one you saw, its execution workspace
+exists and has uncommitted changes or commits ahead of the base, it is on its
+own branch (never the base), and the repository has a GitHub `origin` that the
+GitHub CLI can reach. Then, in the execution workspace, it runs `git add -A`,
+`git commit`, `git push -u origin` of the work's branch (never forced) and
+`gh pr create --draft` against the base, or records the pull request that
+already exists for the branch. Each step is saved on the work, so **Retry**
+continues where it stopped, and a restart in the middle turns it into a
+retryable stop. The card folds to one line such as "Draft PR #12 opened ·
+click"; the pull request becomes an output in the tray's **Outputs** and a link
+in the report. Stave never merges, marks it ready or deploys.
 
 ### Decisions
 

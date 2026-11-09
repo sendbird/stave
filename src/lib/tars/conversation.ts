@@ -2,6 +2,7 @@ import { z } from "zod";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlOperationSchema, TarsSnapshotSchema, type TarsControlOperation } from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
+import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
 
 const IdSchema = z.string().trim().min(1).max(256);
 const RevisionSchema = z.number().int().min(1);
@@ -80,7 +81,8 @@ export const TarsDelegateReasonSchema = z.enum([
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
 ]);
 export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
-export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema]);
+/** A publish proposal refused when it was made carries a `TarsPublishReason`. */
+export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema, TarsPublishReasonSchema]);
 export type TarsActionReason = z.infer<typeof TarsActionReasonSchema>;
 
 /** Fixed across the host boundary: a saved agent cannot be judged until the renderer syncs the catalog. */
@@ -217,6 +219,7 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   TarsControlActionSchema,
   TarsAskActionSchema,
   TarsShowActionSchema,
+  TarsPublishActionSchema,
 ]);
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
 
@@ -227,7 +230,9 @@ export const TarsDecisionSchema = z.object({
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((actions) => actions.filter((action) => action.kind === "ask").length <= 1, "A reply asks at most one question.")
     // i18n-ignore: schema diagnostic, not user-facing copy
-    .refine((actions) => actions.filter((action) => action.kind === "show").length <= 1, "A reply opens at most one view."),
+    .refine((actions) => actions.filter((action) => action.kind === "show").length <= 1, "A reply opens at most one view.")
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((actions) => actions.filter((action) => action.kind === "publish").length <= 1, "A reply proposes at most one publish."),
 }).strict();
 export type TarsDecision = z.infer<typeof TarsDecisionSchema>;
 
@@ -321,12 +326,14 @@ export const TarsActionReceiptSchema = z.object({
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 }).strict().superRefine((receipt, context) => {
-  // An ask always waits for the user's answer; it never applies anything itself.
-  const proposable = (receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)) || receipt.action.kind === "ask";
+  // An ask always waits for the user's answer, and a publish for the user's confirmation on its card; neither applies anything itself.
+  const proposable = (receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)) || receipt.action.kind === "ask"
+    || receipt.action.kind === "publish";
   // An automatic follow-up's refusal carries its one code on any kind of action.
   const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
-    : receipt.action.kind === "delegate" && TarsDelegateReasonSchema.safeParse(receipt.reason).success)));
+    : receipt.action.kind === "publish" ? TarsPublishReasonSchema.safeParse(receipt.reason).success
+      : receipt.action.kind === "delegate" && TarsDelegateReasonSchema.safeParse(receipt.reason).success)));
   const valid = coded &&
     (receipt.status === "proposed" || receipt.status === "pending" ? receipt.responsibilityId === null && receipt.error === null &&
       (receipt.status === "pending" || proposable)
@@ -478,5 +485,7 @@ export const TarsConversationSchema = z.object({
   answers: z.array(TarsDecisionAnswerSchema).max(1_000).optional(),
   /** Recent inbox events, for the notices they leave; optional so older hosts' conversations still parse. */
   events: z.array(TarsEventSchema).max(1_000).optional(),
+  /** Publish confirmations and their outcomes; optional so older hosts' conversations still parse. */
+  publications: z.array(TarsPublishRecordSchema).max(1_000).optional(),
 }).strict();
 export type TarsConversation = z.infer<typeof TarsConversationSchema>;

@@ -298,7 +298,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
         activity: ports.responsibilities.listActivity(activityLimit), messages,
         receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)),
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
-        events: ports.responsibilities.events.listRecent(activityLimit) });
+        events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit) });
     },
     /**
      * Answers one option of a waiting decision. The option is read from saved

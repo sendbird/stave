@@ -1049,6 +1049,10 @@ export interface HostServiceRequestMap {
   "tars.apply-decision": import("../../src/lib/tars/conversation").ApplyTarsDecisionInput;
   /** A direct control, admitted on the same path as a proposed control. */
   "tars.act": import("../../src/lib/tars/conversation").TarsActInput;
+  /** One publish card's confirmation, from a word proposal or a click; the host admits and runs it. */
+  "tars.publish": import("../../src/lib/tars/publication").TarsPublishInput;
+  /** What a publish card shows; read only. */
+  "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
   "agent-run.invoke": {
     action: HostAgentRunAction;
     args: unknown;
@@ -1260,6 +1264,8 @@ export interface HostServiceResponseMap {
   "tars.invoke": import("../../src/lib/tars/types").TarsSnapshot;
   "tars.apply-decision": import("../../src/lib/tars/conversation").TarsActionReceipt[];
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
+  "tars.publish": import("../../src/lib/tars/publication").TarsPublishResult;
+  "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
   "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;

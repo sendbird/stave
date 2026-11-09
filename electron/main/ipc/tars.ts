@@ -11,6 +11,7 @@ import {
   TarsActInputSchema, TarsAnswerInputSchema, TarsConversationSettingsSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema,
   TarsMessageInputSchema,
 } from "../../../src/lib/tars/conversation";
+import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -45,6 +46,11 @@ export function registerTarsHandlers() {
   // Clicks enter the host's admitted control path; there is no direct state write.
   ipcMain.handle(TARS_IPC.act, (_event, input: unknown) =>
     invokeHostService("tars.act", TarsActInputSchema.parse(input)));
+  // A publish card's confirmation names the work and the user's words only; the host derives and checks everything else.
+  ipcMain.handle(TARS_IPC.publish, (_event, input: unknown) =>
+    invokeHostService("tars.publish", TarsPublishInputSchema.parse(input)));
+  ipcMain.handle(TARS_IPC.publishPreview, (_event, input: unknown) =>
+    invokeHostService("tars.publish-preview", TarsPublishPreviewInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));
 }

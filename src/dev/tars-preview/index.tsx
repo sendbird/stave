@@ -16,6 +16,7 @@ import { buildTarsTrayFixtures } from "./tars-fixtures";
 import { TARS_LAST_VISIBLE_KEY } from "@/components/tars/use-tars-away";
 import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
+import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -42,7 +43,9 @@ export function TarsPreview() {
     if (fixtures && params.get("queued") === "true") fixtures.responsibilities.push({ ...fixtures.responsibilities[1]!, id: "search-index", requestId: "request-search-index",
       title: "Speed up the search index rebuild", state: "queued", priority: 40, branchName: undefined, taskId: null, agentRunId: null, executionWorkspaceId: null });
     // `outputs=true`: ended work with a frozen report, a review, changes and a link, plus work blocked on unmet criteria (the side view).
-    const side = params.get("outputs") === "true" ? buildTarsSideViewFixtures(new Date(now)) : null;
+    // `publish=true|failed` builds on the same ended work: the completed checkout work is what Tars publishes.
+    const publishMode = params.get("publish");
+    const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" ? buildTarsSideViewFixtures(new Date(now)) : null;
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
     const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
     let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem("stave-preview-identity") ?? "null") ?? {
@@ -77,6 +80,14 @@ export function TarsPreview() {
       useFleetAgentRunsStore.setState({ details: { ...fixtures?.runs, ...side?.runs }, loaded: true });
     }
     conversation.answers ??= [];
+    conversation.publications ??= [];
+    if (side && (publishMode === "true" || publishMode === "failed") && !conversation.messages.some((message) => message.id === "message-publish")) {
+      const checkout = snapshot.responsibilities.find((row) => row.id === side.ids.checkout)!;
+      const fixture = buildTarsPublishFixtures(new Date(now), { responsibilityId: checkout.id, revision: checkout.revision, korean: params.get("lang") === "ko" });
+      conversation.messages.push(fixture.message);
+      conversation.receipts.push(fixture.receipt);
+      conversation.settings ??= { providerId: "codex", model: "gpt-5.5", maxTurns: 30 };
+    }
     if (params.get("decision") === "unverified" && !conversation.activity.some((event) => event.detailCode === "unverifiedCompletion")) conversation.activity.push(
       { id: "activity-unverified", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate across two repositories",
         state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", createdAt: now });
@@ -112,7 +123,10 @@ export function TarsPreview() {
       saveConversation();
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
+    const publishing = side ? createPreviewPublishBridge({ getSnapshot: () => snapshot, conversation, runs: side.runs, failOnce: publishMode === "failed", save: () => saveConversation(),
+      setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(snapshot)); } }) : null;
     const bridge: TarsBridgeApi = {
+      ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
       get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return structuredClone(snapshot); },
       updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem("stave-preview-identity", JSON.stringify(snapshot)); return structuredClone(snapshot); },
       create: async () => { throw new Error("Use the global conversation."); },
