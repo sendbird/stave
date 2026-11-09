@@ -15,7 +15,8 @@ describe("Tars tray read model", () => {
     expect(model.lanes.needsYou.map((value) => value.row.id)).toEqual([f.ids.release]);
     expect(model.lanes.running.map((value) => value.row.id)).toEqual([f.ids.billing, f.ids.migration]);
     expect(model.lanes.done.map((value) => value.row.id)).toEqual([f.ids.docs]);
-    expect(model.counts).toEqual({ needsYou: 1, running: 2, done: 1 });
+    // The in-progress lane holds the running fix and the work the user took over: only the fix counts as running.
+    expect(model.counts).toEqual({ needsYou: 1, running: 1, waiting: 0, yours: 1, done: 1 });
     // A Fleet row on the task (not a Tars kind) also lands the work in needs you, and counts as one more row.
     const signOff = { id: "agent-run-sign-off:run-billing", kind: "agent-run-sign-off", taskId: "task-billing", detail: "Stage 2 · Cause" };
     const both = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [...f.attentionItems, signOff], runs: f.runs, pendingDecisions: f.pendingDecisions });

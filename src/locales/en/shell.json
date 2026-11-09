@@ -1471,6 +1471,10 @@
       "indicator": {
         "running_one": "{{count}} running",
         "running_other": "{{count}} running",
+        "waiting_one": "{{count}} waiting",
+        "waiting_other": "{{count}} waiting",
+        "yours_one": "{{count}} yours",
+        "yours_other": "{{count}} yours",
         "needsYou_one": "{{count}} needs you",
         "needsYou_other": "{{count}} need you",
         "done_one": "{{count}} done",
@@ -1485,7 +1489,7 @@
       },
       "lanes": {
         "needsYou": "Needs you",
-        "running": "Running",
+        "running": "In progress",
         "done": "Done",
         "outputs": "Outputs"
       },
@@ -1612,17 +1616,71 @@
       "completion": "Completion",
       "criteriaMet": "{{met}} of {{total}} criteria met",
       "notFinished": "Not finished yet",
-      "notice": {
-        "completed": "Done",
-        "blocked": "Needs you",
-        "cancelled": "Stopped"
-      },
       "nodeMenu": "More for {{title}}",
       "openTimeline": "Open {{title}} in the run timeline",
       "openReview": "Open the findings of {{title}}",
       "openUnmet": "{{title}} cannot continue: open the report's unmet criteria",
       "openReport": "Open the result report",
       "openBrief": "Open the request and Tars's instruction"
+    },
+    "live": {
+      "lastUpdate": "Last update {{time}}",
+      "observed": "seen {{time}}",
+      "betweenTurns": "No turn running right now",
+      "turnNoStep": "Turn in progress · no step observed yet",
+      "turnUnknown": "No turn activity observed yet",
+      "notObserved": "No run observation yet",
+      "notStarted": "The run has not started yet",
+      "stale": "Nothing observed for {{duration}} · progress may be out of date",
+      "staleStep": "Last step: {{activity}}, {{duration}} ago · progress may be out of date",
+      "staleUnknown": "Nothing observed recently · progress may be out of date",
+      "stage": "Stage {{position}} of {{total}} · {{title}}",
+      "stageAttempt": "Stage {{position}} of {{total}} · {{title}}, attempt {{attempt}}",
+      "recent": "Recent progress",
+      "noRecent": "The run has recorded no progress yet.",
+      "stripLabel_one": "{{count}} piece of work running",
+      "stripLabel_other": "{{count}} pieces of work running",
+      "more_one": "{{count}} more running",
+      "more_other": "{{count}} more running",
+      "event": {
+        "runStarted": "Run started",
+        "turnStarted": "Turn started in {{stage}}",
+        "turnFailed": "A turn could not start",
+        "turnInterrupted": "A turn was interrupted",
+        "reported": "{{stage}} reported done",
+        "reportedBlocked": "{{stage}} reported it cannot continue",
+        "stageCompleted": "{{stage}} completed",
+        "stageSkipped": "{{stage}} skipped",
+        "stageRetried": "{{stage}} retried, attempt {{attempt}}",
+        "stageBlocked": "{{stage}} blocked",
+        "stageStuck": "{{stage}} stuck",
+        "signedOff": "{{stage}} signed off",
+        "changesRequested": "Changes requested in {{stage}}",
+        "checksObserved": "Checks observed in {{stage}}",
+        "paused": "Run paused",
+        "resumed": "Run resumed",
+        "userWait": {
+          "approval": "Waiting for your approval",
+          "question": "Waiting for your answer",
+          "signOff": "Waiting for your sign-off"
+        },
+        "userWaitEnded": "Stopped waiting for you",
+        "waitRegistered": "Waiting for an outside event",
+        "waitWoke": "The outside event arrived",
+        "waitExpired": "The outside wait ended without its event",
+        "accountSwitched": "Switched to another account",
+        "ended": {
+          "completed": "Run completed",
+          "cancelled": "Run cancelled",
+          "stopped": "Run stopped",
+          "other": "Run ended"
+        },
+        "hostStopped": "Stave stopped while the run was active",
+        "hostStarted": "Stave started again"
+      }
+    },
+    "nav": {
+      "label": "{{name}}, {{status}}"
     },
     "detail": {
       "waitingForUser": "The task is waiting for your answer or approval.",
@@ -1860,7 +1918,10 @@
         "exit": "exit code {{code}}",
         "exitUnknown": "exit code unknown",
         "toolOk": "succeeded",
-        "toolFailed": "failed"
+        "toolFailed": "failed",
+        "now": "Now",
+        "notStarted": "The run has not started yet. Its stages appear here once it starts.",
+        "noRun": "This work ended before a run started."
       },
       "changes": {
         "noRun": "The run's details are not loaded, so its changes cannot be read.",

@@ -8,6 +8,7 @@ import { tarsConfirmationRequestId } from "./conversation";
 import type { TarsSideViewTarget } from "./side-view";
 import type { TarsControlOperation, TarsFollowUpState, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "./types";
 import { tarsQueueOf } from "./queue-order";
+import { isTarsWorkRunning } from "./live-progress";
 
 /** The view width at which the tray stays open beside the conversation. */
 export const TARS_TRAY_PINNED_MIN_WIDTH = 1088;
@@ -92,6 +93,8 @@ export interface TarsTrayCard<T extends TarsTrayAttentionInput = TarsTrayAttenti
   owner: "tars" | "you";
   /** Null until this window has read the run. */
   progress: TarsRunProgress | null;
+  /** The run as this window read it, for its recent progress; null until read. */
+  run: AgentRunDetail | null;
   /** Null unless the run is active and read: an unknown budget is not "0 left". */
   remainingTurns: number | null;
   /** Helpers working now, from the run's resource ledger; null when the host did not report it. */
@@ -117,13 +120,19 @@ export function tarsBranchOf(row: Pick<TarsResponsibility, "id" | "branchName" |
 }
 
 /** The runtime's rule: running work, or preparing work with a run, holds the one slot (`tars-runtime.ts`). */
-function holdsActiveSlot(row: Pick<TarsResponsibility, "state" | "agentRunId">) {
-  return row.state === "running" || (row.state === "preparing" && Boolean(row.agentRunId));
-}
+const holdsActiveSlot = isTarsWorkRunning;
+
+/**
+ * What the header indicator counts. `needsYou` counts Fleet's rows for Tars
+ * work, so the tray and Fleet show the same number. `running` counts only work
+ * that is actually running (in any lane), never queued, paused, waiting or
+ * taken-over work; `waiting` counts the in-progress lane's work that is not
+ * running and not held by the user, `yours` the work the user took over.
+ */
+export interface TarsTrayCounts { needsYou: number; running: number; waiting: number; yours: number; done: number }
 
 export interface TarsTrayModel<T extends TarsTrayAttentionInput = TarsTrayAttentionInput> {
-  /** `needsYou` counts Fleet's rows for Tars work, so the tray and Fleet show the same number. */
-  counts: { needsYou: number; running: number; done: number };
+  counts: TarsTrayCounts;
   lanes: Record<TarsLane, TarsTrayCard<T>[]>;
 }
 
@@ -193,6 +202,7 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
       lane,
       owner: row.state === "takenOver" ? "you" : "tars",
       progress: run ? projectTarsRunProgress(run) : null,
+      run: run ?? null,
       remainingTurns: live ? Math.max(0, live.agentRun.maxTurns - live.agentRun.turnCount) : null,
       helpers: live?.resources ? live.resources.activeHelpers : null,
       attention: attentionByResponsibility.get(row.id) ?? [],
@@ -207,7 +217,15 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   }
   // Work that started leads its lane; queued work follows in the order it will start, so the cards a user reorders stay together.
   for (const lane of Object.values(lanes)) lane.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
-  return { counts: { needsYou: rows.length, running: lanes.running.length, done: lanes.done.length }, lanes };
+  const inProgress = lanes.running;
+  const counts: TarsTrayCounts = {
+    needsYou: rows.length,
+    running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,
+    waiting: inProgress.filter((card) => !holdsActiveSlot(card.row) && card.row.state !== "takenOver").length,
+    yours: inProgress.filter((card) => card.row.state === "takenOver").length,
+    done: lanes.done.length,
+  };
+  return { counts, lanes };
 }
 
 /** One action a card offers: a control, the Confirm of a waiting proposal, its Fleet row, or a move in the queue. */

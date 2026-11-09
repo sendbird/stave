@@ -2,7 +2,9 @@ import { useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, 
 import { useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import { Button } from "@/components/ui";
-import { Badge } from "@/components/aui/components/Badge";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
+import { StateMark } from "@/components/aui/components/StateMark";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import { Switch } from "@/components/aui/components/Switch";
 import { composerTray } from "@/components/aui/recipes/composer-tray";
 import { sx } from "@/components/aui/utils/stylex";
@@ -52,6 +54,27 @@ export interface TarsFlowContext {
   onShowInFleet: (target: FleetFocusTarget) => void;
   /** Opens a flow node's part of the side view. */
   onOpenSide?: (target: TarsSideViewTarget) => void;
+  /** The work's live line under its folded flow: what Stave observed, and how current it is. */
+  liveFor?: (responsibilityId: string) => ReactNode;
+}
+
+/**
+ * A message's state in the work-state vocabulary, so a reply being written
+ * reads as running (the one moving mark), a queued one as queued and a failed
+ * one as failed, the same way work states read everywhere else in Tars.
+ */
+const MESSAGE_STATE: Record<Exclude<TarsMessage["state"], "answered">, { state: WorkState; tone: BadgeTone }> = {
+  queued: { state: "queued", tone: "neutral" },
+  reasoning: { state: "working", tone: "info" },
+  failed: { state: "failed", tone: "danger" },
+  cancelled: { state: "stopped", tone: "neutral" },
+};
+
+function TarsMessageStateTag({ state }: { state: Exclude<TarsMessage["state"], "answered"> }) {
+  const { t } = useTranslation(["shell"]);
+  const visual = MESSAGE_STATE[state];
+  return <Badge tone={visual.tone} data-tars-message-state={state}>
+    <StateMark state={visual.state} size="xs" motion={state === "reasoning" ? "moving" : "still"} />{t(`shell:tars.conversation.states.${state}`)}</Badge>;
 }
 
 /** What the view asks of the conversation: put text in the composer, or answer a decision from outside the transcript. */
@@ -113,7 +136,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
         <span>{t(`shell:tars.followUp.line.${origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
         : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p></MessageContent></Message>}
-    <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <Badge>{t(`shell:tars.conversation.states.${message.state}`)}</Badge> : null}
+    <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
       {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}
     </div>
@@ -141,11 +164,12 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
         onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null)}
     {publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf} />) : null}
     {flowed.map(({ receipt, flow }) => flow
-      ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide} /> : null)}
+      ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide}
+        live={flows?.liveFor?.(flow.responsibilityId)} /> : null)}
   </div>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -162,6 +186,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   controller?: Ref<TarsConversationController>;
   /** Publish cards: word proposals in place, records of cards the user opened, and the card open now at the end. */
   publish?: TarsPublishContext;
+  /** The work running now, in the composer band above the message field; absent while nothing runs. */
+  composerStatus?: ReactNode;
 }) {
   const { t } = useTranslation(["shell"]);
   const [text, setText] = useState("");
@@ -267,6 +293,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     {/* The AUI #809 tray composer: a tinted band around the raised input; its one quiet line appears only for the over-limit error. */}
     <div ref={composerRef} className={sx(styles.composer)} data-tars-composer="">
       <div className={sx(composerTray.tray)}>
+      {composerStatus}
       <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={composerDisabled}
         sendAccessory={<Switch size="xs" checked={includeWorkingChanges} onCheckedChange={setIncludeWorkingChanges} disabled={composerDisabled}
           label={t("shell:tars.conversation.workingChanges.toggle")} title={t("shell:tars.conversation.workingChanges.hint")} data-tars-working-changes-toggle="" />}

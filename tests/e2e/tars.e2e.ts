@@ -32,7 +32,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
       const message = await view.locator("[data-tars-message]").evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
       expect(message.scroll).toBeLessThanOrEqual(message.client + 1);
       // The indicator: a popover anchored under it when narrow, the pinned tray beside the conversation when wide.
-      const indicator = view.getByRole("button", { name: lang === "ko" ? "진행 1" : "1 running", exact: true });
+      const indicator = view.getByRole("button", { name: lang === "ko" ? "실행 1" : "1 running", exact: true });
       if (width < 1088) {
         await indicator.click();
         await expect(page.getByRole("dialog").locator("[data-tars-card]").first()).toBeVisible();
@@ -272,8 +272,8 @@ test("a decision card answered by click leaves one record line and Tars's reply,
   await send(page, "What should happen with the release check?");
   const card = view.locator('[data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Should I pause the release check until the staging deploy finishes?");
-  // The question waits in Fleet's projection, so the tray counts it like a proposed control.
-  await expect(view.getByRole("button", { name: "1 needs you", exact: true })).toBeVisible();
+  // The question waits in Fleet's projection, so the tray counts it like a proposed control; the work itself still runs.
+  await expect(view.getByRole("button", { name: "1 running · 1 needs you", exact: true })).toBeVisible();
   await card.getByRole("button", { name: "Keep it running", exact: true }).click();
   await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText("Keep it running · click");
   const answer = view.locator('[data-tars-message-origin="answer"]');
@@ -335,7 +335,8 @@ test("the tray and a delegated flow show where work stands without adding transc
   await page.goto("/?stavePreview=tars&tray=true");
   const view = page.getByTestId("tars-view");
   const tray = page.getByRole("complementary");
-  await expect(view.getByRole("button", { name: "2 running · 1 needs you · 1 done", exact: true })).toBeVisible();
+  // Only the fix runs; the work the user took over is theirs, not running.
+  await expect(view.getByRole("button", { name: "1 running · 1 yours · 1 needs you · 1 done", exact: true })).toBeVisible();
   await expect(tray.locator('[data-tars-card="billing"]')).toContainText("18 turns left · 2 helpers working");
   const flow = view.locator('[data-tars-flow="billing"]');
   await expect(flow).toContainText("1 of 3 stages done · Running");
@@ -356,7 +357,8 @@ test("the tray and a delegated flow show where work stands without adding transc
   await expect(release.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
   await release.getByRole("button", { name: "Confirm resume", exact: true }).click();
   await expect(view.locator("[data-tars-action-record]")).toContainText("Resumed · click");
-  await expect(view.getByRole("button", { name: "3 running · 1 done", exact: true })).toBeVisible();
+  // Resumed work waits for the one active slot behind the running fix: it is waiting, never counted as running.
+  await expect(view.getByRole("button", { name: "1 running · 1 waiting · 1 yours · 1 done", exact: true })).toBeVisible();
 });
 
 for (const lang of ["en", "ko"]) for (const width of [1280, 420]) {
@@ -755,4 +757,56 @@ test("queued work without a run shows the user's message, Tars's instruction and
   await expect(side).toHaveAttribute("data-tars-side-view", "report");
   await side.getByRole("button", { name: "Request", exact: true }).click();
   await expect(side.locator('[data-tars-brief-missing="request"]')).toBeVisible();
+});
+
+test("running work says what Stave observed in the tray, the flow, the composer band and the timeline", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?stavePreview=tars&tray=true&live=true");
+  const view = page.getByTestId("tars-view");
+  const band = view.locator('[data-tars-running="billing"]');
+  // The composer band: only the running fix, its stage and the turn's current step, from the relayed turn.
+  await expect(view.locator("[data-tars-running]")).toHaveCount(1);
+  await expect(band).toContainText("Fix the billing export on empty invoice lists");
+  await expect(band).toContainText(/Stage 2 of 3 · .+, attempt 2/);
+  await expect(band.locator('[data-tars-live-freshness="live"]')).toContainText("Running the tests");
+  // The folded flow under the delegating message and the tray card say the same observation.
+  await expect(view.locator('[data-tars-flow="billing"] [data-tars-flow-live]')).toContainText("Running the tests");
+  const card = page.getByRole("complementary").locator('[data-tars-card="billing"]');
+  await expect(card.locator('[data-tars-live-freshness="live"]')).toContainText("Running the tests");
+  await expect(card.locator("[data-tars-recent-entry]")).toHaveCount(3);
+  // Paused and taken-over work gets no live line and no place in the band.
+  await expect(page.getByRole("complementary").locator('[data-tars-card="migration"] [data-tars-live-line]')).toHaveCount(0);
+  // The band's mark sits on its first line, and the band never overflows the composer.
+  await page.evaluate(() => document.fonts.ready);
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const geometry = await band.evaluate((node) => {
+      const mark = node.querySelector("[data-state]")!.getBoundingClientRect();
+      const title = node.querySelector("p")!.getBoundingClientRect();
+      const composer = node.closest("[data-tars-composer]")!;
+      return { markCenter: mark.top + mark.height / 2, titleTop: title.top, titleBottom: title.bottom, scroll: composer.scrollWidth, client: composer.clientWidth };
+    });
+    expect(geometry.markCenter).toBeGreaterThanOrEqual(geometry.titleTop);
+    expect(geometry.markCenter).toBeLessThanOrEqual(geometry.titleBottom);
+    expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
+  }
+  // Its Timeline opens the side view on "Now", then the stage it is on, expanded.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await band.getByRole("button", { name: "Open the timeline for Fix the billing export on empty invoice lists" }).click();
+  const now = view.locator("[data-tars-timeline-now]");
+  await expect(now).toContainText("Running the tests");
+  await expect(now.locator('[data-tars-state="running"]')).toBeVisible();
+  await expect(now).toContainText("retried, attempt 2");
+  await expect(view.locator('[aria-controls="agent-run-stage-cause"]')).toHaveAttribute("aria-expanded", "true");
+});
+
+test("running work Stave has not observed for a while is marked out of date everywhere it shows", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?stavePreview=tars&tray=true&live=stale&lang=ko");
+  const view = page.getByTestId("tars-view");
+  for (const scope of ['[data-tars-running="billing"]', '[data-tars-flow="billing"] [data-tars-flow-live]', '[data-tars-card="billing"]']) {
+    const stale = view.locator(`${scope} [data-tars-live-freshness="stale"]`).or(page.locator(`${scope} [data-tars-live-freshness="stale"]`)).first();
+    await expect(stale).toContainText("14분 동안 관측 없음 · 진행 정보가 오래됐을 수 있습니다");
+    await expect(stale).not.toContainText("테스트 실행 중");
+  }
 });

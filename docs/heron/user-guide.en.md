@@ -468,16 +468,28 @@ work retains its account and execution choice. A reply is a proposal; action
 outcomes show whether work was admitted, and saved status changes appear back
 in the conversation.
 
-The header shows where your work stands, such as "2 running · 1 needs you ·
-3 done". Select it to open the work tray; on a wide window the tray stays open
-beside the conversation. The tray lists **Needs you**, **Running** and **Done**
+The header shows where your work stands, such as "1 running · 2 waiting ·
+1 needs you · 3 done". **Running** counts only work that is actually running;
+queued, paused and waiting work counts as **waiting**, and work you took over
+as **yours**. Select it to open the work tray; on a wide window the tray stays open
+beside the conversation. The tray lists **Needs you**, **In progress** and **Done**
 (folded). Each card shows its title, a state tag, the owner, the turns left and
-helpers working when Stave knows them, and what waits on you. A card whose run
+helpers working when Stave knows them, and what waits on you. State tags never
+share a color: running work alone is blue with the only moving mark, blocked
+work is amber, completed work green, and queued, waiting, paused and taken-over
+work stays neutral with its own symbol and word. A card whose run
 Stave has read is a run monitor: the stage it is on (such as "Now: Cause,
 attempt 2") with how long it has been on it, one segment per stage (done, in
 progress, not started or stopped), the step count such as "2/3", and
-**Timeline**, which opens the run's timeline at that stage. A value Stave does
-not know is left out, never shown as zero. The card keeps two buttons in view,
+**Timeline**, which opens the run's timeline at that stage. Under it the card
+says what Stave observed: what the run's turn is doing now (such as "Running
+the tests · seen just now"), that no turn is running or that no turn activity
+has reached this window yet, with when the run last changed, or, when nothing
+was observed for five minutes while the work runs, "Nothing observed for 7m ·
+progress may be out of date" in amber. **Recent
+progress** lists the run's three latest changes with how long ago they
+happened. A value Stave does not know is left out, never shown as zero, and
+work whose run Stave has not observed says "No run observation yet". The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
 responsibility** are under the card's more-actions menu. Queued work follows
 the work that started, in the order it will start; its main action is **Start now**, which starts it at once beside running work, and its menu adds **Do first**
@@ -495,13 +507,20 @@ never reports "no work" unless the read succeeded. The tray counts
 the same rows Fleet View shows for Tars work, so the two always agree. When Tars
 delegates work, its message carries a work flow: request, Tars's decision,
 each stage of the run and completion. It is folded to one line such as "1 of 3
-stages done · Running" and updates in place. Select the request to see what
+stages done · Running" with the state's mark, keeps the same observation line
+as the card under it, and updates in place. Select the request to see what
 the work was handed, a stage to see it on the run timeline, the review stage to
 see the review, or completion to see the result report; **Show in Fleet** is in
 each stage's more menu.
-The conversation keeps only words, decisions and the moments work finishes,
-stops or needs you. Updates arrive as soon as Tars saves them, without waiting
-for a refresh.
+While work runs, the band above the message box names it, its stage (such as
+"Stage 2 of 3 · Cause, attempt 2") and what Stave last observed, with
+**Timeline**; beyond two running pieces of work it counts the rest. A reply Tars
+is still writing shows **Thinking** with the moving mark. The sidebar's **Tars**
+entry shows the moving mark with the number of running work and an amber count
+of what needs you; collapsed, it shows one dot, amber when something needs you,
+blue when work only runs. The conversation keeps only words, decisions and the
+moments work completes, is blocked or is cancelled, each with the state tag's
+word. Updates arrive as soon as Tars saves them, without waiting for a refresh.
 
 The tray's fourth section, **Outputs**, lists what work produced: the
 **Result report** once a run ended, **Changes** when it changed files, the
@@ -540,8 +559,12 @@ conversation.
   the workspace is now (not frozen with the report); **Refresh** reads it again.
   Select lines in the diff and choose **Ask about this** to quote the file, line
   range and lines into the message box; nothing is sent until you send it.
-- **Timeline**: stages with attempts, the run's own decisions (routes, waits,
-  retries), hand-offs and controls, and the commands and tool calls, folded.
+- **Timeline**: **Now** first (the state, the stage the run is on, what Stave
+  observed and how current it is, and the run's recent progress, newest
+  first), then stages with attempts (the current stage's time keeps counting),
+  the run's own decisions (routes, waits, retries), hand-offs and controls, and
+  the commands and tool calls, folded. Work without a run says whether its run
+  has not started yet or the work ended before one started.
 - **Review**: the reviewer's verdict and findings in its own words.
 
 Completed work that Stave verified can become a draft pull request. Choose
