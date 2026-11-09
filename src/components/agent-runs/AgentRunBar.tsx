@@ -14,7 +14,8 @@ import {
   type AgentRunStageRow,
 } from "@/lib/agent-runs/agent-run-view";
 import { describeAgentRunStatus, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
-import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS, type NowLineState } from "@/lib/agent-runs/now-line";
+import { selectNowPhrase } from "@/lib/agent-runs/now-line";
+import { useNowLine } from "./useNowLine";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
@@ -44,39 +45,8 @@ const STAGE_HOLD_MS = 3_000;
 export const TAKE_OVER_HINT =
   "agentRuns:agentRunBar.tAKEOVERHINT";
 
-/** The phrase for the running turn's latest tool call, or null. */
-export function selectNowPhrase(activity: ProviderTurnActivitySnapshot | undefined): string | null {
-  if (!activity || activity.completedAt) return null;
-  let latest: ProviderTurnActivitySnapshot["workItemsById"][string] | null = null;
-  for (const id of activity.orderedWorkItemIds) {
-    const item = activity.workItemsById[id];
-    if (item?.kind === "tool" && (!latest || item.updatedAt >= latest.updatedAt)) latest = item;
-  }
-  if (!latest) return i18n.t("agentRuns:agentRunBar.thinking");
-  return describeToolActivity({ toolName: latest.toolName ?? latest.title, detail: latest.detail });
-}
+export { selectNowPhrase } from "@/lib/agent-runs/now-line";
 
-/** Holds each phrase for at least the minimum interval. */
-function useNowLine(candidate: string | null) {
-  const [state, setState] = useState<NowLineState | null>(null);
-  useEffect(() => {
-    if (!candidate) {
-      setState(null);
-      return;
-    }
-    const next = nextNowLine(state, candidate, Date.now());
-    if (next !== state) {
-      setState(next);
-      return;
-    }
-    if (state && state.text !== candidate) {
-      const wait = Math.max(0, state.shownAt + NOW_LINE_MIN_INTERVAL_MS - Date.now());
-      const timer = window.setTimeout(() => setState({ text: candidate, shownAt: Date.now() }), wait);
-      return () => window.clearTimeout(timer);
-    }
-  }, [candidate, state]);
-  return state?.text ?? null;
-}
 
 /** "4 files +82 −17", for the moment a stage completes. */
 function describeCompletedChange(row: AgentRunStageRow): string | null {
