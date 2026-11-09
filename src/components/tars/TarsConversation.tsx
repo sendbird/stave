@@ -3,6 +3,7 @@ import { useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/aui/components/Badge";
+import { Switch } from "@/components/aui/components/Switch";
 import { composerTray } from "@/components/aui/recipes/composer-tray";
 import { sx } from "@/components/aui/utils/stylex";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
@@ -88,6 +89,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       : origin?.kind === "answer" ? null
         : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p></MessageContent></Message>}
     <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <Badge>{t(`shell:tars.conversation.states.${message.state}`)}</Badge> : null}
+      {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}
     </div>
     {message.reply !== null ? <Message from="assistant"><MessageContent><p className={sx(styles.author)}>{name}</p><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></MessageContent></Message> : null}
@@ -134,9 +136,11 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
 }) {
   const { t } = useTranslation(["shell"]);
   const [text, setText] = useState("");
+  // Per message and off by default: the next send carries it, then it resets.
+  const [includeWorkingChanges, setIncludeWorkingChanges] = useState(false);
   const [answerErrors, setAnswerErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [answering, setAnswering] = useState(false);
-  const request = useRef<{ text: string; id: string } | null>(null);
+  const request = useRef<{ text: string; includeWorkingChanges: boolean; id: string } | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const composerErrorId = useId();
   const settings = state.conversation?.settings ?? initialSettings;
@@ -159,6 +163,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   const scrollKey = timeline.map((item) => `${item.id}:${item.kind === "activity" ? item.value.activity.revision : item.kind === "event" ? item.value.status : item.value.revision}`).join("|")
     + decisions.map((view) => `${view.id}:${view.state}`).join("|");
   const tooLong = text.length > TARS_MESSAGE_LIMIT;
+  const composerDisabled = !state.available || !state.conversation || state.busy;
   const focusComposer = () => composerRef.current?.querySelector<HTMLElement>("[contenteditable='true'], textarea")?.focus();
   /** Click, key and words take this one path; only Stave's "ask for new verification work" stays in the composer. */
   const answer: TarsDecisionAnswerHandler = (decision, optionIndex, source) => {
@@ -218,7 +223,9 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     {/* The AUI #809 tray composer: a tinted band around the raised input; its one quiet line appears only for the over-limit error. */}
     <div ref={composerRef} className={sx(styles.composer)} data-tars-composer="">
       <div className={sx(composerTray.tray)}>
-      <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={!state.available || !state.conversation || state.busy}
+      <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={composerDisabled}
+        sendAccessory={<Switch size="xs" checked={includeWorkingChanges} onCheckedChange={setIncludeWorkingChanges} disabled={composerDisabled}
+          label={t("shell:tars.conversation.workingChanges.toggle")} title={t("shell:tars.conversation.workingChanges.hint")} data-tars-working-changes-toggle="" />}
         selectedModel={buildModelSelectorValue({ providerId: settings.providerId, model: settings.model })} modelOptions={[]} onModelSelect={() => undefined}
         attachedFilePaths={[]} plainText onAttachFilesChange={() => undefined} windowShortcutsEnabled={false}
         onSubmit={async ({ text: submitted }) => {
@@ -230,9 +237,12 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
             answer(bound.decision, bound.optionIndex, "words");
             return;
           }
-          if (request.current?.text !== submitted) request.current = { text: submitted, id: crypto.randomUUID() };
-          const message = await state.send({ requestId: request.current.id, text: submitted }, initialSettings);
-          if (message) { request.current = null; if (message.state !== "failed") setText(""); }
+          // An unchanged draft and choice retries the same request; changing either is a new message.
+          if (request.current?.text !== submitted || request.current.includeWorkingChanges !== includeWorkingChanges)
+            request.current = { text: submitted, includeWorkingChanges, id: crypto.randomUUID() };
+          const message = await state.send({ requestId: request.current.id, text: submitted, ...(includeWorkingChanges ? { includeWorkingChanges: true } : {}) },
+            initialSettings);
+          if (message) { request.current = null; if (message.state !== "failed") { setText(""); setIncludeWorkingChanges(false); } }
         }} />
       {tooLong ? <p id={composerErrorId} className={sx(composerTray.footnote, composerTray.footnoteError)} role="alert" data-tars-composer-error="tooLong">{t("shell:tars.conversation.tooLong")}</p> : null}
       </div>

@@ -1356,6 +1356,11 @@
         "changes": "Opened the changes of {{title}}",
         "timeline": "Opened the run timeline of {{title}}",
         "review": "Opened the review of {{title}}"
+      },
+      "workingChanges": {
+        "toggle": "Include my working changes",
+        "hint": "Work this message starts begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
+        "badge": "Includes working changes"
       }
     },
     "execution": {
@@ -1383,7 +1388,8 @@
       "agentPublishes": "This agent publishes or delivers work outside the workspace, which needs a separate request from you, so this work was not started.",
       "agentNotDelegable": "This agent cannot take delegated work on Claude or Codex, so this work was not started.",
       "agentModelConflict": "This agent cannot run on the pinned execution model. Choose Automatic or a matching model in Tars settings, then ask again.",
-      "agentOverCap": "This agent would run with more permission than Tars's delegated work allows, so this work was not started."
+      "agentOverCap": "This agent would run with more permission than Tars's delegated work allows, so this work was not started.",
+      "workingChangesUnavailable": "Your working changes could not be saved as a snapshot, so this work was not started. Check the workspace, then ask again."
     },
     "owner": {
       "label": "Tars",
@@ -1579,7 +1585,8 @@
         "expired": "The run stopped because it took too long."
       },
       "unverifiedCompletion": "The run reported its criteria as met, but Stave has no verified check or passed review for it. Accept it as done, or ask Tars for new work to verify it.",
-      "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check."
+      "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check.",
+      "workingChangesUnavailable": "The snapshot of your working changes is no longer in the repository, so Tars could not create this work's workspace. Cancel it and ask again."
     },
     "messageFailure": {
       "interrupted": "Reasoning was interrupted before its answer was saved. Send a new message to try again.",
@@ -1813,7 +1820,7 @@
       "limit1": "Never commits, pushes, opens pull requests or publishes without a separate request.",
       "limit2": "Works only while Stave is open and this computer is awake.",
       "limit3": "Runs one piece of work at a time; the rest waits in Work.",
-      "limit4": "Starts from the workspace's branch, so uncommitted changes are not included.",
+      "limit4": "Starts from the workspace's branch unless you turn on Include my working changes for that message; ignored files are never included.",
       "limit5": "Uses Claude Code or Codex, and only saved agents you allowed in settings.",
       "limit6": "Calls work done only with a check Stave saw pass or a passed review; otherwise it asks you.",
       "example1": "What is running right now, and does anything need me?",
@@ -1822,6 +1829,10 @@
       "exampleLabel1": "What's running now?",
       "exampleLabel2": "Fix a flaky test",
       "exampleLabel3": "Pause and show changes"
+    },
+    "workingChanges": {
+      "snapshot": "From your working changes · {{commit}}",
+      "clean": "No working changes to include · from the branch"
     }
   }
 }

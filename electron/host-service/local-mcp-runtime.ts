@@ -1466,6 +1466,8 @@ export async function createWorkspace(args: {
   mode: "branch" | "clean";
   fromBranch?: string;
   fromBranchKind?: "local" | "remote";
+  /** Starts the branch at this commit instead of `fromBranch`; no remote is resolved or fetched. */
+  fromCommit?: string;
   initCommand?: string;
   useRootNodeModulesSymlink?: boolean;
 }) {
@@ -1511,7 +1513,9 @@ export async function createWorkspace(args: {
     repositoryPath,
     worktreePath: workspacePath,
   });
+  const fromCommit = args.mode === "branch" ? args.fromCommit?.trim() : undefined;
   let baseBranch =
+    fromCommit ||
     args.fromBranch?.trim() ||
     repository.defaultBranch ||
     ensured.defaultBranch ||
@@ -1536,7 +1540,7 @@ export async function createWorkspace(args: {
   const notices: Array<{ level: "success" | "warning"; message: string }> = [];
 
   const remoteTarget =
-    args.mode === "branch"
+    args.mode === "branch" && !fromCommit
       ? await resolveWorkspaceRemoteBaseBranchTarget({
           baseBranch,
           fromBranchKind: args.fromBranchKind,

@@ -12,10 +12,17 @@ export const TARS_REPLY_MAX_CHARS = 8_000;
 /** Stated to the model; a longer delegation reason is cut. */
 export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
 
-/** The global conversation accepts only the user's words and retry identity. */
+/**
+ * The global conversation accepts only the user's words, retry identity and
+ * one per-message choice: `includeWorkingChanges` starts the work this message
+ * admits from the target workspace's uncommitted changes, which the host
+ * snapshots at admission. Optional so earlier messages still parse; absent or
+ * false starts from the branch.
+ */
 export const TarsMessageInputSchema = z.object({
   requestId: IdSchema,
   text: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS),
+  includeWorkingChanges: z.boolean().optional(),
 }).strict();
 export type TarsMessageInput = z.infer<typeof TarsMessageInputSchema>;
 
@@ -70,14 +77,17 @@ export const TarsControlReasonSchema = z.enum([
 export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
 
 /**
- * Why the host refused a delegate action's agent: it does not exist or is
+ * Why the host refused a delegate action: its agent does not exist or is
  * archived, the user has not allowed it, it publishes or delivers outside the
  * workspace (which needs a separate request), it cannot take delegated work on
  * Claude or Codex, it conflicts with the pinned execution model, or it would
- * exceed the delegated permission ceiling.
+ * exceed the delegated permission ceiling; or the user's working changes,
+ * which the message asked to include, could not be snapshotted.
  */
 export const TarsDelegateReasonSchema = z.enum([
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
+  // The message asked to include the user's working changes, and the host could not snapshot them.
+  "workingChangesUnavailable",
 ]);
 export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
 export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema]);

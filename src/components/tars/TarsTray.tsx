@@ -12,7 +12,7 @@ import { transition } from "@/components/aui/recipes/transition";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { TarsLane } from "@/lib/tars/attention";
-import { describeTarsResponsibilityDetail } from "@/lib/tars/detail";
+import { describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { TARS_IRREVERSIBLE_OPERATIONS } from "@/lib/tars/conversation";
 import { formatDateTime } from "@/i18n/format";
@@ -154,6 +154,7 @@ export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actio
   const { row, progress } = card;
   const terminal = card.lane === "done";
   const detail = describeTarsResponsibilityDetail(row);
+  const workingChanges = describeTarsWorkingChanges(row);
   // Who holds it, then what the run reported; an unknown budget or helper count is left out, never "0".
   const facts = [
     t(card.owner === "you" ? "shell:tars.tray.owner.you" : "shell:tars.tray.owner.tars"),
@@ -172,6 +173,7 @@ export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actio
     card.branch ? <p key="branch" className={sx(styles.meta, styles.branch)} data-tars-branch={card.branch} title={card.branch}>
       <GitBranch aria-hidden className={sx(styles.branchIcon)} /><span className={sx(agentRunStyles.visuallyHidden)}>{t("shell:tars.tray.branch")}</span>
       <span className={sx(styles.branchName)}>{card.branch}</span></p> : null,
+    workingChanges ? <p key="workingChanges" className={sx(styles.meta)} data-tars-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null,
     card.followUp ? <p key="followUp" className={sx(styles.meta)} data-tars-follow-up-state={card.followUp.status}>
       {t(`shell:tars.tray.followUp.${card.followUp.status}`, { time: card.followUp.at ? formatDateTime(card.followUp.at) : "" })}</p> : null,
     card.attention.length ? <ul key="attention" className={sx(styles.attention)}>

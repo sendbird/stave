@@ -183,6 +183,34 @@ test("a click in the tray appends a one-line action record, never a user message
   await expect(view.locator("[data-tars-message]")).toHaveCount(0);
 });
 
+test("include my working changes is off by default, travels with one message and resets after it is sent", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  const toggle = composer(page).getByRole("switch", { name: "Include my working changes", exact: true });
+  await expect(toggle).not.toBeChecked();
+  // Keyboard first: Space on the focused switch turns it on.
+  await toggle.focus();
+  await page.keyboard.press("Space");
+  await expect(toggle).toBeChecked();
+  await send(page, "Fix the export on top of my edits");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(page.locator("[data-tars-message-working-changes]")).toHaveText("Includes working changes");
+  await expect(toggle).not.toBeChecked();
+  await send(page, "And tell me what is running");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(2);
+  await expect(page.locator("[data-tars-message-working-changes]")).toHaveCount(1);
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.messages[0].includeWorkingChanges).toBe(true);
+  expect(saved.messages[1]).not.toHaveProperty("includeWorkingChanges");
+});
+
+test("tray cards say when work starts from the user's working changes, with the short commit", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?stavePreview=tars&tray=true&queued=true&workingChanges=true&lang=ko");
+  const panel = page.getByRole("complementary");
+  await expect(panel.locator('[data-tars-card="billing"] [data-tars-working-changes="snapshot"]')).toHaveText("작업 중인 변경에서 시작 · 3fa9c1d");
+  await expect(panel.locator('[data-tars-card="search-index"] [data-tars-working-changes="clean"]')).toHaveText("포함할 작업 중인 변경 없음 · 브랜치에서 시작");
+});
+
 test("a proposed cancel waits as a decision card, and the confirmed proposal folds to its record without another Confirm", async ({ page }) => {
   await page.goto("/?stavePreview=tars&proposal=cancel");
   const view = page.getByTestId("tars-view");

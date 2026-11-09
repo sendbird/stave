@@ -93,6 +93,7 @@ import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsRuntime } from "./host-service/tars-host";
 import { applyTarsDecision } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
+import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
@@ -2205,6 +2206,13 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
+        snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
+          workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
+          ref: tarsWorkingChangesRef(messageId, workspaceId),
+          // i18n-ignore: Git commit message, kept in the repository's history
+          message: `chore(tars): start from working changes\n\nSnapshot of the uncommitted changes in workspace ${workspaceId} for Tars message ${messageId}.`,
+          date,
+        }),
       }));
       return;
     }

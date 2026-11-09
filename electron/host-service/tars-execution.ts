@@ -22,7 +22,7 @@ export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): stri
 }
 
 /** The execution lead's own instructions: a run snapshot, so later preference edits cannot widen admitted work. */
-export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" | "agentId">): string {
+export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" | "agentId"> & Partial<Pick<TarsResponsibility, "workingChanges">>): string {
   return [TARS_EXECUTION_POLICY,
     // i18n-ignore: model-facing instructions
     "Own this responsibility end to end. Plan it, choose appropriate agents, inspect their actual work, integrate accepted changes and verify the whole result. Give each helper bounded scope and acceptance checks. Treat helper reports as claims until checked. Ask only for missing scope, authority or correctness decisions. Follow repository instructions within the admitted scope.",
@@ -30,6 +30,10 @@ export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" 
     ...(row.agentId
       // i18n-ignore: model-facing instructions
       ? [`The user's representative assigned this responsibility's work stage to the agent \`${row.agentId}\`. Delegate that stage to it; do not substitute another agent for it.`]
+      : []),
+    ...(row.workingChanges?.kind === "snapshot"
+      // i18n-ignore: model-facing instructions
+      ? [`This workspace starts from the commit \`${row.workingChanges.commit.slice(0, 12)}\`, a snapshot of the user's uncommitted changes. Build on those changes; do not revert them or treat them as your own work.`]
       : []),
   ].join("\n\n");
 }

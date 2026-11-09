@@ -26,6 +26,7 @@ const DETAIL_KEYS = {
   observationFailed: "shell:tars.detail.observationFailed",
   unverifiedCompletion: "shell:tars.detail.unverifiedCompletion",
   acceptedWithoutVerification: "shell:tars.detail.acceptedWithoutVerification",
+  workingChangesUnavailable: "shell:tars.detail.workingChangesUnavailable",
 } as const satisfies Record<TarsDetailCode, I18nKey>;
 
 /** A run's own pause reason, more specific than the generic "paused" sentence. */
@@ -82,4 +83,20 @@ export function describeTarsMessageFailure(message: Pick<TarsMessage, "error" | 
   const code = TarsMessageFailureCodeSchema.safeParse(message.errorCode);
   const known = code.success ? code.data : legacyFailureCode(message.error);
   return known ? i18n.t(FAILURE_KEYS[known]) : message.error;
+}
+
+/** The commit a short form names: 7 characters, as Git abbreviates by default. */
+export const TARS_SHORT_COMMIT_CHARS = 7;
+
+/**
+ * Where work that included the user's working changes starts: their snapshot
+ * (with its short commit) or, when there were none, the branch. Null for work
+ * whose message did not ask to include them.
+ */
+export function describeTarsWorkingChanges(row: Pick<TarsResponsibility, "workingChanges">): string | null {
+  const changes = row.workingChanges;
+  if (!changes) return null;
+  return changes.kind === "snapshot"
+    ? i18n.t("shell:tars.workingChanges.snapshot", { commit: changes.commit.slice(0, TARS_SHORT_COMMIT_CHARS) })
+    : i18n.t("shell:tars.workingChanges.clean");
 }

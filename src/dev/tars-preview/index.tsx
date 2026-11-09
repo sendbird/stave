@@ -41,6 +41,11 @@ export function TarsPreview() {
     // `queued=true`: one more piece of work waits for the single active slot, so its card says what it waits behind.
     if (fixtures && params.get("queued") === "true") fixtures.responsibilities.push({ ...fixtures.responsibilities[1]!, id: "search-index", requestId: "request-search-index",
       title: "Speed up the search index rebuild", state: "queued", priority: 40, branchName: undefined, taskId: null, agentRunId: null, executionWorkspaceId: null });
+    // `workingChanges=true`: the running fix started from the user's working changes; queued work asked for them but there were none.
+    if (fixtures && params.get("workingChanges") === "true") for (const row of fixtures.responsibilities) {
+      if (row.id === "billing") row.workingChanges = { kind: "snapshot", commit: "3fa9c1d2e4b5a6978877665544332211aabbccdd", ref: "refs/stave/tars/message-delegate/0f1e2d3c4b5a6978" };
+      if (row.id === "search-index") row.workingChanges = { kind: "clean" };
+    }
     // `outputs=true`: ended work with a frozen report, a review, changes and a link, plus work blocked on unmet criteria (the side view).
     const side = params.get("outputs") === "true" ? buildTarsSideViewFixtures(new Date(now)) : null;
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
@@ -158,7 +163,8 @@ export function TarsPreview() {
       getConversation: async () => structuredClone(conversation),
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
-        if (Object.keys(input).sort().join() !== "requestId,text") throw new Error("Global messages accept only requestId and text.");
+        if (!["requestId,text", "includeWorkingChanges,requestId,text"].includes(Object.keys(input).sort().join()))
+          throw new Error("Global messages accept only requestId, text and the working-changes choice.");
         if (!conversation.settings) throw new Error("Missing global settings.");
         let message = conversation.messages.find((item) => item.requestId === input.requestId);
         if (!message) {
