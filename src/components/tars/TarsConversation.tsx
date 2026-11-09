@@ -292,7 +292,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         if (message) next.set(decision.id, message); else next.delete(decision.id);
         return next;
       });
-      return !message;
+      // A recorded answer the host refused (its card shows why) was not taken either.
+      return !message && result?.answer?.status !== "rejected";
     }).finally(() => setAnswering(false));
   };
   const cardHandler = onAnswer ? answer : undefined;

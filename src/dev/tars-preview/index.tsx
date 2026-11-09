@@ -154,7 +154,9 @@ export function TarsPreview() {
       const takenOver = row?.state === "takenOver";
       const reason = !row ? "notOwned" as const : row.revision !== expectedRevision ? "stale" as const
         : operation === "handBack" && !takenOver ? "notTakenOver" as const : operation === "takeover" && takenOver ? "alreadyTakenOver" as const
-          : (operation === "pause" || operation === "resume") && takenOver ? "takenOver" as const : null;
+          : (operation === "pause" || operation === "resume") && takenOver ? "takenOver" as const
+            // `controlRefusal=true`: the host records the control but refuses it, as when the user took the work over meanwhile.
+            : params.get("controlRefusal") === "true" ? "takenOver" as const : null;
       const error = reason ? "Preview control is not admissible." : null;
       // A run command leaves the run going.
       const state = operation === "pause" ? "paused" : operation === "cancel" ? "cancelled" : operation === "takeover" ? "takenOver"

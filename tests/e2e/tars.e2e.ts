@@ -463,6 +463,19 @@ test("a short answer in words binds to the one waiting decision's recommended op
   expect(saved.messages.map((message: { text: string }) => message.text)).not.toContain("응");
 });
 
+test("a short answer whose control is refused keeps the words in the composer", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&decision=ask&controlRefusal=true");
+  const view = page.getByTestId("tars-view");
+  await send(page, "What should happen with the release check?");
+  await expect(view.locator('[data-tars-decision-state="waiting"]')).toBeVisible();
+  // "1" binds to "Pause it now"; the host records the answer but refuses the pause, without a refusal code.
+  await send(page, "1");
+  await expect(view.locator('[data-tars-decision-attempt="rejected"]')).toContainText("Pause it now");
+  await expect(editor(page)).toHaveText("1");
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.answers.map((answer: { status: string }) => answer.status)).toEqual(["rejected"]);
+});
+
 test("an unverified completion is a decision card: verification work goes to the composer, Accept applies by click", async ({ page }) => {
   await page.goto("/?stavePreview=tars&decision=unverified");
   const view = page.getByTestId("tars-view");
