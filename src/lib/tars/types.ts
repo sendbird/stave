@@ -63,7 +63,7 @@ export type TarsState = z.infer<typeof TarsStateSchema>;
 /**
  * The controls a click, Fleet, a task or an admitted model proposal can apply.
  * - `acceptCompletion`: the user accepts work whose completion Stave could not verify.
- * - `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot.
+ * - `startNow`: the user starts queued work at once, ahead of the queue and outside any configured admission limit.
  * - `extend`, `retryStage`, `skipStage`, `signOff`: what the user can do to the
  *   run in its task (add turns at its turn limit, ask a blocked or stuck stage
  *   again, skip the current stage, approve a stage waiting for sign-off).

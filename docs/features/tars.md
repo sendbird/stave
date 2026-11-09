@@ -154,12 +154,13 @@ instruction with them. The host refuses delegation from an attachment-only messa
   sandbox, so the task's provider permissions and safety controls still apply.
 - **Only while Stave is open.** Nothing executes while Stave is closed or the
   computer is asleep, and Tars does not schedule wake-ups of its own.
-- **One responsibility runs at a time.** Others wait in the queue, and a
-  queued card names the work it waits behind. Work waiting for your answer
-  gives up its slot to independent queued work. Only queued work can change
-  its place; work that started keeps it, and priorities stay between 0 and
-  100. **Start now** is the one exception you choose: that work starts beside
-  the running work, and the rest of the queue still waits for the slot.
+- **Independent work runs concurrently.** There is no cap unless you set
+  **Settings → Concurrent responsibilities** to a positive number; then work
+  beyond it waits in the queue, and a queued card says only the reason Stave
+  observed (the limit, a busy database, or not confirmed). Work waiting for
+  your answer gives up its slot. Only queued work can change its place; work
+  that started keeps it, and priorities stay between 0 and 100. **Start now**
+  starts the work you chose even when the limit is reached.
 - **Reasoning has no tools.** Tars itself cannot read files, run commands or
   call MCP tools; it sees only the summary Stave supplies. Connected apps are
   not read merely because they are available.
@@ -584,7 +585,7 @@ did not record, such as a start time, are left out rather than shown as zero.
 the one moving mark (reduced motion settles it); blocked work wears the
 warning tone, completed work the success tone, and queued, waiting, paused and
 taken-over work stays neutral, told apart by its glyph and word. The header
-counts work as **running** only while it holds the active slot (running, or
+counts work as **running** only while its run is active (running, or
 preparing with its run created); the rest of **In progress** counts as
 **waiting**, or **yours** once you took it over. The conversation's one-line
 notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
