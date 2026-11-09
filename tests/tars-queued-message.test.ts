@@ -22,8 +22,15 @@ afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
-/** What the host's task looks like to the fake ports: a running turn, a paused run, the words said and the run's user turns. */
-interface TaskState { busy: boolean; said: string[]; userTurns: number; respondCalls: TarsControlRequest[]; deliver?: (text: string) => Promise<"sent" | "busy"> }
+/**
+ * What the host's task looks like to the fake ports: a running turn, the words said, the run's user turns by ID
+ * (`turnIds`, any user turn the run recorded, the user's own included) and a gate that holds one work's observation.
+ */
+interface TaskState {
+  busy: boolean; said: string[]; turnIds: string[]; respondCalls: TarsControlRequest[];
+  deliver?: (text: string, turnId: string) => Promise<"sent" | "busy">;
+  observeGate?: (row: TarsResponsibility) => Promise<void> | undefined;
+}
 
 /** The real runtime and stores on a file, so a test can stop them and open the same file again as a restart does. */
 function host(file: string, task: TaskState, options: { queue?: boolean } = {}) {
@@ -34,23 +41,24 @@ function host(file: string, task: TaskState, options: { queue?: boolean } = {}) 
   const ports: TarsRuntimePorts = {
     store, now: () => NOW, validateScope: async () => {},
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => "owned-run", startRun: async () => "owned-run",
-    observe: async () => observation, controlRun: async () => {},
+    observe: async (row) => { await task.observeGate?.(row); return observation; }, controlRun: async () => {},
     respondTask: async (_row, request, respond) => {
       task.respondCalls.push(request);
-      if (request.operation === "message" && task.busy) { if (respond?.canQueue) return "queued"; throw new TarsTaskBusyError(); }
-      task.said.push(request.input!.text!); task.userTurns++;
+      // As the host does: a running turn, or older words still kept for the work, keeps these words too.
+      if (request.operation === "message" && (task.busy || respond?.queueBehind)) { if (respond?.canQueue) return "queued"; throw new TarsTaskBusyError(); }
+      task.said.push(request.input!.text!);
     },
     ...(options.queue === false ? {} : {
       messages: conversations,
-      deliverMessage: async (_row, text) => {
-        if (task.deliver) return task.deliver(text);
+      deliverMessage: async (_row, text, turnId) => {
+        if (task.deliver) return task.deliver(text, turnId);
         if (task.busy) return "busy";
-        task.said.push(text); task.userTurns++;
+        task.said.push(text); task.turnIds.push(turnId);
         // The reply starts a turn in the task: the next message waits for it to end.
         task.busy = true;
         return "sent";
       },
-      userTurns: () => task.userTurns,
+      hasUserTurn: (_agentRunId, turnId) => task.turnIds.includes(turnId),
     }),
   };
   const runtime = createTarsRuntime(ports);
@@ -62,7 +70,7 @@ function host(file: string, task: TaskState, options: { queue?: boolean } = {}) 
 function fixture(options: { queue?: boolean } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), "stave-tars-queued-")); directories.push(directory);
   const file = path.join(directory, "stave.sqlite");
-  const task: TaskState = { busy: true, said: [], userTurns: 0, respondCalls: [] };
+  const task: TaskState = { busy: true, said: [], turnIds: [], respondCalls: [] };
   let current = host(file, task, options);
   const created = current.store.create({ requestId: "owned", title: "Ship search", instruction: "Fix and verify search.",
     acceptanceCriteria: ["Search works"], workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }, NOW);
@@ -70,27 +78,52 @@ function fixture(options: { queue?: boolean } = {}) {
   const row = current.store.patch(created.id, created.revision, { state: "running", taskId: "exec-task", executionWorkspaceId: "execution",
     agentRunId: "owned-run", activeStage: "work#1" }, NOW);
   let messages = 0;
-  /** The user asks Tars to tell the run something; Tars proposes it and the user confirms the card. */
-  const tell = async (text: string) => {
+  /** The user asks Tars to tell a work's run something; Tars proposes it and the user confirms the card. */
+  const tell = async (text: string, work: TarsResponsibility = row) => {
     const { conversations, store, runtime } = current;
     conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
     const queued = conversations.create({ requestId: `message-${messages++}`, text: `그렇게 전해줘: ${text}` }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
-    const revision = store.get(row.id)!.revision;
+    const revision = store.get(work.id)!.revision;
     const message = conversations.answer(claimed.id, claimed.revision, { reply: "Confirm on the card.",
-      actions: [{ kind: "control", responsibilityId: row.id, expectedRevision: revision, operation: "message", input: { text } }] }, NOW);
+      actions: [{ kind: "control", responsibilityId: work.id, expectedRevision: revision, operation: "message", input: { text } }] }, NOW);
     await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, {
       conversations, responsibilities: store, readRegistry: () => [], now: () => NOW, requestTick: () => runtime.requestTick(), control: runtime.act });
-    const record = (await actTars({ requestId: tarsConfirmationRequestId(message.id, 0), responsibilityId: row.id, expectedRevision: revision,
+    const record = (await actTars({ requestId: tarsConfirmationRequestId(message.id, 0), responsibilityId: work.id, expectedRevision: revision,
       operation: "message", source: "click" }, { conversations, runtime, now: () => NOW })).record;
     await runtime.drain();
     return { message, record };
   };
-  const click = async (operation: TarsControlOperation) => (await actTars({ requestId: `click-${messages++}`, responsibilityId: row.id,
-    expectedRevision: current.store.get(row.id)!.revision, operation, source: "click" }, { conversations: current.conversations, runtime: current.runtime, now: () => NOW })).record;
+  const click = async (operation: TarsControlOperation, work: TarsResponsibility = row) => (await actTars({ requestId: `click-${messages++}`, responsibilityId: work.id,
+    expectedRevision: current.store.get(work.id)!.revision, operation, source: "click" }, { conversations: current.conversations, runtime: current.runtime, now: () => NOW })).record;
+  /** Another running work Tars owns, with its own task and run. */
+  const work = (requestId: string) => {
+    const other = current.store.create({ requestId, title: `Work ${requestId}`, instruction: "Do it.", acceptanceCriteria: ["Done"],
+      workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }, NOW);
+    return current.store.patch(other.id, other.revision, { state: "running", taskId: `task-${requestId}`, executionWorkspaceId: "execution",
+      agentRunId: "owned-run", activeStage: "work#1" }, NOW);
+  };
+  /**
+   * Stave stops while it says the next message: the delivery is saved under way and `deliver` is called, and
+   * nothing after it runs. `reached` says whether the run took the reply's user turn before Stave stopped.
+   */
+  const stopWhileSaying = async (reached: boolean) => {
+    let called!: () => void;
+    const saying = new Promise<void>((resolve) => { called = resolve; });
+    task.busy = false;
+    task.deliver = async (text, turnId) => {
+      if (reached) { task.said.push(text); task.turnIds.push(turnId); }
+      called();
+      return new Promise<never>(() => {});
+    };
+    current.runtime.requestTick();
+    await saying;
+    task.deliver = undefined;
+    current.runtime.stop(); current.database.close(); current = host(file, task, options);
+  };
   const record = (requestId: string) => current.conversations.getAction(requestId)!;
   return {
-    task, row, tell, click, record, get host() { return current; },
+    task, row, tell, click, work, stopWhileSaying, record, get host() { return current; },
     tick: () => current.tick(),
     restart: () => { current.runtime.stop(); current.database.close(); current = host(file, task, options); return current; },
     current: (): TarsResponsibility => current.store.get(row.id)!,
@@ -116,7 +149,8 @@ describe("words for a work whose task is busy", () => {
     f.task.busy = false;
     await f.tick();
     expect(f.task.said).toEqual(["다 허락할테니 알아서 진행하라고 하면돼"]);
-    expect(f.record(record.requestId).delivery).toMatchObject({ status: "delivered", userTurns: 0 });
+    // Said as the turn it named before it started.
+    expect(f.record(record.requestId).delivery).toMatchObject({ status: "delivered", turnId: f.task.turnIds[0] });
     // Later ticks, and the turn ending again, never say it twice.
     f.task.busy = false;
     for (let tick = 0; tick < 3; tick++) await f.tick();
@@ -140,7 +174,7 @@ describe("words for a work whose task is busy", () => {
     expect([first, second].map(({ record }) => f.record(record.requestId).delivery?.status)).toEqual(["delivered", "delivered"]);
   });
 
-  test("survive a restart, and one under way when Stave stopped is settled from the run's turns, never said twice", async () => {
+  test("survive a restart, and one under way when Stave stopped is settled from its own turn, never said twice", async () => {
     const f = fixture();
     const kept = await f.tell("Keep going after the restart.");
     f.restart();
@@ -149,26 +183,25 @@ describe("words for a work whose task is busy", () => {
     await f.tick();
     expect(f.task.said).toEqual(["Keep going after the restart."]);
 
-    // Stave stopped right after saying it: the record is still under way, and the run took the user turn.
+    // Stave stopped right after saying it: the record is still under way, and the run took its turn.
+    f.task.busy = true;
     const reached = await f.tell("This one reached the task.");
-    f.host.conversations.transitionDelivery(reached.record.requestId, ["queued"], { status: "delivering", userTurns: f.task.userTurns }, NOW);
-    f.task.userTurns++;
-    f.restart();
+    await f.stopWhileSaying(true);
+    expect(f.record(reached.record.requestId).delivery?.status).toBe("delivering");
     f.task.busy = false;
     await f.tick();
     expect(f.record(reached.record.requestId).delivery?.status).toBe("delivered");
-    expect(f.task.said).toEqual(["Keep going after the restart."]);
+    expect(f.task.said).toEqual(["Keep going after the restart.", "This one reached the task."]);
 
-    // Stave stopped before saying it: no user turn since, so it is queued again and said once.
+    // Stave stopped before saying it: its turn is not there, so it is queued again and said once.
     f.task.busy = true;
     const lost = await f.tell("This one never left.");
-    f.host.conversations.transitionDelivery(lost.record.requestId, ["queued"], { status: "delivering", userTurns: f.task.userTurns }, NOW);
-    f.restart();
+    await f.stopWhileSaying(false);
     f.task.busy = false;
     await f.tick();
     expect(f.record(lost.record.requestId).delivery?.status).toBe("queued");
     await f.tick();
-    expect(f.task.said).toEqual(["Keep going after the restart.", "This one never left."]);
+    expect(f.task.said).toEqual(["Keep going after the restart.", "This one reached the task.", "This one never left."]);
     expect(f.record(lost.record.requestId).delivery?.status).toBe("delivered");
   });
 
@@ -239,6 +272,125 @@ describe("words for a work whose task is busy", () => {
     const { record } = await f.tell("Use the existing index.");
     expect(record).toMatchObject({ status: "rejected", reason: "taskBusy" });
     expect(record).not.toHaveProperty("delivery");
+  });
+});
+
+describe("words for a busy work after a restart, a takeover and alongside other works", () => {
+  test("one under way when Stave stopped counts as said only if the run took that very turn, not just any user turn", async () => {
+    const f = fixture();
+    const { record } = await f.tell("Run the migration next.");
+    await f.stopWhileSaying(false);
+    expect(f.record(record.requestId).delivery?.status).toBe("delivering");
+    // Meanwhile the user typed in the task: the run took a user turn, but not this message's.
+    f.task.turnIds.push("user-typed-turn");
+    f.task.busy = false;
+    await f.tick();
+    await f.tick();
+    expect(f.task.said).toEqual(["Run the migration next."]);
+    expect(f.record(record.requestId).delivery?.status).toBe("delivered");
+
+    // Stave stopped right after the run took the reply's own turn: it is said, and never said again.
+    f.task.busy = true;
+    const reached = await f.tell("Then add a regression test.");
+    await f.stopWhileSaying(true);
+    f.task.busy = false;
+    for (let tick = 0; tick < 3; tick++) await f.tick();
+    expect(f.record(reached.record.requestId).delivery?.status).toBe("delivered");
+    expect(f.task.said).toEqual(["Run the migration next.", "Then add a regression test."]);
+  });
+
+  test("a takeover discards one left under way too, so a hand-back never says it", async () => {
+    const f = fixture();
+    const { record } = await f.tell("Run the migration next.");
+    await f.stopWhileSaying(false);
+    expect(await f.click("takeover")).toMatchObject({ status: "applied" });
+    expect(f.record(record.requestId).delivery).toMatchObject({ status: "cancelled", reason: "takenOver" });
+    expect(await f.click("handBack")).toMatchObject({ status: "applied" });
+    f.task.busy = false;
+    for (let tick = 0; tick < 3; tick++) await f.tick();
+    expect(f.task.said).toEqual([]);
+    expect(f.record(record.requestId).delivery?.status).toBe("cancelled");
+  });
+
+  test("one under way that the run did take before a takeover is recorded as said, not discarded", async () => {
+    const f = fixture();
+    const { record } = await f.tell("Run the migration next.");
+    await f.stopWhileSaying(true);
+    expect(await f.click("takeover")).toMatchObject({ status: "applied" });
+    expect(f.record(record.requestId).delivery?.status).toBe("delivered");
+    expect(f.task.said).toEqual(["Run the migration next."]);
+  });
+
+  test("a hand-back discards words still kept from before a takeover Tars observed in the task", async () => {
+    const f = fixture();
+    const { record } = await f.tell("Run the migration next.");
+    // Observed as taken over in its task, and Stave stopped before its delivery pass settled the words.
+    const row = f.current();
+    f.host.store.patch(row.id, row.revision, { state: "takenOver" }, NOW);
+    f.restart();
+    expect(f.record(record.requestId).delivery?.status).toBe("queued");
+    expect(await f.click("handBack")).toMatchObject({ status: "applied" });
+    expect(f.record(record.requestId).delivery).toMatchObject({ status: "cancelled", reason: "takenOver" });
+    f.task.busy = false;
+    for (let tick = 0; tick < 3; tick++) await f.tick();
+    expect(f.task.said).toEqual([]);
+  });
+
+  test("a work's words are said even when many older words wait for paused work", async () => {
+    const f = fixture();
+    // More older words than one read holds, for one paused work and then for more paused works than one page holds.
+    const paused = f.work("paused");
+    for (let index = 0; index < 33; index++) await f.tell(`Paused step ${index}.`, paused);
+    await f.click("pause", paused);
+    for (let index = 0; index < 32; index++) {
+      const other = f.work(`paused-${index}`);
+      await f.tell(`Paused work ${index}.`, other);
+      await f.click("pause", other);
+    }
+    const { record } = await f.tell("Ship it.");
+    f.task.busy = false;
+    await f.tick();
+    expect(f.task.said).toEqual(["Ship it."]);
+    expect(f.record(record.requestId).delivery?.status).toBe("delivered");
+  });
+
+  test("a slow observation of one work does not hold back another work's words", async () => {
+    const f = fixture();
+    const slow = f.work("slow");
+    await f.tell("Slow work's step.", slow);
+    const { record } = await f.tell("Ship it.");
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    f.task.observeGate = (row) => row.id === slow.id ? held : undefined;
+    f.task.deliver = async (text, turnId) => {
+      // Each work's task is its own: the slow work's turn never makes this one busy.
+      f.task.said.push(text); f.task.turnIds.push(turnId);
+      return "sent";
+    };
+    f.task.busy = false;
+    f.host.runtime.requestTick();
+    for (let turn = 0; turn < 50 && !f.task.said.includes("Ship it."); turn++) await new Promise((resolve) => setImmediate(resolve));
+    expect(f.task.said).toEqual(["Ship it."]);
+    expect(f.record(record.requestId).delivery?.status).toBe("delivered");
+    release();
+    await f.host.runtime.drain();
+    expect(f.task.said).toEqual(["Ship it.", "Slow work's step."]);
+  });
+
+  test("new words wait behind words already kept for the same work, even once its task is free", async () => {
+    const f = fixture();
+    const first = await f.tell("First, use the existing index.");
+    f.task.busy = false;
+    const second = await f.tell("Second, add a regression test.");
+    // Kept behind the first, not said at once; the tick its confirmation asked for says the first.
+    expect(second.record).toMatchObject({ status: "applied", delivery: { status: "queued" } });
+    expect(f.task.said).toEqual(["First, use the existing index."]);
+    await f.tick();
+    expect(f.task.said).toEqual(["First, use the existing index."]);
+    f.task.busy = false;
+    await f.tick();
+    expect(f.task.said).toEqual(["First, use the existing index.", "Second, add a regression test."]);
+    expect([first, second].map(({ record }) => f.record(record.requestId).delivery?.status)).toEqual(["delivered", "delivered"]);
   });
 });
 

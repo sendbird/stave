@@ -516,8 +516,9 @@ export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
  * confirmed them: kept with the confirmation's record and said in the task
  * once that turn ends, exactly once, as their reply there.
  * - `queued`: waiting for the task's turn to end (or a paused run to resume).
- * - `delivering`: being said now. After a restart, a user turn the run took
- *   since `userTurns` (its count when this started) means it reached the task.
+ * - `delivering`: being said now, as the user turn `turnId`, minted and saved
+ *   before the reply starts. After a restart it reached the task only if the
+ *   run recorded that very turn; any other user turn says nothing about it.
  * - `delivered`: said in the task.
  * - `failed`: the run refused it (`reason`, `error`).
  * - `cancelled`: the work was taken over, cancelled or completed, its run
@@ -527,7 +528,7 @@ export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
 export const TarsMessageDeliverySchema = z.object({
   status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled"]),
   agentRunId: IdSchema,
-  userTurns: z.number().int().min(0).optional(),
+  turnId: IdSchema.optional(),
   reason: TarsControlReasonSchema.nullable(),
   error: ErrorSchema.nullable(),
   queuedAt: TimestampSchema,
@@ -537,7 +538,7 @@ export const TarsMessageDeliverySchema = z.object({
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (settledOtherwise !== (delivery.reason !== null)) context.addIssue({ code: "custom", message: "Only a failed or cancelled delivery has a reason." });
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
-  if (delivery.status === "delivering" && delivery.userTurns === undefined) context.addIssue({ code: "custom", message: "A delivery under way records the run's user turns." });
+  if (delivery.status === "delivering" && delivery.turnId === undefined) context.addIssue({ code: "custom", message: "A delivery under way names the user turn it starts." });
 });
 export type TarsMessageDelivery = z.infer<typeof TarsMessageDeliverySchema>;
 export type TarsMessageDeliveryStatus = TarsMessageDelivery["status"];

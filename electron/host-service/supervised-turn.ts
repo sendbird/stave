@@ -67,6 +67,8 @@ export async function runSupervisedTurn(args: {
   questionAnswer?: RunQuestionAnswer;
   /** After an account-pool switch: a new provider conversation on the account switched to. */
   freshSession?: boolean;
+  /** The turn's ID, when the caller named it in advance so it can find the turn again; otherwise a new one. */
+  turnId?: string;
 }) {
   const store = ensureHostServicePersistenceReady();
   const saved = store.delegationPolicies.loadTaskAccounts(args.taskId) ?? store.loadWorkspaceShell({ workspaceId: args.workspaceId })?.promptDraftByTask?.[args.taskId]?.runtimeOverrides;
@@ -99,5 +101,6 @@ export async function runSupervisedTurn(args: {
     ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
     ...(args.freshSession ? { freshSession: true } : {}),
+    ...(args.turnId ? { turnId: args.turnId } : {}),
   })));
 }

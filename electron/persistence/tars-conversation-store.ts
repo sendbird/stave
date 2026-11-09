@@ -593,19 +593,43 @@ export class TarsConversationStore {
   }
 
   /**
+   * The oldest open message of each work, in the order those were queued: the
+   * only one of its work that may be said next. `after`, the request ID of the
+   * last head read, pages on, so heads that must wait (paused or busy work)
+   * never hide another work's.
+   */
+  listDeliveryHeads(limit = 32, after?: string): TarsActionRecord[] {
+    this.requireLimit(limit);
+    return this.db.prepare(`WITH open AS (
+        SELECT rowid AS position, created_at, body_json, ROW_NUMBER() OVER (
+          PARTITION BY json_extract(body_json, '$.action.responsibilityId') ORDER BY created_at, rowid) AS place
+        FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering'))
+      SELECT body_json FROM open WHERE place = 1
+        AND (? IS NULL OR (created_at, position) > (SELECT created_at, rowid FROM tars_action_records WHERE request_id = ?))
+      ORDER BY created_at, position LIMIT ?`)
+      .all(after ?? null, after ?? null, limit).map((row) => this.readRecord(row)!);
+  }
+
+  /** Whether any message still waits for, or is under, delivery to this responsibility's task. */
+  hasOpenDelivery(responsibilityId: string): boolean {
+    return this.db.prepare(`SELECT 1 FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering')
+      AND json_extract(body_json, '$.action.responsibilityId') = ? LIMIT 1`).get(responsibilityId) != null;
+  }
+
+  /**
    * Moves one message's delivery on, only from the given statuses, in one
    * immediate transaction: the delivery queue's compare-and-set. Returns the
    * record, or null when its delivery was not in one of them (another pass or
    * a control settled it first).
    */
   transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
-    next: { status: TarsMessageDeliveryStatus; userTurns?: number; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
+    next: { status: TarsMessageDeliveryStatus; turnId?: string; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (!current?.delivery || !from.includes(current.delivery.status)) return null;
       const settledOtherwise = next.status === "failed" || next.status === "cancelled";
       const delivery: TarsMessageDelivery = { ...current.delivery, status: next.status,
-        ...(next.userTurns !== undefined ? { userTurns: next.userTurns } : {}),
+        ...(next.turnId !== undefined ? { turnId: next.turnId } : {}),
         reason: settledOtherwise ? next.reason ?? "unknown" : null, error: settledOtherwise ? (next.error ?? "The message was not delivered.").slice(0, 2_000) : null, updatedAt: now };
       const record = TarsActionRecordSchema.parse({ ...current, delivery, revision: current.revision + 1, updatedAt: now });
       const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
@@ -616,11 +640,26 @@ export class TarsConversationStore {
     });
   }
 
-  /** Cancels every message still queued for one responsibility, as a control that takes the work away settles it. */
-  cancelQueuedDeliveries(responsibilityId: string, reason: TarsControlReason, error: string, now: string): number {
-    return this.write(() => this.listOpenDeliveries(1_000)
-      .filter((record) => record.action.responsibilityId === responsibilityId && record.delivery?.status === "queued")
-      .filter((record) => this.transitionDelivery(record.requestId, ["queued"], { status: "cancelled", reason, error }, now) !== null).length);
+  /**
+   * Settles every message still open for one responsibility, as a control or
+   * observation that takes the work away does, in one transaction. A queued
+   * one is cancelled. One under way counts as said only when `reached`
+   * confirms its run took that message's own turn; otherwise it is cancelled
+   * too, so it is never said later (after a hand-back, say). Returns how many it cancelled.
+   */
+  cancelOpenDeliveries(responsibilityId: string, reason: TarsControlReason, error: string, now: string,
+    reached: (record: TarsActionRecord) => boolean = () => false): number {
+    return this.write(() => {
+      const open = this.db.prepare(`SELECT body_json FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering')
+        AND json_extract(body_json, '$.action.responsibilityId') = ? ORDER BY created_at, rowid`).all(responsibilityId).map((row) => this.readRecord(row)!);
+      let cancelled = 0;
+      for (const record of open) {
+        const said = record.delivery!.status === "delivering" && reached(record);
+        const settled = this.transitionDelivery(record.requestId, [record.delivery!.status], said ? { status: "delivered" } : { status: "cancelled", reason, error }, now);
+        if (settled && !said) cancelled++;
+      }
+      return cancelled;
+    });
   }
 
   /**

@@ -316,11 +316,19 @@ for the run's current turn to end**, then **Said in the task after its turn
 ended**, or that they were not said and why: taking the work over, cancelling
 it or its completion first cancels them, and so does its run ending or
 changing owner; a run that refuses them leaves them **Not said in the task**.
-Several are said in order, each after the turn the previous one started. They
-survive a restart: words that were being said when Stave stopped count as
-said only if the run took your reply, and are otherwise said once after the
-restart. Your words are only your reply in the task: they grant no permission
-and never answer a waiting approval or question.
+Several are said in order, each after the turn the previous one started; words
+you confirm while earlier ones for the same work still wait are kept behind
+them even if the task is free by then. One work's words never wait for
+another work: each is said on its own, however many other works are paused or
+busy. They survive a restart: before saying them Stave names the turn they
+start, so words that were being said when Stave stopped count as said only if
+the run took that very turn (another reply you typed in the task does not
+count), and are otherwise said once after the restart, provided the work is
+still Tars's. Taking the work over, cancelling it or accepting it also cancels
+words that were being said and did not reach the run, and handing the work
+back never says words kept from before you took it over. Your words are only
+your reply in the task: they grant no permission and never answer a waiting
+approval or question.
 
 A request that is no longer waiting, or a set of requests that changed since
 you saw it, is refused instead of answering something else. These answers are

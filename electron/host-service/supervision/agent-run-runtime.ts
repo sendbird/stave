@@ -262,6 +262,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
     questionAnswer?: RunQuestionAnswer;
     /** The turn after an account-pool switch: a new conversation on that account, never a stored or cached one. */
     freshSession?: boolean;
+    /** The turn's ID, when the caller named it in advance; otherwise a new one. */
+    turnId?: string;
   }) => Promise<{ turnId: string }>;
   /**
    * Reads the attachments a run's initial context names (`attachmentSource`)
@@ -438,7 +440,8 @@ export interface AgentRunRuntime {
    * its task, as if typed in the task's composer while the stage waits or
    * runs between turns. Tars only; refused while a turn or a request is open.
    */
-  replyAsUser: (args: { agentRunId: string; prompt: string }, guard?: (run: AgentRun) => void) => Promise<void>;
+  /** `turnId` names the reply's turn when the caller must find it later (a Tars delivery after a restart). */
+  replyAsUser: (args: { agentRunId: string; prompt: string; turnId?: string }, guard?: (run: AgentRun) => void) => Promise<void>;
   reply: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
   skipStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   retryStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
@@ -2458,7 +2461,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           now: now(),
         });
       }),
-    replyAsUser: ({ agentRunId, prompt }, guard) => enqueue(async () => {
+    replyAsUser: ({ agentRunId, prompt, turnId }, guard) => enqueue(async () => {
       const aggregate = requireAggregate(agentRunId);
       guard?.(aggregate.agentRun);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
@@ -2477,7 +2480,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // Rechecked after the reads: nothing may take the run over in between.
       guard?.(requireAggregate(agentRunId).agentRun);
       // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
-      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text,
+      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, ...(turnId ? { turnId } : {}),
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),

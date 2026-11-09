@@ -105,9 +105,12 @@ test("global conversation works without a workspace, admits one decision, and su
     const brief = await stave.page.evaluate((id) => window.api!.tars!.getBrief!({ responsibilityId: id }), responsibilities[0]!.id);
     expect(brief.attachments).toEqual(first.attachments);
     expect(JSON.stringify(await stave.page.evaluate(() => window.api!.tars!.get()))).not.toContain("c2NyZWVu");
-    // Stop owned execution, independently of the conversation's settled receipt.
-    const cancelled = await stave.page.evaluate((row) => window.api!.tars!.act({ requestId: "cancel-click", responsibilityId: row.id,
-      expectedRevision: row.revision, operation: "cancel", source: "click" }), responsibilities[0]!);
+    // Stop owned execution, independently of the conversation's settled receipt. The click carries the revision
+    // shown now: observations of the run saved while its first turn was awaited above have moved it on.
+    const cancelled = await stave.page.evaluate(async (id) => {
+      const row = (await window.api!.tars!.get()).responsibilities.find((entry) => entry.id === id)!;
+      return window.api!.tars!.act({ requestId: "cancel-click", responsibilityId: row.id, expectedRevision: row.revision, operation: "cancel", source: "click" });
+    }, responsibilities[0]!.id);
     expect(cancelled.record, cancelled.record.error ?? undefined).toMatchObject({ status: "applied" });
     await rm(path.join(fakeDir, "held-once"), { force: true });
 

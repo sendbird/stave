@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   CreateTarsResponsibilityInputSchema, isTarsRunCommandOperation, isTarsTaskOperation,
   UpdateTarsIdentityInputSchema, tarsSnapshotForWindow,
@@ -9,6 +10,7 @@ import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError, TarsRunEn
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import { TARS_WAIT_FOLLOW_UP_MS } from "../../src/lib/tars/events";
+import type { TarsActionRecord, TarsControlReason, TarsMessageDelivery } from "../../src/lib/tars/conversation";
 import {
   admitTarsControl, tarsControlRejection, TarsControlRejection, TARS_CONTROL_STALE, TARS_GRANTING_OPERATIONS, TARS_STOPPING_OPERATIONS,
   type TarsControlLedger, type TarsControlRequest,
@@ -54,18 +56,25 @@ export interface TarsRuntimePorts {
    * (`TarsTaskOperation`), after rechecking ownership. With `canQueue`, a
    * `message` to a task with a running turn sends nothing and returns
    * "queued": the words wait in the request's record (`deliverMessage`).
+   * `queueBehind` says words are already kept for the work: the new ones then
+   * wait behind them even when the task is free ("queued", or refused as busy
+   * without `canQueue`), so they are never said before older words.
    */
-  respondTask: (row: TarsResponsibility, request: TarsControlRequest, options?: { canQueue?: boolean }) => Promise<void | "queued">;
+  respondTask: (row: TarsResponsibility, request: TarsControlRequest, options?: { canQueue?: boolean; queueBehind?: boolean }) => Promise<void | "queued">;
   /** The delivery queue: messages kept for a busy task, on their records. Absent, a busy task refuses a message. */
-  messages?: Pick<TarsConversationStore, "listOpenDeliveries" | "transitionDelivery" | "cancelQueuedDeliveries">;
+  messages?: Pick<TarsConversationStore, "getAction" | "listDeliveryHeads" | "hasOpenDelivery" | "transitionDelivery" | "cancelOpenDeliveries">;
   /**
-   * Says one queued message in the work's task as the user's reply, after
-   * rechecking ownership, once no turn runs and nothing waits there: "busy"
-   * when it must wait (it says nothing then).
+   * Says one queued message in the work's task as the user's reply, started as
+   * the user turn `turnId`, after rechecking ownership, once no turn runs and
+   * nothing waits there: "busy" when it must wait (it says nothing then).
    */
-  deliverMessage?: (row: TarsResponsibility, text: string) => Promise<"sent" | "busy">;
-  /** How many user turns the work's run has taken; a new one after a delivery started means it reached the task. */
-  userTurns?: (row: TarsResponsibility) => number;
+  deliverMessage?: (row: TarsResponsibility, text: string, turnId: string) => Promise<"sent" | "busy">;
+  /**
+   * Whether the run recorded the user turn `turnId`. A message under way
+   * reached its task only if its own turn is there; the run's other user turns
+   * (the user typing in the task) say nothing about it.
+   */
+  hasUserTurn?: (agentRunId: string, turnId: string) => boolean;
   /**
    * Reads one conversation message as a work request, without its
    * attachments; the brief of work admitted before Stave saved its request
@@ -77,12 +86,19 @@ export interface TarsRuntimePorts {
 }
 
 const OWNED = new Set(["preparing", "running", "waiting", "blocked"]);
-/** Controls that take the work from Tars or end it; a message still queued for it is then cancelled with the control. */
-const ENDS_QUEUED_MESSAGES: ReadonlyMap<string, "takenOver" | "ended"> = new Map([["takeover", "takenOver"], ["cancel", "ended"], ["acceptCompletion", "ended"]]);
+/**
+ * Controls that take the work from Tars or end it; a message still open for it
+ * (queued, or under way and not confirmed said) is then cancelled with the
+ * control. A hand-back ends a takeover: words still kept then were confirmed
+ * before it (none are admitted while the user holds the work), so they go too.
+ */
+const ENDS_QUEUED_MESSAGES: ReadonlyMap<string, "takenOver" | "ended"> = new Map([
+  ["takeover", "takenOver"], ["handBack", "takenOver"], ["cancel", "ended"], ["acceptCompletion", "ended"]]);
 // i18n-ignore: persisted diagnostic; the interface translates the reason code
 const QUEUED_MESSAGE_CANCELLED = "The work was taken over, cancelled or completed before its task's turn ended, so the message was not sent.";
-/** The operation key of the pass that says queued words; each one is then said in its own work's queue. */
-const DELIVERIES = "tars:deliveries";
+/** Works' next messages read per page, and pages per pass: every work's next message is read, within a bound. */
+const DELIVERY_PAGE = 32;
+const DELIVERY_PAGES_MAX = 32;
 
 /** Owns responsibilities, not provider turns. All execution crosses existing Run admission. */
 export function createTarsRuntime(ports: TarsRuntimePorts) {
@@ -98,6 +114,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   const inflight = new Map<string, { key: string; promise: Promise<unknown> }>();
   // Retain already-sent task effects until their ledger outcome is saved, so retries never send twice.
   const sentEffects = new Set<string>();
+  // Queued words said in this process whose record does not say so yet (a lock wait), so they are never said twice.
+  const saidDeliveries = new Set<string>();
+  // Works with a delivery attempt waiting in or running on their queue: one at a time, in the work's order.
+  const deliveringWorks = new Set<string>();
   // Only mutations of the same responsibility wait for its Git/run I/O.
   function enqueue<T>(key: string, work: () => Promise<T> | T): Promise<T> {
     const next = (operations.get(key) ?? Promise.resolve()).catch(() => {}).then(work);
@@ -231,8 +251,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         if (current && before !== JSON.stringify([current.state, current.agentRunId, current.executionPending])) requestTick();
       });
     }
-    // Words kept for a busy task: one pass at a time, each said in its work's own order after this tick's observation.
-    if (!operations.has(DELIVERIES)) void enqueue(DELIVERIES, async () => { await deliverQueuedMessages(); }).catch((error) => ports.onError?.(error));
+    // Words kept for a busy task: each work's next one, said on that work's own queue after this tick's observation.
+    deliverQueuedMessages();
     const queued = rows.filter((row) => row.state === "queued" || row.state === "preparing" && !row.agentRunId)
       .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
     for (const row of queued) {
@@ -253,75 +273,101 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     if (previousWaits !== JSON.stringify([...queueWaits])) ports.onQueueChanged?.();
   }
   /**
-   * Says each message kept for a busy task once that task's turn has ended:
-   * at most one per work per tick, oldest first, so the next waits for the
-   * turn the last one started. A delivery is marked under way with the run's
-   * user-turn count before it is said; one left under way (a restart, or a
-   * lock wait after it was said) counts as said when the run has taken a user
-   * turn since, and is queued again otherwise, so it is said exactly once.
-   * Work taken over, cancelled or completed, a run that ended or changed owner,
-   * cancels it; paused work keeps it until it resumes.
+   * Says each message kept for a busy task once that task's turn has ended.
+   * Only each work's oldest open message is looked at, so the next waits for
+   * the turn the last one started. Every work's is read, page by page, however
+   * many others must wait (paused or busy work), and each is said on its own
+   * work's queue, so one work's slow observation or control never holds back
+   * another work's words.
    */
-  function deliverQueuedMessages(): Promise<void> | null {
+  function deliverQueuedMessages() {
     const queue = ports.messages;
-    if (!queue || !ports.deliverMessage || !ports.userTurns) return null;
-    let open: ReturnType<typeof queue.listOpenDeliveries>;
-    try { open = queue.listOpenDeliveries(32); } catch (error) { if (!isTarsStorageBusy(error)) ports.onError?.(error); return null; }
-    return open.length ? deliverEach(queue, open) : null;
-  }
-  async function deliverEach(queue: NonNullable<TarsRuntimePorts["messages"]>, open: ReturnType<NonNullable<TarsRuntimePorts["messages"]>["listOpenDeliveries"]>) {
-    const attempted = new Set<string>();
-    for (const record of open) {
-      if (stopped) return;
-      const action = record.action;
-      if (action.kind !== "control" || !record.delivery || !action.input?.text) continue;
-      // Said inside the work's own queue, so it never overlaps that work's observation, preparation or control.
-      await enqueue(action.responsibilityId, () => deliverOne(queue, record, attempted)).catch((error) => ports.onError?.(error));
+    if (!queue || !ports.deliverMessage || !ports.hasUserTurn) return;
+    let after: string | undefined;
+    for (let page = 0; page < DELIVERY_PAGES_MAX; page++) {
+      let heads: TarsActionRecord[];
+      try { heads = queue.listDeliveryHeads(DELIVERY_PAGE, after); }
+      catch (error) { if (!isTarsStorageBusy(error)) ports.onError?.(error); return; }
+      for (const head of heads) {
+        const id = head.action.responsibilityId;
+        if (deliveringWorks.has(id)) continue;
+        deliveringWorks.add(id);
+        // Said inside the work's own queue, so it never overlaps that work's observation, preparation or control.
+        void enqueue(id, () => deliverOne(queue, head.requestId)).catch((error) => ports.onError?.(error))
+          .finally(() => deliveringWorks.delete(id));
+      }
+      if (heads.length < DELIVERY_PAGE) return;
+      after = heads.at(-1)!.requestId;
     }
   }
-  async function deliverOne(queue: NonNullable<TarsRuntimePorts["messages"]>, record: ReturnType<NonNullable<TarsRuntimePorts["messages"]>["listOpenDeliveries"]>[number],
-    attempted: Set<string>) {
-    const action = record.action;
-    const delivery = record.delivery;
-    if (stopped || action.kind !== "control" || !delivery || !action.input?.text) return;
-    const id = action.responsibilityId;
+  /** Whether a message under way reached its task, by its own turn only; null when that cannot be read now. */
+  function reachedTask(requestId: string, delivery: TarsMessageDelivery): boolean | null {
+    if (saidDeliveries.has(requestId)) return true;
+    if (!delivery.turnId) return false;
+    try { return ports.hasUserTurn?.(delivery.agentRunId, delivery.turnId) ?? null; } catch { return null; }
+  }
+  /** Why words for this run can never be said: the work ended or left Tars, or its run is not the one they were for. */
+  function deliveryEnded(row: TarsResponsibility | null, delivery: TarsMessageDelivery): TarsControlReason | null {
+    if (row?.state === "takenOver") return "takenOver";
+    if (!row || !row.agentRunId || row.agentRunId !== delivery.agentRunId) return "ownershipLost";
+    return row.state === "completed" || row.state === "cancelled" ? "ended" : null;
+  }
+  /** Cancels every open message of a work at once; one under way is recorded as said only if its own turn is there. */
+  function cancelOpenDeliveries(responsibilityId: string, reason: TarsControlReason) {
+    ports.messages?.cancelOpenDeliveries(responsibilityId, reason, QUEUED_MESSAGE_CANCELLED, now(),
+      (record) => record.delivery ? reachedTask(record.requestId, record.delivery) === true : false);
+  }
+  /**
+   * Says one work's next message. One under way when it was read (Stave
+   * stopped, or a lock wait after it was said) counts as said only if the run
+   * recorded its own turn; otherwise it is queued again, but only for work
+   * that still owns that run, so it is said exactly once and never after the
+   * work was taken over, cancelled or completed. Paused work keeps it.
+   */
+  async function deliverOne(queue: NonNullable<TarsRuntimePorts["messages"]>, requestId: string) {
+    if (stopped) return;
     try {
+      const record = queue.getAction(requestId);
+      const action = record?.action;
+      const delivery = record?.delivery;
+      if (action?.kind !== "control" || !delivery || !action.input?.text) return;
+      const id = action.responsibilityId;
       const row = ports.store.get(id);
-      const sameRun = Boolean(row?.agentRunId && row.agentRunId === delivery.agentRunId);
-      const turns = () => { try { return sameRun ? ports.userTurns!(row!) : null; } catch { return null; } };
-      const deliver = ports.deliverMessage!;
       const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2]) =>
-        queue.transitionDelivery(record.requestId, from, next, now());
+        queue.transitionDelivery(requestId, from, next, now());
+      const ended = deliveryEnded(row, delivery);
       if (delivery.status === "delivering") {
-        const count = turns();
-        // An unreadable count leaves it under way: never said twice, never dropped on a guess.
-        if (count === null && sameRun) return;
-        move(["delivering"], count !== null && count > (delivery.userTurns ?? Number.MAX_SAFE_INTEGER) ? { status: "delivered" } : { status: "queued" });
+        const reached = reachedTask(requestId, delivery);
+        // An unreadable turn leaves it under way: never said twice, never dropped on a guess.
+        if (reached === null) return;
+        if (reached) { move(["delivering"], { status: "delivered" }); saidDeliveries.delete(requestId); }
+        else if (ended) cancelOpenDeliveries(id, ended);
+        else move(["delivering"], { status: "queued" });
         return;
       }
-      if (!row || row.state === "completed" || row.state === "cancelled" || row.state === "takenOver" || !sameRun) {
-        move(["queued"], { status: "cancelled", reason: row?.state === "takenOver" ? "takenOver" : !row || !sameRun ? "ownershipLost" : "ended",
-          error: QUEUED_MESSAGE_CANCELLED });
-        return;
-      }
-      // A control in flight, or work the user paused through Tars, waits; one attempt per work per tick.
-      if (row.state === "paused" || held.has(id) || inflight.has(id) || attempted.has(id)) return;
-      attempted.add(id);
-      const before = turns();
-      if (before === null || !move(["queued"], { status: "delivering", userTurns: before })) return;
-      try {
-        const result = await deliver(row!, action.input.text);
-        move(["delivering"], result === "sent" ? { status: "delivered" } : { status: "queued" });
-      } catch (error) {
-        // A lock wait after the effect leaves it under way; the next tick settles it from the run's turns.
+      if (delivery.status !== "queued") return;
+      if (ended) { cancelOpenDeliveries(id, ended); return; }
+      // A control in flight, or work the user paused through Tars, waits.
+      if (row!.state === "paused" || held.has(id) || inflight.has(id)) return;
+      // The turn is named before it starts, so after a restart its own record says whether these words reached the task.
+      const turnId = randomUUID();
+      const started = move(["queued"], { status: "delivering", turnId });
+      if (!started?.delivery) return;
+      let result: "sent" | "busy";
+      try { result = await ports.deliverMessage!(row!, action.input.text, turnId); }
+      catch (error) {
+        // A lock wait after the effect leaves it under way; the next pass settles it from its own turn.
         if (isTarsStorageBusy(error)) return;
-        const after = turns();
-        if (after !== null && after > before) { move(["delivering"], { status: "delivered" }); return; }
+        if (reachedTask(requestId, started.delivery) === true) { move(["delivering"], { status: "delivered" }); return; }
         const { reason, error: text } = tarsControlRejection(error);
         // A run that ended or changed owner cannot take it any more; anything else the run refused.
         const gone = error instanceof TarsOwnershipLostError || error instanceof TarsRunEndedError;
         move(["delivering"], { status: gone ? "cancelled" : "failed", reason, error: text });
+        return;
       }
+      if (result === "sent") saidDeliveries.add(requestId);
+      move(["delivering"], result === "sent" ? { status: "delivered" } : { status: "queued" });
+      saidDeliveries.delete(requestId);
     } catch (error) {
       if (!isTarsStorageBusy(error)) ports.onError?.(error);
     }
@@ -418,9 +464,12 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           // Starting queued work has no run to control yet; a run found above is adopted below.
           // A task operation answers in the task once; a retry of the same request only records it.
           // Words for a task whose turn is running are kept with the request and said once the turn ends.
+          // New words wait behind words already kept for the work, so they are never said before them.
           if (row.agentRunId && isTarsTaskOperation(request.operation)) {
             if (!sent) {
-              queued = await ports.respondTask(row, request, { canQueue: request.operation === "message" && Boolean(ledger.queue && ports.messages) }) === "queued";
+              const message = request.operation === "message";
+              queued = await ports.respondTask(row, request, { canQueue: message && Boolean(ledger.queue && ports.messages),
+                queueBehind: message && ports.messages?.hasOpenDelivery(id) === true }) === "queued";
               if (!queued) sentEffects.add(ledger.key);
             }
           }
@@ -457,7 +506,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           // A queued message changes nothing about the work until it is said, so other decisions on it stay current.
           if (!queued) ports.store.patch(id, row.revision, value, now());
           const ends = ENDS_QUEUED_MESSAGES.get(request.operation);
-          if (ends) ports.messages?.cancelQueuedDeliveries(id, ends, QUEUED_MESSAGE_CANCELLED, now());
+          if (ends) cancelOpenDeliveries(id, ends);
         };
         const outcome = queued ? ledger.queue!(effect, row.agentRunId!) : ledger.apply(effect);
         if (TARS_GRANTING_OPERATIONS.has(request.operation)) held.delete(id);

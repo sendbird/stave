@@ -2852,8 +2852,8 @@ test("a paused Run keeps its saved question answerable until Resume", async () =
 
 
 test("Tars's reply as the user starts one plain turn on the lead task, and is refused while a turn, a request or a takeover is open", async () => {
-  const turns: Array<{ prompt: string; agentRunStage?: unknown; questionAnswer?: unknown }> = [];
-  const h = createHarness({ extra: { runSupervisedTurn: async args => { turns.push(args); return { turnId: `turn-${turns.length}` }; } } });
+  const turns: Array<{ prompt: string; agentRunStage?: unknown; questionAnswer?: unknown; turnId?: string }> = [];
+  const h = createHarness({ extra: { runSupervisedTurn: async args => { turns.push(args); return { turnId: args.turnId ?? `turn-${turns.length}` }; } } });
   const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
   turns.length = 0;
   h.setSnapshot({ activeTurnId: "running-turn" });
@@ -2869,6 +2869,10 @@ test("Tars's reply as the user starts one plain turn on the lead task, and is re
   expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1" })]);
   expect(turns[0]!.agentRunStage).toBeUndefined();
   expect(turns[0]!.questionAnswer).toBeUndefined();
+  expect(turns[0]).not.toHaveProperty("turnId");
+  // A caller that saved the turn's ID first (a Tars delivery) starts the reply as exactly that turn.
+  await h.runtime.replyAsUser({ agentRunId: id, prompt: "Then add a regression test.", turnId: "delivery-turn" });
+  expect(turns[1]).toMatchObject({ prompt: "Then add a regression test.", turnId: "delivery-turn" });
   h.runtime.stop();
 });
 

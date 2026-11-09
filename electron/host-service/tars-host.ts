@@ -243,8 +243,9 @@ export function createHostTarsRuntime(args: {
       const agentRunId = row.agentRunId!;
       if (request.operation === "message") {
         const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
-        // A running turn: the words wait with the request and are said once it ends (`deliverMessage`).
-        if (task.activeTurnId) { if (options?.canQueue) return "queued"; throw new TarsTaskBusyError(); }
+        // A running turn, or older words still kept for this work: the words wait with the request and are
+        // said once the turn ends, after the older ones (`deliverMessage`).
+        if (task.activeTurnId || options?.queueBehind) { if (options?.canQueue) return "queued"; throw new TarsTaskBusyError(); }
         await args.agentRuns.replyAsUser({ agentRunId, prompt: request.input!.text! }, guard);
         return;
       }
@@ -302,7 +303,7 @@ export function createHostTarsRuntime(args: {
      * checks, only once the task is free: no turn running, no approval or
      * question waiting, and the run's stage able to take a reply.
      */
-    async deliverMessage(row, text) {
+    async deliverMessage(row, text, turnId) {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (!latest) throw new TarsDetailError("ownershipUnverified", "This task's execution ownership could not be verified.");
       const guard = (run: Parameters<typeof assertTarsControl>[1]) => {
@@ -317,10 +318,12 @@ export function createHostTarsRuntime(args: {
       const aggregate = persistence.agentRuns.getAggregate(latest.id);
       // A paused run, or a stage that cannot take a reply now (waiting for sign-off), keeps it queued.
       if (!aggregate || latest.state !== "running" || !["running", "blocked", "stuck"].includes(currentStageRecord(aggregate).status)) return "busy";
-      await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text }, guard);
+      // Started as the turn the delivery saved, so the run's record of that turn says whether it reached the task.
+      await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text, turnId }, guard);
       return "sent";
     },
-    userTurns: (row) => persistence.agentRuns.listEventsByKind(row.agentRunId!, ["user-turn"]).length,
+    hasUserTurn: (agentRunId, turnId) => persistence.agentRuns.listEventsByKind(agentRunId, ["user-turn"])
+      .some((event) => event.detail.turnId === turnId),
     // Older work's brief reads its admitting message back, without the message's attachments.
     readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
     onError: (error) => console.error("[tars] reconciliation failed", error),
