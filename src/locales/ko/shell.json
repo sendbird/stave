@@ -1426,7 +1426,7 @@
       "model": "실행 모델",
       "auto": "자동",
       "autoDescription": "맡긴 작업의 단계마다 Stave Auto가 모델을 고릅니다.",
-      "autoHint": "검토를 포함해 단계마다 Stave가 모델을 선택합니다.",
+      "autoHint": "단계마다 Stave가 모델을 선택하며, 검토는 다른 프로바이더에서 실행할 수 있습니다.",
       "pinnedHint": "모든 작업과 도우미가 이 모델을 사용합니다. 자동으로 바꾸면 단계마다 모델을 선택합니다.",
       "systemAccount": "이 모델은 {{provider}}의 시스템 기본 계정으로 실행합니다.",
       "unsupported": "위임한 작업은 Claude 또는 Codex로 실행합니다."

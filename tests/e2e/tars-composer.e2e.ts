@@ -98,7 +98,40 @@ for (const inputEvent of ["paste", "drop"]) {
   });
 }
 
-test("Tars body, supporting copy, report and settings remain readable across layouts", async ({ page }) => {
+test("same-name selections and repeated image pastes keep separate snapshots", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  const composer = page.locator("[data-tars-composer]");
+  const editor = composer.getByRole("textbox");
+  await expect(editor).toBeEditable();
+  for (const byte of [1, 2]) {
+    await editor.evaluate((node, value) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array([value])], "image.png", { type: "image/png" }));
+      node.dispatchEvent(new ClipboardEvent("paste", { clipboardData: transfer, bubbles: true, cancelable: true }));
+    }, byte);
+    await expect(composer.getByRole("button", { name: `Remove attached file ${byte === 1 ? "image.png" : "image (2).png"}`, exact: true })).toBeVisible();
+  }
+  const picker = composer.locator('input[type="file"]');
+  for (const content of ["first note", "second note"]) {
+    await picker.setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from(content) });
+    await expect(composer.getByRole("button", { name: `Remove attached file ${content === "first note" ? "notes.txt" : "notes (2).txt"}`, exact: true })).toBeVisible();
+  }
+  await picker.setInputFiles({ name: " notes.txt ", mimeType: "text/plain", buffer: Buffer.from("third note") });
+  await expect(composer.getByRole("button", { name: "Remove attached file notes (3).txt", exact: true })).toBeVisible();
+  await composer.getByRole("button", { name: "Remove attached file notes.txt", exact: true }).click();
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const parts = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!).messages[0].attachments);
+  expect(parts).toEqual([
+    { type: "image_context", label: "image.png", dataUrl: "data:image/png;base64,AQ==", mimeType: "image/png" },
+    { type: "image_context", label: "image (2).png", dataUrl: "data:image/png;base64,Ag==", mimeType: "image/png" },
+    { type: "file_context", filePath: "notes (2).txt", content: "second note", language: "txt" },
+    { type: "file_context", filePath: "notes (3).txt", content: "third note", language: "txt" },
+  ]);
+  await page.reload();
+  await expect(page.locator("[data-tars-message-attachments]")).toContainText("image (2).png");
+});
+
+test("Tars body, supporting copy, report and settings remain readable across layouts", async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
     await page.goto(`/?stavePreview=tars&outputs=true&lang=${lang}&theme=${theme}`);
@@ -110,12 +143,13 @@ test("Tars body, supporting copy, report and settings remain readable across lay
       await page.locator('[data-tars-output="report"]').filter({ hasText: 'saved card' }).getByRole('button').click();
       const report = page.locator('[data-tars-side-view="report"]');
       await expect(report).toBeVisible();
+      await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });
       const typography = await page.locator('[data-testid="tars-view"]').evaluate(root => {
         return [...root.querySelectorAll('[data-tars-message] article, [data-tars-side-view] p')].filter(e => e.getBoundingClientRect().width > 0).map(e => ({ font: parseFloat(getComputedStyle(e).fontSize), horizontal: e.scrollWidth - e.clientWidth, vertical: getComputedStyle(e).overflowY === 'hidden' ? e.scrollHeight - e.clientHeight : 0 }));
       });
       expect(typography.length).toBeGreaterThan(4);
       for (const item of typography) { expect(item.font).toBeGreaterThanOrEqual(13); expect(item.horizontal).toBeLessThanOrEqual(1); expect(item.vertical).toBeLessThanOrEqual(1); }
-      await page.screenshot({ path: `.stave/artifacts/tars/report-main-${lang}-${theme}-${width}.png` });
+      await page.screenshot({ path: testInfo.outputPath(`report-${lang}-${theme}-${width}.png`) });
       await page.keyboard.press('Escape');
     }
     await page.getByRole('button', { name: lang === 'ko' ? '대화 설정' : 'Conversation settings', exact: true }).click();
@@ -127,13 +161,13 @@ test("Tars body, supporting copy, report and settings remain readable across lay
       const items = await dialog.locator('label, p, input, textarea').evaluateAll(nodes => nodes.filter(e => e.getBoundingClientRect().width > 0 && e.getAttribute("aria-hidden") !== "true").map(e => ({tag: e.tagName, text: e.textContent?.slice(0,80), font: parseFloat(getComputedStyle(e).fontSize), overflow: e.scrollWidth - e.clientWidth})));
       expect(items.length).toBeGreaterThan(5);
       for (const item of items) { expect(item.font).toBeGreaterThanOrEqual(13); expect(item.overflow, JSON.stringify(item)).toBeLessThanOrEqual(1); }
-      await page.screenshot({ path: `.stave/artifacts/tars/settings-main-${lang}-${theme}-${width}.png` });
+      await page.screenshot({ path: testInfo.outputPath(`settings-${lang}-${theme}-${width}.png`) });
     }
   }
 });
 
 for (const theme of ["light", "dark"]) {
-  test(`Tars invalid composer keeps all four danger edges through focus and hover: ${theme}`, async ({ page }) => {
+  test(`Tars invalid composer keeps all four danger edges through focus and hover: ${theme}`, async ({ page }, testInfo) => {
     await page.goto(`/?stavePreview=tars&theme=${theme}`);
     const composer = page.locator("[data-tars-composer]");
     const editor = composer.getByRole("textbox");
@@ -159,7 +193,7 @@ for (const theme of ["light", "dark"]) {
     await checkEdges();
     await editor.focus();
     await checkEdges();
-    await page.screenshot({ path: `.stave/artifacts/tars/invalid-composer-${theme}.png` });
+    await page.screenshot({ path: testInfo.outputPath(`invalid-composer-${theme}.png`) });
     await editor.fill("Recovered draft");
     await expect(composer.locator('[data-tars-composer-error="tooLong"]')).toHaveCount(0);
     await expect.poll(() => form.evaluate(node => getComputedStyle(node).borderTopColor)).not.toBe(danger);

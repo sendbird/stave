@@ -1432,7 +1432,7 @@
       "model": "Execution model",
       "auto": "Automatic",
       "autoDescription": "Stave Auto picks the model for each step of delegated work.",
-      "autoHint": "Stave chooses a model for each step, including reviews.",
+      "autoHint": "Stave chooses a model for each step. Reviews may use another provider.",
       "pinnedHint": "All work and helpers use this model. Choose Automatic to allow routing.",
       "systemAccount": "This model runs with the {{provider}} System default account.",
       "unsupported": "Delegated work uses Claude or Codex."

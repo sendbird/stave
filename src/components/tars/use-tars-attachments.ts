@@ -16,29 +16,48 @@ export async function readTarsAttachment(file: File): Promise<AttachmentContext>
   if (file.size > 32_000 || !(file.type.startsWith("text/") || TEXT_EXTENSIONS.test(file.name))) throw new Error("Unsupported or oversized file.");
   const content = await file.text();
   if (content.includes("\0")) throw new Error("Binary file.");
-  return { type: "file_context", filePath: file.name, content, language: file.name.split(".").at(-1) ?? "text" };
+  return { type: "file_context", filePath: file.name, content, language: file.name.trim().split(".").at(-1) ?? "text" };
 }
 
 export function useTarsAttachments() {
   const { t } = useTranslation(["shell"]);
   const [parts, setParts] = useState<AttachmentContext[]>([]);
+  const partsRef = useRef<AttachmentContext[]>([]);
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const readingRef = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
+  function replace(next: AttachmentContext[]) {
+    partsRef.current = next;
+    setParts(next);
+  }
   async function add(files: File[]) {
     if (readingRef.current || !files.length) return;
     readingRef.current = true; setReading(true); setError(null);
     try {
       if (files.length > 8) throw new Error("Too many files.");
       const added = await Promise.all(files.map(readTarsAttachment));
-      const next = [...new Map([...parts, ...added].map((part) => [attachmentName(part), part])).values()];
-      setParts(AttachmentContextsSchema.parse(next));
+      const next = [...partsRef.current];
+      const names = new Set(next.map(attachmentName));
+      for (const part of added) {
+        const original = attachmentName(part).trim();
+        const dot = original.lastIndexOf(".");
+        const extension = dot > 0 ? original.slice(dot) : "";
+        const stem = extension ? original.slice(0, dot) : original;
+        let name = original;
+        for (let number = 2; names.has(name); number++) {
+          const suffix = ` (${number})${extension}`;
+          name = suffix.length < 500 ? `${stem.slice(0, 500 - suffix.length)}${suffix}` : `${original.slice(0, 480)} (${number})`;
+        }
+        names.add(name);
+        next.push(part.type === "file_context" ? { ...part, filePath: name } : { ...part, label: name });
+      }
+      replace(AttachmentContextsSchema.parse(next));
     } catch { setError(t("shell:tars.conversation.attachments.failed")); }
     finally { readingRef.current = false; setReading(false); }
   }
   return { parts, reading, error, picker, add,
-    keep: (names: string[]) => { setParts((current) => current.filter((part) => names.includes(attachmentName(part)))); setError(null); },
-    clear: () => { setParts([]); setError(null); },
+    keep: (names: string[]) => { replace(partsRef.current.filter((part) => names.includes(attachmentName(part)))); setError(null); },
+    clear: () => { replace([]); setError(null); },
   };
 }

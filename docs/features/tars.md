@@ -92,6 +92,7 @@ outside a registered workspace. You can attach up to eight files: text is
 limited to 32 KB total; images to 4 MB each and 6 MB total. Remove a file with
 its chip's remove button before sending. Unsupported or oversized selections
 show an error and leave the existing draft intact.
+Files with the same name stay separate; a number distinguishes their attachment names.
 
 Stave saves the selected contents with the message and passes them to the
 conversation model. A retry uses the same snapshot; switching workspaces or
