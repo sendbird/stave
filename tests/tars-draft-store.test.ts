@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
-  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, hydrateTarsDraft, resetTarsDraftForTests, setTarsDraftText, setTarsDraftWorkingChanges,
-  settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
+  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, hydrateTarsDraft, resetTarsDraftForTests, setTarsDraftAttachments, setTarsDraftText,
+  setTarsDraftWorkingChanges, settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
 } from "../src/store/tars-draft-store";
+import type { AttachmentContext } from "../src/lib/providers/attachment-context";
 import { TARS_DRAFT_MAX_CHARS, type SaveTarsComposerDraftInput, type TarsComposerDraft } from "../src/lib/tars/composer-draft";
 
 /** A host that saves drafts like the desktop bridge: one row, written in call order. */
@@ -211,5 +212,86 @@ describe("Tars composer draft", () => {
     await flushTarsDraft();
     expect(host.saved?.text).toBe("Short");
     expect(draft().text).toHaveLength(TARS_DRAFT_MAX_CHARS + 1);
+  });
+});
+
+describe("Tars composer draft with attached files", () => {
+  const notes: AttachmentContext = { type: "file_context", filePath: "notes.md", content: "Scope", language: "md" };
+  const screen: AttachmentContext = { type: "image_context", label: "screen.png", mimeType: "image/png", dataUrl: "data:image/png;base64,iVBORw0KGgo=" };
+
+  test("changing only the files after a send that did not come back makes a new request, and the send carries the current files", async () => {
+    await hydrateTarsDraft(fakeBridge().bridge);
+    setTarsDraftText("Read these");
+    setTarsDraftAttachments([notes, screen]);
+    const first = await beginTarsDraftSend();
+    expect(first.attachments).toEqual([notes, screen]);
+    settleTarsDraftSend({ ...first, outcome: "unsent" });
+    // Removing one file is an edit: the host names a request ID's exact message, so reusing it would be refused.
+    setTarsDraftAttachments([notes]);
+    expect(useTarsDraftStore.getState().requestId).toBeNull();
+    const second = await beginTarsDraftSend();
+    expect(second.requestId).not.toBe(first.requestId);
+    expect(second.attachments).toEqual([notes]);
+    settleTarsDraftSend({ ...second, outcome: "unsent" });
+    // Adding a file is an edit too; so is removing the last one.
+    setTarsDraftAttachments([notes, screen]);
+    const third = await beginTarsDraftSend();
+    expect(third.requestId).not.toBe(second.requestId);
+    settleTarsDraftSend({ ...third, outcome: "unsent" });
+    setTarsDraftAttachments([]);
+    expect((await beginTarsDraftSend()).requestId).not.toBe(third.requestId);
+  });
+
+  test("an unchanged retry with the same files reuses the request ID and carries the same files", async () => {
+    await hydrateTarsDraft(fakeBridge().bridge);
+    setTarsDraftText("Retry with files");
+    setTarsDraftAttachments([notes]);
+    const first = await beginTarsDraftSend();
+    settleTarsDraftSend({ ...first, outcome: "unsent" });
+    // Setting the same list again, or an empty list on an empty draft, is not an edit.
+    setTarsDraftAttachments(useTarsDraftStore.getState().attachments);
+    const retry = await beginTarsDraftSend();
+    expect(retry.requestId).toBe(first.requestId);
+    expect(retry.attachments).toBe(first.attachments);
+  });
+
+  test("files stay in memory and out of the saved copy, which marks a request that carried them", async () => {
+    const { bridge, host } = fakeBridge();
+    await hydrateTarsDraft(bridge);
+    setTarsDraftText("With a file");
+    setTarsDraftAttachments([notes]);
+    await flushTarsDraft();
+    expect(host.saved).toEqual({ text: "With a file", includeWorkingChanges: false, requestId: null });
+    const sending = await beginTarsDraftSend();
+    expect(host.saved).toEqual({ text: "With a file", includeWorkingChanges: false, requestId: sending.requestId, requestHadAttachments: true });
+    // Files alone are nothing to save across a restart.
+    setTarsDraftText("");
+    await flushTarsDraft();
+    expect(host.saved).toBeNull();
+    expect(useTarsDraftStore.getState().attachments).toEqual([notes]);
+  });
+
+  test("a restored draft whose request carried files gets a new request ID and no files; one without files keeps its retry", async () => {
+    const withFiles = fakeBridge({ text: "Restored", includeWorkingChanges: true, requestId: "sent-with-files", requestHadAttachments: true });
+    await hydrateTarsDraft(withFiles.bridge);
+    expect(useTarsDraftStore.getState()).toMatchObject({ text: "Restored", includeWorkingChanges: true, requestId: null, attachments: [] });
+    expect((await beginTarsDraftSend()).requestId).not.toBe("sent-with-files");
+    resetTarsDraftForTests();
+    await hydrateTarsDraft(fakeBridge({ text: "Restored", includeWorkingChanges: false, requestId: "words-only" }).bridge);
+    expect((await beginTarsDraftSend()).requestId).toBe("words-only");
+  });
+
+  test("a successful send clears its files; a message that failed keeps them for a new message", async () => {
+    await hydrateTarsDraft(fakeBridge().bridge);
+    setTarsDraftText("Send with a file");
+    setTarsDraftAttachments([notes]);
+    const sent = await beginTarsDraftSend();
+    settleTarsDraftSend({ ...sent, outcome: "sent" });
+    expect(useTarsDraftStore.getState()).toMatchObject({ text: "", attachments: [], requestId: null });
+    setTarsDraftText("Explain this file");
+    setTarsDraftAttachments([screen]);
+    const failed = await beginTarsDraftSend();
+    settleTarsDraftSend({ ...failed, outcome: "failed" });
+    expect(useTarsDraftStore.getState()).toMatchObject({ text: "Explain this file", attachments: [screen], requestId: null });
   });
 });

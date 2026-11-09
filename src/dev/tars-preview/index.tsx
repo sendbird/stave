@@ -270,6 +270,9 @@ export function TarsPreview() {
         // `sendFailure=before`: the host refuses the message before saving it, so nothing exists and the draft stays.
         if (params.get("sendFailure") === "before" && !sendFailed) { sendFailed = true; throw new Error("Preview message was refused before it was saved."); }
         let message = conversation.messages.find((item) => item.requestId === input.requestId);
+        // As the host: a request ID names one exact message, so different words, files or choice under it are refused.
+        const payload = (value: typeof input) => JSON.stringify([value.text, value.attachments ?? [], value.includeWorkingChanges ?? false]);
+        if (message && payload(message) !== payload(input)) throw new Error("This request ID already names a different message.");
         const savedDraft = JSON.parse(sessionStorage.getItem(draftKey) ?? "null") as { requestId?: string | null } | null;
         if (savedDraft?.requestId === input.requestId) sessionStorage.removeItem(draftKey);
         if (!message) {

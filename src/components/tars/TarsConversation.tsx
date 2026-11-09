@@ -228,7 +228,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   draftBridge?: Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
 }) {
   const { t } = useTranslation(["shell"]);
-  // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again.
+  // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again. Its files stay for this window.
   const text = useTarsDraftStore((draft) => draft.text);
   const attached = useTarsAttachments();
   // Per message and off by default: the next send carries it, then it resets.
@@ -364,13 +364,11 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
             if (await answer(bound.decision, bound.optionIndex, "words") && useTarsDraftStore.getState().text === words) setTarsDraftText("");
             return;
           }
-          // An unchanged draft and choice retries the same request (a lost acknowledgement cannot send twice); any edit is a new message.
-          const withWorkingChanges = useTarsDraftStore.getState().includeWorkingChanges;
+          // An unchanged draft, choice and files retry the same request (a lost acknowledgement cannot send twice); any edit is a new message.
           const sending = await beginTarsDraftSend();
-          const message = await state.send({ requestId: sending.requestId, text: submitted, ...(attached.parts.length ? { attachments: attached.parts } : {}),
-            ...(withWorkingChanges ? { includeWorkingChanges: true } : {}) }, initialSettings);
+          const message = await state.send({ requestId: sending.requestId, text: submitted, ...(sending.attachments.length ? { attachments: [...sending.attachments] } : {}),
+            ...(sending.includeWorkingChanges ? { includeWorkingChanges: true } : {}) }, initialSettings);
           settleTarsDraftSend({ ...sending, outcome: !message ? "unsent" : message.state === "failed" ? "failed" : "sent" });
-          if (message && message.state !== "failed") attached.clear();
         }} />
       {attached.error ? <p role="alert" className={sx(composerTray.footnote, composerTray.footnoteError)}>{attached.error}</p> : null}
       {tooLong ? <p id={composerErrorId} className={sx(composerTray.footnote, composerTray.footnoteError)} role="alert" data-tars-composer-error="tooLong">{t("shell:tars.conversation.tooLong")}</p> : null}

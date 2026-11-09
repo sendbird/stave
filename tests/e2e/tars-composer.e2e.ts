@@ -75,6 +75,51 @@ test("select, remove, send attachments only, retry the same snapshot, and replay
   await expect(page.locator("[data-tars-message-attachments]")).toContainText("notes.txt");
 });
 
+test("after a lost acknowledgement, changing only the files makes a new message instead of reusing the request", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&sendFailure=once&noRepositories=true");
+  const composer = page.locator("[data-tars-composer]");
+  await composer.locator('input[type="file"]').setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("First snapshot") });
+  await composer.getByRole("textbox").fill("Read the attached notes");
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  // The host saved the message with the file, but its acknowledgement was lost.
+  await expect(page.getByRole("alert").filter({ hasText: "Preview message transport failed" })).toBeVisible();
+  await composer.getByRole("button", { name: "Remove attached file notes.txt", exact: true }).click();
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(2);
+  await expect(page.getByText("already names a different message")).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.messages.map((message: { attachments?: unknown[] }) => message.attachments?.length ?? 0)).toEqual([1, 0]);
+  expect(saved.messages[0].requestId).not.toBe(saved.messages[1].requestId);
+});
+
+test("attached files stay with the draft when Tars is closed and reopened, never in the saved copy, and a restored draft does not reuse their request", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&sendFailure=before");
+  const composer = page.locator("[data-tars-composer]");
+  const savedDraft = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-draft") ?? "null"));
+  await composer.locator('input[type="file"]').setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Kept in memory") });
+  await composer.getByRole("textbox").fill("Use these notes");
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "refused before it was saved" })).toBeVisible();
+  // The saved copy holds the words and marks that their request carried files; the file bytes stay in memory.
+  const kept = await savedDraft();
+  expect(Object.keys(kept).sort()).toEqual(["includeWorkingChanges", "requestHadAttachments", "requestId", "text"]);
+  expect(kept).toMatchObject({ text: "Use these notes", requestHadAttachments: true });
+  await page.getByRole("button", { name: "Close Tars", exact: true }).click();
+  await page.locator("[data-preview-reopen-tars]").click();
+  await expect(composer.getByRole("textbox")).toHaveText("Use these notes");
+  await expect(composer.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
+  // After a restart the words come back without the file, and sending them is a new request, not a retry of the one with the file.
+  await page.goto("/?stavePreview=tars");
+  await expect(composer.getByRole("textbox")).toHaveText("Use these notes");
+  await expect(composer.getByText("notes.txt", { exact: true })).toHaveCount(0);
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.messages[0]).not.toHaveProperty("attachments");
+  expect(saved.messages[0].requestId).not.toBe(kept.requestId);
+  await expect.poll(savedDraft).toBeNull();
+});
+
 for (const inputEvent of ["paste", "drop"]) {
   test(`Tars ${inputEvent} uses the common file pipeline for text and images`, async ({ page }) => {
     await page.goto("/?stavePreview=tars");

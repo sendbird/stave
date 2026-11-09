@@ -441,6 +441,17 @@ describe("Tars composer draft", () => {
     expect(() => store.saveDraft({ text: "x", includeWorkingChanges: false, requestId: null, workspaceId: "a" } as never)).toThrow();
   });
 
+  test("keeps the mark of a request that also carried files, and still drops that draft when the message is saved", () => {
+    const { store } = open();
+    const attachments = [{ type: "file_context" as const, filePath: "notes.md", content: "Scope", language: "md" }];
+    const withFiles = { requestId: "with-files", text: "Read the notes", attachments };
+    // The files themselves are not part of the saved draft; only the mark that its request carried some.
+    store.saveDraft({ text: withFiles.text, includeWorkingChanges: false, requestId: withFiles.requestId, requestHadAttachments: true });
+    expect(store.getDraft()).toEqual({ text: withFiles.text, includeWorkingChanges: false, requestId: withFiles.requestId, requestHadAttachments: true });
+    store.create(withFiles, NOW);
+    expect(store.getDraft()).toBeNull();
+    expect(() => store.saveDraft({ text: "x", includeWorkingChanges: false, requestId: null, attachments } as never)).toThrow();
+  });
 });
 
 test("attachment snapshots survive a database reopen and reject invalid or oversized payloads", () => {

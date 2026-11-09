@@ -3,14 +3,20 @@ import {
   TARS_DRAFT_MAX_CHARS, isEmptyTarsComposerDraft, type TarsComposerDraft,
 } from "@/lib/tars/composer-draft";
 import type { TarsBridgeApi } from "@/lib/tars/types";
+import type { AttachmentContext } from "@/lib/providers/attachment-context";
 
 /**
  * The Tars composer draft, outside any component so it outlives the view: a
  * send that settles after the user left Tars still clears (or keeps) the right
  * draft, and coming back shows it at once. The bridge saves it so it survives
  * a restart; without one it lives for this window only.
+ *
+ * Attached files belong to the draft but stay in memory: they survive leaving
+ * Tars and coming back, not a restart (see `TarsComposerDraftSchema`).
  */
-export interface TarsDraftState extends TarsComposerDraft {
+export interface TarsDraftState extends Omit<TarsComposerDraft, "requestHadAttachments"> {
+  /** The files the next send carries, read once when they were attached. Changing them is an edit, like changing the words. */
+  attachments: readonly AttachmentContext[];
   /** The saved draft was read (or there is nothing to read); the composer waits for it so typing is never overwritten. */
   ready: boolean;
 }
@@ -20,7 +26,9 @@ type DraftBridge = Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
 /** Typing is saved after this pause; leaving the view or the window saves at once. */
 export const TARS_DRAFT_SAVE_DELAY_MS = 300;
 
-const EMPTY: TarsComposerDraft = { text: "", includeWorkingChanges: false, requestId: null };
+/** One shared empty list, so a selector on `attachments` keeps its identity while nothing is attached. */
+const NO_ATTACHMENTS: readonly AttachmentContext[] = Object.freeze([]);
+const EMPTY = { text: "", includeWorkingChanges: false, requestId: null, attachments: NO_ATTACHMENTS } satisfies Omit<TarsDraftState, "ready">;
 
 export const useTarsDraftStore = create<TarsDraftState>(() => ({ ...EMPTY, ready: false }));
 
@@ -32,9 +40,10 @@ let dirty = false;
 /** Saves run one after another, so an older write can never land after a newer one; resolves whether the latest write landed. */
 let queue: Promise<boolean> = Promise.resolve(true);
 
+/** The saved copy: the files are left out, and a request ID that also carried files says so. */
 function snapshot(): TarsComposerDraft {
-  const { text, includeWorkingChanges, requestId } = useTarsDraftStore.getState();
-  return { text, includeWorkingChanges, requestId };
+  const { text, includeWorkingChanges, requestId, attachments } = useTarsDraftStore.getState();
+  return { text, includeWorkingChanges, requestId, ...(requestId !== null && attachments.length ? { requestHadAttachments: true as const } : {}) };
 }
 
 function write(draft: TarsComposerDraft): Promise<boolean> {
@@ -69,7 +78,7 @@ function schedule() {
   timer = setTimeout(() => { timer = null; void flushTarsDraft(); }, TARS_DRAFT_SAVE_DELAY_MS);
 }
 
-function update(patch: Partial<TarsComposerDraft>) {
+function update(patch: Partial<Omit<TarsDraftState, "ready">>) {
   useTarsDraftStore.setState(patch);
   schedule();
 }
@@ -79,7 +88,9 @@ const flushOnLeave = () => { void flushTarsDraft(); };
 
 /**
  * Reads the saved draft once per bridge. Words typed before it arrives win over
- * the saved copy, so a slow read can never erase them.
+ * the saved copy, so a slow read can never erase them. A saved request ID that
+ * also carried files is dropped: those files were not saved, so sending the
+ * restored words is a new message, never a retry of the one with files.
  */
 export function hydrateTarsDraft(next: DraftBridge | undefined): Promise<void> {
   if (bridge === next && hydrating) return hydrating;
@@ -99,8 +110,10 @@ export function hydrateTarsDraft(next: DraftBridge | undefined): Promise<void> {
   hydrating = read().then((saved) => {
     if (bridge !== next) return;
     const current = useTarsDraftStore.getState();
-    if (saved && isEmptyTarsComposerDraft(current) && current.requestId === null) useTarsDraftStore.setState({ ...saved, ready: true });
-    else useTarsDraftStore.setState({ ready: true });
+    if (saved && isEmptyTarsComposerDraft(current) && !current.attachments.length && current.requestId === null) {
+      const { requestHadAttachments, ...restored } = saved;
+      useTarsDraftStore.setState({ ...restored, requestId: requestHadAttachments ? null : restored.requestId, ready: true });
+    } else useTarsDraftStore.setState({ ready: true });
   }).catch(() => {
     // Unreadable storage: the composer still works, with a draft that lasts for this window.
     if (bridge === next) useTarsDraftStore.setState({ ready: true });
@@ -121,6 +134,17 @@ export function setTarsDraftWorkingChanges(includeWorkingChanges: boolean) {
   update({ includeWorkingChanges, requestId: null });
 }
 
+/**
+ * Replaces the attached files. Like an edit to the words, it drops the request
+ * ID a send that did not come back left: the host names each request ID's
+ * exact message, so files added or removed make a new message, not a retry.
+ */
+export function setTarsDraftAttachments(attachments: readonly AttachmentContext[]) {
+  const current = useTarsDraftStore.getState();
+  if (current.attachments === attachments || (!current.attachments.length && !attachments.length)) return;
+  update({ attachments: attachments.length ? attachments : NO_ATTACHMENTS, requestId: null });
+}
+
 /** Adds text after what is there, separated by a blank line; nothing is replaced. */
 export function appendTarsDraft(addition: string) {
   const { text } = useTarsDraftStore.getState();
@@ -131,16 +155,17 @@ export function appendTarsDraft(addition: string) {
  * Starts a send of the current draft: reuses the request ID an unchanged
  * retry carries, otherwise mints one, and saves it with the draft before the
  * message goes out, so the host can drop this draft in the same write that
- * saves the message.
+ * saves the message. The send must carry the returned choice and files: they
+ * are what this request ID names.
  */
-export async function beginTarsDraftSend(): Promise<{ requestId: string; text: string }> {
-  const { requestId: retried, text } = useTarsDraftStore.getState();
+export async function beginTarsDraftSend(): Promise<{ requestId: string; text: string; includeWorkingChanges: boolean; attachments: readonly AttachmentContext[] }> {
+  const { requestId: retried, text, includeWorkingChanges, attachments } = useTarsDraftStore.getState();
   const requestId = retried ?? crypto.randomUUID();
   useTarsDraftStore.setState({ requestId });
   dirty = true;
   await flushTarsDraft();
   // The words as they stand in the draft, not as sent (the composer trims what it sends), so settling compares like with like.
-  return { requestId, text };
+  return { requestId, text, includeWorkingChanges, attachments };
 }
 
 /**
