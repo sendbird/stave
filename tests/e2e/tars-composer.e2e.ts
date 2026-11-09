@@ -120,6 +120,28 @@ test("attached files stay with the draft when Tars is closed and reopened, never
   await expect.poll(savedDraft).toBeNull();
 });
 
+test("a send whose request ID cannot be saved with the draft stops and keeps the words, so a restart cannot send them twice", async ({ page }) => {
+  // The draft saves, but not with a request ID; the host would also lose the message's response.
+  await page.goto("/?stavePreview=tars&noRepositories=true&draftSaveFailure=request&sendFailure=once");
+  const composer = page.locator("[data-tars-composer]");
+  const conversation = () => page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation") ?? "null"));
+  await composer.getByRole("textbox").fill("Fix the export");
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-draft") ?? "null")))
+    .toEqual({ text: "Fix the export", includeWorkingChanges: false, requestId: null });
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByRole("alert").first()).toBeVisible();
+  // Nothing went out, and the failure is the conversation's own.
+  expect((await conversation())?.messages ?? []).toHaveLength(0);
+  await expect(page.getByRole("alert").filter({ hasText: "The conversation request failed. Your draft and saved messages are preserved." })).toBeVisible();
+  await expect(composer.getByRole("textbox")).toHaveText("Fix the export");
+  // Stave quits before any later save lands: after the restart the saved words come back, and sending them makes one message.
+  await page.goto("/?stavePreview=tars&noRepositories=true");
+  await expect(composer.getByRole("textbox")).toHaveText("Fix the export");
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  expect((await conversation()).messages.map((message: { text: string }) => message.text)).toEqual(["Fix the export"]);
+});
+
 for (const inputEvent of ["paste", "drop"]) {
   test(`Tars ${inputEvent} uses the common file pipeline for text and images`, async ({ page }) => {
     await page.goto("/?stavePreview=tars");

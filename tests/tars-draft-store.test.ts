@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
-  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, flushTarsDraftForQuit, hydrateTarsDraft, resetTarsDraftForTests, setTarsDraftAttachments, setTarsDraftText,
-  setTarsDraftWorkingChanges, settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
+  appendTarsDraft, beginTarsDraftSend as beginOrStop, flushTarsDraft, flushTarsDraftForQuit, hydrateTarsDraft, resetTarsDraftForTests,
+  setTarsDraftAttachments, setTarsDraftText, setTarsDraftWorkingChanges, settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
 } from "../src/store/tars-draft-store";
 import type { AttachmentContext } from "../src/lib/providers/attachment-context";
 import { TARS_DRAFT_MAX_CHARS, type SaveTarsComposerDraftInput, type TarsComposerDraft } from "../src/lib/tars/composer-draft";
@@ -20,6 +20,12 @@ function fakeBridge(initial: TarsComposerDraft | null = null) {
       },
     },
   };
+}
+/** A send these tests expect to go out; one that stopped fails the test here. */
+async function beginTarsDraftSend() {
+  const sending = await beginOrStop();
+  if (!sending) throw new Error("The send stopped before it went out.");
+  return sending;
 }
 const draft = () => {
   const { text, includeWorkingChanges, requestId, ready } = useTarsDraftStore.getState();
@@ -104,6 +110,62 @@ describe("Tars composer draft", () => {
     expect(draft()).toMatchObject({ text: "Retry me", requestId: first.requestId });
     expect(host.saved).toEqual({ text: "Retry me", includeWorkingChanges: false, requestId: first.requestId });
     expect((await beginTarsDraftSend()).requestId).toBe(first.requestId);
+  });
+
+  test("a request ID that cannot be saved with the draft stops the send, so a restart cannot send the same words twice", async () => {
+    const { bridge, host } = fakeBridge();
+    const messages: string[] = [];
+    // As the host: a request ID names one message, and saving it drops the draft carrying that request ID in the same write.
+    const hostSend = (requestId: string) => {
+      if (!messages.includes(requestId)) messages.push(requestId);
+      if (host.saved?.requestId === requestId) host.saved = null;
+    };
+    await hydrateTarsDraft(bridge);
+    setTarsDraftText("Fix the export");
+    await flushTarsDraft();
+    expect(host.saved).toEqual({ text: "Fix the export", includeWorkingChanges: false, requestId: null });
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    host.failSave = true;
+    const stopped = await beginOrStop();
+    if (stopped) {
+      // What a send that went on anyway did: the host stored the message, but its response was lost.
+      hostSend(stopped.requestId);
+      settleTarsDraftSend({ ...stopped, outcome: "unsent" });
+    }
+    expect(draft().text).toBe("Fix the export");
+    // Stave quits before a later save lands; after the restart the saved draft comes back and is sent unchanged.
+    resetTarsDraftForTests();
+    host.failSave = false;
+    await hydrateTarsDraft(bridge);
+    expect(draft().text).toBe("Fix the export");
+    const retry = await beginTarsDraftSend();
+    hostSend(retry.requestId);
+    settleTarsDraftSend({ ...retry, outcome: "sent" });
+    expect(messages).toHaveLength(1);
+    expect(stopped).toBeNull();
+    expect(host.saved).toBeNull();
+    warn.mockRestore();
+  });
+
+  test("a send stopped by a failed save keeps the words; once the save works the unchanged send goes out with its request ID saved first", async () => {
+    const { bridge, host } = fakeBridge();
+    await hydrateTarsDraft(bridge);
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    setTarsDraftText("Try again");
+    host.failSave = true;
+    expect(await beginOrStop()).toBeNull();
+    expect(await beginOrStop()).toBeNull();
+    expect(draft().text).toBe("Try again");
+    host.failSave = false;
+    const sending = await beginTarsDraftSend();
+    expect(host.saved).toEqual({ text: "Try again", includeWorkingChanges: false, requestId: sending.requestId });
+    warn.mockRestore();
+  });
+
+  test("without a draft store there is nothing to save first, so the send goes out", async () => {
+    await hydrateTarsDraft(undefined);
+    setTarsDraftText("For this window only");
+    expect(await beginOrStop()).toMatchObject({ text: "For this window only" });
   });
 
   test("any edit after a failed send is a new message with a new request ID", async () => {

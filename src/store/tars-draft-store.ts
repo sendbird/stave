@@ -170,13 +170,19 @@ export function appendTarsDraft(addition: string) {
  * message goes out, so the host can drop this draft in the same write that
  * saves the message. The send must carry the returned choice and files: they
  * are what this request ID names.
+ *
+ * Null when a draft store exists but that save failed: the send stops there,
+ * with the words kept, and the composer shows it as a failed send. Sending
+ * anyway could leave a message the saved draft does not know about, so the
+ * draft would come back after a restart and be sent a second time.
  */
-export async function beginTarsDraftSend(): Promise<{ requestId: string; text: string; includeWorkingChanges: boolean; attachments: readonly AttachmentContext[] }> {
+export async function beginTarsDraftSend(): Promise<{ requestId: string; text: string; includeWorkingChanges: boolean; attachments: readonly AttachmentContext[] } | null> {
   const { requestId: retried, text, includeWorkingChanges, attachments } = useTarsDraftStore.getState();
   const requestId = retried ?? crypto.randomUUID();
   useTarsDraftStore.setState({ requestId });
   dirty = true;
-  await flushTarsDraft();
+  // No message carries this request ID yet, so keeping it for the next try is still the same, unsent request.
+  if (!(await flushTarsDraft()) && bridge?.saveDraft) return null;
   // The words as they stand in the draft, not as sent (the composer trims what it sends), so settling compares like with like.
   return { requestId, text, includeWorkingChanges, attachments };
 }

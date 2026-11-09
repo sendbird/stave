@@ -257,6 +257,8 @@ export function TarsPreview() {
         return saved && conversation.messages.some((message) => message.requestId === saved.requestId) ? null : saved;
       },
       saveDraft: async ({ draft }) => {
+        // `draftSaveFailure=request`: typing saves, but the save that carries a send's request ID fails.
+        if (params.get("draftSaveFailure") === "request" && draft?.requestId) throw new Error("Preview draft save failed.");
         // As the host: a draft whose request is already a message was sent and is not saved again.
         if (draft && !conversation.messages.some((message) => message.requestId === draft.requestId)) sessionStorage.setItem(draftKey, JSON.stringify(draft));
         else sessionStorage.removeItem(draftKey);

@@ -368,6 +368,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           }
           // An unchanged draft, choice and files retry the same request (a lost acknowledgement cannot send twice); any edit is a new message.
           const sending = await beginTarsDraftSend();
+          // The request ID could not be saved with the draft, so nothing was sent: the words stay and the send shows as failed.
+          if (!sending) { state.reportSendFailure(); return; }
           const message = await state.send({ requestId: sending.requestId, text: submitted, ...(sending.attachments.length ? { attachments: [...sending.attachments] } : {}),
             ...(sending.includeWorkingChanges ? { includeWorkingChanges: true } : {}) }, initialSettings);
           settleTarsDraftSend({ ...sending, outcome: !message ? "unsent" : message.state === "failed" ? "failed" : "sent" });

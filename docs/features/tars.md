@@ -414,7 +414,9 @@ message Tars saved clears the draft. A send that fails keeps it, so you can
 retry or edit it; a retry of the unchanged draft, with the same files, is the
 same request, so a send whose response was lost cannot become a second
 message. Editing the words, the choice or the attached files makes it a new
-message.
+message. If the draft cannot be saved when you press **Send**, nothing is
+sent: the send shows as failed and the draft stays, so a restart cannot send
+the same words twice.
 Answering a decision with a short word clears the word only once the answer
 is taken.
 
