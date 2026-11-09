@@ -113,15 +113,20 @@ export interface TarsAttentionRowLike {
 
 /**
  * The attention rows that belong to Tars-owned work, and the responsibilities
- * they point at. The tray's "needs you" count is `rows.length`, read from the
- * same projection Fleet shows.
+ * they point at: rows on the work's own task, and while the work waits on a
+ * helper (`waitingTaskId`), rows on that helper's task. The tray's "needs
+ * you" count is `rows.length`, read from the same projection Fleet shows.
  */
 export function selectTarsAttentionRows<T extends TarsAttentionRowLike>(
   items: readonly T[],
   responsibilities: readonly TarsResponsibility[],
 ): { rows: T[]; responsibilityIds: Set<string> } {
-  const byTask = new Map(responsibilities.filter((row) => row.taskId && !isTarsResponsibilityTerminal(row))
-    .map((row) => [row.taskId!, row.id]));
+  const live = responsibilities.filter((row) => !isTarsResponsibilityTerminal(row));
+  const byTask = new Map([
+    ...live.flatMap((row) => row.state === "waiting" && row.waitingTaskId ? [[row.waitingTaskId, row.id] as const] : []),
+    // The work's own task wins if a helper's task ever named it.
+    ...live.flatMap((row) => row.taskId ? [[row.taskId, row.id] as const] : []),
+  ]);
   const rows: T[] = [];
   const responsibilityIds = new Set<string>();
   for (const item of items) {

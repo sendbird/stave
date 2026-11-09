@@ -608,10 +608,11 @@ concurrently. Use **Settings** to guide newly admitted
 work without changing an existing run or granting permissions.
 
 Tars also follows up by itself when work needs judgment: it became blocked,
-its run stopped to ask you for a decision (followed up at once), its completion
-could not be verified, it ended with criteria unmet, it waited an hour without
-change (a run you paused, a usage-limit pause, or an approval or question you
-answer in its task), or a question Tars asked became invalid. The message
+its run or one of its helpers stopped to ask you for a decision (followed up
+at once), its completion could not be verified, it ended with criteria unmet,
+it waited an hour without change (a run you paused, a usage-limit pause, or
+an approval or question you answer in its task), or a question Tars asked
+became invalid. The message
 reads **Automatic follow-up ·** with its reason and the work's title. It can
 ask, propose a resume or cancel that waits for your **Confirm**, change a
 queued priority or open a view. It never starts work by itself (it asks you

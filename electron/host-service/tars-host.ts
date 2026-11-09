@@ -1,6 +1,7 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { tarsExecutionInstructions, tarsWorkflow, tarsObservation } from "./tars-execution";
+import { tarsExecutionInstructions, tarsWorkflow, tarsObservation, tarsHelperObservation, type TarsHelperRead } from "./tars-execution";
+import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
 import type { TarsChangedEvent, TarsResponsibility } from "../../src/lib/tars/types";
 import { createTarsChangeBatcher } from "../persistence/tars-changes";
@@ -34,6 +35,40 @@ export function createHostTarsRuntime(args: {
   function hasAssignment(row: TarsResponsibility) {
     return assertTarsAssignment(row, persistence.agentAssignments.getByTaskId(row.taskId!),
       persistence.agentAssignments.getByRequestId(`tars-${row.id}`));
+  }
+  /** The task a delegated run's parent delegated it from; null for a run nobody delegated. */
+  function delegatedParentTaskId(agentRunId: string): string | null {
+    const started = persistence.agentRuns.listEventsByKind(agentRunId, ["agent-run-started"])[0];
+    if (!started || !("delegation" in started.detail)) return null;
+    const authority = DelegatedAgentRunAuthoritySchema.safeParse(started.detail.delegation);
+    return authority.success ? authority.data.parentTaskId : null;
+  }
+  /**
+   * The active helper runs of a lead run at any depth: runs delegated from its
+   * task, and from their tasks in turn. A helper that cannot be read is left
+   * out, so a failed read is never taken for a wait.
+   */
+  async function readHelpers(lead: { id: string; leadTaskId: string }): Promise<TarsHelperRead[]> {
+    const active = persistence.agentRuns.listActiveAgentRuns().filter((run) => run.id !== lead.id);
+    const team = new Set([lead.leadTaskId]);
+    const helpers: typeof active = [];
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const run of active) {
+        if (helpers.includes(run) || team.has(run.leadTaskId)) continue;
+        const parent = delegatedParentTaskId(run.id);
+        if (!parent || !team.has(parent)) continue;
+        helpers.push(run); team.add(run.leadTaskId); grew = true;
+      }
+    }
+    const reads = await Promise.all(helpers.map(async (run): Promise<TarsHelperRead | null> => {
+      try {
+        const [detail, task] = await Promise.all([args.agentRuns.get({ agentRunId: run.id }),
+          tasks.getTaskSupervisionSnapshot({ workspaceId: run.workspaceId, taskId: run.leadTaskId })]);
+        return { detail, pendingRequests: task.exists ? (task.pendingApprovalCount ?? 0) + (task.pendingUserInputCount ?? 0) : 0 };
+      } catch { return null; }
+    }));
+    return reads.filter((read): read is TarsHelperRead => read !== null);
   }
   async function validateScope(row: Pick<TarsResponsibility, "workspaceId" | "repositoryPath">) {
     const repositories = await tasks.listKnownRepositories();
@@ -159,6 +194,8 @@ export function createHostTarsRuntime(args: {
       if (observation.state === "running" && (snapshot.pendingApprovalCount || snapshot.pendingUserInputCount))
         return { state: "waiting", detail: "The execution task is waiting for your input or approval.", detailCode: "waitingForUser", detailParams: null,
           runTurns: detail.agentRun.turnCount };
+      // A running lead may be waiting on a helper that waits on the user.
+      if (observation.state === "running") return tarsHelperObservation(await readHelpers(detail.agentRun)) ?? observation;
       return observation;
     },
     controlRun: (row, operation) => {

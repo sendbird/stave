@@ -24,6 +24,8 @@ export interface TarsExecutionObservation {
   runTurns?: number;
   /** The run's current stage attempt (`stageId#attempt`), reported with a wait. */
   runStage?: string;
+  /** The helper's task when a helper of the run, not the run's own task, waits on the user. */
+  waitingTaskId?: string;
 }
 
 export interface TarsRuntimePorts {
@@ -129,10 +131,11 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         const observed = await ports.observe(initial);
         if (stopped || held.has(initial.id)) continue;
         // Absent means a plain wait, so a stage that stopped asking clears the mark.
-        const { runTurns, runStage, ...change } = observed;
+        const { runTurns, runStage, waitingTaskId, ...change } = observed;
         const waiting = observed.state === "waiting";
         noteExpiredWait(patch(initial, { ...change, stageAsksUser: observed.stageAsksUser === true || undefined,
-          observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined }));
+          observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
+          waitingTaskId: waiting ? waitingTaskId : undefined }));
       } catch (error) {
         if (!(error instanceof TarsOwnershipLostError)) unknownExecution = true;
         if (!isTarsStorageBusy(error)) blocked(initial, error);

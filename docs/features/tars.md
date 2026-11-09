@@ -688,13 +688,17 @@ ask:
 
 - the work became blocked,
 - its run stopped its own stage to ask you for a decision: the stage blocked,
-  got stuck or awaits your sign-off while the run is still running. Tars shows
-  the work as waiting for you and follows up at once, not after the quiet hour,
+  got stuck or awaits your sign-off while the run is still running. A helper
+  the run delegated to counts the same way when its stage asks you, since the
+  run waits for that helper. Tars shows the work as waiting for you and follows
+  up at once, not after the quiet hour, and the tray's **Needs you** counts the
+  helper's row that Fleet shows,
 - its run reported completion Stave could not verify,
 - it ended with required criteria unmet or a verification older than a hand-back,
 - it waited an hour without any change (a turn the run took counts as a
   change) in a plain wait: a run you paused, a run paused for a usage limit or
-  another run pause, or a tool approval or question you answer in its task, or
+  another run pause, or a tool approval or question you answer in its task
+  (or in the task of a helper the run delegated to), or
 - a question Tars asked became invalid because its work changed.
 
 The follow-up appears in the conversation as **Automatic follow-up ·** its

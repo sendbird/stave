@@ -1,10 +1,9 @@
 import { i18n } from "@/i18n/runtime";
-import { isSupervisedTaskTurn } from "./agent-run-attention";
+import { activeAgentRunAttentionKind, isSupervisedTaskTurn } from "./agent-run-attention";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord } from "@/lib/agent-runs/domain";
 import { projectAgentRunStages, summarizePreviousStage } from "@/lib/agent-runs/agent-run-view";
-import { awaitsUsageReset } from "@/lib/agent-runs/usage-limit";
 import { describeAgentRunNotification } from "@/lib/agent-runs/notifications";
 import { resolveAgentRunAttentionSince } from "@/lib/agent-runs/attention-since";
 import type { ResultReview } from "@/lib/reviews/result-review";
@@ -695,21 +694,10 @@ export function collectFleetAgentRunAttentionItems(
     // primary run does need a new instruction, until a newer run takes over.
     const expiredNeedsDecision = agentRun.state === "stopped" && agentRun.stopReason === "expired" &&
       Date.parse(agentRun.createdAt) >= (newestRunByTask.get(getFleetAttentionTaskKey(input.workspaceId, agentRun.leadTaskId)) ?? -Infinity);
-    if (agentRun.state !== "running" && agentRun.state !== "paused" && !expiredNeedsDecision) return [];
-    const record = currentStageRecord(input.detail);
-    const pausedNeedsDecision = agentRun.state === "paused" &&
-      agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over" &&
-      !(agentRun.pauseReason === "usage-limit" && awaitsUsageReset(agentRun));
-    if (agentRun.state !== "running" && !pausedNeedsDecision && !expiredNeedsDecision) return [];
-    const kind = pausedNeedsDecision || expiredNeedsDecision ? "agent-run-blocked" :
-      record.status === "awaiting-sign-off"
-        ? "agent-run-sign-off"
-        : record.status === "blocked"
-          ? "agent-run-blocked"
-          : record.status === "stuck"
-            ? "agent-run-stuck"
-            : null;
+    const kind = expiredNeedsDecision ? "agent-run-blocked" : activeAgentRunAttentionKind(input.detail);
     if (!kind) return [];
+    const record = currentStageRecord(input.detail);
+    const pausedNeedsDecision = agentRun.state === "paused";
     const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
     const episodeId = kind === "agent-run-sign-off" ? undefined : describeAgentRunNotification(input.detail, {
       repositoryPath: input.repositoryPath, repositoryName: input.repositoryName,

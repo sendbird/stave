@@ -207,6 +207,13 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   /** The run's current stage attempt (`stageId#attempt`) when last observed waiting; part of an ask's identity. */
   observedStage: z.string().min(1).max(300).optional(),
   /**
+   * Set by observation while `waiting` because a helper of the run (a task the
+   * run delegated to, at any depth) waits on the user rather than the run's
+   * own task: that helper's task. Fleet shows the wait as rows on that task, so
+   * the tray counts those rows for this responsibility. Absent otherwise.
+   */
+  waitingTaskId: IdSchema.optional(),
+  /**
    * Host-only: the commit, push and draft pull request the user confirmed for
    * completed work, saved after each step so a retry resumes where it stopped.
    * No create request, control or renderer write can set it.
@@ -229,7 +236,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, publication: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;
 
