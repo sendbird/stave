@@ -72,6 +72,19 @@ export function flushTarsDraft(): Promise<boolean> {
   return write(snapshot());
 }
 
+/**
+ * The quit flush's part: writes the draft and never fails the quit. The draft
+ * is already saved after every pause in typing and when the view or window is
+ * left, so a failure here can lose only the last moments of typing, and the
+ * last saved copy stays. Failing the quit instead would hold it behind a
+ * dialog about unsaved workspace changes the user cannot fix by retrying.
+ */
+export async function flushTarsDraftForQuit(): Promise<void> {
+  const saved = await flushTarsDraft().catch(() => false);
+  // Never the words: only that the latest draft was not written.
+  if (!saved) console.warn("[tars] the composer draft could not be saved before quitting; the last saved draft is kept");
+}
+
 function schedule() {
   dirty = true;
   if (timer) clearTimeout(timer);

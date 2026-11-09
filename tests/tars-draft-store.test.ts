@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
-  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, hydrateTarsDraft, resetTarsDraftForTests, setTarsDraftAttachments, setTarsDraftText,
+  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, flushTarsDraftForQuit, hydrateTarsDraft, resetTarsDraftForTests, setTarsDraftAttachments, setTarsDraftText,
   setTarsDraftWorkingChanges, settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
 } from "../src/store/tars-draft-store";
 import type { AttachmentContext } from "../src/lib/providers/attachment-context";
@@ -201,6 +201,24 @@ describe("Tars composer draft", () => {
     setTarsDraftText("Private words again");
     await flushTarsDraft();
     expect(host.saved?.text).toBe("Private words again");
+  });
+
+  test("a draft that cannot be saved while quitting is logged without its words and never fails the quit; the last saved copy stays", async () => {
+    const { bridge, host } = fakeBridge();
+    await hydrateTarsDraft(bridge);
+    setTarsDraftText("Saved before quitting");
+    await flushTarsDraft();
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    host.failSave = true;
+    setTarsDraftText("Typed just before quitting");
+    await expect(flushTarsDraftForQuit()).resolves.toBeUndefined();
+    expect(host.saved?.text).toBe("Saved before quitting");
+    expect(warn.mock.calls.some(([line]) => String(line).includes("before quitting"))).toBe(true);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("Typed just before quitting");
+    warn.mockRestore();
+    host.failSave = false;
+    await flushTarsDraftForQuit();
+    expect(host.saved?.text).toBe("Typed just before quitting");
   });
 
   test("a draft over the stored limit stays in memory and leaves the last saved copy", async () => {
