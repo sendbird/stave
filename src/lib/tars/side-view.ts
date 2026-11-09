@@ -1,5 +1,5 @@
 import { TarsShowViewSchema, type TarsActionReceipt, type TarsShowView } from "./conversation";
-import { TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_PINNED_MIN_WIDTH } from "./tray-model";
+import { TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_PINNED_MIN_WIDTH, TARS_TRAY_WIDTH } from "./tray-model";
 
 /**
  * What the side view shows about one responsibility: what it was handed (its
@@ -21,8 +21,6 @@ export interface TarsSideViewTarget {
   focus?: { unmet: true } | { stageId: string };
 }
 
-/** The tray's pinned column width, in pixels (26rem); the side view never gets narrower. */
-export const TARS_SIDE_VIEW_MIN_WIDTH = 416;
 /** Below the pinned width the side view opens between the conversation and the composer, at most this share of the view's height. */
 export const TARS_SIDE_VIEW_NARROW_HEIGHT_SHARE = 0.4;
 
@@ -31,14 +29,15 @@ export type TarsSideViewPlacement =
   | { placement: "inline"; maxHeight: number };
 
 /**
- * Wide: the side view takes the tray's column at half the view, never below the
- * tray's width, and never leaving the conversation under its 440px floor.
- * Narrow: it sits inline, capped at 40% of the view's height and scrolled.
- * Mirrors `tarsSideViewStyles.column` (`clamp(26rem, 50%, 100% - 440px)`).
+ * Wide: the side view takes the tray's column at the tray's own width (the
+ * same StyleX column, `tarsTrayStyles.panel`), so switching between the tray
+ * and a view never moves the conversation; it never leaves the conversation
+ * under its 440px floor. Narrow: it sits inline, capped at 40% of the view's
+ * height and scrolled.
  */
 export function tarsSideViewPlacement(view: { width: number; height: number }): TarsSideViewPlacement {
   if (view.width >= TARS_TRAY_PINNED_MIN_WIDTH) {
-    const width = Math.max(TARS_SIDE_VIEW_MIN_WIDTH, Math.min(view.width * 0.5, view.width - TARS_CONVERSATION_MIN_WIDTH));
+    const width = Math.min(TARS_TRAY_WIDTH, view.width - TARS_CONVERSATION_MIN_WIDTH);
     return { placement: "column", width, conversationWidth: view.width - width };
   }
   return { placement: "inline", maxHeight: Math.floor(Math.max(0, view.height) * TARS_SIDE_VIEW_NARROW_HEIGHT_SHARE) };

@@ -12,6 +12,8 @@ import { isTarsWorkRunning } from "./live-progress";
 
 /** The view width at which the tray stays open beside the conversation. */
 export const TARS_TRAY_PINNED_MIN_WIDTH = 1088;
+/** The pinned tray's column, in pixels (26rem); the side view takes the same column at the same width. */
+export const TARS_TRAY_WIDTH = 416;
 /** The conversation never gets narrower than this while the tray is pinned. */
 export const TARS_CONVERSATION_MIN_WIDTH = 440;
 

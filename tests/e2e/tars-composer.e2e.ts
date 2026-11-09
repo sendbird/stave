@@ -201,3 +201,64 @@ for (const theme of ["light", "dark"]) {
     await expect.poll(() => form.evaluate(node => getComputedStyle(node).borderTopColor)).not.toBe(danger);
   });
 }
+
+for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
+  test(`opening a run timeline keeps the tray's column and its titled bar: ${theme} ${lang}`, async ({ page }) => {
+    await page.goto(`/?stavePreview=tars&tray=true&live=true&theme=${theme}&lang=${lang}`);
+    const view = page.getByTestId("tars-view");
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [1088, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      const tray = view.locator("[data-tars-tray-panel]");
+      await expect(tray).toBeVisible();
+      const before = await view.evaluate((root) => {
+        const tray = root.querySelector("[data-tars-tray-panel]")!;
+        const bar = tray.firstElementChild!.getBoundingClientRect();
+        return { tray: tray.getBoundingClientRect().width, conversation: root.querySelector("[data-tars-composer]")!.parentElement!.getBoundingClientRect().width,
+          bar: { top: bar.top, height: bar.height }, rem: parseFloat(getComputedStyle(document.documentElement).fontSize) };
+      });
+      expect(before.tray).toBe(26 * before.rem);
+      await view.locator("[data-tars-running-timeline]").first().click();
+      const side = view.locator('[data-tars-side-view="timeline"]');
+      await expect(side).toHaveAttribute("data-tars-side-placement", "column");
+      const after = await side.evaluate((node) => {
+        const bar = node.querySelector("[data-tars-side-bar]")!.getBoundingClientRect();
+        const heading = node.querySelector("h2")!;
+        const switcher = node.querySelector("[data-tars-side-subject]")!.nextElementSibling!.getBoundingClientRect();
+        return { side: node.getBoundingClientRect().width, right: node.getBoundingClientRect().right, switcherRight: switcher.right,
+          conversation: node.ownerDocument.querySelector("[data-tars-composer]")!.parentElement!.getBoundingClientRect().width,
+          bar: { top: bar.top, height: bar.height }, title: heading.textContent, titleSize: parseFloat(getComputedStyle(heading).fontSize),
+          subject: parseFloat(getComputedStyle(node.querySelector("[data-tars-side-subject]")!).fontSize) };
+      });
+      // Same column, same width, same bar: switching between the tray and a view never moves the conversation.
+      expect(after.side).toBe(before.tray);
+      expect(after.conversation).toBe(before.conversation);
+      expect(after.bar).toEqual(before.bar);
+      expect(after.title).toBe(lang === "ko" ? "실행 기록" : "Run timeline");
+      expect(after.titleSize).toBe(16);
+      expect(after.subject).toBe(13);
+      expect(after.switcherRight).toBeLessThanOrEqual(after.right);
+      // Live progress reads at the 13px interface row, in the composer band and in the timeline.
+      const sizes = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-live-line], [data-tars-recent-entry]")]
+        .map((element) => parseFloat(getComputedStyle(element).fontSize)));
+      expect(sizes.length).toBeGreaterThan(2);
+      expect(new Set(sizes)).toEqual(new Set([13]));
+      await page.keyboard.press("Escape");
+      await expect(side).toHaveCount(0);
+    }
+    // Narrow: the view sits above the composer under its own bar, and the page itself never scrolls to show it.
+    await page.setViewportSize({ width: 390, height: 900 });
+    await view.locator("[data-tars-running-timeline]").first().click();
+    const inline = view.locator('[data-tars-side-view="timeline"]');
+    await expect(inline).toHaveAttribute("data-tars-side-placement", "inline");
+    const narrow = await inline.evaluate((node) => {
+      const root = node.closest('[data-testid="tars-view"]')!;
+      return { pageScroll: document.scrollingElement!.scrollTop + document.body.scrollTop, rootTop: root.getBoundingClientRect().top,
+        bodyFits: document.body.scrollHeight <= window.innerHeight, overflowX: root.scrollWidth - root.clientWidth,
+        width: node.getBoundingClientRect().width, barHeight: node.querySelector("[data-tars-side-bar]")!.getBoundingClientRect().height,
+        switcherRight: node.querySelector("[data-tars-side-subject]")!.nextElementSibling!.getBoundingClientRect().right, right: node.getBoundingClientRect().right };
+    });
+    expect(narrow).toMatchObject({ pageScroll: 0, rootTop: 0, bodyFits: true, overflowX: 0, width: 390, barHeight: 46 });
+    expect(narrow.switcherRight).toBeLessThanOrEqual(narrow.right);
+  });
+}

@@ -401,12 +401,15 @@ test("an output in the tray opens the frozen report beside the conversation; Esc
   await expect(side.locator('[data-tars-evidence-group="verify"] [data-evidence-revision]')).toContainText("the final revision");
   await expect(side.locator('[data-tars-evidence-group="work"] [data-evidence-revision]')).toContainText("not the final revision");
   await expect(side.locator('[data-tars-report-blocked]')).toHaveCount(0);
-  // The side view takes the tray's column; the conversation keeps at least 440px.
+  // The side view takes the tray's column at the tray's width: the conversation does not move.
   await expect(tray).toHaveCount(0);
   const widths = await view.evaluate((node) => ({ conversation: node.querySelector("[data-tars-composer]")!.parentElement!.getBoundingClientRect().width,
     side: node.querySelector("[data-tars-side-view]")!.getBoundingClientRect().width }));
-  expect(widths.conversation).toBeGreaterThanOrEqual(440);
-  expect(widths.side).toBeGreaterThanOrEqual(416);
+  expect(widths.conversation).toBe(1280 - 416);
+  expect(widths.side).toBe(416);
+  // The view names itself in its own title bar: the kind, then the work it is about.
+  await expect(side.getByRole("heading", { level: 2 })).toHaveText("Result report");
+  await expect(side.locator("[data-tars-side-subject]")).not.toBeEmpty();
   // Opening is view-only: nothing is added to the conversation.
   await expect(view.locator("[data-tars-action-record]")).toHaveCount(0);
   await expect(view.locator("[data-tars-message]")).toHaveCount(2);

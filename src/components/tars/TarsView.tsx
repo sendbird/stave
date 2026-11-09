@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Settings, X } from "lucide-react";
+import { ListTodo, Settings, X } from "lucide-react";
 import { TarsGuideButton } from "./TarsGuide";
 import { TarsMark } from "./TarsMark";
 import { useTranslation } from "@/i18n";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { sx } from "@/components/aui/utils/stylex";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
+import { panelBarStyles } from "@/components/layout/panel-bar.constants";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
@@ -308,7 +309,8 @@ export function TarsView() {
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
       {pinned && pinnedTrayOpen ? <aside id={trayId} hidden={Boolean(sideView)} className={sx(trayStyles.panel, Boolean(sideView) && trayStyles.panelFolded)} aria-labelledby={`${trayId}-title`} data-tars-tray-panel="">
-        <div className={sx(trayStyles.panelHeader)}><h2 id={`${trayId}-title`} className={sx(trayStyles.panelTitle)}>{t("shell:tars.tray.title")}</h2></div>
+        <div className={sx(trayStyles.panelHeader, panelBarStyles.bar)}><h2 id={`${trayId}-title`} className={sx(panelBarStyles.headerTitle, trayStyles.panelTitle)}>
+          <ListTodo aria-hidden className={sx(panelBarStyles.headerIcon)} />{t("shell:tars.tray.title")}</h2></div>
         <div className={sx(trayStyles.panelBody)}>{trayBody}</div>
       </aside> : null}
     </div>
