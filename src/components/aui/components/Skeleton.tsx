@@ -6,6 +6,13 @@ import { treeRowHeights } from "../recipes/control-metrics";
 import { themeProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import { SkeletonSurface } from "./Skeleton.surface";
+
+export type {
+  SkeletonSurfaceLayout,
+  SkeletonSurfaceProps,
+  SkeletonSurfaceSize,
+} from "./Skeleton.surface";
 
 export type SkeletonProps = Omit<SkeletonRootProps, "className"> & {
   className?: string;
@@ -35,13 +42,13 @@ export type SkeletonProps = Omit<SkeletonRootProps, "className"> & {
  * Loading placeholder (baseline `Skeleton` anatomy). Use only inside a component
  * that owns the final layout and can place the placeholder in the exact slot
  * where content will render. For unknown/page-level loading, use
- * `LoadingSurface` instead of fake rows. The shimmer sweep is a state signal
+ * `Skeleton.Surface` instead of fake rows. The shimmer sweep is a state signal
  * (content is on its way), implemented in CSS (`.atelier-motion-skeleton` in
  * `styles.css`) and disabled under `prefers-reduced-motion` — the static block
  * remains. `aria-hidden`: announce loading on the region (`aria-busy`), not per
  * placeholder.
  */
-export function Skeleton({
+function SkeletonRoot({
   className,
   height,
   lines = 1,
@@ -110,6 +117,22 @@ export function Skeleton({
     />
   );
 }
+
+/**
+ * The loading family as one namespace:
+ *
+ * - `<Skeleton variant>` — a shape you place in the slot the content lands in.
+ * - `<Skeleton.Surface>` — an honest wait for a surface whose layout is not
+ *   known yet.
+ *
+ * The presets — `TreeSkeleton`, `PageHeaderSkeleton`, `TextBlockSkeleton` —
+ * compose `Skeleton` shapes. The second spelling `LoadingSurface` was removed
+ * on 2026-11-08; the member is the only public name.
+ */
+export const Skeleton = Object.assign(SkeletonRoot, {
+  /** A surface-level wait: a delayed `Loader` in a region that holds its space. */
+  Surface: SkeletonSurface,
+});
 
 export type TreeSkeletonProps = React.ComponentProps<"div"> & {
   /** Number of rows to reserve. @default 5 */

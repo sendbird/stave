@@ -31,13 +31,11 @@ const glyph = ["color", "opacity"] as const;
  * This is where `tone` stops being decoration and starts being the axis a
  * brand actually switches on — every notice here says "info / success /
  * warning / danger" in its own words, and the values below are those words
- * verbatim. `Callout` still carries a sixth (`accent`) and a deprecated
- * seventh (`warm`) that the others never had; `Toast` adds `loading` and
- * `neutral`, which no notice has. They are NOT unified here. A theme target
- * reflects the prop a consumer typed, so a recipe written against
- * `[data-tone="warm"]` has to keep working for exactly as long as the prop
- * does, and inventing one shared severity vocabulary would have made the
- * attribute a translation of the API rather than a reflection of it.
+ * verbatim. `Callout` still carries a sixth (`accent`) that the others never
+ * had; `Toast` adds `loading` and `neutral`, which no notice has. They are NOT
+ * unified here. A theme target reflects the prop a consumer typed, and
+ * inventing one shared severity vocabulary would have made the attribute a
+ * translation of the API rather than a reflection of it.
  */
 export const feedbackThemeTargets = {
   alert: {
@@ -85,9 +83,7 @@ export const feedbackThemeTargets = {
   },
   callout: {
     axes: {
-      /* `warm` is the retained migration alias for `warning`; both are here
-       * because both are still spellable at a call site. */
-      tone: ["accent", "info", "warning", "warm", "success", "danger"],
+      tone: ["accent", "info", "warning", "success", "danger"],
     },
     exports: [
       "Callout",

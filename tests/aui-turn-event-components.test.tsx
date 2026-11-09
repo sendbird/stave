@@ -227,7 +227,8 @@ describe("AUI turn-event components", () => {
     expect(markup).toContain("Patch the runtime");
     expect(markup).toContain("Run the tests");
     // The mark is aria-hidden, so status reaches assistive tech as row text.
-    expect(markup).toContain("Done");
+    // AUI F7: a plan step speaks the shared agent-state word ("Completed").
+    expect(markup).toContain("Completed");
     expect(markup).toContain("Running");
     expect(markup).toContain("Pending");
     // Counted, never estimated: top-level steps only, and no percentage.

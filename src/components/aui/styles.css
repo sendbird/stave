@@ -45,35 +45,58 @@
   inherits: false;
 }
 
+/* Motion primitives: timing table, curves, and Reduce Motion are in the
+   header of `overlay-motion.css`; `motion-presets.ts` mirrors them. The two
+   `linear()` springs are `springLinearEasing(springSignature | springSnappy)`
+   output, verbatim — `tests/aui-motion-spring-easing.test.ts` fails on drift.
+   Rules: design-direction §3.3 (after Emil Kowalski's animation skills). */
 :root {
   --atelier-motion-duration-micro: 80ms;
   --atelier-motion-duration-fast: 120ms;
   --atelier-motion-duration-quick: 150ms;
-  --atelier-motion-duration-normal: 180ms;
+  --atelier-motion-duration-normal: 220ms;
   --atelier-motion-duration-emphasis: 250ms;
-  --atelier-motion-duration-panel: 400ms;
+  --atelier-motion-duration-panel: 340ms;
+  --atelier-motion-duration-tooltip: 100ms;
+  /* One revolution of every rotating loading indicator (Loader `spinner`,
+     Button `loading`, Gauge indeterminate, `.atelier-icon-spinner`). A faster
+     spinner makes the same wait feel shorter; they ran 1200 / 800 / 800ms. */
+  --atelier-motion-duration-spin: 600ms;
   --atelier-motion-duration-loop-fast: 800ms;
   --atelier-motion-duration-loop: 1200ms;
   --atelier-motion-duration-loop-slow: 2000ms;
   --atelier-motion-duration-loop-brand: 2900ms;
-  --atelier-motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --atelier-motion-ease-expressive: cubic-bezier(0.22, 1, 0.36, 1);
-  --atelier-motion-ease-in-out: ease-in-out;
-  --atelier-motion-ease-out: ease-out;
+  /* THE signature (sidebar disclosure open): 220ms on the signature spring. */
+  --atelier-motion-duration-signature: 220ms;
+  --atelier-motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --atelier-motion-ease-standard: var(--atelier-motion-ease-out);
+  --atelier-motion-ease-expressive: var(--atelier-motion-ease-out);
+  /* Strong in-out for system movement that starts and ends on screen (a
+     reordered row). Never an exit or pointer feedback. */
+  --atelier-motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* An oscillating loop's breath (loader dots, pulses, skeleton, live
+     carets): sine-like, so a cycle never snaps at its turn-around. */
+  --atelier-motion-ease-loop: ease-in-out;
+  /* Colour, opacity and shadow STATE changes (hover, focus halo, selected,
+     pressed fills): the CSS `ease` curve. The ease-out above is a travel
+     curve — over 150ms it is half done in 20ms, which reads as a cut on a
+     border or a fill; this one is half done in 44ms and visibly eases. */
+  --atelier-motion-ease-color: cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* springSignature 420/21/0.9, ζ ≈ 0.54, peak 1.133 — the signature curve. */
+  --atelier-motion-ease-spring: linear(0, 0.072, 0.241, 0.451, 0.66, 0.839, 0.976, 1.067, 1.117, 1.133, 1.126, 1.104, 1.077, 1.049, 1.024, 1.005, 0.992, 0.985, 0.982, 0.983, 0.986, 0.989, 0.993, 0.996, 1);
+  --atelier-motion-ease-signature: var(--atelier-motion-ease-spring);
+  /* The signature's overshoot, in pixels, whatever the list length. */
+  --atelier-motion-signature-overshoot: 12px;
+  /* springSnappy 520/36/1, ζ ≈ 0.79, peak 1.018: docked-sheet ENTER travel. */
+  --atelier-motion-ease-spring-snappy: linear(0, 0.034, 0.116, 0.225, 0.343, 0.461, 0.57, 0.667, 0.751, 0.82, 0.876, 0.92, 0.953, 0.977, 0.994, 1.006, 1.013, 1.016, 1.018, 1.017, 1.016, 1.014, 1.012, 1.01, 1);
   --atelier-motion-dropdown-scale: 0.97;
-  --atelier-motion-dropdown-close-scale: 0.985;
+  --atelier-motion-dropdown-close-scale: 0.99;
   --atelier-motion-modal-scale: 0.96;
-  --atelier-motion-modal-close-scale: 0.98;
-  --atelier-motion-fullscreen-scale: 0.98;
-  --atelier-motion-fullscreen-close-scale: 0.99;
-  --atelier-motion-tooltip-scale: 0.98;
-  --atelier-motion-tooltip-close-scale: 0.99;
-  --atelier-motion-panel-distance: 12px;
-  --atelier-motion-drawer-distance: 48px;
-  --atelier-motion-drawer-close-distance: 24px;
+  --atelier-motion-modal-close-scale: 0.99;
+  --atelier-motion-drawer-distance: 32px;
+  --atelier-motion-drawer-close-distance: 8px;
   --atelier-motion-distance-small: 4px;
   --atelier-motion-distance-medium: 8px;
-  --atelier-motion-scale-enter: 0.96;
 }
 
 /*
@@ -274,7 +297,7 @@
 
 .atelier-motion-skeleton::after {
   animation: atelier-skeleton-pulse var(--atelier-motion-duration-loop)
-    var(--atelier-motion-ease-in-out) infinite;
+    var(--atelier-motion-ease-loop) infinite;
   background: currentColor;
   content: "";
   inset: 0;
@@ -293,10 +316,11 @@
   }
 }
 
-/* Small inline progress affordance used by buttons and pending menu items. */
+/* Small inline progress affordance used by buttons and pending menu items.
+   Same revolution as the Loader spinner (`--atelier-motion-duration-spin`). */
 .atelier-icon-spinner {
-  animation: atelier-icon-spinner var(--atelier-motion-duration-loop-fast)
-    linear infinite;
+  animation: atelier-icon-spinner var(--atelier-motion-duration-spin) linear
+    infinite;
   transform-box: fill-box;
   transform-origin: center;
   will-change: transform;

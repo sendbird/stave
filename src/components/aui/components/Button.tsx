@@ -2,12 +2,6 @@ import { m } from "motion/react";
 import * as React from "react";
 
 import { ButtonRoot, type ButtonRootProps } from "../headless/button";
-import {
-  type ControlScale,
-  controlHeights,
-  controlIconSizes,
-  controlSquares,
-} from "../recipes/control-metrics";
 import { controlChrome } from "../recipes/control-chrome";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
@@ -16,11 +10,12 @@ import { motionPrimitives, springSnappy } from "../tokens/tokens.stylex";
 import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
+  buttonHeightStyles,
+  buttonIconSizes,
   buttonSizeGapStyles,
   buttonSizePadStyles,
+  buttonSquareStyles,
   buttonVariantStyles,
-  getLegacyButtonIconScale,
-  isLegacyButtonIconSize,
   withTruncatingButtonLabels,
 } from "./Button.config";
 import { styles } from "./Button.styles";
@@ -34,10 +29,10 @@ import type {
   ButtonTone,
   ButtonVariant,
 } from "./Button.types";
+import { ButtonSizeContext } from "./Button.sizeContext";
 import { Loader } from "./Loader";
 
 export type {
-  ButtonIconSize,
   ButtonPress,
   ButtonSize,
   ButtonTone,
@@ -147,15 +142,14 @@ type ButtonSharedProps = Omit<ButtonRootProps, "className"> & {
    */
   press?: ButtonPress;
   size?: ButtonSize;
-  /** Semantic axis, composed with `variant`. @default "default" */
+  /** Semantic axis, composed with `variant`. @default "neutral" */
   tone?: ButtonTone;
   variant?: ButtonVariant;
 } & XstyleProp;
 
 /**
  * An icon-only button has no visible text, so its accessible name can only come
- * from a prop (WCAG 4.1.2). `TooltipIconButton` already makes `aria-label`
- * required one file over; leaving `Button` unconstrained is what let unnamed
+ * from a prop (WCAG 4.1.2); leaving `Button` unconstrained is what let unnamed
  * squares ship. `title` is accepted as the alternative because it is both a
  * name source and the native tooltip an icon control usually wants anyway.
  */
@@ -205,12 +199,6 @@ export type ButtonBaseProps = ButtonSharedProps & IconOnlyProp<boolean>;
  *
  * Net effect: `iconOnly` (or `iconOnly={maybe}`) without `aria-label`/`title`
  * matches no arm and fails to compile; with a name it matches arm 2 or 3.
- *
- * The deprecated `icon*` sizes are NOT name-constrained. They could not be:
- * a wrapper holding a widened `size: ButtonSize` would have to prove a name it
- * does not have, which breaks callers — and "deprecations keep working" is the
- * stronger rule. The constraint rides the replacement axis instead, which is
- * what migrating off `icon*` buys.
  */
 export type ButtonProps =
   | (ButtonSharedProps & IconOnlyProp<false>)
@@ -235,15 +223,17 @@ const ButtonImpl = React.forwardRef<
     loadingLabel,
     press = "settle",
     render,
-    size = "md",
+    size: sizeProp,
     style,
-    tone = "default",
+    tone = "neutral",
     variant = "primary",
     xstyle,
     ...props
   },
   ref,
 ) {
+  const contextSize = React.useContext(ButtonSizeContext);
+  const size = sizeProp ?? contextSize ?? "md";
   if (layout === "host") {
     // Host layout hands GEOMETRY to the caller — height, padding, gap, width.
     // It does not hand over the ICON CONTRACT. `data-aui-control="button"`
@@ -264,9 +254,7 @@ const ButtonImpl = React.forwardRef<
     // owns the box, and `triggerQuiet` is the only variant it paints — so
     // publishing it would hand a brand a selector that reaches an element it
     // cannot legitimately restyle, and would misdescribe the element to tests.
-    const hostScale: ControlScale = isLegacyButtonIconSize(size)
-      ? getLegacyButtonIconScale(size)
-      : size;
+    const hostScale = size;
     return (
       <ButtonRoot
         {...props}
@@ -275,7 +263,7 @@ const ButtonImpl = React.forwardRef<
         style={
           {
             ...style,
-            "--aui-control-icon-size": iconSize ?? controlIconSizes[hostScale],
+            "--aui-control-icon-size": iconSize ?? buttonIconSizes[hostScale],
           } as React.CSSProperties
         }
         data-aui-control="button"
@@ -334,21 +322,13 @@ const ButtonImpl = React.forwardRef<
     : {};
   const Root = motionPress ? MotionButtonRoot : ButtonRoot;
 
-  // Shape and scale, de-interleaved. `size` resolves to a rung on the shared
-  // control scale; the deprecated `icon*` values contribute their rung AND the
-  // square shape, which is precisely the conflation `iconOnly` undoes.
-  const legacyIconSize = isLegacyButtonIconSize(size);
-  const scale: ControlScale = legacyIconSize
-    ? getLegacyButtonIconScale(size)
-    : size;
-  const square = iconOnly || legacyIconSize;
-  // `variant="danger"` is the tone axis spelled as a weight. Fold it into the
-  // pair it has always been equivalent to, so there is exactly one danger
-  // implementation and `variant="danger"` keeps rendering byte-identically:
-  // `styles.primary` declares the same four properties `styles.danger`
-  // overrides, so the composed output is the old class list.
-  const resolvedTone = variant === "danger" ? "danger" : tone;
-  const resolvedVariant = variant === "danger" ? "primary" : variant;
+  // Shape and scale are independent: `size` is a rung on the shared control
+  // scale and `iconOnly` squares the control at that rung.
+  const scale = size;
+  const square = iconOnly;
+  // `neutral` resolves to the key `default`, which is also the `data-tone`
+  // value the theme contract has always published.
+  const resolvedTone = tone === "neutral" ? "default" : tone;
   const loaderSize = scale === "lg" ? "sm" : "xs";
 
   // An icon-only button is already a fixed square, so swapping its glyph for
@@ -363,9 +343,7 @@ const ButtonImpl = React.forwardRef<
   // say a second on top of the spinner.
   const showIndicator = indicator != null && !loading;
   const content = withTruncatingButtonLabels(children);
-  // The stable theme identity. `size` is reflected as the caller wrote it,
-  // including the deprecated `icon*` values: a brand selecting on `data-size`
-  // must see the same axis the consumer typed, not the rung it resolved to.
+  // The stable theme identity. `size` is reflected as the caller wrote it.
   const theme = themeProps("button", {
     size,
     tone: resolvedTone,
@@ -423,13 +401,12 @@ const ButtonImpl = React.forwardRef<
           fullWidth ? controlWidth.field : controlWidth.intrinsic,
           transition.control,
           focusRing.ring,
-          buttonVariantStyles[resolvedVariant],
+          buttonVariantStyles[variant],
           // Tone composes ON TOP of the variant and only restates the
-          // properties that carry the hue, so an outline-danger button keeps
-          // outline's border weight, elevation and geometry.
-          resolvedTone !== "default" &&
-            buttonToneVariantStyles[resolvedVariant],
-          square ? controlSquares[scale] : controlHeights[scale],
+          // properties that carry the hue, so an outlined-danger button keeps
+          // outlined's border weight, elevation and geometry.
+          resolvedTone !== "default" && buttonToneVariantStyles[variant],
+          square ? buttonSquareStyles[scale] : buttonHeightStyles[scale],
           square ? styles.iconPad : buttonSizePadStyles[scale],
           square ? styles.gapIcon : buttonSizeGapStyles[scale],
           flushInline && styles.flushInline,
@@ -455,7 +432,7 @@ const ButtonImpl = React.forwardRef<
           ...(resolvedTone === "default"
             ? null
             : buttonToneVariables[resolvedTone]),
-          "--aui-control-icon-size": iconSize ?? controlIconSizes[scale],
+          "--aui-control-icon-size": iconSize ?? buttonIconSizes[scale],
         } as React.CSSProperties
       }
       render={render}

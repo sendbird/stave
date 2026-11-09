@@ -4,7 +4,7 @@ import type * as React from "react";
 import { vars } from "../tokens/tokens.stylex";
 import type { ButtonTone, ButtonVariant } from "./Button.types";
 
-type SemanticButtonTone = Exclude<ButtonTone, "default">;
+type SemanticButtonTone = Exclude<ButtonTone, "neutral">;
 
 /**
  * A semantic action is still a Button: tone substitutes hue while variant
@@ -64,7 +64,7 @@ const toneVariantStyles = stylex.create({
   ink: {
     color: "var(--aui-button-tone-ink)",
   },
-  outline: {
+  outlined: {
     backgroundColor: {
       default: "transparent",
       ":hover": "var(--aui-button-tone-soft)",
@@ -123,9 +123,9 @@ export const buttonToneVariantStyles = {
   dashed: toneVariantStyles.dashed,
   floating: toneVariantStyles.ink,
   link: toneVariantStyles.ink,
-  outline: toneVariantStyles.outline,
+  outlined: toneVariantStyles.outlined,
   primary: toneVariantStyles.primary,
   quiet: toneVariantStyles.quiet,
   secondary: toneVariantStyles.secondary,
   soft: toneVariantStyles.soft,
-} as const satisfies Record<Exclude<ButtonVariant, "danger">, unknown>;
+} as const satisfies Record<ButtonVariant, unknown>;

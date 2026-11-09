@@ -158,15 +158,24 @@ function Trigger({
               styles.trigger,
               triggerStylesBySize[resolvedSize],
               controlChrome.trigger,
-              controlChrome.triggerFocusBorder,
               // A Select is field-shaped, so it answers the pointer the way a
               // TextField does: the boundary strengthens, the fill holds still.
               // `trigger`'s background wash made it the one control in the form
               // row that lit up like a button under the pointer. Composed after
-              // both so its fill and its border win; `trigger`'s elevation and
-              // press collapse are untouched.
+              // it so the flat fill wins.
               controlChrome.field,
-              transition.colors,
+              // The boundary ladder — rest / hover / focus, and no press — in
+              // one declaration, because StyleX replaces a property's whole
+              // condition group. It supersedes `triggerFocusBorder` and keys
+              // focus on `:focus-visible`, so this native `<button>` stops
+              // wearing the focus border and halo from a mouse click. It also
+              // restores `trigger`'s raised rest and press collapse that
+              // `field`'s flat shadow replaced, and owns the transition (border
+              // AND halo) — no `transition.colors` after it. The read-only arm
+              // drops the pointer rung: this trigger does not open.
+              readOnly
+                ? controlChrome.fieldTriggerBorderReadOnly
+                : controlChrome.fieldTriggerBorder,
               focusRing.borderOnly,
               triggerHeightsBySize[resolvedSize],
               state.open && styles.triggerOpen,

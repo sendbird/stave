@@ -1,10 +1,14 @@
 import * as React from "react";
 
 import { controlChrome } from "../recipes/control-chrome";
-import type { ControlScale } from "../recipes/control-metrics";
+import {
+  controlHeights,
+  controlIconSizes,
+  controlSquares,
+} from "../recipes/control-metrics";
 import { sx } from "../utils/stylex";
 import { styles } from "./Button.styles";
-import type { ButtonIconSize, ButtonSize, ButtonVariant } from "./Button.types";
+import type { ButtonSize, ButtonVariant } from "./Button.types";
 
 /** Put text in a real shrinking flex item so ellipsis can take effect. */
 export function withTruncatingButtonLabels(
@@ -27,43 +31,46 @@ export function withTruncatingButtonLabels(
   );
 }
 
-const legacyIconScale = {
-  icon: "md",
-  iconLg: "lg",
-  iconSm: "sm",
-} as const satisfies Record<ButtonIconSize, ControlScale>;
-
-export function isLegacyButtonIconSize(
-  size: ButtonSize,
-): size is ButtonIconSize {
-  return size in legacyIconScale;
-}
-
-export function getLegacyButtonIconScale(size: ButtonIconSize): ControlScale {
-  return legacyIconScale[size];
-}
-
 export const buttonVariantStyles = {
   dashed: styles.dashed,
   floating: styles.floating,
   link: styles.link,
-  outline: styles.outline,
+  outlined: styles.outlined,
   primary: styles.primary,
   quiet: controlChrome.triggerQuiet,
   secondary: styles.secondary,
   soft: styles.soft,
-} as const satisfies Record<Exclude<ButtonVariant, "danger">, unknown>;
+} as const satisfies Record<ButtonVariant, unknown>;
 
 export const buttonSizePadStyles = {
+  "2xs": styles.xs2,
   lg: styles.lg,
   md: styles.md,
   sm: styles.sm,
   xs: styles.xs,
-} as const satisfies Record<ControlScale, unknown>;
+} as const satisfies Record<ButtonSize, unknown>;
 
 export const buttonSizeGapStyles = {
+  "2xs": styles.gapXs,
   lg: styles.gapLg,
   md: styles.gapMd,
   sm: styles.gapSm,
   xs: styles.gapXs,
-} as const satisfies Record<ControlScale, unknown>;
+} as const satisfies Record<ButtonSize, unknown>;
+
+/** Height and square per rung; `2xs` is Button-owned (see `ButtonSize`). */
+export const buttonHeightStyles = {
+  "2xs": styles.height2xs,
+  ...controlHeights,
+} as const satisfies Record<ButtonSize, unknown>;
+
+export const buttonSquareStyles = {
+  "2xs": styles.square2xs,
+  ...controlSquares,
+} as const satisfies Record<ButtonSize, unknown>;
+
+/** `2xs` keeps the `xs` glyph (14px): there is no 12px rung to step down to. */
+export const buttonIconSizes = {
+  "2xs": controlIconSizes.xs,
+  ...controlIconSizes,
+} as const satisfies Record<ButtonSize, string>;

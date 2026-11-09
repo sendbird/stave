@@ -15,7 +15,7 @@ export type ToastProps = Omit<ToastProviderProps, "children"> & {
   actionLabel?: React.ReactNode;
   description?: React.ReactNode;
   onAction?: React.MouseEventHandler<HTMLButtonElement>;
-  /** Where the toast viewport is anchored. @default "bottom-right" */
+  /** Where the toast viewport is anchored. @default "bottom-end" */
   position?: ToastPosition;
   priority?: "high" | "low";
   title?: React.ReactNode;
@@ -35,7 +35,7 @@ export function Toast({
   description = i18n.t("ui:toast.datasetCatalogIsNowInSync"),
   limit = 3,
   onAction,
-  position = "bottom-right",
+  position = "bottom-end",
   priority = "low",
   timeout = 5000,
   title = i18n.t("ui:toast.recordsUpdated"),

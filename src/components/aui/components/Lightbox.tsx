@@ -224,7 +224,8 @@ export function Lightbox({
                     aria-label={i18n.t("ui:lightbox.zoomOut")}
                     disabled={view.scale <= MIN_SCALE}
                     onClick={() => setScale(view.scale - SCALE_STEP)}
-                    size="iconSm"
+                    iconOnly
+                    size="sm"
                     variant="quiet"
                   >
                     <ZoomOut aria-hidden />
@@ -243,7 +244,8 @@ export function Lightbox({
                     aria-label={i18n.t("ui:lightbox.zoomIn")}
                     disabled={view.scale >= MAX_SCALE}
                     onClick={() => setScale(view.scale + SCALE_STEP)}
-                    size="iconSm"
+                    iconOnly
+                    size="sm"
                     variant="quiet"
                   >
                     <ZoomIn aria-hidden />
@@ -254,7 +256,8 @@ export function Lightbox({
                 render={
                   <Button
                     aria-label={closeLabel}
-                    size="iconSm"
+                    iconOnly
+                    size="sm"
                     variant="secondary"
                   />
                 }
@@ -322,7 +325,8 @@ export function Lightbox({
                     aria-label={i18n.t("ui:lightbox.previousMedia")}
                     disabled={activeIndex === 0}
                     onClick={() => setActiveIndex(activeIndex - 1)}
-                    size="iconLg"
+                    iconOnly
+                    size="lg"
                     variant="secondary"
                   >
                     <ChevronLeft aria-hidden />
@@ -333,7 +337,8 @@ export function Lightbox({
                     aria-label={i18n.t("ui:lightbox.nextMedia")}
                     disabled={activeIndex === lastIndex}
                     onClick={() => setActiveIndex(activeIndex + 1)}
-                    size="iconLg"
+                    iconOnly
+                    size="lg"
                     variant="secondary"
                   >
                     <ChevronRight aria-hidden />

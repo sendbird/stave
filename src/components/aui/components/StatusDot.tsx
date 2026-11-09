@@ -186,7 +186,7 @@ const styles = stylex.create({
       default: pulse,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
   },
   label: {
     color: vars["--aui-color-text"],

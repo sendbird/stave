@@ -15,7 +15,7 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 // Root > List > Item > (Link | Page), with Separator between items)
 // ---------------------------------------------------------------------------
 
-export type BreadcrumbDensity = "compact" | "default";
+export type BreadcrumbDensity = "compact" | "regular";
 
 type BreadcrumbShape = {
   density: BreadcrumbDensity;
@@ -23,11 +23,12 @@ type BreadcrumbShape = {
 };
 
 const BreadcrumbShapeContext = createContext<BreadcrumbShape>({
-  density: "default",
+  density: "regular",
   wrap: true,
 });
 
 export type BreadcrumbRootCompoundProps = React.ComponentProps<"nav"> & {
+  /** `regular` or `compact`; `data-density` reflects the value. @default "regular" */
   density?: BreadcrumbDensity;
   /**
    * Let the trail run onto more lines when it does not fit.
@@ -47,7 +48,7 @@ export type BreadcrumbRootCompoundProps = React.ComponentProps<"nav"> & {
 function Root({
   "aria-label": ariaLabel = i18n.t("ui:breadcrumb.breadcrumb"),
   className,
-  density = "default",
+  density = "regular",
   wrap = true,
   xstyle,
   ...props
@@ -226,7 +227,7 @@ export type BreadcrumbProps = Omit<BreadcrumbRootProps, "children"> & {
 } & XstyleProp;
 
 function BreadcrumbArray({
-  density = "default",
+  density = "regular",
   items,
   label = i18n.t("ui:breadcrumb.breadcrumb"),
   wrap = true,

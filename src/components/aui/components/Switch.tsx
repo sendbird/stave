@@ -16,10 +16,15 @@ import { springSnappy, vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { FieldMessages, fieldAnatomy, useFieldAnatomy } from "./field-anatomy";
 
+/**
+ * Control scale: the label row takes `controlHeights[size]` and the track
+ * steps with it. This copy draws two rungs — `xs` (a 28×16 track for dense
+ * inspector rows) and `md` (the regular track).
+ */
+export type SwitchSize = "xs" | "md";
+
 export type SwitchProps = Omit<SwitchRootProps, "className"> & {
   className?: string;
-  /** Track/label metric: `compact` 28×16 for dense inspector rows. */
-  density?: "compact" | "regular";
   /**
    * Helper copy. In `variant="row"` it sits under the label *inside* the row —
    * that is the settings-list shape, where the sentence explaining a setting
@@ -41,12 +46,15 @@ export type SwitchProps = Omit<SwitchRootProps, "className"> & {
    * A settings switch backed by a server has three states, not two, and AUI only
    * had two: consumers either flipped optimistically and snapped back on failure
    * (the switch lies for 400ms) or disabled the row (the setting looks
-   * unavailable rather than busy). `pending` blocks further input like
+   * unavailable rather than busy). `loading` blocks further input like
    * `disabled` does — a second toggle mid-flight is a race the caller cannot
    * win — but keeps the row at full strength and marks it `aria-busy`, so it
-   * reads as working rather than as unavailable.
+   * reads as working rather than as unavailable. The control reflects it as
+   * `data-pending`.
    */
-  pending?: boolean;
+  loading?: boolean;
+  /** Control scale — see `SwitchSize`. @default "md" */
+  size?: SwitchSize;
   /**
    * `inline` (default) sits the control before its label; `row` makes the whole
    * thing a full-width row with the label first and the control on the trailing
@@ -57,11 +65,11 @@ export type SwitchProps = Omit<SwitchRootProps, "className"> & {
 
 export function Switch({
   className,
-  density = "regular",
   description,
   error,
   label,
-  pending = false,
+  loading: pending = false,
+  size = "md",
   variant = "inline",
   xstyle,
   ...props
@@ -93,7 +101,7 @@ export function Switch({
       className={cx(
         sx(
           styles.label,
-          labelHeightStyles[density],
+          labelHeightStyles[size],
           variant === "row" && styles.row,
           variant === "row" && transition.colors,
           props.disabled && !pending && styles.labelDisabled,
@@ -119,7 +127,7 @@ export function Switch({
           cx(
             sx(
               styles.root,
-              density === "compact" && styles.rootCompact,
+              size === "xs" && styles.rootCompact,
               transition.control,
               touchTarget.coarse,
               focusRing.ring,
@@ -143,7 +151,7 @@ export function Switch({
         <SwitchThumb
           className={sx(
             styles.thumb,
-            density === "compact" && styles.thumbCompact,
+            size === "xs" && styles.thumbCompact,
           )}
           /*
            * The travel is never written down. The track flips
@@ -405,8 +413,8 @@ const styles = stylex.create({
 });
 
 // The label row still takes a real control height so a Switch lines up with the
-// other controls in its row; only the track shrinks with `density`.
+// other controls in its row; only the track shrinks with `size`.
 const labelHeightStyles = {
-  compact: controlHeights.xs,
-  regular: controlHeights.md,
-} as const;
+  md: controlHeights.md,
+  xs: controlHeights.xs,
+} as const satisfies Record<SwitchSize, unknown>;

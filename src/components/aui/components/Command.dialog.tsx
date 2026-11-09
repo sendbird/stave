@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type * as React from "react";
 
 import {
@@ -8,6 +8,7 @@ import {
   DialogPopup,
   DialogPortal,
   DialogRoot,
+  type DialogRootProps,
   DialogTitle,
   DialogTrigger,
 } from "../headless/dialog";
@@ -23,8 +24,10 @@ import { styles } from "./Command.styles";
 import { Kbd } from "./Kbd";
 
 export type CommandDialogWidth = "md" | "lg";
-/** @deprecated Use `CommandDialogWidth`; `size` was a popup-width axis. */
-export type CommandDialogSize = CommandDialogWidth;
+
+type DialogChangeDetails = Parameters<
+  NonNullable<DialogRootProps["onOpenChange"]>
+>[1];
 
 export type CommandDialogProps = Omit<CommandProps, "bare" | "items"> & {
   /** Compose the palette body manually when rows need the compound API. */
@@ -38,8 +41,6 @@ export type CommandDialogProps = Omit<CommandProps, "bare" | "items"> & {
   open?: boolean;
   /** Enable the ⌘K / Ctrl+K toggle shortcut. @default true */
   shortcut?: boolean;
-  /** @deprecated Use `width`. */
-  size?: CommandDialogSize;
   /** Accessible dialog name. @default "Command menu" */
   title?: React.ReactNode;
   /** Trigger contents; pass `null` for an externally controlled trigger. */
@@ -57,10 +58,9 @@ export function CommandDialog({
   onOpenChange,
   open: openProp,
   shortcut = true,
-  size,
   title = i18n.t("ui:commandDialog.commandMenu"),
   trigger = i18n.t("ui:commandDialog.showCommand"),
-  width = size ?? "md",
+  width = "md",
   ...commandProps
 }: CommandDialogProps) {
   useTranslation();
@@ -68,6 +68,17 @@ export function CommandDialog({
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isControlled = openProp !== undefined;
   const open = isControlled ? openProp : internalOpen;
+  /*
+   * Whether the last open or close came from the keyboard — ⌘K, Escape, or a
+   * keyboard press on the trigger (a click with `detail === 0`). Those land
+   * at once (`data-instant`, `overlay-motion.css`): the palette is summoned
+   * dozens of times a day, and a keyboard action repeats too often to replay
+   * even a fade. A pointer open keeps the 120ms fade.
+   */
+  const [instant, setInstant] = useState(false);
+  // Host: the input that last acted inside the open palette, so choosing an
+  // item closes it the way it was chosen (Enter: at once; click: the fade).
+  const lastInput = useRef<"keyboard" | "pointer">("pointer");
 
   const setOpen = useCallback(
     (next: boolean) => {
@@ -77,11 +88,26 @@ export function CommandDialog({
     [isControlled, onOpenChange],
   );
 
+  const handleOpenChange = useCallback(
+    (next: boolean, details: DialogChangeDetails) => {
+      const event = details.event as Event | undefined;
+      setInstant(
+        details.reason === "escape-key" ||
+          (details.reason === "trigger-press" &&
+            event instanceof MouseEvent &&
+            event.detail === 0),
+      );
+      setOpen(next);
+    },
+    [setOpen],
+  );
+
   useEffect(() => {
     if (!shortcut) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
+        setInstant(true);
         setOpen(!open);
       }
     };
@@ -95,7 +121,7 @@ export function CommandDialog({
   const popupTheme = themeProps("command-dialog", { size: width });
 
   return (
-    <DialogRoot onOpenChange={setOpen} open={open}>
+    <DialogRoot onOpenChange={handleOpenChange} open={open}>
       {trigger === null ? null : (
         <DialogTrigger
           {...triggerTheme}
@@ -127,11 +153,13 @@ export function CommandDialog({
          * other Base UI surface in this system carries. It appeared and
          * disappeared as a hard cut while a `Dialog` two keystrokes away scaled
          * and faded. `-top` supplies the X-only translate the palette's
-         * top-anchored position needs; everything else — duration, curve, scale
-         * tokens, Reduce Motion — comes from the shared modal contract.
+         * top-anchored position needs, and makes it opacity-only (120ms in,
+         * 80ms out) for a pointer open; from the keyboard (`instant`) it lands
+         * at once. Curve and Reduce Motion come from the shared modal contract.
          */}
         <DialogBackdrop
           className={cx(sx(overlaySurface.backdrop), "atelier-motion-backdrop")}
+          data-instant={instant ? "" : undefined}
         />
         <DialogPopup
           {...popupTheme}
@@ -146,6 +174,13 @@ export function CommandDialog({
             "atelier-motion-modal-top",
             popupTheme.className,
           )}
+          data-instant={instant ? "" : undefined}
+          onKeyDownCapture={() => {
+            lastInput.current = "keyboard";
+          }}
+          onPointerDownCapture={() => {
+            lastInput.current = "pointer";
+          }}
         >
           <DialogTitle className={sx(styles.srOnly)}>{title}</DialogTitle>
           {children ?? (
@@ -155,6 +190,7 @@ export function CommandDialog({
               items={items ?? []}
               onItemSelect={(item) => {
                 onItemSelect?.(item);
+                setInstant(lastInput.current === "keyboard");
                 setOpen(false);
               }}
             />

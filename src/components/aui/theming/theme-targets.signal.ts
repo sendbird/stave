@@ -90,7 +90,7 @@ export const signalThemeTargets = {
   "loading-surface": {
     /* Padding is what the ramp actually varies here; the floor heights are geometry. */
     axes: { size: ["sm", "md", "fill"] },
-    exports: ["LoadingSurface"],
+    exports: ["Skeleton.Surface"],
     /* No typography: the visible label belongs to the `Loader` inside it. */
     properties: [...themeSurfaceProperties, ...themeSpaceProperties],
     root: 'the `<section aria-busy>` that holds the activity indicator',
@@ -103,7 +103,7 @@ export const signalThemeTargets = {
      * hue on the container. Same constraint as `progress`.
      */
     axes: {
-      tone: ["accent", "danger", "info", "neutral", "success", "warning", "warm"],
+      tone: ["accent", "danger", "info", "neutral", "success", "warning"],
     },
     exports: ["Meter"],
     properties: panel,

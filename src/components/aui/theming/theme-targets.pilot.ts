@@ -33,18 +33,17 @@ const ink = [...themeTypographyProperties, "color", "opacity"] as const;
 export const pilotThemeTargets = {
   button: {
     axes: {
-      size: ["xs", "sm", "md", "lg", "icon", "iconSm", "iconLg"],
+      size: ["2xs", "xs", "sm", "md", "lg"],
       tone: ["default", "success", "warning", "danger"],
       variant: [
         "primary",
         "secondary",
         "soft",
-        "outline",
+        "outlined",
         "dashed",
         "quiet",
         "link",
         "floating",
-        "danger",
       ],
     },
     exports: [
@@ -55,9 +54,10 @@ export const pilotThemeTargets = {
        * matrix. Listing them here is the pilot rule the actions family stated —
        * a wrapper of `Button` is covered by the `button` target, it does not get
        * a second one. `CallControlBar.Leave` is here deliberately against the
-       * collab family's first note: it renders `<Button variant="danger">`, a
-       * real Button, not a hand-rolled control, so `.aui-button[data-variant="danger"]`
-       * reaches it and excluding it would have hidden an element the target owns.
+       * collab family's first note: it renders `<Button variant="primary"
+       * tone="danger">`, a real Button, not a hand-rolled control, so
+       * `.aui-button[data-tone="danger"]` reaches it and excluding it would have
+       * hidden an element the target owns.
        */
       "ButtonGroupButton",
       "CallControlBar.Leave",

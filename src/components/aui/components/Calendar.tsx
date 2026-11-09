@@ -52,9 +52,16 @@ export type CalendarProps = Omit<React.ComponentProps<"div">, "onSelect"> & {
   months?: 1 | 2;
   /** Inclusive upper selection and navigation boundary (`YYYY-MM-DD`). */
   maxDate?: string;
-  onDateSelect?: (date: string) => void;
-  /** Receives the range chosen by a named preset. */
-  onRangeSelect?: (range: CalendarRangeValue, preset: DateRangePreset) => void;
+  /**
+   * Receives the range a named preset chooses, with that `preset`. (This copy
+   * draws no range from day picks; a day pick arrives on `onValueChange`.)
+   */
+  onRangeValueChange?: (
+    range: CalendarRangeValue,
+    preset?: DateRangePreset,
+  ) => void;
+  /** Fired with the picked day (`YYYY-MM-DD`). */
+  onValueChange?: (date: string) => void;
   /** Named ranges shared with DatePicker and FilterBar.DateRange. */
   presets?: readonly DateRangePreset[];
   rangeValue?: CalendarRangeValue;
@@ -81,8 +88,8 @@ export function Calendar({
   minDate,
   month,
   months = 1,
-  onDateSelect,
-  onRangeSelect,
+  onRangeValueChange,
+  onValueChange,
   presets = [],
   rangeValue,
   value,
@@ -264,7 +271,7 @@ export function Calendar({
           {presets.map((preset) => (
             <Button
               key={preset.value}
-              onClick={() => onRangeSelect?.(preset.range, preset)}
+              onClick={() => onRangeValueChange?.(preset.range, preset)}
               size="xs"
               type="button"
               variant="secondary"
@@ -291,8 +298,8 @@ export function Calendar({
               density={density}
               focusedKey={tabbableKey}
               hideOutsideDays={months === 2}
-              onDateSelect={onDateSelect}
               onFocusChange={setFocusedKey}
+              onValueChange={onValueChange}
               rangeValue={rangeValue}
               value={value}
               visibleMonth={visibleMonth}
@@ -310,8 +317,8 @@ function CalendarGrid({
   density,
   focusedKey,
   hideOutsideDays,
-  onDateSelect,
   onFocusChange,
+  onValueChange,
   rangeValue,
   value,
   visibleMonth,
@@ -321,8 +328,8 @@ function CalendarGrid({
   density: CalendarDensity;
   focusedKey: string | null;
   hideOutsideDays: boolean;
-  onDateSelect?: (date: string) => void;
   onFocusChange: (date: string) => void;
+  onValueChange?: (date: string) => void;
   rangeValue?: CalendarRangeValue;
   value?: string;
   visibleMonth: Date;
@@ -381,7 +388,7 @@ function CalendarGrid({
             data-calendar-day={dateKey}
             disabled={cell.disabled}
             key={dateKey}
-            onClick={() => onDateSelect?.(dateKey)}
+            onClick={() => onValueChange?.(dateKey)}
             onKeyDown={(event) => {
               const movedKey = handleCalendarDayKeyDown(event);
               if (movedKey) {

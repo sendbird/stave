@@ -46,13 +46,19 @@ export type ToastTone =
   | "success"
   | "warning";
 
+/**
+ * Where `ToastHost` anchors its stack. The inline half is logical: the
+ * viewport is placed with `insetInlineStart` / `insetInlineEnd`, so `start` /
+ * `end` say what the CSS does (the `left` / `right` spellings were removed as
+ * duplicates on 2026-11-08).
+ */
 export type ToastPosition =
   | "bottom-center"
-  | "bottom-left"
-  | "bottom-right"
+  | "bottom-end"
+  | "bottom-start"
   | "top-center"
-  | "top-left"
-  | "top-right";
+  | "top-end"
+  | "top-start";
 
 export type ToastHostProps = {
   /**
@@ -72,7 +78,7 @@ export type ToastHostProps = {
    * behaviour.
    */
   toastManager?: ToastProviderProps["toastManager"];
-  /** Where the toast viewport is anchored. @default "bottom-right" */
+  /** Where the toast viewport is anchored. @default "bottom-end" */
   position?: ToastPosition;
   /** Default auto-dismiss delay in ms (`0` disables). @default 5000 */
   timeout?: ToastProviderProps["timeout"];
@@ -244,11 +250,18 @@ type SwipeDirection = "down" | "left" | "right" | "up";
 function resolvePosition(position: ToastPosition) {
   const [vertical, horizontal] = position.split("-") as [
     "bottom" | "top",
-    "center" | "left" | "right",
+    "center" | "end" | "start",
   ];
   const isTop = vertical === "top";
+  // Base UI's swipe axis is physical: a side toast swipes toward its own edge.
   const swipe: SwipeDirection =
-    horizontal === "center" ? (isTop ? "up" : "down") : horizontal;
+    horizontal === "center"
+      ? isTop
+        ? "up"
+        : "down"
+      : horizontal === "start"
+        ? "left"
+        : "right";
   return { horizontal, isTop, swipe };
 }
 
@@ -266,7 +279,7 @@ export function ToastHost({
   avoid,
   children,
   limit = 3,
-  position = "bottom-right",
+  position = "bottom-end",
   timeout = DEFAULT_TOAST_TIMEOUT_MS,
   toastManager,
 }: ToastHostProps) {
@@ -310,9 +323,9 @@ function ToastHostViewport({
           className={sx(
             styles.viewport,
             isTop ? styles.viewportTop : styles.viewportBottom,
-            horizontal === "left" && styles.viewportLeft,
+            horizontal === "start" && styles.viewportLeft,
             horizontal === "center" && styles.viewportCenter,
-            horizontal === "right" && styles.viewportRight,
+            horizontal === "end" && styles.viewportRight,
           )}
           // The lift keeps the stack's usual gap, measured from the top of the
           // chrome it clears instead of from the window's bottom edge.

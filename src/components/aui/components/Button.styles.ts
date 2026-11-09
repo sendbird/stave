@@ -224,7 +224,7 @@ export const styles = stylex.create({
     borderColor: "transparent",
     color: vars["--aui-color-text"],
   },
-  outline: {
+  outlined: {
     backgroundColor: {
       default: "transparent",
       ":hover": vars["--aui-color-overlay-hover"],
@@ -245,7 +245,7 @@ export const styles = stylex.create({
    * Copy Review, and the docs card specimens drew their own
    * `1px dashed` box rather than reach for a variant that did not exist.
    *
-   * It is the one bordered variant that is deliberately FLAT. `outline` and
+   * It is the one bordered variant that is deliberately FLAT. `outlined` and
    * `secondary` carry `elevationRaised` because they are present, pressable
    * objects; a dashed placeholder that lifted off the page would contradict its
    * own edge — §1.5's elevation is for a surface that is really there. The
@@ -302,6 +302,36 @@ export const styles = stylex.create({
   // `sm` also uses) — the 28px rung exists so a Button can stand in an `xs`
   // filter/toolbar row beside an `xs` TextField or Select without being the one
   // control 4px taller than the row it is in.
+  // `2xs` (#809 · R1 A1): the in-surface secondary action. Same type and
+  // gutter as `xs`; only the box is 24px. Coarse pointers take the 44px target
+  // like every other rung.
+  xs2: {
+    fontSize: vars["--aui-font-size-caption"],
+    paddingBlock: 0,
+    paddingInline: vars["--aui-space-8"],
+  },
+  height2xs: {
+    minBlockSize: {
+      default: vars["--aui-control-height-2xs"],
+      "@media (pointer: coarse)": vars["--aui-control-height-xl"],
+    },
+  },
+  square2xs: {
+    blockSize: {
+      default: vars["--aui-control-height-2xs"],
+      "@media (pointer: coarse)": vars["--aui-control-height-xl"],
+    },
+    flexShrink: 0,
+    inlineSize: {
+      default: vars["--aui-control-height-2xs"],
+      "@media (pointer: coarse)": vars["--aui-control-height-xl"],
+    },
+    maxInlineSize: "none",
+    minBlockSize: {
+      default: vars["--aui-control-height-2xs"],
+      "@media (pointer: coarse)": vars["--aui-control-height-xl"],
+    },
+  },
   xs: {
     fontSize: vars["--aui-font-size-caption"],
     paddingBlock: 0,

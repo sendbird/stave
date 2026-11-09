@@ -39,7 +39,7 @@ import { Button } from "./Button";
 import { Dialog } from "./Dialog";
 import { DurationTimer } from "./DurationTimer";
 import { EmptyState } from "./EmptyState";
-import { LoadingSurface } from "./LoadingSurface";
+import { Skeleton } from "./Skeleton";
 import { StateMark } from "./StateMark";
 import { WORK_STATE } from "./state-vocabulary";
 
@@ -454,7 +454,7 @@ function SubagentTreePanel(props: {
   const label = t("ui:agentFleet.treeLabel", { name: agent.name });
   let body: ReactNode;
   if (children.length === 0 && agent.childrenLoading) {
-    body = <LoadingSurface size="sm" label={t("ui:agentFleet.loadingSubagents")} />;
+    body = <Skeleton.Surface size="sm" label={t("ui:agentFleet.loadingSubagents")} />;
   } else if (children.length === 0 && agent.childrenError) {
     body = (
       <p role="alert" className={sx(styles.notice, styles.noticeError)}>

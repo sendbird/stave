@@ -66,14 +66,18 @@ export function SidebarMenuBadge({
 }
 
 export type SidebarMenuActionProps = React.ComponentProps<"button"> & {
-  asChild?: boolean;
+  /**
+   * Render the action as this element (Base UI's `render`): its props and
+   * classes merge onto it and the part's own content becomes its children.
+   */
+  render?: React.ReactElement;
   showOnHover?: boolean;
 };
 
 export function SidebarMenuAction({
-  asChild = false,
   children,
   className,
+  render,
   showOnHover = false,
   tabIndex,
   type = "button",
@@ -118,14 +122,14 @@ export function SidebarMenuAction({
     className,
   );
 
-  if (asChild && isValidElement(children)) {
+  if (isValidElement(render)) {
     type ChildProps = React.HTMLAttributes<HTMLElement> & {
       "aria-hidden"?: React.AriaAttributes["aria-hidden"];
       "data-aui-control-icon-button"?: string;
       "data-visible"?: string;
       tabIndex?: number;
     };
-    const child = children as React.ReactElement<ChildProps>;
+    const child = render as React.ReactElement<ChildProps>;
 
     return cloneElement(child, {
       ...props,
@@ -134,7 +138,7 @@ export function SidebarMenuAction({
       "data-aui-control-icon-button": "true",
       "data-visible": hiddenUntilActive ? "false" : "true",
       tabIndex: resolvedTabIndex ?? child.props.tabIndex,
-    });
+    }, children);
   }
 
   return (

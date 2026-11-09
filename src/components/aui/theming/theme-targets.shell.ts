@@ -145,7 +145,7 @@ export const shellThemeTargets = {
   },
   sidebar: {
     axes: {
-      density: ["comfortable", "compact"],
+      density: ["compact", "regular"],
       variant: ["floating", "inset", "sidebar"],
     },
     exports: [
@@ -200,7 +200,7 @@ export const shellThemeTargets = {
   "sidebar-group-action": {
     exports: ["SidebarGroupAction"],
     properties: control,
-    root: "the `<button>` (or the caller's `asChild` element) `SidebarGroupAction` renders",
+    root: "the `<button>` (or the caller's `render` element) `SidebarGroupAction` renders",
     states: ["hover", "active", "focus-visible"],
   },
   "sidebar-input": {
@@ -217,17 +217,17 @@ export const shellThemeTargets = {
   "sidebar-menu-action": {
     exports: ["SidebarMenuAction"],
     properties: control,
-    root: "the `<button>` (or the caller's `asChild` element) `SidebarMenuAction` renders",
+    root: "the `<button>` (or the caller's `render` element) `SidebarMenuAction` renders",
     states: ["hover", "active", "focus-visible"],
   },
   "sidebar-menu-button": {
     axes: {
       size: ["sm", "md", "lg"],
-      variant: ["default", "outline"],
+      variant: ["default", "outlined"],
     },
     exports: ["SidebarMenuButton"],
     properties: control,
-    root: "the `<a>`, `<button>` or `asChild` element the sidebar row renders",
+    root: "the `<a>`, `<button>` or `render` element the sidebar row renders",
     slots: {
       /*
        * The row's own parts. `description` is the secondary identity line, and
@@ -251,7 +251,7 @@ export const shellThemeTargets = {
     axes: { size: ["sm", "md"] },
     exports: ["SidebarMenuSubButton"],
     properties: control,
-    root: "the `<a>`, `<button>` or `asChild` element the nested sidebar row renders",
+    root: "the `<a>`, `<button>` or `render` element the nested sidebar row renders",
     slots: { label: ink },
     states: ["hover", "focus-visible", "disabled"],
   },

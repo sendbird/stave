@@ -16,9 +16,24 @@
       "sourcePath": "packages/design-system/src/components/Accordion.tsx"
     },
     {
+      "integrity": "sha256-4dc24dec0c9279f4dab56f9d1fa0939c526dce5898e33a93c4957c41e02c86d8",
+      "path": "src/components/aui/components/Approval.scoped.tsx",
+      "sourcePath": "packages/design-system/src/components/Approval.scoped.tsx"
+    },
+    {
+      "integrity": "sha256-a747755b3e4fa6b3c56ab34bf9195be5cf9abbcda0d57b30ebcc04ff05dc1d0d",
+      "path": "src/components/aui/components/Approval.shared.tsx",
+      "sourcePath": "packages/design-system/src/components/Approval.shared.tsx"
+    },
+    {
       "integrity": "sha256-b6f2e884abc7b4368c3bae058dda276660bc10215abf5b36a410cff5d1af2222",
       "path": "src/components/aui/components/Approval.tsx",
       "sourcePath": "packages/design-system/src/components/Approval.tsx"
+    },
+    {
+      "integrity": "sha256-0e3f5f9120fc703dbf152f96fef4467e750552618e092a7c68f6c8809388d8c3",
+      "path": "src/components/aui/components/Approval.types.ts",
+      "sourcePath": "packages/design-system/src/components/Approval.types.ts"
     },
     {
       "integrity": "sha256-36e727a00905094680fc2b4a464c3afe9f29fe4b31d1cc48097a2c19e38ae044",
@@ -59,6 +74,11 @@
       "integrity": "sha256-cab238f907b4b448ec1a5fe03ec6a3b6a902c6d627489c37b92d6c4d1741b488",
       "path": "src/components/aui/components/Button.config.tsx",
       "sourcePath": "packages/design-system/src/components/Button.config.tsx"
+    },
+    {
+      "integrity": "sha256-f9c236f20a68dfc0c5378176721da5ee1ec0b3d98a7324bd960281f70a963d03",
+      "path": "src/components/aui/components/Button.sizeContext.ts",
+      "sourcePath": "packages/design-system/src/components/Button.sizeContext.ts"
     },
     {
       "integrity": "sha256-ce999d58da301180f3221b3ee2a7a680989f1f3d670164af13035e338b26a7dd",
@@ -106,9 +126,19 @@
       "sourcePath": "packages/design-system/src/components/Card.tsx"
     },
     {
+      "integrity": "sha256-fe37bd2e47e8d4ae1ee7192f218b71b2d2523266a325f2c7061cd3f44c1c41c4",
+      "path": "src/components/aui/components/Checkpoint.row.tsx",
+      "sourcePath": "packages/design-system/src/components/Checkpoint.row.tsx"
+    },
+    {
       "integrity": "sha256-1b8be3cf0a4ade187bd9f5dd95b9b50dfe44a8f6b05b963c10930a0223bcd162",
       "path": "src/components/aui/components/Checkpoint.tsx",
       "sourcePath": "packages/design-system/src/components/Checkpoint.tsx"
+    },
+    {
+      "integrity": "sha256-33595ed5a88a8ad5641a72289f9fa33e0666fe925dca8e511221060745a3673c",
+      "path": "src/components/aui/components/Checkpoint.types.ts",
+      "sourcePath": "packages/design-system/src/components/Checkpoint.types.ts"
     },
     {
       "integrity": "sha256-e94cbcf0cda0ca222f905652ff0247ee24eb620efd7598f6c46e35cf9ef1066c",
@@ -246,7 +276,7 @@
       "sourcePath": "packages/design-system/src/components/Loader.extended-parts.tsx"
     },
     {
-      "integrity": "sha256-d1fd92e83fb97276c9a108e76afce3b35427c9231628ff3f084416fc2d532ad0",
+      "integrity": "sha256-77c88d6e9ac55612c931c080ab68c6bcd2b1b252367601044c359c0b235c79ed",
       "path": "src/components/aui/components/Loader.extended-styles.ts",
       "sourcePath": "packages/design-system/src/components/Loader.extended-styles.ts"
     },
@@ -261,12 +291,12 @@
       "sourcePath": "packages/design-system/src/components/Loader.reasoning-parts.tsx"
     },
     {
-      "integrity": "sha256-c5788ece6bea249e7fb2093beb49668fc06db690aaf887df43069d29e377c4e4",
+      "integrity": "sha256-becbb2801db86027991fb0660e519e1b55e9c27ad941806f875eec0a42206f61",
       "path": "src/components/aui/components/Loader.reasoning-styles.ts",
       "sourcePath": "packages/design-system/src/components/Loader.reasoning-styles.ts"
     },
     {
-      "integrity": "sha256-499c575d4b0d6644cacb8f4059d3b4f0c4970d5173e0c55d1959a5058c37bca8",
+      "integrity": "sha256-d7ba399b61000d3e73249f280485cf4cc9641e4cc5195ef940f1882ab01dbd7a",
       "path": "src/components/aui/components/Loader.styles.ts",
       "sourcePath": "packages/design-system/src/components/Loader.styles.ts"
     },
@@ -311,9 +341,19 @@
       "sourcePath": "packages/design-system/src/components/Menu.tsx"
     },
     {
+      "integrity": "sha256-7f8ce4919a8ae24692039dbec615b6153c23c1d00c8cd47b7be503dce76d266f",
+      "path": "src/components/aui/components/Plan.note.tsx",
+      "sourcePath": "packages/design-system/src/components/Plan.note.tsx"
+    },
+    {
       "integrity": "sha256-0b9aac2fadaa1e1729ec9c9f2e7f02db655d5ece2856ee9c2172fe219e6c6555",
       "path": "src/components/aui/components/Plan.parts.tsx",
       "sourcePath": "packages/design-system/src/components/Plan.parts.tsx"
+    },
+    {
+      "integrity": "sha256-25e089983f723fcf8fdd93cbeceaaef37c9fb927119bcd335b3e4f35e1397666",
+      "path": "src/components/aui/components/Plan.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Plan.styles.ts"
     },
     {
       "integrity": "sha256-764bbf9fd1d7eee2e0f8b6e9fa6fca2b853163089dc82e1c015017b83fa3e539",
@@ -324,6 +364,21 @@
       "integrity": "sha256-6037e2bdd56a1c433c4f8b2f66a31c011c99f4dfccfc2072d354f1ddbcab29c0",
       "path": "src/components/aui/components/Popover.tsx",
       "sourcePath": "packages/design-system/src/components/Popover.tsx"
+    },
+    {
+      "integrity": "sha256-0e081461e035f462ec8ce6de06a354ca5580fc7245d83f0b827e356c748d8b2b",
+      "path": "src/components/aui/components/RunMonitor.recap.tsx",
+      "sourcePath": "packages/design-system/src/components/RunMonitor.recap.tsx"
+    },
+    {
+      "integrity": "sha256-2f8d6a903a9fec8c1881cb20b58c8fd11d28a9446f1e7f2419012a8820542d22",
+      "path": "src/components/aui/components/RunMonitor.styles.ts",
+      "sourcePath": "packages/design-system/src/components/RunMonitor.styles.ts"
+    },
+    {
+      "integrity": "sha256-2989c0f0076df50fa45c2205ce1b4c33ae01d08b255bd740bbac23042b6f3543",
+      "path": "src/components/aui/components/RunMonitor.tsx",
+      "sourcePath": "packages/design-system/src/components/RunMonitor.tsx"
     },
     {
       "integrity": "sha256-bae8babdbb4c058d9bbcb0f2cffc8e8dcd80ded3472a97e1d2c28b9ef9f73608",
@@ -486,6 +541,16 @@
       "sourcePath": "packages/design-system/src/components/ToolRun.tsx"
     },
     {
+      "integrity": "sha256-1a07c57bc76943207f471899dd883836e6db3f703908f48236da946a8ba7086b",
+      "path": "src/components/aui/components/ToolRun.well.styles.ts",
+      "sourcePath": "packages/design-system/src/components/ToolRun.well.styles.ts"
+    },
+    {
+      "integrity": "sha256-dad7b40a632ca4e411951a230691a84e00f2c1d02b446a46ed473abec619639c",
+      "path": "src/components/aui/components/ToolRun.well.tsx",
+      "sourcePath": "packages/design-system/src/components/ToolRun.well.tsx"
+    },
+    {
       "integrity": "sha256-9fbc3fde2032a82521832952b710f31f6269d299681fb7a8527f03f97289c985",
       "path": "src/components/aui/components/Tooltip.group.tsx",
       "sourcePath": "packages/design-system/src/components/Tooltip.group.tsx"
@@ -504,6 +569,11 @@
       "integrity": "sha256-1d176d75b383a07a200b9baad784c2c5a6a9d0adb6f6856ac72215705615ec1c",
       "path": "src/components/aui/components/WorkflowIcon.tsx",
       "sourcePath": "packages/design-system/src/components/WorkflowIcon.tsx"
+    },
+    {
+      "integrity": "sha256-73a2b11ee1160c5ce7771ce820a7da3ff9e18a3dea80071b6cedfbd9b4cfd11c",
+      "path": "src/components/aui/components/agent-motion.tsx",
+      "sourcePath": "packages/design-system/src/components/agent-motion.tsx"
     },
     {
       "integrity": "sha256-11d6daf900562f574dc5675ffd735bee05222f178f493a2af94fde83a33e3993",
@@ -651,7 +721,7 @@
       "sourcePath": "packages/design-system/src/headless/tooltip.tsx"
     },
     {
-      "integrity": "sha256-80ca14f16f02ec3602cd118d013c7bab4f44976e6bd3208d81a54091023d48bc",
+      "integrity": "sha256-7f258e54c722e8ed83349a784abf9fb1b72c7f074c38a209d4dab08ce0249e05",
       "path": "src/components/aui/inline-disclosure-motion.css",
       "sourcePath": "packages/design-system/src/inline-disclosure-motion.css"
     },
@@ -674,6 +744,11 @@
       "integrity": "sha256-3424786151de2e36a2524865d73c644c178de545c292e8f8e05fff1fa9e18f62",
       "path": "src/components/aui/overlay-motion.css",
       "sourcePath": "packages/design-system/src/overlay-motion.css"
+    },
+    {
+      "integrity": "sha256-8141a3e18f3c3aaf18ba7e656df3cc29f43c339dbb03f7accf00792b2af6be4e",
+      "path": "src/components/aui/recipes/agent-motion.ts",
+      "sourcePath": "packages/design-system/src/recipes/agent-motion.ts"
     },
     {
       "integrity": "sha256-8ae841b553fddec7e8161d1da0af0778f08e5afa4785ad91c244199f42bf52f9",
@@ -746,7 +821,7 @@
       "sourcePath": "packages/design-system/src/recipes/touch-target.ts"
     },
     {
-      "integrity": "sha256-2d90119036b8f7b00f6aad2099380812d03f05d20accc5a4eb8aada7037b15cf",
+      "integrity": "sha256-d70a797ec8e013aa8574207dd63aaf7e9f694929338589adac8114eced2b0e2f",
       "path": "src/components/aui/recipes/transition.ts",
       "sourcePath": "packages/design-system/src/recipes/transition.ts"
     },
@@ -936,7 +1011,7 @@
       "sourcePath": "packages/design-system/src/tokens/density.stylex.ts"
     },
     {
-      "integrity": "sha256-4061a0f75dba0a9bb7c27db2bbe5b069887d4e38c8addb4e73820f2e65ae6a81",
+      "integrity": "sha256-62dad649cb8d977f5941aa79920ec6e31edb735e22e6fad2ee4c5fe3323074cb",
       "path": "src/components/aui/tokens/motion-presets.ts",
       "sourcePath": "packages/design-system/src/tokens/motion-presets.ts"
     },
@@ -1022,6 +1097,14 @@
     },
     {
       "id": "plan",
+      "kind": "component"
+    },
+    {
+      "id": "run-monitor",
+      "kind": "component"
+    },
+    {
+      "id": "run-recap",
       "kind": "component"
     }
   ],

@@ -12,10 +12,12 @@ export const lightTheme = stylex.createTheme(vars, {
   "--aui-color-text": "oklch(0 0 0)",
   "--aui-color-text-muted": "oklch(0.505 0.007 89)",
   "--aui-color-text-subtle": "oklch(0.62 0.007 89)",
+  "--aui-color-text-faint": "oklch(0.735 0.007 89)",
   "--aui-color-text-placeholder": "oklch(0.505 0.007 89)",
   "--aui-color-text-inverted": "oklch(0.97 0.007 89)",
   "--aui-color-border": "oklch(0.89 0.007 89)",
   "--aui-color-border-subtle": "oklch(0.275 0.007 89 / 0.06)",
+  "--aui-color-ring": "oklch(0.275 0.007 89 / 0.18)",
   "--aui-color-media-edge": "transparent",
   "--aui-color-border-strong": "oklch(0.505 0.007 89)",
   "--aui-color-border-focus": "oklch(0.505 0.007 89)",
@@ -118,10 +120,12 @@ export const darkTheme = stylex.createTheme(vars, {
   "--aui-color-text": "oklch(0.985 0.007 89)",
   "--aui-color-text-muted": "oklch(0.735 0.007 89)",
   "--aui-color-text-subtle": "oklch(0.62 0.007 89)",
+  "--aui-color-text-faint": "oklch(0.505 0.007 89)",
   "--aui-color-text-placeholder": "oklch(0.6315 0.007 89)",
   "--aui-color-text-inverted": "oklch(0.1925 0.007 89)",
   "--aui-color-border": "oklch(0.985 0.007 89 / 0.12)",
   "--aui-color-border-subtle": "oklch(0.985 0.007 89 / 0.06)",
+  "--aui-color-ring": "oklch(0.985 0.007 89 / 0.18)",
   "--aui-color-media-edge": "transparent",
   // Solid for the same reason `colorBorderFocus` below is: this border is the
   // only boundary an unchecked Checkbox and an OFF Switch have, so it is held
@@ -283,6 +287,7 @@ export const highContrastTheme = stylex.createTheme(vars, {
   "--aui-color-text": "oklch(0 0 0)",
   "--aui-color-text-muted": "oklch(0.275 0.007 89)",
   "--aui-color-text-subtle": "oklch(0.39 0.007 89)",
+  "--aui-color-text-faint": "oklch(0.39 0.007 89)",
   "--aui-color-text-placeholder": "oklch(0.39 0.007 89)",
   "--aui-color-text-inverted": "oklch(1 0 0)",
   "--aui-color-border": "oklch(0.505 0.007 89)",
@@ -339,6 +344,7 @@ export const highContrastTheme = stylex.createTheme(vars, {
   "--aui-color-mix-ink": "oklch(0.275 0.007 89)",
   "--aui-color-mix-lift": "oklch(0.985 0.007 89)",
   "--aui-color-border-subtle": "oklch(0.275 0.007 89 / 0.24)",
+  "--aui-color-ring": "oklch(0.505 0.007 89)",
   "--aui-color-media-edge": "oklch(0.505 0.007 89)",
   // High contrast inherits the light ramp's geometry but at ink strengths a
   // low-vision reader can actually resolve — the 5–12% light shadows are below

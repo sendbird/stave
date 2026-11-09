@@ -35,17 +35,14 @@ const ink = [...themeTypographyProperties, "color", "opacity"] as const;
  */
 export const chartsThemeTargets = {
   /**
-   * One target for eleven plot types plus the bar-list card, because they are
-   * one card: `ChartFrame` renders the `<section>` for all eleven, and
-   * `Chart`'s own element repeats the same paint. A brand that wants a
-   * different chart card wants one rule, not twelve.
+   * One target for every plot type, because they are one card: `ChartFrame`
+   * renders the `<section>` for each. A brand that wants a different chart
+   * card wants one rule.
    */
   chart: {
     exports: [
       "AreaChart",
       "BarChart",
-      "Chart",
-      "ComposedChart",
       "FunnelChart",
       "GaugeChart",
       "LineChart",
@@ -56,7 +53,7 @@ export const chartsThemeTargets = {
       "SeriesChart",
     ],
     properties: [...surface, ...themeSpaceProperties],
-    root: "the `<section>` the shared chart frame renders, and `Chart`'s own card element",
+    root: "the `<section>` the shared chart frame renders",
     slots: {
       description: ink,
       /* The heading block: a grid that owns the gap between title and

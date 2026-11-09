@@ -37,8 +37,6 @@ import { popupWidthStyles, styles } from "./Dialog.styles";
 import { mergeClassName } from "./merge-class-name";
 
 export type DialogWidth = "sm" | "md" | "lg" | "xl";
-/** @deprecated Use `DialogWidth`; `size` was a panel-width axis. */
-export type DialogSize = DialogWidth;
 
 export type DialogRootCompoundProps = React.ComponentProps<
   typeof HeadlessDialogRoot
@@ -111,8 +109,6 @@ export type DialogPopupProps = Omit<
 > & {
   /** Internal surface air, independent from popup width. @default "regular" */
   density?: OverlayDensity;
-  /** @deprecated Use `width`. @default "md" */
-  size?: DialogSize;
   /** Popup width. @default "md" */
   width?: DialogWidth;
 } & XstyleProp;
@@ -121,8 +117,7 @@ export type DialogPopupProps = Omit<
 export function DialogPopup({
   className,
   density = "regular",
-  size,
-  width = size ?? "md",
+  width = "md",
   xstyle,
   ...props
 }: DialogPopupProps) {
@@ -342,8 +337,6 @@ export type DialogProps = Omit<DialogRootProps, "children"> & {
    * omitted — the previous hardcoded Cancel/Apply pair is gone.
    */
   footer?: React.ReactNode;
-  /** @deprecated Use `width`. */
-  size?: DialogSize;
   title: React.ReactNode;
   /**
    * Trigger content. A `<Button>` element is composed directly (pass one to
@@ -367,10 +360,9 @@ function DialogConvenience({
   density = "regular",
   description,
   footer,
-  size,
   title,
   trigger,
-  width = size ?? "md",
+  width = "md",
   xstyle,
   ...props
 }: DialogProps) {

@@ -24,6 +24,7 @@ import {
   resolveAlign,
 } from "../utils/placement";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import { resolveNeutralTone } from "../utils/neutral-tone";
 import { mergeClassName } from "./Menu.merge-class-name";
 import { styles } from "./Menu.styles";
 import { MenuShortcut } from "./Menu.shortcut";
@@ -148,6 +149,14 @@ function Arrow(props: MenuArrowProps) {
   return <MenuArrow {...props} {...themeSlotProps("menu-popup", "arrow")} />;
 }
 
+/**
+ * A menu row's tone, shared by every item part and the convenience item
+ * arrays of `DropdownMenu` and `ContextMenu`. `neutral` (the default) is an
+ * ordinary row; `danger` marks a destructive one. The DOM reflects `neutral`
+ * as `data-tone="default"` (see `utils/neutral-tone.ts`).
+ */
+export type MenuItemTone = "neutral" | "danger";
+
 export type MenuItemProps = React.ComponentProps<typeof MenuItem> & {
   density?: OverlayDensity;
   /**
@@ -157,7 +166,8 @@ export type MenuItemProps = React.ComponentProps<typeof MenuItem> & {
   itemKind?: "default" | "pointer";
   /** The currently applied choice; takes a `Select` row's fill. See menu.ts. */
   selected?: boolean;
-  tone?: "danger" | "default";
+  /** `neutral` (the default) is an ordinary row; `danger` a destructive one. */
+  tone?: MenuItemTone;
 } & XstyleProp;
 
 function Item({
@@ -165,13 +175,16 @@ function Item({
   density,
   itemKind = "pointer",
   selected = false,
-  tone = "default",
+  tone = "neutral",
   xstyle,
   ...props
 }: MenuItemProps) {
   const inheritedDensity = useMenuDensity();
   const resolvedDensity = density ?? inheritedDensity;
-  const theme = themeProps("menu-item", { density: resolvedDensity, tone });
+  const theme = themeProps("menu-item", {
+    density: resolvedDensity,
+    tone: resolveNeutralTone(tone),
+  });
   return (
     <MenuItem
       {...props}
@@ -305,18 +318,22 @@ export type MenuCheckboxItemProps = React.ComponentProps<
    * `"default"` (used by context menus, which open on right-click).
    */
   itemKind?: "default" | "pointer";
-  tone?: "danger" | "default";
+  /** `neutral` (the default) is an ordinary row; `danger` a destructive one. */
+  tone?: MenuItemTone;
 } & XstyleProp;
 
 function CheckboxItem({
   className,
   itemKind = "pointer",
-  tone = "default",
+  tone = "neutral",
   xstyle,
   ...props
 }: MenuCheckboxItemProps) {
   const density = useMenuDensity();
-  const theme = themeProps("menu-item", { density, tone });
+  const theme = themeProps("menu-item", {
+    density,
+    tone: resolveNeutralTone(tone),
+  });
   return (
     <MenuCheckboxItemPart
       {...props}
@@ -388,18 +405,22 @@ export type MenuRadioItemProps = React.ComponentProps<
    * `"default"` (used by context menus, which open on right-click).
    */
   itemKind?: "default" | "pointer";
-  tone?: "danger" | "default";
+  /** `neutral` (the default) is an ordinary row; `danger` a destructive one. */
+  tone?: MenuItemTone;
 } & XstyleProp;
 
 function RadioItem({
   className,
   itemKind = "pointer",
-  tone = "default",
+  tone = "neutral",
   xstyle,
   ...props
 }: MenuRadioItemProps) {
   const density = useMenuDensity();
-  const theme = themeProps("menu-item", { density, tone });
+  const theme = themeProps("menu-item", {
+    density,
+    tone: resolveNeutralTone(tone),
+  });
   return (
     <MenuRadioItemPart
       {...props}

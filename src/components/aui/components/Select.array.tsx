@@ -77,10 +77,10 @@ export type SelectProps = Omit<SelectRootProps, "children" | "items"> &
     loading?: boolean;
     /**
      * Copy shown while `loading`. Same escape hatch as `Command`'s
-     * `loadingText` — the string was hard-coded and therefore untranslatable.
+     * `loadingLabel` — the string was hard-coded and therefore untranslatable.
      * @default "Loading options…"
      */
-    loadingText?: React.ReactNode;
+    loadingLabel?: React.ReactNode;
     options: SelectOption[];
     placeholder?: string;
     /**
@@ -115,7 +115,7 @@ export function SelectArray({
   loading = false,
   // Unicode ellipsis — this package's convention (`FilterBar` "Search…",
   // `AlertDialog` "Working…"), not three ASCII periods.
-  loadingText = i18n.t("ui:selectArray.loadingOptions"),
+  loadingLabel = i18n.t("ui:selectArray.loadingOptions"),
   onValueChange,
   options,
   // A placeholder stands in for an *unset value*; "Select" just restated the
@@ -308,7 +308,7 @@ export function SelectArray({
                 // this row is the only signal that options are still coming,
                 // and `presentation` left a screen-reader user with silence.
                 <div className={sx(styles.empty)} role="status">
-                  {loadingText}
+                  {loadingLabel}
                 </div>
               ) : options.length === 0 ? (
                 <div className={sx(styles.empty)} role="presentation">

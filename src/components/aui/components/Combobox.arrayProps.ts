@@ -5,6 +5,7 @@ import type { ComboboxRootProps } from "../headless/combobox";
 import type { PopupPlacement } from "../utils/placement";
 import type { CreatableOption, CreatablePickerProps } from "./Combobox.create";
 import type { ComboboxPagingProps } from "./Combobox.loadMore";
+import type { ComboboxPagingInput } from "./Combobox.paging";
 import { type ComboboxOption, optionText } from "./Combobox.options";
 import type { ComboboxSize } from "./Combobox.scale";
 
@@ -16,9 +17,9 @@ import type { ComboboxSize } from "./Combobox.scale";
  */
 
 /**
- * The async/paged half of this API (`hasMore`, `onLoadMore`, `loadingMore`, …)
- * is declared once in `Combobox.loadMore` and mixed into both array pickers, so
- * `Combobox` and `Autocomplete` cannot drift on one contract.
+ * The async/paged half of this API is ONE object, `paging` (`hasMore`,
+ * `onLoadMore`, `loadingMore`, …), declared once in `Combobox.paging`, so the
+ * array pickers cannot drift on one contract.
  */
 export type ComboboxProps = Omit<
   ComboboxRootProps<ComboboxOption>,
@@ -32,6 +33,12 @@ export type ComboboxProps = Omit<
   | "onValueChange"
   | "value"
 > & {
+  /**
+   * Accessible name for the query input when the visible label is rendered
+   * elsewhere (or not at all). Prefer `label`, or an external `<label
+   * htmlFor={inputId}>`.
+   */
+  "aria-label"?: string;
   /**
    * Show a clear mark once something is selected, resetting the field to its
    * placeholder. Off by default, matching `Select`: whether a field is optional
@@ -49,8 +56,6 @@ export type ComboboxProps = Omit<
   defaultValues?: ComboboxOption[];
   emptyText?: string;
   error?: React.ReactNode;
-  /** Accessible input name when the visible label is rendered externally. */
-  inputAriaLabel?: string;
   /**
    * `id` for the query input, so a label rendered OUTSIDE this component can
    * claim it with `htmlFor`.
@@ -60,7 +65,7 @@ export type ComboboxProps = Omit<
    * carries an info tooltip beside it — because that trigger cannot live inside
    * the `<label>`: a click on it would be forwarded to the input instead of
    * opening the tooltip. Given this, the row keeps a real `<label htmlFor>`
-   * rather than falling back to `inputAriaLabel`, which names the control but
+   * rather than falling back to `aria-label`, which names the control but
    * leaves its visible label pointing at nothing.
    */
   inputId?: string;
@@ -74,11 +79,11 @@ export type ComboboxProps = Omit<
   leadingActions?: React.ReactNode;
   loading?: boolean;
   /**
-   * Copy shown while `loading`. Same escape hatch as `Command`'s `loadingText`
-   * — the string was hard-coded and therefore untranslatable.
+   * Copy shown while `loading`. Same escape hatch as `Command`'s
+   * `loadingLabel` — the string was hard-coded and therefore untranslatable.
    * @default "Loading options…"
    */
-  loadingText?: React.ReactNode;
+  loadingLabel?: React.ReactNode;
   /**
    * Enable multi-select: selected options render as removable token chips
    * inside the input area (Backspace in the empty input removes the last
@@ -105,11 +110,25 @@ export type ComboboxProps = Omit<
    * would otherwise open behind a dim or a full-screen route overlay.
    */
   zIndex?: number;
-} & ComboboxPagingProps &
+} & ComboboxPagingInput &
   CreatablePickerProps;
 
 /**
- * The in-field `Loading` mark needs a string name; `loadingText` is a
+ * The flat contract the single and multiple modes render from, after
+ * `ComboboxArray` unfolds `paging` and maps `aria-label` / `loadingLabel` onto
+ * the query input and the loading row.
+ */
+export type ComboboxResolvedProps = Omit<
+  ComboboxProps,
+  "aria-label" | "loadingLabel" | "paging"
+> &
+  ComboboxPagingProps & {
+    inputAriaLabel?: string;
+    loadingText?: React.ReactNode;
+  };
+
+/**
+ * The in-field `Loading` mark needs a string name; `loadingLabel` is a
  * ReactNode escape hatch, so a non-string falls back to the default label.
  */
 export const loadingLabelFor = (text: React.ReactNode) =>

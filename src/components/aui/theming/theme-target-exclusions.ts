@@ -95,7 +95,7 @@ export const themeTargetExclusions = {
   "Select.Root": "Base UI's select state root; renders no element.",
 
   AsyncBoundary:
-    "The pending/error/empty/ready switch; it renders one of `LoadingSurface`, `EmptyState`, or a `Banner` plus the ready content, and owns no element of its own.",
+    "The pending/error/empty/ready switch; it renders one of `Skeleton.Surface`, `EmptyState`, or a `Banner` plus the ready content, and owns no element of its own.",
   // i18n-ignore: developer-only theme audit explanation
   FieldMessages:
     "Renders a fragment of the field's description/error/success message `<span>`s; it has no root element of its own.",

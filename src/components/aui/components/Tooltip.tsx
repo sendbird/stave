@@ -10,7 +10,6 @@ import {
   TooltipRoot,
   TooltipTrigger,
 } from "../headless/tooltip";
-import { controlIconSizes } from "../recipes/control-metrics";
 import {
   PortalProductThemeScope,
   usePortalProductThemeProps,
@@ -18,7 +17,6 @@ import {
 import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
-import { Button } from "./Button";
 import { Kbd } from "./Kbd";
 import {
   TooltipGroup,
@@ -26,21 +24,6 @@ import {
   tooltipCloseDelay,
   tooltipOpenDelay,
 } from "./Tooltip.group";
-
-export type TooltipIconButtonProps = {
-  "aria-label": string;
-  children: React.ReactNode;
-  /**
-   * Disable the button. Forwarded to the rendered `Button`, never to
-   * `Tooltip.Trigger` — Base UI's own `disabled` there only silences the
-   * tooltip and explicitly does not disable the trigger element.
-   */
-  disabled?: boolean;
-  label: React.ReactNode;
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-  /** Optional keyboard binding shown with the shared `Kbd` keycap. */
-  shortcut?: React.ReactNode;
-} & XstyleProp;
 
 export type TooltipProviderProps = React.ComponentProps<
   typeof HeadlessTooltipProvider
@@ -55,9 +38,8 @@ export type TooltipProviderProps = React.ComponentProps<
  * instantly once one hint has been read, so a reader pays the dwell once per
  * visit to a toolbar rather than once per button. Explicit values still win.
  *
- * Rendering this is now optional for grouping: `Tooltip` and
- * `TooltipIconButton` join the nearest AUI group and start one only where
- * there is none. Render it to widen a group across a subtree, or to give that
+ * Rendering this is now optional for grouping: every `Tooltip` joins the
+ * nearest AUI group and starts one only where there is none. Render it to widen a group across a subtree, or to give that
  * subtree a different dwell.
  */
 export function TooltipProvider({
@@ -166,74 +148,6 @@ export function Tooltip({
   );
   if (grouped) return core;
   return <TooltipGroup>{core}</TooltipGroup>;
-}
-
-export function TooltipIconButton({
-  children,
-  disabled,
-  label,
-  shortcut,
-  xstyle,
-  ...props
-}: TooltipIconButtonProps) {
-  // The popup portals out of the provider's subtree, so it carries the brand.
-  const portalTheme = usePortalProductThemeProps();
-  const theme = themeProps("tooltip");
-  return (
-    <TooltipGroup>
-      <TooltipRoot>
-        {/*
-         * Composes `Button` rather than hand-rolling a look-alike trigger —
-         * the same rule `Dialog`'s close and `EmptyState`'s action follow.
-         *
-         * The hand-rolled version was the one icon button in the system
-         * outside the icon-button contract: it published neither
-         * `data-aui-control-icon-button` nor `--aui-control-icon-size`, so the
-         * shared glyph rule in `styles.css` never normalized its child and a
-         * lucide icon painted at its intrinsic 24px inside a 40px box — visibly
-         * heavier than the identical-looking close buttons beside it. It also
-         * had no disabled treatment at all. `Button` publishes the control
-         * attributes, the 32px quiet square (`iconSm`) with the shared 16px
-         * glyph, and the one disabled language, for free.
-         */}
-        <TooltipTrigger
-          {...props}
-          render={
-            <Button
-              disabled={disabled}
-              iconSize={controlIconSizes.md}
-              size="iconSm"
-              variant="quiet"
-            />
-          }
-        >
-          {children}
-        </TooltipTrigger>
-        <TooltipPortal>
-          <PortalProductThemeScope>
-            <TooltipPositioner className={sx(styles.positioner)} sideOffset={8}>
-              <TooltipPopup
-                {...portalTheme}
-                {...theme}
-                className={cx(
-                  sx(styles.popup, xstyle),
-                  theme.className,
-                  "atelier-motion-tooltip",
-                )}
-                role="tooltip"
-              >
-                <TooltipArrow
-                  {...themeSlotProps("tooltip", "arrow")}
-                  className={sx(styles.arrow)}
-                />
-                <TooltipContent content={label} shortcut={shortcut} />
-              </TooltipPopup>
-            </TooltipPositioner>
-          </PortalProductThemeScope>
-        </TooltipPortal>
-      </TooltipRoot>
-    </TooltipGroup>
-  );
 }
 
 function TooltipContent({

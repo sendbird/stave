@@ -107,9 +107,13 @@ export const sidebarStyles = stylex.create({
     minBlockSize: vars["--aui-control-height-xs"],
     minInlineSize: vars["--aui-control-height-xs"],
     padding: 0,
-    transitionDuration: vars["--aui-motion-duration-fast"],
+    transitionDuration: {
+      default: vars["--aui-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)":
+        vars["--aui-motion-duration-micro"],
+    },
     transitionProperty: "background-color, color",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
   },
   sidebarGroupActionCollapsed: {
     display: "none",
@@ -135,11 +139,12 @@ export const sidebarStyles = stylex.create({
     alignItems: "center",
     appearance: "none",
     transitionDuration: {
-      default: vars["--aui-motion-duration-fast"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
+      default: vars["--aui-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)":
+        vars["--aui-motion-duration-micro"],
     },
     transitionProperty: "background-color, color",
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-color"],
     borderWidth: 0,
     borderRadius: vars["--aui-radius-control"],
     color: vars["--aui-color-text-muted"],

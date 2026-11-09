@@ -58,8 +58,6 @@ export type AppShellProps = React.ComponentProps<"div"> & {
    * for new code; compose with `Topbar` or another AUI header surface.
    */
   workspaceHeader?: React.ReactNode;
-  /** @deprecated Use `workspaceHeader`. Kept as a backward-compatible alias. */
-  topbar?: React.ReactNode;
 };
 
 export function AppShell({
@@ -72,7 +70,6 @@ export function AppShell({
   sidebar,
   sidebarSide = "left",
   skipLinkLabel = i18n.t("ui:appshellRoot.skipToContent"),
-  topbar,
   workspaceHeader,
   ...props
 }: AppShellProps) {
@@ -81,7 +78,7 @@ export function AppShell({
   const contentDir = dir ?? sidebarContext?.dir;
   const generatedId = useId();
   const contentId = `${generatedId}-content`;
-  const resolvedWorkspaceHeader = workspaceHeader ?? topbar;
+  const resolvedWorkspaceHeader = workspaceHeader;
   // The skip link still targets this region either way — `tabIndex={-1}` is
   // what makes it focusable, not the tag.
   const ContentRegion = contentLayout === "app" ? "div" : "main";

@@ -55,7 +55,10 @@ export type ReviewStatusProps = React.ComponentProps<"span"> & {
   /** Status-chip scale. @default "md" */
   size?: StatusChipSize;
   state: ReviewStatusState;
-  /** Visual weight. @default "soft" */
+  /**
+   * Visual weight: `soft` (tinted) or `outlined` (hairline border), the
+   * spelling `Badge` and `Button` use. @default "soft"
+   */
   variant?: StatusChipVariant;
 } & XstyleProp;
 
@@ -83,7 +86,7 @@ export function ReviewStatus({
         sx(
           statusChip.root,
           statusChipSizeStyles[size],
-          variant === "outline" && statusChip.outline,
+          variant === "outlined" && statusChip.outline,
           toneStyles[variant][tone],
           xstyle,
         ),
@@ -119,7 +122,7 @@ export type ApprovalBarProps = Omit<React.ComponentProps<"div">, "children"> & {
    * for a host that tracks the request elsewhere.
    * @default false
    */
-  busy?: boolean;
+  loading?: boolean;
   onApprove?: ApprovalBarHandler;
   onReject?: ApprovalBarHandler;
   onRequestChanges?: ApprovalBarHandler;
@@ -148,7 +151,7 @@ export type ApprovalBarProps = Omit<React.ComponentProps<"div">, "children"> & {
  */
 export function ApprovalBar({
   approveLabel,
-  busy: busyProp = false,
+  loading = false,
   className,
   onApprove,
   onReject,
@@ -163,7 +166,7 @@ export function ApprovalBar({
   ...props
 }: ApprovalBarProps) {
   const theme = themeProps("approval-bar");
-  const { action, busy, run } = usePendingAction<ApprovalBarAction>(busyProp);
+  const { action, busy, run } = usePendingAction<ApprovalBarAction>(loading);
   const decision = (
     name: ApprovalBarAction,
     handler: ApprovalBarHandler | undefined,
@@ -213,7 +216,7 @@ export function ApprovalBar({
           "request-changes",
           onRequestChanges,
           requestChangesLabel,
-          "outline",
+          "outlined",
         )}
         {decision("approve", onApprove, approveLabel, "primary")}
       </div>
@@ -263,6 +266,6 @@ const styles = stylex.create({
 });
 
 const toneStyles = {
-  outline: statusChipOutlineToneStyles,
+  outlined: statusChipOutlineToneStyles,
   soft: statusChipSoftToneStyles,
 } as const;

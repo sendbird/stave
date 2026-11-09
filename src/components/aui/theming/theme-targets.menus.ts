@@ -163,12 +163,10 @@ export const menusThemeTargets = {
        */
       size: ["sm", "md", "lg"],
       /*
-       * `ghost` and `quiet` are one weight under two spellings and both are
-       * reflected verbatim: a brand selects on what the consumer typed. There
-       * is no `unstyled` value because an unstyled trigger carries no class at
-       * all — it is the caller's own control, and AUI paints none of it.
+       * There is no `unstyled` value because an unstyled trigger carries no
+       * class at all — it is the caller's own control, and AUI paints none of it.
        */
-      variant: ["default", "ghost", "quiet"],
+      variant: ["default", "quiet"],
     },
     exports: ["DropdownMenu.Trigger", "Menu.Trigger"],
     properties: control,

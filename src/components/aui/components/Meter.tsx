@@ -18,9 +18,7 @@ export type MeterTone =
   | "info"
   | "neutral"
   | "success"
-  | "warning"
-  /** @deprecated Alias of `"warning"`, which it renders identically; use that. */
-  | "warm";
+  | "warning";
 
 /** Track height: `md` is the bundle's 10px bar, `sm` the 6px bar a dense row or table cell carries. */
 export type MeterSize = "sm" | "md";
@@ -28,12 +26,12 @@ export type MeterSize = "sm" | "md";
 export type MeterProps = Omit<MeterRootProps, "className"> & {
   className?: string;
   /**
-   * Keep the label for assistive tech but drop it from the visual row. Use it
-   * where a heading already names the value — a table cell under a "Rollout"
-   * column repeating "Rollout" on every row is noise, and it steals the width
-   * the track needs.
+   * Render the label in the visual row. `false` keeps it for assistive tech
+   * but drops it from the row. Use that where a heading already names the
+   * value — a table cell under a "Rollout" column repeating "Rollout" on every
+   * row is noise, and it steals the width the track needs. @default true
    */
-  hideLabel?: boolean;
+  showLabel?: boolean;
   /**
    * Keep the value for assistive tech (the root's `aria-valuetext`) but drop
    * the visible figure. Use it where the caller already prints the reading
@@ -50,11 +48,11 @@ export type MeterProps = Omit<MeterRootProps, "className"> & {
 
 export function Meter({
   className,
-  hideLabel = false,
   hideValue = false,
   label,
   max = 100,
   min = 0,
+  showLabel = true,
   size = "md",
   tone = "accent",
   value,
@@ -73,7 +71,7 @@ export function Meter({
       value={value}
     >
       <MeterLabel
-        className={sx(hideLabel ? styles.labelHidden : styles.label)}
+        className={sx(showLabel ? styles.label : styles.labelHidden)}
         {...themeSlotProps("meter", "label")}
       >
         {label}
@@ -189,9 +187,6 @@ const styles = stylex.create({
   success: {
     backgroundColor: vars["--aui-color-success"],
   },
-  warm: {
-    backgroundColor: vars["--aui-color-warning"],
-  },
   warning: {
     backgroundColor: vars["--aui-color-warning"],
   },
@@ -204,5 +199,4 @@ const toneStyles = {
   neutral: styles.neutral,
   success: styles.success,
   warning: styles.warning,
-  warm: styles.warm,
 } as const;

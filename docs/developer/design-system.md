@@ -84,7 +84,7 @@ type declares its own values.
 `src/components/aui/components` holds the canonical components. Controls
 (`Button`, `Select`, `Checkbox`, `Switch`, `TextField`), surfaces (`Card`,
 `Dialog`, `Popover`, `Drawer`), feedback (`Banner`, `EmptyState`,
-`LoadingSurface`, `Toast`) and the agent-facing pieces (`Approval`,
+`Skeleton.Surface`, `Toast`) and the agent-facing pieces (`Approval`,
 `Clarification`, `Plan`, `DiffViewer`, `FileChangeSummary`, `ToolRun`) know
 nothing about Stave's data and carry no English copy of their own: the host
 passes words in. `src/components/ui` adapts them to existing imports.

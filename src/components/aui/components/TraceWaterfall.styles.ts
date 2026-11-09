@@ -217,7 +217,7 @@ export const styles = stylex.create({
       // Reduced motion: no pulse — the bar renders its final state instantly.
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars["--aui-motion-ease-in-out"],
+    animationTimingFunction: vars["--aui-motion-ease-loop"],
     backgroundColor: vars["--aui-chart-1"],
   },
   duration: {

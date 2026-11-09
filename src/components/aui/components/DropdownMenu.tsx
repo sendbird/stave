@@ -1,4 +1,3 @@
-import { isValidElement } from "react";
 import { Check } from "lucide-react";
 import type * as React from "react";
 
@@ -8,12 +7,12 @@ import { type PopupPlacement } from "../utils/placement";
 import { sx, type XstyleProp } from "../utils/stylex";
 import {
   Menu,
+  type MenuItemTone,
   type MenuPopupProps,
   type MenuTriggerProps,
-  type MenuTriggerSize,
-  type MenuTriggerVariant,
 } from "./Menu";
 import { Loader } from "./Loader";
+import { resolveComposedTrigger } from "./overlay-trigger";
 
 export type DropdownMenuItem = {
   disabled?: boolean;
@@ -25,7 +24,7 @@ export type DropdownMenuItem = {
   /** Marks the item as the currently applied choice. */
   selected?: boolean;
   shortcut?: string;
-  tone?: "default" | "danger";
+  tone?: MenuItemTone;
 };
 
 export type DropdownMenuGroup = {
@@ -39,23 +38,22 @@ export type DropdownMenuProps = Omit<MenuRootProps, "children"> & {
   groups: DropdownMenuGroup[];
   /** Where the menu opens against its trigger. @default "bottom-start" */
   placement?: PopupPlacement;
+  /**
+   * The trigger. A `Button` element is composed directly as the trigger and
+   * keeps its own styles; any other content (text, an icon) renders inside the
+   * menu's own trigger chrome, or inside `triggerProps.render`.
+   */
   trigger: React.ReactNode;
-  /** Compose the trigger directly; its own component styles are preserved by default. */
-  triggerAsChild?: boolean;
   /**
-   * Additional trigger class, including Base UI's open-state callback. This is
-   * primarily for higher-order controls such as SplitButton that must keep an
-   * already-styled trigger visibly engaged while its menu is open.
+   * Props passed straight through to the trigger part — `size` (sm 32 / md 36
+   * / lg 40, ignored for a composed element), `variant`, `className` (including
+   * Base UI's open-state callback, for a higher-order control that must keep
+   * an already-styled trigger visibly engaged while its menu is open) and any
+   * other `Menu.Trigger` prop, including `render` to compose any element as
+   * the trigger. A composed element defaults to `variant="unstyled"` and keeps
+   * its own styles.
    */
-  triggerClassName?: MenuTriggerProps["className"];
-  /**
-   * Trigger control height (sm 32 / md 36 / lg 40) — set `lg` to align with a
-   * `lg` Button or TextField in the same row. Ignored for composed
-   * (`triggerAsChild`) triggers, which keep their own metrics.
-   */
-  triggerSize?: MenuTriggerSize;
-  /** Override trigger chrome. Composed triggers preserve their own styles by default. */
-  triggerVariant?: MenuTriggerVariant;
+  triggerProps?: Omit<MenuTriggerProps, "children">;
 } & XstyleProp;
 
 function DropdownMenuArray({
@@ -63,31 +61,41 @@ function DropdownMenuArray({
   groups,
   placement,
   trigger,
-  triggerAsChild = false,
-  triggerClassName,
-  triggerSize,
-  triggerVariant,
+  triggerProps,
   xstyle,
   ...props
 }: DropdownMenuProps) {
+  // `triggerProps` is the one channel for the trigger part; a `Button` passed
+  // as `trigger` is composed as the trigger itself.
+  const {
+    className,
+    render: triggerRender,
+    size,
+    variant,
+    ...triggerPassThrough
+  } = triggerProps ?? {};
+  const composed = resolveComposedTrigger({ render: triggerRender, trigger });
   const resolvedTriggerVariant =
-    triggerVariant ?? (triggerAsChild ? "unstyled" : "default");
-  const triggerNode =
-    triggerAsChild && isValidElement(trigger) ? (
-      <Menu.Trigger
-        className={triggerClassName}
-        render={trigger}
-        variant={resolvedTriggerVariant}
-      />
-    ) : (
-      <Menu.Trigger
-        className={triggerClassName}
-        size={triggerSize}
-        variant={resolvedTriggerVariant}
-      >
-        {trigger}
-      </Menu.Trigger>
-    );
+    variant ?? (composed.render ? "unstyled" : "default");
+  const triggerNode = composed.render ? (
+    <Menu.Trigger
+      {...triggerPassThrough}
+      className={className}
+      render={composed.render}
+      variant={resolvedTriggerVariant}
+    >
+      {composed.content}
+    </Menu.Trigger>
+  ) : (
+    <Menu.Trigger
+      {...triggerPassThrough}
+      className={className}
+      size={size}
+      variant={resolvedTriggerVariant}
+    >
+      {trigger}
+    </Menu.Trigger>
+  );
 
   // Keep the leading icon cell scoped to each group. A later action group may
   // use icons without forcing unrelated typography choices to carry an empty

@@ -272,7 +272,7 @@ function CommandArray({
   items,
   label = i18n.t("ui:command.commandMenu"),
   loading = false,
-  loadingText = i18n.t("ui:command.loadingCommands"),
+  loadingLabel = i18n.t("ui:command.loadingCommands"),
   maxRecents = 5,
   onItemSelect,
   onPageChange,
@@ -402,7 +402,8 @@ function CommandArray({
             <Button
               aria-label={i18n.t("ui:command.backOneCommandPage")}
               onClick={goBack}
-              size="iconSm"
+              iconOnly
+              size="sm"
               variant="quiet"
             >
               <ChevronLeft aria-hidden size={16} />
@@ -413,7 +414,7 @@ function CommandArray({
         {toolbar ? <div className={sx(styles.toolbar)}>{toolbar}</div> : null}
         {loading ? (
           <div className={sx(styles.empty)} role="status">
-            {loadingText}
+            {loadingLabel}
           </div>
         ) : (
           <List>

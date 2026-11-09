@@ -66,6 +66,11 @@ export const styles = stylex.create({
     inlineSize: "100%",
   },
   item: {
+    "--aui-stepper-connector-duration": {
+      default: vars["--aui-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)":
+        vars["--aui-motion-duration-micro"],
+    },
     boxSizing: "border-box",
     minInlineSize: 0,
     position: "relative",
@@ -74,6 +79,14 @@ export const styles = stylex.create({
       content: '""',
       display: "block",
       position: "absolute",
+      // The connector turns accent when its step completes, beside a marker
+      // that already eases (`transition.colors`); it used to cut. Same colour
+      // timing as the recipe — a pseudo-element can neither compose a recipe
+      // key nor carry a media condition, so the duration rides in on
+      // `--aui-stepper-connector-duration` from the item above.
+      transitionDuration: "var(--aui-stepper-connector-duration)",
+      transitionProperty: "background-color",
+      transitionTimingFunction: vars["--aui-motion-ease-color"],
       // layer-ok: orders the connector behind the body and marker.
       zIndex: 0,
     },

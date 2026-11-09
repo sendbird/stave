@@ -5,6 +5,7 @@ import { createContext, useContext, useId } from "react";
 import type * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
+import { resolveNeutralTone } from "../utils/neutral-tone";
 import { sx } from "../utils/stylex";
 import { VisuallyHidden } from "./VisuallyHidden";
 
@@ -33,9 +34,12 @@ import { VisuallyHidden } from "./VisuallyHidden";
  *    success row. All three are wired into a single `aria-describedby`, so a
  *    screen reader receives them in the order they are painted.
  * 2. **`error` is the invalid channel.** Presence of an error message sets
- *    `aria-invalid` and forces `tone="danger"`; there is no separate boolean to
- *    fall out of sync with the message. A control that is invalid without
- *    anything to say is a control whose author has not finished the copy.
+ *    `aria-invalid` and paints the danger boundary; so does `invalid`, for a
+ *    control whose message lives elsewhere — a form-level summary, a filter
+ *    row with nowhere to put one. Prefer the message: a control that is
+ *    invalid with nothing to say is usually one whose author has not finished
+ *    the copy. (`tone="danger"` was a second spelling of the flag that set no
+ *    `aria-invalid`; it was removed.)
  * 3. **The error row is `role="alert"`.** It is announced when it appears,
  *    because it appears in response to the user's own input.
  * 4. **The required marker is derived, never declared.** It reads the control's
@@ -52,13 +56,27 @@ import { VisuallyHidden } from "./VisuallyHidden";
  * The rendered result is identical; only the association mechanism differs.
  */
 
-export type FieldTone = "default" | "success" | "danger";
+/**
+ * A field's validation tone. `neutral` is the resting field — the spelling the
+ * rest of the `tone` axis uses (see `utils/neutral-tone.ts`). The danger state
+ * is `invalid` or `error`, which also set `aria-invalid`.
+ */
+export type FieldTone = "neutral" | "success";
+
+/**
+ * The tone a field paints and reflects as `data-tone`, after `error` /
+ * `invalid` and the neutral key are resolved. The resting key stays `default`
+ * because it is the published `data-tone` value.
+ */
+export type ResolvedFieldTone = "default" | "success" | "danger";
 
 export type FieldAnatomyInput = {
   description?: React.ReactNode;
   error?: React.ReactNode;
   /** Caller-supplied DOM id. Omit it and one is generated. */
   id?: string;
+  /** Invalid without a message of its own — see rule 2. @default false */
+  invalid?: boolean;
   tone?: FieldTone;
 };
 
@@ -69,11 +87,11 @@ export type FieldAnatomy = {
   errorId: string | undefined;
   /** The control's DOM id — `htmlFor` target and `aria-labelledby` anchor. */
   fieldId: string;
-  /** `aria-invalid` value: `true` while an error message is present. */
+  /** `aria-invalid` value: `true` while an error message or `invalid` is present. */
   invalid: true | undefined;
   labelId: string;
-  /** `error` wins over the caller's `tone` — see rule 2. */
-  tone: FieldTone;
+  /** `error` / `invalid` win over the caller's `tone` — see rule 2. */
+  tone: ResolvedFieldTone;
   successId: string | undefined;
 };
 
@@ -111,13 +129,17 @@ export function useFieldAnatomy({
   description,
   error,
   id,
-  tone = "default",
+  invalid = false,
+  tone = "neutral",
 }: FieldAnatomyInput): FieldAnatomy {
   // Don't fall back to `name`: two controls sharing a name (radios, repeated
   // form rows) would collide on the same DOM id.
   const generatedId = useId();
   const fieldId = id ?? generatedId;
-  const resolvedTone: FieldTone = error ? "danger" : tone;
+  const isInvalid = Boolean(error) || invalid;
+  const resolvedTone: ResolvedFieldTone = isInvalid
+    ? "danger"
+    : resolveNeutralTone(tone);
   const descriptionId = description ? `${fieldId}-description` : undefined;
   const errorId = error ? `${fieldId}-error` : undefined;
   const successId =
@@ -131,7 +153,7 @@ export function useFieldAnatomy({
     descriptionId,
     errorId,
     fieldId,
-    invalid: error ? true : undefined,
+    invalid: isInvalid ? true : undefined,
     labelId: `${fieldId}-label`,
     successId,
     tone: resolvedTone,

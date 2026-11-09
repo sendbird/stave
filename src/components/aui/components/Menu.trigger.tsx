@@ -13,14 +13,11 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 /**
  * `quiet` is the borderless "reveals itself on hover" weight — the same
  * affordance `Button variant="quiet"` names, and literally the same recipe
- * (`controlChrome.triggerQuiet`) behind both. `ghost` was this component's
- * private spelling of it, and two names for one weight is how a consumer ends
- * up believing they are two weights and picking by coin flip.
- *
- * @deprecated `ghost` — use `quiet`. The alias is exact, not approximate: both
- * resolve to the identical chrome, gutter and default size.
+ * (`controlChrome.triggerQuiet`) behind both. (`ghost` was this component's
+ * private spelling of it and was removed: two names for one weight is how a
+ * consumer ends up believing they are two weights.)
  */
-export type MenuTriggerVariant = "default" | "ghost" | "quiet" | "unstyled";
+export type MenuTriggerVariant = "default" | "quiet" | "unstyled";
 export type MenuTriggerSize = "sm" | "md" | "lg";
 
 export type MenuTriggerProps = Omit<
@@ -67,9 +64,7 @@ export function MenuTriggerPart({
   xstyle,
   ...props
 }: MenuTriggerProps) {
-  // One weight, two spellings; `ghost` is the deprecated one. Resolved once,
-  // here, so nothing downstream has to know both words.
-  const quiet = variant === "ghost" || variant === "quiet";
+  const quiet = variant === "quiet";
   const resolvedSize = size ?? (quiet ? "sm" : "md");
   const styled = variant !== "unstyled";
 

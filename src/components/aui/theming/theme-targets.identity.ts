@@ -101,8 +101,6 @@ export const identityThemeTargets = {
      * `Button`. This is the caller-chosen side of the family's line — the chip
      * always carries text, so colour is never its only channel, and `tone` here
      * is a prop the caller sets, not a verdict the component derives.
-     * `warm` is the deprecated alias of `warning`; it is a real prop value, so
-     * it is reflected verbatim.
      */
     axes: {
       size: ["sm", "md"],
@@ -111,11 +109,10 @@ export const identityThemeTargets = {
         "accent",
         "info",
         "warning",
-        "warm",
         "success",
         "danger",
       ],
-      variant: ["soft", "outline", "solid"],
+      variant: ["soft", "outlined", "solid"],
     },
     exports: ["Badge"],
     properties: region,
@@ -235,11 +232,11 @@ export const identityThemeTargets = {
      * A review-workflow pill: draft / in-review / changes-requested /
      * approved / rejected, tone derived from the state. `signal`. `state` is a
      * real prop but is not one of the four axes and is already reflected as
-     * `data-state`; `variant` (soft/outline) and `size` are the axes.
+     * `data-state`; `variant` (soft/outlined) and `size` are the axes.
      */
     axes: {
       size: ["sm", "md"],
-      variant: ["soft", "outline"],
+      variant: ["soft", "outlined"],
     },
     exports: ["ReviewStatus"],
     properties: signal,
