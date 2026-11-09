@@ -36,6 +36,33 @@ export function TarsPreview() {
     if (fixtures) for (const run of Object.values(fixtures.runs)) for (const stage of run.stages) {
       if (stage.status === "running" && !stage.endedAt) stage.startedAt = new Date(Date.now() - 4 * 60_000).toISOString();
     }
+    // `live=true`: the running fix's turn streams a test command right now and its run recorded recent progress, fed through the
+    // same store slice the host fills (`providerTurnActivityByTask`). `live=stale`: the same run, with nothing observed for nine minutes.
+    const liveMode = params.get("live");
+    if (fixtures && (liveMode === "true" || liveMode === "stale")) {
+      const billingRun = fixtures.runs["run-billing"]!;
+      const quiet = liveMode === "stale" ? 9 : 0;
+      const ago = (minutes: number) => new Date(Date.now() - (quiet + minutes) * 60_000).toISOString();
+      const event = (sequence: number, kind: typeof billingRun.events[number]["kind"], detail: Record<string, unknown>, minutes: number) =>
+        ({ id: `preview-event-${sequence}`, agentRunId: billingRun.agentRun.id, sequence, kind, idempotencyKey: null, detail, createdAt: ago(minutes) });
+      billingRun.events = [
+        event(1, "agent-run-started", {}, 12), event(2, "turn-started", { stageId: "reproduce", attempt: 1 }, 11),
+        event(3, "report", { stageId: "reproduce", attempt: 1, outcome: "complete" }, 9), event(4, "stage-completed", { stageId: "reproduce", attempt: 1 }, 9),
+        event(5, "turn-started", { stageId: "cause", attempt: 1 }, 8), event(6, "stage-retried", { stageId: "cause", attempt: 2 }, 6),
+        event(7, "turn-started", { stageId: "cause", attempt: 2 }, 5),
+      ];
+      billingRun.agentRun = { ...billingRun.agentRun, updatedAt: ago(5) };
+      for (const stage of billingRun.stages) if (stage.status === "running" && !stage.endedAt) stage.startedAt = ago(6);
+      if (liveMode === "true") {
+        const nowMs = Date.now();
+        useAppStore.setState({ providerTurnActivityByTask: { ...useAppStore.getState().providerTurnActivityByTask, "task-billing": {
+          turnId: "preview-turn", providerId: "codex", startedAt: nowMs - 5 * 60_000, lastEventAt: nowMs - 3_000, stalledAt: null, pendingInteraction: null,
+          orderedWorkItemIds: ["preview-tool"], workItemsById: { "preview-tool": { id: "preview-tool", kind: "tool", status: "running", title: "Run command",
+            toolName: "Bash", detail: "bun test tests/billing-export.test.ts", progressMessages: [], startedAt: nowMs - 3_000, updatedAt: nowMs - 3_000 } },
+          workGraph: { nodes: {}, rootIds: [] } as never,
+        } } });
+      }
+    }
     // `recap=true`: the view was last visible an hour before the fixtures changed, and one more piece of work ended unfinished.
     if (fixtures && params.get("recap") === "true") {
       window.localStorage.setItem(TARS_LAST_VISIBLE_KEY, new Date(Date.parse(now) - 60 * 60_000).toISOString());

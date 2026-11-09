@@ -112,10 +112,10 @@ describe("blocked work navigation (A6)", () => {
 describe("tray outputs", () => {
   test("the indicator counts outputs only when there are some; needs you keeps its own count", async () => {
     await applyAppLocale("en");
-    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, done: 1 }, "ready", 6)).toBe("1 needs you · 1 done · 6 outputs");
-    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, done: 1 }, "ready", 0)).toBe("1 needs you · 1 done");
+    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, waiting: 0, yours: 0, done: 1 }, "ready", 6)).toBe("1 needs you · 1 done · 6 outputs");
+    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, waiting: 0, yours: 0, done: 1 }, "ready", 0)).toBe("1 needs you · 1 done");
     await applyAppLocale("ko");
-    expect(describeTarsTrayCounts({ needsYou: 0, running: 1, done: 0 }, "ready", 2)).toBe("진행 1 · 산출물 2");
+    expect(describeTarsTrayCounts({ needsYou: 0, running: 1, waiting: 0, yours: 0, done: 0 }, "ready", 2)).toBe("실행 1 · 산출물 2");
     await applyAppLocale("en");
   });
 

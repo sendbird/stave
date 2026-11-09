@@ -223,12 +223,21 @@ Fleet pauses the work rather than cancelling it.
 
 ### 4. See progress
 
-- **Conversation**: a flow block for each delegated unit, one-line status and
+- **Sidebar**: the **Tars** entry shows the number of running work with the
+  moving running mark and an amber count of what needs you; collapsed, one dot
+  (amber when something needs you, otherwise the running color).
+- **Conversation**: a flow block for each delegated unit, with the state's mark
+  and the work's observation line visible while folded, one-line status and
   control records, and **Automatic follow-up** turns. A message sent with
-  **Include my working changes** carries that tag.
-- **Work** tray: the header indicator ("1 running · 1 needs you") opens lanes
-  **Needs you**, **Running**, **Done** and **Outputs**, each card with a live
-  run monitor and, once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
+  **Include my working changes** carries that tag; a reply Tars is still
+  writing reads **Thinking** with the moving mark.
+- **Composer**: while work runs, the band above the message box names each
+  running piece of work (two at most, then a count), its stage and what Stave
+  last observed, with **Timeline**.
+- **Work** tray: the header indicator ("1 running · 2 waiting · 1 needs you")
+  opens lanes **Needs you**, **In progress**, **Done** and **Outputs**, each card
+  with a live run monitor, what Stave observed and its recent progress, and,
+  once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
 - **Side view**: **Request**, **Report**, **Changes**, **Timeline** and **Review** of one
   responsibility, opened from an output, a flow stage or your words.
 - **Fleet**: the **Tars** owner label and **Tars decision** rows in
@@ -478,9 +487,46 @@ one segment per workflow stage (done, in progress, not started, or stopped
 short), the step count such as "2/3", and **Timeline**, which opens the side
 view's timeline at that stage. Every card, queued work included, also has
 **Request**, which opens what the work was handed (see
-[Results, changes and the side view](#results-changes-and-the-side-view)). Each card wears the same state tag (a still
-state mark and the state's word) as the run panel and Agents. Values the run
+[Results, changes and the side view](#results-changes-and-the-side-view)). Each card wears the same state tag (the state
+mark and the state's word) as the run panel and Agents. Values the run
 did not record, such as a start time, are left out rather than shown as zero.
+
+**States never share a look.** Running work alone wears the running tone and
+the one moving mark (reduced motion settles it); blocked work wears the
+warning tone, completed work the success tone, and queued, waiting, paused and
+taken-over work stays neutral, told apart by its glyph and word. The header
+counts work as **running** only while it holds the active slot (running, or
+preparing with its run created); the rest of **In progress** counts as
+**waiting**, or **yours** once you took it over. The conversation's one-line
+notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
+
+**Live progress is observed, never inferred.** Under the monitor, in the flow
+block, in the composer band and at the top of the timeline, Tars says what it
+observed about running work, from two sources only: the run Stave read (its
+stage, its recorded events) and the provider turn of the run's lead task,
+which the host relays for every workspace.
+
+- While the turn reports steps, its latest tool call in plain words and when
+  it was reported ("Running the tests · seen just now"). Only a reported step
+  counts: a turn adopted after a reload, or one that has not reported a step,
+  reads "Turn in progress · no step observed yet", never as live.
+- After the relayed turn finished, "No turn running right now"; when no turn
+  has reached this window yet (such as right after a restart), "No turn
+  activity observed yet". Both add the run's last update.
+- When nothing was observed for five minutes (`TARS_PROGRESS_STALE_MS`, the
+  provider stall threshold) or the provider marked the turn stalled, "Nothing
+  observed for 7m · progress may be out of date" in the warning ink, or, when
+  a last step is known, "Last step: Running the tests, 7m ago · progress may
+  be out of date".
+- Without a run read in this window, "No run observation yet"; work that is
+  not running never borrows a turn's words and is not called out of date for
+  being quiet.
+
+**Recent progress** lists the run's latest recorded changes, newest first, in
+plain sentences with their age: stages starting turns, reporting, completing,
+retrying, blocking, waits on you, pauses and resumes, the run ending. Repeated
+turns of one stage fold into the newest; bookkeeping rows are left out. A card
+lists three, the timeline eight.
 
 When the Tars view opens again after you were away (it was closed or the
 window was hidden), a **While you were away** summary leads the tray: counts
@@ -540,10 +586,14 @@ recorded in the conversation.
   lines in the diff and choose **Ask about this** to put the file, the line
   range and the lines into the message box as a quote. Nothing is sent until
   you send it.
-- **Timeline**: the run's stages with their attempts and what each produced,
-  the run's own decisions (routes, waits, retries, account switches), the
-  hand-offs and controls recorded in Tars, and the commands and tool calls,
-  folded.
+- **Timeline**: **Now** first (the state tag, the stage the active run is on,
+  what Stave observed and how current it is, and up to eight recent changes),
+  then the run's stages with their attempts and what each produced (the
+  current stage's time keeps counting while the run is active), the run's own
+  decisions (routes, waits, retries, account switches), the hand-offs and
+  controls recorded in Tars, and the commands and tool calls, folded. Without
+  a run it says whether the run has not started yet, the work ended before one
+  started, or the run is not loaded in this window.
 - **Review**: the reviewer stage's verdict, findings with their reasons and
   cited evidence, on the revision it reviewed.
 

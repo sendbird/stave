@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Ellipsis, Workflow } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
@@ -23,6 +23,7 @@ import type { TarsActivityNotice, TarsFlow, TarsFlowStage } from "@/lib/tars/flo
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { tarsStyles } from "./tars.styles";
+import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
 
 const STAGE_TONE: Record<StageStatus, BadgeTone> = {
@@ -166,11 +167,13 @@ export function TarsFlowNodes({ flow, agentNameOf, onShowInFleet, onOpenSide }: 
 /**
  * A delegated responsibility's flow under the Tars message that started it.
  * Folded to one line by default; it updates in place from the snapshot and the
- * run, so live progress never adds transcript rows.
+ * run, so live progress never adds transcript rows. The summary wears the
+ * state's mark (moving only while the work runs), and `live`, the work's live
+ * line, stays visible under it while folded.
  */
-export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, defaultOpen = false }: {
+export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, defaultOpen = false, live }: {
   flow: TarsFlow; agentNameOf?: (agentId: string) => string | undefined; onShowInFleet?: (target: FleetFocusTarget) => void;
-  onOpenSide?: (target: TarsSideViewTarget) => void; defaultOpen?: boolean;
+  onOpenSide?: (target: TarsSideViewTarget) => void; defaultOpen?: boolean; live?: ReactNode;
 }) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(defaultOpen);
@@ -181,9 +184,11 @@ export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, de
       <InlineDisclosureIcon open={open}><Workflow size={controlIconSizes.md} /></InlineDisclosureIcon>
       <span className={sx(styles.summary)}>
         <span className={sx(styles.summaryTitle)}>{flow.title}</span>
-        <span className={sx(styles.summaryState)} data-tars-flow-summary="">{describeTarsFlowSummary(flow)}</span>
+        <span className={sx(styles.summaryState)} data-tars-flow-summary="" data-tars-flow-state={flow.state ?? undefined}>
+          {flow.state ? <TarsWorkMark state={flow.state} /> : null}{describeTarsFlowSummary(flow)}</span>
       </span>
     </CollapsibleTrigger>
+    {live ? <div className={sx(styles.live)} data-tars-flow-live="">{live}</div> : null}
     <CollapsiblePanel className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
       <div className={cx(sx(inlineDisclosure.body), "atelier-motion-panel-inner")}>
         <TarsFlowNodes flow={flow} agentNameOf={agentNameOf} onShowInFleet={onShowInFleet} onOpenSide={onOpenSide} />
@@ -192,13 +197,17 @@ export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, de
   </CollapsibleRoot>;
 }
 
-/** Completion, a block that needs you, or an unasked end: one line, never a live progress row. */
+/**
+ * Completion, a block, or an unasked end: one line, never a live progress row.
+ * It says the state in the same word and mark as the state tag, so a block is
+ * never read as plain "needs you" and a completion never as a stop.
+ */
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
   return <p className={sx(styles.notice)} data-tars-activity={notice.kind}>
     <span aria-hidden="true" className={sx(tarsStyles.glyph)}>↳</span>
-    <span>{t(`shell:tars.flow.notice.${notice.kind}`)}</span>
+    <span className={sx(styles.noticeState)}><TarsWorkMark state={notice.kind} />{t(`shell:tars.states.${notice.kind}`)}</span>
     <span className={sx(styles.noticeTitle)}>{notice.activity.title}</span>
     {detail ? <span>{detail}</span> : null}
   </p>;
