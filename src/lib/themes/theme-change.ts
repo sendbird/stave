@@ -11,6 +11,18 @@
  * Listeners may be called more than once per change; coalesce the repaint.
  */
 
+/**
+ * Whether the document is painted dark: the root `.dark` class that selects
+ * the light or dark token set. The store's `isDarkMode` flag can disagree
+ * (previews and custom themes set the class directly), so surfaces that pick
+ * colors in script read this instead. `fallback` applies without a document.
+ */
+export function isDarkDocument(fallback: boolean): boolean {
+  return typeof document === "undefined"
+    ? fallback
+    : document.documentElement.classList.contains("dark");
+}
+
 const listeners = new Set<() => void>();
 let stop: (() => void) | null = null;
 

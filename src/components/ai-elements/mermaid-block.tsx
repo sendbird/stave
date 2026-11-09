@@ -4,6 +4,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
+import { isDarkDocument } from "@/lib/themes/theme-change";
 import { useAppStore } from "@/store/app.store";
 import { sanitizeMermaidSvg } from "./mermaid-sanitize";
 
@@ -18,13 +19,6 @@ let mermaidModule: Promise<typeof import("mermaid")["default"]> | null = null;
 function loadMermaid() {
   mermaidModule ??= import("mermaid").then((module) => module.default);
   return mermaidModule;
-}
-
-/** The theme actually applied: custom themes and previews set the root class. */
-function isDarkDocument(fallback: boolean) {
-  return typeof document === "undefined"
-    ? fallback
-    : document.documentElement.classList.contains("dark");
 }
 
 async function drawDiagram(args: { id: string; code: string; dark: boolean }): Promise<string | null> {
