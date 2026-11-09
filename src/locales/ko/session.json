@@ -1364,7 +1364,6 @@
   "subagentCard": {
     "viewResult": "결과 보기",
     "collapseResult": "결과 접기",
-    "reportedHistory": "보고된 작업 이력",
-    "returnedNote": "하위 작업이 반환한 결과"
+    "reportedHistory": "보고된 작업 이력"
   }
 }

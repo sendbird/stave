@@ -1433,7 +1433,6 @@
   "subagentCard": {
     "viewResult": "View result",
     "collapseResult": "Collapse result",
-    "reportedHistory": "Reported work history",
-    "returnedNote": "Result returned by the subagent"
+    "reportedHistory": "Reported work history"
   }
 }

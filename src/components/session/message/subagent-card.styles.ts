@@ -1,28 +1,37 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 
-/** Transcript-owned composition; shared controls keep their AUI contracts. */
+/**
+ * Transcript-owned composition around AUI `RunMonitor`; the monitor keeps its
+ * own card and recap contracts.
+ */
 export const subagentCardStyles = stylex.create({
-  tray: { backgroundColor: vars["--aui-color-canvas-subtle"], borderRadius: vars["--aui-radius-frame"], padding: vars["--aui-space-4"], width: "100%", maxWidth: "24rem", minWidth: 0, boxSizing: "border-box" },
-  face: { backgroundColor: vars["--aui-color-surface"], border: `1px solid ${vars["--aui-color-border"]}`, borderRadius: vars["--aui-radius-panel"], minWidth: 0 },
-  trigger: { display: "flex", flexDirection: "column", alignItems: "stretch", width: "100%", minWidth: 0, textAlign: "start", padding: vars["--aui-space-12"], gap: vars["--aui-space-12"], color: vars["--aui-color-text"] },
-  head: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, flexWrap: "wrap" },
-  iconSlot: { display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, width: vars["--aui-space-32"], height: vars["--aui-space-32"], border: `1px solid ${vars["--aui-color-border"]}`, borderRadius: vars["--aui-radius-control"], color: vars["--aui-color-text-muted"] },
-  icon: { width: "1rem", height: "1rem", flexShrink: 0 },
-  identity: { display: "flex", flexDirection: "column", flex: "1 1 8rem", gap: vars["--aui-space-4"], minWidth: 0, overflow: "hidden" },
-  title: { fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-semibold"], lineHeight: vars["--aui-line-height-normal"], overflowWrap: "anywhere" },
-  meta: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], flexWrap: "wrap", minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
-  preview: { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", overflowWrap: "anywhere", fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-regular"], lineHeight: vars["--aui-line-height-relaxed"] },
-  foot: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flexWrap: "wrap", fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"], fontWeight: vars["--aui-font-weight-regular"] },
-  duration: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], fontVariantNumeric: "tabular-nums" },
-  disclosure: { marginInlineStart: "auto", display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text"] },
-  liveBody: { paddingInline: vars["--aui-space-12"], paddingBlockEnd: vars["--aui-space-8"], display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
-  well: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], padding: vars["--aui-space-12"], backgroundColor: vars["--aui-color-canvas-subtle"], borderRadius: vars["--aui-radius-control"], minWidth: 0, fontSize: vars["--aui-font-size-caption"] },
-  current: { minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  history: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
-  historyItem: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-8"], minWidth: 0 },
+  // Subagents sit side by side and wrap into rows; each card keeps the
+  // monitor's 360px class and never drops under the narrowest column.
+  list: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 18rem), 1fr))",
+    gap: vars["--aui-space-8"],
+    minWidth: 0,
+  },
+  item: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  // The full exchange needs the reading column's width, so an open card takes the whole row.
+  itemExpanded: { gridColumn: "1 / -1" },
+  // Cards in one row share its height; their content stays at the top. Stave's
+  // exchange rhythm: 12px between head, now well, body and footer, and a 12px
+  // floor under the footer, where the AUI card packs 8px.
+  monitor: { flex: "1 1 auto", alignContent: "start", gap: vars["--aui-space-12"], paddingBlockEnd: vars["--aui-space-12"] },
+  // As in the exchange row: the identity sits a step under the title, and the
+  // routed model keeps 8px from the identity it qualifies.
+  meta: { display: "flex", alignItems: "center", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], flexWrap: "wrap", minWidth: 0, marginBlockStart: vars["--aui-space-4"] },
+  trailing: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
+  summary: { margin: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-relaxed"], display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden", overflowWrap: "anywhere" },
+  tileIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
+  chevron: { width: vars["--aui-control-icon-size-xs"], height: vars["--aui-control-icon-size-xs"] },
+  icon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0, marginBlockStart: vars["--aui-space-2"] },
+  history: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"] },
+  historyItem: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-8"], minWidth: 0, paddingInline: vars["--aui-space-8"] },
   historyText: { minWidth: 0, overflowWrap: "anywhere" },
-  detail: { borderTop: `1px solid ${vars["--aui-color-border"]}`, padding: vars["--aui-space-12"], minWidth: 0 },
-  actions: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"], paddingBlock: vars["--aui-space-4"] },
-  note: { fontSize: vars["--aui-font-size-micro"], color: vars["--aui-color-text-muted"], textAlign: "center", paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-8"], margin: 0 },
+  detail: { backgroundColor: vars["--aui-color-surface"], border: `${vars["--aui-border-width-hairline"]} solid ${vars["--aui-color-border"]}`, borderRadius: vars["--aui-radius-panel"], padding: vars["--aui-space-12"], minWidth: 0 },
+  note: { fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"], paddingInline: vars["--aui-space-8"], margin: 0 },
 });
