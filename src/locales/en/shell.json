@@ -1567,7 +1567,6 @@
       "publish": "Publish {{title}} as a draft pull request",
       "workingChanges": {
         "toggle": "Include my working changes",
-        "short": "Working changes",
         "hint": "Start this message’s work from uncommitted changes, including new files. Ignored files stay out. Resets after sending.",
         "badge": "Includes working changes"
       },

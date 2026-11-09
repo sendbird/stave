@@ -7,8 +7,7 @@ export const tarsStyles = stylex.create({
   root: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, minWidth: 0, color: vars["--aui-color-text"], backgroundColor: vars["--aui-color-canvas"], fontSize: vars["--aui-font-size-body"], lineHeight: vars["--aui-line-height-prose"] },
   workspace: { display: "flex", minHeight: 0, minWidth: 0, flex: 1, overflow: "hidden" },
   chat: { display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0, flex: 1 },
-  /** A size container, so the composer's controls follow its own width, not the window's (the tray and side view take room). */
-  composer: { containerType: "inline-size", containerName: "tars-composer", flexShrink: 0, width: "100%", marginInline: "auto", maxWidth: { default: `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * ${vars["--aui-space-12"]})`, "@media (min-width: 640px)": `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * ${vars["--aui-space-20"]})` }, paddingInline: { default: vars["--aui-space-12"], "@media (min-width: 640px)": vars["--aui-space-20"] }, paddingBlock: vars["--aui-space-12"] },
+  composer: { flexShrink: 0, width: "100%", marginInline: "auto", maxWidth: { default: `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * ${vars["--aui-space-12"]})`, "@media (min-width: 640px)": `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * ${vars["--aui-space-20"]})` }, paddingInline: { default: vars["--aui-space-12"], "@media (min-width: 640px)": vars["--aui-space-20"] }, paddingBlock: vars["--aui-space-12"] },
   settingsBody: { display: "flex", flexDirection: "column", minHeight: 0, overflowY: "auto", gap: vars["--aui-space-16"], padding: vars["--aui-space-16"] },
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0 },
   exchange: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], paddingBlock: vars["--aui-space-12"], minWidth: 0 },
@@ -23,10 +22,11 @@ export const tarsStyles = stylex.create({
   userBubble: { minWidth: 0, width: "fit-content", maxWidth: "88%" },
   /** The time and state of the user's message follow its bubble on the trailing side. */
   metaUser: { justifyContent: "flex-end" },
-  workingChangesToggle: { minWidth: 0 },
-  /** Icon-only once the composer is narrow; the accessible name is unchanged. */
-  workingChangesLabel: { display: { default: "inline", "@container tars-composer (max-width: 28rem)": "none" }, whiteSpace: "nowrap" },
-  toggleIcon: { width: "1em", height: "1em" },
+  /** The working-changes toggle's glyph, the size of the composer's other control icons. */
+  toggleIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
+  /** An icon-only control's tooltip: its name first, then one line on what it does. */
+  tooltipBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0 },
+  tooltipHint: { fontWeight: vars["--aui-font-weight-regular"] },
   text: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], overflowWrap: "anywhere" },
   field: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, fontSize: vars["--aui-font-size-body"] },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"] },

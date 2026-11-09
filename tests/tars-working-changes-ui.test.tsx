@@ -43,13 +43,17 @@ describe("include my working changes", () => {
     const toggle = html.indexOf("data-tars-working-changes-toggle");
     expect(toggle).toBeGreaterThan(-1);
     expect(html).toContain("Include my working changes");
-    // A design-system toggle button, not pressed until the user turns it on; its name is the full choice, its visible label short.
+    // A design-system toggle button, not pressed until the user turns it on. It is icon-only: its one text is the
+    // full choice, hidden visually, so the accessible name comes from that content (no aria-label to drift from it).
     const tag = html.slice(html.lastIndexOf("<", toggle), html.indexOf(">", toggle));
     expect(tag).toStartWith("<button");
     expect(tag).toContain('aria-pressed="false"');
-    expect(tag).toContain('aria-label="Include my working changes"');
+    expect(tag).not.toContain("aria-label=");
     expect(tag).toMatch(/aria-describedby="[^"]+"/);
-    expect(html).toContain(">Working changes<");
+    const button = html.slice(html.lastIndexOf("<", toggle), html.indexOf("</button>", toggle));
+    expect(button).toContain(">Include my working changes<");
+    expect(button).toContain("<svg");
+    expect(html).not.toContain(">Working changes<");
     // It sits in the composer's action row, just before Send.
     const send = html.indexOf('aria-label="Send"', toggle);
     expect(send).toBeGreaterThan(toggle);

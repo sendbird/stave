@@ -35,10 +35,9 @@ across workspaces, tasks and restarts.
    Stave keeps only git-safe characters and adds a short suffix, for example
    `fix/billing-export-empty-3fa9c1`, so the new workspace never reuses a
    branch or workspace you already have. Uncommitted changes in your
-   workspace are not part of it unless you turn on **Working changes**
-   (named **Include my working changes** for screen readers) next to
-   **Send** for that message: then, when the work is
-   admitted, Stave snapshots the target workspace's working tree (modified,
+   workspace are not part of it unless you turn on **Include my working
+   changes**, the icon button next to **Send**, for that message: then, when
+   the work is admitted, Stave snapshots the target workspace's working tree (modified,
    staged and new files, and deletions; files your `.gitignore` ignores stay
    out) as a commit on top of its current commit, without changing your files
    or staging, and the new workspace starts from that commit. A tree without
@@ -420,8 +419,9 @@ as wide as their words, with their time and state under them. Tars's replies
 start on the left under its name and mark. Prose keeps a readable line length;
 code blocks and tables may use a wider measure when the window has room, and a
 long code line scrolls sideways inside its block instead of widening the view.
-When the message box is narrow, **Working changes** shows only its icon; its
-name and tooltip stay the same.
+**Include my working changes** is an icon button at every width, like
+**Attach files** and **Send**; hover or focus it to see its name and what it
+does. It looks pressed while it is on.
 
 Messages, answers and action outcomes survive restart. If sending loses its
 response, retry the unchanged draft to recover the same message. An

@@ -186,22 +186,24 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
 }
 
 /**
- * The composer's one per-message choice. Its visible label is short and drops
- * to the icon when the composer is narrow; its accessible name stays the full
- * choice, and what it does is its description and tooltip.
+ * The composer's one per-message choice, icon-only at every width like the
+ * composer's other controls. Its accessible name is the full choice (the
+ * Toggle's hidden label), the tooltip leads with that same name, and what it
+ * does is the tooltip's second line and the control's description.
  */
 function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pressed: boolean; disabled: boolean; onPressedChange: (pressed: boolean) => void }) {
   const { t } = useTranslation(["shell"]);
   const hintId = useId();
+  const label = t("shell:tars.conversation.workingChanges.toggle");
+  const hint = t("shell:tars.conversation.workingChanges.hint");
   return <>
-    <Tooltip content={t("shell:tars.conversation.workingChanges.hint")}>
-      <Toggle size="xs" pressed={pressed} disabled={disabled} onPressedChange={(next) => onPressedChange(next)}
-        icon={<FileDiff aria-hidden="true" className={sx(styles.toggleIcon)} />} aria-label={t("shell:tars.conversation.workingChanges.toggle")}
-        aria-describedby={hintId} data-tars-working-changes-toggle="" xstyle={styles.workingChangesToggle}>
-        <span className={sx(styles.workingChangesLabel)} data-tars-working-changes-label="">{t("shell:tars.conversation.workingChanges.short")}</span>
+    <Tooltip content={<span className={sx(styles.tooltipBody)}><span>{label}</span><span className={sx(styles.tooltipHint)}>{hint}</span></span>}>
+      <Toggle size="sm" iconOnly pressed={pressed} disabled={disabled} onPressedChange={(next) => onPressedChange(next)}
+        icon={<FileDiff aria-hidden="true" className={sx(styles.toggleIcon)} />} aria-describedby={hintId} data-tars-working-changes-toggle="">
+        {label}
       </Toggle>
     </Tooltip>
-    <VisuallyHidden id={hintId}>{t("shell:tars.conversation.workingChanges.hint")}</VisuallyHidden>
+    <VisuallyHidden id={hintId}>{hint}</VisuallyHidden>
   </>;
 }
 

@@ -195,6 +195,9 @@ test("include my working changes is off by default, travels with one message and
   await expect(toggle).toBeFocused();
   await page.keyboard.press("Space");
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // Then Attach files, then Send: the composer's controls keep their order.
+  await page.keyboard.press("Tab");
+  await expect(composer(page).getByRole("button", { name: "Attach files", exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(composer(page).getByRole("button", { name: "Send", exact: true })).toBeFocused();
   await send(page, "Fix the export on top of my edits");
@@ -327,16 +330,22 @@ for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
       expect(geometry.table[1] - geometry.table[0]).toBeGreaterThan(geometry.reply[1] - geometry.reply[0]);
       expect(Math.abs((geometry.table[0] + geometry.table[1]) / 2 - (geometry.reply[0] + geometry.reply[1]) / 2)).toBeLessThanOrEqual(1);
     }
-    // The composer's one choice keeps its full name; narrow, it shows only its icon.
-    const toggle = composer(page).getByRole("button", { name: lang === "ko" ? "작업 중인 변경 포함" : "Include my working changes", exact: true });
+    // The composer's one choice is icon-only at every width, like Attach and Send: its full name is its accessible name,
+    // and the tooltip leads with that same name, then what it does.
+    const name = lang === "ko" ? "작업 중인 변경 포함" : "Include my working changes";
+    const toggle = composer(page).getByRole("button", { name, exact: true });
     await expect(toggle).toBeVisible();
-    const label = toggle.locator("[data-tars-working-changes-label]");
-    await expect(label).toHaveText(lang === "ko" ? "작업 중인 변경" : "Working changes");
-    if (width < 640) await expect(label).toBeHidden(); else await expect(label).toBeVisible();
+    await expect(toggle).toHaveAccessibleDescription(lang === "ko" ? /커밋하지 않은 변경/ : /uncommitted changes/);
     const toggleBox = await toggle.boundingBox();
     const sendBox = await composer(page).getByRole("button", { name: lang === "ko" ? "보내기" : "Send", exact: true }).boundingBox();
+    expect(Math.abs(toggleBox!.width - toggleBox!.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(toggleBox!.height - sendBox!.height)).toBeLessThanOrEqual(1);
+    expect(await toggle.evaluate((node) => [...node.querySelectorAll("span")].some((span) => span.textContent && span.getBoundingClientRect().width > 1))).toBe(false);
     expect(toggleBox!.x + toggleBox!.width).toBeLessThanOrEqual(sendBox!.x);
     expect(Math.abs((toggleBox!.y + toggleBox!.height / 2) - (sendBox!.y + sendBox!.height / 2))).toBeLessThanOrEqual(1);
+    await toggle.hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    expect((await page.getByRole("tooltip").innerText()).trim().startsWith(name)).toBe(true);
   });
 }
 
