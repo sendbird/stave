@@ -165,6 +165,7 @@ export function getDelegatedTaskCoordinator() {
           permissionProfile: args.permissionProfile, ...(agentPermission ? { permissionCeiling: agentPermission } : {}),
           ...(args.access ? { access: args.access } : {}),
           ...(args.requestedProfile ? { requestedProfile: args.requestedProfile } : {}),
+          ...(args.agentConfigId ? { agentConfigId: args.agentConfigId } : {}),
         } }) as Promise<import("../../../src/lib/runs/delegation-policy").DelegationPermissionPolicy>;
       },
       resolveParentDefaults: (args) =>

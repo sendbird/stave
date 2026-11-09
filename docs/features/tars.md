@@ -41,7 +41,9 @@ across workspaces, tasks and restarts.
    execution lead. A named agent does the work stage; otherwise the lead
    chooses its own helpers from the built-in agents.
 6. **Review and verify.** The run works, hands the result to an independent
-   read-only Reviewer, then resolves findings and verifies. The agent's own
+   read-only Reviewer, then resolves findings and verifies. The Reviewer may
+   run the repository's own test, lint and typecheck scripts (taken from its
+   `package.json`) to check the evidence itself; it still cannot write files. The agent's own
    claim is not enough: Tars completes the work only when the final stage has
    a check Stave saw pass on the current revision, or a stage has a passed
    independent review. Otherwise it asks you whether to accept it.
