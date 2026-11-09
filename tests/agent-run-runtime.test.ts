@@ -277,6 +277,38 @@ async function startedAgentRun(
   return detail.agentRun.id;
 }
 
+test("a report that paraphrases a required criterion is refused in the turn instead of halting the run", async () => {
+  // A Tars Work stage reported every criterion met but rewrote each text with its evidence, so none matched and the run halted.
+  const readable = "Tars text keeps a readable size and hierarchy without clipping.";
+  const focus = "The composer focus ring is not clipped.";
+  const h = createHarness();
+  const id = await startedAgentRun(h, startInput({ workflow: workflow([{ ...DRAFT, acceptanceCriteria: [{ text: readable }, { text: focus }] }, POLISH]) }));
+  const paraphrased = { ...COMPLETE, acceptanceCriteria: [
+    { text: "Readable size: AUI tokens, wide/narrow regressions pass.", status: "met" as const },
+    { text: focus, status: "met" as const },
+  ] };
+  const refusal = h.runtime.reportStage({ agentRunKey: "key-turn-1", report: paraphrased });
+  await expect(refusal).rejects.toThrow(JSON.stringify(readable));
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: paraphrased })).rejects.not.toThrow(JSON.stringify(focus));
+  expect(h.current(id).report).toBeNull();
+  // The tool error reaches the model, which restates the criterion verbatim in the same turn.
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...paraphrased, acceptanceCriteria: [{ text: readable, status: "met" }, { text: focus, status: "met" }] } });
+  h.endTurn("turn-1");
+  await h.tick();
+  expect(h.aggregate(id).agentRun.state).toBe("running");
+  expect(h.current(id).stageId).toBe("polish");
+});
+
+test("an honest unverified criterion is still recorded and halts with what the report said", async () => {
+  const readable = "Tars text keeps a readable size and hierarchy without clipping.";
+  const h = createHarness();
+  const id = await startedAgentRun(h, startInput({ workflow: workflow([{ ...DRAFT, acceptanceCriteria: [{ text: readable }] }, POLISH]) }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: readable, status: "unverified" }] } });
+  h.endTurn("turn-1");
+  await h.tick();
+  expect(h.current(id)).toMatchObject({ stageId: "draft", status: "blocked", blockReason: "acceptance-unmet", detail: `The stage report marked this criterion unverified: ${readable}` });
+});
+
 test.each([false, true])("independent review completion captures revision and skips empty repair only for unchanged work (edited: %s)", async (edited) => {
   let revision = "reviewed";
   const h = createHarness({ extra: { readWorkspaceRevision: async () => ({ status: "known", revision }) } });

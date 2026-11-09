@@ -61,7 +61,7 @@ export function registerAgentRunTools(
     AGENT_RUN_TOOL_NAMES.report,
     {
       description:
-        "Report the current run stage as done before this turn ends. Give a short summary, the decisions you made and why, the evidence you gathered, links to artifacts, and the status of each acceptance criterion. Cite the command you ran or the tool call id for evidence: Stave marks evidence verified only when it saw that call succeed in this stage's turns. Never report unverified work as complete. Stave knows which stage this turn belongs to; do not pass ids.",
+        "Report the current run stage as done before this turn ends. Give a short summary, the decisions you made and why, the evidence you gathered, links to artifacts, and the status of each acceptance criterion, its `text` copied unchanged from the criterion (evidence goes in `evidence`): a report that does not name a required criterion by its exact text is refused with the missing texts. Cite the command you ran or the tool call id for evidence: Stave marks evidence verified only when it saw that call succeed in this stage's turns. Never report unverified work as complete. Stave knows which stage this turn belongs to; do not pass ids.",
       inputSchema: StageCompleteReportInputSchema.shape,
     },
     async (report) =>

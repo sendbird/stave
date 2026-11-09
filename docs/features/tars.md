@@ -692,7 +692,11 @@ ask:
   the run delegated to counts the same way when its stage asks you, since the
   run waits for that helper. Tars shows the work as waiting for you and follows
   up at once, not after the quiet hour, and the tray's **Needs you** counts the
-  helper's row that Fleet shows,
+  helper's row that Fleet shows. When the stage blocked on an acceptance
+  criterion, the reason Tars reads says whether the stage report marked it
+  **Not met** or **Not verified**; a report that left a required criterion out
+  or reworded it is refused while the run's turn is still going, so it does
+  not reach you,
 - its run reported completion Stave could not verify,
 - it ended with required criteria unmet or a verification older than a hand-back,
 - it waited an hour without any change (a turn the run took counts as a

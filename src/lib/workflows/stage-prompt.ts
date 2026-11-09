@@ -39,6 +39,7 @@ export interface StagePromptInput {
 const REPORTING_CONTRACT = [
   "Before you end this turn, call `stave_report_stage` with a short summary, the decisions you made and why, the evidence you gathered, and the status of each acceptance criterion. If you cannot finish this stage, call `stave_block_stage` instead and name exactly what is missing.",
   "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran. Provider results may lack an exit code or a workspace revision; only a successful Stave script check of unchanged work supplies current verification.",
+  "Stave matches each reported criterion to its stage criterion by exact text: copy every criterion's text below into `text` unchanged, and put evidence and caveats in `evidence`, never in `text`.",
   "Required criteria must be met to fulfill the assignment. Label additional, optional checks with required: false and their actual status; do not downgrade user requirements or stage requirements to optional.",
   "Do only this stage. Stave starts the next stage after your report, so do not begin later stages in this turn.",
 ].join("\n\n");

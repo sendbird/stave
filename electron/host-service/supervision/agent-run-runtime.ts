@@ -1,5 +1,5 @@
 import { i18n } from "../../../src/i18n/runtime";
-import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks } from "../../../src/lib/agent-runs/acceptance";
+import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
 import { mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
 import type { RunQuestionAnswer } from "../run-question-answer";
 import { admitWorkspaceCheck } from "./workspace-check-admission";
@@ -451,6 +451,15 @@ export interface AgentRunRuntime {
 
 function refuse(message: string): never {
   throw new AgentRunCommandError("refused", message);
+}
+
+/** Model-facing: what a refused report must restate, each criterion verbatim. */
+export function describeUnreportedCriteria(texts: string[]): string {
+  return [
+    "Not recorded: acceptanceCriteria must name every required criterion by its exact text, and these are missing:",
+    ...texts.map((text) => `- ${JSON.stringify(text)}`),
+    "Copy each text above into `text` unchanged, give its real status (met, unmet or unverified) and put evidence and caveats in `evidence`, not in `text`. Then call stave_report_stage again, or stave_block_stage if you cannot finish.",
+  ].join("\n").slice(0, 8_000);
 }
 
 function stageKey(record: Pick<AgentRunStageRecord, "agentRunId" | "stageId" | "attempt">) {
@@ -2544,6 +2553,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const input = StageCompleteReportInputSchema.parse(report);
         const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
         if (stage.kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
+        // Stave matches criteria only by exact text. A paraphrase would record a
+        // report that halts the run for its user, so it is refused here while the
+        // agent can still restate it in this turn.
+        const record = currentStageRecord(aggregate);
+        if (record.stageId === grant.stageId && record.attempt === grant.attempt) {
+          const unreported = unreportedStageCriteria(aggregate, record, input);
+          if (unreported.length) refuse(describeUnreportedCriteria(unreported));
+        }
         // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
         const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
         const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
