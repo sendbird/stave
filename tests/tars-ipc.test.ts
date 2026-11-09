@@ -46,7 +46,7 @@ test("conversation IPC rejects invented authority, action bodies, invalid cancel
     }) }));
     const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
     const input = { requestId: "send", text: "Repair search" };
-    const settings = { providerId: "codex", model: "chosen", maxTurns: 30, runtimeHints: { codexAccountProfileId: "system-default", codexReasoningEffort: "high" } };
+    const settings = { providerId: "codex", model: "chosen", maxTurns: 30, maxConcurrentResponsibilities: 48, runtimeHints: { codexAccountProfileId: "system-default", codexReasoningEffort: "high" } };
     await handlers.get("tars:configure-conversation")(null, settings);
     const execution = { ...settings, executionModel: { providerId: "claude-code", model: "claude-sonnet-5-5" }, allowedAgentIds: ["release-notes"] };
     await handlers.get("tars:configure-conversation")(null, execution);
@@ -88,8 +88,8 @@ test("conversation IPC rejects invented authority, action bodies, invalid cancel
   const output = JSON.parse(result.stdout.toString());
   expect(output.denied).toBe(24);
   expect(output.calls).toEqual([
-    ["configure", { providerId: "codex", model: "chosen", maxTurns: 30, runtimeHints: { codexAccountProfileId: "system-default", codexReasoningEffort: "high" } }],
-    ["configure", { providerId: "codex", model: "chosen", maxTurns: 30, runtimeHints: { codexAccountProfileId: "system-default", codexReasoningEffort: "high" },
+    ["configure", { providerId: "codex", model: "chosen", maxTurns: 30, maxConcurrentResponsibilities: 48, runtimeHints: { codexAccountProfileId: "system-default", codexReasoningEffort: "high" } }],
+    ["configure", { providerId: "codex", model: "chosen", maxTurns: 30, maxConcurrentResponsibilities: 48, runtimeHints: { codexAccountProfileId: "system-default", codexReasoningEffort: "high" },
       executionModel: { providerId: "claude-code", model: "claude-sonnet-5-5" }, allowedAgentIds: ["release-notes"] }],
     ["send", { requestId: "send", text: "Repair search" }],
     ["list", { limit: 100, activityLimit: 100 }], ["cancel", { messageId: "stored", expectedRevision: 2 }],

@@ -639,10 +639,20 @@ include it. **Cancel message** stops unfinished
 reasoning; it does not undo admitted work. Interrupted reasoning requires a
 new message and is not run again automatically.
 
-Higher numeric priorities start first, with oldest first on a tie. A waiting
-responsibility lets independent queued work begin; admitted runs may resume
-concurrently. Use **Settings** to guide newly admitted
-work without changing an existing run or granting permissions.
+Higher numeric priorities start first, with oldest first on a tie. Independent
+responsibilities start concurrently, including work in separate worktrees of
+the same repository. Each is prepared on its own, but Stave starts, pauses and
+cancels their runs one at a time, so a slow start can delay another work's
+start or pause until it finishes. **Settings → Concurrent responsibilities** defaults to
+**0**, which adds no limit. Set a positive number to bound admissions; lowering
+it leaves existing runs running. **Start now** explicitly bypasses this admission
+limit for the selected queued work. Waiting work yields its slot and admitted runs
+may resume when their constraints clear. This setting is separate from the turn
+budget. Queued cards show the observed active count and limit or a database
+lock being retried. If the cause has not been observed, they say it has not
+been confirmed. Provider/account limits and task ownership still apply.
+Other execution preferences guide newly admitted work without changing an
+existing run or granting permissions.
 
 Tars also follows up by itself when work needs judgment: it became blocked,
 its run or one of its helpers stopped to ask you for a decision (followed up

@@ -63,7 +63,7 @@ export type TarsState = z.infer<typeof TarsStateSchema>;
 /**
  * The controls a click, Fleet, a task or an admitted model proposal can apply.
  * - `acceptCompletion`: the user accepts work whose completion Stave could not verify.
- * - `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot.
+ * - `startNow`: the user starts queued work at once, ahead of the queue and outside any configured admission limit.
  * - `extend`, `retryStage`, `skipStage`, `signOff`: what the user can do to the
  *   run in its task (add turns at its turn limit, ask a blocked or stuck stage
  *   again, skip the current stage, approve a stage waiting for sign-off).
@@ -280,6 +280,14 @@ export const AdmittedTarsResponsibilityInputSchema = CreateTarsResponsibilityInp
 }).strict();
 export type AdmittedTarsResponsibilityInput = z.input<typeof AdmittedTarsResponsibilityInputSchema>;
 
+/** Live scheduler evidence; projected on reads, never persisted as a historical blocker. */
+export const TarsQueueWaitSchema = z.discriminatedUnion("code", [
+  z.object({ code: z.literal("capacity"), active: z.number().int().min(0), limit: z.number().int().min(1) }).strict(),
+  z.object({ code: z.literal("storageBusy") }).strict(),
+  z.object({ code: z.literal("unknown") }).strict(),
+]);
+export type TarsQueueWait = z.infer<typeof TarsQueueWaitSchema>;
+
 export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.extend({
   id: IdSchema,
   /** The execution model pin; null runs the work on automatic routing. */
@@ -291,11 +299,14 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   maxTurns: z.number().int().min(1).max(100),
   revision: z.number().int().min(1),
   state: TarsStateSchema,
+  queueWait: TarsQueueWaitSchema.optional(),
   detail: z.string().max(2_000).nullable(),
   ...DetailCodeFields,
   taskId: IdSchema.nullable(),
   executionWorkspaceId: IdSchema.nullable(),
   agentRunId: IdSchema.nullable(),
+  /** A start may have committed without its acknowledgement; only a receipt read clears this reservation. */
+  executionPending: z.boolean().optional(),
   /** Set by a hand-back: completion needs a final verification started at or after this time. */
   reverifyAfter: z.iso.datetime().nullable(),
   /**
@@ -364,7 +375,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true, executionPending: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

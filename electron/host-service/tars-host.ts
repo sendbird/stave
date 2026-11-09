@@ -111,6 +111,8 @@ export function createHostTarsRuntime(args: {
   }
   return createTarsRuntime({
     store: persistence.tars,
+    onQueueChanged: () => args.emitChanged?.({ scope: "snapshot" }),
+    concurrencyLimit: () => persistence.tarsConversations.getSettings()?.maxConcurrentResponsibilities ?? 0,
     validateScope,
     async prepareWorkspace(row) {
       await validateScope(row);

@@ -1688,6 +1688,16 @@ export class SqliteStore {
     }).immediate();
   }
 
+  /** Host writers read and change the saved registry in one transaction, so no other writer's save lands in between. */
+  updateRepositoryRegistry<T>(update: (persisted: PersistenceRepositoryRegistryEntry[]) => { repositories: PersistenceRepositoryRegistryEntry[]; result: T }): T {
+    return this.db.transaction(() => {
+      const { repositories, result } = update(this.loadRepositoryRegistry());
+      this.db.prepare(`INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`).run("project_registry", JSON.stringify(repositories), new Date().toISOString());
+      return result;
+    }).immediate();
+  }
+
   loadAutomationState(): AutomationState {
     return this.automationState.loadState();
   }
