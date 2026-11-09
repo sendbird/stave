@@ -275,7 +275,9 @@ whose name repeats it.
     another agent does runs as a delegated task, never a stage provider override.
 17. A Local MCP call acts only for the task whose turn made it: the host's
     caller grant names that task, a `parentTaskId` naming another is refused,
-    a subagent never starts subagents of its own, and a turn started through
+    a subagent never starts subagents of its own (a turn the delegation started
+    or a turn of the agent run it supervises; a turn or run the user starts in
+    that task later is the user's), and a turn started through
     `stave_run_task` never runs with more autonomy than its caller.
 18. Writers never share a checkout: a writing subagent runs in its own
     worktree unless one is asked for explicitly, and then only while no other

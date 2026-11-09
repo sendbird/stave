@@ -225,7 +225,11 @@ export async function executeSecondaryProviderRun(
         executionPolicy: "secondary-read-only",
         providerId: request.input.providerId,
         prompt: request.input.prompt,
-        conversation: undefined,
+        conversation: request.input.attachments?.length ? {
+          target: { providerId: request.input.providerId, model: request.input.model }, mode: "chat", history: [],
+          input: { role: "user", content: request.input.prompt, parts: [{ type: "text", text: request.input.prompt }] },
+          contextParts: request.input.attachments,
+        } : undefined,
         cwd: request.input.cwd,
         runtimeOptions: buildSecondaryProviderRuntimeOptions({
           providerId: request.input.providerId,

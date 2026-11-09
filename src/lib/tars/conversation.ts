@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AttachmentContextsSchema } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
   TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema,
@@ -17,7 +18,7 @@ export const TARS_REPLY_MAX_CHARS = 8_000;
 export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
 
 /**
- * The global conversation accepts only the user's words, retry identity and
+ * The global conversation accepts the user's words, immutable attachment snapshots, retry identity and
  * one per-message choice: `includeWorkingChanges` starts the work this message
  * admits from the target workspace's uncommitted changes, which the host
  * snapshots at admission. Optional so earlier messages still parse; absent or
@@ -25,9 +26,10 @@ export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
  */
 export const TarsMessageInputSchema = z.object({
   requestId: IdSchema,
-  text: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS),
+  text: z.string().trim().max(TARS_MESSAGE_MAX_CHARS),
+  attachments: AttachmentContextsSchema.optional(),
   includeWorkingChanges: z.boolean().optional(),
-}).strict();
+}).strict().refine((message) => Boolean(message.text || message.attachments?.length));
 export type TarsMessageInput = z.infer<typeof TarsMessageInputSchema>;
 
 /** Tars executes only on these providers; the rest are explicitly unsupported. */
@@ -100,9 +102,11 @@ export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
  * workspace (which needs a separate request), it cannot take delegated work on
  * Claude or Codex, it conflicts with the pinned execution model, or it would
  * exceed the delegated permission ceiling; or the user's working changes,
- * which the message asked to include, could not be snapshotted.
+ * which the message asked to include, could not be snapshotted. Attachments
+ * without a written user mandate cannot authorize delegation.
  */
 export const TarsDelegateReasonSchema = z.enum([
+  "missingMandate",
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
   // The message asked to include the user's working changes, and the host could not snapshot them.
   "workingChangesUnavailable",
@@ -326,7 +330,7 @@ export const TarsMessageOriginSchema = z.discriminatedUnion("kind", [
 export type TarsMessageOrigin = z.infer<typeof TarsMessageOriginSchema>;
 
 export const TarsMessageStateSchema = z.enum(["queued", "reasoning", "answered", "failed", "cancelled"]);
-export const TarsMessageSchema = TarsMessageInputSchema.extend({
+export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
   ...TarsConversationSettingsSchema.shape,
   id: IdSchema,
   state: TarsMessageStateSchema,

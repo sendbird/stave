@@ -222,6 +222,18 @@ describe("supervised saved-Agent delegations", () => {
     expect(h.ledger.listReceipts({ runId: child.runId }).filter(r => r.type === "completed")).toHaveLength(1);
   });
 
+  test("every turn of the supervised run stays one level deep; a run the user starts in that task does not", async () => {
+    const h = harness(), child = await h.start();
+    const caller = { taskId: child.delegatedTaskId, workspaceId: "ws" };
+    // A later stage turn or reply of the delegated run: its id is not the recorded turn, its run is.
+    const fromRun = await h.coordinator.delegateFromTool({ prompt: "Go deeper.", access: "read-only" }, { ...caller, turnId: "reply-turn", agentRunId: child.agentRunId! });
+    expect(fromRun).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(fromRun.message).toContain("cannot start subagents");
+    const fromUserRun = await h.coordinator.delegateFromTool({ prompt: "Review it.", access: "read-only", wait: false, provider: "codex" }, { ...caller, turnId: "user-turn", agentRunId: "user-run" });
+    expect(fromUserRun).toMatchObject({ accepted: true, child: { parentTaskId: child.delegatedTaskId } });
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
+
   for (const provider of ["claude-code", "codex"] as const) test(`${provider} continuations and user replies retain admitted permissions and model`, async () => {
     const h = harness(provider), child = await h.start({ model: provider === "codex" ? "gpt-6-sol" : "sonnet", effort: "high" });
     h.end("turn-1"); await h.runtime.requestTick();

@@ -1,5 +1,6 @@
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { z } from "zod";
+import { AttachmentContextsSchema } from "../providers/attachment-context";
 import {
   RunIdSchema,
   RunOriginSchema,
@@ -46,6 +47,7 @@ export const SecondaryRunProviderInputSchema = z
     cwd: z.string().trim().min(1).max(4096),
     /** Restrict reasoning to the supplied context, with no file or MCP tools. */
     toolsDisabled: z.literal(true).optional(),
+    attachments: AttachmentContextsSchema.optional(),
     runtimeHints: SecondaryRunRuntimeHintsSchema.default({}),
   })
   .strict();
@@ -261,6 +263,7 @@ export function serializeSecondaryRunInput(value: SecondaryRunProviderInput) {
     model: input.model,
     prompt: input.prompt,
     cwd: input.cwd,
+    ...(input.attachments?.length ? { attachments: input.attachments } : {}),
     runtimeHints: input.runtimeHints,
     ...(input.toolsDisabled ? { toolsDisabled: true } : {}),
   });
