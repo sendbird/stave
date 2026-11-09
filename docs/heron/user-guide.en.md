@@ -612,7 +612,7 @@ command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Paused · Fleet"
 or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
 own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
-decision card with **Confirm**. Work you take over stays yours until you hand it back, and Tars
+decision card with **Confirm**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or it ended first. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
 saw a check pass on the current revision in the final stage, or its

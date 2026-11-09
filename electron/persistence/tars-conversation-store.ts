@@ -7,7 +7,7 @@ import {
   TarsReprioritizeInputSchema, type TarsReprioritizeInput,
   type TarsActionReceipt, type TarsActionRecord, type TarsActInput, type TarsDecision, type TarsDecisionAction,
   type TarsMessage, type TarsMessageInput, type TarsReceiptOutcome, type TarsDecisionAnswer, type TarsAnswerRefusal, type TarsMessageOrigin,
-  type TarsActionReason, TarsMessageViewSchema, type TarsMessageView, type TarsAttachmentSummary,
+  type TarsActionReason, TarsMessageViewSchema, type TarsMessageView, type TarsAttachmentSummary, type TarsMessageDelivery, type TarsMessageDeliveryStatus,
 } from "../../src/lib/tars/conversation";
 import {
   TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
@@ -510,20 +510,60 @@ export class TarsConversationStore {
     });
   }
 
-  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number } | { status: "rejected"; reason: TarsControlReason; error: string },
-    now: string): TarsActionRecord {
+  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number; delivery?: TarsMessageDelivery }
+    | { status: "rejected"; reason: TarsControlReason; error: string }, now: string): TarsActionRecord {
     const current = this.getAction(requestId);
     if (!current) throw new Error("The action record was not found.");
     if (current.status !== "pending") throw new Error("The action record has already settled.");
     const rejected = outcome.status === "rejected" ? outcome : null;
     const next = TarsActionRecordSchema.parse({ ...current, status: outcome.status, error: rejected?.error ?? null,
       reason: rejected?.reason ?? null, ...(outcome.status === "applied" && outcome.priority !== undefined ? { priority: outcome.priority } : {}),
+      ...(outcome.status === "applied" && outcome.delivery ? { delivery: outcome.delivery } : {}),
       revision: current.revision + 1, updatedAt: now });
     const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
       .run(next.revision, JSON.stringify(next), requestId, current.revision);
     if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
     this.changes.emit("conversation");
     return next;
+  }
+
+  /** Messages waiting for, or under, delivery to a busy task, oldest first: the delivery queue. */
+  listOpenDeliveries(limit = 32): TarsActionRecord[] {
+    this.requireLimit(limit);
+    return this.db.prepare(`SELECT body_json FROM tars_action_records
+      WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering') ORDER BY created_at, rowid LIMIT ?`)
+      .all(limit).map((row) => this.readRecord(row)!);
+  }
+
+  /**
+   * Moves one message's delivery on, only from the given statuses, in one
+   * immediate transaction: the delivery queue's compare-and-set. Returns the
+   * record, or null when its delivery was not in one of them (another pass or
+   * a control settled it first).
+   */
+  transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
+    next: { status: TarsMessageDeliveryStatus; userTurns?: number; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
+    return this.write(() => {
+      const current = this.getAction(requestId);
+      if (!current?.delivery || !from.includes(current.delivery.status)) return null;
+      const settledOtherwise = next.status === "failed" || next.status === "cancelled";
+      const delivery: TarsMessageDelivery = { ...current.delivery, status: next.status,
+        ...(next.userTurns !== undefined ? { userTurns: next.userTurns } : {}),
+        reason: settledOtherwise ? next.reason ?? "unknown" : null, error: settledOtherwise ? (next.error ?? "The message was not delivered.").slice(0, 2_000) : null, updatedAt: now };
+      const record = TarsActionRecordSchema.parse({ ...current, delivery, revision: current.revision + 1, updatedAt: now });
+      const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
+        .run(record.revision, JSON.stringify(record), requestId, current.revision);
+      if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
+      this.changes.emit("conversation");
+      return record;
+    });
+  }
+
+  /** Cancels every message still queued for one responsibility, as a control that takes the work away settles it. */
+  cancelQueuedDeliveries(responsibilityId: string, reason: TarsControlReason, error: string, now: string): number {
+    return this.write(() => this.listOpenDeliveries(1_000)
+      .filter((record) => record.action.responsibilityId === responsibilityId && record.delivery?.status === "queued")
+      .filter((record) => this.transitionDelivery(record.requestId, ["queued"], { status: "cancelled", reason, error }, now) !== null).length);
   }
 
   /**
@@ -549,13 +589,19 @@ export class TarsConversationStore {
     });
   }
 
-  /** Effect, record and any confirmed proposal settle together; a replayed applied record never runs its effect again. */
-  applyAction(requestId: string, apply: () => void, now: string, proposal?: TarsProposalRef): TarsActionRecord {
+  /**
+   * Effect, record and any confirmed proposal settle together; a replayed
+   * applied record never runs its effect again. `queue` names the run a
+   * message waits for when its task was busy: the record is applied with its
+   * words queued for delivery (`TarsMessageDelivery`) instead of said now.
+   */
+  applyAction(requestId: string, apply: () => void, now: string, proposal?: TarsProposalRef, queue?: { agentRunId: string }): TarsActionRecord {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (current?.status === "applied") return current;
       apply();
-      const record = this.settleRecord(requestId, { status: "applied" }, now);
+      const record = this.settleRecord(requestId, { status: "applied", ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
+        reason: null, error: null, queuedAt: now, updatedAt: now } } : {}) }, now);
       if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
       return record;
     });

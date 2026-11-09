@@ -507,6 +507,37 @@ export const TarsQueueMoveActionSchema = z.object({
 }).strict();
 export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
 
+/**
+ * The user's words to a run whose task was busy (a turn running) when they
+ * confirmed them: kept with the confirmation's record and said in the task
+ * once that turn ends, exactly once, as their reply there.
+ * - `queued`: waiting for the task's turn to end (or a paused run to resume).
+ * - `delivering`: being said now. After a restart, a user turn the run took
+ *   since `userTurns` (its count when this started) means it reached the task.
+ * - `delivered`: said in the task.
+ * - `failed`: the run refused it (`reason`, `error`).
+ * - `cancelled`: the work was taken over, cancelled or completed, its run
+ *   ended or changed owner first (`reason`).
+ * `agentRunId` is the run it was confirmed for; it is never said to another.
+ */
+export const TarsMessageDeliverySchema = z.object({
+  status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled"]),
+  agentRunId: IdSchema,
+  userTurns: z.number().int().min(0).optional(),
+  reason: TarsControlReasonSchema.nullable(),
+  error: ErrorSchema.nullable(),
+  queuedAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+}).strict().superRefine((delivery, context) => {
+  const settledOtherwise = delivery.status === "failed" || delivery.status === "cancelled";
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (settledOtherwise !== (delivery.reason !== null)) context.addIssue({ code: "custom", message: "Only a failed or cancelled delivery has a reason." });
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (delivery.status === "delivering" && delivery.userTurns === undefined) context.addIssue({ code: "custom", message: "A delivery under way records the run's user turns." });
+});
+export type TarsMessageDelivery = z.infer<typeof TarsMessageDeliverySchema>;
+export type TarsMessageDeliveryStatus = TarsMessageDelivery["status"];
+
 /** Where a recorded action came from: a control's sources, plus a drag for a queue move. */
 export const TarsActionRecordSourceSchema = z.enum([...TarsActSourceSchema.options, "drag"]);
 export type TarsActionRecordSource = z.infer<typeof TarsActionRecordSourceSchema>;
@@ -527,6 +558,8 @@ export const TarsActionRecordSchema = z.object({
   reason: TarsControlReasonSchema.nullable(),
   /** An applied queue move's new priority for the moved work. */
   priority: z.number().int().min(0).max(100).optional(),
+  /** An applied `message` whose task was busy: its words wait in this record and are said once (`TarsMessageDeliverySchema`). */
+  delivery: TarsMessageDeliverySchema.optional(),
   revision: RevisionSchema,
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
@@ -538,6 +571,9 @@ export const TarsActionRecordSchema = z.object({
   if ((record.source === "drag" && !move) || (record.priority !== undefined && !(move && record.status === "applied")))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "Only an applied queue move records a priority, and only a queue move comes from a drag." });
+  if (record.delivery && !(record.status === "applied" && record.action.kind === "control" && record.action.operation === "message"))
+    // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+    context.addIssue({ code: "custom", message: "Only an applied message to a run waits for delivery." });
 });
 export type TarsActionRecord = z.infer<typeof TarsActionRecordSchema>;
 

@@ -287,8 +287,22 @@ observes, so you can answer them in the conversation:
 |---|---|
 | "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request. |
 | "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
-| "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. Refused while a turn runs there. |
+| "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. While a turn runs there, Stave keeps them and says them once that turn ends (see below). |
 | "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |
+
+Words you confirm while the work's task is in the middle of a turn are not
+refused. Stave keeps them with the confirmation and says them in the task as
+your reply exactly once, after that turn ends and nothing else waits there (a
+paused run keeps them until it resumes). Under the card a line says **Waiting
+for the run's current turn to end**, then **Said in the task after its turn
+ended**, or that they were not said and why: taking the work over, cancelling
+it or its completion first cancels them, and so does its run ending or
+changing owner; a run that refuses them leaves them **Not said in the task**.
+Several are said in order, each after the turn the previous one started. They
+survive a restart: words that were being said when Stave stopped count as
+said only if the run took your reply, and are otherwise said once after the
+restart. Your words are only your reply in the task: they grant no permission
+and never answer a waiting approval or question.
 
 A request that is no longer waiting, or a set of requests that changed since
 you saw it, is refused instead of answering something else. These answers are

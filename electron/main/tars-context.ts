@@ -22,7 +22,7 @@ interface ObservationPorts extends Pick<SqliteStore, "loadRepositoryRegistry" | 
   tars: Pick<SqliteStore["tars"], "snapshot">;
   agentRuns: Pick<SqliteStore["agentRuns"], "getLatestAgentRunForTask">;
   /** Reads older work's admitting message back (`resolveTarsWorkRequest`); absent, such work shows `request: "notStored"`. */
-  tarsConversations?: Pick<SqliteStore["tarsConversations"], "workRequestOf">;
+  tarsConversations?: Pick<SqliteStore["tarsConversations"], "workRequestOf" | "listOpenDeliveries">;
 }
 
 /** A bounded excerpt that says whether it was cut; never half of a surrogate pair. */
@@ -75,6 +75,16 @@ export function observeTarsContext(store: ObservationPorts,
   observedAt: string) {
   const snapshot = store.tars.snapshot();
   const asked = observeRequests(snapshot.responsibilities, store.tarsConversations ? (id) => store.tarsConversations!.workRequestOf(id) : undefined);
+  // Words the user confirmed for a busy task, still waiting to be said there; an unreadable queue shows none.
+  const waitingWords = new Map<string, Array<{ textExcerpt: string; status: string; queuedAt: string }>>();
+  try {
+    for (const record of store.tarsConversations?.listOpenDeliveries(32) ?? []) {
+      if (record.action.kind !== "control" || !record.delivery || !record.action.input?.text) continue;
+      const list = waitingWords.get(record.action.responsibilityId) ?? [];
+      if (list.length < 3) list.push({ textExcerpt: excerpt(record.action.input.text, 200).text, status: record.delivery.status, queuedAt: record.delivery.queuedAt });
+      waitingWords.set(record.action.responsibilityId, list);
+    }
+  } catch { /* The queue is context only. */ }
   const registry = store.loadRepositoryRegistry();
   let remaining = MAX_WORKSPACES;
   let shownWorkspaces = 0;
@@ -116,6 +126,8 @@ export function observeTarsContext(store: ObservationPorts,
       // stageAsksUser only when the stage really asks; stageWait says what it waits for (a gate asks nothing).
       ...(row.stageAsksUser && row.stageWait?.kind !== "gate" ? { stageAsksUser: true } : {}),
       ...(row.stageAsksUser && row.stageWait ? { stageWait: row.stageWait } : {}),
+      // The user's words kept until the work's busy task finishes its turn, then said there once.
+      ...(waitingWords.has(row.id) ? { queuedMessages: waitingWords.get(row.id)! } : {}),
       // Requests waiting in the work's task or a helper's task; their text is the tool's own words, untrusted.
       ...(row.pendingRequests?.length ? { pendingRequests: row.pendingRequests.map(({ workspaceId: _workspace, ...request }) => request) } : {}),
       execution: owned ? { source: "persisted-agent-run", id: owned.id, state: owned.state, updatedAt: owned.updatedAt,

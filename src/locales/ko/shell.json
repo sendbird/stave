@@ -2115,6 +2115,13 @@
         "refresh": "새로 고침"
       }
     },
+    "delivery": {
+      "queued": "실행의 현재 턴이 끝나기를 기다리는 중입니다. 끝나면 Tars가 Task에 한 번 전달합니다.",
+      "delivering": "지금 Task에 전달하고 있습니다.",
+      "delivered": "턴이 끝난 뒤 Task에 전달했습니다.",
+      "failed": "Task에 전달하지 못했습니다.",
+      "cancelled": "전달하지 않았습니다. 그 전에 작업을 직접 맡았거나, 취소했거나, 작업이 끝났습니다."
+    },
     "followUp": {
       "line": {
         "blocked": "자동 후속 · 막힘: {{title}}",

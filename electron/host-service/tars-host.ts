@@ -16,7 +16,7 @@ import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import {
   assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
-  TarsStageChangedError, TarsTaskBusyError,
+  TarsRunEndedError, TarsStageChangedError, TarsTaskBusyError,
 } from "./tars-ownership";
 import { currentStageRecord } from "../../src/lib/agent-runs/domain";
 import { TARS_PENDING_REQUESTS_MAX, type TarsPendingRequest } from "../../src/lib/tars/types";
@@ -231,7 +231,7 @@ export function createHostTarsRuntime(args: {
       }
       return withTarsActiveStage(detail, withRequests(observation, own));
     },
-    async respondTask(row, request) {
+    async respondTask(row, request, options) {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (!latest) throw new TarsDetailError("ownershipUnverified", "This task's execution ownership could not be verified.");
       // The run is Tars's and the user has not taken it over in its task.
@@ -243,7 +243,8 @@ export function createHostTarsRuntime(args: {
       const agentRunId = row.agentRunId!;
       if (request.operation === "message") {
         const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
-        if (task.activeTurnId) throw new TarsTaskBusyError();
+        // A running turn: the words wait with the request and are said once it ends (`deliverMessage`).
+        if (task.activeTurnId) { if (options?.canQueue) return "queued"; throw new TarsTaskBusyError(); }
         await args.agentRuns.replyAsUser({ agentRunId, prompt: request.input!.text! }, guard);
         return;
       }
@@ -295,6 +296,31 @@ export function createHostTarsRuntime(args: {
         abortTurn: (turnId) => { providerRuntime.abortTurn({ turnId }); },
       });
     },
+    messages: persistence.tarsConversations,
+    /**
+     * The same reply path as a message said at once, under the same ownership
+     * checks, only once the task is free: no turn running, no approval or
+     * question waiting, and the run's stage able to take a reply.
+     */
+    async deliverMessage(row, text) {
+      const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
+      if (!latest) throw new TarsDetailError("ownershipUnverified", "This task's execution ownership could not be verified.");
+      const guard = (run: Parameters<typeof assertTarsControl>[1]) => {
+        assertTarsControl(row, run);
+        if (!hasAssignment(row)) throw new Error("The task's agent assignment is unavailable.");
+      };
+      guard(latest);
+      if (latest.state === "completed" || latest.state === "cancelled" || latest.state === "stopped") throw new TarsRunEndedError();
+      const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
+      if (!task.exists || task.archived) throw new TarsOwnershipLostError("The owned task is unavailable.", "taskUnavailable");
+      if (task.activeTurnId || task.pendingApprovalCount || task.pendingUserInputCount) return "busy";
+      const aggregate = persistence.agentRuns.getAggregate(latest.id);
+      // A paused run, or a stage that cannot take a reply now (waiting for sign-off), keeps it queued.
+      if (!aggregate || latest.state !== "running" || !["running", "blocked", "stuck"].includes(currentStageRecord(aggregate).status)) return "busy";
+      await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text }, guard);
+      return "sent";
+    },
+    userTurns: (row) => persistence.agentRuns.listEventsByKind(row.agentRunId!, ["user-turn"]).length,
     // Older work's brief reads its admitting message back, without the message's attachments.
     readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
     onError: (error) => console.error("[tars] reconciliation failed", error),

@@ -2138,6 +2138,13 @@
         "refresh": "Refresh"
       }
     },
+    "delivery": {
+      "queued": "Waiting for the run's current turn to end. Tars says it in the task once, then.",
+      "delivering": "Saying it in the task now.",
+      "delivered": "Said in the task after its turn ended.",
+      "failed": "Not said in the task.",
+      "cancelled": "Not said: the work was taken over, cancelled or ended first."
+    },
     "followUp": {
       "line": {
         "blocked": "Automatic follow-up · Blocked: {{title}}",

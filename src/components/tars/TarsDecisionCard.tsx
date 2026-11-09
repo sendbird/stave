@@ -13,7 +13,7 @@ import type { TarsAnswerSource } from "@/lib/tars/conversation";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
-import { TarsActionRecordLine } from "./TarsActionRecordLine";
+import { TarsActionRecordLine, TarsMessageDeliveryLine } from "./TarsActionRecordLine";
 import { tarsStyles } from "./tars.styles";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 
@@ -158,6 +158,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         {followUp ? <span>{followUp}</span> : null}
         {answer?.status === "rejected" ? <span className={sx(styles.error)} data-tars-reason={answer.reason ?? undefined}>{t(tarsControlReasonKey(answer.reason))}</span> : null}
       </p>
+      {decision.state === "answered" && decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} /> : null}
       {errorLine}
     </div>;
   }
