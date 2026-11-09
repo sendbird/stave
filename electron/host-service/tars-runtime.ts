@@ -144,7 +144,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       if (stopped || held.has(initial.id)) return;
       const { runTurns, runStage, waitingTaskId, ...change } = observed;
       const waiting = observed.state === "waiting";
-      noteExpiredWait(patch(initial, { ...change, executionPending: false, stageAsksUser: observed.stageAsksUser === true || undefined,
+      // An unchanged observation must not reset an existing wait just to add scheduler metadata.
+      noteExpiredWait(patch(initial, { ...change, executionPending: initial.executionPending === true || initial.state === "blocked" ? false : initial.executionPending,
+        stageAsksUser: observed.stageAsksUser === true || undefined,
         observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
         waitingTaskId: waiting ? waitingTaskId : undefined }));
     } catch (error) {

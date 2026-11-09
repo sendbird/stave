@@ -70,7 +70,7 @@ function open(filename: string) {
   return { database, store: new TarsStore(database) };
 }
 
-test("scenario 1: after a priority change the higher priority work acquires the slot first; the other keeps its next action and ownership", async () => {
+test("scenario 1: priority orders admission without delaying independent work or recreating its prepared ownership", async () => {
   const { store } = open(persisted());
   const execution = world();
   const runtime = createTarsRuntime(execution.ports(store));
@@ -83,18 +83,12 @@ test("scenario 1: after a priority change the higher priority work acquires the 
   // The user raises repository B's work above it, as the admitted reprioritize action does.
   store.patch(second.id, second.revision, { priority: 90 }, NOW);
   await tick();
-  expect(execution.calls).toEqual(["workspace:b", "run:b"]);
+  expect(execution.calls).toEqual(["workspace:b", "run:b", "run:a"]);
   expect(store.get(second.id)).toMatchObject({ state: "running", agentRunId: "run-b" });
-  // A keeps exactly its next action and ownership: nothing cancelled, released or re-created.
-  expect(store.get(first.id)).toMatchObject({ state: "preparing", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: null, priority: 60 });
-  await tick();
-  expect(execution.calls).toEqual(["workspace:b", "run:b"]);
-  // When the slot frees, A continues from where it was, in its own worktree and task.
-  const running = store.get(second.id)!;
-  store.patch(running.id, running.revision, { state: "completed" }, NOW);
+  // A continues its own next action before B ends, retaining its prepared task and worktree.
+  expect(store.get(first.id)).toMatchObject({ state: "running", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: "run-a", priority: 60 });
   await tick();
   expect(execution.calls).toEqual(["workspace:b", "run:b", "run:a"]);
-  expect(store.get(first.id)).toMatchObject({ state: "running", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: "run-a" });
   expect(execution.created).toEqual({ workspaces: 1, tasks: 1, runs: 2 });
   runtime.stop();
 });
