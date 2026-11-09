@@ -73,16 +73,14 @@ export function flushTarsDraft(): Promise<boolean> {
 }
 
 /**
- * The quit flush's part: writes the draft and never fails the quit. The draft
- * is already saved after every pause in typing and when the view or window is
- * left, so a failure here can lose only the last moments of typing, and the
- * last saved copy stays. Failing the quit instead would hold it behind a
- * dialog about unsaved workspace changes the user cannot fix by retrying.
+ * The quit flush's part: writes the draft and rejects when it could not be
+ * saved, so the quit reports a failed save like any other store's and main
+ * offers to keep Stave open, retry saving, or quit without saving. Without a
+ * draft store there is nothing to save and it resolves.
  */
 export async function flushTarsDraftForQuit(): Promise<void> {
-  const saved = await flushTarsDraft().catch(() => false);
   // Never the words: only that the latest draft was not written.
-  if (!saved) console.warn("[tars] the composer draft could not be saved before quitting; the last saved draft is kept");
+  if (!(await flushTarsDraft().catch(() => false))) throw new Error("The Tars draft could not be saved."); // i18n-ignore: diagnostic for the quit flush log
 }
 
 function schedule() {

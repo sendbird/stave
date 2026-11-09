@@ -37,7 +37,7 @@
   },
   "unsavedChanges": {
     "title": "Changes have not been saved",
-    "message": "Stave could not save your latest workspace changes.",
+    "message": "Stave could not save your latest workspace changes or Tars draft.",
     "detail": "Keep Stave open to preserve your current work, or retry saving before quitting.",
     "keepOpen": "Keep Stave open",
     "retry": "Retry saving",

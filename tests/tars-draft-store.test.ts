@@ -3,6 +3,7 @@ import {
   appendTarsDraft, beginTarsDraftSend as beginOrStop, flushTarsDraft, flushTarsDraftForQuit, hydrateTarsDraft, resetTarsDraftForTests,
   setTarsDraftAttachments, setTarsDraftText, setTarsDraftWorkingChanges, settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
 } from "../src/store/tars-draft-store";
+import { flushPersistenceForQuit } from "../src/store/app-store-persistence";
 import type { AttachmentContext } from "../src/lib/providers/attachment-context";
 import { TARS_DRAFT_MAX_CHARS, type SaveTarsComposerDraftInput, type TarsComposerDraft } from "../src/lib/tars/composer-draft";
 
@@ -265,7 +266,7 @@ describe("Tars composer draft", () => {
     expect(host.saved?.text).toBe("Private words again");
   });
 
-  test("a draft that cannot be saved while quitting is logged without its words and never fails the quit; the last saved copy stays", async () => {
+  test("a draft that cannot be saved while quitting fails the quit flush, without its words, until a retry saves it", async () => {
     const { bridge, host } = fakeBridge();
     await hydrateTarsDraft(bridge);
     setTarsDraftText("Saved before quitting");
@@ -273,14 +274,23 @@ describe("Tars composer draft", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     host.failSave = true;
     setTarsDraftText("Typed just before quitting");
-    await expect(flushTarsDraftForQuit()).resolves.toBeUndefined();
+    // The renderer reports a failed save, so main keeps its Keep open / Retry saving / Quit without saving choice.
+    await expect(flushTarsDraftForQuit()).rejects.toThrow("The Tars draft could not be saved.");
+    await expect(flushPersistenceForQuit({ flushAppStore: () => true, flushStores: () => flushTarsDraftForQuit() })).rejects.toThrow();
     expect(host.saved?.text).toBe("Saved before quitting");
-    expect(warn.mock.calls.some(([line]) => String(line).includes("before quitting"))).toBe(true);
     expect(JSON.stringify(warn.mock.calls)).not.toContain("Typed just before quitting");
     warn.mockRestore();
+    // Retry saving writes it, and the quit goes on.
     host.failSave = false;
-    await flushTarsDraftForQuit();
+    await expect(flushTarsDraftForQuit()).resolves.toBeUndefined();
     expect(host.saved?.text).toBe("Typed just before quitting");
+    expect(await flushPersistenceForQuit({ flushAppStore: () => true, flushStores: () => flushTarsDraftForQuit() })).toBe(true);
+  });
+
+  test("without a draft store, quitting has nothing to save and never fails", async () => {
+    await hydrateTarsDraft(undefined);
+    setTarsDraftText("For this window only");
+    await expect(flushTarsDraftForQuit()).resolves.toBeUndefined();
   });
 
   test("a draft over the stored limit stays in memory and leaves the last saved copy", async () => {
