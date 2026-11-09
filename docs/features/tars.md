@@ -407,10 +407,14 @@ same conversation.
   already admitted responsibilities; use their own controls.
 
 **Your draft is kept.** What you type in the message box, with its
-**Working changes** choice, stays when you leave Tars for a workspace and
-after Stave restarts. A message Tars saved clears it. A send that fails keeps
-it, so you can retry or edit it; a retry of the unchanged draft is the same
-request, so a send whose response was lost cannot become a second message.
+**Include my working changes** choice, stays when you leave Tars for a
+workspace and after Stave restarts. Attached files stay with it while Stave is
+open, but are not saved across a restart: attach them again after one. A
+message Tars saved clears the draft. A send that fails keeps it, so you can
+retry or edit it; a retry of the unchanged draft, with the same files, is the
+same request, so a send whose response was lost cannot become a second
+message. Editing the words, the choice or the attached files makes it a new
+message.
 Answering a decision with a short word clears the word only once the answer
 is taken.
 
