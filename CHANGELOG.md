@@ -1,3 +1,25 @@
+## [0.33.0](https://github.com/sendbird/stave/compare/v0.32.1...v0.33.0) (2026-11-10)
+
+This minor release includes the twelve merged changes since 0.32.1. Most of them answer feedback from using Tars day to day.
+
+### Changes
+
+- Tars runs independent work at the same time; a concurrency limit applies only when you set one in Settings. A queued card shows the observed reason it waits, and **Start now** (or asking in words) starts queued work at once (#915, #916).
+- Files and screenshots attached to a Tars message reach the work it delegates: the assigned agent receives them in its first turn, on Claude and Codex. Tars keeps attachment bytes out of the conversation snapshot (#914, #922).
+- Words you send to a work whose turn is running are queued and delivered once that turn ends, in order and exactly once, across restarts and takeover. Tars can also answer a work's pending question or approval and act on its run from words (#919, #922).
+- Tars sees your original requests in the order you sent them, including older work, and shows each work's original message and delegated instruction before it runs (#917, #922).
+- Running work shows its current stage, tool step, recent progress and how fresh the observation is, without opening the task. Waiting, running, queued and blocked states stay distinct, and a follow-up no longer says a stage asks you when Stave's own check stopped it (#918, #922).
+- The Tars composer keeps drafts across views and restarts and reports a draft it could not save when you quit. User and Tars messages read as separate sides, secondary text is 13px, the working-changes toggle is an icon, side views open at the tray's width under titled bars, settings copy is shorter, and approval requests cut to fit are marked with a way to open the full request (#914, #920, #923).
+- Subagents show as run monitors side by side (#913). Stage reports that reword a required criterion are refused (#912), and only a delegation's own turns are refused from starting nested subagents (#921).
+
+### Upgrade Notes
+
+- The AUI rename spacing-baseline migration is removed in 0.33.0. No temporary migrations remain registered.
+
+### References
+
+- [PR #912](https://github.com/sendbird/stave/pull/912), [PR #913](https://github.com/sendbird/stave/pull/913), [PR #914](https://github.com/sendbird/stave/pull/914), [PR #915](https://github.com/sendbird/stave/pull/915), [PR #916](https://github.com/sendbird/stave/pull/916), [PR #917](https://github.com/sendbird/stave/pull/917), [PR #918](https://github.com/sendbird/stave/pull/918), [PR #919](https://github.com/sendbird/stave/pull/919), [PR #920](https://github.com/sendbird/stave/pull/920), [PR #921](https://github.com/sendbird/stave/pull/921), [PR #922](https://github.com/sendbird/stave/pull/922), [PR #923](https://github.com/sendbird/stave/pull/923)
+
 ## [0.32.1](https://github.com/sendbird/stave/compare/v0.32.0...v0.32.1) (2026-11-09)
 
 This patch release includes the two merged changes since 0.32.0 (PRs #909 and #910).
