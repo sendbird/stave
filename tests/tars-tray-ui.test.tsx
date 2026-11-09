@@ -12,7 +12,7 @@ import { TarsFlowBlock, TarsFlowNodes, TarsFlowStageNode } from "../src/componen
 import { TarsConversation, TarsConversationMessage, type TarsFlowContext } from "../src/components/tars/TarsConversation";
 import type { TarsConversationState } from "../src/components/tars/use-tars-conversation";
 import { buildTarsFlow } from "../src/lib/tars/flow-model";
-import { buildTarsTray, TARS_CONVERSATION_MIN_WIDTH, type TarsTrayDecision } from "../src/lib/tars/tray-model";
+import { buildTarsTray, TARS_CONVERSATION_MIN_WIDTH, type TarsTrayDecision, type TarsTrayModel } from "../src/lib/tars/tray-model";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import { projectTarsDecisions } from "../src/lib/tars/decisions";
 import type { FleetFocusTarget } from "../src/store/fleet-focus-store";
@@ -53,14 +53,18 @@ async function inKorean(run: () => void) {
 
 describe("Tars tray UI", () => {
   test("the header indicator names only the lanes that count, in both languages", async () => {
-    expect(describeTarsTrayCounts({ running: 2, needsYou: 1, done: 3 })).toBe("2 running · 1 needs you · 3 done");
-    expect(describeTarsTrayCounts({ running: 1, needsYou: 2, done: 0 })).toBe("1 running · 2 need you");
-    expect(describeTarsTrayCounts({ running: 0, needsYou: 0, done: 0 })).toBe("No work yet");
-    await inKorean(() => expect(describeTarsTrayCounts({ running: 2, needsYou: 1, done: 3 })).toBe("진행 2 · 확인 1 · 끝남 3"));
+    const counts = (patch: Partial<TarsTrayModel["counts"]>) => ({ running: 0, waiting: 0, yours: 0, needsYou: 0, done: 0, ...patch });
+    expect(describeTarsTrayCounts(counts({ running: 2, needsYou: 1, done: 3 }))).toBe("2 running · 1 needs you · 3 done");
+    expect(describeTarsTrayCounts(counts({ running: 1, needsYou: 2 }))).toBe("1 running · 2 need you");
+    // Queued, paused and waiting work is never called running; work the user took over is theirs.
+    expect(describeTarsTrayCounts(counts({ running: 1, waiting: 2, yours: 1 }))).toBe("1 running · 2 waiting · 1 yours");
+    expect(describeTarsTrayCounts(counts({ waiting: 1 }))).toBe("1 waiting");
+    expect(describeTarsTrayCounts(counts({}))).toBe("No work yet");
+    await inKorean(() => expect(describeTarsTrayCounts(counts({ running: 2, waiting: 1, yours: 1, needsYou: 1, done: 3 }))).toBe("실행 2 · 대기 1 · 직접 1 · 확인 1 · 끝남 3"));
   });
 
   test("before a successful read the indicator and body say checking or unavailable, never no work", async () => {
-    const none = { running: 0, needsYou: 0, done: 0 };
+    const none = { running: 0, waiting: 0, yours: 0, needsYou: 0, done: 0 };
     expect(describeTarsTrayCounts(none, "checking")).toBe("Checking work…");
     expect(describeTarsTrayCounts(none, "unavailable")).toBe("Work unavailable");
     expect(renderToStaticMarkup(createElement(TarsTrayStatusNote, { status: "unavailable" }))).toContain("could not be read");
@@ -130,7 +134,11 @@ describe("Tars tray UI", () => {
       expect(html).not.toContain("helpers working");
       expect(html).not.toContain("stages done");
     }
-    expect(billing).toContain("Run details are not loaded yet.");
+    // Running work whose run this window has not read says so once, as an observation that is missing, never as progress.
+    expect(billing).toContain('data-tars-live-freshness="none"');
+    expect(billing).toContain("No run observation yet");
+    expect(billing).not.toContain("Run details are not loaded yet.");
+    expect(docs).not.toContain("data-tars-live-line");
     expect(docs).not.toContain("Run details are not loaded yet.");
   });
 

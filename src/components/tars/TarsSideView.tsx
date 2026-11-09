@@ -65,7 +65,7 @@ export function TarsSideView(props: TarsSideViewProps) {
   const body = target.kind === "brief" ? <TarsBriefView row={row} load={props.loadBrief} />
     : target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} publish={props.publishAction} />
     : target.kind === "changes" ? <TarsChangesPanel detail={run} cwd={props.cwd} onQuote={props.onQuote} />
-      : target.kind === "timeline" ? <TarsTimelinePanel detail={run} records={props.records} title={row.title}
+      : target.kind === "timeline" ? <TarsTimelinePanel detail={run} records={props.records} title={row.title} row={row}
         focusStageId={target.focus && "stageId" in target.focus ? target.focus.stageId : undefined} />
         : <TarsReviewPanel review={review} />;
   // The narrow cap is measured, so it travels as a dynamic style (class plus inline variable).

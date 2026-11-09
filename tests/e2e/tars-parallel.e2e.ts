@@ -7,9 +7,9 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     await expect.poll(() => page.evaluate(() => [...document.fonts].some((face) => face.family.includes("Geist") && face.status === "loaded"))).toBe(true);
     for (const width of [1440, 600]) {
       await page.setViewportSize({ width, height: 1000 });
-      if (width === 600) await page.getByRole("button", { name: lang === "ko" ? "진행 3 · 확인 1 · 끝남 1" : "3 running · 1 needs you · 1 done", exact: true }).click();
+      if (width === 600) await page.getByRole("button", { name: lang === "ko" ? "실행 1 · 대기 1 · 직접 1 · 확인 1 · 끝남 1" : "1 running · 1 waiting · 1 yours · 1 needs you · 1 done", exact: true }).click();
       const wait = page.locator('[data-tars-queue-wait="capacity"]').filter({ visible: true });
-      await expect(wait).toContainText(lang === "ko" ? "실행 2개 / 한도 2개" : "2 active / 2 allowed");
+      await expect(wait).toContainText(lang === "ko" ? "실행 1개 / 한도 1개" : "1 active / 1 allowed");
       const box = await wait.evaluate((node) => {
         const a = node.getBoundingClientRect(), b = node.closest("[data-tars-card]")!.getBoundingClientRect();
         return { left: a.left - b.left, right: b.right - a.right, scroll: node.scrollWidth, client: node.clientWidth };

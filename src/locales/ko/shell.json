@@ -1465,7 +1465,9 @@
     "tray": {
       "title": "맡긴 일",
       "indicator": {
-        "running_other": "진행 {{count}}",
+        "running_other": "실행 {{count}}",
+        "waiting_other": "대기 {{count}}",
+        "yours_other": "직접 {{count}}",
         "needsYou_other": "확인 {{count}}",
         "done_other": "끝남 {{count}}",
         "empty": "맡긴 일 없음",
@@ -1599,17 +1601,69 @@
       "completion": "완료",
       "criteriaMet": "기준 {{total}}개 중 {{met}}개 충족",
       "notFinished": "아직 끝나지 않음",
-      "notice": {
-        "completed": "끝남",
-        "blocked": "확인 필요",
-        "cancelled": "중단됨"
-      },
       "nodeMenu": "{{title}} 더 보기",
       "openTimeline": "실행 기록에서 {{title}} 열기",
       "openReview": "{{title}}의 발견 사항 열기",
       "openUnmet": "{{title}} 진행 불가: 보고서의 미충족 기준 열기",
       "openReport": "결과 보고서 열기",
       "openBrief": "요청과 Tars의 위임 지시 열기"
+    },
+    "live": {
+      "lastUpdate": "{{time}} 업데이트",
+      "observed": "{{time}} 관측",
+      "betweenTurns": "지금 진행 중인 턴 없음",
+      "turnNoStep": "턴 진행 중 · 아직 관측된 단계 없음",
+      "turnUnknown": "아직 관측된 턴 활동 없음",
+      "notObserved": "아직 관측된 실행 정보 없음",
+      "notStarted": "실행이 아직 시작되지 않았습니다",
+      "stale": "{{duration}} 동안 관측 없음 · 진행 정보가 오래됐을 수 있습니다",
+      "staleStep": "마지막 단계: {{activity}}, {{duration}} 전 · 진행 정보가 오래됐을 수 있습니다",
+      "staleUnknown": "최근 관측 없음 · 진행 정보가 오래됐을 수 있습니다",
+      "stage": "{{total}}단계 중 {{position}}단계 · {{title}}",
+      "stageAttempt": "{{total}}단계 중 {{position}}단계 · {{title}}, {{attempt}}회 시도",
+      "recent": "최근 진행",
+      "noRecent": "실행에 기록된 진행이 아직 없습니다.",
+      "stripLabel_other": "실행 중인 작업 {{count}}개",
+      "more_other": "실행 중 {{count}}개 더 보기",
+      "event": {
+        "runStarted": "실행 시작",
+        "turnStarted": "{{stage}}에서 턴 시작",
+        "turnFailed": "턴을 시작하지 못함",
+        "turnInterrupted": "턴이 중단됨",
+        "reported": "{{stage}} 완료 보고",
+        "reportedBlocked": "{{stage}} 진행 불가 보고",
+        "stageCompleted": "{{stage}} 완료",
+        "stageSkipped": "{{stage}} 건너뜀",
+        "stageRetried": "{{stage}} 재시도, {{attempt}}회차",
+        "stageBlocked": "{{stage}} 진행 불가",
+        "stageStuck": "{{stage}} 멈춤",
+        "signedOff": "{{stage}} 승인됨",
+        "changesRequested": "{{stage}}에 변경 요청",
+        "checksObserved": "{{stage}}에서 체크 결과 확인",
+        "paused": "실행 일시 정지",
+        "resumed": "실행 재개",
+        "userWait": {
+          "approval": "승인 대기",
+          "question": "답변 대기",
+          "signOff": "승인(sign-off) 대기"
+        },
+        "userWaitEnded": "사용자 대기 종료",
+        "waitRegistered": "외부 이벤트 대기 시작",
+        "waitWoke": "기다리던 외부 이벤트 도착",
+        "waitExpired": "외부 이벤트 없이 대기 종료",
+        "accountSwitched": "다른 계정으로 전환",
+        "ended": {
+          "completed": "실행 완료",
+          "cancelled": "실행 취소",
+          "stopped": "실행 중단",
+          "other": "실행 종료"
+        },
+        "hostStopped": "실행 중에 Stave가 종료됨",
+        "hostStarted": "Stave 다시 시작"
+      }
+    },
+    "nav": {
+      "label": "{{name}}, {{status}}"
     },
     "detail": {
       "waitingForUser": "Task가 답변이나 승인을 기다리고 있습니다.",
@@ -1843,7 +1897,10 @@
         "exit": "종료 코드 {{code}}",
         "exitUnknown": "종료 코드 알 수 없음",
         "toolOk": "성공",
-        "toolFailed": "실패"
+        "toolFailed": "실패",
+        "now": "지금",
+        "notStarted": "실행이 아직 시작되지 않았습니다. 시작되면 여기에 단계가 표시됩니다.",
+        "noRun": "실행이 시작되기 전에 끝난 작업입니다."
       },
       "changes": {
         "noRun": "실행 세부 정보를 불러오지 않아 변경 사항을 읽을 수 없습니다.",

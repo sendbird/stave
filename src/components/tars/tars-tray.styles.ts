@@ -84,7 +84,9 @@ export const tarsFlowStyles = stylex.create({
   root: { marginBlockStart: vars["--aui-space-4"] },
   summary: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], minWidth: 0 },
   summaryTitle: { color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
-  summaryState: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums" },
+  summaryState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums" },
+  /** The folded flow's live line: under the summary, on the trigger's text edge. */
+  live: { paddingInlineStart: `calc(${vars["--aui-space-8"]} + ${vars["--aui-control-icon-size-md"]} + ${vars["--aui-space-8"]})`, paddingInlineEnd: vars["--aui-space-8"], minWidth: 0 },
   nodes: { margin: 0, padding: 0, listStyle: "none" },
   /** Same inline pad as a stage button, so every node's text starts on one edge. */
   node: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0, paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"] },
@@ -107,4 +109,5 @@ export const tarsFlowStyles = stylex.create({
   attempt: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
   notice: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], margin: 0, paddingBlock: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], overflowWrap: "anywhere" },
   noticeTitle: { color: vars["--aui-color-text"], minWidth: 0 },
+  noticeState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], alignSelf: "center" },
 });
