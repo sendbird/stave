@@ -142,6 +142,42 @@ test("a send whose request ID cannot be saved with the draft stops and keeps the
   expect((await conversation()).messages.map((message: { text: string }) => message.text)).toEqual(["Fix the export"]);
 });
 
+test("a file still being read when Tars is closed and reopened stays with its draft: Send waits for it and the first message carries it", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&noRepositories=true");
+  const composer = page.locator("[data-tars-composer]");
+  const send = composer.getByRole("button", { name: "Send", exact: true });
+  // The composer's controls follow its disabled state; Send's own guard does the same while a read runs.
+  const toggle = composer.locator("[data-tars-working-changes-toggle]");
+  await expect(composer.getByRole("textbox")).toBeEditable();
+  // Hold the file read until the test lets it finish.
+  await page.evaluate(() => {
+    const read = File.prototype.text;
+    File.prototype.text = function (this: File) {
+      if (this.name !== "slow.txt") return read.call(this);
+      return new Promise<string>((resolve) => { (window as unknown as { finishRead: () => void }).finishRead = () => resolve(read.call(this)); });
+    };
+  });
+  await composer.getByRole("textbox").fill("Read the slow notes");
+  await composer.locator('input[type="file"]').setInputFiles({ name: "slow.txt", mimeType: "text/plain", buffer: Buffer.from("Slow snapshot") });
+  await expect(toggle).toBeDisabled();
+  await page.getByRole("button", { name: "Close Tars", exact: true }).click();
+  await page.locator("[data-preview-reopen-tars]").click();
+  await expect(composer.getByRole("textbox")).toHaveText("Read the slow notes");
+  // The reopened view still waits for the read its draft started: Send does nothing yet.
+  await expect(toggle).toBeDisabled();
+  await send.click();
+  await page.evaluate(() => (window as unknown as { finishRead: () => void }).finishRead());
+  await expect(composer.getByRole("button", { name: "Remove attached file slow.txt", exact: true })).toBeVisible();
+  await expect(composer.getByRole("textbox")).toHaveText("Read the slow notes");
+  await expect(toggle).toBeEnabled();
+  await send.click();
+  await expect(page.locator("[data-tars-message-attachments]")).toContainText("slow.txt");
+  await expect(composer.getByText("slow.txt", { exact: true })).toHaveCount(0);
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.messages.map((message: { text: string }) => message.text)).toEqual(["Read the slow notes"]);
+  expect(saved.messages[0].attachments).toEqual([{ type: "file_context", filePath: "slow.txt", content: "Slow snapshot", language: "txt" }]);
+});
+
 for (const inputEvent of ["paste", "drop"]) {
   test(`Tars ${inputEvent} uses the common file pipeline for text and images`, async ({ page }) => {
     await page.goto("/?stavePreview=tars");

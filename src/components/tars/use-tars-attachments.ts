@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "@/i18n";
 import { readClipboardImage } from "@/components/ai-elements/prompt-input.clipboard";
 import { AttachmentContextsSchema, type AttachmentContext } from "@/lib/providers/attachment-context";
-import { setTarsDraftAttachments, useTarsDraftStore } from "@/store/tars-draft-store";
+import { finishTarsDraftRead, setTarsDraftAttachments, startTarsDraftRead, useTarsDraftStore } from "@/store/tars-draft-store";
 
 const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 const TEXT_EXTENSIONS = /\.(?:txt|md|mdx|csv|tsv|json|jsonl|ya?ml|xml|html?|css|scss|[cm]?[jt]sx?|py|rb|rs|go|java|kt|swift|sh|sql|toml|ini|log|diff|patch|svg)$/i;
@@ -23,21 +23,30 @@ export async function readTarsAttachment(file: File): Promise<AttachmentContext>
 /**
  * The composer's attached files. They live with the draft (`tars-draft-store`),
  * so they stay when the user leaves Tars and comes back, and changing them
- * makes the next send a new message.
+ * makes the next send a new message. So does a read in progress: a view opened
+ * while it runs waits for it, and a read that ends after its draft was sent or
+ * replaced is dropped rather than added to the next draft.
  */
 export function useTarsAttachments() {
   const { t } = useTranslation(["shell"]);
   const parts = useTarsDraftStore((draft) => draft.attachments);
-  const [reading, setReading] = useState(false);
+  const reading = useTarsDraftStore((draft) => draft.reading);
   const [error, setError] = useState<string | null>(null);
-  const readingRef = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
   async function add(files: File[]) {
-    if (readingRef.current || !files.length) return;
-    readingRef.current = true; setReading(true); setError(null);
+    if (!files.length) return;
+    const read = startTarsDraftRead();
+    if (!read) return;
+    setError(null);
+    let added: AttachmentContext[] | null = null;
     try {
       if (files.length > 8) throw new Error("Too many files.");
-      const added = await Promise.all(files.map(readTarsAttachment));
+      added = await Promise.all(files.map(readTarsAttachment));
+    } catch { added = null; }
+    // The draft these files were read for was sent or replaced meanwhile: they are not the next draft's.
+    if (!finishTarsDraftRead(read)) return;
+    try {
+      if (!added) throw new Error("Unreadable files.");
       const next = [...useTarsDraftStore.getState().attachments];
       const names = new Set(next.map(attachmentName));
       for (const part of added) {
@@ -55,7 +64,6 @@ export function useTarsAttachments() {
       }
       setTarsDraftAttachments(AttachmentContextsSchema.parse(next));
     } catch { setError(t("shell:tars.conversation.attachments.failed")); }
-    finally { readingRef.current = false; setReading(false); }
   }
   return { parts, reading, error, picker, add,
     keep: (names: string[]) => {

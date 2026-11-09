@@ -409,7 +409,9 @@ same conversation.
 **Your draft is kept.** What you type in the message box, with its
 **Include my working changes** choice, stays when you leave Tars for a
 workspace and after Stave restarts. Attached files stay with it while Stave is
-open, but are not saved across a restart: attach them again after one. A
+open, but are not saved across a restart: attach them again after one. Files
+still being read hold **Send** until they are attached, even if you leave Tars
+and come back. A
 message Tars saved clears the draft. A send that fails keeps it, so you can
 retry or edit it; a retry of the unchanged draft, with the same files, is the
 same request, so a send whose response was lost cannot become a second

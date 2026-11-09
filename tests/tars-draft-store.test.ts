@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import {
-  appendTarsDraft, beginTarsDraftSend as beginOrStop, flushTarsDraft, flushTarsDraftForQuit, hydrateTarsDraft, resetTarsDraftForTests,
-  setTarsDraftAttachments, setTarsDraftText, setTarsDraftWorkingChanges, settleTarsDraftSend, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
+  appendTarsDraft, beginTarsDraftSend as beginOrStop, finishTarsDraftRead, flushTarsDraft, flushTarsDraftForQuit, hydrateTarsDraft, resetTarsDraftForTests,
+  setTarsDraftAttachments, setTarsDraftText, setTarsDraftWorkingChanges, settleTarsDraftSend, startTarsDraftRead, TARS_DRAFT_SAVE_DELAY_MS, useTarsDraftStore,
 } from "../src/store/tars-draft-store";
 import { flushPersistenceForQuit } from "../src/store/app-store-persistence";
 import type { AttachmentContext } from "../src/lib/providers/attachment-context";
@@ -383,5 +383,53 @@ describe("Tars composer draft with attached files", () => {
     const failed = await beginTarsDraftSend();
     settleTarsDraftSend({ ...failed, outcome: "failed" });
     expect(useTarsDraftStore.getState()).toMatchObject({ text: "Explain this file", attachments: [screen], requestId: null });
+  });
+
+  test("a file read belongs to the draft, not the view: any view sees it running, and a second read waits for it", async () => {
+    await hydrateTarsDraft(fakeBridge().bridge);
+    const read = startTarsDraftRead();
+    expect(read).not.toBeNull();
+    expect(useTarsDraftStore.getState().reading).toBe(true);
+    // A view opened meanwhile cannot start another read, and its Send waits on the same flag.
+    expect(startTarsDraftRead()).toBeNull();
+    expect(finishTarsDraftRead(read!)).toBe(true);
+    expect(useTarsDraftStore.getState().reading).toBe(false);
+    expect(finishTarsDraftRead(read!)).toBe(false);
+  });
+
+  test("a read that completes after its draft was sent is dropped, never added to the next draft", async () => {
+    await hydrateTarsDraft(fakeBridge().bridge);
+    setTarsDraftText("First message");
+    const read = startTarsDraftRead()!;
+    // An earlier send of this draft settles while the file is still being read.
+    const sending = await beginTarsDraftSend();
+    settleTarsDraftSend({ ...sending, outcome: "sent" });
+    expect(useTarsDraftStore.getState()).toMatchObject({ text: "", attachments: [], reading: false });
+    expect(finishTarsDraftRead(read)).toBe(false);
+    // The next draft reads its own files.
+    const next = startTarsDraftRead();
+    expect(next).not.toBeNull();
+    expect(finishTarsDraftRead(next!)).toBe(true);
+  });
+
+  test("a read that completes after a restored draft replaced its draft is dropped", async () => {
+    const { bridge, host } = fakeBridge({ text: "Restored words", includeWorkingChanges: false, requestId: null });
+    let resolve!: (value: TarsComposerDraft | null) => void;
+    host.read = new Promise((done) => { resolve = done; });
+    const hydrating = hydrateTarsDraft(bridge);
+    const read = startTarsDraftRead()!;
+    resolve(host.saved);
+    await hydrating;
+    expect(useTarsDraftStore.getState()).toMatchObject({ text: "Restored words", reading: false });
+    expect(finishTarsDraftRead(read)).toBe(false);
+  });
+
+  test("a message that failed keeps its draft, so a read for it still lands", async () => {
+    await hydrateTarsDraft(fakeBridge().bridge);
+    setTarsDraftText("Explain this");
+    const sending = await beginTarsDraftSend();
+    const read = startTarsDraftRead()!;
+    settleTarsDraftSend({ ...sending, outcome: "failed" });
+    expect(finishTarsDraftRead(read)).toBe(true);
   });
 });
