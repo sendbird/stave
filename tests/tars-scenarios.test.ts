@@ -70,7 +70,7 @@ function open(filename: string) {
   return { database, store: new TarsStore(database) };
 }
 
-test("scenario 1: after a priority change the higher priority work acquires the slot first; the other keeps its next action and ownership", async () => {
+test("scenario 1: priority orders admission without delaying independent work or recreating its prepared ownership", async () => {
   const { store } = open(persisted());
   const execution = world();
   const runtime = createTarsRuntime(execution.ports(store));
@@ -83,18 +83,41 @@ test("scenario 1: after a priority change the higher priority work acquires the 
   // The user raises repository B's work above it, as the admitted reprioritize action does.
   store.patch(second.id, second.revision, { priority: 90 }, NOW);
   await tick();
-  expect(execution.calls).toEqual(["workspace:b", "run:b"]);
+  expect(execution.calls).toEqual(["workspace:b", "run:b", "run:a"]);
   expect(store.get(second.id)).toMatchObject({ state: "running", agentRunId: "run-b" });
-  // A keeps exactly its next action and ownership: nothing cancelled, released or re-created.
-  expect(store.get(first.id)).toMatchObject({ state: "preparing", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: null, priority: 60 });
-  await tick();
-  expect(execution.calls).toEqual(["workspace:b", "run:b"]);
-  // When the slot frees, A continues from where it was, in its own worktree and task.
-  const running = store.get(second.id)!;
-  store.patch(running.id, running.revision, { state: "completed" }, NOW);
+  // A continues its own next action before B ends, retaining its prepared task and worktree.
+  expect(store.get(first.id)).toMatchObject({ state: "running", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: "run-a", priority: 60 });
   await tick();
   expect(execution.calls).toEqual(["workspace:b", "run:b", "run:a"]);
+  expect(execution.created).toEqual({ workspaces: 1, tasks: 1, runs: 2 });
+  runtime.stop();
+});
+
+test("scenario 1 with a limit: interrupted preparation recovers in its reserved slot; new admission follows priority within the limit", async () => {
+  const { store } = open(persisted());
+  const execution = world();
+  const runtime = createTarsRuntime({ ...execution.ports(store), concurrencyLimit: () => 1 });
+  const tick = async () => { runtime.requestTick(); await runtime.drain(); };
+  const waits = async () => Object.fromEntries((await runtime.get()).responsibilities
+    .filter((row) => row.state === "queued").map((row) => [row.requestId, row.queueWait]));
+  // A had started preparing when the host stopped, so it already holds a reservation.
+  const first = store.create(input("a", "/tmp/repository-a", 60), NOW);
+  const preparing = store.patch(first.id, first.revision, { state: "preparing", taskId: `tars-${first.id}`, executionWorkspaceId: "execution-a" }, NOW);
+  execution.workspaces.set(`tars/${first.id}`, "execution-a"); execution.tasks.add(`tars-${first.id}`);
+  const second = store.create(input("b", "/tmp/repository-b", 90), NOW);
+  store.create(input("c", "/tmp/repository-c", 40), NOW);
+  await tick();
+  // Recovery is not a new admission: A continues in its own worktree and task although B ranks higher.
+  expect(execution.calls).toEqual(["run:a"]);
   expect(store.get(first.id)).toMatchObject({ state: "running", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: "run-a" });
+  expect(await waits()).toEqual({ b: { code: "capacity", active: 1, limit: 1 }, c: { code: "capacity", active: 1, limit: 1 } });
+  // When A's slot frees, the higher-priority B is admitted next and C keeps waiting for the limit.
+  const running = store.get(first.id)!;
+  store.patch(running.id, running.revision, { state: "completed" }, NOW);
+  await tick();
+  expect(execution.calls).toEqual(["run:a", "workspace:b", "run:b"]);
+  expect(store.get(second.id)).toMatchObject({ state: "running", agentRunId: "run-b" });
+  expect(await waits()).toEqual({ c: { code: "capacity", active: 1, limit: 1 } });
   expect(execution.created).toEqual({ workspaces: 1, tasks: 1, runs: 2 });
   runtime.stop();
 });

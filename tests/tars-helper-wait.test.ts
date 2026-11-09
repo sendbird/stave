@@ -73,6 +73,7 @@ function runHostScenario() {
       repositoryPath: TEAM.repositoryPath };
     const persistence = {
       tars,
+      tarsConversations: { getSettings: () => null },
       agentAssignments: { getByTaskId: () => assignment, getByRequestId: () => assignment },
       agentRuns: {
         getLatestAgentRunForTask: (task) => task === taskId ? lead().agentRun : null,

@@ -74,6 +74,9 @@ export function TarsSettings({ identity, initial, busy, onSave }: {
       {pinned && pinned.providerId !== settings.providerId ? <p className={sx(styles.text)}>{t("shell:tars.execution.systemAccount", { provider: PROVIDER_LABELS[pinned.providerId] })}</p> : null}</div>
     <TarsAgentAllowlist agents={savedAgents} value={settings.allowedAgentIds ?? []} disabled={busy}
       onChange={(allowedAgentIds) => setSettings(allowedAgentIds.length ? { ...settings, allowedAgentIds } : withoutKey(settings, "allowedAgentIds"))} />
+    <label className={sx(styles.field)}>{t("shell:tars.execution.concurrency")}<Input type="number" min={0} step={1} required disabled={busy}
+      value={settings.maxConcurrentResponsibilities ?? 0} onChange={(event) => setSettings({ ...settings, maxConcurrentResponsibilities: event.target.valueAsNumber })} /></label>
+    <p className={sx(styles.text)}>{t("shell:tars.execution.concurrencyHint")}</p>
     <label className={sx(styles.field)}>{t("shell:tars.maxTurns")}<Input type="number" min={1} max={100} required disabled={busy} value={settings.maxTurns} onChange={(event) => setSettings({ ...settings, maxTurns: event.target.valueAsNumber })} /></label>
     <div><Button type="submit" disabled={busy || !name.trim() || !settings.model}>{t("shell:tars.save")}</Button></div>
   </form>;

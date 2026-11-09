@@ -332,3 +332,20 @@ describe("Tars run monitor agent motion", () => {
     expect(markup).toContain(`class="${rollClass}"`);
   });
 });
+
+// Queued reasons use only the scheduler's read model, with no inferred single-running blocker.
+test("queued cards show capacity evidence or an explicitly unknown cause in both locales", async () => {
+  const f = buildTarsTrayFixtures(new Date("2026-11-09T00:00:00.000Z"));
+  for (const language of ["en", "ko"] as const) {
+    applyAppLocale(language); await i18n.changeLanguage(language);
+    for (const queueWait of [{ code: "capacity" as const, active: 32, limit: 32 }, { code: "unknown" as const }]) {
+      const row = { ...f.responsibilities[0]!, state: "queued" as const, agentRunId: null, queueWait };
+      const model = buildTarsTray({ responsibilities: [row], attentionItems: [], runs: {} });
+      const html = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.running[0]!, actions: noActions }));
+      expect(html).toContain(`data-tars-queue-wait="${queueWait.code}"`);
+      expect(html).toContain(queueWait.code === "capacity" ? "32" : language === "ko" ? "확인되지" : "not been confirmed");
+      expect(html).not.toContain("data-tars-waiting-behind");
+    }
+  }
+  applyAppLocale("en"); await i18n.changeLanguage("en");
+});

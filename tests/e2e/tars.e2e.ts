@@ -91,6 +91,8 @@ test("global settings save once, survive reload and do not appear in the compose
   const sheet = page.getByRole("dialog");
   await sheet.getByRole("textbox", { name: "Name", exact: true }).fill("My representative");
   await sheet.getByRole("textbox", { name: "Standing instructions", exact: true }).fill("Keep status reports concise.");
+  await expect(sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true })).toHaveValue("0");
+  await sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true }).fill("48");
   await sheet.getByRole("spinbutton", { name: "Turn limit per work unit" }).fill("12");
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toHaveCount(0);
@@ -99,6 +101,7 @@ test("global settings save once, survive reload and do not appear in the compose
   await expect(page.getByRole("heading", { name: "My representative", exact: true })).toBeVisible();
   await expect(composer(page).getByRole("spinbutton")).toHaveCount(0);
   await page.getByRole("button", { name: "Conversation settings", exact: true }).click();
+  await expect(sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true })).toHaveValue("48");
   await expect(sheet.getByRole("spinbutton", { name: "Turn limit per work unit" })).toHaveValue("12");
   await expect(sheet.getByRole("textbox", { name: "Standing instructions", exact: true })).toHaveValue("Keep status reports concise.");
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
