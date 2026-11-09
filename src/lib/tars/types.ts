@@ -59,10 +59,11 @@ export type TarsState = z.infer<typeof TarsStateSchema>;
 
 /** The controls a click, Fleet, a task or an admitted model proposal can apply. */
 /** `acceptCompletion`: the user accepts work whose completion Stave could not verify. */
-export const TarsControlOperationSchema = z.enum(["pause", "resume", "cancel", "takeover", "handBack", "acceptCompletion"]);
+/** `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot. */
+export const TarsControlOperationSchema = z.enum(["pause", "resume", "cancel", "takeover", "handBack", "acceptCompletion", "startNow"]);
 export type TarsControlOperation = z.infer<typeof TarsControlOperationSchema>;
-/** The controls that reach the execution run; accepting completion only settles the responsibility. */
-export type TarsRunControlOperation = Exclude<TarsControlOperation, "acceptCompletion">;
+/** The controls that reach the execution run; accepting completion only settles the responsibility, and queued work has no run yet. */
+export type TarsRunControlOperation = Exclude<TarsControlOperation, "acceptCompletion" | "startNow">;
 
 /**
  * Stable codes for the status sentences Tars itself writes into a

@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, type KeyboardEvent } from "react";
-import { CircleCheck, CirclePause, CirclePlay, CircleStop, Hand, ShieldAlert, Undo2, type LucideIcon } from "lucide-react";
+import { CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, ShieldAlert, Undo2, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/aui/components/Badge";
@@ -80,7 +80,7 @@ export function isTarsDecisionDismissKey(event: Pick<KeyboardEvent<HTMLElement>,
 }
 
 const OPERATION_ICON: Record<TarsControlOperation, LucideIcon> = {
-  pause: CirclePause, resume: CirclePlay, cancel: CircleStop, takeover: Hand, handBack: Undo2, acceptCompletion: CircleCheck,
+  pause: CirclePause, resume: CirclePlay, cancel: CircleStop, takeover: Hand, handBack: Undo2, acceptCompletion: CircleCheck, startNow: FastForward,
 };
 
 /** What a confirmation card shows about its target: where it runs and which revision it was asked for. Unknown rows are left out. */

@@ -742,6 +742,7 @@ const TARS_DECISION_DETAIL_KEY = {
   takeover: "fleet:tarsAttention.proposal.takeover",
   handBack: "fleet:tarsAttention.proposal.handBack",
   acceptCompletion: "fleet:tarsAttention.proposal.acceptCompletion",
+  startNow: "fleet:tarsAttention.proposal.startNow",
 } as const satisfies Record<TarsControlOperation, string>;
 
 function repositoryNameOf(repositoryPath: string) {

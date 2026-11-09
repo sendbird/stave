@@ -305,6 +305,78 @@ describe("Tars accept as done", () => {
 });
 
 
+describe("Tars start now", () => {
+  test("starts queued work at once beside running work, and the queue still waits for the slot", async () => {
+    const f = fixture();
+    const first = f.store.create(input("first", 90), NOW);
+    await f.tick();
+    expect(f.store.get(first.id)?.state).toBe("running");
+    const second = f.store.create(input("second", 10), NOW);
+    const third = f.store.create(input("third", 50), NOW);
+    await f.tick();
+    expect(f.store.get(second.id)?.state).toBe("queued");
+    expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
+    await f.runtime.drain();
+    expect(f.store.get(second.id)).toMatchObject({ state: "running", taskId: `tars-${second.id}`, agentRunId: `run-${second.id}` });
+    // Only the named work skipped the queue: the rest still waits for the portfolio slot.
+    await f.tick();
+    expect(f.store.get(third.id)?.state).toBe("queued");
+    expect(f.calls.filter((call) => call.startsWith("run:"))).toEqual(["run:first", "run:second"]);
+    // A start now never controls a run: started work has one already and is refused.
+    expect(await f.act(f.store.get(first.id)!, "startNow")).toMatchObject({ status: "rejected", reason: "notStartable" });
+    expect(f.calls.filter((call) => !call.includes(":"))).toEqual([]);
+    f.database.close();
+  });
+  test("refuses paused, taken-over, stale and out-of-scope work without starting anything", async () => {
+    let denied = false;
+    const f = fixture({ validateScope: async () => { if (denied) throw new Error("denied repository"); } });
+    const created = f.store.create(input("held", 10), NOW);
+    const paused = f.store.patch(created.id, created.revision, { state: "paused" }, NOW);
+    expect(await f.act(paused, "startNow")).toMatchObject({ status: "rejected", reason: "notStartable" });
+    const takenOver = f.store.patch(paused.id, paused.revision, { state: "takenOver" }, NOW);
+    expect(await f.act(takenOver, "startNow")).toMatchObject({ status: "rejected", reason: "notStartable" });
+    const queued = f.store.patch(takenOver.id, takenOver.revision, { state: "queued" }, NOW);
+    expect(await f.act({ ...queued, revision: queued.revision - 1 }, "startNow")).toMatchObject({ status: "rejected", reason: "stale" });
+    denied = true;
+    expect(await f.act(queued, "startNow")).toMatchObject({ status: "rejected", reason: "outOfScope" });
+    expect(f.store.get(queued.id)).toEqual(queued);
+    expect(f.calls).toEqual([]);
+    f.database.close();
+  });
+  test("a pause clicked while start now prepares the worktree is applied and no run starts", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const f = fixture({ prepareWorkspace: async (row) => { if (row.requestId === "second") await gate; return `execution-${row.id}`; } });
+    const first = f.store.create(input("first", 90), NOW);
+    await f.tick();
+    const second = f.store.create(input("second", 10), NOW);
+    expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
+    await Promise.resolve();
+    // Preparation is still waiting on Git: the control has settled, so a pause is admitted, not refused as in flight.
+    const pausing = f.act(f.store.get(second.id)!, "pause");
+    release();
+    expect(await pausing).toMatchObject({ status: "applied" });
+    await f.runtime.drain();
+    expect(f.store.get(second.id)?.state).toBe("paused");
+    expect(f.calls.filter((call) => call.startsWith("run:"))).toEqual(["run:first"]);
+    expect(f.store.get(first.id)?.state).toBe("running");
+    f.database.close();
+  });
+  test("a failed preparation blocks the started work with its reason instead of leaving it queued", async () => {
+    let failing = false;
+    const f = fixture({ prepareWorkspace: async (row) => { if (failing) throw new Error("worktree failed"); return `execution-${row.id}`; } });
+    const first = f.store.create(input("first", 90), NOW);
+    await f.tick();
+    failing = true;
+    const second = f.store.create(input("second", 10), NOW);
+    expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
+    await f.runtime.drain();
+    expect(f.store.get(second.id)).toMatchObject({ state: "blocked", agentRunId: null });
+    expect(f.store.get(first.id)?.state).toBe("running");
+    f.database.close();
+  });
+});
+
 describe("Tars confirmed ownership transfer", () => {
   function transferred(row: Parameters<TarsRuntimePorts["findRun"]>[0]): never {
     const userRun = { ...agentRunFixture({ leadTaskId: row.taskId! }).agentRun,

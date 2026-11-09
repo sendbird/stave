@@ -130,7 +130,8 @@ export interface TarsTrayModel<T extends TarsTrayAttentionInput = TarsTrayAttent
 /**
  * The controls a responsibility offers, by state: none once it ended; hand
  * back while the user holds it; accept as done when Stave could not verify a
- * reported completion; otherwise pause or resume plus take over.
+ * reported completion; queued work can start now ahead of the queue;
+ * otherwise pause or resume plus take over.
  * Cancel is offered whenever the work has not ended.
  */
 export function tarsControlsFor(row: Pick<TarsResponsibility, "state" | "detailCode">): TarsControlOperation[] {
@@ -138,6 +139,7 @@ export function tarsControlsFor(row: Pick<TarsResponsibility, "state" | "detailC
   if (row.state === "takenOver") return ["handBack", "cancel"];
   // The run ended reporting success Stave could not verify: only the user's decision is left.
   if (row.state === "blocked" && row.detailCode === "unverifiedCompletion") return ["acceptCompletion", "cancel"];
+  if (row.state === "queued") return ["startNow", "pause", "takeover", "cancel"];
   return [row.state === "paused" || row.state === "blocked" ? "resume" : "pause", "takeover", "cancel"];
 }
 

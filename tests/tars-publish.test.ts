@@ -348,6 +348,18 @@ describe("Tars publish from words", () => {
     expect(f.repo.calls).toEqual([]);
   });
 
+  test("an automatic follow-up cannot start queued work now, directly or as an option", () => {
+    const f = fixture();
+    const created = f.responsibilities.create(CreateTarsResponsibilityInputSchema.parse({ requestId: "queued-start", title: "Queued", instruction: "Do it.",
+      acceptanceCriteria: ["Done"], workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }), NOW);
+    const origin: TarsMessageOrigin = { kind: "followUp", eventKey: `${created.id}:blocked:1`, responsibilityId: created.id, reason: "blocked", observedRevision: created.revision, summary: "x" };
+    const effect = { kind: "control" as const, responsibilityId: created.id, expectedRevision: created.revision, operation: "startNow" as const };
+    expect(tarsFollowUpRefusal(effect, origin, f.responsibilities)).toContain("cannot propose this control");
+    const ask: TarsDecisionAction = { kind: "ask", question: "Start it now?", options: [
+      { label: "Start now", rationale: "It waits.", effect }, { label: "Wait", rationale: "Keep the queue.", effect: { kind: "reply" } }] };
+    expect(tarsFollowUpRefusal(ask, origin, f.responsibilities)).toContain("cannot offer");
+  });
+
   test("an automatic follow-up cannot propose publishing", async () => {
     const f = fixture();
     const row = f.completed();

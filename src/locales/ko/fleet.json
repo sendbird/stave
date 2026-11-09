@@ -352,7 +352,8 @@
       "cancel": "Tars가 이 작업을 취소하자고 제안합니다.",
       "takeover": "Tars가 이 작업을 직접 맡으시라고 제안합니다.",
       "handBack": "Tars가 이 작업을 다시 맡겠다고 제안합니다.",
-      "acceptCompletion": "Tars가 Stave 확인 없이 이 작업을 완료로 인정하자고 제안합니다."
+      "acceptCompletion": "Tars가 Stave 확인 없이 이 작업을 완료로 인정하자고 제안합니다.",
+      "startNow": "Tars가 대기 중인 이 작업을 지금 시작하자고 제안합니다."
     },
     "blockedDetail": "Tars가 이 작업을 멈추고 결정을 기다립니다.",
     "confirm": {
@@ -361,7 +362,8 @@
       "cancel": "취소 확인",
       "takeover": "직접 맡기 확인",
       "handBack": "다시 맡기기 확인",
-      "acceptCompletion": "완료 인정 확인"
+      "acceptCompletion": "완료 인정 확인",
+      "startNow": "지금 시작 확인"
     },
     "confirmLabel": "{{title}} 작업의 {{action}}",
     "openInTars": "Tars에서 열기",
