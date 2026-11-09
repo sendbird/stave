@@ -121,7 +121,7 @@ export function TarsPreview() {
           : (operation === "pause" || operation === "resume") && takenOver ? "takenOver" as const : null;
       const error = reason ? "Preview control is not admissible." : null;
       const state = operation === "pause" ? "paused" : operation === "cancel" ? "cancelled" : operation === "takeover" ? "takenOver"
-        : operation === "acceptCompletion" ? "completed" : "queued";
+        : operation === "acceptCompletion" ? "completed" : operation === "startNow" ? "running" : "queued";
       if (!error) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => candidate.id !== responsibilityId ? candidate
         : { ...candidate, revision: expectedRevision + 1, state, reverifyAfter: operation === "handBack" ? now : candidate.reverifyAfter }),
         // A control moves the revision past any proposal waiting on it, so Fleet's decision row ends with it.

@@ -39,7 +39,7 @@ export const TARS_PROPOSAL_SUPERSEDED = "A newer proposal for this responsibilit
 /** Operations that stop or withdraw Tars execution invalidate pending dispatch at once. */
 export const TARS_STOPPING_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["pause", "cancel", "takeover"]);
 /** Operations that give Tars execution authority again; they recheck the registered scope. */
-export const TARS_GRANTING_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack"]);
+export const TARS_GRANTING_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack", "startNow"]);
 
 /**
  * Deterministic admission. Admission checks the caller's revision; dispatch
@@ -78,6 +78,10 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
       // Only completion Stave could not verify waits for this decision.
       if (row.state !== "blocked" || row.detailCode !== "unverifiedCompletion")
         refuse("notAcceptable", "Only work whose completion Stave could not verify can be accepted as done.");
+      return row;
+    case "startNow":
+      // Only work still waiting its turn: started work already holds its run.
+      if (row.state !== "queued") refuse("notStartable", "Only queued work can start now.");
       return row;
     case "cancel":
       return row;

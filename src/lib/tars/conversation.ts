@@ -76,6 +76,8 @@ export const TarsControlReasonSchema = z.enum([
   "notByFollowUp",
   // A priority change or queue move: only queued work moves, and work already at that end of the queue cannot move further.
   "notQueued", "queueEdge",
+  // Start now: only queued work that has not started can start ahead of the queue.
+  "notStartable",
 ]);
 export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
 
@@ -116,7 +118,8 @@ export type TarsControlAction = z.infer<typeof TarsControlActionSchema>;
 /**
  * Controls that return authority to Tars or end work. When the model proposes
  * one, it waits for the user's confirming click; pause and takeover, which only
- * reduce Tars's authority, apply at once.
+ * reduce Tars's authority, apply at once, and so does startNow, which only
+ * starts work the user already delegated earlier than its queue place.
  */
 export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack", "cancel", "acceptCompletion"]);
 /** Effects that cannot be undone. They are never a default: no recommended option, no Enter, no "yes". */

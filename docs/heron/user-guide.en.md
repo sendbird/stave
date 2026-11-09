@@ -480,7 +480,7 @@ progress, not started or stopped), the step count such as "2/3", and
 not know is left out, never shown as zero. The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
 responsibility** are under the card's more-actions menu. Queued work follows
-the work that started, in the order it will start; its menu adds **Do first**
+the work that started, in the order it will start; its main action is **Start now**, which starts it at once beside running work, and its menu adds **Do first**
 and **Do later**, and its grip lets you drag it among the queued cards or move
 it with **Alt+Up** and **Alt+Down**. Each move leaves a one-line record with
 the new priority. When Tars proposes
@@ -566,7 +566,7 @@ control** on the run line, and every **Stop** of its turn (composer, Esc,
 command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Paused · Fleet"
 or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
-own turn. Take the work over before changing its agent in the composer. Resume, hand back and cancel asked in words wait for you as a
+own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
 decision card with **Confirm**. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave

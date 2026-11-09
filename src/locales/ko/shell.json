@@ -1152,7 +1152,8 @@
       "notAcceptable": "Stave가 완료를 확인하지 못한 작업만 완료로 인정할 수 있습니다.",
       "notByFollowUp": "Tars가 자동 후속에서 제안한 일이라 적용할 수 없습니다. 원하면 Tars에게 직접 요청하세요.",
       "notQueued": "대기 중인 작업만 대기열에서 순서를 바꿀 수 있습니다.",
-      "queueEdge": "이미 대기열의 그쪽 끝에 있는 작업입니다."
+      "queueEdge": "이미 대기열의 그쪽 끝에 있는 작업입니다.",
+      "notStartable": "아직 시작하지 않은 대기 중인 작업만 지금 시작할 수 있습니다."
     },
     "close": "Tars 닫기",
     "availability": "Stave 실행 중 작업을 계속하고 재시작 후 복구합니다. Stave가 종료되거나 컴퓨터가 절전 중이면 실행하지 않습니다.",
@@ -1207,7 +1208,8 @@
         "cancel": "{{title}} 취소",
         "takeover": "{{title}} 직접 맡기",
         "handBack": "{{title}} 다시 맡기기",
-        "acceptCompletion": "{{title}} 완료로 인정"
+        "acceptCompletion": "{{title}} 완료로 인정",
+        "startNow": "{{title}} 지금 시작"
       },
       "records": {
         "click": {
@@ -1217,7 +1219,8 @@
             "cancel": "취소 처리 중 · 클릭",
             "takeover": "직접 맡기 처리 중 · 클릭",
             "handBack": "다시 맡기기 처리 중 · 클릭",
-            "acceptCompletion": "완료 인정 처리 중 · 클릭"
+            "acceptCompletion": "완료 인정 처리 중 · 클릭",
+            "startNow": "지금 시작 처리 중 · 클릭"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 클릭",
@@ -1225,7 +1228,8 @@
             "cancel": "취소 적용됨 · 클릭",
             "takeover": "직접 맡기 적용됨 · 클릭",
             "handBack": "다시 맡기기 적용됨 · 클릭",
-            "acceptCompletion": "완료로 인정됨 · 클릭"
+            "acceptCompletion": "완료로 인정됨 · 클릭",
+            "startNow": "지금 시작함 · 클릭"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 클릭",
@@ -1233,7 +1237,8 @@
             "cancel": "취소 적용하지 않음 · 클릭",
             "takeover": "직접 맡기 적용하지 않음 · 클릭",
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
-            "acceptCompletion": "완료 인정 적용하지 않음 · 클릭"
+            "acceptCompletion": "완료 인정 적용하지 않음 · 클릭",
+            "startNow": "지금 시작 적용하지 않음 · 클릭"
           }
         },
         "fleet": {
@@ -1243,7 +1248,8 @@
             "cancel": "취소 처리 중 · Fleet",
             "takeover": "직접 맡기 처리 중 · Fleet",
             "handBack": "다시 맡기기 처리 중 · Fleet",
-            "acceptCompletion": "완료 인정 처리 중 · Fleet"
+            "acceptCompletion": "완료 인정 처리 중 · Fleet",
+            "startNow": "지금 시작 처리 중 · Fleet"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · Fleet",
@@ -1251,7 +1257,8 @@
             "cancel": "취소 적용됨 · Fleet",
             "takeover": "직접 맡기 적용됨 · Fleet",
             "handBack": "다시 맡기기 적용됨 · Fleet",
-            "acceptCompletion": "완료로 인정됨 · Fleet"
+            "acceptCompletion": "완료로 인정됨 · Fleet",
+            "startNow": "지금 시작함 · Fleet"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · Fleet",
@@ -1259,7 +1266,8 @@
             "cancel": "취소 적용하지 않음 · Fleet",
             "takeover": "직접 맡기 적용하지 않음 · Fleet",
             "handBack": "다시 맡기기 적용하지 않음 · Fleet",
-            "acceptCompletion": "완료 인정 적용하지 않음 · Fleet"
+            "acceptCompletion": "완료 인정 적용하지 않음 · Fleet",
+            "startNow": "지금 시작 적용하지 않음 · Fleet"
           }
         },
         "task": {
@@ -1269,7 +1277,8 @@
             "cancel": "취소 처리 중 · 작업 화면",
             "takeover": "직접 맡기 처리 중 · 작업 화면",
             "handBack": "다시 맡기기 처리 중 · 작업 화면",
-            "acceptCompletion": "완료 인정 처리 중 · 작업 화면"
+            "acceptCompletion": "완료 인정 처리 중 · 작업 화면",
+            "startNow": "지금 시작 처리 중 · 작업 화면"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 작업 화면",
@@ -1277,7 +1286,8 @@
             "cancel": "취소 적용됨 · 작업 화면",
             "takeover": "직접 맡기 적용됨 · 작업 화면",
             "handBack": "다시 맡기기 적용됨 · 작업 화면",
-            "acceptCompletion": "완료로 인정됨 · 작업 화면"
+            "acceptCompletion": "완료로 인정됨 · 작업 화면",
+            "startNow": "지금 시작함 · 작업 화면"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 작업 화면",
@@ -1285,7 +1295,8 @@
             "cancel": "취소 적용하지 않음 · 작업 화면",
             "takeover": "직접 맡기 적용하지 않음 · 작업 화면",
             "handBack": "다시 맡기기 적용하지 않음 · 작업 화면",
-            "acceptCompletion": "완료 인정 적용하지 않음 · 작업 화면"
+            "acceptCompletion": "완료 인정 적용하지 않음 · 작업 화면",
+            "startNow": "지금 시작 적용하지 않음 · 작업 화면"
           }
         },
         "key": {
@@ -1295,7 +1306,8 @@
             "cancel": "취소 처리 중 · 클릭",
             "takeover": "직접 맡기 처리 중 · 클릭",
             "handBack": "다시 맡기기 처리 중 · 클릭",
-            "acceptCompletion": "완료 인정 처리 중 · 클릭"
+            "acceptCompletion": "완료 인정 처리 중 · 클릭",
+            "startNow": "지금 시작 처리 중 · 클릭"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 클릭",
@@ -1303,7 +1315,8 @@
             "cancel": "취소 적용됨 · 클릭",
             "takeover": "직접 맡기 적용됨 · 클릭",
             "handBack": "다시 맡기기 적용됨 · 클릭",
-            "acceptCompletion": "완료로 인정됨 · 클릭"
+            "acceptCompletion": "완료로 인정됨 · 클릭",
+            "startNow": "지금 시작함 · 클릭"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 클릭",
@@ -1311,7 +1324,8 @@
             "cancel": "취소 적용하지 않음 · 클릭",
             "takeover": "직접 맡기 적용하지 않음 · 클릭",
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
-            "acceptCompletion": "완료 인정 적용하지 않음 · 클릭"
+            "acceptCompletion": "완료 인정 적용하지 않음 · 클릭",
+            "startNow": "지금 시작 적용하지 않음 · 클릭"
           }
         },
         "words": {
@@ -1321,7 +1335,8 @@
             "cancel": "취소 처리 중 · 클릭",
             "takeover": "직접 맡기 처리 중 · 클릭",
             "handBack": "다시 맡기기 처리 중 · 클릭",
-            "acceptCompletion": "완료 인정 처리 중 · 클릭"
+            "acceptCompletion": "완료 인정 처리 중 · 클릭",
+            "startNow": "지금 시작 처리 중 · 클릭"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 클릭",
@@ -1329,7 +1344,8 @@
             "cancel": "취소 적용됨 · 클릭",
             "takeover": "직접 맡기 적용됨 · 클릭",
             "handBack": "다시 맡기기 적용됨 · 클릭",
-            "acceptCompletion": "완료로 인정됨 · 클릭"
+            "acceptCompletion": "완료로 인정됨 · 클릭",
+            "startNow": "지금 시작함 · 클릭"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 클릭",
@@ -1337,7 +1353,8 @@
             "cancel": "취소 적용하지 않음 · 클릭",
             "takeover": "직접 맡기 적용하지 않음 · 클릭",
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
-            "acceptCompletion": "완료 인정 적용하지 않음 · 클릭"
+            "acceptCompletion": "완료 인정 적용하지 않음 · 클릭",
+            "startNow": "지금 시작 적용하지 않음 · 클릭"
           }
         },
         "move": {
@@ -1491,7 +1508,8 @@
         "takeover": "Tars가 이 작업을 직접 맡으시라고 제안합니다.",
         "handBack": "Tars가 이 작업을 다시 맡겠다고 제안합니다.",
         "acceptCompletion": "Tars가 Stave 확인 없이 이 작업을 완료로 인정하자고 제안합니다.",
-        "answerInConversation": "대화에서 답하세요."
+        "answerInConversation": "대화에서 답하세요.",
+        "startNow": "Tars가 대기 중인 이 작업을 지금 시작하자고 제안합니다."
       },
       "blockedDetail": "Tars가 이 작업을 끝내지 못했습니다. 확인한 뒤 어떻게 할지 정하세요.",
       "showInFleet": "Fleet에서 보기",
@@ -1507,7 +1525,8 @@
         "cancel": "취소 확인",
         "takeover": "직접 맡기 확인",
         "handBack": "다시 맡기기 확인",
-        "acceptCompletion": "완료 인정 확인"
+        "acceptCompletion": "완료 인정 확인",
+        "startNow": "지금 시작 확인"
       },
       "moreActions": "{{title}} 작업 더 보기",
       "moreActionsHint": "작업 더 보기",
@@ -1653,7 +1672,8 @@
         "verify": "Tars에게 새 검증 작업 요청",
         "acceptRationale": "Stave가 확인한 검사 없이 완료 처리합니다.",
         "cancelRationale": "감독을 끝냅니다. 이미 만든 변경은 그대로 남습니다.",
-        "verifyRationale": "새 확인 요청을 메시지 입력란에 넣습니다. 보내기 전에는 아무것도 실행되지 않습니다."
+        "verifyRationale": "새 확인 요청을 메시지 입력란에 넣습니다. 보내기 전에는 아무것도 실행되지 않습니다.",
+        "startNow": "지금 시작"
       },
       "verifyRequest": "“{{title}}” 작업을 검증할 새 작업을 시작해 줘. 현재 결과를 각 기준과 대조해 보고, Stave가 확인할 수 있는 내용을 알려 줘.",
       "source": {
@@ -1695,7 +1715,8 @@
           "cancel": "이 작업의 책임을 취소할까요?",
           "takeover": "이 작업을 직접 맡을까요?",
           "handBack": "이 작업을 Tars에게 다시 맡길까요?",
-          "acceptCompletion": "이 작업을 완료로 인정할까요?"
+          "acceptCompletion": "이 작업을 완료로 인정할까요?",
+          "startNow": "이 작업을 지금 시작할까요?"
         },
         "unverifiedTitle": "Stave가 완료를 확인하지 못했습니다",
         "risk": "되돌릴 수 없음",
@@ -1713,7 +1734,8 @@
           "cancel": "감독을 끝냅니다. 이미 만든 변경은 그대로 남습니다.",
           "takeover": "작업을 직접 맡습니다. 다시 맡길 때까지 Tars는 이 작업에 손대지 않습니다.",
           "handBack": "Tars가 작업을 다시 맡고, 완료로 보기 전에 다시 검증합니다.",
-          "acceptCompletion": "Stave가 확인한 검사 없이 완료 처리합니다."
+          "acceptCompletion": "Stave가 확인한 검사 없이 완료 처리합니다.",
+          "startNow": "Tars가 대기 중인 이 작업을 실행 중인 작업과 함께 지금 시작합니다."
         },
         "unverifiedEffect": "완료 인정과 취소는 되돌릴 수 없습니다. 검증 요청은 메시지 초안만 만듭니다.",
         "notNow": "나중에",
@@ -1954,6 +1976,7 @@
     "workingChanges": {
       "snapshot": "작업 중인 변경에서 시작 · {{commit}}",
       "clean": "포함할 작업 중인 변경 없음 · 브랜치에서 시작"
-    }
+    },
+    "startNow": "지금 시작"
   }
 }

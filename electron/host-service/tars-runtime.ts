@@ -144,6 +144,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     const rows = ports.store.snapshot().responsibilities;
     // One active responsibility; its own supervised team may run independent isolated units.
     // Waiting goals yield the portfolio slot so a human question cannot starve independent work.
+    // A user's start now prepares its work in its own control, outside this slot.
     if (unknownExecution || rows.some((row) => row.state === "running" || (row.state === "preparing" && row.agentRunId))) return;
     const next = rows.filter((row) => (row.state === "queued" || (row.state === "preparing" && !row.agentRunId)) && !held.has(row.id))
       .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
@@ -222,7 +223,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             }
           }
           // Accepting completion settles the responsibility; the run has already ended.
-          if (row.agentRunId && request.operation !== "acceptCompletion") await ports.controlRun(row, request.operation);
+          // Starting queued work has no run to control yet; a run found above is adopted below.
+          if (row.agentRunId && request.operation !== "acceptCompletion" && request.operation !== "startNow")
+            await ports.controlRun(row, request.operation);
         } catch (error) {
           if (!(error instanceof TarsOwnershipLostError) || TARS_GRANTING_OPERATIONS.has(request.operation)) throw error;
           // Confirmed transfer relinquishes only this responsibility. Never send
@@ -235,8 +238,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             ? { state: "completed", detail: "You accepted this work as done without a Stave-verified check.", detailCode: "acceptedWithoutVerification" }
           : request.operation === "cancel" ? { state: "cancelled", ...detail }
             : request.operation === "takeover" ? { state: "takenOver", ...detail }
-              : { state: row.agentRunId ? "running" : "queued", detail: null,
-                ...(request.operation === "handBack" ? { reverifyAfter: handedBackAt } : {}) };
+              // Preparation interrupted by a restart or lock wait resumes like any other preparation.
+              : request.operation === "startNow" && !row.agentRunId ? { state: "preparing", taskId: row.taskId ?? `tars-${row.id}`, detail: null }
+                : { state: row.agentRunId ? "running" : "queued", detail: null,
+                  ...(request.operation === "handBack" ? { reverifyAfter: handedBackAt } : {}) };
         const outcome = ledger.apply(() => {
           // Recheck inside the transaction that writes both the effect and its outcome.
           const current = ports.store.get(id);
@@ -245,6 +250,13 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           ports.store.patch(id, row.revision, value, now());
         });
         if (TARS_GRANTING_OPERATIONS.has(request.operation)) held.delete(id);
+        // Start now prepares and starts the run next on the chain, without waiting for the
+        // portfolio slot. It runs after this control settles, so a pause or cancel clicked
+        // during preparation is admitted (it holds the work) instead of refused as in flight.
+        if (request.operation === "startNow") void enqueue(async () => {
+          const started = ports.store.get(id);
+          if (started?.state === "preparing" && !started.agentRunId && !stopped && !held.has(id)) await prepare(started);
+        }).catch((error) => ports.onError?.(error));
         requestTick();
         return outcome;
       }).catch(settle).finally(() => {

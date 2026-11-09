@@ -206,6 +206,7 @@ explicitly. Details are in [Decisions](#decisions).
 
 | Control | Effect |
 |---|---|
+| **Start now** | The main action on a queued card: starts that work at once, beside work already running, without waiting for its place in the queue. Other queued work keeps waiting. |
 | **Pause** | Holds the responsibility. A manual pause stays paused after a restart. |
 | **Resume** | Continues paused or blocked work. Never continues work you took over. |
 | **Take over** | Stops Tars's execution and makes the work yours; continue in its task. |
@@ -214,8 +215,9 @@ explicitly. Details are in [Decisions](#decisions).
 | **Cancel message** | Stops a queued or running reply. Admitted work is not undone. |
 | **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
-You can ask in words too. Pause and take over apply at once; resume, hand back
-and cancel wait for your **Confirm** on a card. **Stop** in a Tars task or in
+You can ask in words too ("run the queued work now", "바로 실행해"). Start now,
+pause and take over apply at once; resume, hand back and cancel wait for your
+**Confirm** on a card. **Stop** in a Tars task or in
 Fleet pauses the work rather than cancelling it.
 
 ### 4. See progress
@@ -417,6 +419,16 @@ Control details beyond the [quick start table](#3-control-work):
   task can clear, or when the final verification has no attempts left.
 - **Cancel responsibility** cancels a run still in progress but does not undo
   changes already made or delete its worktree, task or history.
+- **Start now** applies only to queued work you delegated earlier: right after
+  the control settles, Tars prepares the worktree and task and starts the run
+  outside the one-responsibility portfolio slot, so it runs beside work already
+  running. Pause or cancel still apply while it prepares.
+  It does not change the priority or the order of the rest of the queue. If
+  preparation fails, the work is blocked with its reason. If a restart or a
+  database lock interrupts preparation, it continues like any interrupted
+  preparation, by priority when the slot frees. Started, paused, blocked or
+  taken-over work is refused (`notStartable`). An automatic follow-up never
+  proposes or offers it.
 
 When a control comes from the conversation, resume, hand back and cancel wait
 for you as a decision card with **Confirm** under the reply; Tars's reply alone

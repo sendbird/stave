@@ -1158,7 +1158,8 @@
       "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
       "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it.",
       "notQueued": "Only queued work can change its place in the queue.",
-      "queueEdge": "This work is already at that end of the queue."
+      "queueEdge": "This work is already at that end of the queue.",
+      "notStartable": "Only queued work that has not started can start now."
     },
     "close": "Close Tars",
     "availability": "Work continues while Stave is running and recovers after restart. It does not run while Stave is closed or this computer is asleep.",
@@ -1213,7 +1214,8 @@
         "cancel": "Cancel {{title}}",
         "takeover": "Take over {{title}}",
         "handBack": "Hand back {{title}}",
-        "acceptCompletion": "Accept {{title}} as done"
+        "acceptCompletion": "Accept {{title}} as done",
+        "startNow": "Start {{title}} now"
       },
       "records": {
         "click": {
@@ -1223,7 +1225,8 @@
             "cancel": "Cancel pending · click",
             "takeover": "Take over pending · click",
             "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click"
+            "acceptCompletion": "Accept as done pending · click",
+            "startNow": "Start now pending · click"
           },
           "applied": {
             "pause": "Paused · click",
@@ -1231,7 +1234,8 @@
             "cancel": "Cancelled · click",
             "takeover": "Taken over · click",
             "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click"
+            "acceptCompletion": "Accepted as done · click",
+            "startNow": "Started now · click"
           },
           "rejected": {
             "pause": "Pause not applied · click",
@@ -1239,7 +1243,8 @@
             "cancel": "Cancel not applied · click",
             "takeover": "Take over not applied · click",
             "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click"
+            "acceptCompletion": "Accept as done not applied · click",
+            "startNow": "Start now not applied · click"
           }
         },
         "fleet": {
@@ -1249,7 +1254,8 @@
             "cancel": "Cancel pending · Fleet",
             "takeover": "Take over pending · Fleet",
             "handBack": "Hand back pending · Fleet",
-            "acceptCompletion": "Accept as done pending · Fleet"
+            "acceptCompletion": "Accept as done pending · Fleet",
+            "startNow": "Start now pending · Fleet"
           },
           "applied": {
             "pause": "Paused · Fleet",
@@ -1257,7 +1263,8 @@
             "cancel": "Cancelled · Fleet",
             "takeover": "Taken over · Fleet",
             "handBack": "Handed back · Fleet",
-            "acceptCompletion": "Accepted as done · Fleet"
+            "acceptCompletion": "Accepted as done · Fleet",
+            "startNow": "Started now · Fleet"
           },
           "rejected": {
             "pause": "Pause not applied · Fleet",
@@ -1265,7 +1272,8 @@
             "cancel": "Cancel not applied · Fleet",
             "takeover": "Take over not applied · Fleet",
             "handBack": "Hand back not applied · Fleet",
-            "acceptCompletion": "Accept as done not applied · Fleet"
+            "acceptCompletion": "Accept as done not applied · Fleet",
+            "startNow": "Start now not applied · Fleet"
           }
         },
         "task": {
@@ -1275,7 +1283,8 @@
             "cancel": "Cancel pending · task view",
             "takeover": "Take over pending · task view",
             "handBack": "Hand back pending · task view",
-            "acceptCompletion": "Accept as done pending · task view"
+            "acceptCompletion": "Accept as done pending · task view",
+            "startNow": "Start now pending · task view"
           },
           "applied": {
             "pause": "Paused · task view",
@@ -1283,7 +1292,8 @@
             "cancel": "Cancelled · task view",
             "takeover": "Taken over · task view",
             "handBack": "Handed back · task view",
-            "acceptCompletion": "Accepted as done · task view"
+            "acceptCompletion": "Accepted as done · task view",
+            "startNow": "Started now · task view"
           },
           "rejected": {
             "pause": "Pause not applied · task view",
@@ -1291,7 +1301,8 @@
             "cancel": "Cancel not applied · task view",
             "takeover": "Take over not applied · task view",
             "handBack": "Hand back not applied · task view",
-            "acceptCompletion": "Accept as done not applied · task view"
+            "acceptCompletion": "Accept as done not applied · task view",
+            "startNow": "Start now not applied · task view"
           }
         },
         "key": {
@@ -1301,7 +1312,8 @@
             "cancel": "Cancel pending · click",
             "takeover": "Take over pending · click",
             "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click"
+            "acceptCompletion": "Accept as done pending · click",
+            "startNow": "Start now pending · click"
           },
           "applied": {
             "pause": "Paused · click",
@@ -1309,7 +1321,8 @@
             "cancel": "Cancelled · click",
             "takeover": "Taken over · click",
             "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click"
+            "acceptCompletion": "Accepted as done · click",
+            "startNow": "Started now · click"
           },
           "rejected": {
             "pause": "Pause not applied · click",
@@ -1317,7 +1330,8 @@
             "cancel": "Cancel not applied · click",
             "takeover": "Take over not applied · click",
             "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click"
+            "acceptCompletion": "Accept as done not applied · click",
+            "startNow": "Start now not applied · click"
           }
         },
         "words": {
@@ -1327,7 +1341,8 @@
             "cancel": "Cancel pending · click",
             "takeover": "Take over pending · click",
             "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click"
+            "acceptCompletion": "Accept as done pending · click",
+            "startNow": "Start now pending · click"
           },
           "applied": {
             "pause": "Paused · click",
@@ -1335,7 +1350,8 @@
             "cancel": "Cancelled · click",
             "takeover": "Taken over · click",
             "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click"
+            "acceptCompletion": "Accepted as done · click",
+            "startNow": "Started now · click"
           },
           "rejected": {
             "pause": "Pause not applied · click",
@@ -1343,7 +1359,8 @@
             "cancel": "Cancel not applied · click",
             "takeover": "Take over not applied · click",
             "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click"
+            "acceptCompletion": "Accept as done not applied · click",
+            "startNow": "Start now not applied · click"
           }
         },
         "move": {
@@ -1503,7 +1520,8 @@
         "takeover": "Tars proposes that you take over this work.",
         "handBack": "Tars proposes to take this work back.",
         "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check.",
-        "answerInConversation": "Answer it in the conversation."
+        "answerInConversation": "Answer it in the conversation.",
+        "startNow": "Tars proposes to start this queued work now."
       },
       "blockedDetail": "Tars could not finish this work. Check it and choose what to do.",
       "showInFleet": "Show in Fleet",
@@ -1519,7 +1537,8 @@
         "cancel": "Confirm cancel",
         "takeover": "Confirm take over",
         "handBack": "Confirm hand back",
-        "acceptCompletion": "Confirm accept as done"
+        "acceptCompletion": "Confirm accept as done",
+        "startNow": "Confirm start now"
       },
       "moreActions": "More actions for {{title}}",
       "moreActionsHint": "More actions",
@@ -1667,7 +1686,8 @@
         "verify": "Ask Tars for new verification work",
         "acceptRationale": "Completes it without a Stave-verified check.",
         "cancelRationale": "Ends its supervision. Changes already made stay.",
-        "verifyRationale": "Puts a request for a fresh check in the message box. Nothing runs until you send it."
+        "verifyRationale": "Puts a request for a fresh check in the message box. Nothing runs until you send it.",
+        "startNow": "Start now"
       },
       "verifyRequest": "Start new work to verify “{{title}}”: check the current result against each of its criteria and report what Stave can confirm.",
       "source": {
@@ -1709,7 +1729,8 @@
           "cancel": "Cancel this work?",
           "takeover": "Take over this work?",
           "handBack": "Hand this work back to Tars?",
-          "acceptCompletion": "Accept this work as done?"
+          "acceptCompletion": "Accept this work as done?",
+          "startNow": "Start this work now?"
         },
         "unverifiedTitle": "Stave could not verify this completion",
         "risk": "Can't be undone",
@@ -1727,7 +1748,8 @@
           "cancel": "Ends Tars's supervision. Changes already made stay.",
           "takeover": "You hold the work. Tars stops acting on it until you hand it back.",
           "handBack": "Tars takes the work back and verifies it again before it counts as done.",
-          "acceptCompletion": "Completes it without a Stave-verified check."
+          "acceptCompletion": "Completes it without a Stave-verified check.",
+          "startNow": "Tars starts this queued work now, beside work that is already running."
         },
         "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
         "notNow": "Not now",
@@ -1977,6 +1999,7 @@
     "workingChanges": {
       "snapshot": "From your working changes · {{commit}}",
       "clean": "No working changes to include · from the branch"
-    }
+    },
+    "startNow": "Start now"
   }
 }

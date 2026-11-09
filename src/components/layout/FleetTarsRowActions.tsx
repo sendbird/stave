@@ -16,6 +16,7 @@ const CONFIRM_LABEL_KEY = {
   takeover: "fleet:tarsAttention.confirm.takeover",
   handBack: "fleet:tarsAttention.confirm.handBack",
   acceptCompletion: "fleet:tarsAttention.confirm.acceptCompletion",
+  startNow: "fleet:tarsAttention.confirm.startNow",
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**
