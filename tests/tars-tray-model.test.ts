@@ -27,7 +27,7 @@ describe("Tars tray read model", () => {
     expect(foreign.counts.needsYou).toBe(0);
   });
 
-  test("a card shows its workspace branch once the workspace exists, and queued work names what holds the one slot", () => {
+  test("a card shows its workspace branch once the workspace exists, and queued work does not infer a blocking responsibility", () => {
     const f = buildTarsTrayFixtures(start);
     const billing = f.responsibilities.find((row) => row.id === f.ids.billing)!;
     const queued: TarsResponsibility = { ...billing, id: "queued-work", requestId: "queued-request", title: "Queued work", state: "queued",
@@ -37,8 +37,8 @@ describe("Tars tray read model", () => {
     const model = buildTarsTray({ responsibilities: rows, attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
     expect(card(model, billing.id).branch).toBe("fix/billing-export-3fa9c1d2");
     expect(card(model, "queued-work").branch).toBeNull();
-    expect(card(model, "queued-work").waitingBehind).toBe(billing.title);
-    expect(card(model, billing.id).waitingBehind).toBeNull();
+    expect(card(model, "queued-work").row.queueWait).toBeUndefined();
+    expect(card(model, billing.id).row.state).toBe("running");
     // Work admitted before branch naming keeps its old branch.
     const legacy = f.responsibilities.map((row) => row.id === billing.id ? { ...row, branchName: undefined } : row);
     expect(card(buildTarsTray({ responsibilities: legacy, attentionItems: [], runs: f.runs }), billing.id).branch).toBe(`tars/${billing.id}`);
@@ -49,7 +49,7 @@ describe("Tars tray read model", () => {
     expect(card(model, billing.id).usage).toBeNull();
     // Nothing active: queued work is next, not waiting behind anything.
     const idle = buildTarsTray({ responsibilities: [queued], attentionItems: [], runs: {} });
-    expect(card(idle, "queued-work").waitingBehind).toBeNull();
+    expect(card(idle, "queued-work").row.queueWait).toBeUndefined();
   });
 
   test("a Fleet decision row carries the live proposal for Confirm; a stale proposal offers none", () => {

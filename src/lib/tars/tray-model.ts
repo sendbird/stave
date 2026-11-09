@@ -103,8 +103,6 @@ export interface TarsTrayCard<T extends TarsTrayAttentionInput = TarsTrayAttenti
   fleetTarget: FleetFocusTarget | null;
   /** The work's own branch once its workspace exists (work admitted before branch naming keeps `tars/<id>`). */
   branch: string | null;
-  /** Queued work waits while one other responsibility holds the single active slot; that one's title. */
-  waitingBehind: string | null;
   /** Queued work's place in the queue (1 starts next) among all queued work; null once it started or ended. */
   queue: { position: number; total: number } | null;
   /** What the work's run has spent so far, when the host read usage. */
@@ -114,11 +112,6 @@ export interface TarsTrayCard<T extends TarsTrayAttentionInput = TarsTrayAttenti
 /** The branch a responsibility's execution workspace is on, once that workspace exists. */
 export function tarsBranchOf(row: Pick<TarsResponsibility, "id" | "branchName" | "executionWorkspaceId">): string | null {
   return row.executionWorkspaceId ? row.branchName ?? `tars/${row.id}` : null;
-}
-
-/** The runtime's rule: running work, or preparing work with a run, holds the one slot (`tars-runtime.ts`). */
-function holdsActiveSlot(row: Pick<TarsResponsibility, "state" | "agentRunId">) {
-  return row.state === "running" || (row.state === "preparing" && Boolean(row.agentRunId));
 }
 
 export interface TarsTrayModel<T extends TarsTrayAttentionInput = TarsTrayAttentionInput> {
@@ -180,7 +173,6 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
     attentionByResponsibility.set(responsibilityId, [...(attentionByResponsibility.get(responsibilityId) ?? []), { item, decision }]);
   }
   const lanes: Record<TarsLane, TarsTrayCard<T>[]> = { needsYou: [], running: [], done: [] };
-  const active = responsibilities.find(holdsActiveSlot) ?? null;
   const queued = tarsQueueOf(responsibilities).map((row) => row.id);
   for (const row of responsibilities) {
     const lane = tarsLaneOf(row, responsibilityIds);
@@ -199,7 +191,6 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
       fleetTarget: tarsFleetTarget(row),
       branch: tarsBranchOf(row),
       usage: run?.usage ?? null,
-      waitingBehind: active && active.id !== row.id && (row.state === "queued" || (row.state === "preparing" && !row.agentRunId)) ? active.title : null,
       queue: row.state === "queued" ? { position: queued.indexOf(row.id) + 1, total: queued.length } : null,
     });
   }

@@ -23,7 +23,7 @@ function fixture(overrides: Partial<TarsRuntimePorts> = {}) {
   const store = new TarsStore(database);
   const calls: string[] = [];
   const ports: TarsRuntimePorts = {
-    store, now: () => NOW, validateScope: async () => {},
+    store, concurrencyLimit: () => 1, now: () => NOW, validateScope: async () => {},
     prepareWorkspace: async (row) => { calls.push(`workspace:${row.requestId}`); return `execution-${row.id}`; },
     prepareTask: async (row) => { calls.push(`task:${row.taskId}`); },
     findRun: async () => null,
@@ -82,8 +82,10 @@ describe("Tars responsibility execution", () => {
     const row = f.store.create(input(), NOW);
     f.runtime.requestTick();
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    while (!release) await Promise.resolve();
     const current = f.store.get(row.id)!;
     const cancelling = f.act(current, "cancel");
+    while (!release) await Promise.resolve();
     release("created-workspace");
     expect((await cancelling).status).toBe("applied");
     expect(f.store.get(row.id)?.state).toBe("cancelled"); expect(f.calls).toEqual([]);
@@ -181,7 +183,9 @@ describe("Tars responsibility execution", () => {
     const f = fixture({ observe: () => new Promise((resolve) => { release = resolve; }) });
     const row = f.store.create(input(), NOW); await f.tick();
     f.runtime.requestTick(); await Promise.resolve(); await Promise.resolve();
+    while (!release) await Promise.resolve();
     const cancel = f.act(f.store.get(row.id)!, "cancel");
+    while (!release) await Promise.resolve();
     release({ state: "completed", detail: null });
     await cancel;
     expect(f.store.get(row.id)?.state).toBe("cancelled");

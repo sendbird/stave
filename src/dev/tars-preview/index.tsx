@@ -40,9 +40,9 @@ export function TarsPreview() {
       fixtures.responsibilities.push({ ...fixtures.responsibilities[3]!, id: "export-queue", requestId: "request-export-queue", title: "Migrate the export queue to the new worker",
         state: "cancelled", detail: "The worker image was not available.", taskId: null, agentRunId: null, executionWorkspaceId: null });
     }
-    // `queued=true`: one more piece of work waits for the single active slot, so its card says what it waits behind.
+    // `queued=true`: one more piece of work waits at an explicitly configured admission limit.
     if (fixtures && params.get("queued") === "true") fixtures.responsibilities.push({ ...fixtures.responsibilities[1]!, id: "search-index", requestId: "request-search-index",
-      title: "Speed up the search index rebuild", state: "queued", priority: 40, branchName: undefined, taskId: null, agentRunId: null, executionWorkspaceId: null });
+      title: "Speed up the search index rebuild", state: "queued", queueWait: { code: "capacity", active: 2, limit: 2 }, priority: 40, branchName: undefined, taskId: null, agentRunId: null, executionWorkspaceId: null });
     // `queue=true`: three more pieces of work wait in the queue, so Do first, Do later and dragging have something to reorder.
     if (fixtures && params.get("queue") === "true") {
       const queued = (id: string, title: string, priority: number, minutes: number) => ({ ...fixtures.responsibilities[1]!, id, requestId: `request-${id}`, title,

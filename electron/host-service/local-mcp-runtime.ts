@@ -1711,12 +1711,13 @@ export async function createWorkspace(args: {
     }),
   };
   const { repositories } = await loadNormalizedRepositories();
-  await saveNormalizedRepositories(
-    upsertRecentRepositoryState({
-      repositories,
-      repository: nextRepository,
-    }),
-  );
+  // Merge concurrent worktree registrations atomically; stale snapshots must not erase task/run ownership.
+  store.saveRepositoryRegistry({
+    repositories: normalizeRecentRepositoryStates({ repositories: upsertRecentRepositoryState({
+      repositories, repository: nextRepository,
+    }) }) as never[],
+    keepUnseenWorkspaces: true,
+  });
 
   const notice = buildWorkspaceCreationNotice({ notices });
   return {

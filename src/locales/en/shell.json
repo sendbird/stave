@@ -1413,7 +1413,9 @@
       "autoHint": "Delegated work routes automatically, and reviews can run on the other provider. The conversation model above is used only for talking with Tars.",
       "pinnedHint": "Delegated work and its helpers, including reviewers, stay on this model and provider. Choose Automatic to let Stave Auto route each step.",
       "systemAccount": "This model runs with the {{provider}} System default account.",
-      "unsupported": "Tars runs delegated work only on Claude and Codex. Cursor, Kiro and OpenCode are not supported."
+      "unsupported": "Tars runs delegated work only on Claude and Codex. Cursor, Kiro and OpenCode are not supported.",
+      "concurrency": "Concurrent responsibilities",
+      "concurrencyHint": "0 starts all eligible independent work. Set a limit to bound resource use; waiting work yields its slot."
     },
     "agents": {
       "title": "Agents Tars may use",
@@ -1565,7 +1567,6 @@
         "timelineLabel": "Open the timeline for {{title}}"
       },
       "branch": "Branch",
-      "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time.",
       "moveEarlier": "Do first",
       "moveLater": "Do later",
       "reorder": {
@@ -1870,7 +1871,7 @@
       "canDo6": "Shows each result's report, changes, timeline and review beside the conversation.",
       "limit1": "Commits, pushes and opens a draft pull request only after you confirm its card each time; never merges or deploys.",
       "limit2": "Works only while Stave is open and this computer is awake.",
-      "limit3": "Runs one piece of work at a time; the rest waits in Work.",
+      "limit3": "Starts independent work concurrently. Set Concurrent responsibilities in Settings to add a limit; 0 adds no cap.",
       "limit4": "Starts from the workspace's branch unless you turn on Include my working changes for that message; ignored files are never included.",
       "limit5": "Uses Claude Code or Codex, and only saved agents you allowed in settings.",
       "limit6": "Calls work done only with a check Stave saw pass or a passed review; otherwise it asks you.",
@@ -1977,6 +1978,11 @@
     "workingChanges": {
       "snapshot": "From your working changes · {{commit}}",
       "clean": "No working changes to include · from the branch"
+    },
+    "queueWait": {
+      "capacity": "Execution limit reached ({{active}} active / {{limit}} allowed). Starts when a slot is released.",
+      "storageBusy": "The database was busy during admission. Stave will retry.",
+      "unknown": "The reason for waiting has not been confirmed."
     }
   }
 }

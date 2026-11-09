@@ -430,7 +430,23 @@ refused with its reason, and retrying the same request applies it at most
 once. Each click adds a one-line record such as "Paused · click" to the
 conversation; it is not shown as a message from you.
 
-- Previously admitted runs can resume concurrently when their waits end.
+- Eligible independent responsibilities start concurrently by default, including
+  isolated worktrees of the same repository. No portfolio cap is imposed unless
+  **Settings → Concurrent responsibilities** is a positive integer; `0` (the
+  default, including earlier saved settings without this field) adds no cap.
+  This is separate from the per-run turn budget and team helper limits.
+- A configured cap counts running work, preparation and uncertain execution
+  receipts. Waiting work yields its slot; admitted runs may resume when their
+  own constraints clear. Lowering the cap does not interrupt admitted work.
+- Slow preparation or observation, a denied scope or an unavailable provider
+  for one responsibility does not serialize unrelated responsibilities. Task/run
+  identity checks, SQLite write transactions, native provider/account limits and
+  same-task duplicate protection remain in force.
+- Queued cards display the scheduler's observed active count and configured
+  cap, or an observed database lock with automatic retry. Before observation,
+  the reason is explicitly unconfirmed. A different running task alone is never
+  evidence of a blocking dependency. These live facts use `queueWait` on the
+  responsibility snapshot; they do not add timeline events or imply progress.
 - An unreadable task or run is shown as blocked rather than as completed.
   Open its task to inspect the cause; a refused control shows why.
 

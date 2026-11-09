@@ -12,7 +12,7 @@ import { transition } from "@/components/aui/recipes/transition";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { TarsLane } from "@/lib/tars/attention";
-import { describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
+import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { TARS_IRREVERSIBLE_OPERATIONS, type TarsQueueMove, type TarsQueueMoveSource } from "@/lib/tars/conversation";
 import { tarsQueueDropMove } from "@/lib/tars/queue-order";
@@ -185,7 +185,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const { primary, more } = tarsCardActions(card);
   const hasActions = Boolean(primary || row.taskId || more.length || grip);
   const body = [
-    card.waitingBehind ? <p key="waiting" className={sx(styles.meta)} data-tars-waiting-behind="">{t("shell:tars.tray.waitingBehind", { title: card.waitingBehind })}</p> : null,
+    row.state === "queued" ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{describeTarsQueueWait(row)}</p> : null,
     !staged && !terminal && row.agentRunId ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
     detail ? <p key="detail" className={sx(styles.meta)}>{detail}</p> : null,
     row.reverifyAfter && !terminal ? <p key="reverify" className={sx(styles.meta)}>{t("shell:tars.reverify")}</p> : null,
