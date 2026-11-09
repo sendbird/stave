@@ -4,7 +4,8 @@ import { TarsConversationStore, TarsStorageBusyError } from "../electron/persist
 import { TarsStore } from "../electron/persistence/tars-store";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { createSecondaryRunCoordinator } from "../electron/main/runs/secondary-run-coordinator";
-import { parseTarsDecisionOutput, processTarsMessage } from "../electron/main/tars-planner";
+import { parseTarsDecisionOutput, processTarsMessage, TARS_PLANNER_MAX_EVENTS } from "../electron/main/tars-planner";
+import { executeSecondaryProviderRun } from "../electron/providers/secondary-run-executor";
 import type { SecondaryProviderExecutionRequest } from "../src/lib/runs/secondary-run";
 
 import { SETTINGS, testContext } from "./tars-test-context";
@@ -230,4 +231,18 @@ test("a failure keeps its phase and cause on the message, before the model call 
     expect(errors.map(([line, detail]) => [line, (detail as { phase: string }).phase])).toEqual([["[tars] reasoning failed", "context"],
       ["[tars] reasoning failed", "model"], ["[tars] reasoning failed", "decision"]]);
   } finally { console.error = log; }
+});
+
+test("a reply streamed as many small deltas reaches the planner whole, not truncated", async () => {
+  const reply = JSON.stringify({ reply: "The decisive check still fails in vendor/clock.test.ts. Should I ask for permission to edit vendor/, or stop here?".repeat(4), actions: [] });
+  const f = fixture(async () => reply);
+  const message = f.create(); await processTarsMessage(message.id, f.ports);
+  const request = f.requests[0]!;
+  expect(request.policy.maxEvents).toBe(TARS_PLANNER_MAX_EVENTS);
+  // The real executor counts every streamed event against the claimed policy.
+  const result = await executeSecondaryProviderRun(request, {
+    streamTurn: async () => [...[...reply].map((text) => ({ type: "text" as const, text })), { type: "done" as const, stop_reason: "end_turn" }],
+    cleanupTask: () => ({ ok: true, message: "cleaned" }),
+  });
+  expect(result).toMatchObject({ status: "completed", truncated: false, text: reply });
 });

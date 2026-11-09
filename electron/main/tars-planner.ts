@@ -154,6 +154,14 @@ export function describeTarsReasoningFailure(phase: TarsReasoningPhase, error: u
   return `${TARS_MESSAGE_FAILURE_TEXT.reasoningFailed} Failed at ${phase}: ${cause}`.slice(0, 2_000);
 }
 
+/**
+ * Providers stream a reply as many small text events, so an event cap below
+ * the reply's delta count marks a complete answer truncated and discards it.
+ * The reply is bounded by `maxOutputBytes`; the event cap only stops a
+ * runaway stream, so it takes the ledger's ceiling.
+ */
+export const TARS_PLANNER_MAX_EVENTS = 4_096;
+
 /** A durable one-attempt reasoning job. No direct provider calls or execution tools. */
 export async function processTarsMessage(id: string, ports: PlannerPorts): Promise<void> {
   const now = ports.now ?? (() => new Date().toISOString());
@@ -193,7 +201,7 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
     const claim = await ports.coordinator.claim({
       run: { id: runId, kind: "secondary-provider", origin: { kind: "advisor", id },
         ownership: { repositoryPath: context.cwd, workspaceId: "personal-representative", taskId: null },
-        policy: { maxAttempts: 1, timeoutMs: 120_000, maxTurns: 1, maxOutputBytes: 64_000, maxEvents: 128 },
+        policy: { maxAttempts: 1, timeoutMs: 120_000, maxTurns: 1, maxOutputBytes: 64_000, maxEvents: TARS_PLANNER_MAX_EVENTS },
         provenance: { createdBy: "tars", schemaVersion: 2, sourceVersion: "1" } },
       step: { id: stepId, kind: "secondary-provider-turn", dependencyIds: [], idempotencyKey: `${runId}:claim` }, input,
     });
