@@ -747,7 +747,7 @@ test("queued work without a run shows the user's message, Tars's instruction and
   await page.keyboard.press("Escape");
   await expect(side).toHaveCount(0);
   await tray.locator('[data-tars-card="queue-docs"]').getByRole("button", { name: /^Open the request and instruction for/ }).click();
-  await expect(side.locator('[data-tars-brief-missing="request"]')).toContainText("The original message was not saved for this work");
+  await expect(side.locator('[data-tars-brief-missing="request"]')).toContainText("This older work did not save your original message.");
   await expect(side.locator('[data-tars-brief-text="instruction-assignment"]')).toContainText("Update every example in docs/api/*.md");
   await expect(side.locator('[data-tars-brief-text="request"]')).toHaveCount(0);
   await expect(side).not.toContainText("Rotate the staging auth keys before Friday's release.");

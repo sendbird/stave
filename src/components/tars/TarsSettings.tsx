@@ -71,13 +71,10 @@ export function TarsSettings({ identity, initial, busy, onSave }: {
       setSettings({ ...settings, executionModel: { providerId: selection.providerId, model: selection.model } });
     }} triggerAriaLabel={t("shell:tars.execution.model")} triggerClassName={sx(styles.full)} />
       <p className={sx(styles.text)}>{pinned ? t("shell:tars.execution.pinnedHint") : t("shell:tars.execution.autoHint")}</p>
-      {pinned && pinned.providerId !== settings.providerId ? <p className={sx(styles.text)}>{t("shell:tars.execution.systemAccount", { provider: PROVIDER_LABELS[pinned.providerId] })}</p> : null}
-      <p className={sx(styles.text)}>{t("shell:tars.execution.unsupported")}</p></div>
+      {pinned && pinned.providerId !== settings.providerId ? <p className={sx(styles.text)}>{t("shell:tars.execution.systemAccount", { provider: PROVIDER_LABELS[pinned.providerId] })}</p> : null}</div>
     <TarsAgentAllowlist agents={savedAgents} value={settings.allowedAgentIds ?? []} disabled={busy}
       onChange={(allowedAgentIds) => setSettings(allowedAgentIds.length ? { ...settings, allowedAgentIds } : withoutKey(settings, "allowedAgentIds"))} />
     <label className={sx(styles.field)}>{t("shell:tars.maxTurns")}<Input type="number" min={1} max={100} required disabled={busy} value={settings.maxTurns} onChange={(event) => setSettings({ ...settings, maxTurns: event.target.valueAsNumber })} /></label>
-    <p className={sx(styles.text)}>{t("shell:tars.conversation.settingsHint")}</p>
-    <p className={sx(styles.text)}>{t("shell:tars.availability")}</p>
     <div><Button type="submit" disabled={busy || !name.trim() || !settings.model}>{t("shell:tars.save")}</Button></div>
   </form>;
 }

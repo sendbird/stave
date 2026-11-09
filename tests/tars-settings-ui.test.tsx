@@ -85,19 +85,26 @@ describe("Tars settings agent allowlist", () => {
     expect(automatic).toContain("Conversation model");
     expect(automatic).toContain("Execution model");
     expect(automatic).toContain("Automatic");
-    expect(automatic).toContain("Reviews may use another provider.");
-    expect(automatic).toContain("Delegated work uses Claude or Codex.");
+    expect(automatic).toContain("Stave picks a model for each step; reviews may use another provider.");
+    // The model picker lists only Claude and Codex, so no line restates it; nor do the runtime limits the guide already states.
+    expect(automatic).not.toContain("Delegated work uses Claude or Codex.");
+    expect(automatic).not.toContain("Work continues while Stave is running");
+    expect(automatic).toContain("Turn limit per work unit, including helpers");
+    // "Changes apply to new messages and work" is the sheet's description now, not one more paragraph in the form.
+    expect(automatic).not.toContain("Changes apply to new messages and work");
+    expect(automatic).toContain("Instructions never grant permissions.");
     expect(automatic).toContain('data-tars-agent-allowlist=""');
     const pinned = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30, executionModel: { providerId: "claude-code", model: "claude-sonnet-5-5" }, allowedAgentIds: ["release-notes"] } }));
-    expect(pinned).toContain("All work and helpers use this model");
+    expect(pinned).toContain("All work and helpers use this model.");
+    expect(pinned).not.toContain("Choose Automatic to allow routing");
     expect(pinned).toContain("This model runs with the Claude System default account.");
     // A saved choice whose agent is not in this library stays listed so it can be removed.
     expect(pinned).toContain("This agent is no longer available.");
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const korean = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30 } }));
-    expect(korean).toContain("검토는 다른 프로바이더에서 실행할 수 있습니다.");
+    expect(korean).toContain("리뷰는 다른 프로바이더에서 실행할 수 있습니다.");
   });
 
   test("a refused agent shows its translated reason and the chosen agent's name, never the host diagnostic", async () => {
