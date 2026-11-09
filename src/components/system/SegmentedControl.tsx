@@ -3,15 +3,15 @@ import { m } from "motion/react";
 import { useId, useRef } from "react";
 import type * as React from "react";
 
-import { toggleGroupStyles as track } from "@/components/ads/components/ToggleGroup";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { RadioGroupRoot, RadioRoot } from "@/components/ads/headless/radio-group";
-import { controlChrome } from "@/components/ads/recipes/control-chrome";
-import { controlHeights } from "@/components/ads/recipes/control-metrics";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { springSmooth, vars } from "@/components/ads/tokens/tokens.stylex";
-import { cx, sx, type XstyleProp } from "@/components/ads/utils/stylex";
+import { toggleGroupStyles as track } from "@/components/aui/components/ToggleGroup";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { RadioGroupRoot, RadioRoot } from "@/components/aui/headless/radio-group";
+import { controlChrome } from "@/components/aui/recipes/control-chrome";
+import { controlHeights } from "@/components/aui/recipes/control-metrics";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { springSmooth, vars } from "@/components/aui/tokens/tokens.stylex";
+import { cx, sx, type XstyleProp } from "@/components/aui/utils/stylex";
 import { CountBadge } from "./CountBadge";
 
 export type SegmentedControlOption<Value> = {
@@ -51,7 +51,7 @@ export type SegmentedControlProps<Value> = {
 /**
  * Pick exactly one of two to six short options: a view, a scope, a filter.
  *
- * Drawn with the ADS ToggleGroup's track, gliding chip and 28px item, with
+ * Drawn with the AUI ToggleGroup's track, gliding chip and 28px item, with
  * single-choice semantics: a `radiogroup` with one Tab stop, arrow keys that
  * move and select (wrapping at the ends, skipping disabled options), Home and
  * End, and no way to clear the choice. Values keep the caller's type,
@@ -159,7 +159,7 @@ export function SegmentedControl<Value>({
             {option.icon ? (
               <span
                 className={sx(track.icon, density === "compact" ? track.iconCompact : track.iconRegular)}
-                data-ads-control-icon-slot
+                data-aui-control-icon-slot
               >
                 {option.icon}
               </span>
@@ -193,7 +193,7 @@ const styles = stylex.create({
   label: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   labelText: { minInlineSize: 0, overflow: "hidden", textOverflow: "ellipsis" },

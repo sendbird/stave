@@ -16,7 +16,7 @@ import {
 } from "@/components/ui";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { PROMPT_TOOLBAR_ICON_BUTTON } from "./prompt-input-toolbar-parts";
 import {

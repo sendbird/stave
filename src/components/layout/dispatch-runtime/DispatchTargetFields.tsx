@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
-import { Select } from "@/components/ads/components/Select";
-import { sx } from "@/components/ads/utils/stylex";
+import { Select } from "@/components/aui/components/Select";
+import { sx } from "@/components/aui/utils/stylex";
 import { Input } from "@/components/ui";
 import { dispatchFieldStyles } from "./dispatch-runtime.styles";
 

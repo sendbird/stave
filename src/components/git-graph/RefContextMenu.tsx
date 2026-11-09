@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Checkbox } from "@/components/aui/components/Checkbox";
 /**
  * RefContextMenu — right-click menu for a git ref badge (branch / remote / tag).
  *
@@ -42,8 +42,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
 import type { GraphRef } from "@/lib/git-graph/types";
-import { sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 import { refContextMenuStyles as styles } from "./ref-context-menu.styles";
 
 // ---------------------------------------------------------------------------

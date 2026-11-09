@@ -13,13 +13,13 @@ import {
   GitPullRequestArrow,
   Send,
 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
-import { TextField } from "@/components/ads/components/TextField";
-import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
+import { Button } from "@/components/aui/components/Button";
+import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
+import { TextField } from "@/components/aui/components/TextField";
+import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { isVerifiedEvidence } from "@/lib/agent-runs/evidence";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentRunReport } from "@/lib/agent-runs/report";
 import { describeAgentRunMetrics, formatAgentRunReportMarkdown, reportDurationMs } from "@/lib/agent-runs/report-markdown";
 import { describeAgentRunAccountSwitch } from "@/lib/agent-runs/account-pool";

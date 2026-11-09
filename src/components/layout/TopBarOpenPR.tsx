@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import {
   useCallback,
@@ -44,7 +44,7 @@ import {
   SelectValue,
   toast,
 } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   Dialog,
   DialogContent,
@@ -1772,7 +1772,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         /* No PR – show "Create PR" button */
         <Tooltip content={createPrTooltip} side="bottom">
           <span {...stylex.props(layoutShellStyles.inlineFlex)}>
-            <AdsButton
+            <AuiButton
               layout="host"
               size="sm"
               type="button"
@@ -1799,7 +1799,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 />
               )}
               {statusLabel ?? i18n.t("sourceControl:topBarOpenPR.createPR")}
-            </AdsButton>
+            </AuiButton>
           </span>
         </Tooltip>
       ) : (
@@ -1891,7 +1891,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           {canContinueWorkspace ? (
             <Tooltip content={continueTooltip} side="bottom">
               <span {...stylex.props(layoutShellStyles.inlineFlex)}>
-                <AdsButton
+                <AuiButton
                   layout="host"
                   size="sm"
                   type="button"
@@ -1915,7 +1915,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                     <GitBranch />
                   )}
                   {i18n.t("sourceControl:topBarOpenPR.continue")}
-                </AdsButton>
+                </AuiButton>
               </span>
             </Tooltip>
           ) : null}

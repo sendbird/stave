@@ -1,7 +1,7 @@
 import { GitBranch } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Badge, Button, Input, Loader } from "@/components/ui";
 import {
   Dialog,

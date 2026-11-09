@@ -42,8 +42,8 @@ import {
 } from "@/lib/performance/resource-manager";
 import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace-switch-metrics";
 import type { StorageCleanupReport } from "@/lib/storage-cleanup/storage-cleanup-policy";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { processTypeStyles, resourceStyles } from "./resources-popover.styles";
 import { ResourceDashboard } from "./ResourceDashboard";
@@ -51,7 +51,7 @@ import { ResourceManagerOverview } from "./ResourceManagerOverview";
 import { WorkspaceCleanupDialog } from "./WorkspaceCleanupDialog";
 import { managerStyles } from "./resource-manager.styles";
 import { layoutShellStyles } from "./layout-shell.styles";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 
 interface ProcessMetric {
   pid: number;
@@ -472,7 +472,7 @@ export function MemoryUsagePopover({
                 {tI18n("workspace:resourcesPopover.resourceManager")}</DialogTitle>
             </div>
             <div className={sx(managerStyles.actions)}>
-              <AdsTooltip content={i18n.t("workspace:resourcesPopover.accessibility.refreshMetrics")}>
+              <AuiTooltip content={i18n.t("workspace:resourcesPopover.accessibility.refreshMetrics")}>
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -490,8 +490,8 @@ export function MemoryUsagePopover({
                     )}
                   />
                 </Button>
-              </AdsTooltip>
-              <AdsTooltip content={tI18n("workspace:resourcesPopover.closeResourceManager")}>
+              </AuiTooltip>
+              <AuiTooltip content={tI18n("workspace:resourcesPopover.closeResourceManager")}>
                 <span className={sx(layoutShellStyles.inlineFlex)}>
                   <DialogClose
                     render={
@@ -505,7 +505,7 @@ export function MemoryUsagePopover({
                     <X className={sx(resourceStyles.refreshIcon)} />
                   </DialogClose>
                 </span>
-              </AdsTooltip>
+              </AuiTooltip>
             </div>
           </div>
 

@@ -6,11 +6,11 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { ButtonRoot } from "@/components/ads/headless/button";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
-import { adsThemeVariables } from "@/components/system/ads-theme";
+import { ButtonRoot } from "@/components/aui/headless/button";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { auiThemeVariables } from "@/components/system/aui-theme";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { buildRendererErrorReport } from "@/lib/renderer-recovery/error-report";
 import {
@@ -30,9 +30,9 @@ import { recoveryStyles as styles } from "./RendererRecovery.styles";
  * render when any of them, or i18n itself, failed to load, so its static
  * imports stay clear of `@/i18n` (a test walks the graph):
  * - copy comes from `recoveryCopy`, which falls back to English;
- * - it publishes the ADS-to-Stave role mapping on its own root instead of
+ * - it publishes the AUI-to-Stave role mapping on its own root instead of
  *   relying on `StaveDesignProvider`;
- * - actions use the ADS headless `ButtonRoot` with the ADS focus-ring and
+ * - actions use the AUI headless `ButtonRoot` with the AUI focus-ring and
  *   transition recipes. The canonical `Button` is not usable here: it imports
  *   `Loader`, which imports `@/i18n` for its label.
  */
@@ -115,7 +115,7 @@ export function RendererRecoveryScreen({ failure }: { failure: RendererFailure }
   return (
     <div
       className={sx(styles.root, appearance.dark ? styles.rootDark : styles.rootLight)}
-      style={adsThemeVariables}
+      style={auiThemeVariables}
       lang={appearance.locale ?? undefined}
     >
       <div className={sx(styles.frame)}>

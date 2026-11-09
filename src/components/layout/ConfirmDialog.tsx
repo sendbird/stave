@@ -8,8 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { Button, Loader } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { confirmDialogStyles } from "./confirm-dialog.styles";

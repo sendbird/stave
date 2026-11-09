@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Search, X } from "lucide-react";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Button,
   Drawer,

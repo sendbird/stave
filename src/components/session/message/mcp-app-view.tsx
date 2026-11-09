@@ -10,10 +10,10 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
+import { sx } from "@/components/aui/utils/stylex";
 import { toast } from "@/components/ui";
 import {
   clampInlineRenderHeight,

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Brain } from "lucide-react";
-import { iconTileGlyphSizes } from "@/components/ads/components/IconTile";
-import { EmptyState } from "@/components/ads/components/EmptyState";
+import { iconTileGlyphSizes } from "@/components/aui/components/IconTile";
+import { EmptyState } from "@/components/aui/components/EmptyState";
 import { Button } from "@/components/ui";
 import { useTranslation } from "@/i18n";
 import type { RepositoryMemorySettings } from "@/lib/repository-memory-settings";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { REPOSITORY_MEMORY_CHANGED_EVENT } from "./RepositoryMemoryControls";
 import { failureMessage } from "./workspace-information/failure-message";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";

@@ -31,7 +31,7 @@ import {
   getCliSessionProviderLabel,
   type CliSessionContextMode,
 } from "@/lib/terminal/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { emptySplashStyles as styles } from "@/components/session/empty-splash.styles";
 import { useAppStore } from "@/store/app.store";
 

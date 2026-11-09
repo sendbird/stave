@@ -3,15 +3,15 @@ import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { CalendarDays } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Calendar } from "@/components/ads/components/Calendar";
-import { parseDateKey } from "@/components/ads/components/date-range";
-import { controlChrome } from "@/components/ads/recipes/control-chrome";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { styles as selectStyles, triggerHeightsBySize, triggerStylesBySize } from "@/components/ads/recipes/select-styles";
-import { transition } from "@/components/ads/recipes/transition";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Calendar } from "@/components/aui/components/Calendar";
+import { parseDateKey } from "@/components/aui/components/date-range";
+import { controlChrome } from "@/components/aui/recipes/control-chrome";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { styles as selectStyles, triggerHeightsBySize, triggerStylesBySize } from "@/components/aui/recipes/select-styles";
+import { transition } from "@/components/aui/recipes/transition";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   dateInputValue,
@@ -130,21 +130,21 @@ export function UsageDateRangeField(props: {
 }
 
 const styles = stylex.create({
-  icon: { inlineSize: vars["--ads-control-icon-size-sm"], blockSize: vars["--ads-control-icon-size-sm"] },
+  icon: { inlineSize: vars["--aui-control-icon-size-sm"], blockSize: vars["--aui-control-icon-size-sm"] },
   popup: { inlineSize: "min(46rem, calc(100vw - 2rem))", maxInlineSize: "calc(100vw - 2rem)" },
   body: { display: "flex", flexWrap: "wrap", alignItems: "stretch", minInlineSize: 0 },
   presets: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    padding: vars["--ads-space-8"],
+    gap: vars["--aui-space-4"],
+    padding: vars["--aui-space-8"],
     flex: "0 0 9rem",
-    borderInlineEndWidth: vars["--ads-border-width-hairline"],
+    borderInlineEndWidth: vars["--aui-border-width-hairline"],
     borderInlineEndStyle: "solid",
-    borderInlineEndColor: vars["--ads-color-border"],
+    borderInlineEndColor: vars["--aui-color-border"],
   },
   preset: { justifyContent: "flex-start" },
-  presetSelected: { backgroundColor: vars["--ads-color-accent-soft"], color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
+  presetSelected: { backgroundColor: vars["--aui-color-accent-soft"], color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
   // The popover is the surface: the calendar drops its own frame so the two do not nest.
   calendar: { flex: "1 1 30rem", inlineSize: "auto", minInlineSize: 0, borderWidth: 0, backgroundColor: "transparent", boxShadow: "none" },
   footer: {
@@ -152,14 +152,14 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
-    borderBlockStartWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
+    borderBlockStartWidth: vars["--aui-border-width-hairline"],
     borderBlockStartStyle: "solid",
-    borderBlockStartColor: vars["--ads-color-border"],
+    borderBlockStartColor: vars["--aui-color-border"],
   },
-  summary: { margin: 0, minInlineSize: 0, color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], fontVariantNumeric: "tabular-nums" },
-  summaryError: { color: vars["--ads-color-danger-text"] },
-  actions: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
+  summary: { margin: 0, minInlineSize: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums" },
+  summaryError: { color: vars["--aui-color-danger-text"] },
+  actions: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"] },
 });

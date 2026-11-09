@@ -1,9 +1,9 @@
 import { getAgentDisplayName } from "@/lib/agents/display";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { Select } from "@/components/ads/components/Select";
-import { sx } from "@/components/ads/utils/stylex";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { Select } from "@/components/aui/components/Select";
+import { sx } from "@/components/aui/utils/stylex";
 import { listAgents } from "@/lib/agents/library";
 import { isUsableAs } from "@/lib/agents/schema";
 import type { AiStage, WorkflowStage } from "@/lib/workflows/schema";

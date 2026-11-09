@@ -1,9 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { Search } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { localStack } from "@/lib/ui-layers.stylex";
 import { conversationFindMarker } from "./conversation-find.stylex";
@@ -39,8 +39,8 @@ export function ConversationFindTrigger(props: {
 const styles = stylex.create({
   trigger: {
     position: "absolute",
-    top: vars["--ads-space-8"],
-    insetInlineEnd: vars["--ads-space-12"],
+    top: vars["--aui-space-8"],
+    insetInlineEnd: vars["--aui-space-12"],
     zIndex: localStack["--stave-stack-floating"],
     opacity: {
       default: 0,
@@ -50,7 +50,7 @@ const styles = stylex.create({
     },
     transitionProperty: "opacity",
     transitionDuration: {
-      default: vars["--ads-motion-duration-fast"],
+      default: vars["--aui-motion-duration-fast"],
       "@media (prefers-reduced-motion: reduce)": "0s",
     },
   },

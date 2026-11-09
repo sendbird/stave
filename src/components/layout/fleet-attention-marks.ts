@@ -1,4 +1,4 @@
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 
 /**

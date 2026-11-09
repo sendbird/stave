@@ -1,7 +1,7 @@
 import { formatNumber } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import {
   ChevronDown,
   ChevronRight,
@@ -46,7 +46,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ExplorerEntryIcon } from "./explorer-entry-icon";
 import { explorerStyles } from "./workspace-explorer.styles";
 
@@ -300,7 +300,7 @@ function ExplorerSearchPanel(props: {
             autoFocus
           />
           {query ? (
-            <AdsTooltip content={tI18n("workspace:workspaceExplorerPanel.clearSearch")}>
+            <AuiTooltip content={tI18n("workspace:workspaceExplorerPanel.clearSearch")}>
               <Button
                 type="button"
                 variant="ghost"
@@ -311,7 +311,7 @@ function ExplorerSearchPanel(props: {
               >
                 <X className={sx(explorerStyles.searchClearIcon)} />
               </Button>
-            </AdsTooltip>
+            </AuiTooltip>
           ) : null}
         </div>
         <p className={sx(explorerStyles.searchHint)}>
@@ -352,7 +352,7 @@ function ExplorerSearchPanel(props: {
                 if (row.kind === "file") {
                   const isCollapsed = collapsedFiles.has(row.file);
                   return (
-                    <AdsButton
+                    <AuiButton
                       layout="host"
                       type="button"
                       onClick={() => toggleFileCollapse(row.file)}
@@ -377,11 +377,11 @@ function ExplorerSearchPanel(props: {
                       <span className={sx(explorerStyles.resultCount)}>
                         {row.matchCount}
                       </span>
-                    </AdsButton>
+                    </AuiButton>
                   );
                 }
                 return (
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     type="button"
                     onClick={() => props.onOpenFile(row.file, row.line)}
@@ -398,7 +398,7 @@ function ExplorerSearchPanel(props: {
                         ? row.text
                         : highlightMatch(row.text, normalizedQuery)}
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 );
               }}
             />
@@ -445,7 +445,7 @@ function ExplorerTreeRow(args: {
       <ContextMenu>
         <ContextMenuTrigger
           render={
-            <AdsButton
+            <AuiButton
               layout="host"
               type="button"
               onClick={() =>

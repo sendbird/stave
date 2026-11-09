@@ -6,7 +6,7 @@ import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary
 import { useAppStore } from "@/store/app.store";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import type { CodexPluginSummarySnapshot } from "@/lib/providers/provider.types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SettingsCard, StatusBadge } from "./settings-dialog.shared";
 import { codexPluginsStyles as styles } from "./settings-dialog-codex-plugins-card.styles";
 

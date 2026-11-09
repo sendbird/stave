@@ -13,9 +13,9 @@ import {
   PopoverTrigger,
   Switch,
 } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { getHookBlocking, isHookLinked } from "./scripts-manager-state";
 import {
   SCRIPT_TRIGGER_METADATA,
@@ -152,7 +152,7 @@ function HookTriggerCard(props: {
               <p className={sx(hooksTabStyles.popoverHeading)}>
                 {tI18n("scripts:scriptHooksTab.availableCommandsAndProcesses")}</p>
               {unlinkedCandidates.map((candidate) => (
-                <AdsButton
+                <AuiButton
                   key={`${candidate.scriptKind}:${candidate.scriptId}`}
                   type="button"
                   layout="host"
@@ -180,7 +180,7 @@ function HookTriggerCard(props: {
                     ) : null}
                   </div>
                   <Plus className={sx(hooksTabStyles.candidateAddIcon)} />
-                </AdsButton>
+                </AuiButton>
               ))}
             </div>
           )}

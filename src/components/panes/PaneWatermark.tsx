@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import type { IWatermarkPanelProps } from "dockview-react";
 import { Layers, Plus, SquareTerminal } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -72,7 +72,7 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",width:"100%",alignItems:"center",justifyContent:"center",backgroundColor:vars["--ads-color-canvas"]},
+root: {display:"flex",height:"100%",width:"100%",alignItems:"center",justifyContent:"center",backgroundColor:vars["--aui-color-canvas"]},
 empty: {borderWidth:0,backgroundColor:"transparent"},
 actions: {display:"flex",alignItems:"center",gap:8},
 icon: {width:16,height:16}

@@ -2,13 +2,13 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { RotateCcw } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { Textarea } from "@/components/ads/components/Textarea";
-import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { Textarea } from "@/components/aui/components/Textarea";
+import { ToggleGroup } from "@/components/aui/components/ToggleGroup";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -394,47 +394,47 @@ const styles = stylex.create({
   tray: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    marginBlockEnd: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
+    marginBlockEnd: vars["--aui-space-8"],
     minWidth: 0,
   },
   summaryText: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
     minWidth: 0,
   },
   filterCount: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
   trayActions: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyContent: "flex-end",
     minWidth: 0,
   },
   composer: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   composerActions: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
-  summaryOpen: { gap: vars["--ads-space-4"], maxWidth: "100%" },
+  summaryOpen: { gap: vars["--aui-space-4"], maxWidth: "100%" },
   summaryOpenLabel: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     listStyle: "none",
     margin: 0,
     padding: 0,
@@ -442,17 +442,17 @@ const styles = stylex.create({
   row: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
-    paddingBlock: vars["--ads-space-8"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    paddingBlock: vars["--aui-space-8"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
   },
   head: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   who: {
@@ -461,59 +461,59 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text"],
   },
   status: {
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
     whiteSpace: "nowrap",
   },
   elapsed: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "pre",
   },
   when: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     whiteSpace: "nowrap",
   },
   what: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
     overflowWrap: "anywhere",
   },
   answer: { minWidth: 0 },
   answerSummary: {
     cursor: "pointer",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
-  answerBody: { minWidth: 0, marginBlockStart: vars["--ads-space-4"] },
+  answerBody: { minWidth: 0, marginBlockStart: vars["--aui-space-4"] },
   answerText: {
     margin: 0,
-    marginBlockStart: vars["--ads-space-4"],
+    marginBlockStart: vars["--aui-space-4"],
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text"],
   },
   error: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-danger-text"],
   },
   // Three controls do not fit a narrow rail on one line; they wrap instead of
   // cutting their labels.
-  actions: { display: "flex", flexWrap: "wrap", columnGap: vars["--ads-space-8"] },
+  actions: { display: "flex", flexWrap: "wrap", columnGap: vars["--aui-space-8"] },
   // Row controls are used often from a narrow rail: keep a 40px target.
   target: { minBlockSize: 40 },
 });

@@ -3,8 +3,8 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { RightRailPanelShell } from "@/components/layout/RightRailPanelShell";
 import { TaskPanel } from "@/components/session/TaskPanel";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -99,8 +99,8 @@ const PLAIN_ANSWER = [
   "",
   "```ts",
   "export const sidebarStyles = stylex.create({",
-  '  list: { gap: vars["--ads-space-8"], padding: vars["--ads-space-12"] },',
-  '  row: { alignItems: "center", minBlockSize: 32, paddingInline: vars["--ads-space-12"], borderRadius: vars["--ads-radius-control"] },',
+  '  list: { gap: vars["--aui-space-8"], padding: vars["--aui-space-12"] },',
+  '  row: { alignItems: "center", minBlockSize: 32, paddingInline: vars["--aui-space-12"], borderRadius: vars["--aui-radius-control"] },',
   "});",
   "```",
   "",
@@ -121,7 +121,7 @@ const SIDEBAR_DIFF = {
 const STYLES_DIFF = {
   filePath: "src/components/settings/sidebar.styles.ts",
   oldContent: "  list: { gap: 12, padding: 16 },\n  row: { minBlockSize: 32 },\n",
-  newContent: '  list: { gap: vars["--ads-space-8"], padding: vars["--ads-space-12"] },\n  row: { alignItems: "center", minBlockSize: 32 },\n',
+  newContent: '  list: { gap: vars["--aui-space-8"], padding: vars["--aui-space-12"] },\n  row: { alignItems: "center", minBlockSize: 32 },\n',
 };
 
 const PLAIN_MESSAGES: ChatMessage[] = [
@@ -926,30 +926,30 @@ const styles = stylex.create({
   page: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     height: "100vh",
-    padding: vars["--ads-space-16"],
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    padding: vars["--aui-space-16"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
   caption: {
     margin: 0,
     flex: "none",
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   row: {
     display: "flex",
     flex: "1 1 auto",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     minHeight: 0,
   },
   conversation: {
-    backgroundColor: vars["--ads-color-canvas"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "dashed",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     flex: "none",
     position: "relative",
     width: 560,
@@ -957,10 +957,10 @@ const styles = stylex.create({
   frame: {
     flex: "1 1 auto",
     minHeight: 0,
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
     overflow: "hidden",
   },
 });

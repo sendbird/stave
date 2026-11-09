@@ -10,7 +10,7 @@ import {
 import { conversationContextUsageTone } from "@/components/ai-elements/prompt-input.utils";
 import { PromptInputContextBreakdown } from "@/components/ai-elements/prompt-input-context-breakdown";
 import { contextMeterStyles } from "@/components/ai-elements/prompt-input-context-meter.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 describe("PromptInputContextMeter", () => {
   test("announces the fill and offers compact when available", () => {

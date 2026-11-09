@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { DelegationStage } from "@/lib/delegation/exchange";
 import { delegationStyles as styles } from "./delegation.styles";
 

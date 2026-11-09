@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Check, Zap } from "lucide-react";
 import {
   type CSSProperties,
@@ -8,9 +8,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import type { StyleXValue } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import type { StyleXValue } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 import { cursorModelConfigStyles as styles } from "./cursor-model-config-list.styles";
 import { providerInkColor } from "@/lib/providers/provider-identity";
 import { ModelIcon } from "./model-icon";
@@ -42,7 +42,7 @@ function getEffortColor(index: number) {
   const range = Math.max(CURSOR_MODEL_EFFORT_OPTIONS.length - 1, 1);
   const mix = Math.round(24 + (index / range) * 66);
   // Alpha over the surface, not a mix toward it — see `getCellColor` in
-  // model-effort-grid.tsx for why mixing a provider accent into the warm ADS
+  // model-effort-grid.tsx for why mixing a provider accent into the warm AUI
   // neutral rotates the hue. Kept identical here so the two effort ramps in the
   // same popover stay in step.
   return `color-mix(in oklch, ${CURSOR_ACCENT_COLOR} ${mix}%, transparent)`;
@@ -113,7 +113,7 @@ function ConfigurationButton(args: {
 }) {
   useTranslation();
   return (
-    <AdsButton
+    <AuiButton
       layout="host"
       type="button"
       data-cursor-control-key={args.controlKey}
@@ -132,7 +132,7 @@ function ConfigurationButton(args: {
       ]}
     >
       {args.children}
-    </AdsButton>
+    </AuiButton>
   );
 }
 
@@ -239,7 +239,7 @@ function CursorModelRow(args: {
         aria-label={i18n.t("composer:cursorModelConfigList.ariaLabel", { value1: args.group.label })}
         className={sx(styles.toolbar)}
       >
-        <AdsButton
+        <AuiButton
           layout="host"
           type="button"
           data-cursor-control-key={`${args.group.key}:model`}
@@ -258,7 +258,7 @@ function CursorModelRow(args: {
           {anchor.option.isDefault ? (
             <span className={sx(styles.defaultLabel)}>{i18n.t("composer:cursorModelConfigList.cursorModelRow")}</span>
           ) : null}
-        </AdsButton>
+        </AuiButton>
 
         <div className={cx(sx(styles.controlStrip), "tab-strip-scroll")}>
           {hasFast && !fastAdjustable ? (

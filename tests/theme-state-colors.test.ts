@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { WORK_STATE } from "../src/components/ads/components/state-vocabulary";
+import { WORK_STATE } from "../src/components/aui/components/state-vocabulary";
 import {
   BUILTIN_CUSTOM_THEMES,
   STATE_COLOR_TOKEN_NAMES,

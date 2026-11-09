@@ -23,7 +23,7 @@ import {
   type TaskPresetEffort,
   type TaskPresetKind,
 } from "@/lib/task-presets";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { taskPresetEditorStyles as styles } from "./task-preset-editor.styles";
 import { SearchablePicker } from "./settings-searchable-picker";
 import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";

@@ -2,9 +2,9 @@ import { useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { memo, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { useSharedNow } from "@/components/ads/components/DurationTimer";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { useSharedNow } from "@/components/aui/components/DurationTimer";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
 import { AgentRunMark } from "@/components/system/AgentRunMark";
 import {
@@ -15,7 +15,7 @@ import {
   selectWorkspaceRunTask,
   type RunProgress,
 } from "@/lib/fleet/run-progress";
-import type { StyleXValue } from "@/components/ads/utils/stylex";
+import type { StyleXValue } from "@/components/aui/utils/stylex";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { getTodoProgress } from "@/lib/todo-progress";
@@ -189,11 +189,11 @@ export const TaskRunProgressMeta = memo(function TaskRunProgressMeta(args: {
 const styles = stylex.create({
   meta: {
     alignItems: "baseline",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    lineHeight: vars["--aui-line-height-normal"],
     minWidth: 0,
   },
   duration: {
@@ -218,6 +218,6 @@ const toneStyles = stylex.create({
   working: {},
   waiting: {},
   stalled: {
-    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-halted))`,
+    color: `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--state-halted))`,
   },
 });

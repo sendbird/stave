@@ -15,8 +15,8 @@ import {
   TableRow,
 } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Select,
   SelectContent,
@@ -1202,7 +1202,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
 
   return (
     <div className={sx(developerStyles.payloadFrame)}>
-      <AdsButton
+      <AuiButton
         type="button"
         variant="quiet"
         flushInline
@@ -1219,7 +1219,7 @@ function LocalMcpRequestPayloadCell({ log }: { log: StaveLocalMcpRequestLog }) {
             variant="spinner"
           />
         ) : null}
-      </AdsButton>
+      </AuiButton>
 
       {open && payloadState.status === "loading" ? (
         <div className={sx(developerStyles.payloadLoaderCell)}>

@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { EmptyState } from "@/components/ads/components/EmptyState";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { EmptyState } from "@/components/aui/components/EmptyState";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   BookOpen,
   Brain,
@@ -100,7 +100,7 @@ import {
   resolveVisibleWorkspaceInformationSections,
   type WorkspaceInformationSectionId,
 } from "@/lib/workspace-information-sections";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { extractPlanTodoItems } from "@/lib/plans";
 import {
@@ -355,7 +355,7 @@ function SectionHeader(props: {
 function HeaderIconButton(props: { label: string; onClick: () => void; children: ReactNode }) {
   return (
     <Tooltip content={props.label}>
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         xstyle={[styles.iconButtonQuiet, styles.iconButtonHoverSurface]}
@@ -363,7 +363,7 @@ function HeaderIconButton(props: { label: string; onClick: () => void; children:
         aria-label={props.label}
       >
         {props.children}
-      </AdsButton>
+      </AuiButton>
     </Tooltip>
   );
 }
@@ -844,7 +844,7 @@ export function WorkspaceInformationPanel() {
                     <WorkspaceTurnSummary summary={latestTurnSummary} />
                   ) : (
                     // The panel already owns the surface, so this is the
-                    // `plain` EmptyState: one ADS copy block (type ramp, gap,
+                    // `plain` EmptyState: one AUI copy block (type ramp, gap,
                     // padding) instead of a square tinted box with asymmetric
                     // padding and margin-driven spacing.
                     <EmptyState
@@ -901,7 +901,7 @@ export function WorkspaceInformationPanel() {
                         className={sx(styles.todoRow)}
                       >
                         <Tooltip content={tI18n("workspace:workspaceInformationPanel.todoStatusValueClickToAdvance", { value1: resolveWorkspaceTodoStatus(todo) })}>
-                          <AdsButton
+                          <AuiButton
                             layout="host"
                             type="button"
                             xstyle={[
@@ -938,7 +938,7 @@ export function WorkspaceInformationPanel() {
                             ) : (
                               <Circle className={sx(styles.glyphMd)} />
                             )}
-                          </AdsButton>
+                          </AuiButton>
                         </Tooltip>
                         <Input
                           value={todo.text}
@@ -963,7 +963,7 @@ export function WorkspaceInformationPanel() {
                           ]}
                         />
                         <Tooltip content={tI18n("workspace:workspaceInformationPanel.removeTodo")}>
-                          <AdsButton
+                          <AuiButton
                             layout="host"
                             type="button"
                             xstyle={[styles.rowRemove, styles.rowRemoveSm]}
@@ -976,7 +976,7 @@ export function WorkspaceInformationPanel() {
                             aria-label={tI18n("workspace:workspaceInformationPanel.removeTodo")}
                           >
                             <X className={sx(styles.glyphSm)} />
-                          </AdsButton>
+                          </AuiButton>
                         </Tooltip>
                       </div>
                     ))}
@@ -2150,7 +2150,7 @@ export function WorkspaceInformationPanel() {
                             </SelectContent>
                           </Select>
                           <Tooltip content={tI18n("workspace:workspaceInformationPanel.removeField")}>
-                            <AdsButton
+                            <AuiButton
                               layout="host"
                               type="button"
                               xstyle={styles.rowRemove}
@@ -2166,7 +2166,7 @@ export function WorkspaceInformationPanel() {
                               aria-label={tI18n("workspace:workspaceInformationPanel.removeField")}
                             >
                               <X className={sx(styles.glyphSm)} />
-                            </AdsButton>
+                            </AuiButton>
                           </Tooltip>
                         </div>
                         {renderCustomFieldInput({

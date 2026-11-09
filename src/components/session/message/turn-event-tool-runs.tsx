@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { Bot, ListTodo } from "lucide-react";
-import { ToolRun } from "@/components/ads/components/ToolRun";
+import { ToolRun } from "@/components/aui/components/ToolRun";
 import { parseFileChangeToolInput } from "@/components/session/chat-panel.utils";
 import {
   isInlineRenderToolName,
@@ -30,7 +30,7 @@ import { toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
 import { getToolIcon, TRACE_GLYPH_SIZE } from "./tool-icon";
 
 /**
- * The one tool-call renderer. A tool call is drawn as an ADS `ToolRun` whether
+ * The one tool-call renderer. A tool call is drawn as an AUI `ToolRun` whether
  * it is a step on the assistant trace or a part of a message's display list,
  * so a call reads the same — title, target, count, measured duration, input,
  * output — wherever it appears. The trace wraps these rows in its step rail;
@@ -108,7 +108,7 @@ export function TraceToolRun(args: {
       }
       /*
        * Measured only. The provider reports `elapsedSeconds` for the calls it
-       * timed and omits it for the rest, and ADS renders no duration rather
+       * timed and omits it for the rest, and AUI renders no duration rather
        * than a plausible one.
        */
       durationMs={toMeasuredDurationMs(part.elapsedSeconds)}
@@ -214,7 +214,7 @@ export function TraceSubagentRun(args: { part: ToolUsePart }) {
 
 /**
  * A plan revision. TodoWrite genuinely is a tool call, so the row is `ToolRun`
- * and the payload is ADS `Plan`: the row opens while the call streams, settles
+ * and the payload is AUI `Plan`: the row opens while the call streams, settles
  * and collapses when it lands, and the collapsed line still carries
  * `done / total`, so the collapse hides no progress.
  */

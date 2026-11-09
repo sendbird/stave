@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { controlStyles, toolbarMarker, wingMarker, shelfMarker, menuMarker, groupMarker } from "./composer-control.stylex";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { createContext, useContext, type ReactNode } from "react";
 
 /**

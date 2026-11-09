@@ -3,10 +3,10 @@ import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 
-import { Badge as AdsBadge } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge as AuiBadge } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Toaster } from "@/components/ui";
@@ -92,7 +92,7 @@ export function InformationRowsPreview() {
           <h2 className={sx(styles.label)}>Badge compatibility</h2>
           <Badge variant="warning">Long status text that must stay inside its badge even in a narrow sidebar</Badge>
           <Badge variant="solid" tone="danger" data-review-shim-solid="">Blocked</Badge>
-          <AdsBadge variant="solid" tone="danger" data-review-ads-solid="">Blocked</AdsBadge>
+          <AuiBadge variant="solid" tone="danger" data-review-aui-solid="">Blocked</AuiBadge>
         </section>
 
         <section className={sx(styles.section)}>
@@ -170,50 +170,50 @@ export function InformationRowsPreview() {
 
 const styles = stylex.create({
   page: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     boxSizing: "border-box",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-24"],
+    gap: vars["--aui-space-24"],
     minBlockSize: "100vh",
-    padding: vars["--ads-space-24"],
+    padding: vars["--aui-space-24"],
   },
   header: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
   title: {
-    fontSize: vars["--ads-font-size-heading"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-heading"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     margin: 0,
   },
   note: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     inlineSize: "100%",
     margin: 0,
   },
   /* The real Information panel width. */
   rail: {
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-panel"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-24"],
+    gap: vars["--aui-space-24"],
     inlineSize: "21.25rem",
-    padding: vars["--ads-space-16"],
+    padding: vars["--aui-space-16"],
   },
-  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
+  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"] },
   label: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     margin: 0,
     textTransform: "uppercase",
   },

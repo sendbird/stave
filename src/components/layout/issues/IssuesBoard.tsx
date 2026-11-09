@@ -3,18 +3,18 @@ import { memo } from "react";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
 
-import { Board } from "@/components/ads/components/Board";
+import { Board } from "@/components/aui/components/Board";
 import {
   StateIcon,
   PriorityIcon,
   type WorkflowState,
-} from "@/components/ads/components/WorkflowIcon";
-import { Badge } from "@/components/ads/components/Badge";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Skeleton } from "@/components/ads/components/Skeleton";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/WorkflowIcon";
+import { Badge } from "@/components/aui/components/Badge";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Skeleton } from "@/components/aui/components/Skeleton";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -217,7 +217,7 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
     <ContextMenu>
       <ContextMenuTrigger
         render={
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             data-tracker-issue-key={key}

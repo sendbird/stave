@@ -2,9 +2,9 @@ import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { AppliedFilters } from "@/components/aui/components/AppliedFilters";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { fleetAppliedFilters } from "@/lib/fleet/fleet-applied-filters";
 import {
@@ -76,8 +76,8 @@ import { type WorkQueueLane } from "@/lib/fleet/work-attention-order";
 import { orderFleetBoardWorkspaces } from "@/lib/fleet/fleet-board-order";
 import { agentRunLanesByWorkspace } from "@/lib/agent-runs/lanes";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
 import { setResultReviewed } from "@/lib/reviews/result-review-client";
@@ -947,7 +947,7 @@ export function FleetView() {
                       className={sx(styles.repositorySection)}
                       hidden={hideRepository}
                     >
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         xstyle={[styles.repositoryHeader, focusRing.ringInset]}
@@ -977,7 +977,7 @@ export function FleetView() {
                           {repositoryVisibleCount}
                         </span>
                         {repository.isCurrent ? (
-                          // A status chip, so it is the ADS `Badge` rather
+                          // A status chip, so it is the AUI `Badge` rather
                           // than a span wearing a hand-rolled hairline, a
                           // `radiusMark`, and an off-ramp font size.
                           <Badge
@@ -986,7 +986,7 @@ export function FleetView() {
                           >
                             {tI18n("fleet:fleetView.current")}</Badge>
                         ) : null}
-                      </AdsButton>
+                      </AuiButton>
                       <div
                         hidden={isCollapsed}
                         // Width-driven rather than breakpoint-driven: the board

@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -10,9 +10,9 @@ import type {
 } from "react";
 import { useMemo } from "react";
 import { Paperclip, X } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import type { ButtonPress } from "@/components/ads/components/Button.types";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import type { ButtonPress } from "@/components/aui/components/Button.types";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { messageStyles as styles } from "./message.styles";
 import {
   getKnownFilePathSet,
@@ -101,12 +101,12 @@ export function Message({ from, className, style, ...props }: MessageProps) {
   const bubbleVars =
     from === "user"
       ? ({
-          "--message-bubble-radius": vars["--ads-radius-panel"],
+          "--message-bubble-radius": vars["--aui-radius-panel"],
           // A neutral step off the conversation ground, so the bubble reads as
           // yours without tinting every prompt in the theme's accent.
-          "--message-bubble-bg": vars["--ads-color-surface-tint"],
-          "--message-bubble-pad-inline": vars["--ads-space-16"],
-          "--message-bubble-pad-block": vars["--ads-space-12"],
+          "--message-bubble-bg": vars["--aui-color-surface-tint"],
+          "--message-bubble-pad-inline": vars["--aui-space-16"],
+          "--message-bubble-pad-block": vars["--aui-space-12"],
         } as CSSProperties)
       : undefined;
   return (
@@ -455,8 +455,8 @@ export function MessageAttachment({
         </div>
       )}
       {onRemove ? (
-        <AdsTooltip content={i18n.t("composer:message.removeAttachment")}>
-          <AdsButton
+        <AuiTooltip content={i18n.t("composer:message.removeAttachment")}>
+          <AuiButton
             layout="host"
             type="button"
             xstyle={styles.attachmentRemove}
@@ -464,8 +464,8 @@ export function MessageAttachment({
             aria-label={i18n.t("composer:message.removeAttachment")}
           >
             <X className={sx(styles.attachmentRemoveIcon)} />
-          </AdsButton>
-        </AdsTooltip>
+          </AuiButton>
+        </AuiTooltip>
       ) : null}
     </div>
   );

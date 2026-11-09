@@ -1,11 +1,11 @@
 import { useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { memo } from "react";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
 
-import { Badge } from "@/components/ads/components/Badge";
-import { PriorityIcon } from "@/components/ads/components/WorkflowIcon";
+import { Badge } from "@/components/aui/components/Badge";
+import { PriorityIcon } from "@/components/aui/components/WorkflowIcon";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -203,7 +203,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
         ) : null}
 
         {linkPresentation ? (
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             variant="quiet"
@@ -223,7 +223,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
               ) : null}
               {linkPresentation.label}
             </Badge>
-          </AdsButton>
+          </AuiButton>
         ) : null}
 
         <Badge

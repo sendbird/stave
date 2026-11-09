@@ -12,8 +12,8 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useAsync } from "@/components/ads/utils/async";
-import { sx } from "@/components/ads/utils/stylex";
+import { useAsync } from "@/components/aui/utils/async";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { usageAccountLabel } from "@/components/usage/usage-view.utils";
 import { readTaskTurnRecord } from "@/lib/db/turn-history.db";

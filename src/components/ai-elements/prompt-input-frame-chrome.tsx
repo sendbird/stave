@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Fragment } from "react";
 import { i18n } from "@/i18n";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { Ellipsis, SlidersHorizontal } from "lucide-react";
 import {
   Button,
@@ -16,7 +16,7 @@ import {
   type ComposerControlId,
   type ComposerControlLayout,
 } from "@/lib/composer-controls";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
   COMPOSER_CONTROL_MENU_CONTENT,
@@ -167,14 +167,14 @@ export function buildComposerFrameChrome(args: {
   const composerOverflowTray =
     overflowMenuItems.length > 0 ? (
       <Popover open={composerTrayOpen} onOpenChange={setComposerTrayOpen}>
-        <AdsTooltip content={i18n.t("composer:promptInput.title3")}>
+        <AuiTooltip content={i18n.t("composer:promptInput.title3")}>
           <PopoverTrigger
             render={
               <Button
                 type="button"
                 variant="ghost"
                 // Sized for the row it stands in rather than by a lane rule:
-                // an ADS icon size owns both axes, and a glyph-only button has
+                // an AUI icon size owns both axes, and a glyph-only button has
                 // to stay square in each of them.
                 size={composerIconButtonSize}
                 disabled={interactionsDisabled}
@@ -186,7 +186,7 @@ export function buildComposerFrameChrome(args: {
           >
             <Ellipsis className={sx(promptInputStyles.icon4)} />
           </PopoverTrigger>
-        </AdsTooltip>
+        </AuiTooltip>
         <PopoverContent
           align={useComposerWings ? "end" : "start"}
           side="top"

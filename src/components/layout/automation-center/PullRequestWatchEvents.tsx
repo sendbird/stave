@@ -1,9 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useTranslation } from "@/i18n";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { transition } from "@/components/ads/recipes/transition";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { transition } from "@/components/aui/recipes/transition";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { I18nKey } from "@/i18n/runtime";
 import {
   normalizePullRequestWatchEvents,
@@ -71,40 +71,40 @@ export function PullRequestWatchEvents(props: {
 }
 
 const styles = stylex.create({
-  root: { display: "grid", gap: vars["--ads-space-8"] },
-  heading: { display: "grid", gap: vars["--ads-space-4"] },
+  root: { display: "grid", gap: vars["--aui-space-8"] },
+  heading: { display: "grid", gap: vars["--aui-space-4"] },
   label: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   description: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "16px",
   },
-  list: { display: "grid", gap: vars["--ads-space-2"] },
+  list: { display: "grid", gap: vars["--aui-space-2"] },
   row: {
     alignItems: "flex-start",
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    borderRadius: vars["--aui-radius-control"],
     cursor: "pointer",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
     paddingBlock: 6,
     paddingInline: 6,
   },
   // Only the offset the row needs; the painted box keeps its canonical size.
-  control: { marginTop: vars["--ads-space-2"] },
-  rowText: { display: "grid", flex: 1, gap: vars["--ads-space-2"], minInlineSize: 0 },
+  control: { marginTop: vars["--aui-space-2"] },
+  rowText: { display: "grid", flex: 1, gap: vars["--aui-space-2"], minInlineSize: 0 },
   rowTitle: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   warning: {
-    color: vars["--ads-color-warning-text"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-warning-text"],
+    fontSize: vars["--aui-font-size-caption"],
   },
 });

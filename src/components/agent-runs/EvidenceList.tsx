@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight, ShieldCheck, UserRound } from "lucide-react";
-import { Badge } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { evidenceSourceLabel, isVerifiedEvidence, type ClassifiedEvidence } from "@/lib/agent-runs/evidence";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 

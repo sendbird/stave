@@ -109,10 +109,10 @@ For extracted code owners and focused tests, see `docs/architecture/code-organiz
 
 ## UI And Theme Guardrails
 
-Stave's design system uses locally owned ADS tokens, recipes, and StyleX.
+Stave's design system uses locally owned AUI tokens, recipes, and StyleX.
 Existing compound component APIs may remain when they preserve useful behavior;
 component ancestry is not a reason to replace an implementation. Custom product
-components follow the same ADS state, focus, motion, and token contracts.
+components follow the same AUI state, focus, motion, and token contracts.
 
 - Author new styles with `stylex.create` and compose styles before compiling
   them. Do not introduce Tailwind utility strings, `@apply`, CVA recipes, or a
@@ -136,12 +136,12 @@ components follow the same ADS state, focus, motion, and token contracts.
 ### Layout regression prevention
 
 Before editing geometry, identify its owner and contract: center an icon with
-single-line text, or align it to the first line of wrapping text. Reuse an ADS
+single-line text, or align it to the first line of wrapping text. Reuse an AUI
 component/recipe first. Keep the icon from shrinking; preserve the text's
 `minWidth: 0`, wrapping and ellipsis where applicable. Fix the owning layout
 instead of adding glyph-specific margins, relative offsets or transforms.
 
-- Use ADS space tokens or `densityPad` for padding, margin and gap. Zero,
+- Use AUI space tokens or `densityPad` for padding, margin and gap. Zero,
   percentages and `auto` are valid; new absolute literals fail
   `bun run check:ui-layout`, even on the spacing grid. Existing debt in
   `config/spacing-ratchet.json` may only shrink. Do not expand or regenerate it

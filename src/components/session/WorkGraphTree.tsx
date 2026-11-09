@@ -1,17 +1,17 @@
 import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
 import { i18n, useTranslation } from "@/i18n";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
-import { transition } from "@/components/ads/recipes/transition";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { disclosureChevron } from "@/components/ads/recipes/disclosure-chevron";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { createTreeKeyDownHandler } from "@/components/ads/components/Tree.keyboard";
+import { transition } from "@/components/aui/recipes/transition";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { disclosureChevron } from "@/components/aui/recipes/disclosure-chevron";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { createTreeKeyDownHandler } from "@/components/aui/components/Tree.keyboard";
 import {
   flattenVisibleTree,
   type TreeFlatNode,
   type TreeNode,
-} from "@/components/ads/components/Tree.model";
-import { useCancelableTimeout } from "@/components/ads/utils/pointer-gesture";
+} from "@/components/aui/components/Tree.model";
+import { useCancelableTimeout } from "@/components/aui/utils/pointer-gesture";
 import {
   memo,
   useCallback,
@@ -29,7 +29,7 @@ import {
   Square,
   type LucideIcon,
 } from "lucide-react";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { StateMark } from "@/components/aui/components/StateMark";
 import { formatTurnActivityElapsedSeconds } from "@/components/session/turn-activity.utils";
 import {
   describeExchangeStatus,
@@ -37,8 +37,8 @@ import {
   exchangeStatusToWorkState,
 } from "@/lib/delegation/format";
 import { Button } from "@/components/ui";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx, cx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx, cx } from "@/components/aui/utils/stylex";
 import { workGraphTreeStyles as styles } from "./work-graph-tree.styles";
 import type { ProviderWorkGraphCapabilities } from "@/lib/providers/provider.types";
 import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
@@ -71,8 +71,8 @@ import {
  *
  * It is an APG treeview: a flat `ul role="tree"` of `treeitem` rows carrying
  * `aria-level` / `aria-posinset` / `aria-setsize` / `aria-expanded`, one
- * tabbable row (roving tabindex), and the ADS `Tree` key map — the same
- * `Tree.keyboard` handler and `Tree.model` flattening the ADS `Tree` renders
+ * tabbable row (roving tabindex), and the AUI `Tree` key map — the same
+ * `Tree.keyboard` handler and `Tree.model` flattening the AUI `Tree` renders
  * with. It does not render `Tree` itself because an agent row is a two-line
  * card with its own controls, which the file-explorer row (one fixed-height
  * line) cannot hold. Enter and Space run the row's action — open its activity

@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef } from "react";
 import { MessageSquarePlus } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { DiffViewer } from "@/components/ads/components/DiffViewer";
-import { FileChangeSummary, type FileChangeKind } from "@/components/ads/components/FileChangeSummary";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { DiffViewer } from "@/components/aui/components/DiffViewer";
+import { FileChangeSummary, type FileChangeKind } from "@/components/aui/components/FileChangeSummary";
+import { sx } from "@/components/aui/utils/stylex";
 import { paneHost } from "@/components/panes/pane-host-controller";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { useDiffLineHighlighter } from "@/components/session/message/diff-highlighter";
@@ -47,8 +47,8 @@ export interface ReviewDiffReveal {
 export function findReviewDiffRow(root: ParentNode, line: number, side: ReviewCommentSide): HTMLElement | null {
   const cell = side === "original" ? 0 : 1;
   let nearest: { row: HTMLElement; distance: number } | null = null;
-  for (const holder of Array.from(root.querySelectorAll<HTMLElement>("div:has(> [data-ads-slot='line-number'])"))) {
-    const numbers = holder.querySelectorAll(":scope > [data-ads-slot='line-number']");
+  for (const holder of Array.from(root.querySelectorAll<HTMLElement>("div:has(> [data-aui-slot='line-number'])"))) {
+    const numbers = holder.querySelectorAll(":scope > [data-aui-slot='line-number']");
     const splitHalf = numbers.length === 1 ? holder : null;
     if (splitHalf && splitHalf.parentElement?.children[cell] !== splitHalf) continue;
     const row = splitHalf?.parentElement ?? holder;

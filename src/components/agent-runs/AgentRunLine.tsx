@@ -2,10 +2,10 @@ import { Play } from "lucide-react";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { TextShimmer } from "@/components/ads/components/TextShimmer";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { TextShimmer } from "@/components/aui/components/TextShimmer";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
   agentRunClockRunning,

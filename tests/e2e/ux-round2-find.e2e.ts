@@ -15,7 +15,7 @@ for (const theme of ["light", "dark"]) {
     await page.getByText("Check the dark theme as well.", { exact: true }).hover();
     await expect(open).toHaveCSS("opacity", "1");
     await page.evaluate(() => document.fonts.ready);
-    // Use the smallest ADS control; the glyph stays on its 14px token rung.
+    // Use the smallest AUI control; the glyph stays on its 14px token rung.
     await expect(open).toHaveAttribute("data-size", "xs");
     await expect(open.locator("svg")).toHaveCSS("width", "14px");
     await expect(open.locator("svg")).toHaveCSS("height", "14px");

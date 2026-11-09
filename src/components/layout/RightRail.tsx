@@ -9,9 +9,9 @@ import {
 import {
   Toolbar,
   ToolbarButtonGroup,
-} from "@/components/ads/components/Toolbar";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { ToolbarButton } from "@/components/ads/headless/toolbar";
+} from "@/components/aui/components/Toolbar";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { ToolbarButton } from "@/components/aui/headless/toolbar";
 import { Button } from "@/components/ui";
 import {
   RIGHT_RAIL_PANEL_ICONS,
@@ -22,7 +22,7 @@ import {
 import type { KeybindingId } from "@/lib/keybindings/keybinding-registry";
 import { useRunningWorkspaceProcessCount } from "@/lib/workspace-scripts";
 import { workspaceToolsRunningLabel } from "@/lib/workspace-tools-presentation";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { CountBadge } from "@/components/system/CountBadge";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
@@ -137,7 +137,7 @@ function RightRailWorkspaceToolsButton(props: {
       disabled={props.disabled}
       onClick={props.onClick}
       /*
-       * `CountBadge` through ADS `Button indicator`, not a positioned
+       * `CountBadge` through AUI `Button indicator`, not a positioned
        * child. This rail was the fifth hand-written copy of the same accent
        * pill — the one `CountBadge` was created to delete — and the copy
        * had dropped the knockout ring, so it merged into the glyph it

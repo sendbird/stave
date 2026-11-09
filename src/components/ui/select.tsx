@@ -1,6 +1,6 @@
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { overlayLayout } from "./overlay-layout.styles";
-import { Select as AdsSelect } from "../ads/components/Select";
+import { Select as AuiSelect } from "../aui/components/Select";
 
 import * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
@@ -72,7 +72,7 @@ function Select<Value = string>({
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
-    <AdsSelect.Group
+    <AuiSelect.Group
       data-slot="select-group"
       className={className}
       {...props}
@@ -82,7 +82,7 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
 
 function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   return (
-    <AdsSelect.Value
+    <AuiSelect.Value
       data-slot="select-value"
       className={className}
       {...props}
@@ -91,11 +91,11 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
 }
 
 /**
- * `data-size` is no longer forwarded here. ADS `Select.Trigger` publishes its
+ * `data-size` is no longer forwarded here. AUI `Select.Trigger` publishes its
  * own theme identity on that exact attribute name (`themeProps("select-trigger",
  * { size })`, whose target declares `axes: { size: ["xs","sm","md","lg"] }`),
  * spread after the caller's props, so this wrapper's spelling was overwritten
- * before it reached the DOM. The rendered button carries the ADS rung —
+ * before it reached the DOM. The rendered button carries the AUI rung —
  * `"default"` reads as `data-size="md"`.
  */
 function SelectTrigger({
@@ -107,19 +107,19 @@ function SelectTrigger({
   size?: "sm" | "default";
 }) {
   return (
-    <AdsSelect.Trigger
+    <AuiSelect.Trigger
       data-slot="select-trigger"
       size={size === "sm" ? "sm" : "md"}
       className={className}
       {...props}
     >
       {children}
-      <AdsSelect.Icon
+      <AuiSelect.Icon
         render={
           <ChevronDownIcon className={sx(overlayLayout.selectArrow)} />
         }
       />
-    </AdsSelect.Trigger>
+    </AuiSelect.Trigger>
   );
 }
 
@@ -152,8 +152,8 @@ function SelectContent({
     | "collisionAvoidance"
   >) {
   return (
-    <AdsSelect.Portal>
-      <AdsSelect.Positioner
+    <AuiSelect.Portal>
+      <AuiSelect.Positioner
         data-ui-popup-positioner=""
         side={side}
         sideOffset={sideOffset}
@@ -167,20 +167,20 @@ function SelectContent({
         collisionAvoidance={collisionAvoidance}
         className={UI_LAYER_CLASS.popover}
       >
-        <AdsSelect.Popup
+        <AuiSelect.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={className}
           {...props}
         >
           <SelectScrollUpButton />
-          <AdsSelect.List xstyle={overlayLayout.selectList}>
+          <AuiSelect.List xstyle={overlayLayout.selectList}>
             {children}
-          </AdsSelect.List>
+          </AuiSelect.List>
           <SelectScrollDownButton />
-        </AdsSelect.Popup>
-      </AdsSelect.Positioner>
-    </AdsSelect.Portal>
+        </AuiSelect.Popup>
+      </AuiSelect.Positioner>
+    </AuiSelect.Portal>
   );
 }
 
@@ -189,7 +189,7 @@ function SelectLabel({
   ...props
 }: SelectPrimitive.GroupLabel.Props) {
   return (
-    <AdsSelect.GroupLabel
+    <AuiSelect.GroupLabel
       data-slot="select-label"
       className={className}
       {...props}
@@ -203,22 +203,22 @@ function SelectItem({
   ...props
 }: SelectPrimitive.Item.Props) {
   return (
-    <AdsSelect.Item
+    <AuiSelect.Item
       data-slot="select-item"
       className={className}
       {...props}
     >
-      <AdsSelect.ItemText xstyle={overlayLayout.selectLabel}>
+      <AuiSelect.ItemText xstyle={overlayLayout.selectLabel}>
         {children}
-      </AdsSelect.ItemText>
-      <AdsSelect.ItemIndicator
+      </AuiSelect.ItemText>
+      <AuiSelect.ItemIndicator
         render={
           <span className={sx(overlayLayout.selectIndicator)} />
         }
       >
         <CheckIcon className={sx(overlayLayout.decorative)} />
-      </AdsSelect.ItemIndicator>
-    </AdsSelect.Item>
+      </AuiSelect.ItemIndicator>
+    </AuiSelect.Item>
   );
 }
 
@@ -227,7 +227,7 @@ function SelectSeparator({
   ...props
 }: SelectPrimitive.Separator.Props) {
   return (
-    <AdsSelect.Separator
+    <AuiSelect.Separator
       data-slot="select-separator"
       className={className}
       {...props}
@@ -240,13 +240,13 @@ function SelectScrollUpButton({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollUpArrow>) {
   return (
-    <AdsSelect.ScrollUpArrow
+    <AuiSelect.ScrollUpArrow
       data-slot="select-scroll-up-button"
       className={className}
       {...props}
     >
       <ChevronUpIcon />
-    </AdsSelect.ScrollUpArrow>
+    </AuiSelect.ScrollUpArrow>
   );
 }
 
@@ -255,13 +255,13 @@ function SelectScrollDownButton({
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.ScrollDownArrow>) {
   return (
-    <AdsSelect.ScrollDownArrow
+    <AuiSelect.ScrollDownArrow
       data-slot="select-scroll-down-button"
       className={className}
       {...props}
     >
       <ChevronDownIcon />
-    </AdsSelect.ScrollDownArrow>
+    </AuiSelect.ScrollDownArrow>
   );
 }
 

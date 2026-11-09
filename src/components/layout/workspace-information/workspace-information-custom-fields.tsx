@@ -1,7 +1,7 @@
 import { formatDate } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { CalendarIcon, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -24,7 +24,7 @@ import {
   type WorkspaceInfoCustomField,
   updateWorkspaceInfoSelectFieldOptions,
 } from "@/lib/workspace-information";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { workspaceInformationPanelStyles as styles } from "../workspace-information-panel.styles";
 import { openExternalUrl } from "./workspace-information-link-rows";
 function CustomFieldDatePicker(props: {
@@ -206,7 +206,7 @@ export function renderCustomFieldInput(args: {
           />
           {isWorkspaceInfoUrl(field.value) ? (
             <Tooltip content={i18n.t("workspace:workspaceInformationCustomFields.openLink")}>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={styles.urlFieldOpen}
@@ -214,7 +214,7 @@ export function renderCustomFieldInput(args: {
                 aria-label={i18n.t("workspace:workspaceInformationCustomFields.openLink")}
               >
                 <ExternalLink className={sx(styles.glyphMd)} />
-              </AdsButton>
+              </AuiButton>
             </Tooltip>
           ) : null}
         </div>

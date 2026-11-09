@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { FileAudio, X } from "lucide-react";
 import { Badge, Slider } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { FileUpload, type FileUploadItem } from "@/components/ads/components/FileUpload";
+import { Button } from "@/components/aui/components/Button";
+import { FileUpload, type FileUploadItem } from "@/components/aui/components/FileUpload";
 import { acceptAttribute } from "@/lib/files/file-drop";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useTranslation, type I18nKey } from "@/i18n";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {

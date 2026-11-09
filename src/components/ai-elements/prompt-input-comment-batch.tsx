@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { FileText, Paperclip, Trash2, X } from "lucide-react";
 import {
   Badge,
@@ -15,7 +15,7 @@ import {
 import type { Attachment, PromptDraftBatchItem } from "@/types/chat";
 import { getLensCommentImageId } from "@/lib/lens/lens-annotation-attachment";
 import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
   LensAnnotationFeedbackPopover,
@@ -98,8 +98,8 @@ export function PromptInputCommentBatch(args: {
                   {attachmentCount}
                 </span>
               ) : null}
-              <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}>
-                <AdsButton layout="host"
+              <AuiTooltip content={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}>
+                <AuiButton layout="host"
                   type="button"
                   disabled={interactionsDisabled}
                   onClick={() =>
@@ -109,8 +109,8 @@ export function PromptInputCommentBatch(args: {
                   aria-label={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}
                 >
                   <X className={sx(promptInputStyles.icon3)} />
-                </AdsButton>
-              </AdsTooltip>
+                </AuiButton>
+              </AuiTooltip>
             </div>
           );
         })}
@@ -128,7 +128,7 @@ export function PromptInputCommentBatch(args: {
                       render={
                         <PopoverTrigger
                           render={
-                            <AdsButton layout="host"
+                            <AuiButton layout="host"
                               type="button"
                               title={
                                 attachment.displayContent ??
@@ -165,8 +165,8 @@ export function PromptInputCommentBatch(args: {
                     </pre>
                   </PopoverContent>
                 </Popover>
-                <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}>
-                  <AdsButton layout="host"
+                <AuiTooltip content={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}>
+                  <AuiButton layout="host"
                     type="button"
                     disabled={interactionsDisabled}
                     onClick={() =>
@@ -184,8 +184,8 @@ export function PromptInputCommentBatch(args: {
                     aria-label={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}
                   >
                     <X className={sx(promptInputStyles.icon3)} />
-                  </AdsButton>
-                </AdsTooltip>
+                  </AuiButton>
+                </AuiTooltip>
               </div>
             );
           }
@@ -210,7 +210,7 @@ export function PromptInputCommentBatch(args: {
                   {annotation.pin}
                 </span>
                 {screenshot ? (
-                  <AdsButton layout="host"
+                  <AuiButton layout="host"
                     type="button"
                     xstyle={promptInputStyles.screenshotButton}
                     title={i18n.t("composer:promptInput.title5")}
@@ -226,7 +226,7 @@ export function PromptInputCommentBatch(args: {
                       alt={screenshot.label}
                       className={sx(promptInputStyles.screenshotImage)}
                     />
-                  </AdsButton>
+                  </AuiButton>
                 ) : null}
                 <Popover modal={false}>
                   <Tooltip>
@@ -234,7 +234,7 @@ export function PromptInputCommentBatch(args: {
                       render={
                         <PopoverTrigger
                           render={
-                            <AdsButton layout="host"
+                            <AuiButton layout="host"
                               type="button"
                               title={annotation.comment}
                               xstyle={promptInputStyles.annotationTextButton}
@@ -295,7 +295,7 @@ export function PromptInputCommentBatch(args: {
                     )
                   }
                 />
-                <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel14", { value1: annotation.pin })}>
+                <AuiTooltip content={i18n.t("composer:promptInput.ariaLabel14", { value1: annotation.pin })}>
                   <Button
                     type="button"
                     size="icon-xs"
@@ -308,7 +308,7 @@ export function PromptInputCommentBatch(args: {
                   >
                     <Trash2 className={sx(promptInputStyles.icon3)} />
                   </Button>
-                </AdsTooltip>
+                </AuiTooltip>
               </div>
             );
           });

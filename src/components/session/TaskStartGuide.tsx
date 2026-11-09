@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "../aui/utils/stylex";
 import { MessageSquareIcon } from "lucide-react";
 import {
   Button,
@@ -109,26 +109,26 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   root: {
-    gap: vars["--ads-space-16"],
-    // Same `padding` shorthand ADS Empty uses, so this replaces it instead of
+    gap: vars["--aui-space-16"],
+    // Same `padding` shorthand AUI Empty uses, so this replaces it instead of
     // racing `paddingBlockEnd` against it. Bottom is 0: the shell gap owns
     // the space to the footer action.
-    padding: `${vars["--ads-space-20"]} ${vars["--ads-space-20"]} 0`,
+    padding: `${vars["--aui-space-20"]} ${vars["--aui-space-20"]} 0`,
   },
   introduction: {
     // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
     // state gets it rather than the surfaces that noticed the medallion drift.
-    // ADS constrains the header with `maxInlineSize`, so override that same
+    // AUI constrains the header with `maxInlineSize`, so override that same
     // logical property rather than racing `maxWidth` against it.
     maxInlineSize: "32rem",
   },
   content: {
-    // Logical only: the ADS `EmptyState` content slot constrains itself with
+    // Logical only: the AUI `EmptyState` content slot constrains itself with
     // `maxInlineSize`, so overriding `maxWidth` would leave two rules racing
     // for the same box.
     inlineSize: "100%",
@@ -136,10 +136,10 @@ const styles = stylex.create({
     minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     textAlign: "left",
   },
-  actions: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-8"] },
+  actions: { display: "flex", flexWrap: "wrap", gap: vars["--aui-space-8"] },
   footerActions: {
     inlineSize: "100%",
     maxInlineSize: "32rem",
@@ -156,19 +156,19 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    columnGap: vars["--ads-space-16"],
-    rowGap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-12"],
+    columnGap: vars["--aui-space-16"],
+    rowGap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-12"],
     borderBlockStartWidth: {
-      default: vars["--ads-border-width-hairline"],
+      default: vars["--aui-border-width-hairline"],
       ":first-child": 0,
     },
     borderBlockStartStyle: "solid",
-    borderBlockStartColor: vars["--ads-color-border"],
+    borderBlockStartColor: vars["--aui-color-border"],
   },
   /**
    * Title and description are a pair, so the gap between them is the layout's
-   * (`space4` on the ADS spacing ramp) rather than a margin hung off the
+   * (`space4` on the AUI spacing ramp) rather than a margin hung off the
    * description — the same flex-column-plus-gap shape every other title and
    * description pair in the app uses.
    */
@@ -177,21 +177,21 @@ const styles = stylex.create({
     flexDirection: "column",
     flexGrow: 1,
     flexBasis: "16rem",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   /** Never shrink below the label: the action wraps to its own line first. */
   promptAction: { flexShrink: 0 },
   promptTitle: {
     margin: 0,
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-normal"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   promptDescription: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-relaxed"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-relaxed"],
+    color: vars["--aui-color-text-muted"],
   },
 });

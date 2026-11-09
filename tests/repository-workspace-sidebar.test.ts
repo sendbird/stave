@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
-import { sx } from "../src/components/ads/utils/stylex";
+import { sx } from "../src/components/aui/utils/stylex";
 import { repositorySidebarStyles } from "../src/components/layout/repository-workspace-sidebar.styles";
 import type { FleetAttentionItem } from "../src/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_PRIORITY } from "../src/lib/fleet/attention-projection";

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 
 const sessionInputFloaterStyles = stylex.create({

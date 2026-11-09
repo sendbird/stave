@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { EditorMarkdownPreview } from "../editor-markdown-preview";
 import { NotesEditor, useNotesDraftEditor } from "./workspace-information-notes-editor";
 import { workspaceInformationPanelStyles as styles } from "../workspace-information-panel.styles";
@@ -24,13 +24,13 @@ export function NotesSectionBody(props: {
 
   if (!props.notes.trim()) {
     return (
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         onClick={startEditing}
         xstyle={styles.notesPlaceholder}
       >
-        {tI18n("workspace:workspaceInformationNotes.addNotesMarkdownSupported")}</AdsButton>
+        {tI18n("workspace:workspaceInformationNotes.addNotesMarkdownSupported")}</AuiButton>
     );
   }
 
@@ -49,10 +49,10 @@ export function NotesSectionBody(props: {
             baseline, the same step WorkspaceSkillsPanel passes. */}
         <EditorMarkdownPreview content={props.notes} fontSize={14} variant="embedded" lineBreaks="preserve" />
       </div>
-      <AdsButton type="button" variant="quiet" size="sm" xstyle={styles.notesEditButton}
+      <AuiButton type="button" variant="quiet" size="sm" xstyle={styles.notesEditButton}
         aria-label={tI18n("workspace:workspaceInformationNotes.editNotes")} onClick={startEditing}>
         {tI18n("workspace:workspaceInformationNotes.edit")}
-      </AdsButton>
+      </AuiButton>
     </div>
   );
 }

@@ -2,8 +2,8 @@ import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { RotateCcw } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentConfig } from "@/lib/agents/schema";
 import {
   MAX_AGENT_REVISIONS,

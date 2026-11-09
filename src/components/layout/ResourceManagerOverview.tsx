@@ -4,7 +4,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { WorkspaceExecutionControls } from "./WorkspaceExecutionControls";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui";
-import { Meter } from "@/components/ads/components/Meter";
+import { Meter } from "@/components/aui/components/Meter";
 import {
   Table,
   TableBody,
@@ -12,8 +12,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ads/components/Table";
-import { sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/Table";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import {
   formatResourceBytes,

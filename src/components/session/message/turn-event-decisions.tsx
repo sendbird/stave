@@ -9,15 +9,15 @@ import {
   useState,
 } from "react";
 
-import { Clarification } from "@/components/ads/components/Clarification";
-import type { ClarificationOutcome } from "@/components/ads/components/Clarification";
-import { Plan } from "@/components/ads/components/Plan";
+import { Clarification } from "@/components/aui/components/Clarification";
+import type { ClarificationOutcome } from "@/components/aui/components/Clarification";
+import { Plan } from "@/components/aui/components/Plan";
 import type {
   PlanStepItem,
   PlanStepStatus,
-} from "@/components/ads/components/Plan.parts";
-import { TextField } from "@/components/ads/components/TextField";
-import { sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/Plan.parts";
+import { TextField } from "@/components/aui/components/TextField";
+import { sx } from "@/components/aui/utils/stylex";
 import { getTodoProgress, type TodoStatus } from "@/lib/todo-progress";
 import {
   QuestionOptionRow,
@@ -52,7 +52,7 @@ import { turnEventDecisionStyles as styles } from "./turn-event-decisions.styles
 /* ─── Plan ───────────────────────────────────────────────────────── */
 
 /**
- * Stave's three todo states are exactly three of ADS `PlanStepStatus`'s five.
+ * Stave's three todo states are exactly three of AUI `PlanStepStatus`'s five.
  *
  * The two that are missing are missing on purpose. `failed` cannot occur: a
  * TodoWrite call rewrites the whole list and has no vocabulary for a step that
@@ -68,7 +68,7 @@ const PLAN_STATUS: Record<TodoStatus, PlanStepStatus> = {
 };
 
 /**
- * The turn's todo list, rendered through ADS `Plan`.
+ * The turn's todo list, rendered through AUI `Plan`.
  *
  * `Plan` is the durable half of the reasoning story — the steps the agent
  * committed to, still readable after the thought that produced them closed —
@@ -121,7 +121,7 @@ export function planProgressCount(input: string): string | undefined {
 
 /**
  * A permission gate on its step in the transcript, drawn by the shared
- * `ToolApprovalCard` (ADS `Approval`) at the default density.
+ * `ToolApprovalCard` (AUI `Approval`) at the default density.
  *
  * The decisions call straight into the store action every other surface uses,
  * with the same `scope`, so the IPC round trip is untouched. The card blocks
@@ -214,7 +214,7 @@ function toClarificationOutcome(
 /**
  * One question's control, chosen by what the provider actually asked for.
  *
- * ADS `Clarification` owns the frame and nothing inside it, which is the right
+ * AUI `Clarification` owns the frame and nothing inside it, which is the right
  * seam: the frame is the same for every question, and the control is not. A
  * question with options draws the same option rows as the answering panel —
  * radios when the options are mutually exclusive, checkboxes when several can
@@ -319,7 +319,7 @@ export function encodeClarificationAnswers(args: {
 }
 
 /**
- * A clarification request, rendered through ADS `Clarification`.
+ * A clarification request, rendered through AUI `Clarification`.
  *
  * Deliberately one surface for the whole request rather than a wizard: Stave
  * submits every answer in one `resolveUserInput` call, so `currentStep` /
@@ -330,7 +330,7 @@ export function encodeClarificationAnswers(args: {
  *
  * Submit stays disabled until every required question has a value (a question
  * is required unless the provider marked it optional), which is the one piece
- * of truth the host owns and ADS cannot. A sent answer blocks the controls
+ * of truth the host owns and AUI cannot. A sent answer blocks the controls
  * until the request leaves pending or the delivery guard passes, so a lost
  * delivery can be retried.
  */

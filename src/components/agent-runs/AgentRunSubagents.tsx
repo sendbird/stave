@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Bot } from "lucide-react";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { DelegateRoute } from "@/components/delegation/DelegateRoute";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
@@ -48,16 +48,16 @@ export function AgentRunSubagents({ rows }: { rows: readonly DelegationExchange[
 const localStyles = stylex.create({
   row: {
     minWidth: 0,
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text"],
   },
   // Wraps so the routed model moves under the request instead of truncating.
   identity: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
 });

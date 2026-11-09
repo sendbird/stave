@@ -1,11 +1,11 @@
 /**
  * Peek panel width, in CSS pixels.
  *
- * ADS PeekPanel's split default is 420px. Issues opens a property-dense ticket
+ * AUI PeekPanel's split default is 420px. Issues opens a property-dense ticket
  * body, so the first open is a step above that. The reader can drag the rail;
  * the clamped value is what we persist.
  */
-export const ADS_PEEK_SPLIT_DEFAULT_PX = 420;
+export const AUI_PEEK_SPLIT_DEFAULT_PX = 420;
 export const TRACKER_ISSUES_PEEK_DEFAULT_PX = 480;
 export const TRACKER_ISSUES_PEEK_MIN_PX = 360;
 export const TRACKER_ISSUES_PEEK_MAX_PX = 720;

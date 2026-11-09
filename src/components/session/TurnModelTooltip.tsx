@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useTranslation } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import {
   canProbeTurnAccount,
@@ -68,10 +68,10 @@ const styles = stylex.create({
   body: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   detail: {
     // The popup has no muted inverted ink; weight alone marks the detail.
-    fontWeight: vars["--ads-font-weight-regular"],
+    fontWeight: vars["--aui-font-weight-regular"],
   },
 });

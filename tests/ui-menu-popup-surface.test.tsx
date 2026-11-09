@@ -9,10 +9,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { ContextMenu as AdsContextMenu } from "@/components/ads/components/ContextMenu";
-import { DropdownMenu as AdsDropdownMenu } from "@/components/ads/components/DropdownMenu";
-import { menu } from "@/components/ads/recipes/menu";
-import { sx } from "@/components/ads/utils/stylex";
+import { ContextMenu as AuiContextMenu } from "@/components/aui/components/ContextMenu";
+import { DropdownMenu as AuiDropdownMenu } from "@/components/aui/components/DropdownMenu";
+import { menu } from "@/components/aui/recipes/menu";
+import { sx } from "@/components/aui/utils/stylex";
 import { UI_LAYER_CLASS, UI_LAYER_VALUE } from "@/lib/ui-layers";
 
 // Base UI menu parts refuse to render outside `Menu.Portal`, and a portal is a
@@ -51,7 +51,7 @@ function resolveClassName(value: unknown, state: unknown = {}) {
 }
 
 /**
- * The class an ADS part would put on its Base UI child, without rendering that
+ * The class an AUI part would put on its Base UI child, without rendering that
  * child.
  *
  * `Menu.Popup` reads the menu density from context now, so it can no longer be
@@ -82,45 +82,45 @@ describe.each([
     DropdownMenuContent,
     DropdownMenuItem,
     "dropdown-menu-content",
-    AdsDropdownMenu,
+    AuiDropdownMenu,
   ],
   [
     "context",
     ContextMenuContent,
     ContextMenuItem,
     "context-menu-content",
-    AdsContextMenu,
+    AuiContextMenu,
   ],
-])("ui/%s-menu shim popup surface", (_name, Content, Item, slot, AdsMenu) => {
+])("ui/%s-menu shim popup surface", (_name, Content, Item, slot, AuiMenu) => {
   // The shim components are plain functions; call one to get the element tree
   // it would render (no hooks involved on this path).
   const tree = (Content as (props: unknown) => React.ReactElement)({
     children: <Item>Only</Item>,
   });
 
-  test("routes the popup through the ADS Menu.Popup surface recipe", () => {
-    const popup = partOf(tree, AdsMenu.Popup);
+  test("routes the popup through the AUI Menu.Popup surface recipe", () => {
+    const popup = partOf(tree, AuiMenu.Popup);
     expect(popup["data-slot"]).toBe(slot);
 
-    // `AdsMenu.Popup` is what carries `menu.popup` (the themed
+    // `AuiMenu.Popup` is what carries `menu.popup` (the themed
     // `colorSurfaceRaised` fill, the hairline border, `radiusPanel`,
-    // `elevationOverlay`) plus the ADS open/close motion class. A shim that
+    // `elevationOverlay`) plus the AUI open/close motion class. A shim that
     // renders a bare Base UI popup, or overrides the class instead of
     // composing it, is the regression this pins.
-    const rendered = classNameOf(AdsMenu.Popup, popup).split(" ");
+    const rendered = classNameOf(AuiMenu.Popup, popup).split(" ");
     for (const cls of popupClasses) expect(rendered).toContain(cls);
     expect(rendered).toContain("atelier-motion-dropdown");
   });
 
   test("pins the positioner to the popover band inline", () => {
-    const positioner = partOf(tree, AdsMenu.Positioner);
+    const positioner = partOf(tree, AuiMenu.Positioner);
     // The layer class stays on for `uiLayerClassesAtOrAbove` occlusion
     // detection...
     expect(positioner.className).toBe(UI_LAYER_CLASS.popover);
     // ...but it cannot be the only declaration: `Menu.Positioner` string-joins
     // its own `menu.positioner` (`zIndex: zIndexDropdown` = 60) with the
     // caller's class, and a string join cannot resolve two competing StyleX
-    // `z-index` rules — ADS's 60 wins, dropping the menu below the `dialog`
+    // `z-index` rules — AUI's 60 wins, dropping the menu below the `dialog`
     // (80) and `popover` (90) bands. An inline value outranks every class.
     expect(positioner.style).toEqual({ zIndex: UI_LAYER_VALUE.popover });
     expect(UI_LAYER_VALUE.popover).toBeGreaterThan(UI_LAYER_VALUE.dialog);

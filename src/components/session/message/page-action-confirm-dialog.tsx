@@ -1,10 +1,10 @@
 import { useRef } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { Dialog } from "@/components/ads/components/Dialog";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Dialog } from "@/components/aui/components/Dialog";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 export interface PageActionConfirmRequest {
   title: string;
@@ -76,26 +76,26 @@ export function PageActionConfirmDialog(props: {
 
 const styles = stylex.create({
   content: {
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-surface-tint"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text"],
-    lineHeight: vars["--ads-line-height-normal"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    color: vars["--aui-color-text"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
     maxBlockSize: "16rem",
     overflow: "auto",
     overflowWrap: "anywhere",
-    padding: vars["--ads-space-12"],
+    padding: vars["--aui-space-12"],
     whiteSpace: "pre-wrap",
   },
   prose: {
-    fontFamily: vars["--ads-font-sans"],
-    fontSize: vars["--ads-font-size-body"],
+    fontFamily: vars["--aui-font-sans"],
+    fontSize: vars["--aui-font-size-body"],
   },
   monospace: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
   },
 });

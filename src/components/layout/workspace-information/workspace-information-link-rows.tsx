@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import {
   ExternalLink,
   GitMerge,
@@ -32,7 +32,7 @@ import {
   PR_STATUS_VISUAL,
 } from "@/lib/pr-status";
 import { prToneBadgeStyles } from "../pr-status.styles";
-import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { cx, sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { informationRow } from "../information-row.styles";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import { workspaceInformationPanelStyles as styles } from "../workspace-information-panel.styles";
@@ -298,17 +298,17 @@ export function InlineLinkRow(props: {
       <span className={sx(styles.linkRowMark)}>{props.icon}</span>
       <div className={sx(styles.linkRowBody)}>
         <div className={sx(styles.linkRowTitleLine)}>
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
-            // `linkRow` owns the wash; `inertChrome` keeps ADS's host-layout
+            // `linkRow` owns the wash; `inertChrome` keeps AUI's host-layout
             // trigger recipe from painting a second square one behind the title.
             xstyle={[styles.linkRowTitle, hostSurface.inertChrome]}
             onClick={() => openExternalUrl(props.url)}
             title={props.label}
           >
             {props.label}
-          </AdsButton>
+          </AuiButton>
           {props.badge}
         </div>
         {props.sublabel ? (
@@ -321,7 +321,7 @@ export function InlineLinkRow(props: {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     type="button"
                     xstyle={[
@@ -371,7 +371,7 @@ export function InlineLinkRow(props: {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     type="button"
                     xstyle={[styles.iconButton, styles.iconButtonDanger]}
@@ -401,7 +401,7 @@ export function CreateTaskActionButton(props: {
       <Tooltip>
         <TooltipTrigger
           render={
-            <AdsButton
+            <AuiButton
               layout="host"
               type="button"
               xstyle={[
@@ -426,11 +426,11 @@ export function CreateTaskActionButton(props: {
 /** Icon-only row action with the shared styled tooltip; the label doubles as its accessible name. */
 function RowIconButton(props: { label: string; xstyle: StyleXValue; onClick: () => void; children: ReactNode }) {
   return (
-    <AdsTooltip content={props.label}>
-      <AdsButton layout="host" type="button" xstyle={props.xstyle} onClick={props.onClick} aria-label={props.label}>
+    <AuiTooltip content={props.label}>
+      <AuiButton layout="host" type="button" xstyle={props.xstyle} onClick={props.onClick} aria-label={props.label}>
         {props.children}
-      </AdsButton>
-    </AdsTooltip>
+      </AuiButton>
+    </AuiTooltip>
   );
 }
 
@@ -506,14 +506,14 @@ export function GitHubPrRow(props: {
       <GitHubPrStatusIcon status={props.status} xstyle={informationRow.mark} />
       <div className={sx(informationRow.body)}>
         <div className={sx(informationRow.titleLine)}>
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             xstyle={[informationRow.title, hostSurface.inertChrome]}
             onClick={() => openExternalUrl(props.url)}
           >
             {props.title}
-          </AdsButton>
+          </AuiButton>
         </div>
         <div className={sx(informationRow.meta)}>
           <span className={sx(informationRow.metaNumeric)}>#{props.number}</span>

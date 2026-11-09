@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 /**
  * Per-control placement for the prompt input toolbar.
  *

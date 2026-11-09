@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 // A row that mounts once as a new trace entry appears.
 const traceRowIn = stylex.keyframes({
@@ -17,23 +17,23 @@ export const assistantTraceStyles = stylex.create({
   diffSummary: {
     alignItems: "center",
     display: "inline-flex",
-    fontSize: `max(0.8em, ${vars["--ads-font-size-caption"]})`,
+    fontSize: `max(0.8em, ${vars["--aui-font-size-caption"]})`,
     gap: 6,
     lineHeight: 1,
-    marginLeft: vars["--ads-space-4"],
+    marginLeft: vars["--aui-space-4"],
   },
   diffFiles: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   diffAdded: {
-    color: vars["--ads-color-diff-added-text"],
+    color: vars["--aui-color-diff-added-text"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   diffRemoved: {
-    color: vars["--ads-color-diff-removed-text"],
+    color: vars["--aui-color-diff-removed-text"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   // Assistant-text bullet row.
   rowMotion: {
@@ -48,13 +48,13 @@ export const assistantTraceStyles = stylex.create({
     transformOrigin: "top",
   },
   assistantTextRow: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
     fontSize: "0.875em",
     gap: "0.7em",
   },
   /**
-   * Host geometry composed onto ADS `StepRail.Step`. Type and ink only: the
+   * Host geometry composed onto AUI `StepRail.Step`. Type and ink only: the
    * gutter grid, the connector and the trailing pad belong to the rail, and
    * re-declaring `display` here would replace its grid and drop the gutter
    * track the row is indented against.
@@ -83,20 +83,20 @@ export const assistantTraceStyles = stylex.create({
   assistantTextBody: {
     flex: 1,
     minWidth: 0,
-    paddingBottom: vars["--ads-space-8"],
-    paddingInlineEnd: vars["--ads-space-8"],
-    paddingInlineStart: `calc(${vars["--ads-space-8"]} + ${vars["--ads-control-icon-size-md"]} + ${vars["--ads-space-8"]})`,
+    paddingBottom: vars["--aui-space-8"],
+    paddingInlineEnd: vars["--aui-space-8"],
+    paddingInlineStart: `calc(${vars["--aui-space-8"]} + ${vars["--aui-control-icon-size-md"]} + ${vars["--aui-space-8"]})`,
   },
   // Empty-state and stacking spacers.
   noResponse: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     fontSize: "0.875em",
     fontStyle: "italic",
   },
   block: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
   blockTight: {
     display: "flex",
@@ -106,12 +106,12 @@ export const assistantTraceStyles = stylex.create({
   // Muted color alone marks interim text as provisional; an extra opacity
   // took it under the readable contrast floor.
   interim: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   spacedTop: {
-    marginTop: vars["--ads-space-12"],
+    marginTop: vars["--aui-space-12"],
   },
 });

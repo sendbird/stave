@@ -32,7 +32,7 @@ import type {
   GraphWorkingTreeSummary,
 } from "@/lib/git-graph/types";
 import { MAX_GRAPH_SELECTED_REFS } from "@/lib/git-graph/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { gitGraphToolbarStyles as styles } from "./git-graph-toolbar.styles";
 
 export interface GitGraphColumnVisibility {

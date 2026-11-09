@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, Copy, Maximize2, Minimize2, Trash2 } from "lucide-react";
 import { Button, toast } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { cx, sx } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
 import { logMarker, logStyles } from "./script-log.stylex";
 import {
   formatScriptDuration,

@@ -2,9 +2,9 @@ import { formatList } from "@/i18n/format";
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { CheckCircle2, Circle, CircleDashed, CircleMinus, Copy } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { Loader, toast } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { ACCOUNTS_GETTING_STARTED_FIELD_ID, providerSignInFocus } from "@/lib/providers/accounts-guide";
 import {

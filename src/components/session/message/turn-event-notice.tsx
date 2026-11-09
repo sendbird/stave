@@ -2,25 +2,25 @@ import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
 
-import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
-import { useSettleDisclosure } from "@/components/ads/components/Thinking.parts";
+import { InlineDisclosureIcon } from "@/components/aui/components/inline-disclosure-icon";
+import { useSettleDisclosure } from "@/components/aui/components/Thinking.parts";
 import {
   CollapsibleRoot,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from "@/components/ads/headless/collapsible";
+} from "@/components/aui/headless/collapsible";
 import {
   agentStatusWord,
   agentSurface,
-} from "@/components/ads/recipes/agent-surface";
+} from "@/components/aui/recipes/agent-surface";
 import {
   controlHeights,
   controlIconSizes,
-} from "@/components/ads/recipes/control-metrics";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { inlineDisclosure } from "@/components/ads/recipes/inline-disclosure";
-import { transition } from "@/components/ads/recipes/transition";
-import { cx, sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/recipes/control-metrics";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { inlineDisclosure } from "@/components/aui/recipes/inline-disclosure";
+import { transition } from "@/components/aui/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
 
 import { turnEventDecisionStyles as styles } from "./turn-event-decisions.styles";
 
@@ -30,18 +30,18 @@ import { turnEventDecisionStyles as styles } from "./turn-event-decisions.styles
  *
  * ## Why this is a recipe composition and not a component call
  *
- * ADS has no notice surface for this kind, and the two candidates are both the
+ * AUI has no notice surface for this kind, and the two candidates are both the
  * wrong shape. `ToolRun` would name a runtime event a "tool call", which is
  * exactly the two-names-for-one-state bug the shared `AgentStepState` exists to
  * prevent. `Callout` is authored prose in a reading column — it draws a tint
  * and has no disclosure — and a transcript notice is neither authored nor
  * short: the payload is a stack trace or a recovery action.
  *
- * So the row is assembled from the primitives ADS publishes for exactly this
+ * So the row is assembled from the primitives AUI publishes for exactly this
  * purpose: `agentSurface.row` for the row, the `inlineDisclosure` recipe for
  * the trigger/panel/body rungs, `InlineDisclosureIcon` for the one leading
  * slot that swaps the glyph for the chevron, and `useSettleDisclosure` for the
- * lifecycle. Every token, every rung and every curve therefore comes from ADS,
+ * lifecycle. Every token, every rung and every curve therefore comes from AUI,
  * and nothing here re-derives a rule — which is the difference between
  * composing the system and forking it.
  *

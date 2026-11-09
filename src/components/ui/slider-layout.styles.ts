@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const sliderLayout = stylex.create({
   root: {
@@ -12,7 +12,7 @@ export const sliderLayout = stylex.create({
     width: { default: "100%", ':is([data-orientation="vertical"])': 28 },
     minHeight: { default: null, ':is([data-orientation="vertical"])': 160 },
     flexDirection: { default: "row", ':is([data-orientation="vertical"])': "column" },
-    opacity: { default: 1, ':is([data-disabled]):not([data-disabled="false"])': vars["--ads-opacity-disabled"] },
+    opacity: { default: 1, ':is([data-disabled]):not([data-disabled="false"])': vars["--aui-opacity-disabled"] },
   },
   track: {
     position: "relative", flexGrow: 1, userSelect: "none",

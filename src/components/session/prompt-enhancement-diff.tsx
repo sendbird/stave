@@ -2,11 +2,11 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, type ReactElement, type ReactNode } from "react";
 
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { diffPromptWords, type PromptWordDiff } from "@/components/ai-elements/prompt-input.utils";
 import {
   Button,
@@ -167,47 +167,47 @@ const styles = stylex.create({
   popover: {
     width: "32rem",
     maxWidth: "var(--available-width)",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   title: {
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
   },
   summary: {
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
   },
   viewport: {
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
   },
   text: {
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-relaxed"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-relaxed"],
+    color: vars["--aui-color-text"],
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
   /* A removed run stands apart from the words around it: the new text's own
      spaces belong to the kept and added runs. */
   removed: {
-    marginInline: vars["--ads-space-2"],
-    paddingInline: vars["--ads-space-2"],
-    borderRadius: vars["--ads-radius-mark"],
-    backgroundColor: vars["--ads-color-diff-removed"],
-    color: vars["--ads-color-diff-removed-text"],
+    marginInline: vars["--aui-space-2"],
+    paddingInline: vars["--aui-space-2"],
+    borderRadius: vars["--aui-radius-mark"],
+    backgroundColor: vars["--aui-color-diff-removed"],
+    color: vars["--aui-color-diff-removed-text"],
     textDecorationLine: "line-through",
   },
   added: {
-    paddingInline: vars["--ads-space-2"],
-    borderRadius: vars["--ads-radius-mark"],
-    backgroundColor: vars["--ads-color-diff-added"],
-    color: vars["--ads-color-diff-added-text"],
+    paddingInline: vars["--aui-space-2"],
+    borderRadius: vars["--aui-radius-mark"],
+    backgroundColor: vars["--aui-color-diff-added"],
+    color: vars["--aui-color-diff-added-text"],
     textDecorationLine: "underline",
     textUnderlineOffset: "0.2em",
   },
   actions: {
     display: "flex",
     justifyContent: "flex-end",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
 });

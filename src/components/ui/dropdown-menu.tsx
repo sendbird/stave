@@ -1,7 +1,7 @@
 import { overlayLayout } from "./overlay-layout.styles";
-import { DropdownMenu as AdsMenu } from "../ads/components/DropdownMenu";
-import { menu } from "../ads/recipes/menu";
-import { sx, cx, type XstyleProp } from "../ads/utils/stylex";
+import { DropdownMenu as AuiMenu } from "../aui/components/DropdownMenu";
+import { menu } from "../aui/recipes/menu";
+import { sx, cx, type XstyleProp } from "../aui/utils/stylex";
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
@@ -9,15 +9,15 @@ import { UI_LAYER_CLASS, UI_LAYER_VALUE } from "@/lib/ui-layers";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
-  return <AdsMenu.Root data-slot="dropdown-menu" {...props} />;
+  return <AuiMenu.Root data-slot="dropdown-menu" {...props} />;
 }
 
 function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
-  return <AdsMenu.Portal data-slot="dropdown-menu-portal" {...props} />;
+  return <AuiMenu.Portal data-slot="dropdown-menu-portal" {...props} />;
 }
 
 function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <AdsMenu.Trigger variant={props.render ? "unstyled" : "default"} data-slot="dropdown-menu-trigger" {...props} />;
+  return <AuiMenu.Trigger variant={props.render ? "unstyled" : "default"} data-slot="dropdown-menu-trigger" {...props} />;
 }
 
 function DropdownMenuContent({
@@ -48,8 +48,8 @@ function DropdownMenuContent({
     | "collisionAvoidance"
   >) {
   return (
-    <AdsMenu.Portal>
-      <AdsMenu.Positioner
+    <AuiMenu.Portal>
+      <AuiMenu.Positioner
         data-ui-popup-positioner=""
         className={UI_LAYER_CLASS.popover}
         // The band has to be stated inline, not left to `UI_LAYER_CLASS`
@@ -57,7 +57,7 @@ function DropdownMenuContent({
         // (`zIndex: zIndexDropdown` = 60) with the caller's class through a
         // plain string join, and a string join cannot resolve two competing
         // StyleX `z-index` declarations -- the one emitted later in the
-        // stylesheet wins, which is ADS's 60. A dropdown then sits below the
+        // stylesheet wins, which is AUI's 60. A dropdown then sits below the
         // `dialog` (80) and `popover` (90) bands and is painted over by the
         // surface that opened it (a menu anchored inside a Popover, the
         // information-panel rail, the pane tab bar). An inline value outranks
@@ -74,26 +74,26 @@ function DropdownMenuContent({
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
       >
-        <AdsMenu.Popup
+        <AuiMenu.Popup
           data-slot="dropdown-menu-content"
           // Menu geometry rides on `xstyle`, which merges into the popup's own
           // `stylex.props` call. Handing the same declarations in through
           // `className` left the winner to bundler emission order, so a host
           // width, `padding`, or `maxBlockSize` clamp could silently lose to
-          // the ADS menu surface's own. `className` stays a hook channel (the
+          // the AUI menu surface's own. `className` stays a hook channel (the
           // layer class, test ids).
           className={className}
           xstyle={xstyle}
           {...props}
         />
-      </AdsMenu.Positioner>
-    </AdsMenu.Portal>
+      </AuiMenu.Positioner>
+    </AuiMenu.Portal>
   );
 }
 
 function DropdownMenuGroup({ className, ...props }: MenuPrimitive.Group.Props) {
   return (
-    <AdsMenu.Group
+    <AuiMenu.Group
       data-slot="dropdown-menu-group"
       className={className}
       {...props}
@@ -147,7 +147,7 @@ function DropdownMenuItem({
   onSelect?: MenuPrimitive.Item.Props["onClick"];
 }) {
   return (
-    <AdsMenu.Item
+    <AuiMenu.Item
       data-slot="dropdown-menu-item"
       data-inset={inset}
       data-variant={variant}
@@ -164,12 +164,12 @@ function DropdownMenuItem({
       nativeButton
     >
       {renderDropdownMenuItemChildren(children)}
-    </AdsMenu.Item>
+    </AuiMenu.Item>
   );
 }
 
 function DropdownMenuSub({ ...props }: MenuPrimitive.SubmenuRoot.Props) {
-  return <AdsMenu.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />;
+  return <AuiMenu.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />;
 }
 
 function DropdownMenuSubTrigger({
@@ -181,7 +181,7 @@ function DropdownMenuSubTrigger({
   inset?: boolean;
 }) {
   return (
-    <AdsMenu.SubmenuTrigger
+    <AuiMenu.SubmenuTrigger
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={className}
@@ -189,7 +189,7 @@ function DropdownMenuSubTrigger({
     >
       {renderDropdownMenuItemChildren(children)}
       <ChevronRightIcon className={sx(overlayLayout.submenuArrow)} />
-    </AdsMenu.SubmenuTrigger>
+    </AuiMenu.SubmenuTrigger>
   );
 }
 
@@ -224,24 +224,24 @@ function DropdownMenuCheckboxItem({
   inset?: boolean;
 }) {
   return (
-    <AdsMenu.CheckboxItem
+    <AuiMenu.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       data-inset={inset}
       className={className}
       checked={checked}
       {...props}
     >
-      <AdsMenu.CheckboxItemIndicator>
+      <AuiMenu.CheckboxItemIndicator>
           <CheckIcon />
-        </AdsMenu.CheckboxItemIndicator>
+        </AuiMenu.CheckboxItemIndicator>
       {renderDropdownMenuItemChildren(children)}
-    </AdsMenu.CheckboxItem>
+    </AuiMenu.CheckboxItem>
   );
 }
 
 function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
   return (
-    <AdsMenu.RadioGroup
+    <AuiMenu.RadioGroup
       data-slot="dropdown-menu-radio-group"
       {...props}
     />
@@ -257,17 +257,17 @@ function DropdownMenuRadioItem({
   inset?: boolean;
 }) {
   return (
-    <AdsMenu.RadioItem
+    <AuiMenu.RadioItem
       data-slot="dropdown-menu-radio-item"
       data-inset={inset}
       className={className}
       {...props}
     >
-      <AdsMenu.RadioItemIndicator>
+      <AuiMenu.RadioItemIndicator>
           <CheckIcon />
-        </AdsMenu.RadioItemIndicator>
+        </AuiMenu.RadioItemIndicator>
       {renderDropdownMenuItemChildren(children)}
-    </AdsMenu.RadioItem>
+    </AuiMenu.RadioItem>
   );
 }
 
@@ -276,7 +276,7 @@ function DropdownMenuSeparator({
   ...props
 }: MenuPrimitive.Separator.Props) {
   return (
-    <AdsMenu.Separator
+    <AuiMenu.Separator
       data-slot="dropdown-menu-separator"
       className={className}
       {...props}
@@ -289,7 +289,7 @@ function DropdownMenuShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <AdsMenu.Shortcut
+    <AuiMenu.Shortcut
       data-slot="dropdown-menu-shortcut"
       className={className}
       {...props}

@@ -1,8 +1,8 @@
-[data-ads-loader-variant][data-loader-cadence="reduced"] :where(*) {
+[data-aui-loader-variant][data-loader-cadence="reduced"] :where(*) {
   animation-timing-function: steps(12, end);
 }
 
-[data-ads-loader-variant][data-loader-paused="true"] :where(*) {
+[data-aui-loader-variant][data-loader-paused="true"] :where(*) {
   animation-play-state: paused;
 }
 

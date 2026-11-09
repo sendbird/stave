@@ -1,13 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The agent tree as a keyboard tree, on the real component in the ADS
- * regression preview: one running parent ("ads-trace-polish-v2") with one
+ * The agent tree as a keyboard tree, on the real component in the AUI
+ * regression preview: one running parent ("aui-trace-polish-v2") with one
  * running child, and one finished agent folded behind "1 done".
  */
 
 async function openTree(page: Page) {
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   const tree = page.getByRole("tree", { name: "Agent tree" });
   await expect(tree).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
@@ -20,7 +20,7 @@ function item(page: Page, name: RegExp) {
 
 test("arrow keys move one tab stop through the tree and fold each branch", async ({ page }) => {
   const tree = await openTree(page);
-  const parent = item(page, /^ads-trace-polish-v2/);
+  const parent = item(page, /^aui-trace-polish-v2/);
   const child = item(page, /^Inspect the model selector/);
 
   await expect(parent).toHaveAttribute("aria-level", "1");
@@ -41,7 +41,7 @@ test("arrow keys move one tab stop through the tree and fold each branch", async
   await expect(parent).toHaveAttribute("aria-expanded", "false");
   await expect(child).toHaveCount(0);
   // The fold says what it hides.
-  await expect(parent.getByText("Show 1 subagent of ads-trace-polish-v2")).toBeVisible();
+  await expect(parent.getByText("Show 1 subagent of aui-trace-polish-v2")).toBeVisible();
 
   // Right opens it again, then enters it.
   await page.keyboard.press("ArrowRight");
@@ -58,7 +58,7 @@ test("arrow keys move one tab stop through the tree and fold each branch", async
 
 test("pressing a fold hint or the chevron folds and opens the branch", async ({ page }) => {
   await openTree(page);
-  const parent = item(page, /^ads-trace-polish-v2/);
+  const parent = item(page, /^aui-trace-polish-v2/);
   await parent.locator('[data-work-graph-disclosure="true"]').click();
   await expect(parent).toHaveAttribute("aria-expanded", "false");
   await parent.locator('[data-work-graph-fold-hint="true"]').click();
@@ -68,7 +68,7 @@ test("pressing a fold hint or the chevron folds and opens the branch", async ({ 
 
 test("Enter runs the row's action, and the finished agent returns to its place when shown", async ({ page }) => {
   const tree = await openTree(page);
-  const parent = item(page, /^ads-trace-polish-v2/);
+  const parent = item(page, /^aui-trace-polish-v2/);
   await parent.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("output").filter({ hasText: "Reveal: preview-spawn" })).toBeVisible();
@@ -85,7 +85,7 @@ test("Enter runs the row's action, and the finished agent returns to its place w
 
 test("a branch's chevron and status mark share the first line's centre", async ({ page }) => {
   await openTree(page);
-  const parent = item(page, /^ads-trace-polish-v2/);
+  const parent = item(page, /^aui-trace-polish-v2/);
   const offsets = await parent.evaluate((row) => {
     const chevron = row.querySelector('[data-work-graph-disclosure="true"]')!.getBoundingClientRect();
     const mark = row.querySelector("[data-state]")!.getBoundingClientRect();

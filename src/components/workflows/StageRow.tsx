@@ -13,13 +13,13 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
-import { TextField } from "@/components/ads/components/TextField";
-import { Textarea } from "@/components/ads/components/Textarea";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button } from "@/components/aui/components/Button";
+import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
+import { TextField } from "@/components/aui/components/TextField";
+import { Textarea } from "@/components/aui/components/Textarea";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   AI_STAGE_ROLES,
   DEFAULT_WATCH_CHECKS,

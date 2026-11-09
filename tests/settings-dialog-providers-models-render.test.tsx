@@ -98,7 +98,7 @@ async function seedInitialState(args: {
 }
 
 /**
- * The Customize permissions group: its trigger and its panel. ADS mounts
+ * The Customize permissions group: its trigger and its panel. AUI mounts
  * accordion panels eagerly, so a closed group's fields stay in the markup
  * inside a `hidden` region.
  */
@@ -163,7 +163,7 @@ describe("Providers settings after the Models consolidation", () => {
     const html = await renderProviders();
     const triggerAt = html.indexOf("Advanced options");
     expect(triggerAt).toBeGreaterThan(-1);
-    // ADS mounts accordion panels eagerly, so folded fields stay in the DOM
+    // AUI mounts accordion panels eagerly, so folded fields stay in the DOM
     // inside a `hidden` region rather than disappearing.
     const panel = html.slice(triggerAt);
     const panelStart = panel.indexOf('role="region"');

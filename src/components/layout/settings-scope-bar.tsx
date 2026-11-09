@@ -1,8 +1,8 @@
 import { I18N_NAMESPACES, Trans, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { ChevronDown } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { SearchablePicker, type SearchablePickerOption } from "./settings-searchable-picker";
 import type { RecentRepositoryState } from "@/store/repository.utils";
 import {

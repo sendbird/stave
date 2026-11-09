@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 const LG = "@media (min-width: 64rem)";
-const accent16 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 16%, transparent)`;
-const accent20 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 20%, transparent)`;
-const accent24 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 24%, transparent)`;
+const accent16 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 16%, transparent)`;
+const accent20 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 20%, transparent)`;
+const accent24 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 24%, transparent)`;
 
 export const rightRailStyles = stylex.create({
   rail: {
@@ -14,10 +14,10 @@ export const rightRailStyles = stylex.create({
     flexDirection: "column",
     flexShrink: 0,
     height: "100%",
-    paddingBlock: { default: vars["--ads-space-8"], [LG]: vars["--ads-space-12"] },
+    paddingBlock: { default: vars["--aui-space-8"], [LG]: vars["--aui-space-12"] },
     width: { default: 48, [LG]: 56 },
   },
-  // The rail is an ADS `Toolbar` for its keyboard model only: one Tab stop,
+  // The rail is an AUI `Toolbar` for its keyboard model only: one Tab stop,
   // arrows between toggles. It keeps the rail's flat column, so the toolbar's
   // raised panel (fill, border, radius, shadow, padding) is taken off here.
   toolbar: {
@@ -28,7 +28,7 @@ export const rightRailStyles = stylex.create({
     boxShadow: "none",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minBlockSize: 0,
     padding: 0,
     width: "100%",
@@ -37,14 +37,14 @@ export const rightRailStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     width: "100%",
   },
   railButton: {
     borderColor: "transparent",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     height: { default: 36, [LG]: 40 },
     padding: 0,
     width: { default: 36, [LG]: 40 },
@@ -58,10 +58,10 @@ export const rightRailStyles = stylex.create({
     // theme overlay on hover, a heavier one on press.
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-      ":active": vars["--ads-color-overlay-pressed"],
+      ":hover": vars["--aui-color-overlay-hover"],
+      ":active": vars["--aui-color-overlay-pressed"],
     },
-    borderColor: { default: "transparent", ":hover": vars["--ads-color-border"] },
+    borderColor: { default: "transparent", ":hover": vars["--aui-color-border"] },
   },
   // Pressed is a soft accent wash with an accent glyph, the same look as the
   // sidebar toggle while the project list is open, not a solid accent slab.
@@ -72,12 +72,12 @@ export const rightRailStyles = stylex.create({
       ":active": accent24,
     },
     borderColor: "transparent",
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   railIcon: {
-    height: { default: vars["--ads-control-icon-size-sm"], [LG]: vars["--ads-control-icon-size-md"] },
-    width: { default: vars["--ads-control-icon-size-sm"], [LG]: vars["--ads-control-icon-size-md"] },
+    height: { default: vars["--aui-control-icon-size-sm"], [LG]: vars["--aui-control-icon-size-md"] },
+    width: { default: vars["--aui-control-icon-size-sm"], [LG]: vars["--aui-control-icon-size-md"] },
   },
-  // The running count is ADS `Button indicator` + `CountBadge` now; the
+  // The running count is AUI `Button indicator` + `CountBadge` now; the
   // hand-placed pill this key painted was a fifth copy of that mark.
 });

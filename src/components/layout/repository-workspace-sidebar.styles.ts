@@ -1,23 +1,23 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /**
- * Sidebar chrome. Colours come from ADS tokens; the alpha ramps that Tailwind
+ * Sidebar chrome. Colours come from AUI tokens; the alpha ramps that Tailwind
  * spelled as `bg-primary/12` are rebuilt with `color-mix` over a token so no
  * new colour is introduced.
  */
-const accent10 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 10%, transparent)`;
-const accent16 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 16%, transparent)`;
-const accent20 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 20%, transparent)`;
-const accent40 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 40%, transparent)`;
+const accent10 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 10%, transparent)`;
+const accent16 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 16%, transparent)`;
+const accent20 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 20%, transparent)`;
+const accent40 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 40%, transparent)`;
 /*
  * The active workspace in two tones: its open tasks on a light 7% wash, its
  * row on 10% over that. Stacked, the row reads about 16% at rest and 20% on
  * hover, the fills a selected row had before it was grouped.
  */
-const accent07 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 7%, transparent)`;
-const accent14 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 14%, transparent)`;
+const accent07 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 7%, transparent)`;
+const accent14 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 14%, transparent)`;
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
@@ -36,10 +36,10 @@ const accent14 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 14%, transpar
  */
 const revealMotion = {
   transitionDuration: {
-    default: vars["--ads-motion-duration-normal"],
+    default: vars["--aui-motion-duration-normal"],
     "@media (prefers-reduced-motion: reduce)": "0ms",
   },
-  transitionTimingFunction: vars["--ads-motion-ease-standard"],
+  transitionTimingFunction: vars["--aui-motion-ease-standard"],
 } as const;
 
 /**
@@ -47,12 +47,12 @@ const revealMotion = {
  * selected-row wash, below the 4.5:1 small-text floor; a 30% ink step reads
  * 6.01:1 there and only lightens further in dark mode.
  */
-const rowSecondaryInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 30%, ${vars["--ads-color-text-muted"]})`;
+const rowSecondaryInk = `color-mix(in oklab, ${vars["--aui-color-text"]} 30%, ${vars["--aui-color-text-muted"]})`;
 
 /** Tooltip surfaces paint on `colorText`, so their "background" tints mix toward it. */
-const invertedText70 = `color-mix(in oklab, ${vars["--ads-color-text-inverted"]} 70%, ${vars["--ads-color-text"]})`;
-const invertedFill10 = `color-mix(in oklab, ${vars["--ads-color-text-inverted"]} 10%, ${vars["--ads-color-text"]})`;
-const invertedEdge20 = `color-mix(in oklab, ${vars["--ads-color-text-inverted"]} 20%, ${vars["--ads-color-text"]})`;
+const invertedText70 = `color-mix(in oklab, ${vars["--aui-color-text-inverted"]} 70%, ${vars["--aui-color-text"]})`;
+const invertedFill10 = `color-mix(in oklab, ${vars["--aui-color-text-inverted"]} 10%, ${vars["--aui-color-text"]})`;
+const invertedEdge20 = `color-mix(in oklab, ${vars["--aui-color-text-inverted"]} 20%, ${vars["--aui-color-text"]})`;
 
 /**
  * Row-scoped reveal variables. StyleX conditions only see the element they are
@@ -71,7 +71,7 @@ const ROW_COUNT_OPACITY = "--staveWorkspaceRowCountOpacity";
  * it: the trigger plus the inline padding after it.
  */
 const ROW_ACTION_RESERVE = "--staveWorkspaceRowActionReserve";
-const ROW_ACTION_BOX = `calc(28px + ${vars["--ads-space-4"]})`;
+const ROW_ACTION_BOX = `calc(28px + ${vars["--aui-space-4"]})`;
 /** A row whose menu is open or whose workspace is closing keeps its actions shown. */
 const ROW_ACTIONS_PINNED = ":has([data-row-actions-pinned])";
 
@@ -90,21 +90,21 @@ const REPOSITORY_ACTIONS_EVENTS = "--staveProjectRowActionsEvents";
 export const repositorySidebarStyles = stylex.create({
   /* ---------------------------------------------------------------- labels */
   defaultBranchChip: {
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-mark"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    color: vars["--ads-color-text-muted"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    color: vars["--aui-color-text-muted"],
     display: "inline-flex",
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
-    marginInlineStart: vars["--ads-space-4"],
+    fontSize: vars["--aui-font-size-micro"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
+    marginInlineStart: vars["--aui-space-4"],
     maxWidth: "5rem",
     overflow: "hidden",
     paddingBlock: 1,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
@@ -113,87 +113,87 @@ export const repositorySidebarStyles = stylex.create({
   previewContent: {
     maxWidth: 260,
     overflowWrap: "break-word",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
-  previewStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
+  previewStack: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"] },
   previewHeadStack: { display: "flex", flexDirection: "column", gap: 2 },
   previewBodyStack: { display: "flex", flexDirection: "column", gap: 6 },
   previewTaskStack: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   previewTitle: {
-    color: vars["--ads-color-text-inverted"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-inverted"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   previewMeta: {
     color: invertedText70,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   previewMetaRow: {
     alignItems: "center",
     color: invertedText70,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     gap: 6,
-    lineHeight: vars["--ads-line-height-tight"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   previewRunningChip: {
     backgroundColor: invertedFill10,
     borderColor: invertedEdge20,
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-inverted"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    color: vars["--aui-color-text-inverted"],
+    fontWeight: vars["--aui-font-weight-medium"],
     paddingBlock: 2,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
   // The hover preview's row title, so it takes the row-title step; the 16px
   // literal leading was sized for Caption and clipped 14px descenders.
   previewTaskTitle: {
-    color: vars["--ads-color-text-inverted"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-inverted"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   previewShortcutChip: {
     alignSelf: "flex-end",
     height: 16,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     marginBlockStart: 2,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
 
   /* ------------------------------------------------------ status iconography */
-  statusMuted: { color: vars["--ads-color-text-muted"] },
+  statusMuted: { color: vars["--aui-color-text-muted"] },
   statusIcon: { height: 16, width: 16 },
-  statusIconWarning: { color: vars["--ads-color-warning"], height: 16, width: 16 },
-  statusIconDanger: { color: vars["--ads-color-danger"], height: 16, width: 16 },
+  statusIconWarning: { color: vars["--aui-color-warning"], height: 16, width: 16 },
+  statusIconDanger: { color: vars["--aui-color-danger"], height: 16, width: 16 },
   statusIconGitOpen: {
-    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-open))`,
+    color: `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-open))`,
     height: 16,
     width: 16,
   },
   statusIconGitClosed: {
-    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-closed))`,
+    color: `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-closed))`,
     height: 16,
     width: 16,
   },
   statusIconGitModified: {
-    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-modified))`,
+    color: `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-modified))`,
     height: 16,
     width: 16,
   },
-  identityMark: { borderRadius: vars["--ads-radius-mark"], height: 16, width: 16 },
+  identityMark: { borderRadius: vars["--aui-radius-mark"], height: 16, width: 16 },
   identityMarkIcon: { height: 10, width: 10 },
-  toneAccent: { color: vars["--ads-color-accent"] },
-  toneWarning: { color: vars["--ads-color-warning"] },
+  toneAccent: { color: vars["--aui-color-accent"] },
+  toneWarning: { color: vars["--aui-color-warning"] },
 
   /* ------------------------------------------- shared workspace row (both views) */
   /*
@@ -204,9 +204,9 @@ export const repositorySidebarStyles = stylex.create({
    */
   row: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     display: "flex",
-    height: vars["--ads-control-height-lg"],
+    height: vars["--aui-control-height-lg"],
     minWidth: 0,
     position: "relative",
   },
@@ -215,10 +215,10 @@ export const repositorySidebarStyles = stylex.create({
     alignSelf: "stretch",
     display: "flex",
     flex: 1,
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
     textAlign: "left",
     width: "100%",
   },
@@ -226,7 +226,7 @@ export const repositorySidebarStyles = stylex.create({
     flexBasis: "auto",
     flexGrow: 0,
     flexShrink: 1,
-    lineHeight: vars["--ads-line-height-control"],
+    lineHeight: vars["--aui-line-height-control"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -237,7 +237,7 @@ export const repositorySidebarStyles = stylex.create({
     display: "flex",
     flex: 1,
     alignItems: "center",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
   rowSeparator: {
@@ -249,8 +249,8 @@ export const repositorySidebarStyles = stylex.create({
     flexBasis: "auto",
     flexGrow: 0,
     flexShrink: 1000,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -266,7 +266,7 @@ export const repositorySidebarStyles = stylex.create({
    */
   workspaceGroupActive: {
     backgroundColor: accent07,
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
   },
   /** The row's button and its hover menu; reveals the menu like a tree row. */
   queueItem: {
@@ -303,15 +303,15 @@ export const repositorySidebarStyles = stylex.create({
   // box is `controlHeightXs` by token so the density axis reaches it.
   laneButton: {
     alignItems: "center",
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    borderRadius: vars["--ads-radius-control"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    borderRadius: vars["--aui-radius-control"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     gap: 6,
-    height: vars["--ads-control-height-xs"],
-    paddingInline: vars["--ads-space-8"],
+    height: vars["--aui-control-height-xs"],
+    paddingInline: vars["--aui-space-8"],
     width: "100%",
   },
   /*
@@ -326,9 +326,9 @@ export const repositorySidebarStyles = stylex.create({
    */
   laneChevron: {
     flexShrink: 0,
-    height: vars["--ads-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     transform: "rotate(0deg)",
-    width: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
   },
   laneChevronOpen: { transform: "rotate(90deg)" },
   laneLabel: {
@@ -343,13 +343,13 @@ export const repositorySidebarStyles = stylex.create({
 
   /* -------------------------------------------------- project attention mark */
   attentionDot: {
-    backgroundColor: vars["--ads-color-text-subtle"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-text-subtle"],
+    borderRadius: vars["--aui-radius-full"],
     height: 6,
     width: 6,
   },
-  attentionIconWarning: { color: vars["--ads-color-warning"], height: 14, width: 14 },
-  attentionIconDanger: { color: vars["--ads-color-danger"], height: 14, width: 14 },
+  attentionIconWarning: { color: vars["--aui-color-warning"], height: 14, width: 14 },
+  attentionIconDanger: { color: vars["--aui-color-danger"], height: 14, width: 14 },
   attentionSlot: {
     alignItems: "center",
     display: "inline-flex",
@@ -361,21 +361,21 @@ export const repositorySidebarStyles = stylex.create({
     paddingInline: 2,
   },
   attentionCount: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
 
   /* ------------------------------------------------- responding count badge */
   respondingSlot: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     height: 28,
     justifyContent: "flex-end",
     minWidth: 28,
-    paddingInlineEnd: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--aui-space-4"],
   },
   /**
    * The running count, set like the repository row's workspace count: muted
@@ -384,35 +384,35 @@ export const repositorySidebarStyles = stylex.create({
    */
   respondingCount: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "inline-flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     height: 20,
     justifyContent: "flex-end",
     minWidth: 20,
-    paddingInlineEnd: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--aui-space-4"],
   },
   respondingBadgeInline: {
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     height: 16,
     justifyContent: "center",
     minWidth: 20,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
 
   /* --------------------------------------------------- inline workspace label */
   labelInput: {
-    backgroundColor: vars["--ads-color-canvas"],
-    fontSize: vars["--ads-font-size-body"],
+    backgroundColor: vars["--aui-color-canvas"],
+    fontSize: vars["--aui-font-size-body"],
     height: 28,
     minWidth: 0,
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   labelInputCompact: { flex: 1 },
   labelInputWide: { width: "100%" },
@@ -423,10 +423,10 @@ export const repositorySidebarStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  labelActive: { color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
+  labelActive: { color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
   labelEditable: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    borderRadius: vars["--aui-radius-mark"],
     cursor: "text",
     outline: "none",
   },
@@ -440,14 +440,14 @@ export const repositorySidebarStyles = stylex.create({
   rowActions: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     position: "absolute",
   },
   rowActionsInline: {
     insetBlockEnd: 0,
     insetBlockStart: 0,
     insetInlineEnd: 0,
-    paddingInlineEnd: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--aui-space-4"],
   },
   rowActionsPinned: { opacity: 1, pointerEvents: "auto" },
   rowActionsReveal: {
@@ -459,8 +459,8 @@ export const repositorySidebarStyles = stylex.create({
   /** Holds the revealed actions' room at the end of a work-queue row. */
   rowActionReserve: { flexShrink: 0, width: `var(${ROW_ACTION_RESERVE}, 0px)` },
   rowActionsTrigger: {
-    borderRadius: vars["--ads-radius-control"],
-    color: vars["--ads-color-text-muted"],
+    borderRadius: vars["--aui-radius-control"],
+    color: vars["--aui-color-text-muted"],
     height: 28,
     padding: 0,
     width: 28,
@@ -475,25 +475,25 @@ export const repositorySidebarStyles = stylex.create({
     height: "100%",
     overflow: "hidden",
     position: "relative",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     zIndex: 0,
   },
   chrome: {
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
   },
   chromeCollapsed: {
-    borderBottomColor: vars["--ads-color-border-subtle"],
-    paddingBottom: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-8"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
+    paddingBottom: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-8"],
   },
   chromeExpanded: {
     alignItems: "center",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     display: "flex",
     flexShrink: 0,
     height: 48,
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   columnCenter: {
     alignItems: "center",
@@ -504,42 +504,42 @@ export const repositorySidebarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   chromeTrailing: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyContent: "flex-end",
     width: "100%",
   },
   collapsedPrimaryButton: {
     backgroundColor: {
-      default: vars["--ads-color-overlay-hover"],
-      ":hover": vars["--ads-color-selection-fill"],
+      default: vars["--aui-color-overlay-hover"],
+      ":hover": vars["--aui-color-selection-fill"],
     },
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     height: 40,
     padding: 0,
     width: 40,
   },
   collapsedButton: {
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     height: 40,
     padding: 0,
     width: 40,
   },
   collapsedButtonActive: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-selection-fill"],
+    color: vars["--aui-color-text"],
   },
   collapsedButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
   },
   chromeButton: {
-    borderRadius: vars["--ads-radius-control"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
+    borderRadius: vars["--aui-radius-control"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
     height: 32,
     padding: 0,
     width: 32,
@@ -549,12 +549,12 @@ export const repositorySidebarStyles = stylex.create({
   // toggle.
   chromeButtonPressed: {
     backgroundColor: { default: accent16, ":hover": accent20 },
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   chromeButtonSidebar: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    borderRadius: vars["--ads-radius-control"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    borderRadius: vars["--aui-radius-control"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     height: 32,
     padding: 0,
     width: 32,
@@ -567,16 +567,16 @@ export const repositorySidebarStyles = stylex.create({
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-8"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   scrollAreaExpanded: {
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
-    paddingBlockEnd: vars["--ads-space-8"],
+    paddingBlockEnd: vars["--aui-space-8"],
     paddingBlockStart: 6,
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   collapsedEntry: {
     alignItems: "center",
@@ -585,17 +585,17 @@ export const repositorySidebarStyles = stylex.create({
     width: "100%",
   },
   collapsedGroupRule: {
-    backgroundColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-full"],
     height: 1,
-    marginBlockEnd: vars["--ads-space-8"],
+    marginBlockEnd: vars["--aui-space-8"],
     width: 20,
   },
   collapsedWorkspaceButton: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     height: 40,
     justifyContent: "center",
@@ -604,97 +604,97 @@ export const repositorySidebarStyles = stylex.create({
   collapsedWorkspaceActive: {
     backgroundColor: accent10,
     borderColor: accent40,
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   // See `workspaceRowLastOpened`: a neutral hairline instead of the accent fill.
   collapsedWorkspaceLastOpened: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text"],
+    borderColor: vars["--aui-color-border"],
+    color: vars["--aui-color-text"],
   },
   collapsedWorkspaceIdle: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
-    borderColor: { default: "transparent", ":hover": vars["--ads-color-border"] },
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    borderColor: { default: "transparent", ":hover": vars["--aui-color-border"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
 
   navStack: { display: "flex", flexDirection: "column", gap: 2 },
-  navStackSpaced: { marginBlockEnd: vars["--ads-space-8"] },
+  navStackSpaced: { marginBlockEnd: vars["--aui-space-8"] },
   // The 12px gap puts the label on the same edge as the search text below.
   navButton: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-12"],
+    fontSize: vars["--aui-font-size-body"],
+    gap: vars["--aui-space-12"],
     height: 32,
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
     width: "100%",
   },
   navButtonActive: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-    color: vars["--ads-color-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    backgroundColor: vars["--aui-color-selection-fill"],
+    color: vars["--aui-color-text"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   navButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
 
   viewBar: {
     alignItems: "center",
-    borderBottomColor: vars["--ads-color-border-subtle"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     justifyContent: "space-between",
     marginBlockEnd: 6,
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   viewToggle: {
     alignItems: "center",
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     gap: 2,
     padding: 2,
   },
   // Concentric with `viewToggle`: its radius minus the 2px padding and border.
   viewToggleButton: {
-    borderRadius: `calc(${vars["--ads-radius-control"]} - 2px - ${vars["--ads-border-width-hairline"]})`,
+    borderRadius: `calc(${vars["--aui-radius-control"]} - 2px - ${vars["--aui-border-width-hairline"]})`,
     height: 24,
     padding: 0,
     width: 28,
   },
   viewToggleButtonActive: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-selection-fill"],
+    color: vars["--aui-color-text"],
   },
   viewToggleButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
-  viewBarActions: { alignItems: "center", display: "flex", gap: vars["--ads-space-4"] },
+  viewBarActions: { alignItems: "center", display: "flex", gap: vars["--aui-space-4"] },
   displayModeMenu: { width: 176 },
 
   searchRow: {
-    marginBlockEnd: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-8"],
+    marginBlockEnd: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-8"],
     position: "relative",
   },
   searchIcon: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--aui-color-text-subtle"],
     height: 14,
     insetBlockStart: "50%",
-    insetInlineStart: vars["--ads-space-16"],
+    insetInlineStart: vars["--aui-space-16"],
     pointerEvents: "none",
     position: "absolute",
     transform: "translateY(-50%)",
@@ -702,31 +702,31 @@ export const repositorySidebarStyles = stylex.create({
   },
   searchInput: {
     backgroundColor: "transparent",
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
-    fontSize: vars["--ads-font-size-body"],
-    height: vars["--ads-control-height-sm"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-control"],
+    fontSize: vars["--aui-font-size-body"],
+    height: vars["--aui-control-height-sm"],
     paddingInlineEnd: 28,
     paddingInlineStart: 28,
   },
   searchClear: {
-    borderRadius: vars["--ads-radius-control"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    borderRadius: vars["--aui-radius-control"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     height: 24,
     insetBlockStart: "50%",
-    insetInlineEnd: vars["--ads-space-12"],
+    insetInlineEnd: vars["--aui-space-12"],
     padding: 0,
     position: "absolute",
     transform: "translateY(-50%)",
     width: 24,
   },
 
-  repositoryStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
+  repositoryStack: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"] },
   repositorySectionDragging: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-selection-fill"],
+    borderRadius: vars["--aui-radius-control"],
   },
-  repositoryHeaderRow: { alignItems: "center", display: "flex", gap: vars["--ads-space-4"] },
+  repositoryHeaderRow: { alignItems: "center", display: "flex", gap: vars["--aui-space-4"] },
 
   repositoryRow: {
     [REPOSITORY_ROW_OPEN]: { default: "0", ":hover": "1", ":focus-within": "1" },
@@ -783,18 +783,18 @@ export const repositorySidebarStyles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-      ":focus-within": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
+      ":focus-within": vars["--aui-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-control"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    borderRadius: vars["--aui-radius-control"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     display: "flex",
     flex: 1,
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-8"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-8"],
     textAlign: "left",
   },
   repositoryRowDraggable: {
@@ -802,8 +802,8 @@ export const repositorySidebarStyles = stylex.create({
   },
   repositoryRowDragging: { cursor: "grabbing" },
   repositoryToggle: {
-    borderRadius: vars["--ads-radius-control"],
-    color: vars["--ads-color-text-muted"],
+    borderRadius: vars["--aui-radius-control"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
     height: 32,
     padding: 0,
@@ -845,7 +845,7 @@ export const repositorySidebarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flex: 1,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
     position: "relative",
     // The room it opens for the hover actions arrives in one step: padding
@@ -861,7 +861,7 @@ export const repositorySidebarStyles = stylex.create({
   },
   repositoryName: {
     flex: 1,
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -884,15 +884,15 @@ export const repositorySidebarStyles = stylex.create({
   // count is secondary text, and one width keeps every name's edge still.
   repositoryCount: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "inline-flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     height: 20,
     justifyContent: "flex-end",
     minWidth: 24,
-    paddingInlineEnd: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--aui-space-4"],
   },
   repositoryActions: {
     alignItems: "center",
@@ -909,30 +909,30 @@ export const repositorySidebarStyles = stylex.create({
     transitionProperty: "opacity, transform",
   },
   repositoryActionButton: {
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     height: 28,
     padding: 0,
     width: 28,
   },
   repositoryDragPreviewMark: {
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     height: 20,
     width: 20,
   },
   repositoryDragPreviewIcon: { height: 12, width: 12 },
 
-  workspaceList: { paddingBlockEnd: vars["--ads-space-4"], paddingBlockStart: 2 },
+  workspaceList: { paddingBlockEnd: vars["--aui-space-4"], paddingBlockStart: 2 },
   workspaceListInner: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   workspaceItem: {
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     minWidth: 0,
-    transitionDuration: vars["--ads-motion-duration-fast"],
+    transitionDuration: vars["--aui-motion-duration-fast"],
     transitionProperty: "background-color",
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-standard"],
   },
 
   workspaceRow: {
@@ -958,16 +958,16 @@ export const repositorySidebarStyles = stylex.create({
       ":has(:focus-visible)": ROW_ACTION_BOX,
       [ROW_ACTIONS_PINNED]: ROW_ACTION_BOX,
     },
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     position: "relative",
-    transitionDuration: vars["--ads-motion-duration-fast"],
+    transitionDuration: vars["--aui-motion-duration-fast"],
     transitionProperty: "background-color, border-color, box-shadow, color",
     // Was absent, so the row's fill/border/shadow ran on the UA `ease` while
     // every control inside it runs on the house curve.
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-standard"],
   },
   // The fill alone marks the selected workspace: no outline, raised shadow or
   // corner mark, so selection reads calmly next to the idle rows. The row's
@@ -975,7 +975,7 @@ export const repositorySidebarStyles = stylex.create({
   workspaceRowActive: {
     backgroundColor: { default: accent10, ":hover": accent14 },
     borderColor: "transparent",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   // The active workspace while a global view (Fleet, Agents…) owns the main
   // column: the last place opened, not where the user is. No fill — the view's
@@ -984,29 +984,29 @@ export const repositorySidebarStyles = stylex.create({
   workspaceRowLastOpened: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
     borderColor: "transparent",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   // Hover is the neutral wash, never an accent fill: only the active row is
   // filled, so it stays the one row that reads as selected.
   workspaceRowIdle: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
     borderColor: "transparent",
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
   workspaceRowDragging: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-    borderColor: vars["--ads-color-border-subtle"],
-    boxShadow: vars["--ads-elevation-raised"],
+    backgroundColor: vars["--aui-color-selection-fill"],
+    borderColor: vars["--aui-color-border-subtle"],
+    boxShadow: vars["--aui-elevation-raised"],
   },
   workspaceOpen: {
     flex: 1,
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
     minWidth: 0,
     textAlign: "left",
   },
@@ -1034,35 +1034,35 @@ export const repositorySidebarStyles = stylex.create({
   },
 
   footer: {
-    borderTopColor: vars["--ads-color-border-subtle"],
+    borderTopColor: vars["--aui-color-border-subtle"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
   },
-  footerCollapsed: { paddingBlock: vars["--ads-space-8"], paddingInline: vars["--ads-space-8"] },
-  footerExpanded: { paddingBlock: vars["--ads-space-8"], paddingInline: vars["--ads-space-12"] },
+  footerCollapsed: { paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"] },
+  footerExpanded: { paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"] },
   footerRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyContent: "space-between",
   },
-  footerGroup: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
+  footerGroup: { alignItems: "center", display: "flex", gap: vars["--aui-space-8"] },
 
   archiveOption: {
     alignItems: "center",
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-overlay-hover"] },
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     cursor: "pointer",
     display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    fontSize: vars["--aui-font-size-body"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
-  archiveCheckbox: { accentColor: vars["--ads-color-danger"] },
-  archiveLabelOn: { color: vars["--ads-color-danger-text"] },
-  archiveLabelOff: { color: vars["--ads-color-text-muted"] },
+  archiveCheckbox: { accentColor: vars["--aui-color-danger"] },
+  archiveLabelOn: { color: vars["--aui-color-danger-text"] },
+  archiveLabelOff: { color: vars["--aui-color-text-muted"] },
 });

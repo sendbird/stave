@@ -1,8 +1,8 @@
 import { Loader } from "@/components/ui";
 import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "../../../ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "../../../aui/utils/stylex";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import {
   ArrowLeft,

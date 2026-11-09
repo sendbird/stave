@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { AsyncState } from "@/components/ads/utils/async";
-import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
-import { sx } from "@/components/ads/utils/stylex";
+import type { AsyncState } from "@/components/aui/utils/async";
+import { WorkspaceLayout } from "@/components/aui/components/WorkspaceLayout";
+import { sx } from "@/components/aui/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";

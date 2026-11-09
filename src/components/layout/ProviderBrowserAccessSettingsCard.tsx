@@ -8,7 +8,7 @@ import {
   PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS,
   type ProviderBrowserMode,
 } from "@/lib/provider-browser";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   ChoiceButtons,
   LabeledField,

@@ -1,1 +1,1 @@
-export { Skeleton } from "../ads/components/Skeleton";
+export { Skeleton } from "../aui/components/Skeleton";

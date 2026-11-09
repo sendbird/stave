@@ -3,9 +3,9 @@ import { UserRound, Zap } from "lucide-react";
 import type { TurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import { classifyTurnModelDetail } from "@/lib/providers/turn-model-info";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { agentSurface } from "@/components/ads/recipes/agent-surface";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { agentSurface } from "@/components/aui/recipes/agent-surface";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { ModelIcon } from "./model-icon";
 import { turnModelChipStyles } from "./turn-model-chip.styles";
 

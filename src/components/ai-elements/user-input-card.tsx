@@ -17,10 +17,10 @@ import {
   isUserInputAnswerRequired,
   readUserInputAnswer,
 } from "@/lib/user-input-answers";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
-import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
 import {
   QuestionOptionRow,
@@ -561,7 +561,7 @@ export function UserInputCard(args: UserInputCardProps) {
                 index: index + 1,
               });
             return (
-              <AdsButton
+              <AuiButton
                 key={getQuestionKey(question)}
                 layout="host"
                 type="button"
@@ -589,7 +589,7 @@ export function UserInputCard(args: UserInputCardProps) {
                   )}
                 </span>
                 <span className={sx(styles.stepLabel)}>{label}</span>
-              </AdsButton>
+              </AuiButton>
             );
           })}
         </div>

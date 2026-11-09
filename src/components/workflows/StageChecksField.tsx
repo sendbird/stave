@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useState, type ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { SearchableMultiPicker, type SearchablePickerOption } from "@/components/layout/settings-searchable-picker";
 import type { AiStage, WorkflowStage, WorkspaceCheckMode } from "@/lib/workflows/schema";
 import {

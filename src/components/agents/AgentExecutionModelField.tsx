@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { ModelSelector, buildModelSelectorValue } from "@/components/ai-elements/model-selector";
 import { useSettingsModelSelectorOptions } from "@/components/layout/settings-dialog-model-fields";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { accountStyles } from "@/components/layout/provider-accounts.styles";
 
 /** Fixed Agent models use the same account catalog and searchable picker as the composer. */

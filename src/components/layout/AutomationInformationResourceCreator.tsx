@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   ArrowLeft,
   BookOpen,
@@ -719,7 +719,7 @@ export function AutomationInformationResourceCreator(props: {
             {RESOURCE_TYPES.map((item) => {
               const Icon = item.icon;
               return (
-                <AdsButton layout="host"
+                <AuiButton layout="host"
                   key={item.kind}
                   type="button"
                   xstyle={[resourceCreatorStyles.typeCard, transition.colors]}
@@ -736,7 +736,7 @@ export function AutomationInformationResourceCreator(props: {
                       {item.description}
                     </span>
                   </span>
-                </AdsButton>
+                </AuiButton>
               );
             })}
           </div>

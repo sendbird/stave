@@ -7,7 +7,7 @@ import {
   SkillMetadataDetails,
 } from "@/components/layout/WorkspaceSkillsPanel";
 import { skillStyles } from "@/components/layout/workspace-skills.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 
 const skill: SkillCatalogEntry = {
@@ -44,7 +44,7 @@ describe("SkillInstructionsContent", () => {
     expect(html).toContain("<h2");
     expect(html).toContain("<ul");
     expect(html).toContain("font-size:14px");
-    // The rendered surface uses the themed ADS surface + text tokens
+    // The rendered surface uses the themed AUI surface + text tokens
     // (formerly `bg-surface` / `text-foreground`), never a hardcoded dark slab
     // (the removed `bg-neutral-950` / `text-neutral-300`). Binding to this style
     // identity is the guarantee; the hashed StyleX class can only be the themed

@@ -13,8 +13,8 @@ import {
   type PullRequestWatchEvent,
   type PullRequestWatchState,
 } from "./pull-request-watch";
-import type { Tone } from "@/components/ads/utils/tone";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { Tone } from "@/components/aui/utils/tone";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 
 const EVENT_LABEL = {
   checks_failed: "automation:pullRequestWatch.eventChecksFailed",

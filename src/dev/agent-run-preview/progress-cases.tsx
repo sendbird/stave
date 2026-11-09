@@ -1,7 +1,7 @@
 import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { StageTrack } from "@/components/agent-runs/StageTrack";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -66,20 +66,20 @@ export function StageProgressCases(props: {
 }
 
 const styles = stylex.create({
-  case: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
-  caption: { margin: 0, color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  case: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  caption: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
-    padding: vars["--ads-space-16"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-12"],
+    padding: vars["--aui-space-16"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-surface"],
   },
-  row: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0 },
-  label: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"] },
+  row: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0 },
+  label: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-micro"] },
   stepHeader: { display: "flex", alignItems: "center", justifyContent: "space-between" },
 });

@@ -7,7 +7,7 @@ import {
   SettingsCard,
 } from "@/components/layout/settings-dialog.shared";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   normalizeAuxInferenceDefault,
   type AuxInferenceDefault,

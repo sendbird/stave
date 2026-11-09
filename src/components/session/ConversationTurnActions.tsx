@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
-import { transition } from "@/components/ads/recipes/transition";
+import { transition } from "@/components/aui/recipes/transition";
 import { GitFork, Undo2 } from "lucide-react";
 import { MessageAction } from "@/components/ai-elements";
 import { Button, Loader, toast } from "@/components/ui";
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import type { ConversationTurnActionState } from "@/lib/providers/thread-actions";
 import { useAppStore } from "@/store/app.store";
 import { conversationTurnActionsStyles as styles } from "./conversation-turn-actions.styles";

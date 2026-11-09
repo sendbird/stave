@@ -1,6 +1,6 @@
 /** Literal spacing debt, keyed by declaration rather than a per-file quota.
- * Product spacing uses ADS space tokens or densityPad. Zero, percentages and
- * auto remain valid. ADS owns the underlying scale and is outside this scan.
+ * Product spacing uses AUI space tokens or densityPad. Zero, percentages and
+ * auto remain valid. AUI owns the underlying scale and is outside this scan.
  * This checks declarations, not rendered alignment or arbitrary JS evaluation.
  */
 import { readFileSync, readdirSync } from "node:fs";
@@ -51,7 +51,7 @@ export function spacingLiterals(srcRoot) {
   const findings = [];
   for (const relative of readdirSync(srcRoot, { recursive: true }).sort()) {
     const path = relative.split(sep).join("/");
-    if (!/\.tsx?$/.test(path) || path.startsWith("components/ads/")) continue;
+    if (!/\.tsx?$/.test(path) || path.startsWith("components/aui/")) continue;
     const source = readFileSync(new URL(relative, srcRoot), "utf8");
     const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true,
       path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
@@ -87,7 +87,7 @@ export function spacingFailures(findings, baseline) {
   for (const finding of findings) {
     const count = current[finding.path][finding.declaration];
     if (count > (baseline[finding.path]?.[finding.declaration] ?? 0))
-      failures.push(`${finding.path}:${finding.line}: literal spacing \`${finding.declaration}\`; use ADS space tokens or densityPad`);
+      failures.push(`${finding.path}:${finding.line}: literal spacing \`${finding.declaration}\`; use AUI space tokens or densityPad`);
   }
   for (const [path, declarations] of Object.entries(baseline))
     for (const [declaration, count] of Object.entries(declarations))

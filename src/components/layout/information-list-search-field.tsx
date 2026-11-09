@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import type { RefObject } from "react";
-import { InputGroup, InputGroupAction } from "@/components/ads/components/InputGroup";
+import { InputGroup, InputGroupAction } from "@/components/aui/components/InputGroup";
 
 /**
  * The search field over an Information panel list (documents, memory). Escape

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { resultsStyles as styles } from "./results.styles";
 
 /** A flat section: its question, definition and data share one surface. */

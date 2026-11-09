@@ -1,6 +1,6 @@
 import { Keyboard } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { requestOpenKeyboardShortcuts } from "@/components/layout/useAppKeybindings";
 import { SettingsCard } from "../settings-dialog.shared";
 

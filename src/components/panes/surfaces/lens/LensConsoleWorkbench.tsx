@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import * as stylex from "@stylexjs/stylex";
 import {
   ArrowDownToLine,
@@ -143,7 +143,7 @@ export function LensConsoleWorkbench(props: {
             <ArrowDownToLine {...stylex.props(w.icon)} />
           </Button>
         </Tooltip>
-        <AdsButton
+        <AuiButton
           type="button"
           size="xs"
           variant={consoleDetailsOpen ? "secondary" : "quiet"}
@@ -158,7 +158,7 @@ export function LensConsoleWorkbench(props: {
         >
           <PanelRightOpen {...stylex.props(w.icon)} />
           {i18n.t("lens:lensConsoleWorkbench.details")}
-        </AdsButton>
+        </AuiButton>
         <Tooltip content={i18n.t("lens:lensConsoleWorkbench.copyConsoleLog")}>
           <Button
             type="button"
@@ -198,7 +198,7 @@ export function LensConsoleWorkbench(props: {
               {filteredConsoleEntries.map((entry, index) => {
                 const selected = selectedConsoleEntryId === entry.id;
                 return (
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     key={entry.id || `${entry.timestamp}-${index}`}
                     type="button"
@@ -236,7 +236,7 @@ export function LensConsoleWorkbench(props: {
                         </span>
                       ) : null}
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 );
               })}
             </div>

@@ -4,7 +4,7 @@ type Locale = "en" | "ko";
 
 /** Mounts the usage wizard with six fixed samples, in a 760px column. */
 async function mountWizard(page: Page, args: { locale: Locale; dark: boolean } = { locale: "en", dark: false }) {
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   await expect(page.locator("main svg").first()).toBeVisible();
   if (args.dark) {
     await page.getByRole("button", { name: "Light", exact: true }).click();
@@ -79,9 +79,9 @@ for (const locale of ["en", "ko"] as const) {
             const rect = element!.getBoundingClientRect();
             return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
           };
-          const title = item.querySelector('[data-ads-slot="title"]');
-          const description = item.querySelector<HTMLElement>('[data-ads-slot="description"]')!;
-          const marker = item.querySelector(".ads-stepper-indicator");
+          const title = item.querySelector('[data-aui-slot="title"]');
+          const description = item.querySelector<HTMLElement>('[data-aui-slot="description"]')!;
+          const marker = item.querySelector(".aui-stepper-indicator");
           const connector = getComputedStyle(item, "::after");
           return {
             status: item.dataset.stepStatus,

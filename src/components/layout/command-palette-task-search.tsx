@@ -1,7 +1,7 @@
 import { i18n } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
 import { useEffect, useRef, useState } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { Badge, CommandGroup, CommandItem } from "@/components/ui";
 import { searchTasks } from "@/lib/db/task-search.db";

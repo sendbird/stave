@@ -28,10 +28,10 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
-import { Banner } from "@/components/ads/components/Banner";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Banner } from "@/components/aui/components/Banner";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { DEFAULT_PROMPT_WORKSPACE_KICKOFF } from "@/lib/providers/prompt-defaults";
 import type { McpDiscoveryResponse } from "@/lib/providers/provider.types";
 import {
@@ -387,7 +387,7 @@ export function KickoffSection() {
                         patchConfig(config.id, { enabled })
                       }
                     />
-                    <AdsButton
+                    <AuiButton
                       type="button"
                       variant="quiet"
                       flushInline
@@ -421,7 +421,7 @@ export function KickoffSection() {
                           {matchSummary(config)}
                         </span>
                       </span>
-                    </AdsButton>
+                    </AuiButton>
                     <div className={sx(kickoffSectionStyles.moveButtons)}>
                       <Tooltip content={i18n.t("settings:settingsDialogKickoffSection.moveEarlier", { value1: config.label })}>
                         <Button

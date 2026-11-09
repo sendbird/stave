@@ -1,9 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState, type CSSProperties } from "react";
 import { useTranslation } from "@/i18n";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { cx, sx, type XstyleProp } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { cx, sx, type XstyleProp } from "@/components/aui/utils/stylex";
 import {
   findProviderIdentity,
   providerInkColor,
@@ -91,11 +91,11 @@ const styles = stylex.create({
     alignItems: "center",
     backgroundColor:
       "color-mix(in oklch, var(--provider-mark-ink) 16%, transparent)",
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     color: "var(--provider-mark-ink)",
     display: "inline-flex",
     flexShrink: 0,
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     justifyContent: "center",
     letterSpacing: "-0.02em",
     lineHeight: 1,
@@ -122,5 +122,5 @@ const sizeStyles = stylex.create({
 const monogramTextStyles = stylex.create({
   xs: { fontSize: 7 },
   sm: { fontSize: 9 },
-  md: { fontSize: vars["--ads-font-size-micro"] },
+  md: { fontSize: vars["--aui-font-size-micro"] },
 });

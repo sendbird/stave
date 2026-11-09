@@ -13,7 +13,7 @@ async function firstLineDelta(row: Locator, icon: string, text: string) {
 }
 
 async function mountIssueRow(page: Page) {
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   await expect(page.locator("main svg").first()).toBeVisible();
   await page.evaluate(async () => {
     const resources = performance.getEntriesByType("resource");
@@ -21,7 +21,7 @@ async function mountIssueRow(page: Page) {
     const React = (await import(moduleUrl("react"))).default;
     const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
     const { TrackerIssueRow } = await import("/src/components/layout/issues/TrackerIssueRow.tsx");
-    const { tickets } = await import("/src/dev/ads-regression-preview/fixtures.ts");
+    const { tickets } = await import("/src/dev/aui-regression-preview/fixtures.ts");
     const { StaveDesignProvider } = await import("/src/components/system/StaveDesignProvider.tsx");
     document.getElementById("root")!.style.display = "none";
     const host = document.createElement("div");

@@ -2,15 +2,15 @@ import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Search, Users } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { InputGroup } from "@/components/ads/components/InputGroup";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { InputGroup } from "@/components/aui/components/InputGroup";
 import { Button, Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui";
 import { useProviderAccountIdentity } from "@/lib/providers/use-provider-account-identity";
 import type { ProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
 import type { ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
 import { COMPOSER_CONTROL_BUTTON, ComposerControlLabel, composerControlAttributes } from "./composer-control-density";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { cx, sx } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { cx, sx } from "../aui/utils/stylex";
 
 export interface PromptInputRunAccountPoolAccount {
   id: string;
@@ -172,13 +172,13 @@ const styles = stylex.create({
     width: "min(22rem, calc(100dvw - 32px))",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
-  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
+  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"] },
   accounts: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     margin: 0,
     padding: 0,
     borderWidth: 0,
@@ -186,9 +186,9 @@ const styles = stylex.create({
   },
   legend: {
     padding: 0,
-    marginBottom: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    marginBottom: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   // The list scrolls inside the popover instead of growing it. The inline
   // padding keeps the checkboxes' focus ring inside the scroll box; the
@@ -196,18 +196,18 @@ const styles = stylex.create({
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     maxBlockSize: "min(240px, 40dvh)",
     overflowX: "hidden",
     overflowY: "auto",
     overscrollBehavior: "contain",
     minInlineSize: 0,
-    padding: vars["--ads-space-4"],
-    marginInline: `calc(-1 * ${vars["--ads-space-4"]})`,
+    padding: vars["--aui-space-4"],
+    marginInline: `calc(-1 * ${vars["--aui-space-4"]})`,
   },
   notice: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
 });

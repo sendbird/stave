@@ -15,8 +15,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ads/components/Table";
-import { sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/Table";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AutoRoutingProfile } from "@/lib/providers/auto-routing-profile";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {

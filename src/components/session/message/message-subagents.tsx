@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
 import { formatNumber } from "@/i18n/format";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { isDelegationExchangeLive, type DelegationExchange } from "@/lib/delegation/exchange";
@@ -73,8 +73,8 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
 }
 
 const styles = stylex.create({
-  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0, marginBlock: vars["--ads-space-12"] },
+  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, marginBlock: vars["--aui-space-12"] },
   icon: { width: "1rem", height: "1rem", flexShrink: 0 },
-  count: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-regular"] },
-  heading: { margin: 0, display: "flex", alignItems: "center", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text"] },
+  count: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-regular"] },
+  heading: { margin: 0, display: "flex", alignItems: "center", gap: vars["--aui-space-8"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-semibold"], color: vars["--aui-color-text"] },
 });

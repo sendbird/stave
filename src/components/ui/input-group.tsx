@@ -1,11 +1,11 @@
-import type { StyleXValue } from "../ads/utils/stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 import { inputGroupMarker, layout } from "./input-group.stylex";
 
 import * as React from "react"
 
-import { styles as inputGroupStyles } from "../ads/components/InputGroup.styles"
-import { sx } from "../ads/utils/stylex"
-import { cx } from "../ads/utils/stylex"
+import { styles as inputGroupStyles } from "../aui/components/InputGroup.styles"
+import { sx } from "../aui/utils/stylex"
+import { cx } from "../aui/utils/stylex"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"

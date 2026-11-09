@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * The Information panel's list row.
@@ -33,7 +33,7 @@ export const informationRow = stylex.create({
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     marginInline: -8,
   },
   root: {
@@ -45,10 +45,10 @@ export const informationRow = stylex.create({
     alignItems: "flex-start",
     backgroundColor: {
       default: "transparent",
-      ":focus-within": vars["--ads-color-overlay-hover"],
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":focus-within": vars["--aui-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     display: "flex",
     gap: 10,
     paddingBlock: 10,
@@ -57,24 +57,24 @@ export const informationRow = stylex.create({
   /** The object glyph. `marginBlockStart` optically centres it on the first
    *  line of the title rather than on the title block. */
   mark: {
-    blockSize: vars["--ads-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
     flexShrink: 0,
-    inlineSize: vars["--ads-control-icon-size-md"],
+    inlineSize: vars["--aui-control-icon-size-md"],
     marginBlockStart: 2,
   },
   body: { flex: 1, minWidth: 0 },
   titleLine: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   /** The row's own name, and its link. Accent + underline on hover is the only
    *  affordance it needs; the row wash already says the row is live. */
   title: {
-    color: { default: vars["--ads-color-text"], ":hover": vars["--ads-color-accent"] },
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: { default: vars["--aui-color-text"], ":hover": vars["--aui-color-accent"] },
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-normal"],
     minWidth: 0,
     overflow: "hidden",
     textAlign: "start",
@@ -96,12 +96,12 @@ export const informationRow = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     gap: 6,
-    marginBlockStart: vars["--ads-space-4"],
+    marginBlockStart: vars["--aui-space-4"],
   },
   metaText: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -111,31 +111,31 @@ export const informationRow = stylex.create({
      `fix/ads-regressions → main` across two lines splits one identifier into
      two half-words, which is harder to read than an ellipsis. */
   metaMono: {
-    color: vars["--ads-color-text-muted"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   metaNumeric: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: vars["--ads-line-height-tight"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   trail: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     opacity: "var(--info-row-action-opacity)",
     paddingBlockStart: 2,
     transitionDuration: {
-      default: vars["--ads-motion-duration-fast"],
-      "@media (prefers-reduced-motion: reduce)": vars["--ads-motion-duration-micro"],
+      default: vars["--aui-motion-duration-fast"],
+      "@media (prefers-reduced-motion: reduce)": vars["--aui-motion-duration-micro"],
     },
     transitionProperty: "opacity",
   },

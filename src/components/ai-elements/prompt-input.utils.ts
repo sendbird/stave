@@ -1,5 +1,5 @@
 import { formatNumber } from "@/i18n/format";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import type { CommandPaletteItem } from "@/lib/commands";
 import type { ProviderId } from "@/lib/providers/provider.types";

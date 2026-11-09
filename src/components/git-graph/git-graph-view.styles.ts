@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
 
 /**
  * The view host sits on the Monaco editor surface (`--editor*`), so those
  * grounds stay as theme CSS variables; borders, muted/danger text, and the
- * resize accent resolve to ADS tokens.
+ * resize accent resolve to AUI tokens.
  */
 export const gitGraphViewStyles = stylex.create({
   root: {
@@ -24,15 +24,15 @@ export const gitGraphViewStyles = stylex.create({
     display: "flex",
     flexShrink: 0,
     alignItems: "flex-start",
-    gap: vars["--ads-space-8"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-danger"]} 25%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-danger"]} 8%, transparent)`,
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-danger-text"],
+    borderBottomColor: `color-mix(in oklch, ${vars["--aui-color-danger"]} 25%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-danger"]} 8%, transparent)`,
+    paddingInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-danger-text"],
   },
   errorIcon: {
     marginTop: 2,
@@ -49,7 +49,7 @@ export const gitGraphViewStyles = stylex.create({
   errorDismiss: {
     width: 20,
     height: 20,
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   errorDismissIcon: {
     width: 12,
@@ -66,11 +66,11 @@ export const gitGraphViewStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    color: vars["--ads-color-text-muted"],
+    gap: vars["--aui-space-8"],
+    color: vars["--aui-color-text-muted"],
   },
   loadingText: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   emptyState: {
     display: "flex",
@@ -78,30 +78,30 @@ export const gitGraphViewStyles = stylex.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: vars["--ads-space-24"],
+    padding: vars["--aui-space-24"],
   },
   emptyInner: {
     display: "flex",
     maxWidth: "24rem",
     flexDirection: "column",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     textAlign: "center",
   },
   emptyIcon: {
     width: 32,
     height: 32,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   emptyTitle: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text"],
   },
   emptyBody: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "20px",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   splitArea: {
     display: "flex",
@@ -118,11 +118,11 @@ export const gitGraphViewStyles = stylex.create({
     flexShrink: 0,
     touchAction: "none",
     transitionProperty: "background-color",
-    transitionDuration: vars["--ads-motion-duration-fast"],
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+    transitionDuration: vars["--aui-motion-duration-fast"],
+    transitionTimingFunction: vars["--aui-motion-ease-standard"],
     backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--ads-color-border"]} 65%, transparent)`,
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-accent"]} 45%, transparent)`,
+      default: `color-mix(in oklch, ${vars["--aui-color-border"]} 65%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--aui-color-accent"]} 45%, transparent)`,
     },
   },
   resizerVertical: {
@@ -142,21 +142,21 @@ export const gitGraphViewStyles = stylex.create({
   pendingToast: {
     pointerEvents: "none",
     position: "absolute",
-    bottom: vars["--ads-space-12"],
-    right: vars["--ads-space-12"],
+    bottom: vars["--aui-space-12"],
+    right: vars["--aui-space-12"],
     zIndex: localStack["--stave-stack-floating"],
     display: "flex",
     alignItems: "center",
     gap: 6,
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
+    backgroundColor: vars["--aui-color-surface-raised"],
     paddingInline: 10,
     paddingBlock: 6,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text"],
-    boxShadow: vars["--ads-elevation-lift"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text"],
+    boxShadow: vars["--aui-elevation-lift"],
   },
 });

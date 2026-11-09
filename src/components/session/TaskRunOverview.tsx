@@ -8,9 +8,9 @@ import {
   type RetainedTurnActivity,
 } from "@/lib/providers/turn-status";
 import * as stylex from "@stylexjs/stylex";
-import { focusRing } from "../ads/recipes/focus-ring";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "../ads/utils/stylex";
+import { focusRing } from "../aui/recipes/focus-ring";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "../aui/utils/stylex";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
@@ -25,7 +25,7 @@ import {
   ModelResolutionSummary,
   type ActualRunModel,
 } from "./ModelResolutionSummary";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -350,11 +350,11 @@ const styles = stylex.create({
   panel: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
-    padding: vars["--ads-space-12"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
+    padding: vars["--aui-space-12"],
   },
   // What the run is on the left, what ran it on the right. Long model names
   // may wrap onto another line instead of clipping in a narrow panel.
@@ -363,39 +363,39 @@ const styles = stylex.create({
     alignItems: "center",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   titleContainer: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   title: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-normal"],
+    fontWeight: vars["--aui-font-weight-medium"],
     whiteSpace: "nowrap",
   },
   status: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
   },
   icon: { width: 14, height: 14, flexShrink: 0 },
   // The run's identity, not a status: the provider mark and the model name
   // read as one object, so they share the right edge the badge used to hold.
   model: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
     // Holds that edge however short the title beside it is.
     marginInlineStart: "auto",
     minWidth: 0,
@@ -407,21 +407,21 @@ const styles = stylex.create({
     whiteSpace: "normal",
   },
   detail: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "1.25rem",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
-  modelDetails: { fontSize: vars["--ads-font-size-caption"] },
+  modelDetails: { fontSize: vars["--aui-font-size-caption"] },
   disclosure: {
     cursor: "pointer",
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
+    borderRadius: vars["--aui-radius-mark"],
+    color: vars["--aui-color-text-muted"],
   },
-  modelContent: { paddingTop: vars["--ads-space-8"] },
+  modelContent: { paddingTop: vars["--aui-space-8"] },
 });
 
 const statusTones = stylex.create({
-  success: { color: vars["--ads-color-success"] },
-  danger: { color: vars["--ads-color-danger"] },
-  neutral: { color: vars["--ads-color-text-muted"] },
+  success: { color: vars["--aui-color-success"] },
+  danger: { color: vars["--aui-color-danger"] },
+  neutral: { color: vars["--aui-color-text-muted"] },
 });

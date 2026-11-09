@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "description": "Existing literal spacing declarations. New or changed declarations must use ADS space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
+  "description": "Existing literal spacing declarations. New or changed declarations must use AUI space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
   "total": 710,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
@@ -14,7 +14,7 @@
     },
     "src/components/agent-runs/RunContract.tsx": {
       "styles.icon.marginTop = 2": 1,
-      "styles.details.paddingInlineStart = `calc(${vars[\"--ads-space-12\"]} + 20px + ${vars[\"--ads-space-8\"]})`": 1
+      "styles.details.paddingInlineStart = `calc(${vars[\"--aui-space-12\"]} + 20px + ${vars[\"--aui-space-8\"]})`": 1
     },
     "src/components/agent-runs/SignOffCard.tsx": {
       "styles.card.padding = \"0.625rem\"": 1,
@@ -836,14 +836,14 @@
       "childRequestSlotStyles.section.padding = \"0.625rem\"": 1
     },
     "src/components/session/composer-shelf/composer-shelf.styles.ts": {
-      "shelfStyles.thought.paddingInlineStart = `calc(${vars[\"--ads-space-12\"]} + 20px + ${vars[\"--ads-space-8\"]})`": 1,
+      "shelfStyles.thought.paddingInlineStart = `calc(${vars[\"--aui-space-12\"]} + 20px + ${vars[\"--aui-space-8\"]})`": 1,
       "shelfStyles.progress.gap = 6": 1,
       "shelfStyles.segments.gap = 2": 1,
       "shelfStyles.visuallyHidden.margin = -1": 1
     },
     "src/components/session/composer-shelf/shelf-provider-switch.styles.ts": {
       "providerSwitchStyles.details.gap = 2": 1,
-      "providerSwitchStyles.details.paddingInlineStart = `calc(${vars[\"--ads-space-12\"]} + 20px + ${vars[\"--ads-space-8\"]})`": 1
+      "providerSwitchStyles.details.paddingInlineStart = `calc(${vars[\"--aui-space-12\"]} + 20px + ${vars[\"--aui-space-8\"]})`": 1
     },
     "src/components/session/conversation-turn-actions.styles.ts": {
       "conversationTurnActionsStyles.groupPreview.gap = 6": 1,
@@ -928,7 +928,7 @@
       "workGraphTreeStyles.row.paddingBlock = \"0.375rem\"": 1,
       "workGraphTreeStyles.labelLine.gap = \"0.375rem\"": 1,
       "workGraphTreeStyles.elapsed.paddingTop = \"0.125rem\"": 1,
-      "workGraphTreeStyles.content.marginBlock = `calc(-1 * ${vars[\"--ads-space-4\"]} - 0.125rem)`": 1,
+      "workGraphTreeStyles.content.marginBlock = `calc(-1 * ${vars[\"--aui-space-4\"]} - 0.125rem)`": 1,
       "workGraphTreeStyles.content.gap = \"0.625rem\"": 1,
       "workGraphTreeStyles.content.paddingBlock = \"0.375rem\"": 1
     },
@@ -959,7 +959,7 @@
       "contentLayout.serviceBadge.paddingBlock = \"0.1em\"": 1
     },
     "src/components/ui/drawer-layout.stylex.ts": {
-      "layout.header.gap = {\n    \"default\": `${vars[\"--ads-space-2\"]}`,\n    \"@media (width >= 48rem)\": \"6px\"\n}": 1
+      "layout.header.gap = {\n    \"default\": `${vars[\"--aui-space-2\"]}`,\n    \"@media (width >= 48rem)\": \"6px\"\n}": 1
     },
     "src/components/ui/input-group.stylex.ts": {
       "layout.addon.paddingBlock = 6": 1,
@@ -988,7 +988,7 @@
       "workflowStyles.shortcutField.gap = 2": 1,
       "workflowStyles.titleInput.paddingBlock = 2": 1,
       "workflowStyles.stageActions.gap = 2": 1,
-      "workflowStyles.stageBody.paddingInlineStart = `calc(${vars[\"--ads-space-8\"]} + 20px + 18px + 18px + 3 * ${vars[\"--ads-space-8\"]})`": 1,
+      "workflowStyles.stageBody.paddingInlineStart = `calc(${vars[\"--aui-space-8\"]} + 20px + 18px + 18px + 3 * ${vars[\"--aui-space-8\"]})`": 1,
       "workflowStyles.chips.gap = 4": 1,
       "workflowStyles.chip.gap = 3": 1,
       "workflowStyles.chip.paddingInline = 6": 1

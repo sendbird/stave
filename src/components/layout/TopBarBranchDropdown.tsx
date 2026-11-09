@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -31,7 +31,7 @@ import {
   isDetachedHead,
 } from "@/lib/source-control-branch-label";
 import { isBranchAttachedElsewhere } from "@/lib/source-control-worktrees";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { branchDropdownStyles } from "./top-bar-branch-dropdown.styles";
@@ -695,7 +695,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
 
     return (
       <DropdownMenu open={branchOpen} onOpenChange={setBranchOpen}>
-        <AdsTooltip
+        <AuiTooltip
           content={
             branchStatus.dirtyCount > 0
               ? i18n.t("shell:topBarBranchDropdown.localChange", { count: branchStatus.dirtyCount })
@@ -708,7 +708,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           <span {...stylex.props(layoutShellStyles.inlineFlex)}>
             <DropdownMenuTrigger
               render={
-                <AdsButton
+                <AuiButton
                   layout="host"
                   size="sm"
                   type="button"
@@ -757,7 +757,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               />
             </DropdownMenuTrigger>
           </span>
-        </AdsTooltip>
+        </AuiTooltip>
 
         <DropdownMenuContent
           align="start"
@@ -791,7 +791,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   onPaste={(event) => event.stopPropagation()}
                 />
               </div>
-              <AdsTooltip content={i18n.t("shell:topBarBranchDropdown.refreshBranches")}>
+              <AuiTooltip content={i18n.t("shell:topBarBranchDropdown.refreshBranches")}>
                 <Button
                   type="button"
                   variant="ghost"
@@ -808,7 +808,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                     {...stylex.props(isBusy && branchDropdownStyles.spinning)}
                   />
                 </Button>
-              </AdsTooltip>
+              </AuiTooltip>
             </div>
 
             {branchDrift ? (
@@ -898,7 +898,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   )}
                   {i18n.t("shell:topBarBranchDropdown.pull")}
                 </Button>
-                <AdsTooltip
+                <AuiTooltip
                   content={
                     originDefaultRef
                       ? i18n.t("shell:topBarBranchDropdown.fetchOriginAndCheckOutAsA", { value1: originDefaultRef })
@@ -927,7 +927,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                       </span>
                     </Button>
                   </span>
-                </AdsTooltip>
+                </AuiTooltip>
               </div>
             </div>
 
@@ -992,7 +992,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                           repositoryPath,
                         });
                         return (
-                          <AdsButton
+                          <AuiButton
                             layout="host"
                             key={option.key}
                             type="button"
@@ -1041,7 +1041,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                                 )}
                               />
                             ) : null}
-                          </AdsButton>
+                          </AuiButton>
                         );
                       })}
                     </div>
@@ -1060,7 +1060,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   }
 
   return (
-    <AdsTooltip
+    <AuiTooltip
       content={
         <>
           {i18n.t("shell:topBarBranchDropdown.branchIsManagedByThisWorktree")}
@@ -1084,7 +1084,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           {currentBranchLabel}
         </span>
       </div>
-    </AdsTooltip>
+    </AuiTooltip>
   );
 }
 

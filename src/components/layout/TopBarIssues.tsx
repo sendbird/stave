@@ -3,7 +3,7 @@ import { ListTodo } from "lucide-react";
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Button } from "@/components/ui";
 import { useTrackerIssuesAttention } from "@/lib/tracker-issues/client-state";
 import { CountBadge } from "@/components/system/CountBadge";

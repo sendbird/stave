@@ -9,8 +9,8 @@ import { parseCssColor } from "@/lib/themes/contrast";
  *
  * The avatar's ink has to be measured against its fill, and both depend on the
  * theme's resolved surface and body ink, which CSS `color-mix` cannot clamp.
- * This reads the resolved `--ads-color-surface`, `--ads-color-text` and
- * `--ads-chart-*` from `<html>` and recomputes when a theme is applied: the
+ * This reads the resolved `--aui-color-surface`, `--aui-color-text` and
+ * `--aui-chart-*` from `<html>` and recomputes when a theme is applied: the
  * `.dark` / `theme-changing` class, the inline token mapping, or the custom
  * theme and override `<style>` elements change. Null until the document can be
  * read, which keeps the CSS fallback in `agentAvatarTone`.
@@ -47,9 +47,9 @@ function normalizeColor(value: string): string {
 function readPalette(): boolean {
   const style = getComputedStyle(document.documentElement);
   const read = (name: string) => normalizeColor(style.getPropertyValue(name).trim());
-  const surface = read("--ads-color-surface");
-  const text = read("--ads-color-text");
-  const hues = new Map(CHART_INDICES.map((index) => [index, read(`--ads-chart-${index}`)]));
+  const surface = read("--aui-color-surface");
+  const text = read("--aui-color-text");
+  const hues = new Map(CHART_INDICES.map((index) => [index, read(`--aui-chart-${index}`)]));
   const key = [surface, text, ...hues.values()].join("|");
   if (key === paletteKey) return false;
   paletteKey = key;

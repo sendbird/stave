@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { agentPreviewStyles as a } from "./agent-preview.styles";
 import {
