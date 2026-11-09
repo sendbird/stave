@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
-  TarsMessageInput, TarsConversationSettings,
+  TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
@@ -24,6 +24,8 @@ export const TARS_IPC = Object.freeze({
   cancelMessage: "tars:cancel-message",
   /** Answers one decision card option (click, key or a bound short answer); controls take `tars:act`'s host path. */
   answer: "tars:answer",
+  /** Moves queued work earlier or later in the queue (a menu item or a drag), on a `reprioritize` decision's host rules. */
+  reprioritize: "tars:reprioritize",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -301,6 +303,8 @@ export interface TarsBridgeApi {
   act(input: TarsActInput): Promise<TarsActResult>;
   /** Answers a decision card; absent on bridges that predate decision cards. */
   answer?(input: TarsAnswerInput): Promise<TarsAnswerResult>;
+  /** Moves queued work in the queue and records it like a click; absent on bridges that predate queue moves. */
+  reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

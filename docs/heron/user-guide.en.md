@@ -478,7 +478,11 @@ progress, not started or stopped), the step count such as "2/3", and
 **Timeline**, which opens the run's timeline at that stage. A value Stave does
 not know is left out, never shown as zero. The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
-responsibility** are under the card's more-actions menu. When Tars proposes
+responsibility** are under the card's more-actions menu. Queued work follows
+the work that started, in the order it will start; its menu adds **Do first**
+and **Do later**, and its grip lets you drag it among the queued cards or move
+it with **Alt+Up** and **Alt+Down**. Each move leaves a one-line record with
+the new priority. When Tars proposes
 something and waits for you, the main action becomes that confirmation, such as
 **Confirm resume**. When you come back to Tars after being away (Tars was
 closed or the window was hidden), a **While you were away** summary sits at the

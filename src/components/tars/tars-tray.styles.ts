@@ -44,6 +44,9 @@ export const tarsTrayStyles = stylex.create({
    */
   cards: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, margin: 0, paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], listStyle: "none" },
   cardItem: { minWidth: 0 },
+  /** A queued card is a drop target; its closest-edge indicator line anchors to it. */
+  queuedItem: { position: "relative" },
+  queuedItemDragging: { opacity: 0.5 },
   /** Outputs keep the hairline-row grammar: they are links, not run objects. */
   outputList: { gap: 0 },
   outputItem: {

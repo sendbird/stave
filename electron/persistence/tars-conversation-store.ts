@@ -4,6 +4,7 @@ import {
   TarsActionReceiptSchema, TarsActionRecordSchema, TarsActInputSchema, TarsDecisionActionSchema, TarsDecisionSchema,
   TarsConversationSettingsSchema, type TarsConversationSettings,
   TarsMessageInputSchema, TarsMessageSchema, TarsReceiptOutcomeSchema, TarsDecisionAnswerSchema, TarsMessageOriginSchema, isTarsAnswerRetryable,
+  TarsReprioritizeInputSchema, type TarsReprioritizeInput,
   type TarsActionReceipt, type TarsActionRecord, type TarsActInput, type TarsDecision, type TarsDecisionAction,
   type TarsMessage, type TarsMessageInput, type TarsReceiptOutcome, type TarsDecisionAnswer, type TarsAnswerRefusal, type TarsMessageOrigin,
 } from "../../src/lib/tars/conversation";
@@ -402,14 +403,48 @@ export class TarsConversationStore {
     });
   }
 
-  private settleRecord(requestId: string, outcome: { status: "applied" } | { status: "rejected"; reason: TarsControlReason; error: string },
+  /**
+   * A queue move's pending record, by the same rules as a control's: its
+   * request ID is the retry identity, and the same ID naming another move is refused.
+   */
+  recordMove(rawInput: TarsReprioritizeInput, now: string): TarsActionRecord {
+    const { requestId, source, ...move } = TarsReprioritizeInputSchema.parse(rawInput);
+    const action = { kind: "move" as const, ...move };
+    const requestHash = hash({ source, action });
+    return this.write(() => {
+      const existing = this.db.prepare("SELECT body_json, request_hash FROM tars_action_records WHERE request_id = ?")
+        .get(requestId) as StoredRow | undefined;
+      if (existing) {
+        if (existing.request_hash !== requestHash) throw new Error("This request ID already names a different action.");
+        return this.readRecord(existing)!;
+      }
+      const record = TarsActionRecordSchema.parse({ requestId, source, requestHash, action, status: "pending",
+        error: null, reason: null, revision: 1, createdAt: now, updatedAt: now });
+      this.db.prepare("INSERT INTO tars_action_records (request_id, request_hash, revision, created_at, body_json) VALUES (?, ?, ?, ?, ?)")
+        .run(requestId, requestHash, record.revision, now, JSON.stringify(record));
+      this.changes.emit("conversation");
+      return record;
+    });
+  }
+
+  /** A queue move and its record settle together; `apply` returns the moved work's new priority. A replay never moves it again. */
+  applyMove(requestId: string, apply: () => number, now: string): TarsActionRecord {
+    return this.write(() => {
+      const current = this.getAction(requestId);
+      if (current?.status === "applied") return current;
+      return this.settleRecord(requestId, { status: "applied", priority: apply() }, now);
+    });
+  }
+
+  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number } | { status: "rejected"; reason: TarsControlReason; error: string },
     now: string): TarsActionRecord {
     const current = this.getAction(requestId);
     if (!current) throw new Error("The action record was not found.");
     if (current.status !== "pending") throw new Error("The action record has already settled.");
     const rejected = outcome.status === "rejected" ? outcome : null;
     const next = TarsActionRecordSchema.parse({ ...current, status: outcome.status, error: rejected?.error ?? null,
-      reason: rejected?.reason ?? null, revision: current.revision + 1, updatedAt: now });
+      reason: rejected?.reason ?? null, ...(outcome.status === "applied" && outcome.priority !== undefined ? { priority: outcome.priority } : {}),
+      revision: current.revision + 1, updatedAt: now });
     const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
       .run(next.revision, JSON.stringify(next), requestId, current.revision);
     if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");

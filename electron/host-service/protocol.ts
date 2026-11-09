@@ -1049,6 +1049,7 @@ export interface HostServiceRequestMap {
   "tars.apply-decision": import("../../src/lib/tars/conversation").ApplyTarsDecisionInput;
   /** A direct control, admitted on the same path as a proposed control. */
   "tars.act": import("../../src/lib/tars/conversation").TarsActInput;
+  "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "agent-run.invoke": {
     action: HostAgentRunAction;
     args: unknown;
@@ -1260,6 +1261,7 @@ export interface HostServiceResponseMap {
   "tars.invoke": import("../../src/lib/tars/types").TarsSnapshot;
   "tars.apply-decision": import("../../src/lib/tars/conversation").TarsActionReceipt[];
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
+  "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
   "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;

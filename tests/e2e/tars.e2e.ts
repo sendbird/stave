@@ -211,6 +211,46 @@ test("tray cards say when work starts from the user's working changes, with the 
   await expect(panel.locator('[data-tars-card="search-index"] [data-tars-working-changes="clean"]')).toHaveText("포함할 작업 중인 변경 없음 · 브랜치에서 시작");
 });
 
+test("queued work moves with Do first, from its grip's keys and by dragging; each move is one record line and is announced", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?stavePreview=tars&tray=true&queue=true");
+  const view = page.getByTestId("tars-view");
+  const panel = page.getByRole("complementary");
+  const order = () => panel.locator("[data-tars-queue-item]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-queue-item")));
+  const docs = "Refresh the API reference examples with the new pagination parameters";
+  const notice = page.locator("[data-tars-queue-notice]");
+  await expect.poll(order).toEqual(["queue-auth", "queue-search", "queue-docs"]);
+
+  // The last card offers Do first only; choosing it moves the card ahead of the one before it.
+  await panel.getByRole("button", { name: `More actions for ${docs}`, exact: true }).click();
+  await expect(page.getByRole("menuitem", { name: "Do later", exact: true })).toHaveCount(0);
+  await page.getByRole("menuitem", { name: "Do first", exact: true }).click();
+  await expect.poll(order).toEqual(["queue-auth", "queue-docs", "queue-search"]);
+  await expect(view.locator('[data-tars-record-kind="move"]').last()).toContainText("Moved earlier · click");
+  await expect(view.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(notice).toHaveText(`${docs} is now 2 of 3 in the queue.`);
+  await expect(panel.getByRole("button", { name: `More actions for ${docs}`, exact: true })).toBeFocused();
+
+  // From the keyboard: Alt+ArrowUp on the grip moves it again, and the grip keeps focus.
+  const grip = panel.getByRole("button", { name: `Reorder ${docs}`, exact: true });
+  await grip.focus();
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect.poll(order).toEqual(["queue-docs", "queue-auth", "queue-search"]);
+  await expect(notice).toHaveText(`${docs} is now 1 of 3 in the queue.`);
+  await expect(grip).toBeFocused();
+  // At the front there is nowhere earlier to go.
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect.poll(order).toEqual(["queue-docs", "queue-auth", "queue-search"]);
+
+  // By dragging the grip below the last card.
+  const last = panel.locator('[data-tars-queue-item="queue-search"]');
+  const box = (await last.boundingBox())!;
+  await grip.dragTo(last, { targetPosition: { x: box.width / 2, y: box.height - 4 } });
+  await expect.poll(order).toEqual(["queue-auth", "queue-search", "queue-docs"]);
+  await expect(view.locator('[data-tars-record-kind="move"]').last()).toContainText("Moved later · drag");
+  await expect(view.locator('[data-tars-record-kind="move"]')).toHaveCount(3);
+});
+
 test("a proposed cancel waits as a decision card, and the confirmed proposal folds to its record without another Confirm", async ({ page }) => {
   await page.goto("/?stavePreview=tars&proposal=cancel");
   const view = page.getByTestId("tars-view");

@@ -9,7 +9,7 @@ import { getTarsConversationService } from "../tars-conversation-instance";
 import { ensureTarsEventBridge } from "../tars-events";
 import {
   TarsActInputSchema, TarsAnswerInputSchema, TarsConversationSettingsSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema,
-  TarsMessageInputSchema,
+  TarsMessageInputSchema, TarsReprioritizeInputSchema,
 } from "../../../src/lib/tars/conversation";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
@@ -45,6 +45,9 @@ export function registerTarsHandlers() {
   // Clicks enter the host's admitted control path; there is no direct state write.
   ipcMain.handle(TARS_IPC.act, (_event, input: unknown) =>
     invokeHostService("tars.act", TarsActInputSchema.parse(input)));
+  // A queue move from the tray takes the host's reprioritize admission; there is no direct priority write.
+  ipcMain.handle(TARS_IPC.reprioritize, (_event, input: unknown) =>
+    invokeHostService("tars.reprioritize", TarsReprioritizeInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));
 }

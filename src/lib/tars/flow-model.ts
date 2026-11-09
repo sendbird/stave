@@ -131,7 +131,7 @@ const NOTICE_OF: Partial<Record<TarsState, TarsActivityNoticeKind>> = { complete
 
 export function selectTarsActivityNotices(activity: readonly TarsActivity[], records: readonly TarsActionRecord[] = []): TarsActivityNotice[] {
   // A cancel the user applied already has its own action record line.
-  const cancelledByYou = new Set(records.filter((record) => record.status === "applied" && record.action.operation === "cancel")
+  const cancelledByYou = new Set(records.filter((record) => record.status === "applied" && record.action.kind === "control" && record.action.operation === "cancel")
     .map((record) => record.action.responsibilityId));
   const lastState = new Map<string, TarsState>();
   const notices: TarsActivityNotice[] = [];

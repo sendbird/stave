@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { ArrowUpRight, ChevronDown, Ellipsis, FileText, GitBranch } from "lucide-react";
+import type { KeyboardEvent, ReactNode } from "react";
+import { ArrowUpRight, ChevronDown, Ellipsis, FileText, GitBranch, GripVertical } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
 import { Accordion } from "@/components/aui/components/Accordion";
@@ -14,9 +14,11 @@ import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { TarsLane } from "@/lib/tars/attention";
 import { describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
-import { TARS_IRREVERSIBLE_OPERATIONS } from "@/lib/tars/conversation";
+import { TARS_IRREVERSIBLE_OPERATIONS, type TarsQueueMove, type TarsQueueMoveSource } from "@/lib/tars/conversation";
+import { tarsQueueDropMove } from "@/lib/tars/queue-order";
+import { SortableDropIndicator, useSortableListMonitor, useSortableRow } from "@/hooks/use-sortable-list";
 import { formatDateTime } from "@/i18n/format";
-import { tarsCardActions, type TarsCardAction, type TarsTrayAttentionInput, type TarsTrayAttentionRow, type TarsTrayCard as TarsTrayCardModel, type TarsTrayDecision, type TarsTrayModel, type TarsTrayStatus } from "@/lib/tars/tray-model";
+import { tarsCardActions, tarsQueueMoves, type TarsCardAction, type TarsTrayAttentionInput, type TarsTrayAttentionRow, type TarsTrayCard as TarsTrayCardModel, type TarsTrayDecision, type TarsTrayModel, type TarsTrayStatus } from "@/lib/tars/tray-model";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
 import type { TarsOutput } from "@/lib/tars/outputs-model";
 import type { TarsSideViewKind, TarsSideViewTarget } from "@/lib/tars/side-view";
@@ -37,7 +39,14 @@ export interface TarsTrayActions {
   onShowInFleet: (target: FleetFocusTarget) => void;
   /** Opens the side view; absent where there is none (a blocked card then has no report link). */
   onOpenSide?: (target: TarsSideViewTarget) => void;
+  /** Moves queued work in the queue through the host; absent, queued cards offer no Do first, Do later or drag. */
+  onMove?: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void;
 }
+
+/** The queue moves list for the tray's drag and drop; one list, so a card only drops among queued work. */
+const QUEUE_LIST_ID = "tars-queue";
+/** The grip's keys, as `aria-keyshortcuts` names them. */
+const QUEUE_MOVE_ARIA_KEYS = "Alt+ArrowUp Alt+ArrowDown";
 
 const LANES: readonly TarsLane[] = ["needsYou", "running", "done"];
 /** Done work is folded until asked for; what waits and what runs stays in view. */
@@ -113,10 +122,11 @@ function describeAttention(row: TarsResponsibility, entry: TarsTrayAttentionRow<
   return { label: label ?? i18n.t("shell:tars.tray.attention.other"), text: item.detail?.trim() || null };
 }
 
-/** What an action is called: its control, the proposal it confirms, or the Fleet row. */
+/** What an action is called: its control, the proposal it confirms, the Fleet row, or a queue move. */
 function actionLabel(action: TarsCardAction) {
   if (action.kind === "fleet") return i18n.t("shell:tars.tray.showInFleet");
   if (action.kind === "confirm") return i18n.t(`shell:tars.tray.confirm.${action.decision.operation}`);
+  if (action.kind === "move") return i18n.t(action.direction === "earlier" ? "shell:tars.tray.moveEarlier" : "shell:tars.tray.moveLater");
   return i18n.t(CONTROL_LABEL[action.operation]);
 }
 
@@ -125,17 +135,22 @@ function actionLabel(action: TarsCardAction) {
  * a card's actions keep to a single line. Every control still goes through
  * the view's host action path.
  */
-export function TarsCardActions({ card, actions }: { card: TarsTrayCardModel; actions: TarsTrayActions }) {
+export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
   const { row } = card;
-  const { primary, more } = tarsCardActions(card);
+  const offered = tarsCardActions(card);
+  const primary = offered.primary;
+  // Queue moves need the host's move path; a bridge without it offers none.
+  const more = offered.more.filter((action) => action.kind !== "move" || actions.onMove);
   const run = (action: TarsCardAction) => {
     if (action.kind === "fleet") { if (card.fleetTarget) actions.onShowInFleet(card.fleetTarget); return; }
+    if (action.kind === "move") { actions.onMove?.(row, { direction: action.direction }, "click"); return; }
     if (action.kind === "confirm") actions.onConfirm(action.decision);
     else actions.onAct(row, action.operation);
   };
-  if (!primary && !row.taskId && !more.length) return null;
+  if (!primary && !row.taskId && !more.length && !grip) return null;
   return <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.tray.controls", { title: row.title })} data-tars-card-actions="">
+    {grip}
     {/* A reversible confirmation is the card's primary action; one that cannot be undone is never filled primary, as on its decision card. */}
     {/* A confirmation is a decision and keeps the 28px decision rung; a control and the rest are in-surface secondary actions on the 24px rung (AUI #809 A1). */}
     {primary ? <Button variant={primary.kind !== "confirm" ? "secondary" : TARS_IRREVERSIBLE_OPERATIONS.has(primary.decision.operation) ? "destructive" : "default"} size={primary.kind === "confirm" ? "xs" : "2xs"} disabled={actions.busy}
@@ -143,13 +158,13 @@ export function TarsCardActions({ card, actions }: { card: TarsTrayCardModel; ac
     {row.taskId ? <Button variant="ghost" size="2xs" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
     {more.length ? <DropdownMenu placement="bottom-end"
       trigger={<Ellipsis aria-hidden />}
-      triggerProps={{ render: <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.moreActions", { title: row.title })} title={t("shell:tars.tray.moreActionsHint")} /> }}
+      triggerProps={{ render: <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.moreActions", { title: row.title })} title={t("shell:tars.tray.moreActionsHint")} data-tars-more-actions={row.id} /> }}
       groups={[{ items: more.map((action) => ({ label: actionLabel(action), tone: action.kind === "control" && action.operation === "cancel" ? "danger" as const : "neutral" as const,
         disabled: action.kind !== "fleet" && actions.busy, onSelect: () => run(action) })) }]} /> : null}
   </div>;
 }
 
-export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actions: TarsTrayActions }) {
+export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
   const { row, progress } = card;
   const terminal = card.lane === "done";
@@ -164,7 +179,7 @@ export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actio
   ].filter((fact): fact is string => Boolean(fact));
   const staged = progress && progress.total > 0;
   const { primary, more } = tarsCardActions(card);
-  const hasActions = Boolean(primary || row.taskId || more.length);
+  const hasActions = Boolean(primary || row.taskId || more.length || grip);
   const body = [
     card.waitingBehind ? <p key="waiting" className={sx(styles.meta)} data-tars-waiting-behind="">{t("shell:tars.tray.waitingBehind", { title: card.waitingBehind })}</p> : null,
     !staged && !terminal && row.agentRunId ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
@@ -198,9 +213,38 @@ export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actio
   // The card is the design system's run object; its footer holds the card's actions, the step count and the timeline link.
   return <TarsRunMonitor row={row} progress={progress} onOpenSide={actions.onOpenSide} data-tars-card={row.id} data-tars-lane={card.lane}
     data-tars-progress={staged ? `${progress.finished}/${progress.total}` : undefined}
-    meta={<span data-tars-facts="">{facts.join(" · ")}</span>} actions={hasActions ? <TarsCardActions card={card} actions={actions} /> : undefined}>
+    meta={<span data-tars-facts="">{facts.join(" · ")}</span>} actions={hasActions ? <TarsCardActions card={card} actions={actions} grip={grip} /> : undefined}>
     {body.length ? body : null}
   </TarsRunMonitor>;
+}
+
+/**
+ * A queued card in the queue's drag-and-drop list. Its grip is the drag
+ * handle and, focused, the keyboard handle: Alt+ArrowUp and Alt+ArrowDown
+ * do what Do first and Do later in its menu do.
+ */
+function TarsQueuedCardItem({ card, actions, sortable }: { card: TarsTrayCardModel; actions: TarsTrayActions; sortable: boolean }) {
+  const { t } = useTranslation(["shell"]);
+  const { row } = card;
+  const { setRowElement, setHandleElement, isDragging, closestEdge } = useSortableRow({
+    listId: QUEUE_LIST_ID, itemId: row.id, disabled: !sortable || actions.busy, preview: { title: row.title },
+  });
+  const moves = tarsQueueMoves(card.queue);
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const direction = event.key === "ArrowUp" ? "earlier" : "later";
+    if (!actions.busy && moves.includes(direction)) actions.onMove?.(row, { direction }, "click");
+  };
+  const grip = sortable ? <Button ref={setHandleElement} variant="ghost" size="icon-2xs" data-tars-queue-grip={row.id}
+    aria-label={t("shell:tars.tray.reorder.handle", { title: row.title })} title={t("shell:tars.tray.reorder.hint")}
+    aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS} onKeyDown={onKeyDown}><GripVertical aria-hidden /></Button> : undefined;
+  return <li ref={setRowElement} className={sx(styles.cardItem, styles.queuedItem, isDragging && styles.queuedItemDragging)} data-tars-queue-item={row.id}
+    data-tars-queue-position={card.queue ? card.queue.position : undefined}>
+    <TarsTrayCard card={card} actions={actions} grip={grip} />
+    {closestEdge ? <SortableDropIndicator edge={closestEdge} /> : null}
+  </li>;
 }
 
 const OUTPUT_KIND: Record<Exclude<TarsOutput["kind"], "link">, TarsSideViewKind> = { report: "report", changes: "changes", review: "review" };
@@ -241,6 +285,17 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
 /** Needs you, Running and Done, each folding on its own, then the outputs; the conversation beside it never moves. */
 export function TarsTray({ model, actions, outputs }: { model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[] }) {
   const { t } = useTranslation(["shell"]);
+  const queued = Object.values(model.lanes).flat().filter((card) => card.queue);
+  // Reordering needs the host's move path and something to reorder with.
+  const sortable = Boolean(actions.onMove) && queued.length > 1;
+  useSortableListMonitor({
+    isListMatch: (listId) => listId === QUEUE_LIST_ID,
+    onReorder: (event) => {
+      const source = queued.find((card) => card.row.id === event.sourceId);
+      const move = source ? tarsQueueDropMove(queued.map((card) => card.row), event.sourceId, event.targetId, event.closestEdge === "bottom" ? "bottom" : "top") : null;
+      if (source && move && !actions.busy) actions.onMove?.(source.row, move, "drag");
+    },
+  });
   return <Accordion.Root multiple defaultValue={outputs ? [...OPEN_LANES, "outputs"] : OPEN_LANES} data-tars-tray="">
     {LANES.map((lane) => {
       const cards = model.lanes[lane];
@@ -255,7 +310,8 @@ export function TarsTray({ model, actions, outputs }: { model: TarsTrayModel; ac
         </Accordion.Header>
         <Accordion.Panel>
           {cards.length ? <ul className={sx(styles.cards)}>
-            {cards.map((card) => <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
+            {cards.map((card) => card.queue ? <TarsQueuedCardItem key={card.row.id} card={card} actions={actions} sortable={sortable} />
+              : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
           </ul> : <p className={sx(styles.empty)}>{t(`shell:tars.tray.emptyLane.${lane}`)}</p>}
         </Accordion.Panel>
       </Accordion.Item>;

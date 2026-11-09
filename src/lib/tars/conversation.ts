@@ -73,6 +73,8 @@ export const TarsControlReasonSchema = z.enum([
   "notTakenOver", "notAcceptable", "outOfScope", "ownershipLost", "runEnded", "runHeld", "unknown",
   // An automatic follow-up asked for something only the user may start (see `tarsFollowUpRefusal`).
   "notByFollowUp",
+  // A priority change or queue move: only queued work moves, and work already at that end of the queue cannot move further.
+  "notQueued", "queueEdge",
 ]);
 export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
 
@@ -334,7 +336,7 @@ export const TarsActionReceiptSchema = z.object({
   // An ask always waits for the user's answer; it never applies anything itself.
   const proposable = (receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)) || receipt.action.kind === "ask";
   // An automatic follow-up's refusal carries its one code on any kind of action.
-  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show"
+  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
     : receipt.action.kind === "delegate" && TarsDelegateReasonSchema.safeParse(receipt.reason).success)));
   const valid = coded &&
@@ -373,16 +375,66 @@ export const TarsActInputSchema = z.object({
 }).strict();
 export type TarsActInput = z.infer<typeof TarsActInputSchema>;
 
-/** Timeline record of a direct control. It is never a user message or a model proposal. */
+/**
+ * Moves queued work one place earlier or later, or with `relativeTo` directly
+ * before (earlier) or after (later) that other queued work, as a drop does.
+ * The host computes the new priority from the queue as it is when it admits
+ * the move.
+ */
+export const TarsQueueMoveSchema = z.object({
+  direction: z.enum(["earlier", "later"]),
+  relativeTo: IdSchema.optional(),
+}).strict();
+export type TarsQueueMove = z.infer<typeof TarsQueueMoveSchema>;
+
+/** How a queue move was asked: a menu item (by pointer or keyboard) or a drag in the tray. */
+export const TarsQueueMoveSourceSchema = z.enum(["click", "drag"]);
+export type TarsQueueMoveSource = z.infer<typeof TarsQueueMoveSourceSchema>;
+
+/**
+ * A direct queue move, admitted by the host on the same rules as a
+ * `reprioritize` decision: the work is the user's Tars responsibility at the
+ * revision they saw, it is still queued and its registered scope holds.
+ * Recorded in the conversation like a click on a control.
+ */
+export const TarsReprioritizeInputSchema = z.object({
+  requestId: IdSchema.regex(/^[A-Za-z0-9._:-]+$/),
+  responsibilityId: IdSchema,
+  expectedRevision: RevisionSchema,
+  move: TarsQueueMoveSchema,
+  source: TarsQueueMoveSourceSchema,
+}).strict();
+export type TarsReprioritizeInput = z.infer<typeof TarsReprioritizeInputSchema>;
+
+/** A queue move as its record names it. */
+export const TarsQueueMoveActionSchema = z.object({
+  kind: z.literal("move"),
+  responsibilityId: IdSchema,
+  expectedRevision: RevisionSchema,
+  move: TarsQueueMoveSchema,
+}).strict();
+export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
+
+/** Where a recorded action came from: a control's sources, plus a drag for a queue move. */
+export const TarsActionRecordSourceSchema = z.enum([...TarsActSourceSchema.options, "drag"]);
+export type TarsActionRecordSource = z.infer<typeof TarsActionRecordSourceSchema>;
+
+/**
+ * Timeline record of a direct control or queue move. It is never a user
+ * message or a model proposal. Records saved before queue moves existed are
+ * all controls.
+ */
 export const TarsActionRecordSchema = z.object({
   requestId: IdSchema,
-  source: TarsActInputSchema.shape.source,
+  source: TarsActionRecordSourceSchema,
   requestHash: z.string().regex(/^[a-f0-9]{64}$/),
-  action: TarsControlActionSchema,
+  action: z.discriminatedUnion("kind", [TarsControlActionSchema, TarsQueueMoveActionSchema]),
   status: z.enum(["pending", "applied", "rejected"]),
   /** English diagnostic for logs and support; the interface shows the translated `reason`. */
   error: ErrorSchema.nullable(),
   reason: TarsControlReasonSchema.nullable(),
+  /** An applied queue move's new priority for the moved work. */
+  priority: z.number().int().min(0).max(100).optional(),
   revision: RevisionSchema,
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
@@ -390,6 +442,10 @@ export const TarsActionRecordSchema = z.object({
   const rejected = record.status === "rejected";
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
+  const move = record.action.kind === "move";
+  if ((record.source === "drag" && !move) || (record.priority !== undefined && !(move && record.status === "applied")))
+    // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+    context.addIssue({ code: "custom", message: "Only an applied queue move records a priority, and only a queue move comes from a drag." });
 });
 export type TarsActionRecord = z.infer<typeof TarsActionRecordSchema>;
 

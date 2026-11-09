@@ -1141,7 +1141,9 @@
       "storageBusy": "Tars 저장소가 계속 사용 중이어서 아무것도 바뀌지 않았습니다. 다시 시도하세요.",
       "unknown": "Tars가 이 조작을 적용하지 못했습니다. 작업의 현재 상태를 확인하고 다시 시도하세요.",
       "notAcceptable": "Stave가 완료를 확인하지 못한 작업만 완료로 인정할 수 있습니다.",
-      "notByFollowUp": "Tars가 자동 후속에서 제안한 일이라 적용할 수 없습니다. 원하면 Tars에게 직접 요청하세요."
+      "notByFollowUp": "Tars가 자동 후속에서 제안한 일이라 적용할 수 없습니다. 원하면 Tars에게 직접 요청하세요.",
+      "notQueued": "대기 중인 작업만 대기열에서 순서를 바꿀 수 있습니다.",
+      "queueEdge": "이미 대기열의 그쪽 끝에 있는 작업입니다."
     },
     "close": "Tars 닫기",
     "availability": "Stave 실행 중 작업을 계속하고 재시작 후 복구합니다. Stave가 종료되거나 컴퓨터가 절전 중이면 실행하지 않습니다.",
@@ -1328,7 +1330,38 @@
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
             "acceptCompletion": "완료 인정 적용하지 않음 · 클릭"
           }
-        }
+        },
+        "move": {
+          "click": {
+            "pending": {
+              "earlier": "먼저 하기 처리 중 · 클릭",
+              "later": "나중에 하기 처리 중 · 클릭"
+            },
+            "applied": {
+              "earlier": "먼저 하기 적용됨 · 클릭",
+              "later": "나중에 하기 적용됨 · 클릭"
+            },
+            "rejected": {
+              "earlier": "먼저 하기 적용하지 않음 · 클릭",
+              "later": "나중에 하기 적용하지 않음 · 클릭"
+            }
+          },
+          "drag": {
+            "pending": {
+              "earlier": "앞으로 옮기기 처리 중 · 드래그",
+              "later": "뒤로 옮기기 처리 중 · 드래그"
+            },
+            "applied": {
+              "earlier": "앞으로 옮기기 적용됨 · 드래그",
+              "later": "뒤로 옮기기 적용됨 · 드래그"
+            },
+            "rejected": {
+              "earlier": "앞으로 옮기기 적용하지 않음 · 드래그",
+              "later": "뒤로 옮기기 적용하지 않음 · 드래그"
+            }
+          }
+        },
+        "movePriority": "우선순위 {{priority}}"
       },
       "states": {
         "queued": "대기 중",
@@ -1509,7 +1542,15 @@
         "timelineLabel": "{{title}} 타임라인 열기"
       },
       "branch": "브랜치",
-      "waitingBehind": "“{{title}}” 작업이 실행 중이라 기다립니다. 한 번에 한 작업만 실행합니다."
+      "waitingBehind": "“{{title}}” 작업이 실행 중이라 기다립니다. 한 번에 한 작업만 실행합니다.",
+      "moveEarlier": "먼저 하기",
+      "moveLater": "나중에 하기",
+      "reorder": {
+        "handle": "{{title}} 순서 바꾸기",
+        "hint": "드래그해서 순서를 바꿉니다. 더 보기의 먼저 하기와 나중에 하기도 같은 일을 합니다.",
+        "moved": "{{title}}: 이제 대기열 {{total}}개 중 {{position}}번째입니다.",
+        "refused": "{{title}}의 순서를 그대로 두었습니다: {{reason}}"
+      }
     },
     "flow": {
       "label": "{{title}} 작업 흐름",

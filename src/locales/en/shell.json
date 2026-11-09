@@ -1147,7 +1147,9 @@
       "storageBusy": "Tars’s storage stayed busy and nothing changed. Try again.",
       "unknown": "Tars could not apply this control. Check the work’s current state and try again.",
       "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
-      "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it."
+      "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it.",
+      "notQueued": "Only queued work can change its place in the queue.",
+      "queueEdge": "This work is already at that end of the queue."
     },
     "close": "Close Tars",
     "availability": "Work continues while Stave is running and recovers after restart. It does not run while Stave is closed or this computer is asleep.",
@@ -1334,7 +1336,38 @@
             "handBack": "Hand back not applied · click",
             "acceptCompletion": "Accept as done not applied · click"
           }
-        }
+        },
+        "move": {
+          "click": {
+            "pending": {
+              "earlier": "Do first pending · click",
+              "later": "Do later pending · click"
+            },
+            "applied": {
+              "earlier": "Moved earlier · click",
+              "later": "Moved later · click"
+            },
+            "rejected": {
+              "earlier": "Do first not applied · click",
+              "later": "Do later not applied · click"
+            }
+          },
+          "drag": {
+            "pending": {
+              "earlier": "Move earlier pending · drag",
+              "later": "Move later pending · drag"
+            },
+            "applied": {
+              "earlier": "Moved earlier · drag",
+              "later": "Moved later · drag"
+            },
+            "rejected": {
+              "earlier": "Move earlier not applied · drag",
+              "later": "Move later not applied · drag"
+            }
+          }
+        },
+        "movePriority": "Priority {{priority}}"
       },
       "states": {
         "queued": "Queued",
@@ -1522,7 +1555,15 @@
         "timelineLabel": "Open the timeline for {{title}}"
       },
       "branch": "Branch",
-      "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time."
+      "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time.",
+      "moveEarlier": "Do first",
+      "moveLater": "Do later",
+      "reorder": {
+        "handle": "Reorder {{title}}",
+        "hint": "Drag to change the order. Do first and Do later in More actions do the same.",
+        "moved": "{{title}} is now {{position}} of {{total}} in the queue.",
+        "refused": "{{title}} kept its place: {{reason}}"
+      }
     },
     "flow": {
       "label": "Work flow for {{title}}",

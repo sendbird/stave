@@ -93,6 +93,7 @@ import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsRuntime } from "./host-service/tars-host";
 import { applyTarsDecision } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
+import { reprioritizeTars } from "./host-service/tars-queue";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
@@ -2221,6 +2222,14 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
       }));
       return;
+    case "tars.reprioritize": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await reprioritizeTars(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        readRegistry: () => persistence.loadRepositoryRegistry(), requestTick: () => tarsRuntime.requestTick(),
+      }));
+      return;
+    }
     case "delegated-agent.prepare":
       await respond(request.id, await prepareDelegatedAgentRun({ start: request.params, runtime: agentRunRuntime,
         assignmentForTask: (taskId) => assignRuntime.assignmentForTask(taskId), createTask: localMcpRuntime.createIdleTask }));

@@ -90,7 +90,8 @@ service.
 - Hand a unit to a specific agent: the built-in Implementer, Debugger, UI
   Polisher, Reviewer or Researcher, or a saved agent you allowed.
 - Run work by priority (higher first, oldest first on a tie) and change the
-  priority of queued work when you ask.
+  order of queued work when you ask, from a queued card's **Do first** and
+  **Do later**, or by dragging it in the tray.
 - Supervise each unit through work, independent review and verification, and
   refuse to call it done on the agent's word alone.
 - Ask you to choose between 2 to 4 options as a decision card you answer by
@@ -116,7 +117,9 @@ service.
   computer is asleep, and Tars does not schedule wake-ups of its own.
 - **One responsibility runs at a time.** Others wait in the queue, and a
   queued card names the work it waits behind. Work waiting for your answer
-  gives up its slot to independent queued work.
+  gives up its slot to independent queued work. Only queued work can change
+  its place; work that started keeps it, and priorities stay between 0 and
+  100.
 - **Reasoning has no tools.** Tars itself cannot read files, run commands or
   call MCP tools; it sees only the summary Stave supplies. Connected apps are
   not read merely because they are available.
@@ -199,6 +202,7 @@ explicitly. Details are in [Decisions](#decisions).
 | **Hand back** | Returns work you took over; Tars verifies it again before completing. |
 | **Cancel responsibility** | Ends supervision permanently. Changes, worktree, task and history stay. |
 | **Cancel message** | Stops a queued or running reply. Admitted work is not undone. |
+| **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
 You can ask in words too. Pause and take over apply at once; resume, hand back
 and cancel wait for your **Confirm** on a card. **Stop** in a Tars task or in
@@ -402,6 +406,29 @@ conversation; it is not shown as a message from you.
 - Previously admitted runs can resume concurrently when their waits end.
 - An unreadable task or run is shown as blocked rather than as completed.
   Open its task to inspect the cause; a refused control shows why.
+
+### Queue order
+
+Queued work starts by priority, higher first, and oldest first on a tie. In
+the tray's **Running** lane, work that started comes first and queued work
+follows in the order it will start. A queued card's more-actions menu offers
+**Do first** (move it ahead of the queued work before it) and **Do later**
+(behind the work after it), each only where it applies. Its grip moves it too:
+drag it to another queued card, or focus the grip and press **Alt+Up** or
+**Alt+Down**. Asking in words ("do the search fix first") still works and sets
+the priority Tars proposes.
+
+A move goes through the same host check as words: the work must be yours to
+control through Tars, still queued and unchanged since you saw it, and its
+registered workspace must still resolve. Stave computes the new priority from
+the queue as it is when it applies the move: the middle between the two
+neighbors, or ten past the neighbor at either end, within 0 to 100. Only the
+moved work changes when such a priority exists (an equal priority is enough
+when oldest-first already orders the pair); otherwise Stave renumbers as few
+other queued items as it can, all in the one move. Each move leaves one line
+such as "Moved earlier · click" with the new priority in the conversation, or
+the reason it was refused. A move changes which work starts next, never work
+already running.
 
 ### Run monitor and the "while you were away" summary
 

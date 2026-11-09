@@ -227,3 +227,61 @@ test("actual preload validates snapshot reads and identity or responsibility wri
   expect(JSON.parse(result.stdout.toString())).toEqual({ read: "desktop", denied: 5,
     calls: ["tars:get", "tars:update-identity", "tars:get", "tars:get", "tars:get"] });
 });
+
+test("reprioritize IPC admits only a strict queue move and forwards it to the host, never through the conversation service", () => {
+  const source = `
+    import { mock } from "bun:test";
+    const handlers = new Map(); const calls = [];
+    mock.module("electron", () => ({ webContents: { getAllWebContents: () => [] }, ipcMain: { handle: (key, callback) => handlers.set(key, callback) } }));
+    mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: async (...args) => { calls.push(args); return { forwarded: true }; } }));
+    mock.module("./electron/main/tars-conversation-instance", () => ({ getTarsConversationService: async () => { throw new Error("Queue moves must not use the conversation service"); } }));
+    const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
+    const input = { requestId: "move-1", responsibilityId: "goal", expectedRevision: 3, move: { direction: "earlier", relativeTo: "other" }, source: "drag" };
+    const result = await handlers.get("tars:reprioritize")(null, input);
+    let denied = 0;
+    for (const invalid of [
+      { ...input, priority: 90 }, { ...input, move: { direction: "first" } }, { ...input, move: { direction: "later", priority: 5 } },
+      { ...input, source: "words" }, { ...input, source: "model" }, { ...input, expectedRevision: 0 }, { ...input, requestId: "has space" },
+      { requestId: "move-2", responsibilityId: "goal", expectedRevision: 3, source: "click" },
+    ]) { try { await handlers.get("tars:reprioritize")(null, invalid); } catch { denied++; } }
+    console.log(JSON.stringify({ result, denied, calls }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  const output = JSON.parse(result.stdout.toString());
+  expect(output.denied).toBe(8);
+  expect(output.result).toEqual({ forwarded: true });
+  expect(output.calls).toEqual([["tars.reprioritize", { requestId: "move-1", responsibilityId: "goal", expectedRevision: 3, move: { direction: "earlier", relativeTo: "other" }, source: "drag" }]]);
+});
+
+test("actual preload validates a queue move and rejects a malformed move record", () => {
+  const source = `
+    import { mock } from "bun:test";
+    let api; const calls = []; let reply;
+    mock.module("electron", () => ({
+      contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
+      ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webUtils: { getPathForFile: () => "" },
+    }));
+    await import("./electron/preload");
+    const at = "2026-11-05T00:00:00.000Z";
+    const input = { requestId: "move-1", responsibilityId: "goal", expectedRevision: 1, move: { direction: "later" }, source: "click" };
+    const record = { requestId: "move-1", source: "click", requestHash: "d".repeat(64), action: { kind: "move", responsibilityId: "goal", expectedRevision: 1, move: { direction: "later" } },
+      status: "applied", error: null, reason: null, priority: 40, revision: 2, createdAt: at, updatedAt: at };
+    const snapshot = { identity: { id: "personal", name: "Tars", instructions: "", updatedAt: at }, responsibilities: [], runtime: "desktop" };
+    reply = { record, snapshot };
+    const accepted = await api.tars.reprioritize(input);
+    let denied = 0;
+    for (const operation of [() => api.tars.reprioritize({ ...input, extra: true }), () => api.tars.reprioritize({ ...input, move: { direction: "later", by: 2 } })]) {
+      try { await operation(); } catch { denied++; }
+    }
+    // A priority on a refused move, or a drag recorded as a control, is malformed.
+    reply = { record: { ...record, status: "rejected", error: "Stale.", reason: "stale" }, snapshot }; try { await api.tars.reprioritize(input); } catch { denied++; }
+    reply = { record: { ...record, source: "drag", action: { kind: "control", responsibilityId: "goal", expectedRevision: 1, operation: "pause" }, priority: undefined }, snapshot };
+    try { await api.tars.reprioritize(input); } catch { denied++; }
+    console.log(JSON.stringify({ status: accepted.record.status, priority: accepted.record.priority, denied, channels: calls.map(([channel]) => channel) }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({ status: "applied", priority: 40, denied: 4, channels: ["tars:reprioritize", "tars:reprioritize", "tars:reprioritize"] });
+});

@@ -1,10 +1,11 @@
-import { assertTarsSource, resolveTarsWorkspace } from "../main/tars-scope";
+import { resolveTarsWorkspace } from "../main/tars-scope";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema } from "../../src/lib/tars/conversation";
 import { TARS_CONFIRMED_OPERATIONS, type TarsActionReceipt, type TarsMessage } from "../../src/lib/tars/conversation";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsStore } from "../persistence/tars-store";
-import { admitTarsControl, tarsControlRejection, type TarsControlLedger, type TarsControlRequest } from "./tars-control";
+import { admitTarsControl, tarsControlRejection, TarsControlRejection, type TarsControlLedger, type TarsControlRequest } from "./tars-control";
+import { admitTarsReprioritize } from "./tars-queue";
 import type { AgentConfig } from "../../src/lib/agents/schema";
 import {
   admitTarsAgent, assertTarsAgentCatalog, isTarsAgentCatalogPending, tarsDelegationCeiling, TarsDelegateRejection,
@@ -232,11 +233,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
             }, now());
             return { responsibilityId: row.id };
           }
-          const row = ports.responsibilities.get(action.responsibilityId);
-          if (!row) throw new Error("The responsibility is not owned by the personal representative.");
-          assertTarsSource(row, ports.readRegistry());
-          if (row.state !== "queued") throw new Error("Only queued responsibilities can be reprioritized by a decision.");
-          if (row.revision !== action.expectedRevision) throw new Error("The responsibility changed before reprioritization.");
+          // The same admission as a click or drag in the tray (`tars-queue.ts`); words set the priority itself.
+          const row = admitTarsReprioritize(ports.responsibilities.get(action.responsibilityId), action, ports.readRegistry());
           return { responsibilityId: ports.responsibilities.patch(row.id, action.expectedRevision,
             { priority: action.priority }, now()).id };
         }, now()));
@@ -250,7 +248,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         // therefore records a known unapplied action, never an uncertain external write.
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
           { status: "rejected", error: boundedError(error),
-            ...(error instanceof TarsDelegateRejection || error instanceof TarsWorkingChangesRejection ? { reason: error.reason } : {}) }, now()));
+            ...(error instanceof TarsDelegateRejection || error instanceof TarsWorkingChangesRejection || error instanceof TarsControlRejection
+              ? { reason: error.reason } : {}) }, now()));
       }
     }
     return receipts;
