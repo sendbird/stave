@@ -4,9 +4,13 @@ import {
 } from "../../src/lib/tars/conversation";
 import type { TarsResponsibility, TarsSnapshot } from "../../src/lib/tars/types";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore, type TarsProposalRef } from "../persistence/tars-conversation-store";
-import { TarsOwnershipLostError, TarsRunEndedError, TarsRunHeldError } from "./tars-ownership";
+import {
+  TarsOwnershipLostError, TarsRequestUnavailableError, TarsRunEndedError, TarsRunHeldError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError,
+} from "./tars-ownership";
+import { tarsControlInputProblem } from "../../src/lib/tars/types";
+import { AGENT_RUN_LIMITS, AgentRunCommandError } from "../../src/lib/agent-runs/domain";
 
-export type TarsControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation">;
+export type TarsControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation" | "input">;
 
 /**
  * Where one control request settles: a message receipt or a click record. Both
@@ -38,8 +42,16 @@ export const TARS_CONTROL_STALE = "The responsibility changed. Refresh before tr
 export const TARS_PROPOSAL_SUPERSEDED = "A newer proposal for this responsibility replaced this one. Confirm the current proposal instead.";
 /** Operations that stop or withdraw Tars execution invalidate pending dispatch at once. */
 export const TARS_STOPPING_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["pause", "cancel", "takeover"]);
-/** Operations that give Tars execution authority again; they recheck the registered scope. */
-export const TARS_GRANTING_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack", "startNow"]);
+/**
+ * Operations that give Tars execution authority again, start work or let its
+ * run continue; they recheck the registered scope, and an ownership change
+ * refuses them instead of settling the responsibility.
+ */
+export const TARS_GRANTING_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set([
+  "resume", "handBack", "startNow", "extend", "retryStage", "skipStage", "signOff",
+  // Answering in a task Tars no longer holds would answer for its new owner.
+  "approve", "deny", "answer", "message", "requestChanges",
+]);
 
 /**
  * Deterministic admission. Admission checks the caller's revision; dispatch
@@ -66,7 +78,39 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
     case "resume":
       // Human takeover always wins: only an explicit hand-back returns the work.
       if (userOwned) refuse("takenOver", "You took over this work. Tars continues it only after you hand it back.");
-      if (row.state !== "paused" && row.state !== "blocked") refuse("notResumable", "Only paused or blocked work can resume.");
+      // Waiting work resumes only from a run pause (a usage limit, an expired wait); the run checks that at dispatch.
+      if (row.state !== "paused" && row.state !== "blocked" && !(row.state === "waiting" && row.agentRunId))
+        refuse("notResumable", "Only paused or blocked work can resume.");
+      return row;
+    case "approve": case "deny": case "answer": case "message": case "requestChanges": {
+      // Answering in the task for the user: never for work the user holds or paused, and only what the user saw.
+      if (userOwned) refuse("takenOver", "You took over this work. Answer in its task, or hand it back first.");
+      if (row.state === "paused") refuse("resumeFirst", "This work is paused. Resume it before answering in its task.");
+      if (!row.agentRunId) refuse("runRefused", "This work has no run yet.");
+      if (row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
+      const problem = tarsControlInputProblem(request.operation, request.input);
+      if (problem) refuse("unknown", problem);
+      // The run keeps at most this much sign-off feedback; refused rather than cut.
+      if (request.operation === "requestChanges" && request.input!.text!.length > AGENT_RUN_LIMITS.maxFeedbackChars)
+        refuse("unknown", `Requested changes hold at most ${AGENT_RUN_LIMITS.maxFeedbackChars} characters.`);
+      if (request.operation === "message" || request.operation === "requestChanges") return row;
+      const kind = request.operation === "answer" ? "question" : "approval";
+      const pending = row.pendingRequests?.find((entry) => entry.ref === request.input!.requestRef && entry.kind === kind);
+      if (!pending) refuse("requestUnavailable", "That request is not waiting in the work's task.");
+      if (request.operation === "answer") {
+        const keys = new Set((pending!.questions ?? []).map((question) => question.key));
+        if (!Object.keys(request.input!.answers!).every((key) => keys.has(key))) refuse("requestUnavailable", "The answers do not match the waiting questions.");
+      }
+      return row;
+    }
+    case "extend": case "retryStage": case "skipStage": case "signOff":
+      // The same commands the user gives the run in its task, on Tars's own run only.
+      if (userOwned) refuse("takenOver", "You took over this work. Continue it in its task, or hand it back first.");
+      // A command would move a run the user paused through Tars, and the paused row would no longer be observed.
+      if (row.state === "paused") refuse("resumeFirst", "This work is paused. Resume it before asking its run to do this.");
+      if (!row.agentRunId) refuse("runRefused", "This work has no run yet.");
+      // Bound to the exact revision the user saw: any saved change since (a new stage attempt included) makes it stale.
+      if (row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
       return row;
     case "takeover":
       if (userOwned) refuse("alreadyTakenOver", "You already took over this work.");
@@ -92,7 +136,10 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
 export function tarsControlRejection(error: unknown): TarsControlRejectionOutcome {
   const reason: TarsControlReason = error instanceof TarsControlRejection ? error.reason
     : error instanceof TarsOwnershipLostError ? "ownershipLost"
-      : error instanceof TarsRunEndedError ? "runEnded" : error instanceof TarsRunHeldError ? "runHeld" : "unknown";
+      : error instanceof TarsRunEndedError ? "runEnded" : error instanceof TarsRunHeldError ? "runHeld"
+        : error instanceof TarsStageChangedError ? "stale"
+          : error instanceof TarsRequestUnavailableError ? "requestUnavailable" : error instanceof TarsTaskBusyError ? "taskBusy"
+          : error instanceof TarsRunRefusedError || error instanceof AgentRunCommandError ? "runRefused" : "unknown";
   const message = (error instanceof Error ? error.message : "The control could not be applied.").slice(0, 2_000).trim() ||
     "The control could not be applied.";
   return { reason, error: message };
@@ -119,18 +166,21 @@ export function tarsActionLedger(conversations: TarsConversationStore, requestId
 /**
  * A confirming click names its proposal by request ID and must repeat it exactly:
  * it may only apply what the user was shown. Its outcome settles that proposal.
+ * A task operation's input comes from the proposal the card showed; a click
+ * that names one must name the same.
  */
-function confirmedProposal(conversations: TarsConversationStore, input: TarsActInput): TarsProposalRef | undefined {
+function confirmedProposal(conversations: TarsConversationStore, input: TarsActInput): { ref: TarsProposalRef; input: TarsActInput["input"] } | undefined {
   const ref = parseTarsConfirmationRequestId(input.requestId);
   if (!ref) return undefined;
   const receipt = conversations.getReceipt(ref.messageId, ref.actionIndex);
   const action = receipt?.action;
   if (action?.kind !== "control" || action.responsibilityId !== input.responsibilityId ||
-      action.expectedRevision !== input.expectedRevision || action.operation !== input.operation)
+      action.expectedRevision !== input.expectedRevision || action.operation !== input.operation ||
+      (input.input !== undefined && JSON.stringify(input.input) !== JSON.stringify(action.input)))
     throw new Error("This confirmation does not match its proposal.");
   if (receipt!.status !== "proposed" && !conversations.getAction(input.requestId))
     throw new Error("This proposal is not awaiting confirmation.");
-  return ref;
+  return { ref, input: action.input };
 }
 
 interface TarsActPorts {
@@ -147,9 +197,10 @@ export async function actTars(rawInput: unknown, ports: TarsActPorts): Promise<T
   const input = TarsActInputSchema.parse(rawInput);
   const now = ports.now ?? (() => new Date().toISOString());
   try {
-    const proposal = confirmedProposal(ports.conversations, input);
-    ports.conversations.recordAction(input, now());
-    const record = await ports.runtime.act(input, tarsActionLedger(ports.conversations, input.requestId, now, proposal));
+    const confirmation = confirmedProposal(ports.conversations, input);
+    const request: TarsActInput = confirmation?.input ? { ...input, input: confirmation.input } : input;
+    ports.conversations.recordAction(request, now());
+    const record = await ports.runtime.act(request, tarsActionLedger(ports.conversations, input.requestId, now, confirmation?.ref));
     return { record, snapshot: await ports.runtime.get() };
   } catch (error) {
     // The fixed message lets callers retry the same request ID after a lock wait.

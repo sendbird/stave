@@ -6,7 +6,7 @@ import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttention
 import { projectTarsRunProgress, tarsFleetTarget, tarsRunOf, type TarsRunProgress } from "./flow-model";
 import { tarsConfirmationRequestId } from "./conversation";
 import type { TarsSideViewTarget } from "./side-view";
-import type { TarsControlOperation, TarsFollowUpState, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "./types";
+import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState, type TarsPendingDecision, type TarsResponsibility, type TarsSnapshot } from "./types";
 import { tarsQueueOf } from "./queue-order";
 import { isTarsWorkRunning } from "./live-progress";
 
@@ -245,7 +245,8 @@ export function tarsQueueMoves(queue: TarsTrayCard["queue"]): Array<"earlier" | 
  * stays last.
  */
 export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention" | "fleetTarget"> & Partial<Pick<TarsTrayCard, "queue">>): { primary: TarsCardAction | null; more: TarsCardAction[] } {
-  const decisions = card.attention.flatMap((entry) => entry.decision ? [entry.decision] : []);
+  // An answer in the task (approve, answer, words) is confirmed only on the conversation card that shows it.
+  const decisions = card.attention.flatMap((entry) => entry.decision && !isTarsTaskOperation(entry.decision.operation) ? [entry.decision] : []);
   const [decision, ...otherDecisions] = decisions;
   const controls = decision ? card.controls.filter((operation) => operation !== decision.operation) : card.controls.slice(1);
   const primary: TarsCardAction | null = decision ? { kind: "confirm", decision }

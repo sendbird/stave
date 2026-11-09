@@ -1153,7 +1153,11 @@
       "notByFollowUp": "Tars가 자동 후속에서 제안한 일이라 적용할 수 없습니다. 원하면 Tars에게 직접 요청하세요.",
       "notQueued": "대기 중인 작업만 대기열에서 순서를 바꿀 수 있습니다.",
       "queueEdge": "이미 대기열의 그쪽 끝에 있는 작업입니다.",
-      "notStartable": "아직 시작하지 않은 대기 중인 작업만 지금 시작할 수 있습니다."
+      "notStartable": "아직 시작하지 않은 대기 중인 작업만 지금 시작할 수 있습니다.",
+      "runRefused": "실행이 지금 상태에서는 이 동작을 할 수 없습니다. Task를 열어 무엇을 기다리는지 확인하세요.",
+      "resumeFirst": "이 작업은 일시 정지되어 있습니다. 실행에 이 동작을 시키려면 먼저 재개하세요.",
+      "requestUnavailable": "그 요청은 더 이상 Task에서 기다리고 있지 않습니다. Task를 확인하거나 Tars에게 다시 요청하세요.",
+      "taskBusy": "Task에서 턴이 진행 중입니다. Task에서 직접 말하거나, 턴이 끝난 뒤 다시 요청하세요."
     },
     "close": "Tars 닫기",
     "availability": "Stave 실행 중 작업을 계속하고 재시작 후 복구합니다. Stave가 종료되거나 컴퓨터가 절전 중이면 실행하지 않습니다.",
@@ -1209,7 +1213,16 @@
         "takeover": "{{title}} 직접 맡기",
         "handBack": "{{title}} 다시 맡기기",
         "acceptCompletion": "{{title}} 완료로 인정",
-        "startNow": "{{title}} 지금 시작"
+        "startNow": "{{title}} 지금 시작",
+        "extend": "{{title}}에 턴 추가",
+        "retryStage": "{{title}}의 현재 스테이지 다시 시도",
+        "skipStage": "{{title}}의 현재 스테이지 건너뛰기",
+        "signOff": "{{title}}의 대기 중인 스테이지 승인",
+        "approve": "{{title}}의 요청 승인",
+        "deny": "{{title}}의 요청 거절",
+        "answer": "{{title}}의 질문에 답변",
+        "message": "{{title}}에 내 말 전달",
+        "requestChanges": "{{title}}의 대기 중인 스테이지에 변경 요청"
       },
       "records": {
         "click": {
@@ -1220,7 +1233,16 @@
             "takeover": "직접 맡기 처리 중 · 클릭",
             "handBack": "다시 맡기기 처리 중 · 클릭",
             "acceptCompletion": "완료 인정 처리 중 · 클릭",
-            "startNow": "지금 시작 처리 중 · 클릭"
+            "startNow": "지금 시작 처리 중 · 클릭",
+            "extend": "턴 추가 처리 중 · 클릭",
+            "retryStage": "스테이지 다시 시도 처리 중 · 클릭",
+            "skipStage": "스테이지 건너뛰기 처리 중 · 클릭",
+            "signOff": "승인 처리 중 · 클릭",
+            "approve": "요청 승인 처리 중 · 클릭",
+            "deny": "요청 거절 처리 중 · 클릭",
+            "answer": "질문 답변 처리 중 · 클릭",
+            "message": "Task에 전달 처리 중 · 클릭",
+            "requestChanges": "변경 요청 처리 중 · 클릭"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 클릭",
@@ -1229,7 +1251,16 @@
             "takeover": "직접 맡기 적용됨 · 클릭",
             "handBack": "다시 맡기기 적용됨 · 클릭",
             "acceptCompletion": "완료로 인정됨 · 클릭",
-            "startNow": "지금 시작함 · 클릭"
+            "startNow": "지금 시작함 · 클릭",
+            "extend": "턴 추가됨 · 클릭",
+            "retryStage": "스테이지 다시 시도함 · 클릭",
+            "skipStage": "스테이지 건너뜀 · 클릭",
+            "signOff": "승인됨 · 클릭",
+            "approve": "요청 승인함 · 클릭",
+            "deny": "요청 거절함 · 클릭",
+            "answer": "질문에 답함 · 클릭",
+            "message": "Task에 전달함 · 클릭",
+            "requestChanges": "변경 요청함 · 클릭"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 클릭",
@@ -1238,7 +1269,16 @@
             "takeover": "직접 맡기 적용하지 않음 · 클릭",
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
             "acceptCompletion": "완료 인정 적용하지 않음 · 클릭",
-            "startNow": "지금 시작 적용하지 않음 · 클릭"
+            "startNow": "지금 시작 적용하지 않음 · 클릭",
+            "extend": "턴 추가 적용하지 않음 · 클릭",
+            "retryStage": "스테이지 다시 시도 적용하지 않음 · 클릭",
+            "skipStage": "스테이지 건너뛰기 적용하지 않음 · 클릭",
+            "signOff": "승인 적용하지 않음 · 클릭",
+            "approve": "요청 승인 적용하지 않음 · 클릭",
+            "deny": "요청 거절 적용하지 않음 · 클릭",
+            "answer": "질문 답변 적용하지 않음 · 클릭",
+            "message": "Task에 전달 적용하지 않음 · 클릭",
+            "requestChanges": "변경 요청 적용하지 않음 · 클릭"
           }
         },
         "fleet": {
@@ -1249,7 +1289,16 @@
             "takeover": "직접 맡기 처리 중 · Fleet",
             "handBack": "다시 맡기기 처리 중 · Fleet",
             "acceptCompletion": "완료 인정 처리 중 · Fleet",
-            "startNow": "지금 시작 처리 중 · Fleet"
+            "startNow": "지금 시작 처리 중 · Fleet",
+            "extend": "턴 추가 처리 중 · Fleet",
+            "retryStage": "스테이지 다시 시도 처리 중 · Fleet",
+            "skipStage": "스테이지 건너뛰기 처리 중 · Fleet",
+            "signOff": "승인 처리 중 · Fleet",
+            "approve": "요청 승인 처리 중 · Fleet",
+            "deny": "요청 거절 처리 중 · Fleet",
+            "answer": "질문 답변 처리 중 · Fleet",
+            "message": "Task에 전달 처리 중 · Fleet",
+            "requestChanges": "변경 요청 처리 중 · Fleet"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · Fleet",
@@ -1258,7 +1307,16 @@
             "takeover": "직접 맡기 적용됨 · Fleet",
             "handBack": "다시 맡기기 적용됨 · Fleet",
             "acceptCompletion": "완료로 인정됨 · Fleet",
-            "startNow": "지금 시작함 · Fleet"
+            "startNow": "지금 시작함 · Fleet",
+            "extend": "턴 추가됨 · Fleet",
+            "retryStage": "스테이지 다시 시도함 · Fleet",
+            "skipStage": "스테이지 건너뜀 · Fleet",
+            "signOff": "승인됨 · Fleet",
+            "approve": "요청 승인함 · Fleet",
+            "deny": "요청 거절함 · Fleet",
+            "answer": "질문에 답함 · Fleet",
+            "message": "Task에 전달함 · Fleet",
+            "requestChanges": "변경 요청함 · Fleet"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · Fleet",
@@ -1267,7 +1325,16 @@
             "takeover": "직접 맡기 적용하지 않음 · Fleet",
             "handBack": "다시 맡기기 적용하지 않음 · Fleet",
             "acceptCompletion": "완료 인정 적용하지 않음 · Fleet",
-            "startNow": "지금 시작 적용하지 않음 · Fleet"
+            "startNow": "지금 시작 적용하지 않음 · Fleet",
+            "extend": "턴 추가 적용하지 않음 · Fleet",
+            "retryStage": "스테이지 다시 시도 적용하지 않음 · Fleet",
+            "skipStage": "스테이지 건너뛰기 적용하지 않음 · Fleet",
+            "signOff": "승인 적용하지 않음 · Fleet",
+            "approve": "요청 승인 적용하지 않음 · Fleet",
+            "deny": "요청 거절 적용하지 않음 · Fleet",
+            "answer": "질문 답변 적용하지 않음 · Fleet",
+            "message": "Task에 전달 적용하지 않음 · Fleet",
+            "requestChanges": "변경 요청 적용하지 않음 · Fleet"
           }
         },
         "task": {
@@ -1278,7 +1345,16 @@
             "takeover": "직접 맡기 처리 중 · 작업 화면",
             "handBack": "다시 맡기기 처리 중 · 작업 화면",
             "acceptCompletion": "완료 인정 처리 중 · 작업 화면",
-            "startNow": "지금 시작 처리 중 · 작업 화면"
+            "startNow": "지금 시작 처리 중 · 작업 화면",
+            "extend": "턴 추가 처리 중 · 작업 화면",
+            "retryStage": "스테이지 다시 시도 처리 중 · 작업 화면",
+            "skipStage": "스테이지 건너뛰기 처리 중 · 작업 화면",
+            "signOff": "승인 처리 중 · 작업 화면",
+            "approve": "요청 승인 처리 중 · 작업 화면",
+            "deny": "요청 거절 처리 중 · 작업 화면",
+            "answer": "질문 답변 처리 중 · 작업 화면",
+            "message": "Task에 전달 처리 중 · 작업 화면",
+            "requestChanges": "변경 요청 처리 중 · 작업 화면"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 작업 화면",
@@ -1287,7 +1363,16 @@
             "takeover": "직접 맡기 적용됨 · 작업 화면",
             "handBack": "다시 맡기기 적용됨 · 작업 화면",
             "acceptCompletion": "완료로 인정됨 · 작업 화면",
-            "startNow": "지금 시작함 · 작업 화면"
+            "startNow": "지금 시작함 · 작업 화면",
+            "extend": "턴 추가됨 · 작업 화면",
+            "retryStage": "스테이지 다시 시도함 · 작업 화면",
+            "skipStage": "스테이지 건너뜀 · 작업 화면",
+            "signOff": "승인됨 · 작업 화면",
+            "approve": "요청 승인함 · 작업 화면",
+            "deny": "요청 거절함 · 작업 화면",
+            "answer": "질문에 답함 · 작업 화면",
+            "message": "Task에 전달함 · 작업 화면",
+            "requestChanges": "변경 요청함 · 작업 화면"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 작업 화면",
@@ -1296,7 +1381,16 @@
             "takeover": "직접 맡기 적용하지 않음 · 작업 화면",
             "handBack": "다시 맡기기 적용하지 않음 · 작업 화면",
             "acceptCompletion": "완료 인정 적용하지 않음 · 작업 화면",
-            "startNow": "지금 시작 적용하지 않음 · 작업 화면"
+            "startNow": "지금 시작 적용하지 않음 · 작업 화면",
+            "extend": "턴 추가 적용하지 않음 · 작업 화면",
+            "retryStage": "스테이지 다시 시도 적용하지 않음 · 작업 화면",
+            "skipStage": "스테이지 건너뛰기 적용하지 않음 · 작업 화면",
+            "signOff": "승인 적용하지 않음 · 작업 화면",
+            "approve": "요청 승인 적용하지 않음 · 작업 화면",
+            "deny": "요청 거절 적용하지 않음 · 작업 화면",
+            "answer": "질문 답변 적용하지 않음 · 작업 화면",
+            "message": "Task에 전달 적용하지 않음 · 작업 화면",
+            "requestChanges": "변경 요청 적용하지 않음 · 작업 화면"
           }
         },
         "key": {
@@ -1307,7 +1401,16 @@
             "takeover": "직접 맡기 처리 중 · 클릭",
             "handBack": "다시 맡기기 처리 중 · 클릭",
             "acceptCompletion": "완료 인정 처리 중 · 클릭",
-            "startNow": "지금 시작 처리 중 · 클릭"
+            "startNow": "지금 시작 처리 중 · 클릭",
+            "extend": "턴 추가 처리 중 · 클릭",
+            "retryStage": "스테이지 다시 시도 처리 중 · 클릭",
+            "skipStage": "스테이지 건너뛰기 처리 중 · 클릭",
+            "signOff": "승인 처리 중 · 클릭",
+            "approve": "요청 승인 처리 중 · 클릭",
+            "deny": "요청 거절 처리 중 · 클릭",
+            "answer": "질문 답변 처리 중 · 클릭",
+            "message": "Task에 전달 처리 중 · 클릭",
+            "requestChanges": "변경 요청 처리 중 · 클릭"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 클릭",
@@ -1316,7 +1419,16 @@
             "takeover": "직접 맡기 적용됨 · 클릭",
             "handBack": "다시 맡기기 적용됨 · 클릭",
             "acceptCompletion": "완료로 인정됨 · 클릭",
-            "startNow": "지금 시작함 · 클릭"
+            "startNow": "지금 시작함 · 클릭",
+            "extend": "턴 추가됨 · 클릭",
+            "retryStage": "스테이지 다시 시도함 · 클릭",
+            "skipStage": "스테이지 건너뜀 · 클릭",
+            "signOff": "승인됨 · 클릭",
+            "approve": "요청 승인함 · 클릭",
+            "deny": "요청 거절함 · 클릭",
+            "answer": "질문에 답함 · 클릭",
+            "message": "Task에 전달함 · 클릭",
+            "requestChanges": "변경 요청함 · 클릭"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 클릭",
@@ -1325,7 +1437,16 @@
             "takeover": "직접 맡기 적용하지 않음 · 클릭",
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
             "acceptCompletion": "완료 인정 적용하지 않음 · 클릭",
-            "startNow": "지금 시작 적용하지 않음 · 클릭"
+            "startNow": "지금 시작 적용하지 않음 · 클릭",
+            "extend": "턴 추가 적용하지 않음 · 클릭",
+            "retryStage": "스테이지 다시 시도 적용하지 않음 · 클릭",
+            "skipStage": "스테이지 건너뛰기 적용하지 않음 · 클릭",
+            "signOff": "승인 적용하지 않음 · 클릭",
+            "approve": "요청 승인 적용하지 않음 · 클릭",
+            "deny": "요청 거절 적용하지 않음 · 클릭",
+            "answer": "질문 답변 적용하지 않음 · 클릭",
+            "message": "Task에 전달 적용하지 않음 · 클릭",
+            "requestChanges": "변경 요청 적용하지 않음 · 클릭"
           }
         },
         "words": {
@@ -1336,7 +1457,16 @@
             "takeover": "직접 맡기 처리 중 · 클릭",
             "handBack": "다시 맡기기 처리 중 · 클릭",
             "acceptCompletion": "완료 인정 처리 중 · 클릭",
-            "startNow": "지금 시작 처리 중 · 클릭"
+            "startNow": "지금 시작 처리 중 · 클릭",
+            "extend": "턴 추가 처리 중 · 클릭",
+            "retryStage": "스테이지 다시 시도 처리 중 · 클릭",
+            "skipStage": "스테이지 건너뛰기 처리 중 · 클릭",
+            "signOff": "승인 처리 중 · 클릭",
+            "approve": "요청 승인 처리 중 · 클릭",
+            "deny": "요청 거절 처리 중 · 클릭",
+            "answer": "질문 답변 처리 중 · 클릭",
+            "message": "Task에 전달 처리 중 · 클릭",
+            "requestChanges": "변경 요청 처리 중 · 클릭"
           },
           "applied": {
             "pause": "일시 정지 적용됨 · 클릭",
@@ -1345,7 +1475,16 @@
             "takeover": "직접 맡기 적용됨 · 클릭",
             "handBack": "다시 맡기기 적용됨 · 클릭",
             "acceptCompletion": "완료로 인정됨 · 클릭",
-            "startNow": "지금 시작함 · 클릭"
+            "startNow": "지금 시작함 · 클릭",
+            "extend": "턴 추가됨 · 클릭",
+            "retryStage": "스테이지 다시 시도함 · 클릭",
+            "skipStage": "스테이지 건너뜀 · 클릭",
+            "signOff": "승인됨 · 클릭",
+            "approve": "요청 승인함 · 클릭",
+            "deny": "요청 거절함 · 클릭",
+            "answer": "질문에 답함 · 클릭",
+            "message": "Task에 전달함 · 클릭",
+            "requestChanges": "변경 요청함 · 클릭"
           },
           "rejected": {
             "pause": "일시 정지 적용하지 않음 · 클릭",
@@ -1354,7 +1493,16 @@
             "takeover": "직접 맡기 적용하지 않음 · 클릭",
             "handBack": "다시 맡기기 적용하지 않음 · 클릭",
             "acceptCompletion": "완료 인정 적용하지 않음 · 클릭",
-            "startNow": "지금 시작 적용하지 않음 · 클릭"
+            "startNow": "지금 시작 적용하지 않음 · 클릭",
+            "extend": "턴 추가 적용하지 않음 · 클릭",
+            "retryStage": "스테이지 다시 시도 적용하지 않음 · 클릭",
+            "skipStage": "스테이지 건너뛰기 적용하지 않음 · 클릭",
+            "signOff": "승인 적용하지 않음 · 클릭",
+            "approve": "요청 승인 적용하지 않음 · 클릭",
+            "deny": "요청 거절 적용하지 않음 · 클릭",
+            "answer": "질문 답변 적용하지 않음 · 클릭",
+            "message": "Task에 전달 적용하지 않음 · 클릭",
+            "requestChanges": "변경 요청 적용하지 않음 · 클릭"
           }
         },
         "move": {
@@ -1513,7 +1661,16 @@
         "handBack": "Tars가 이 작업을 다시 맡겠다고 제안합니다.",
         "acceptCompletion": "Tars가 Stave 확인 없이 이 작업을 완료로 인정하자고 제안합니다.",
         "answerInConversation": "대화에서 답하세요.",
-        "startNow": "Tars가 대기 중인 이 작업을 지금 시작하자고 제안합니다."
+        "startNow": "Tars가 대기 중인 이 작업을 지금 시작하자고 제안합니다.",
+        "extend": "Tars가 이 실행에 턴을 더 주자고 제안합니다.",
+        "retryStage": "Tars가 현재 스테이지를 다시 시도하자고 제안합니다.",
+        "skipStage": "Tars가 현재 스테이지를 건너뛰자고 제안합니다.",
+        "signOff": "Tars가 대기 중인 스테이지를 승인하자고 제안합니다.",
+        "approve": "Tars가 이 작업 Task의 요청을 승인하자고 제안합니다.",
+        "deny": "Tars가 이 작업 Task의 요청을 거절하자고 제안합니다.",
+        "answer": "Tars가 이 작업 Task의 질문에 답을 제안합니다.",
+        "message": "Tars가 내 말을 이 작업 Task에 전달하자고 제안합니다.",
+        "requestChanges": "Tars가 대기 중인 스테이지에 변경을 요청하자고 제안합니다."
       },
       "blockedDetail": "Tars가 이 작업을 끝내지 못했습니다. 확인한 뒤 어떻게 할지 정하세요.",
       "showInFleet": "Fleet에서 보기",
@@ -1530,7 +1687,16 @@
         "takeover": "직접 맡기 확인",
         "handBack": "다시 맡기기 확인",
         "acceptCompletion": "완료 인정 확인",
-        "startNow": "지금 시작 확인"
+        "startNow": "지금 시작 확인",
+        "extend": "턴 추가 확인",
+        "retryStage": "스테이지 다시 시도 확인",
+        "skipStage": "스테이지 건너뛰기 확인",
+        "signOff": "승인 확인",
+        "approve": "승인 확인",
+        "deny": "거절 확인",
+        "answer": "답변 확인",
+        "message": "전달 확인",
+        "requestChanges": "변경 요청 확인"
       },
       "moreActions": "{{title}} 작업 더 보기",
       "moreActionsHint": "작업 더 보기",
@@ -1731,7 +1897,16 @@
         "acceptRationale": "Stave가 확인한 검사 없이 완료 처리합니다.",
         "cancelRationale": "감독을 끝냅니다. 이미 만든 변경은 그대로 남습니다.",
         "verifyRationale": "새 확인 요청을 메시지 입력란에 넣습니다. 보내기 전에는 아무것도 실행되지 않습니다.",
-        "startNow": "지금 시작"
+        "startNow": "지금 시작",
+        "extend": "턴 추가",
+        "retryStage": "스테이지 다시 시도",
+        "skipStage": "스테이지 건너뛰기",
+        "signOff": "승인",
+        "approve": "승인",
+        "deny": "거절",
+        "answer": "답변 보내기",
+        "message": "보내기",
+        "requestChanges": "변경 요청"
       },
       "verifyRequest": "“{{title}}” 작업을 검증할 새 작업을 시작해 줘. 현재 결과를 각 기준과 대조해 보고, Stave가 확인할 수 있는 내용을 알려 줘.",
       "source": {
@@ -1774,7 +1949,16 @@
           "takeover": "이 작업을 직접 맡을까요?",
           "handBack": "이 작업을 Tars에게 다시 맡길까요?",
           "acceptCompletion": "이 작업을 완료로 인정할까요?",
-          "startNow": "이 작업을 지금 시작할까요?"
+          "startNow": "이 작업을 지금 시작할까요?",
+          "extend": "이 실행에 턴을 더 줄까요?",
+          "retryStage": "현재 스테이지를 다시 시도할까요?",
+          "skipStage": "현재 스테이지를 건너뛸까요?",
+          "signOff": "대기 중인 스테이지를 승인할까요?",
+          "approve": "이 요청을 승인할까요?",
+          "deny": "이 요청을 거절할까요?",
+          "answer": "이 답변을 보낼까요?",
+          "message": "이 내용을 Task에 보낼까요?",
+          "requestChanges": "이 변경을 요청할까요?"
         },
         "unverifiedTitle": "Stave가 완료를 확인하지 못했습니다",
         "risk": "되돌릴 수 없음",
@@ -1783,7 +1967,10 @@
           "repository": "저장소",
           "workspace": "워크스페이스",
           "revision": "리비전",
-          "effect": "효과"
+          "effect": "효과",
+          "request": "요청",
+          "answers": "답변",
+          "words": "보낼 내용"
         },
         "revision": "r{{revision}}",
         "effect": {
@@ -1793,7 +1980,16 @@
           "takeover": "작업을 직접 맡습니다. 다시 맡길 때까지 Tars는 이 작업에 손대지 않습니다.",
           "handBack": "Tars가 작업을 다시 맡고, 완료로 보기 전에 다시 검증합니다.",
           "acceptCompletion": "Stave가 확인한 검사 없이 완료 처리합니다.",
-          "startNow": "Tars가 대기 중인 이 작업을 실행 중인 작업과 함께 지금 시작합니다."
+          "startNow": "Tars가 대기 중인 이 작업을 실행 중인 작업과 함께 지금 시작합니다.",
+          "extend": "실행에 턴 10개를 더 주고, 턴 한도에서 이어 갑니다.",
+          "retryStage": "막혔거나 멈춘 스테이지를 새로 시도합니다.",
+          "skipStage": "현재 스테이지를 끝내지 않고 넘어갑니다. 되돌릴 수 없습니다.",
+          "signOff": "승인을 기다리던 스테이지가 시작됩니다.",
+          "approve": "도구가 이 요청대로 한 번 실행됩니다. 되돌릴 수 없습니다.",
+          "deny": "도구 호출이 거절되고, 실행은 그것 없이 이어 갑니다.",
+          "answer": "Task의 질문에 이 답이 전달됩니다.",
+          "message": "실행이 이 내용을 내 답장으로 받고 스테이지를 이어 갑니다.",
+          "requestChanges": "이전 스테이지가 이 피드백으로 다시 실행되고, 그 뒤 스테이지도 다시 진행됩니다."
         },
         "unverifiedEffect": "완료 인정과 취소는 되돌릴 수 없습니다. 검증 요청은 메시지 초안만 만듭니다.",
         "notNow": "나중에",
@@ -2066,6 +2262,15 @@
       "storageBusy": "실행 준비 중 데이터베이스 잠금이 관측되었습니다. 다시 시도합니다.",
       "unknown": "대기 사유가 아직 확인되지 않았습니다."
     },
-    "startNow": "지금 시작"
+    "startNow": "지금 시작",
+    "extend": "턴 추가",
+    "retryStage": "스테이지 다시 시도",
+    "skipStage": "스테이지 건너뛰기",
+    "signOff": "승인",
+    "approve": "요청 승인",
+    "deny": "요청 거절",
+    "answer": "질문 답변",
+    "message": "Task에 전달",
+    "requestChanges": "변경 요청"
   }
 }

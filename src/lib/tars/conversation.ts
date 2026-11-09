@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
-import { TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlOperationSchema, TarsSnapshotSchema, type TarsControlOperation } from "./types";
+import {
+  TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema,
+  tarsControlInputProblem, type TarsControlOperation,
+} from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
 import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
 
@@ -80,6 +83,14 @@ export const TarsControlReasonSchema = z.enum([
   "notQueued", "queueEdge",
   // Start now: only queued work that has not started can start ahead of the queue.
   "notStartable",
+  // A run command (extend, retry, skip, sign off) or a resume the run itself refused in its current state.
+  "runRefused",
+  // A run command on work the user paused through Tars: resume it first.
+  "resumeFirst",
+  // A task operation named a request no longer waiting in the task.
+  "requestUnavailable",
+  // A message while a turn runs in the task: it is said in the task, or after the turn.
+  "taskBusy",
 ]);
 export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
 
@@ -114,18 +125,30 @@ export const TarsControlActionSchema = z.object({
   responsibilityId: IdSchema,
   expectedRevision: RevisionSchema,
   operation: TarsControlOperationSchema,
-}).strict();
+  /** Only on task operations (approve, deny, answer, message, requestChanges); see `tarsControlInputProblem`. */
+  input: TarsControlInputSchema.optional(),
+}).strict().superRefine((action, context) => {
+  const problem = tarsControlInputProblem(action.operation, action.input);
+  if (problem) context.addIssue({ code: "custom", message: problem, path: ["input"] });
+});
 export type TarsControlAction = z.infer<typeof TarsControlActionSchema>;
 
 /**
- * Controls that return authority to Tars or end work. When the model proposes
- * one, it waits for the user's confirming click; pause and takeover, which only
- * reduce Tars's authority, apply at once, and so does startNow, which only
- * starts work the user already delegated earlier than its queue place.
+ * Controls that return authority to Tars, give its run more room or end work.
+ * When the model proposes one, it waits for the user's confirming click; pause
+ * and takeover, which only reduce Tars's authority, apply at once, and so does
+ * `startNow`, which only changes when work the user already admitted starts.
  */
-export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack", "cancel", "acceptCompletion"]);
-/** Effects that cannot be undone. They are never a default: no recommended option, no Enter, no "yes". */
-export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion"]);
+export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set([
+  "resume", "handBack", "cancel", "acceptCompletion", "extend", "retryStage", "skipStage", "signOff",
+  // Answering for the user in the task: the card shows the exact request, answers or words first.
+  "approve", "answer", "message", "requestChanges",
+]);
+/**
+ * Effects that cannot be undone. They are never a default: no recommended
+ * option, no Enter, no "yes". An approved tool call runs at once.
+ */
+export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion", "skipStage", "approve"]);
 export function tarsConfirmationRequestId(messageId: string, actionIndex: number) {
   return `confirm:${messageId}:${actionIndex}`;
 }
@@ -383,6 +406,8 @@ export const TarsActInputSchema = z.object({
   responsibilityId: IdSchema,
   expectedRevision: RevisionSchema,
   operation: TarsControlOperationSchema,
+  /** A task operation's input. A confirming click may omit it: the host takes it from the proposal the card showed. */
+  input: TarsControlInputSchema.optional(),
   source: TarsActSourceSchema,
 }).strict();
 export type TarsActInput = z.infer<typeof TarsActInputSchema>;

@@ -4,7 +4,7 @@ import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { confirmFleetTarsDecision } from "@/lib/fleet/tars-decision-confirm";
-import type { TarsControlOperation } from "@/lib/tars/types";
+import { isTarsTaskOperation, type TarsControlOperation } from "@/lib/tars/types";
 import { useAppStore } from "@/store/app.store";
 import { tarsBridge } from "@/store/tars-snapshot-store";
 import { inboxRowStyles as rowStyles } from "./inbox-row.styles";
@@ -17,6 +17,15 @@ const CONFIRM_LABEL_KEY = {
   handBack: "fleet:tarsAttention.confirm.handBack",
   acceptCompletion: "fleet:tarsAttention.confirm.acceptCompletion",
   startNow: "fleet:tarsAttention.confirm.startNow",
+  extend: "fleet:tarsAttention.confirm.extend",
+  retryStage: "fleet:tarsAttention.confirm.retryStage",
+  skipStage: "fleet:tarsAttention.confirm.skipStage",
+  signOff: "fleet:tarsAttention.confirm.signOff",
+  approve: "fleet:tarsAttention.confirm.approve",
+  deny: "fleet:tarsAttention.confirm.deny",
+  answer: "fleet:tarsAttention.confirm.answer",
+  message: "fleet:tarsAttention.confirm.message",
+  requestChanges: "fleet:tarsAttention.confirm.requestChanges",
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**
@@ -28,7 +37,8 @@ export function FleetTarsDecisionConfirm(props: { item: FleetAttentionItem; disa
   const [pending, setPending] = useState(false);
   const [failureKey, setFailureKey] = useState<string | null>(null);
   const decision = props.item.tarsDecision;
-  if (!decision) return null;
+  // An answer in the task (approve, answer, words) is confirmed only on the conversation card that shows it; the row offers Tars instead.
+  if (!decision || isTarsTaskOperation(decision.operation)) return null;
   const label = t(CONFIRM_LABEL_KEY[decision.operation]);
   const confirm = async () => {
     setPending(true);

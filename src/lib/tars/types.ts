@@ -60,13 +60,94 @@ export const TarsStateSchema = z.enum([
 ]);
 export type TarsState = z.infer<typeof TarsStateSchema>;
 
-/** The controls a click, Fleet, a task or an admitted model proposal can apply. */
-/** `acceptCompletion`: the user accepts work whose completion Stave could not verify. */
-/** `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot. */
-export const TarsControlOperationSchema = z.enum(["pause", "resume", "cancel", "takeover", "handBack", "acceptCompletion", "startNow"]);
+/**
+ * The controls a click, Fleet, a task or an admitted model proposal can apply.
+ * - `acceptCompletion`: the user accepts work whose completion Stave could not verify.
+ * - `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot.
+ * - `extend`, `retryStage`, `skipStage`, `signOff`: what the user can do to the
+ *   run in its task (add turns at its turn limit, ask a blocked or stuck stage
+ *   again, skip the current stage, approve a stage waiting for sign-off).
+ * - `approve`, `deny`, `answer`: answer a tool approval or a question waiting
+ *   in the work's task (or a helper's task), once; never an "always allow".
+ * - `message`: the user's words to the run as a reply in its task.
+ * - `requestChanges`: ask changes on a stage waiting for sign-off.
+ * The last five carry `input` (`TarsControlInputSchema`).
+ */
+export const TarsControlOperationSchema = z.enum([
+  "pause", "resume", "cancel", "takeover", "handBack", "acceptCompletion",
+  "startNow", "extend", "retryStage", "skipStage", "signOff",
+  "approve", "deny", "answer", "message", "requestChanges",
+]);
 export type TarsControlOperation = z.infer<typeof TarsControlOperationSchema>;
-/** The controls that reach the execution run; accepting completion only settles the responsibility, and queued work has no run yet. */
-export type TarsRunControlOperation = Exclude<TarsControlOperation, "acceptCompletion" | "startNow">;
+/** Answers to a request waiting in the work's task, and the user's words to its run; each carries `input`. */
+export type TarsTaskOperation = "approve" | "deny" | "answer" | "message" | "requestChanges";
+export const TARS_TASK_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["approve", "deny", "answer", "message", "requestChanges"]);
+export function isTarsTaskOperation(operation: TarsControlOperation): operation is TarsTaskOperation {
+  return TARS_TASK_OPERATIONS.has(operation);
+}
+/** The controls that reach the execution run; accepting completion only settles the responsibility, queued work has no run yet, and task operations answer in the task. */
+export type TarsRunControlOperation = Exclude<TarsControlOperation, "acceptCompletion" | "startNow" | TarsTaskOperation>;
+
+export const TARS_TASK_TEXT_MAX_CHARS = 8_000;
+/** A question's own answer key (its `key`, else its full text) is kept whole; a longer one is answered only in the task. */
+export const TARS_QUESTION_KEY_MAX_CHARS = 4_000;
+/**
+ * What a task operation says: `requestRef` is the `ref` of a request in the
+ * responsibility's `pendingRequests` (approve, deny, answer); `answers` maps
+ * each question's key to the answer (answer); `text` is the reply or the
+ * requested changes (message, requestChanges).
+ */
+export const TarsControlInputSchema = z.object({
+  requestRef: z.string().trim().min(1).max(64).optional(),
+  answers: z.record(z.string().min(1).max(TARS_QUESTION_KEY_MAX_CHARS), z.string().trim().min(1).max(2_000))
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((answers) => Object.keys(answers).length >= 1 && Object.keys(answers).length <= 12, "Answer 1 to 12 questions.").optional(),
+  text: z.string().trim().min(1).max(TARS_TASK_TEXT_MAX_CHARS).optional(),
+}).strict();
+export type TarsControlInput = z.infer<typeof TarsControlInputSchema>;
+
+/** Which `input` fields an operation needs; operations without `input` must not carry one. Null when the pair fits. */
+export function tarsControlInputProblem(operation: TarsControlOperation, input: TarsControlInput | undefined): string | null {
+  if (!isTarsTaskOperation(operation)) return input === undefined ? null : "This control takes no input."; // i18n-ignore: schema diagnostic
+  if (!input) return "This control needs input."; // i18n-ignore: schema diagnostic
+  const needs = operation === "answer" ? ["requestRef", "answers"] : operation === "approve" || operation === "deny" ? ["requestRef"] : ["text"];
+  const present = Object.entries(input).filter(([, value]) => value !== undefined).map(([key]) => key);
+  return needs.every((key) => present.includes(key)) && present.every((key) => needs.includes(key))
+    ? null : `This control takes exactly: ${needs.join(", ")}.`; // i18n-ignore: schema diagnostic
+}
+
+/**
+ * A request waiting on the user in the work's task, or in the task of a
+ * helper its run delegated to, as the host last observed it. Bounded copies
+ * for the conversation and the planner; the host reads the task again before
+ * answering. `ref` identifies it by workspace, task, message and provider
+ * request id together, since a provider may reuse a request id; a task
+ * operation names it by `ref`. `summary` is the tool's own description
+ * (untrusted text).
+ */
+export const TarsPendingRequestSchema = z.object({
+  kind: z.enum(["approval", "question"]),
+  ref: z.string().min(1).max(64),
+  requestId: z.string().min(1).max(256),
+  messageId: z.string().min(1).max(256),
+  taskId: IdSchema,
+  workspaceId: IdSchema,
+  toolName: z.string().max(120),
+  summary: z.string().max(500),
+  questions: z.array(z.object({
+    key: z.string().min(1).max(TARS_QUESTION_KEY_MAX_CHARS),
+    question: z.string().max(300),
+    options: z.array(z.string().max(120)).max(8),
+  }).strict()).max(12).optional(),
+}).strict();
+export type TarsPendingRequest = z.infer<typeof TarsPendingRequestSchema>;
+export const TARS_PENDING_REQUESTS_MAX = 6;
+/** Run commands the user could give in the task; each acts on the run's current stage or turn limit. */
+export const TARS_RUN_COMMAND_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["extend", "retryStage", "skipStage", "signOff"]);
+export type TarsRunCommandOperation = "extend" | "retryStage" | "skipStage" | "signOff";
+export function isTarsRunCommandOperation(operation: TarsControlOperation): operation is TarsRunCommandOperation {
+  return TARS_RUN_COMMAND_OPERATIONS.has(operation);
+}
 
 /**
  * Stable codes for the status sentences Tars itself writes into a
@@ -256,6 +337,19 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
    * No create request, control or renderer write can set it.
    */
   publication: TarsPublicationSchema.optional(),
+  /**
+   * The run's own current stage attempt (`stageId#attempt`) when last
+   * observed, while the run is active. A stage command (retry, skip, sign off)
+   * applies only to this attempt, so one confirmed for a stage never acts on
+   * a later one; a new attempt saves a change that makes older proposals stale.
+   */
+  activeStage: z.string().min(1).max(300).optional(),
+  /**
+   * Tool approvals and questions waiting in the work's task or a helper's
+   * task, as last observed while the work waits on them. A new or answered
+   * request saves a change, so a proposal made for an older set is stale.
+   */
+  pendingRequests: z.array(TarsPendingRequestSchema).max(TARS_PENDING_REQUESTS_MAX).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 }).strict();
@@ -282,6 +376,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true, executionPending: true,
+  activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;
 

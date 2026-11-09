@@ -385,7 +385,16 @@
       "takeover": "Tars proposes that you take over this work.",
       "handBack": "Tars proposes to take this work back.",
       "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check.",
-      "startNow": "Tars proposes to start this queued work now."
+      "startNow": "Tars proposes to start this queued work now.",
+      "extend": "Tars proposes to give this run more turns.",
+      "retryStage": "Tars proposes to retry the current stage.",
+      "skipStage": "Tars proposes to skip the current stage.",
+      "signOff": "Tars proposes to sign off the waiting stage.",
+      "approve": "Tars proposes to approve a request in this work's task.",
+      "deny": "Tars proposes to deny a request in this work's task.",
+      "answer": "Tars proposes an answer to a question in this work's task.",
+      "message": "Tars proposes to send your words to this work's task.",
+      "requestChanges": "Tars proposes to request changes on the waiting stage."
     },
     "blockedDetail": "Tars stopped this work and waits for your decision.",
     "confirm": {
@@ -395,7 +404,16 @@
       "takeover": "Confirm take over",
       "handBack": "Confirm hand back",
       "acceptCompletion": "Confirm accept as done",
-      "startNow": "Confirm start now"
+      "startNow": "Confirm start now",
+      "extend": "Confirm add turns",
+      "retryStage": "Confirm retry stage",
+      "skipStage": "Confirm skip stage",
+      "signOff": "Confirm sign off",
+      "approve": "Confirm approval",
+      "deny": "Confirm denial",
+      "answer": "Confirm answer",
+      "message": "Confirm send",
+      "requestChanges": "Confirm change request"
     },
     "confirmLabel": "{{action}} for {{title}}",
     "openInTars": "Open in Tars",
