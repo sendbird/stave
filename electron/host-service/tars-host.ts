@@ -1,4 +1,5 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { tarsExecutionInstructions, tarsWorkflow, tarsObservation } from "./tars-execution";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
 import type { TarsChangedEvent, TarsResponsibility } from "../../src/lib/tars/types";
@@ -12,6 +13,9 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError } from "./tars-ownership";
+import { createTarsPublisher, type TarsPublishRunner } from "./tars-publish";
+import { projectTarsReport } from "../../src/lib/tars/report-model";
+import { runCommandArgs } from "../main/utils/command";
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -156,5 +160,40 @@ export function createHostTarsRuntime(args: {
       });
     },
     onError: (error) => console.error("[tars] reconciliation failed", error),
+  });
+}
+
+/** Long enough for commit hooks and a slow push; a command that hangs on a prompt still ends. */
+const TARS_PUBLISH_COMMAND_TIMEOUT_MS = 5 * 60_000;
+
+/** Argument arrays only (`shell: false`); prompts are disabled so a missing credential fails instead of waiting. */
+const runTarsPublishCommand: TarsPublishRunner = async (command, args, cwd) => {
+  const result = await runCommandArgs({ command, commandArgs: [...args], cwd, timeoutMs: TARS_PUBLISH_COMMAND_TIMEOUT_MS,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GH_PROMPT_DISABLED: "1" } });
+  return { ok: result.ok, code: result.code ?? null, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+};
+
+/** The host's publish path over the saved responsibilities, the registered workspaces and the run's frozen report. */
+export function createHostTarsPublisher(args: { agentRuns: Pick<AgentRunRuntime, "get"> }) {
+  const persistence = ensureHostServicePersistenceReady();
+  return createTarsPublisher({
+    conversations: persistence.tarsConversations,
+    responsibilities: persistence.tars,
+    async resolveWorkspace(row) {
+      const repositories = await tasks.listKnownRepositories();
+      const repository = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath));
+      const execution = repository?.workspaces.find((workspace) => workspace.id === row.executionWorkspaceId);
+      // An execution workspace is its own worktree; the repository's main checkout is never published from.
+      if (!repository || !execution || path.resolve(execution.path) === path.resolve(repository.repositoryPath) || !existsSync(execution.path)) return null;
+      const source = repository.workspaces.find((workspace) => workspace.id === row.workspaceId);
+      return { path: execution.path, base: source?.branch || repository.defaultBranch || null, repositoryName: repository.repositoryName };
+    },
+    async readReport(row) {
+      if (!row.agentRunId) return null;
+      try { return projectTarsReport(row, await args.agentRuns.get({ agentRunId: row.agentRunId })); }
+      catch { return null; }
+    },
+    run: runTarsPublishCommand,
+    onError: (error) => console.error("[tars] publish bookkeeping failed", error),
   });
 }

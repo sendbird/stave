@@ -25,6 +25,8 @@ import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
 import { tarsTrayStyles as styles } from "./tars-tray.styles";
 import { tarsMonitorStyles as monitorStyles } from "./tars-monitor.styles";
 import { TarsRunMonitor } from "./TarsRunMonitor";
+import { TarsPublishEntry } from "./TarsPublishEntry";
+import { isTarsPublishable } from "@/lib/tars/publish-model";
 
 export { stateTone } from "./TarsRunMonitor";
 
@@ -37,6 +39,8 @@ export interface TarsTrayActions {
   onShowInFleet: (target: FleetFocusTarget) => void;
   /** Opens the side view; absent where there is none (a blocked card then has no report link). */
   onOpenSide?: (target: TarsSideViewTarget) => void;
+  /** Opens completed work's publish confirmation card; absent on bridges without publishing. */
+  onPublish?: (row: TarsResponsibility) => void;
 }
 
 const LANES: readonly TarsLane[] = ["needsYou", "running", "done"];
@@ -192,6 +196,10 @@ export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actio
       <Button variant="ghost" size="2xs" data-tars-open-report={row.id} onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
         <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button>
     </div> : null,
+    // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
+    row.state === "completed" && (row.publication || (actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
+      <TarsPublishEntry row={row} onPublish={actions.onPublish} />
+    </div> : null,
   ].filter(Boolean);
   // The card is the design system's run object; its footer holds the card's actions, the step count and the timeline link.
   return <TarsRunMonitor row={row} progress={progress} onOpenSide={actions.onOpenSide} data-tars-card={row.id} data-tars-lane={card.lane}
@@ -201,7 +209,7 @@ export function TarsTrayCard({ card, actions }: { card: TarsTrayCardModel; actio
   </TarsRunMonitor>;
 }
 
-const OUTPUT_KIND: Record<Exclude<TarsOutput["kind"], "link">, TarsSideViewKind> = { report: "report", changes: "changes", review: "review" };
+const OUTPUT_KIND: Record<Exclude<TarsOutput["kind"], "link" | "pullRequest">, TarsSideViewKind> = { report: "report", changes: "changes", review: "review" };
 
 /** A verdict as the run records it, as its translation key. */
 export const REVIEW_VERDICT_KEY = { passed: "passed", "changes-requested": "changesRequested", none: "none" } as const;
@@ -212,6 +220,7 @@ function outputLabel(output: TarsOutput) {
     case "changes": return output.files === null ? i18n.t("shell:tars.tray.outputs.changesUncounted") : i18n.t("shell:tars.tray.outputs.changes", { count: output.files });
     case "review": return i18n.t(`shell:tars.tray.outputs.review.${REVIEW_VERDICT_KEY[output.verdict ?? "none"]}`);
     case "link": return output.label;
+    case "pullRequest": return output.number ? i18n.t("shell:tars.publish.outputs.pullRequest", { number: output.number }) : i18n.t("shell:tars.publish.outputs.pullRequestUnnumbered");
   }
 }
 
@@ -223,7 +232,7 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
     {outputs.map((output, index) => {
       const label = outputLabel(output);
       return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}>
-        {output.kind === "link"
+        {output.kind === "link" || output.kind === "pullRequest"
           ? <a className={sx(styles.outputLink)} href={output.url} target="_blank" rel="noreferrer">
             <span className={sx(styles.outputLabel)}>{label}</span><ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /></a>
           : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputButton} disabled={!onOpenSide}

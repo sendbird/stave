@@ -459,7 +459,8 @@ only on Claude and Codex; Cursor, Kiro and OpenCode are not supported.
 
 Built-in agents are always available to Tars. Allow a saved agent under
 **Agents Tars may use** before Tars can hand it work. Agents that publish,
-such as Shipper, are never used because publication needs a separate request.
+such as Shipper, are never used: only Stave publishes, and only after you
+confirm a publish card.
 Tars refuses an agent that is unknown, not allowed, unable to take delegated
 work, unable to run on a pinned execution model or above the permission
 delegated work allows, and the conversation shows why. Admitted
@@ -526,6 +527,18 @@ conversation.
 - **Timeline**: stages with attempts, the run's own decisions (routes, waits,
   retries), hand-offs and controls, and the commands and tool calls, folded.
 - **Review**: the reviewer's verdict and findings in its own words.
+
+Completed work that Stave verified can become a draft pull request. Choose
+**Create draft PR** on its card in **Done** or in its report, or ask Tars
+("open a draft PR for it"). A confirmation card shows the repository, the base
+and head branch, the changed files, the commit message and pull request title
+(you can edit both and change the commit type) and the body built from the
+report. **Open draft PR** or Enter publishes; **Decline** or Esc publishes
+nothing. Stave then commits, pushes the work's branch and opens a draft pull
+request; it never merges, deploys or force-pushes, and it asks again every
+time. The card folds to a line such as "Draft PR #12 opened", and the pull
+request appears in **Outputs** and the report. If a step fails, **Retry** opens
+the card again and continues from that step.
 
 A blocked card in the tray shows why and offers **Open report**, which opens
 the report on its unmet criteria with the next steps that work allows:

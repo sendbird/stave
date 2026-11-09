@@ -48,8 +48,10 @@ function Evidence({ items }: { items: readonly TarsReportEvidence[] }) {
  * what the run left behind. It is the run's frozen report, never live text.
  * `actions` are the next steps a blocked responsibility admits.
  */
-export function TarsReportPanel({ model, row, focusUnmet, actions }: {
+export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
   model: TarsReportModel; row: TarsResponsibility; focusUnmet?: boolean; actions?: ReactNode;
+  /** Completed work's way to its draft pull request: the link once open, else the button that opens its confirmation card. */
+  publish?: ReactNode;
 }) {
   const { t } = useTranslation(["shell"]);
   const unmetRef = useRef<HTMLElement>(null);
@@ -73,6 +75,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions }: {
         {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge>
       {model.reason ? <span className={sx(styles.meta)}>{model.reason}</span> : null}
     </div> : null}
+    {publish ? <div className={sx(styles.row)} data-tars-report-publish="">{publish}</div> : null}
     {/* Only blocked work has a reason and next steps; nothing else gets this landmark. */}
     {blocked ? <section className={sx(styles.section)} aria-label={t("shell:tars.side.report.blockedTitle")} data-tars-report-blocked="">
       {reason ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.report.blockedTitle")}.</strong> {reason}</span></p> : null}

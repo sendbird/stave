@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
   TarsMessageInput, TarsConversationSettings,
@@ -6,6 +7,7 @@ import type {
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
 import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-name";
+import { TarsPublicationSchema } from "./publication";
 
 /** The longest message the user can send Tars. */
 export const TARS_MESSAGE_MAX_CHARS = 32_000;
@@ -24,6 +26,10 @@ export const TARS_IPC = Object.freeze({
   cancelMessage: "tars:cancel-message",
   /** Answers one decision card option (click, key or a bound short answer); controls take `tars:act`'s host path. */
   answer: "tars:answer",
+  /** Confirms one publish card: the host commits, pushes and opens a draft pull request. */
+  publish: "tars:publish",
+  /** Reads what a publish card shows (repository, branches, changed files, body); changes nothing. */
+  publishPreview: "tars:publish-preview",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -174,6 +180,12 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   observedTurns: z.number().int().min(0).optional(),
   /** The run's current stage attempt (`stageId#attempt`) when last observed waiting; part of an ask's identity. */
   observedStage: z.string().min(1).max(300).optional(),
+  /**
+   * Host-only: the commit, push and draft pull request the user confirmed for
+   * completed work, saved after each step so a retry resumes where it stopped.
+   * No create request, control or renderer write can set it.
+   */
+  publication: TarsPublicationSchema.optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 }).strict();
@@ -191,7 +203,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, publication: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;
 
@@ -277,6 +289,10 @@ export interface TarsBridgeApi {
   act(input: TarsActInput): Promise<TarsActResult>;
   /** Answers a decision card; absent on bridges that predate decision cards. */
   answer?(input: TarsAnswerInput): Promise<TarsAnswerResult>;
+  /** Confirms a publish card through the host's one publish path; absent on bridges that predate publishing. */
+  publish?(input: TarsPublishInput): Promise<TarsPublishResult>;
+  /** What a publish card shows, read by the host; absent on bridges that predate publishing. */
+  previewPublish?(input: TarsPublishPreviewInput): Promise<TarsPublishPreview>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

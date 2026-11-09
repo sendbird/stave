@@ -26,6 +26,10 @@ import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import { TarsActivityNoticeLine, TarsFlowBlock } from "./TarsFlowBlock";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
+import { TarsPublishCard } from "./TarsPublishCard";
+import { TarsPublishRecordLine } from "./TarsPublishRecordLine";
+import type { TarsPublishContext } from "./use-tars-publish";
+import { TarsPublishReasonSchema } from "@/lib/tars/publication";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -35,6 +39,7 @@ const TARS_MESSAGE_LIMIT = TARS_MESSAGE_MAX_CHARS;
 /** A receipt's refusal key: a translated code when the host gave one; null keeps its diagnostic. */
 function receiptRefusalKey(receipt: TarsActionReceipt) {
   // An automatic follow-up's refusal reads the same for every kind of action.
+  if (receipt.action.kind === "publish") { const parsed = TarsPublishReasonSchema.safeParse(receipt.reason); return `shell:tars.publish.reason.${parsed.success ? parsed.data : "unknown"}` as const; }
   if (receipt.reason === "notByFollowUp" || receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show") return tarsControlReasonKey(receipt.reason);
   return receipt.action.kind === "delegate" ? tarsDelegateReasonKey(receipt.reason) : null;
 }
@@ -58,7 +63,24 @@ export interface TarsConversationController {
 
 export type TarsDecisionAnswerHandler = (decision: TarsDecisionView, optionIndex: number, source: TarsAnswerSource) => void;
 
-export function TarsConversationMessage({ message, receipts, name, busy, onCancel, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context }: {
+/** A publish proposal in place of its receipt: the card while it waits, else one line. */
+function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishContext["proposals"][number]; publish: TarsPublishContext; titleOf?: (id: string) => string | undefined }) {
+  const { t } = useTranslation(["shell"]);
+  const row = publish.rowOf(view.responsibilityId);
+  const title = titleOf?.(view.responsibilityId) ?? view.responsibilityId;
+  if (view.record) return <TarsPublishRecordLine record={view.record} row={row} title={title} onRetry={publish.retryFor(view.record) ?? undefined} />;
+  const line = (text: string, kind: string) => <p className={sx(styles.actionRecord)} data-tars-publish-proposal={kind}>
+    <span aria-hidden="true" className={sx(styles.glyph)}>↳</span><span>{text}</span><span className={sx(styles.recordTitle)}>{title}</span></p>;
+  if (view.state === "invalid") return line(t("shell:tars.publish.proposal.invalid"), "invalid");
+  if (publish.declined.has(view.requestId)) return line(t("shell:tars.publish.proposal.declined"), "declined");
+  if (!row) return null;
+  const { preview, state } = publish.previewOf(row.id);
+  return <TarsPublishCard id={view.requestId} row={row} preview={preview} previewState={state} busy={publish.busyId === view.requestId}
+    error={publish.errors.get(view.requestId)} onDecline={() => publish.onDecline(view.requestId)}
+    onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
+}
+
+export function TarsConversationMessage({ message, receipts, name, busy, onCancel, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish }: {
   message: TarsMessage; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   titleOf?: (responsibilityId: string) => string | undefined;
   /** The display name of a delegate action's agent. */
@@ -71,12 +93,15 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   answerErrors?: ReadonlyMap<string, string>;
   /** What a decision card shows about its target, and where Esc leaves it. */
   context?: TarsDecisionCardContext;
+  /** Publish proposals and their cards; absent, a publish proposal stays a receipt line. */
+  publish?: TarsPublishContext;
 }) {
   const { t } = useTranslation(["shell"]);
   const cards = new Map((decisions ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
+  const publishViews = new Map((publish?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   // An applied delegation reads as its flow block, and a decision as its card, so their receipt lines would only repeat them.
   const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: cards.get(receipt.actionIndex) ?? null }));
-  const lines = flowed.filter((entry) => !entry.flow && !entry.card).map((entry) => entry.receipt);
+  const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex)).map((entry) => entry.receipt);
   const failure = describeTarsMessageFailure(message);
   const origin = message.origin;
   return <div className={sx(styles.exchange)} data-tars-message={message.id} data-tars-message-origin={origin?.kind}>
@@ -102,6 +127,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
           : receipt.action.kind === "control" ? t(`shell:tars.conversation.control.${receipt.action.operation}`, { title: titleOf?.(receipt.action.responsibilityId) ?? receipt.action.responsibilityId })
             : receipt.action.kind === "ask" ? t("shell:tars.conversation.ask", { question: receipt.action.question })
               : receipt.action.kind === "show" ? t(`shell:tars.conversation.show.${receipt.action.view}`, { title: titleOf?.(receipt.action.responsibilityId) ?? receipt.action.responsibilityId })
+              : receipt.action.kind === "publish" ? t("shell:tars.conversation.publish", { title: titleOf?.(receipt.action.responsibilityId) ?? receipt.action.responsibilityId })
               : t("shell:tars.conversation.reprioritize", { title: titleOf?.(receipt.action.responsibilityId) ?? receipt.action.responsibilityId, priority: receipt.action.priority })}</span>
           {receipt.action.kind === "delegate" && receipt.action.agentId
             ? <span className={sx(styles.text)} data-tars-delegate-agent={receipt.action.agentId}>{t("shell:tars.conversation.delegateAgent", { name: agentNameOf?.(receipt.action.agentId) ?? receipt.action.agentId })}</span> : null}</div>
@@ -111,12 +137,13 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     {flowed.map(({ receipt, card }) => card
       ? <TarsDecisionCard key={`decision:${receipt.actionIndex}`} decision={card} titleOf={titleOf} {...context} busy={busy} error={answerErrors?.get(card.id)}
         onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null)}
+    {publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf} />) : null}
     {flowed.map(({ receipt, flow }) => flow
       ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide} /> : null)}
   </div>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -131,6 +158,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   /** The narrow side view: between the transcript and the composer, so both stay in view. */
   sidePanel?: ReactNode;
   controller?: Ref<TarsConversationController>;
+  /** Publish cards: word proposals in place, records of cards the user opened, and the card open now at the end. */
+  publish?: TarsPublishContext;
 }) {
   const { t } = useTranslation(["shell"]);
   const [text, setText] = useState("");
@@ -152,12 +181,15 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // A decision's own record shows on its card, never twice.
     ...(state.conversation?.records ?? []).filter((value) => !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
+    // A card the user opened leaves its confirmation's outcome where it was confirmed.
+    ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
     // A change Tars did not follow up because automatic turns reached the turn limit says so once, where it happened.
     ...(state.conversation?.events ?? []).filter((value) => value.status === "exhausted")
       .map((value) => ({ kind: "event" as const, id: `event:${value.key}`, at: value.processedAt ?? value.createdAt, value })),
-  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [decisionIds, state.conversation]);
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [decisionIds, publish?.records, state.conversation]);
   const scrollKey = timeline.map((item) => `${item.id}:${item.kind === "activity" ? item.value.activity.revision : item.kind === "event" ? item.value.status : item.value.revision}`).join("|")
-    + decisions.map((view) => `${view.id}:${view.state}`).join("|");
+    + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
+    + (publish?.open ? `|open:${publish.open.id}` : "");
   const tooLong = text.length > TARS_MESSAGE_LIMIT;
   const focusComposer = () => composerRef.current?.querySelector<HTMLElement>("[contenteditable='true'], textarea")?.focus();
   /** Click, key and words take this one path; only Stave's "ask for new verification work" stays in the composer. */
@@ -202,7 +234,9 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         {state.conversation && !timeline.length ? <TarsWelcome name={name} onExample={insertDraft} /> : null}
         {timeline.map((item) => {
           if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
-            titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} />;
+            titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} />;
+          if (item.kind === "publish") return <TarsPublishRecordLine key={item.id} record={item.value} row={publish?.rowOf(item.value.responsibilityId)}
+            title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} />;
           if (item.kind === "record") return <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.(item.value.action.responsibilityId)} />;
           if (item.kind === "event") return <p key={item.id} className={sx(styles.actionRecord)} data-tars-follow-up-exhausted={item.value.responsibilityId}>
             <span aria-hidden="true" className={sx(styles.glyph)}>↳</span><span>{t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })}</span></p>;
@@ -211,6 +245,16 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           return card ? <TarsDecisionCard key={item.id} decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} />
             : <TarsActivityNoticeLine key={item.id} notice={item.value} />;
         })}
+        {publish?.open ? (() => {
+          const open = publish.open;
+          const row = publish.rowOf(open.responsibilityId);
+          if (!row) return null;
+          const { preview, state: previewState } = publish.previewOf(row.id);
+          // A card the user opened is theirs to answer now, so it takes focus on its commit message.
+          return <TarsPublishCard key={open.id} id={open.id} row={row} preview={preview} previewState={previewState} initial={open.initial} autoFocus
+            busy={publish.busyId === open.id} error={publish.errors.get(open.id)} onDecline={() => publish.onDecline(open.id)}
+            onPublish={(words, source) => publish.onPublish({ id: open.id, responsibilityId: row.id, expectedRevision: null }, words, source)} />;
+        })() : null}
       </ConversationContent>
       <ConversationScrollButton />
     </Conversation>

@@ -33,6 +33,8 @@ import { TarsSettings } from "./TarsSettings";
 import { TarsTray, TarsTrayStatusNote, TarsTrayToggle, type TarsTrayActions } from "./TarsTray";
 import { TarsAwayRecap } from "./TarsAwayRecap";
 import { useTarsAwayWindow } from "./use-tars-away";
+import { useTarsPublish } from "./use-tars-publish";
+import { TarsPublishEntry } from "./TarsPublishEntry";
 import { tarsControlFailureKey } from "@/lib/tars/control-reasons";
 import { listAgents } from "@/lib/agents/library";
 import { getAgentDisplayName } from "@/lib/agents/display";
@@ -195,8 +197,12 @@ export function TarsView() {
     void refresh();
     return result;
   }
+  // Publish cards: Tars's own proposals in the conversation, and the one card "Create draft PR" opens at its end.
+  const publishing = useTarsPublish({ bridge: api, conversation: conversation.conversation, responsibilities: snapshot ? responsibilities : null,
+    refresh: () => { void refresh(); void conversation.refresh(); }, focusComposer: () => controller.current?.focusComposer() });
+  const openPublish = publishing.available ? (row: TarsResponsibility) => { setTrayPopoverOpen(false); publishing.openCard(row); } : undefined;
   const trayActions: TarsTrayActions = { busy, onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
-    onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide };
+    onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
     : responsibilities.length ? <>
@@ -213,6 +219,7 @@ export function TarsView() {
   const sideView = side && sideRow ? <TarsSideView target={side.target} row={sideRow} run={tarsRunOf(sideRow, runs)} cwd={sideCwd}
     placement={pinned ? { placement: "column" } : { placement: "inline", maxHeight: placement.placement === "inline" ? placement.maxHeight : 0 }}
     records={conversation.conversation?.records.filter((record) => record.action.responsibilityId === sideRow.id) ?? []}
+    publishAction={sideRow.state === "completed" ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined}
     takeFocus={side.takeFocus} onClose={closeSide} onKind={(kind) => setSide({ target: { responsibilityId: sideRow.id, kind }, takeFocus: false })}
     onQuote={(text) => controller.current?.insert(text)}
     blockedActions={sideRow.state !== "blocked" ? undefined : <TarsBlockedNextSteps row={sideRow} actions={trayActions} titleOf={(id) => responsibilities.find((row) => row.id === id)?.title}
@@ -236,7 +243,8 @@ export function TarsView() {
     <div className={sx(styles.workspace)}>
       <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} agentNameOf={(id) => agentNames.get(id)} flows={flows}
-        responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView} />
+        responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
+        publish={publishing.available ? publishing.context : undefined} />
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
       {pinned && pinnedTrayOpen ? <aside id={trayId} hidden={Boolean(sideView)} className={sx(trayStyles.panel, Boolean(sideView) && trayStyles.panelFolded)} aria-labelledby={`${trayId}-title`} data-tars-tray-panel="">

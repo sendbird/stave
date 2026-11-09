@@ -6,7 +6,11 @@ import {
   TarsMessageInputSchema, TarsMessageSchema, TarsReceiptOutcomeSchema, TarsDecisionAnswerSchema, TarsMessageOriginSchema, isTarsAnswerRetryable,
   type TarsActionReceipt, type TarsActionRecord, type TarsActInput, type TarsDecision, type TarsDecisionAction,
   type TarsMessage, type TarsMessageInput, type TarsReceiptOutcome, type TarsDecisionAnswer, type TarsAnswerRefusal, type TarsMessageOrigin,
+  type TarsActionReason,
 } from "../../src/lib/tars/conversation";
+import {
+  TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
+} from "../../src/lib/tars/publication";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readSettledTarsTargets } from "./tars-proposals";
 
@@ -78,6 +82,11 @@ export class TarsConversationStore {
         created_at TEXT NOT NULL, body_json TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_tars_decision_answers_status ON tars_decision_answers(status, created_at);
+      CREATE TABLE IF NOT EXISTS tars_publish_requests (
+        request_id TEXT PRIMARY KEY, request_hash TEXT NOT NULL, revision INTEGER NOT NULL CHECK (revision > 0),
+        created_at TEXT NOT NULL, body_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_tars_publish_requests_created ON tars_publish_requests(created_at, request_id);
     `);
   }
 
@@ -453,7 +462,7 @@ export class TarsConversationStore {
   }
 
   /** Only the confirming click moves a proposal on; it is never applied by the conversation itself. */
-  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string } | { status: "rejected"; error: string; reason: TarsControlReason },
+  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string } | { status: "rejected"; error: string; reason: TarsActionReason },
     now: string): TarsActionReceipt {
     const current = this.getReceipt(ref.messageId, ref.actionIndex);
     if (current?.status !== "proposed") throw new Error("The proposal is not awaiting confirmation.");
@@ -467,6 +476,79 @@ export class TarsConversationStore {
     if (Number(result.changes ?? 0) !== 1) throw new Error("The action receipt changed. Refresh before trying again.");
     this.changes.emit("conversation", "snapshot");
     return next;
+  }
+
+  private readPublish(row: unknown): TarsPublishRecord | null {
+    return row ? TarsPublishRecordSchema.parse(JSON.parse((row as StoredRow).body_json)) : null;
+  }
+
+  getPublish(requestId: string): TarsPublishRecord | null {
+    return this.readPublish(this.db.prepare("SELECT body_json FROM tars_publish_requests WHERE request_id = ?").get(requestId));
+  }
+
+  /** The most recent publish confirmations, oldest first, for the conversation timeline. */
+  listPublishes(limit = 100): TarsPublishRecord[] {
+    this.requireLimit(limit);
+    return this.db.prepare("SELECT body_json FROM tars_publish_requests ORDER BY created_at DESC, rowid DESC LIMIT ?")
+      .all(limit).map((row) => this.readPublish(row)!).reverse();
+  }
+
+  /**
+   * Records one confirmation's intent before any git or GitHub command runs.
+   * Its request id is the retry identity: a repeated click joins the first
+   * record. A word proposal's confirmation (`publish:<message>:<index>`) is one
+   * decision whichever surface sends it, so any retry of it joins the first.
+   */
+  recordPublish(rawInput: TarsPublishInput, proposal: TarsProposalRef | null, now: string): TarsPublishRecord {
+    const { requestId, source, ...request } = TarsPublishInputSchema.parse(rawInput);
+    const requestHash = hash({ proposal, ...request });
+    return this.write(() => {
+      const existing = this.db.prepare("SELECT body_json, request_hash FROM tars_publish_requests WHERE request_id = ?")
+        .get(requestId) as StoredRow | undefined;
+      if (existing) {
+        if (!proposal && existing.request_hash !== requestHash) throw new Error("This request ID already names a different publish.");
+        return this.readPublish(existing)!;
+      }
+      const record = TarsPublishRecordSchema.parse({ requestId, source, requestHash, ...request, proposal, status: "pending",
+        reason: null, error: null, url: null, number: null, revision: 1, createdAt: now, updatedAt: now });
+      this.db.prepare("INSERT INTO tars_publish_requests (request_id, request_hash, revision, created_at, body_json) VALUES (?, ?, ?, ?, ?)")
+        .run(requestId, requestHash, record.revision, now, JSON.stringify(record));
+      this.changes.emit("conversation");
+      return record;
+    });
+  }
+
+  /** Whether a publish proposal still waits for its confirmation, or that confirmation already has its record. */
+  isPublishProposalOpen(ref: TarsProposalRef, requestId: string): boolean {
+    const receipt = this.getReceipt(ref.messageId, ref.actionIndex);
+    return receipt?.action.kind === "publish" && (receipt.status === "proposed" || this.getPublish(requestId) !== null);
+  }
+
+  /**
+   * Settles a confirmation once, with the proposal it confirmed. A settled
+   * record is returned as it is, so a replayed outcome changes nothing.
+   */
+  settlePublish(requestId: string, outcome: { status: "applied"; url: string; number: number | null; existing?: boolean }
+    | { status: "rejected"; reason: TarsPublishReason; error: string }, now: string): TarsPublishRecord {
+    return this.write(() => {
+      const current = this.getPublish(requestId);
+      if (!current) throw new Error("The publish record was not found.");
+      if (current.status !== "pending") return current;
+      const applied = outcome.status === "applied" ? outcome : null;
+      const rejected = outcome.status === "rejected" ? outcome : null;
+      const next = TarsPublishRecordSchema.parse({ ...current, status: outcome.status, reason: rejected?.reason ?? null,
+        error: rejected?.error.slice(0, 2_000) ?? null, url: applied?.url ?? null, number: applied?.number ?? null,
+        ...(applied?.existing ? { existing: true } : {}), revision: current.revision + 1, updatedAt: now });
+      const result = this.db.prepare("UPDATE tars_publish_requests SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
+        .run(next.revision, JSON.stringify(next), requestId, current.revision);
+      if (Number(result.changes ?? 0) !== 1) throw new Error("The publish record changed. Refresh before trying again.");
+      if (current.proposal && this.getReceipt(current.proposal.messageId, current.proposal.actionIndex)?.status === "proposed") {
+        this.settleProposal(current.proposal, rejected ? { status: "rejected", error: next.error!, reason: rejected.reason }
+          : { status: "applied", responsibilityId: current.responsibilityId }, now);
+      }
+      this.changes.emit("conversation");
+      return next;
+    });
   }
 
   private readAnswer(row: unknown): TarsDecisionAnswer | null {

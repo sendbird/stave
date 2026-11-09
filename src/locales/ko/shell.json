@@ -1350,7 +1350,8 @@
         "changes": "{{title}}의 변경 사항을 열었습니다",
         "timeline": "{{title}}의 실행 기록을 열었습니다",
         "review": "{{title}}의 리뷰를 열었습니다"
-      }
+      },
+      "publish": "{{title}} 작업을 Draft PR로 게시"
     },
     "execution": {
       "model": "실행 모델",
@@ -1788,7 +1789,7 @@
       "canDo4": "결정이 필요하면 카드로 묻습니다. 클릭, 숫자 키, 짧은 답으로 고를 수 있습니다.",
       "canDo5": "작업이 막히거나 확인을 요청하거나 완료를 검증하지 못하면 먼저 알려 줍니다.",
       "canDo6": "결과 보고서, 변경 사항, 타임라인, 리뷰를 대화 옆에서 보여 줍니다.",
-      "limit1": "따로 요청하지 않으면 커밋, 푸시, PR 생성, 게시를 하지 않습니다.",
+      "limit1": "커밋, 푸시, Draft PR 생성은 매번 확인 카드에서 확인하신 뒤에만 하고, 병합하거나 배포하지 않습니다.",
       "limit2": "Stave가 실행 중이고 컴퓨터가 깨어 있을 때만 작업합니다.",
       "limit3": "한 번에 한 작업만 실행합니다. 나머지는 맡긴 일에서 기다립니다.",
       "limit4": "워크스페이스의 브랜치에서 시작하므로 커밋하지 않은 변경은 포함되지 않습니다.",
@@ -1800,6 +1801,98 @@
       "exampleLabel1": "지금 진행 중인 일",
       "exampleLabel2": "불안정한 테스트 고치기",
       "exampleLabel3": "멈추고 변경 내용 보기"
+    },
+    "publish": {
+      "open": "Draft PR 만들기",
+      "openHint": "확인 카드를 엽니다. 확인하기 전에는 커밋하거나 푸시하지 않습니다.",
+      "card": {
+        "title": "Draft PR을 만들까요?",
+        "description": "Tars가 이 작업을 커밋하고 브랜치를 푸시한 뒤 Draft PR을 엽니다. 병합하거나 배포하지는 않습니다.",
+        "draftTag": "Draft PR(초안)",
+        "risk": "되돌릴 수 없음",
+        "details": "게시할 내용",
+        "rows": {
+          "work": "작업",
+          "repository": "저장소",
+          "base": "기준 브랜치",
+          "head": "작업 브랜치",
+          "changedFiles": "변경된 파일",
+          "commitType": "커밋 유형",
+          "commitMessage": "커밋 메시지",
+          "title": "PR 제목",
+          "body": "PR 본문",
+          "resume": "이어서 할 단계"
+        },
+        "changedFiles_other": "파일 {{count}}개",
+        "unknown": "알 수 없음",
+        "loading": "워크스페이스를 읽는 중…",
+        "previewFailed": "Stave가 워크스페이스를 읽지 못했습니다. 카드를 닫고 다시 시도해 주세요.",
+        "publish": "Draft PR 열기",
+        "decline": "거절",
+        "enterKey": "Enter",
+        "escKey": "Esc",
+        "keysHint": "Enter를 누르면 Draft PR을 엽니다. Esc를 누르면 거절합니다.",
+        "bodyHint": "고정된 결과 보고서로 Stave가 만들었고, 보이는 그대로 보냅니다.",
+        "required": "커밋 메시지와 PR 제목을 입력해 주세요.",
+        "resumeStep": {
+          "commit": "커밋",
+          "push": "푸시",
+          "pr": "Draft PR 열기"
+        },
+        "failed": "Stave가 확인을 보내지 못했습니다. 다시 시도해 주세요."
+      },
+      "reason": {
+        "notOwned": "Tars가 맡고 있는 작업이 아닙니다.",
+        "notCompleted": "완료된 작업만 게시할 수 있습니다.",
+        "notVerified": "Stave가 확인하지 않은 작업입니다. 검사 없이 완료로 처리했으므로 필요하면 직접 게시해 주세요.",
+        "stale": "카드를 연 뒤 작업이 바뀌었습니다. 카드를 다시 열어 주세요.",
+        "noWorkspace": "작업의 워크스페이스를 더 이상 찾을 수 없습니다.",
+        "noChanges": "게시할 내용이 없습니다. 커밋하지 않은 변경도, 기준 브랜치보다 앞선 커밋도 없습니다.",
+        "noRemote": "저장소에 origin이라는 GitHub 원격 저장소가 없습니다.",
+        "ghUnavailable": "GitHub CLI가 설치되지 않았거나 로그인되지 않았습니다. gh auth login을 실행한 뒤 다시 시도해 주세요.",
+        "wrongBranch": "워크스페이스가 작업 브랜치에 있지 않거나, 작업 브랜치가 기준 브랜치와 같습니다.",
+        "alreadyPublished": "이미 Draft PR이 열려 있습니다.",
+        "inProgress": "이 작업을 이미 게시하고 있습니다.",
+        "publishFailed": "게시 단계 하나가 실패했습니다.",
+        "notByFollowUp": "자동 후속 확인은 게시를 제안할 수 없습니다. 직접 요청하실 때만 제안합니다.",
+        "unknown": "작업을 게시하지 못했습니다."
+      },
+      "record": {
+        "progress": {
+          "pending": "게시하는 중…",
+          "committing": "게시하는 중 · 커밋",
+          "committed": "게시하는 중 · 브랜치 푸시",
+          "pushed": "게시하는 중 · Draft PR 열기",
+          "opened": "게시하는 중 · 마무리",
+          "failed": "게시하는 중 · 멈춤"
+        },
+        "opened": "Draft PR #{{number}} 열림 · {{source}}",
+        "openedUnnumbered": "Draft PR 열림 · {{source}}",
+        "existing": "Draft PR #{{number}} 이미 열려 있음 · {{source}}",
+        "existingUnnumbered": "Draft PR 이미 열려 있음 · {{source}}",
+        "rejected": "게시하지 않음 · {{source}}",
+        "source": {
+          "click": "클릭",
+          "key": "키"
+        },
+        "failedStep": "멈춘 단계: {{step}}",
+        "retry": "다시 시도",
+        "view": "GitHub에서 열기"
+      },
+      "proposal": {
+        "invalid": "작업이 바뀌어 이 게시 제안은 더 이상 유효하지 않습니다. Tars에게 다시 요청하거나 Draft PR 만들기를 눌러 주세요.",
+        "declined": "거절했습니다. 아무것도 게시하지 않았습니다."
+      },
+      "status": {
+        "opened": "Draft PR #{{number}} 열림",
+        "openedUnnumbered": "Draft PR 열림",
+        "failed": "게시가 멈췄습니다",
+        "running": "게시하는 중…"
+      },
+      "outputs": {
+        "pullRequest": "Draft PR #{{number}} 보기",
+        "pullRequestUnnumbered": "Draft PR 보기"
+      }
     }
   }
 }

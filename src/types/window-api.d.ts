@@ -3103,7 +3103,10 @@ interface WindowApi {
   /**
    * Desktop-owned durable conversation and local responsibility admission.
    * `answer` (`tars:answer`) answers a decision card option; controls it
-   * applies take `act`'s host path. `onChanged` pushes `tars:changed`
+   * applies take `act`'s host path. `publish` (`tars:publish`) confirms a
+   * publish card and `previewPublish` (`tars:publish-preview`) reads what it
+   * shows; the host commits, pushes and opens a draft pull request only on
+   * that confirmation. `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
   tars?: TarsBridgeApi;

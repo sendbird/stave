@@ -13,6 +13,7 @@ import { tarsExecutionTarget } from "../../src/lib/tars/execution-resources";
 import { buildTarsBranchName } from "../../src/lib/tars/branch-name";
 import { TARS_ASSIGNMENT_MAX_CHARS } from "../../src/lib/tars/types";
 import { tarsFollowUpRefusal } from "./tars-follow-up-admission";
+import { tarsPublishProposalRefusal } from "./tars-publish";
 
 export interface TarsDecisionPorts {
   /** Both stores must share one SQLite connection; applyReceipt owns the transaction. */
@@ -116,6 +117,15 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision, owned
           ? { status: "applied", responsibilityId: owned.id }
           : { status: "rejected", error: "The responsibility is not owned by the personal representative.", reason: "notOwned" }, now()));
+        continue;
+      }
+      if (action.kind === "publish") {
+        // Publishing is never applied from words: the proposal waits for the user's
+        // confirmation on its card, which takes the host's publish path and checks
+        // the workspace and GitHub again. Work that could never publish is refused now.
+        const refusal = tarsPublishProposalRefusal(ports.responsibilities.get(action.responsibilityId), action);
+        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
+          refusal ? { status: "rejected", ...refusal } : { status: "proposed" }, now()));
         continue;
       }
       if (action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(action.operation)) {

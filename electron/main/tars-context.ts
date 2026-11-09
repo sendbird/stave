@@ -43,6 +43,8 @@ export function observeTarsContext(store: ObservationPorts,
     return { id: row.id, revision: row.revision, title: row.title, workspaceId: row.workspaceId, repositoryPath: row.repositoryPath,
       state: row.state, detail: row.detail, priority: row.priority, updatedAt: row.updatedAt,
       requiresReverification: row.reverifyAfter !== null,
+      // Whether its draft pull request is open, failed or underway; a URL only once opened.
+      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),
       source: "persisted-personal-responsibility", acceptanceCriteria: row.acceptanceCriteria.slice(0, 3),
       execution: owned ? { source: "persisted-agent-run", id: owned.id, state: owned.state, updatedAt: owned.updatedAt,
         stopReason: owned.stopReason } : null };

@@ -90,7 +90,7 @@ import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-fil
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
-import { createHostTarsRuntime } from "./host-service/tars-host";
+import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
 import { applyTarsDecision } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
@@ -672,6 +672,8 @@ const tarsRuntime = createHostTarsRuntime({
   assignments: assignRuntime,
   emitChanged: (event) => emitEvent("tars.changed", event),
 });
+// Publishing runs beside the runtime's queue: a push never holds up observation or controls.
+const tarsPublisher = createHostTarsPublisher({ agentRuns: agentRunRuntime });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -2213,6 +2215,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
       }));
       return;
+    case "tars.publish":
+      await respond(request.id, await tarsPublisher.publish(request.params));
+      return;
+    case "tars.publish-preview":
+      await respond(request.id, await tarsPublisher.preview(request.params));
+      return;
     case "delegated-agent.prepare":
       await respond(request.id, await prepareDelegatedAgentRun({ start: request.params, runtime: agentRunRuntime,
         assignmentForTask: (taskId) => assignRuntime.assignmentForTask(taskId), createTask: localMcpRuntime.createIdleTask }));
@@ -2263,6 +2271,8 @@ async function main() {
   agentRunRuntime.start();
   assignRuntime.start();
   tarsRuntime.start();
+  // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
+  tarsPublisher.recover();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

@@ -14,7 +14,9 @@ export type TarsOutput =
   | { kind: "report"; responsibilityId: string; title: string; outcome: NonNullable<AgentRunDetail["report"]>["outcome"]; frozenAt: string }
   | { kind: "changes"; responsibilityId: string; title: string; /** Null when the run recorded changes without a usable count. */ files: number | null }
   | { kind: "review"; responsibilityId: string; title: string; verdict: "passed" | "changes-requested" | null }
-  | { kind: "link"; responsibilityId: string; title: string; label: string; url: string };
+  | { kind: "link"; responsibilityId: string; title: string; label: string; url: string }
+  /** The draft pull request the host opened after the user confirmed it. */
+  | { kind: "pullRequest"; responsibilityId: string; title: string; url: string; number: number | null };
 
 /**
  * The files the run recorded as changed, by the latest attempt of each stage:
@@ -36,20 +38,24 @@ export function tarsRecordedChangeCount(detail: AgentRunDetail): number | null {
   return unknown ? null : 0;
 }
 
-/** Newest work first; within one responsibility, report, changes, review, then links. */
+/** Newest work first; within one responsibility, report, changes, review, its draft pull request, then links. */
 export function buildTarsOutputs(args: { responsibilities: readonly TarsResponsibility[]; runs: Readonly<Record<string, AgentRunDetail>> }): TarsOutput[] {
   const rows = [...args.responsibilities].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
   return rows.flatMap((row): TarsOutput[] => {
     const run = tarsRunOf(row, args.runs);
-    if (!run) return [];
     const base = { responsibilityId: row.id, title: row.title };
+    const pullRequest: TarsOutput[] = row.publication?.state === "opened" && row.publication.url
+      ? [{ kind: "pullRequest", ...base, url: row.publication.url, number: row.publication.number }] : [];
+    if (!run) return pullRequest;
     const outputs: TarsOutput[] = [];
     if (run.report) outputs.push({ kind: "report", ...base, outcome: run.report.outcome, frozenAt: run.report.endedAt });
     const files = tarsRecordedChangeCount(run);
     if (files !== 0) outputs.push({ kind: "changes", ...base, files });
     const review = projectTarsReview(run);
     if (review && (review.verdict || review.findings.length || review.blocked)) outputs.push({ kind: "review", ...base, verdict: review.verdict });
-    for (const link of run.report?.links ?? []) outputs.push({ kind: "link", ...base, label: link.label, url: link.url });
+    outputs.push(...pullRequest);
+    for (const link of run.report?.links ?? []) if (!pullRequest.some((entry) => entry.kind === "pullRequest" && entry.url === link.url))
+      outputs.push({ kind: "link", ...base, label: link.label, url: link.url });
     return outputs;
   });
 }
