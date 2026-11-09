@@ -20,6 +20,7 @@ import { TARS_LAST_VISIBLE_KEY } from "@/components/tars/use-tars-away";
 import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
 import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
+import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -257,6 +258,7 @@ export function TarsPreview() {
         if (!message) {
           const decision: TarsDecision = { reply: "The saved conversation continues across restarts.\n\n**Next:** check the review and keep the current plan.", actions: [] };
           if (params.get("fileLinks") === "true") decision.reply = "[Source](src/example.ts) and `src/example.ts`. [Documentation](https://example.com/docs).";
+          if (params.get("richReply") === "true") decision.reply = TARS_PREVIEW_RICH_REPLY;
           // With side-view fixtures, asking for the report opens it: a view-only show action the host admitted.
           if (side && /report|보고서/i.test(input.text)) {
             decision.reply = params.get("lang") === "ko" ? "결제 화면 작업의 결과 보고서를 옆에 열었습니다." : "I opened the checkout work's result report beside the conversation.";

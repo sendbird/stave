@@ -158,15 +158,15 @@ test("a message that includes working changes starts its work from the uncommitt
 
     await stave.page.getByRole("button", { name: /^(Tars|Tars)$/ }).click();
     const conversationView = stave.page.getByTestId("tars-view");
-    const toggle = conversationView.getByRole("switch", { name: /^(Include my working changes|작업 중인 변경 포함)$/ });
-    await expect(toggle).not.toBeChecked();
+    const toggle = conversationView.getByRole("button", { name: /^(Include my working changes|작업 중인 변경 포함)$/ });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
     await conversationView.getByRole("textbox").fill("Continue my README change in the registered repository.");
     await toggle.click();
-    await expect(toggle).toBeChecked();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await conversationView.getByRole("button", { name: /^(Send|보내기)$/ }).click();
     await expect.poll(() => stave!.page.evaluate(async () => (await window.api!.tars!.getConversation!()).messages.length)).toBe(1);
     // The choice went with this message only.
-    await expect(toggle).not.toBeChecked();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
     const message = (await stave.page.evaluate(() => window.api!.tars!.getConversation!())).messages[0]!;
     expect(message.includeWorkingChanges).toBe(true);
     await expect.poll(() => stave!.page.evaluate(async (id) =>

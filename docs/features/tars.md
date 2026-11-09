@@ -35,8 +35,9 @@ across workspaces, tasks and restarts.
    Stave keeps only git-safe characters and adds a short suffix, for example
    `fix/billing-export-empty-3fa9c1`, so the new workspace never reuses a
    branch or workspace you already have. Uncommitted changes in your
-   workspace are not part of it unless you turn on **Include my working
-   changes** next to **Send** for that message: then, when the work is
+   workspace are not part of it unless you turn on **Working changes**
+   (named **Include my working changes** for screen readers) next to
+   **Send** for that message: then, when the work is
    admitted, Stave snapshots the target workspace's working tree (modified,
    staged and new files, and deletions; files your `.gitignore` ignores stay
    out) as a commit on top of its current commit, without changing your files
@@ -148,7 +149,7 @@ service.
   not read merely because they are available.
 - **Uncommitted changes only when you include them.** The Tars workspace
   starts from the branch, not from your working copy, unless the message had
-  **Include my working changes** on. Then it starts from a snapshot taken when
+  **Working changes** on. Then it starts from a snapshot taken when
   the work was admitted, not when you sent the message; later edits are not
   part of it. Ignored files, Stave's own `.stave` folder and changes inside
   submodules are never included.
@@ -285,7 +286,7 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Conversation**: a flow block for each delegated unit, with the state's mark
   and the work's observation line visible while folded, one-line status and
   control records, and **Automatic follow-up** turns. A message sent with
-  **Include my working changes** carries that tag; a reply Tars is still
+  **Working changes** on carries that tag; a reply Tars is still
   writing reads **Thinking** with the moving mark.
 - **Composer**: while work runs, the band above the message box names each
   running piece of work (two at most, then a count), its stage and what Stave
@@ -317,8 +318,8 @@ provider or model than a pinned execution model, or needs more permission than
 delegated work allows.
 
 **My uncommitted changes are missing from Tars's work.** Tars starts from the
-target workspace's branch unless you turn on **Include my working changes**
-next to **Send** for that message; the switch turns off after each send. With
+target workspace's branch unless you turn on **Working changes** next to
+**Send** for that message; the toggle turns off after each send. With
 it on, the tray card says **From your working changes** with the snapshot's
 short commit, or **No working changes to include** when the workspace had
 none. Files your `.gitignore` ignores are never included. If Stave could not
@@ -388,6 +389,14 @@ same conversation.
   task.
 - **Cancel message** stops queued or running reasoning. It does not undo
   already admitted responsibilities; use their own controls.
+
+**Reading the conversation.** Your messages sit on the right in a bubble only
+as wide as their words, with their time and state under them. Tars's replies
+start on the left under its name and mark. Prose keeps a readable line length;
+code blocks and tables may use a wider measure when the window has room, and a
+long code line scrolls sideways inside its block instead of widening the view.
+When the message box is narrow, **Working changes** shows only its icon; its
+name and tooltip stay the same.
 
 Messages, answers and action outcomes survive restart. If sending loses its
 response, retry the unchanged draft to recover the same message. An

@@ -185,16 +185,22 @@ test("a click in the tray appends a one-line action record, never a user message
 
 test("include my working changes is off by default, travels with one message and resets after it is sent", async ({ page }) => {
   await page.goto("/?stavePreview=tars");
-  const toggle = composer(page).getByRole("switch", { name: "Include my working changes", exact: true });
-  await expect(toggle).not.toBeChecked();
-  // Keyboard first: Space on the focused switch turns it on.
-  await toggle.focus();
+  const toggle = composer(page).getByRole("button", { name: "Include my working changes", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  // What it does is its description, not part of its name.
+  await expect(toggle).toHaveAccessibleDescription(/uncommitted changes/);
+  // Keyboard first: Tab from the message box reaches it, and Space turns it on.
+  await editor(page).focus();
+  await page.keyboard.press("Tab");
+  await expect(toggle).toBeFocused();
   await page.keyboard.press("Space");
-  await expect(toggle).toBeChecked();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Tab");
+  await expect(composer(page).getByRole("button", { name: "Send", exact: true })).toBeFocused();
   await send(page, "Fix the export on top of my edits");
   await expect(page.locator("[data-tars-message]")).toHaveCount(1);
   await expect(page.locator("[data-tars-message-working-changes]")).toHaveText("Includes working changes");
-  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await send(page, "And tell me what is running");
   await expect(page.locator("[data-tars-message]")).toHaveCount(2);
   await expect(page.locator("[data-tars-message-working-changes]")).toHaveCount(1);
@@ -202,6 +208,61 @@ test("include my working changes is off by default, travels with one message and
   expect(saved.messages[0].includeWorkingChanges).toBe(true);
   expect(saved.messages[1]).not.toHaveProperty("includeWorkingChanges");
 });
+
+for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
+  test(`your messages and Tars's replies read apart, and long replies stay readable at ${width}px (${lang})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/?stavePreview=tars&richReply=true&lang=${lang}`);
+    const view = page.getByTestId("tars-view");
+    await send(page, "Why is the nightly billing export late? " + "Look at the retry path and suggest a fix. ".repeat(6));
+    const user = view.locator("[data-tars-user-message]");
+    const reply = view.locator("[data-tars-reply]");
+    await expect(reply).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await expect(user).toHaveAccessibleName(lang === "ko" ? "내 메시지" : "Your message");
+    await expect(reply).toHaveAccessibleName(lang === "ko" ? "Tars의 답변" : "Reply from Tars");
+    await expect(reply.locator("[data-tars-mark]")).toBeVisible();
+    const geometry = await view.evaluate((node) => {
+      const box = (selector: string) => node.querySelector(selector)!.getBoundingClientRect();
+      const row = box("[data-tars-user-message]");
+      const bubble = node.querySelector("[data-tars-user-message] > div")!.getBoundingClientRect();
+      const meta = box("[data-tars-message-meta]");
+      const reply = box("[data-tars-reply]");
+      const pre = node.querySelector<HTMLElement>("[data-tars-reply] pre")!;
+      const table = box("[data-tars-reply] table");
+      const paragraph = box("[data-tars-reply] p:not(:first-child)");
+      return { view: [node.clientWidth, node.scrollWidth], row: [row.left, row.right, row.width], bubble: [bubble.left, bubble.right, bubble.width], metaRight: meta.right,
+        reply: [reply.left, reply.right], pre: [pre.clientWidth, pre.scrollWidth, getComputedStyle(pre).overflowX], table: [table.left, table.right], paragraph: [paragraph.left, paragraph.right] };
+    });
+    // Nothing widens the view; the code block scrolls inside itself instead.
+    expect(geometry.view[1]).toBeLessThanOrEqual(geometry.view[0] + 1);
+    expect(geometry.pre[1]).toBeGreaterThan(geometry.pre[0]);
+    expect(geometry.pre[2]).toBe("auto");
+    // Your words end on the trailing edge in a bubble that leaves the leading side open; their time follows them there.
+    expect(Math.abs(geometry.bubble[1] - geometry.row[1])).toBeLessThanOrEqual(1);
+    expect(geometry.bubble[2]).toBeLessThanOrEqual(geometry.row[2] * 0.88 + 1);
+    expect(geometry.bubble[0]).toBeGreaterThan(geometry.row[0] + 8);
+    expect(Math.abs(geometry.metaRight - geometry.row[1])).toBeLessThanOrEqual(1);
+    // Tars's reply starts on the leading edge of the same column.
+    expect(Math.abs(geometry.reply[0] - geometry.row[0])).toBeLessThanOrEqual(1);
+    // Prose keeps the reading column; a table may take the wider measure when there is room, centred on the same axis.
+    expect(geometry.paragraph[1]).toBeLessThanOrEqual(geometry.reply[1] + 1);
+    if (width >= 1088) {
+      expect(geometry.table[1] - geometry.table[0]).toBeGreaterThan(geometry.reply[1] - geometry.reply[0]);
+      expect(Math.abs((geometry.table[0] + geometry.table[1]) / 2 - (geometry.reply[0] + geometry.reply[1]) / 2)).toBeLessThanOrEqual(1);
+    }
+    // The composer's one choice keeps its full name; narrow, it shows only its icon.
+    const toggle = composer(page).getByRole("button", { name: lang === "ko" ? "작업 중인 변경 포함" : "Include my working changes", exact: true });
+    await expect(toggle).toBeVisible();
+    const label = toggle.locator("[data-tars-working-changes-label]");
+    await expect(label).toHaveText(lang === "ko" ? "작업 중인 변경" : "Working changes");
+    if (width < 640) await expect(label).toBeHidden(); else await expect(label).toBeVisible();
+    const toggleBox = await toggle.boundingBox();
+    const sendBox = await composer(page).getByRole("button", { name: lang === "ko" ? "보내기" : "Send", exact: true }).boundingBox();
+    expect(toggleBox!.x + toggleBox!.width).toBeLessThanOrEqual(sendBox!.x);
+    expect(Math.abs((toggleBox!.y + toggleBox!.height / 2) - (sendBox!.y + sendBox!.height / 2))).toBeLessThanOrEqual(1);
+  });
+}
 
 test("tray cards say when work starts from the user's working changes, with the short commit", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

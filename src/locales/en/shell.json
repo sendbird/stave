@@ -1567,9 +1567,12 @@
       "publish": "Publish {{title}} as a draft pull request",
       "workingChanges": {
         "toggle": "Include my working changes",
-        "hint": "Work this message starts begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
+        "short": "Working changes",
+        "hint": "Work started by this message begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
         "badge": "Includes working changes"
-      }
+      },
+      "you": "Your message",
+      "replyFrom": "Reply from {{name}}"
     },
     "execution": {
       "model": "Execution model",

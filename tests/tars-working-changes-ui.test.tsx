@@ -43,8 +43,13 @@ describe("include my working changes", () => {
     const toggle = html.indexOf("data-tars-working-changes-toggle");
     expect(toggle).toBeGreaterThan(-1);
     expect(html).toContain("Include my working changes");
-    // A design-system switch, unchecked until the user turns it on.
-    expect(html.slice(html.lastIndexOf("<", toggle), html.indexOf(">", toggle))).toMatch(/role="switch"[^>]*aria-checked="false"|aria-checked="false"[^>]*role="switch"/);
+    // A design-system toggle button, not pressed until the user turns it on; its name is the full choice, its visible label short.
+    const tag = html.slice(html.lastIndexOf("<", toggle), html.indexOf(">", toggle));
+    expect(tag).toStartWith("<button");
+    expect(tag).toContain('aria-pressed="false"');
+    expect(tag).toContain('aria-label="Include my working changes"');
+    expect(tag).toMatch(/aria-describedby="[^"]+"/);
+    expect(html).toContain(">Working changes<");
     // It sits in the composer's action row, just before Send.
     const send = html.indexOf('aria-label="Send"', toggle);
     expect(send).toBeGreaterThan(toggle);

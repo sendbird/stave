@@ -1,16 +1,21 @@
 import { useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { FileDiff } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import { Button } from "@/components/ui";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { StateMark } from "@/components/aui/components/StateMark";
 import type { WorkState } from "@/components/aui/components/state-vocabulary";
-import { Switch } from "@/components/aui/components/Switch";
+import { Toggle } from "@/components/aui/components/Toggle";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { composerTray } from "@/components/aui/recipes/composer-tray";
 import { sx } from "@/components/aui/utils/stylex";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { TarsWelcome } from "./TarsGuide";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
+import { TarsMark } from "./TarsMark";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
 import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessage } from "@/lib/tars/conversation";
@@ -135,12 +140,17 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       : origin?.kind === "followUp" ? <p className={sx(styles.actionRecord)} data-tars-follow-up={origin.reason}><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
         <span>{t(`shell:tars.followUp.line.${origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
-        : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p></MessageContent></Message>}
-    <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
+        // The user's words sit on the trailing side in a bubble no wider than they need; Tars's reply reads full-width under its name.
+        : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(styles.userBubble)}>
+          <MessageContent><p className={sx(styles.messageText)}>{message.text}</p></MessageContent></div></Message>}
+    <div className={sx(styles.actions, !origin && styles.metaUser)} data-tars-message-meta=""><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
       {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}
     </div>
-    {message.reply !== null ? <Message from="assistant"><MessageContent><p className={sx(styles.author)}>{name}</p><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></MessageContent></Message> : null}
+    {message.reply !== null ? <Message from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
+      <p className={sx(styles.author)}><TarsMark className={sx(styles.authorMark)} />{name}</p>
+      {/* Code, tables and diffs may claim the transcript's wide measure; prose keeps the reading column. */}
+      <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message> : null}
     {failure ? <p className={sx(styles.error)}>{failure}</p> : null}
     {message.state === "failed" ? <p className={sx(styles.text)}>{t("shell:tars.conversation.failedHint")}</p> : null}
     {origin?.kind === "followUp" && message.state === "cancelled"
@@ -167,6 +177,26 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide}
         live={flows?.liveFor?.(flow.responsibilityId)} /> : null)}
   </div>;
+}
+
+/**
+ * The composer's one per-message choice. Its visible label is short and drops
+ * to the icon when the composer is narrow; its accessible name stays the full
+ * choice, and what it does is its description and tooltip.
+ */
+function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pressed: boolean; disabled: boolean; onPressedChange: (pressed: boolean) => void }) {
+  const { t } = useTranslation(["shell"]);
+  const hintId = useId();
+  return <>
+    <Tooltip content={t("shell:tars.conversation.workingChanges.hint")}>
+      <Toggle size="xs" pressed={pressed} disabled={disabled} onPressedChange={(next) => onPressedChange(next)}
+        icon={<FileDiff aria-hidden="true" className={sx(styles.toggleIcon)} />} aria-label={t("shell:tars.conversation.workingChanges.toggle")}
+        aria-describedby={hintId} data-tars-working-changes-toggle="" xstyle={styles.workingChangesToggle}>
+        <span className={sx(styles.workingChangesLabel)} data-tars-working-changes-label="">{t("shell:tars.conversation.workingChanges.short")}</span>
+      </Toggle>
+    </Tooltip>
+    <VisuallyHidden id={hintId}>{t("shell:tars.conversation.workingChanges.hint")}</VisuallyHidden>
+  </>;
 }
 
 export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus }: {
@@ -295,8 +325,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       <div className={sx(composerTray.tray)}>
       {composerStatus}
       <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={composerDisabled}
-        sendAccessory={<Switch size="xs" checked={includeWorkingChanges} onCheckedChange={setIncludeWorkingChanges} disabled={composerDisabled}
-          label={t("shell:tars.conversation.workingChanges.toggle")} title={t("shell:tars.conversation.workingChanges.hint")} data-tars-working-changes-toggle="" />}
+        sendAccessory={<TarsWorkingChangesToggle pressed={includeWorkingChanges} disabled={composerDisabled} onPressedChange={setIncludeWorkingChanges} />}
         selectedModel={buildModelSelectorValue({ providerId: settings.providerId, model: settings.model })} modelOptions={[]} onModelSelect={() => undefined}
         attachedFilePaths={[]} plainText onAttachFilesChange={() => undefined} windowShortcutsEnabled={false}
         onSubmit={async ({ text: submitted }) => {
