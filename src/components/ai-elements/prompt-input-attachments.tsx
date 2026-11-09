@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { FileText, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import type { Attachment } from "@/types/chat";
@@ -13,7 +13,7 @@ import {
 import type { DocumentContextAttachment } from "@/lib/documents/attached-document-context";
 import type { TaskContextAttachment } from "@/lib/task-context/attached-task-context";
 import { openAttachedTask } from "@/components/open-attached-task";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import type { PromptInputProps } from "./prompt-input.types";
 
@@ -166,7 +166,7 @@ export function PromptInputAttachmentsRow(args: {
             />
             <span className={sx(promptInputStyles.truncMedium)}>{filePath}</span>
           </Button>
-          <AdsTooltip content={i18n.t("composer:promptInput.title7")}>
+          <AuiTooltip content={i18n.t("composer:promptInput.title7")}>
             <Button
               type="button"
               size="xs"
@@ -185,7 +185,7 @@ export function PromptInputAttachmentsRow(args: {
             >
               <X />
             </Button>
-          </AdsTooltip>
+          </AuiTooltip>
         </div>
       ))}
       {standaloneImageAttachments.map((img) => (
@@ -198,7 +198,7 @@ export function PromptInputAttachmentsRow(args: {
               : promptInputStyles.imageChipDefault,
           )}
         >
-          <AdsButton layout="host"
+          <AuiButton layout="host"
             type="button"
             disabled={interactionsDisabled}
             aria-label={i18n.t("composer:promptInput.ariaLabel18", { value1: img.label })}
@@ -216,8 +216,8 @@ export function PromptInputAttachmentsRow(args: {
               alt={img.label}
               className={sx(promptInputStyles.imagePreview)}
             />
-          </AdsButton>
-          <AdsTooltip content={i18n.t("composer:promptInput.title9")}>
+          </AuiButton>
+          <AuiTooltip content={i18n.t("composer:promptInput.title9")}>
             <Button
               type="button"
               size="xs"
@@ -236,7 +236,7 @@ export function PromptInputAttachmentsRow(args: {
             >
               <X />
             </Button>
-          </AdsTooltip>
+          </AuiTooltip>
         </div>
       ))}
     </div>

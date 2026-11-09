@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ExchangeDetail } from "@/components/delegation/ExchangeDetail";
 import { fromWorkGraphNode, type DelegationExchange, type DelegationActionId } from "@/lib/delegation/exchange";
 import { type AgentHistoryEntry, type AgentHistoryResponse } from "@/lib/providers/agent-history";

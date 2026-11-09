@@ -8,7 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
 import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";
 import {
@@ -18,7 +18,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { providerModelPickerStyles as styles } from "./provider-model-picker.styles";
 import {
   providerReadsAllowed,

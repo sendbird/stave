@@ -2,14 +2,14 @@ import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { FileDiff, RefreshCw } from "lucide-react";
 import { useEffect, useMemo } from "react";
-import { Badge } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
-import { StateMark } from "@/components/ads/components/StateMark";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ads/components/Table";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
+import { StateMark } from "@/components/aui/components/StateMark";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/aui/components/Table";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { paneHost } from "@/components/panes/pane-host-controller";
 import { toast } from "@/components/ui";
 import {
@@ -218,27 +218,27 @@ const styles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   head: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   title: {
     margin: 0,
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    color: vars["--aui-color-text"],
   },
   summary: {
     flex: "1 1 auto",
     minWidth: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   table: {
     overflowX: "auto",
@@ -247,7 +247,7 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     minWidth: 0,
   },
   agentName: {
@@ -263,22 +263,22 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   fileCell: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
   unchanged: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   note: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
 });

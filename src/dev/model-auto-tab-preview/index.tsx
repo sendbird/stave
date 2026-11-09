@@ -5,7 +5,7 @@ import {
   buildModelSelectorOptions,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector.utils";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";

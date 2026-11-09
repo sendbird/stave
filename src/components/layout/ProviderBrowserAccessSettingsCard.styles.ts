@@ -1,23 +1,23 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** Provider browser-access status cards inside the Browser access settings card. */
 export const providerBrowserAccessSettingsCardStyles = stylex.create({
   grid: {
     display: "grid",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     gridTemplateColumns: {
       default: "1fr",
       "@media (min-width: 640px)": "repeat(2, minmax(0, 1fr))",
     },
   },
   statusCard: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     padding: 14,
   },
   statusHead: {
@@ -27,11 +27,11 @@ export const providerBrowserAccessSettingsCardStyles = stylex.create({
   },
   statusMark: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
     height: 32,
@@ -39,37 +39,37 @@ export const providerBrowserAccessSettingsCardStyles = stylex.create({
     width: 32,
   },
   statusIcon: {
-    height: vars["--ads-control-icon-size-md"],
-    width: vars["--ads-control-icon-size-md"],
+    height: vars["--aui-control-icon-size-md"],
+    width: vars["--aui-control-icon-size-md"],
   },
   statusBody: {
     flex: 1,
     minWidth: 0,
   },
   statusName: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   statusMeta: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   statusDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    marginBlockStart: vars["--ads-space-12"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    marginBlockStart: vars["--aui-space-12"],
   },
   statusSetup: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    marginBlockStart: vars["--ads-space-8"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    marginBlockStart: vars["--aui-space-8"],
   },
   emphasis: {
-    color: vars["--ads-color-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   domainsField: {
     display: "flex",
@@ -77,27 +77,27 @@ export const providerBrowserAccessSettingsCardStyles = stylex.create({
     gap: 6,
   },
   domainsLabel: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   domainsHint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
   },
   noteCard: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    paddingBlock: vars["--ads-space-12"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    paddingBlock: vars["--aui-space-12"],
     paddingInline: 14,
   },
   noteSpacer: {
-    marginBlockStart: vars["--ads-space-4"],
+    marginBlockStart: vars["--aui-space-4"],
   },
 });

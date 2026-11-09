@@ -1,4 +1,4 @@
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Check, ChevronDown, GitBranch, Search } from "lucide-react";
 import {
   useDeferredValue,
@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildCreateWorkspaceBranchPickerRows,
   type CreateWorkspaceBranchOption,
@@ -243,7 +243,7 @@ export function CreateWorkspaceBranchPicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <AdsButton layout="host"
+          <AuiButton layout="host"
             type="button"
             disabled={disabled}
             xstyle={[
@@ -302,9 +302,9 @@ export function CreateWorkspaceBranchPicker({
           <div role="alert" className={sx(branchPickerStyles.errorRow)}>
             <span>{t("branchPicker.loadFailed")}</span>
             {onRetry ? (
-              <AdsButton size="xs" variant="quiet" onClick={onRetry}>
+              <AuiButton size="xs" variant="quiet" onClick={onRetry}>
                 {t("common:actions.retry")}
-              </AdsButton>
+              </AuiButton>
             ) : null}
           </div>
         ) : null}
@@ -345,7 +345,7 @@ export function CreateWorkspaceBranchPicker({
 
               return (
                 <div className={sx(branchPickerStyles.optionRow)}>
-                  <AdsButton layout="host"
+                  <AuiButton layout="host"
                     type="button"
                     aria-selected={isSelected}
                     xstyle={[
@@ -377,7 +377,7 @@ export function CreateWorkspaceBranchPicker({
                         <Check className={sx(branchPickerStyles.checkIcon)} />
                       ) : null}
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 </div>
               );
             }}

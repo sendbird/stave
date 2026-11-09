@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Accordion,
   AccordionContent,
@@ -37,11 +37,11 @@ export function SettingsAdvancedDisclosure(args: {
   };
 
   return (
-    // Controlled so the chevron can follow the open state from here. ADS's
+    // Controlled so the chevron can follow the open state from here. AUI's
     // shared rotation rule keys off `data-open` on the trigger, but Base UI
     // puts `data-open` on the header and gives the trigger `data-panel-open`,
     // so that rule never matches. Owning the state locally keeps the fix out
-    // of the vendored ADS source.
+    // of the vendored AUI source.
     <Accordion
       value={open ? [DISCLOSURE_VALUE] : []}
       onValueChange={(value) =>

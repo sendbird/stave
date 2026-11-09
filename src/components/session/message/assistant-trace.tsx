@@ -5,9 +5,9 @@ import type { ReactNode } from "react";
 import { memo, useMemo } from "react";
 import { sameAssistantTraceEntry } from "./assistant-trace-entry-equality";
 import { FileCode2, Wrench } from "lucide-react";
-import type { AgentStepState } from "@/components/ads/components/agent-state";
-import { StepRail } from "@/components/ads/components/StepRail";
-import { ToolRun } from "@/components/ads/components/ToolRun";
+import type { AgentStepState } from "@/components/aui/components/agent-state";
+import { StepRail } from "@/components/aui/components/StepRail";
+import { ToolRun } from "@/components/aui/components/ToolRun";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -27,7 +27,7 @@ import {
   parseFileChangeToolInput,
   summarizeDiffLineChanges,
 } from "@/components/session/chat-panel.utils";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { parseInlineRenderToolOutput } from "@/lib/inline-render/inline-render";
 import { MessageSubagents } from "./message-subagents";
@@ -70,7 +70,7 @@ import {
 /**
  * The `+N −M` roll-up a changed-file row carries in its machine register.
  *
- * Diff-only by construction. Every other kind on the rail is an ADS row that
+ * Diff-only by construction. Every other kind on the rail is an AUI row that
  * owns its own summary slot — a tool call puts its target in `tool` and its
  * result count in `count`, a plan puts `done / total` in `count` — so a host
  * chip beside those was a second summary competing with the one the component
@@ -346,7 +346,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     }
 
     /*
-     * A human decision, not a tool call: ADS `Approval` owns the status word,
+     * A human decision, not a tool call: AUI `Approval` owns the status word,
      * the focus hand-off when the pressed button unmounts, and the rule that
      * the decision is preserved in the transcript rather than replaced by it.
      * There is no disclosure — the gate is the payload.

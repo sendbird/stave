@@ -1,4 +1,4 @@
-import type { StyleXValue } from "../ads/utils/stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 import type { ComponentProps } from "react";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -7,8 +7,8 @@ import {
   EmptyStateMedia,
   EmptyStateDescription,
   EmptyStateContent,
-} from "../ads/components/EmptyState";
-import { sx, cx } from "../ads/utils/stylex";
+} from "../aui/components/EmptyState";
+import { sx, cx } from "../aui/utils/stylex";
 export function EmptyHeader({
   xstyle,
   ...props
@@ -16,13 +16,13 @@ export function EmptyHeader({
   // The pre-adapter component emitted this slot hook; keep it so the header
   // stays addressable from tests and integration CSS.
   //
-  // The installed ADS `EmptyState` header is a bare grid with no
+  // The installed AUI `EmptyState` header is a bare grid with no
   // `justify-items`, so every child resolves to `stretch` — which reads as
   // centered for text (the root sets `text-align: center`) but hangs a
   // fixed-size icon medallion off the left edge. Upstream has since centered
   // the header; until that lands here the shim owns the correction, so every
   // consumer of the pre-adapter anatomy (which nests Media INSIDE Header,
-  // unlike the ADS anatomy where Media is a sibling) is centered by default.
+  // unlike the AUI anatomy where Media is a sibling) is centered by default.
   // `xstyle` still applies last, so a caller that wants a left-aligned or row
   // header keeps winning.
   return (
@@ -66,7 +66,7 @@ export function EmptyMedia({
 }: ComponentProps<"span"> & { xstyle?: StyleXValue } & { variant?: "default" | "icon" }) {
   // The medallion box and its tone no longer live on `emptyStateStyles`:
   // upstream moved them onto `IconTile`, and `EmptyStateMedia` is now the round
-  // `xl` tile. The icon variant therefore delegates to the ADS part instead of
+  // `xl` tile. The icon variant therefore delegates to the AUI part instead of
   // re-composing two style keys that no longer exist. `neutral` matches this
   // variant's pre-adapter intent, and callers that pass their own fill still
   // win because `xstyle` is applied last.

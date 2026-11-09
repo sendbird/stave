@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
-import type { Tone } from "@/components/ads/utils/tone";
+import { vars } from "../aui/tokens/tokens.stylex";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export type CountBadgeTone = Extract<Tone, "accent" | "warning" | "neutral">;
 
@@ -16,7 +16,7 @@ export type CountBadgeTone = Extract<Tone, "accent" | "warning" | "neutral">;
  * TONE, because that is the only thing that differed on purpose (a count that
  * needs a decision is not a count that reports a total).
  *
- * It renders the mark only. The ANCHOR belongs to ADS `Button indicator`,
+ * It renders the mark only. The ANCHOR belongs to AUI `Button indicator`,
  * which owns the corner, the overhang and lifting the button's own overflow
  * clamp — the clamp is why every one of those four badges shipped with two
  * flat sides. Pass this as `indicator=`, never as a positioned child.
@@ -45,18 +45,18 @@ export function CountBadge({
 const styles = stylex.create({
   root: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
     // A knockout ring, so the pill separates from the glyph it overlaps
     // instead of merging with it. Hairline in the page fill: both hosts (the
     // top bar and a pane toolbar) sit on canvas-family chrome, and a ring that
     // follows the ink instead would read as a second, heavier pill.
-    borderColor: vars["--ads-color-canvas"],
+    borderColor: vars["--aui-color-canvas"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "inline-flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     justifyContent: "center",
     // `1` and not a token: the pill is a single glyph row whose box is set by
     // the two metrics below, so any leading at all would push the digits off
@@ -66,13 +66,13 @@ const styles = stylex.create({
     // Not `inlineSize`: `99+` is wider than `9`, and the pill grows rather
     // than clipping. The 16px floor keeps a one-digit count circular.
     minInlineSize: 16,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
   accent: {
-    backgroundColor: vars["--ads-color-accent"],
-    color: vars["--ads-color-accent-text"],
+    backgroundColor: vars["--aui-color-accent"],
+    color: vars["--aui-color-accent-text"],
   },
-  // The soft pair, not `colorWarning` + `colorText`. ADS declares exactly one
+  // The soft pair, not `colorWarning` + `colorText`. AUI declares exactly one
   // foreground for a solid fill — `colorAccentText` on `colorAccent` — and
   // `colorText` is a body-ink role whose contract is "reads on the surface
   // ramp", not "reads on a saturated amber". It measured ~7.6:1 in the default
@@ -83,9 +83,9 @@ const styles = stylex.create({
   // warning-coloured ring keeps it reading as a deliberate amber mark rather
   // than a wash.
   warning: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    color: vars["--ads-color-warning-text"],
+    backgroundColor: vars["--aui-color-warning-soft"],
+    borderColor: vars["--aui-color-warning-border"],
+    color: vars["--aui-color-warning-text"],
   },
   neutral: {
     // The one tone that states its own edge: a neutral fill has no contrast
@@ -94,9 +94,9 @@ const styles = stylex.create({
     // to `colorAccentSoft` in the default light theme — so on a selected,
     // accent-tinted host the pill's fill vanished into the control behind it
     // and only the hairline was left to say a pill was there.
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text-muted"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderColor: vars["--aui-color-border"],
+    color: vars["--aui-color-text-muted"],
   },
 });
 

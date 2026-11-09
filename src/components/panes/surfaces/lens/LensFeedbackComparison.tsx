@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { ReviewVersionCompare } from "@/components/system/ReviewVersionCompare";
 import type { LensAnnotation } from "@/lib/lens/lens.types";

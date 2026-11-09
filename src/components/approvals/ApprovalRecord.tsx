@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Bot, BotOff, CircleHelp, CircleSlash, Clock3, ShieldCheck, ShieldX, UserCheck, UserX, type LucideIcon } from "lucide-react";
-import { ActivityFeed, type ActivityItem } from "@/components/ads/components/ActivityFeed";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { ActivityFeed, type ActivityItem } from "@/components/aui/components/ActivityFeed";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { formatDate, formatTime } from "@/i18n/format";
 import { summarizeApprovalRecord, type ApprovalRecordEntry, type ApprovalRecordSummary, type ApprovalStanding } from "@/lib/approvals/approval-record";
@@ -133,14 +133,14 @@ export function ApprovalRecordView(props: {
 }
 
 const styles = stylex.create({
-  record: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
-  counts: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text"], overflowWrap: "anywhere" },
-  note: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  record: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  counts: { margin: 0, fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  note: { margin: 0, fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
   icon: { width: 14, height: 14 },
-  allowed: { color: vars["--ads-color-success"] },
-  denied: { color: vars["--ads-color-danger"] },
-  waiting: { color: vars["--ads-color-warning"] },
-  quiet: { color: vars["--ads-color-text-muted"] },
+  allowed: { color: vars["--aui-color-success"] },
+  denied: { color: vars["--aui-color-danger"] },
+  waiting: { color: vars["--aui-color-warning"] },
+  quiet: { color: vars["--aui-color-text-muted"] },
 });
 
 const iconTones = {

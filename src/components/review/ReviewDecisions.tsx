@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ApprovalBar } from "@/components/ads/components/ReviewStatus";
-import { Button } from "@/components/ads/components/Button";
-import { Kbd } from "@/components/ads/components/Kbd";
-import { sx } from "@/components/ads/utils/stylex";
+import { ApprovalBar } from "@/components/aui/components/ReviewStatus";
+import { Button } from "@/components/aui/components/Button";
+import { Kbd } from "@/components/aui/components/Kbd";
+import { sx } from "@/components/aui/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { toast } from "@/components/ui";
 import { Textarea } from "@/components/ui/textarea";

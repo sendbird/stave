@@ -1,4 +1,4 @@
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { usageStripStyles as styles } from "@/components/layout/status-bar-usage-strip.styles";
 import {
   resolveQuotaRingArc,

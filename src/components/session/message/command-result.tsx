@@ -2,13 +2,13 @@ import { i18n, useTranslation } from "@/i18n";
 import { Check, Copy, Terminal } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
 import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
-import { agentSurface } from "@/components/ads/recipes/agent-surface";
-import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
-import { sx } from "@/components/ads/utils/stylex";
+import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { agentSurface } from "@/components/aui/recipes/agent-surface";
+import { controlIconSizes } from "@/components/aui/recipes/control-metrics";
+import { sx } from "@/components/aui/utils/stylex";
 
 import { tokenizeShellCommand } from "@/lib/shell-command-tokens";
 

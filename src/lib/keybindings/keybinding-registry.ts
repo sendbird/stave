@@ -513,7 +513,7 @@ export const KEYBINDING_REGISTRY = [
     handledBy: ["src/components/session/ChatInputComposer.tsx"],
   },
   {
-    // Bound on the approval card itself (ADS `Approval`), so it answers only
+    // Bound on the approval card itself (AUI `Approval`), so it answers only
     // the request whose card holds focus: in the conversation, a Fleet panel
     // or a delegated task's slot. Escape is deliberately never a denial.
     id: "approval.allow-once",
@@ -525,7 +525,7 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:keybindings.entries.approvalAllowOnce.description",
     section: "composer",
     handledBy: [
-      "src/components/ads/components/Approval.tsx",
+      "src/components/aui/components/Approval.tsx",
       "src/components/session/ToolApprovalCard.tsx",
     ],
   },
@@ -975,7 +975,7 @@ export const KEYBINDING_REGISTRY = [
     titleKey: "shell:keybindings.entries.settingsSidebar.title",
     descriptionKey: "shell:keybindings.entries.settingsSidebar.description",
     section: "surfaces",
-    handledBy: ["src/components/ads/components/AppShell.tsx"],
+    handledBy: ["src/components/aui/components/AppShell.tsx"],
   },
   {
     id: "command-palette.toggle-pin",

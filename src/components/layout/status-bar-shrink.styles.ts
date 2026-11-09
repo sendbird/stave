@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import type { ResourceLabelBreakpoint } from "@/components/layout/status-bar-shrink";
-import type { StyleXValue } from "../ads/utils/stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 
 // One rule per step: a container query condition cannot read a variable, so
 // the step the estimate picks selects a precompiled rule.

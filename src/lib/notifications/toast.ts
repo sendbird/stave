@@ -1,10 +1,10 @@
 import type { MouseEventHandler, ReactNode } from "react";
-import { createToastManager } from "@/components/ads/headless/toast";
+import { createToastManager } from "@/components/aui/headless/toast";
 import {
   runToastPromise,
   type ToastPromiseOptions,
-} from "@/components/ads/components/ToastHost.promise";
-import type { ToastSecondaryAction } from "@/components/ads/components/ToastHost";
+} from "@/components/aui/components/ToastHost.promise";
+import type { ToastSecondaryAction } from "@/components/aui/components/ToastHost";
 
 /** General notices appear at the top; workspace status has a separate corner. */
 export const toastManager = createToastManager();

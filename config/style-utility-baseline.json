@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "description": "Remaining migration work, not approved exceptions. New files have a zero allowance. Lower counts as surfaces migrate; never increase to bypass a failure. `files` is now empty: every product surface authors its styles with StyleX and ADS tokens.",
+  "description": "Remaining migration work, not approved exceptions. New files have a zero allowance. Lower counts as surfaces migrate; never increase to bypass a failure. `files` is now empty: every product surface authors its styles with StyleX and AUI tokens.",
   "files": {},
   "dataLiterals": {
     "src/lib/lens/lens-element-message.ts": {

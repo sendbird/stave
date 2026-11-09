@@ -1,16 +1,16 @@
 import { i18n, useTranslation } from "@/i18n";
 import { commandLayout, commandDialogMarker, commandItemMarker } from "./command-layout.stylex";
-import { VisuallyHidden } from "../ads/components/VisuallyHidden";
+import { VisuallyHidden } from "../aui/components/VisuallyHidden";
 import * as React from "react";
-import { Command as AdsCommand } from "../ads/components/Command";
-import { AutocompleteInput } from "../ads/headless/autocomplete";
+import { Command as AuiCommand } from "../aui/components/Command";
+import { AutocompleteInput } from "../aui/headless/autocomplete";
 import { Separator } from "./separator";
 import { Kbd } from "./kbd";
 import { CheckIcon, SearchIcon } from "lucide-react";
 
-import { styles as commandStyles } from "../ads/components/Command.styles";
-import { sx } from "../ads/utils/stylex";
-import { cx } from "../ads/utils/stylex";
+import { styles as commandStyles } from "../aui/components/Command.styles";
+import { sx } from "../aui/utils/stylex";
+import { cx } from "../aui/utils/stylex";
 import {
   Dialog,
   DialogContent,
@@ -60,7 +60,7 @@ type CommandProps = React.ComponentProps<"div"> & {
 };
 
 /**
- * Adapt the host's compound children; ADS owns keyboard and option behavior.
+ * Adapt the host's compound children; AUI owns keyboard and option behavior.
  *
  * Prefer passing `CommandItem`s as direct (or group-nested) children: the walk
  * below reads them to keep empty groups out and to list the items for the
@@ -123,7 +123,7 @@ function Command({
     <CommandContext.Provider
       value={{ query, setQuery, selected: value ?? highlighted, shouldFilter, walked, register }}
     >
-      <AdsCommand.Root
+      <AuiCommand.Root
         items={allItems}
         mode="none"
         keepHighlight
@@ -137,7 +137,7 @@ function Command({
           onValueChange?.(item ?? "");
         }}
       >
-        <AdsCommand.Frame
+        <AuiCommand.Frame
           bare
           data-slot="command"
           className={className}
@@ -145,8 +145,8 @@ function Command({
           {...props}
         >
           {content}
-        </AdsCommand.Frame>
-      </AdsCommand.Root>
+        </AuiCommand.Frame>
+      </AuiCommand.Root>
     </CommandContext.Provider>
   );
 }
@@ -225,10 +225,10 @@ function CommandInput({
 function CommandList({
   className,
   ...props
-}: React.ComponentProps<typeof AdsCommand.List>) {
+}: React.ComponentProps<typeof AuiCommand.List>) {
   useTranslation();
   return (
-    <AdsCommand.List
+    <AuiCommand.List
       data-slot="command-list"
       className={className}
       xstyle={commandLayout.list}
@@ -240,10 +240,10 @@ function CommandList({
 function CommandEmpty({
   className,
   ...props
-}: React.ComponentProps<typeof AdsCommand.Empty>) {
+}: React.ComponentProps<typeof AuiCommand.Empty>) {
   useTranslation();
   return (
-    <AdsCommand.Empty
+    <AuiCommand.Empty
       data-slot="command-empty"
       className={className}
       xstyle={commandStyles.empty}
@@ -260,17 +260,17 @@ function CommandGroup({
 }: React.ComponentProps<"div"> & { heading?: React.ReactNode }) {
   useTranslation();
   return (
-    <AdsCommand.Group
+    <AuiCommand.Group
       data-slot="command-group"
       className={className}
       xstyle={commandLayout.group}
       {...props}
     >
       {heading ? (
-        <AdsCommand.GroupLabel>{heading}</AdsCommand.GroupLabel>
+        <AuiCommand.GroupLabel>{heading}</AuiCommand.GroupLabel>
       ) : null}
       {children}
-    </AdsCommand.Group>
+    </AuiCommand.Group>
   );
 }
 
@@ -313,7 +313,7 @@ function CommandItem({
   );
   if (hidden) return null;
   return (
-    <AdsCommand.Item
+    <AuiCommand.Item
       data-slot="command-item"
       value={value}
       data-selected={context.selected === value}
@@ -324,13 +324,13 @@ function CommandItem({
     >
       {children}
       <CheckIcon className={sx(commandLayout.checkedIcon)} />
-    </AdsCommand.Item>
+    </AuiCommand.Item>
   );
 }
 
 /**
  * Trailing accelerator hint on a palette row. The wrapper owns only the
- * trailing alignment; the visible keycap is the ADS `Kbd`, so the palette,
+ * trailing alignment; the visible keycap is the AUI `Kbd`, so the palette,
  * menus, and the dialog footer all render one keycap treatment.
  */
 function CommandShortcut({

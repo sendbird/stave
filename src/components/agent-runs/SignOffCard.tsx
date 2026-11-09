@@ -2,11 +2,11 @@ import { i18n, useTranslation } from "@/i18n";
 import { useId, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Hand } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { Button } from "@/components/aui/components/Button";
+import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Textarea } from "@/components/ui/textarea";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord, AGENT_RUN_LIMITS } from "@/lib/agent-runs/domain";
@@ -174,32 +174,32 @@ export function AgentRunSignOffSlot() {
  * raised — so the two read as one kind of thing. The edge leans toward the
  * accent: a sign-off is a planned checkpoint, not a permission warning.
  */
-const INDENT = `calc(24px + ${vars["--ads-space-8"]})`;
+const INDENT = `calc(24px + ${vars["--aui-space-8"]})`;
 
 const styles = stylex.create({
   card: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    marginBottom: vars["--ads-space-12"],
+    gap: vars["--aui-space-8"],
+    marginBottom: vars["--aui-space-12"],
     padding: "0.625rem",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklab, ${vars["--ads-color-accent"]} 40%, ${vars["--ads-color-border"]})`,
-    borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-canvas"],
-    boxShadow: vars["--ads-elevation-raised"],
-    color: vars["--ads-color-text"],
+    borderColor: `color-mix(in oklab, ${vars["--aui-color-accent"]} 40%, ${vars["--aui-color-border"]})`,
+    borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-canvas"],
+    boxShadow: vars["--aui-elevation-raised"],
+    color: vars["--aui-color-text"],
   },
-  header: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-8"], minWidth: 0 },
+  header: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-8"], minWidth: 0 },
   tile: { flex: "0 0 auto" },
-  body: { display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], flex: "1 1 auto", minWidth: 0 },
+  body: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], flex: "1 1 auto", minWidth: 0 },
   // The position wraps under the question when the card is narrow.
   titleRow: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "baseline",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     rowGap: 0,
     minHeight: 24,
     minWidth: 0,
@@ -209,31 +209,31 @@ const styles = stylex.create({
     margin: 0,
     minWidth: 0,
     paddingTop: 2,
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
     lineHeight: "1.25rem",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   position: {
     flex: "0 0 auto",
     marginInlineStart: "auto",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
-  positionWarn: { color: vars["--ads-color-warning-text"] },
+  positionWarn: { color: vars["--aui-color-warning-text"] },
   summary: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
   report: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text"],
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
@@ -247,7 +247,7 @@ const styles = stylex.create({
     paddingInlineStart: INDENT,
   },
   formActions: { display: "flex", alignItems: "center", gap: "0.375rem" },
-  form: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], paddingInlineStart: INDENT },
-  formLabel: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  form: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], paddingInlineStart: INDENT },
+  formLabel: { fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
   indented: { paddingInlineStart: INDENT },
 });

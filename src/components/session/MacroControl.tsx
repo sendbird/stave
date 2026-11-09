@@ -7,7 +7,7 @@ import {
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   SearchablePicker,
   type SearchablePickerOption,

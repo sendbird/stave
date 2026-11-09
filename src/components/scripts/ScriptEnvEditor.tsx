@@ -1,8 +1,8 @@
 import { useTranslation } from "@/i18n";
 import { Plus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import type { ScriptEditorEnvRow } from "@/lib/workspace-scripts/editor";
 import { envEditorStyles } from "./script-env-editor.styles";
 

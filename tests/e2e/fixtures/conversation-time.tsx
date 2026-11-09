@@ -5,13 +5,13 @@ import { ChatPanel } from "@/components/session/ChatPanel";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { TooltipProvider } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 
 const params = new URLSearchParams(location.search);
@@ -88,8 +88,8 @@ const styles = stylex.create({
     marginInline: "auto",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
   area: { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 },
 });

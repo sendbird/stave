@@ -11,7 +11,7 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Button } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -22,7 +22,7 @@ import { useAppStore } from "@/store/app.store";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { createEmptyMacroDraft, MacroEditor } from "./macro-editor";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { macrosSectionStyles as styles } from "./settings-dialog-macros-section.styles";
 
 type MacroEditorTarget =

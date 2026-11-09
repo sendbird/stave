@@ -2,13 +2,13 @@ import { i18n, useTranslation } from "@/i18n";
 import { feedbackStyles } from "./lens-feedback.styles";
 import { LensFeedbackComparison } from "./LensFeedbackComparison";
 import { LensFeedbackSelection } from "./LensFeedbackSelection";
-import { sx } from "../../../ads/utils/stylex";
+import { sx } from "../../../aui/utils/stylex";
 import { getSentLensFeedback } from "@/lib/lens/lens-feedback-history";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { useEffect, useState } from "react";
 import { matchesSession } from "@/lib/lens/lens-log-format";
-import { Button } from "@/components/ads/components/Button";
-import { Textarea } from "@/components/ads/components/Textarea";
+import { Button } from "@/components/aui/components/Button";
+import { Textarea } from "@/components/aui/components/Textarea";
 import { useAppStore } from "@/store/app.store";
 import {
   buildLensAnnotationsAttachment,

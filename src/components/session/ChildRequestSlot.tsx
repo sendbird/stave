@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { loadFleetInteraction } from "@/lib/fleet/interaction-load";
 import {
   respondToFleetInteraction,

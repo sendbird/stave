@@ -19,7 +19,7 @@ import {
   resolveComposerControlLayout,
   type ComposerControlId,
 } from "@/lib/composer-controls";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
   isShortcutEchoInsertion,
@@ -166,7 +166,7 @@ export function PromptInput(args: PromptInputProps) {
   const useComposerFrame = Boolean(framed && !minimal);
   const useComposerWings = useComposerFrame && !isMobile;
   /**
-   * ADS `size` for an icon-only composer control, picked to land on the same
+   * AUI `size` for an icon-only composer control, picked to land on the same
    * rung of the control ramp as the lane it will stand in: `md` (36) in the
    * classic in-card toolbar, `sm` (32) on the framed bottom shelf, in a wing,
    * and in either overflow menu. Passing the size (rather than overriding the

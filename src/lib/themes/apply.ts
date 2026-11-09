@@ -9,7 +9,7 @@ import type { CustomThemeDefinition, ThemeModeName, ThemeOverrideValues, ThemeTo
 /**
  * Root class held for the paint of a token swap. Surfaces that transition
  * `background-color` / `border-color` / `color` would otherwise interpolate
- * every inherited custom property for `--ads-motion-duration-fast` (120ms),
+ * every inherited custom property for `--aui-motion-duration-fast` (120ms),
  * which reads as a stalled theme change. Hover and press motion return when
  * the class lifts. Keep in step with `html.theme-changing` in `globals.css`.
  */
@@ -219,7 +219,7 @@ export function applyThemeContrast(args: { contrast: CustomThemeDefinition["cont
 /**
  * Marks the document with the app's density (`data-ui-density="compact"`),
  * which `StaveDesignProvider` passes to the design system. Regular clears it.
- * Not `data-density`: the ADS `ThemeProvider` writes that one itself.
+ * Not `data-density`: the AUI `ThemeProvider` writes that one itself.
  */
 export function applyUiDensity(args: { density: "regular" | "compact" }) {
   if (typeof document === "undefined") {

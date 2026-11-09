@@ -28,10 +28,10 @@ for (const locale of ["en", "ko"] as const) {
             element.style.cssText = `flex:0 0 ${width}px;min-width:0;width:${width}px`;
           }, width);
           await expect.poll(async () => row.evaluate(async (element) => {
-            const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+            const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
             const probe = document.createElement("div");
-            probe.style.padding = vars["--ads-space-12"];
-            probe.style.columnGap = vars["--ads-space-8"];
+            probe.style.padding = vars["--aui-space-12"];
+            probe.style.columnGap = vars["--aui-space-8"];
             element.append(probe);
             const padding = Number.parseFloat(getComputedStyle(probe).paddingLeft);
             const gap = Number.parseFloat(getComputedStyle(probe).columnGap);
@@ -135,7 +135,7 @@ for (const locale of ["en", "ko"] as const) {
   }
 }
 
-// Find overlays keep their ADS typography and action targets in split panes.
+// Find overlays keep their AUI typography and action targets in split panes.
 for (const lang of ["en", "ko"] as const) {
   for (const theme of ["light", "dark"] as const) {
     for (const density of ["regular", "compact"] as const) {
@@ -156,12 +156,12 @@ for (const lang of ["en", "ko"] as const) {
         // The fixture must use the app's layer prelude, not inherit the 16px reset.
         await expect(field).toHaveCSS("font-size", "12px");
         const colors = await field.evaluate(async (input) => {
-          const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+          const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
           const probe = document.createElement("span");
           input.parentElement!.append(probe);
-          probe.style.color = vars["--ads-color-text-placeholder"];
+          probe.style.color = vars["--aui-color-text-placeholder"];
           const placeholder = getComputedStyle(probe).color;
-          probe.style.color = vars["--ads-color-border-focus"];
+          probe.style.color = vars["--aui-color-border-focus"];
           const focus = getComputedStyle(probe).color;
           probe.remove();
           return { placeholder, focus };

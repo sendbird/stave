@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * Styles for the dockview pane tab chip. Every `sx(...)` result computed from
@@ -10,15 +10,15 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  */
 export const paneTabChipStyles = stylex.create({
   icon: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     height: 16,
     width: 16,
   },
   mutedColor: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   faviconImage: {
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     height: 16,
     objectFit: "contain",
     width: 16,
@@ -33,9 +33,9 @@ export const paneTabChipStyles = stylex.create({
     width: 20,
   },
   cliIconBadge: {
-    backgroundColor: vars["--ads-color-canvas"],
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderRadius: vars["--aui-radius-mark"],
+    color: vars["--aui-color-text-muted"],
     height: 10,
     insetBlockEnd: -2,
     insetInlineEnd: -2,
@@ -51,15 +51,15 @@ export const paneTabChipStyles = stylex.create({
     width: 20,
   },
   dirtyDot: {
-    backgroundColor: vars["--ads-color-accent"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-accent"],
+    borderRadius: vars["--aui-radius-full"],
     flexShrink: 0,
     height: 8,
     width: 8,
   },
   statusBadge: {
-    borderRadius: vars["--ads-radius-mark"],
-    fontSize: vars["--ads-font-size-micro"],
+    borderRadius: vars["--aui-radius-mark"],
+    fontSize: vars["--aui-font-size-micro"],
     letterSpacing: "0.14em",
     textTransform: "uppercase",
   },
@@ -68,10 +68,10 @@ export const paneTabChipStyles = stylex.create({
     display: "flex",
     // The 24px close target carries its own air around a 14px glyph, so the
     // chip's gap is the 4px step: the tab keeps its width.
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     height: "100%",
     minWidth: 0,
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
     // Published so the close affordance can reveal itself on hover/focus
     // without a `group-hover` utility (StyleX has no group variant).
     "--pane-close-reveal": {
@@ -81,22 +81,22 @@ export const paneTabChipStyles = stylex.create({
     },
   },
   renameInput: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     height: 20,
     minWidth: 0,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
     width: 128,
   },
   title: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     maxWidth: 192,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   pinIcon: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
     height: 12,
     width: 12,
@@ -105,19 +105,19 @@ export const paneTabChipStyles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
     display: "flex",
     flexShrink: 0,
     // A 24px hit area; shown on hover, focus and the active tab.
-    height: vars["--ads-space-24"],
+    height: vars["--aui-space-24"],
     justifyContent: "center",
-    width: vars["--ads-space-24"],
+    width: vars["--aui-space-24"],
   },
   closeVisible: {
     opacity: 1,
@@ -130,13 +130,13 @@ export const paneTabChipStyles = stylex.create({
     opacity: "var(--pane-close-reveal, 0)",
   },
   /**
-   * The host-layout Button now emits the glyph contract, so `ads/styles.css`
+   * The host-layout Button now emits the glyph contract, so `aui/styles.css`
    * keeps Lucide's 24px viewport out on its own. That rule is a default for
    * host layout, so this 14px chip size still wins — it stays because a 24px
    * chip action wants a tighter glyph than the 16px control default.
    */
   closeIcon: {
-    blockSize: vars["--ads-control-icon-size-sm"],
-    inlineSize: vars["--ads-control-icon-size-sm"],
+    blockSize: vars["--aui-control-icon-size-sm"],
+    inlineSize: vars["--aui-control-icon-size-sm"],
   },
 });

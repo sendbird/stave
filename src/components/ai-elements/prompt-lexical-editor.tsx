@@ -58,7 +58,7 @@ import {
   lexicalEditorStyles,
   promptEditorTypography,
 } from "./prompt-lexical-editor.styles";
-import { cx, sx } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
 import { registerPromptLexicalPreventedEnterCommand } from "./prompt-lexical-editor.commands";
 import { PromptTokenChip } from "./prompt-token-chip";
 

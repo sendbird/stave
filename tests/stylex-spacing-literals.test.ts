@@ -42,13 +42,13 @@ describe("spacingLiterals", () => {
   test("leaves tokens, density steps, zero, percentages and geometry properties alone", () => {
     const findings = scan({ "components/ok.styles.ts": `
       export const styles = stylex.create({
-        row: { gap: vars["--ads-space-8"], padding: densityPad.sm, margin: "auto" },
-        conditional: { gap: width > 300 ? vars["--ads-space-8"] : densityPad.sm },
+        row: { gap: vars["--aui-space-8"], padding: densityPad.sm, margin: "auto" },
+        conditional: { gap: width > 300 ? vars["--aui-space-8"] : densityPad.sm },
         zero: { gap: 0, padding: "0 0px", margin: "5%" },
-        calc: { padding: \`calc(100% - \${vars["--ads-space-8"]})\` },
+        calc: { padding: \`calc(100% - \${vars["--aui-space-8"]})\` },
         other: { top: 6, width: 10, borderRadius: 6, fontSize: "10px" },
       });`,
-      "components/ads/components/Thing.tsx": "const s = stylex.create({ a: { gap: 6 } });",
+      "components/aui/components/Thing.tsx": "const s = stylex.create({ a: { gap: 6 } });",
     });
     expect(findings).toEqual([]);
   });

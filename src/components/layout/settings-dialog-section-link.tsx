@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import type { SectionId } from "./settings-dialog.schema";
 import { LabeledField } from "./settings-dialog.shared";
 import { settingsSectionsStyles as styles } from "./settings-dialog-sections.styles";

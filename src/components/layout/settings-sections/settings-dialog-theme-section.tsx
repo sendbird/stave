@@ -15,11 +15,11 @@ import {
   X,
 } from "lucide-react";
 import { Badge, Input } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { FileUpload, type FileUploadItem } from "@/components/ads/components/FileUpload";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button } from "@/components/aui/components/Button";
+import { FileUpload, type FileUploadItem } from "@/components/aui/components/FileUpload";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { acceptAttribute, rejectFile, type FileAcceptRule } from "@/lib/files/file-drop";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { settingsDialogStyles as dialogStyles } from "../SettingsDialog.styles";
 import {

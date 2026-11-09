@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { UserRound } from "lucide-react";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { cliProviderFocus } from "@/lib/providers/accounts-guide";
 import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
 import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";

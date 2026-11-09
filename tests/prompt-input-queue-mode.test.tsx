@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { COMPOSER_CONTROL_BUTTON } from "@/components/ai-elements/composer-control-density";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { promptInputStyles } from "@/components/ai-elements/prompt-input.styles";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 
@@ -175,7 +175,7 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain('aria-label="Request an AI review of local changes"');
     expect(buttonMarkup).toContain(">Request AI review</span>");
     expect(buttonMarkup).toBeTruthy();
-    // ADS `Button` owns `data-variant` and publishes its own spelling of the
+    // AUI `Button` owns `data-variant` and publishes its own spelling of the
     // understated weight, so the product's `ghost` reads as `quiet` here.
     expect(buttonMarkup).toContain('data-variant="quiet"');
     // The review CTA wears the shared composer-control pill rather than a
@@ -263,7 +263,7 @@ describe("PromptInput queue mode", () => {
     const buttonMarkup = getLocalReviewButtonMarkup(html);
 
     expect(buttonMarkup).toBeTruthy();
-    // ADS `Button` owns `data-variant` and publishes its own spelling of the
+    // AUI `Button` owns `data-variant` and publishes its own spelling of the
     // understated weight, so the product's `ghost` reads as `quiet` here.
     expect(buttonMarkup).toContain('data-variant="quiet"');
     expect(buttonMarkup).not.toContain("bg-background/60");

@@ -1,39 +1,39 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const turnDocumentRevisionsStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    marginTop: vars["--ads-space-8"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
+    marginTop: vars["--aui-space-8"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     overflow: "hidden",
   },
   header: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    color: vars["--ads-color-text-muted"],
+    gap: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    backgroundColor: vars["--aui-color-surface-tint"],
+    color: vars["--aui-color-text-muted"],
     fontSize: "0.875em",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   row: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-4"],
-    borderTopColor: vars["--ads-color-border"],
+    paddingInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-4"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
   },
   icon: {
     flexShrink: 0,
@@ -50,13 +50,13 @@ export const turnDocumentRevisionsStyles = stylex.create({
   },
   revision: {
     flexShrink: 0,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     fontSize: "0.8125em",
     fontVariantNumeric: "tabular-nums",
   },
   actions: {
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
 });

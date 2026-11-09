@@ -1,7 +1,7 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { DraftInput, LabeledField, SettingsCard, readInt } from "@/components/layout/settings-dialog.shared";
 import { delegationStyles } from "./settings-dialog-delegation-section.styles";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";

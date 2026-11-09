@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   FolderTree,
   SquareTerminal,
@@ -47,8 +47,8 @@ import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 import { formatWorkspacePathLabel } from "@/store/repository.utils";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { topBarControlStyles, topBarStyles } from "./top-bar.styles";
 
@@ -100,7 +100,7 @@ export function TopBar() {
   // The bar reads in four labelled groups: where you are (path, branch,
   // Commit graph, PR) leads, then search, the views the bar opens and the
   // app's own alerts trail, with a rule between the trailing groups. Every
-  // tooltip is the ADS `Tooltip` below the control, with the keys when a
+  // tooltip is the AUI `Tooltip` below the control, with the keys when a
   // shortcut exists.
   return (
     <header
@@ -155,7 +155,7 @@ export function TopBar() {
                         topBarControlStyles.surface,
                         // `surface` states a `:hover` fill AND a `:hover` ink,
                         // and this is the one place it lands on a plain `div`
-                        // instead of an ADS `Button` (which composes
+                        // instead of an AUI `Button` (which composes
                         // `transition.control` itself). So the leading half of
                         // this segmented pair cut instantly to its hover colour
                         // while the chevron half beside it faded — the two
@@ -179,7 +179,7 @@ export function TopBar() {
                       <span {...stylex.props(layoutShellStyles.inlineFlex)}>
                         <DropdownMenuTrigger
                           render={
-                            <AdsButton
+                            <AuiButton
                               layout="host"
                               size="sm"
                               type="button"
@@ -283,7 +283,7 @@ export function TopBar() {
                   {/* The same host-layout `sm` control and bordered fill as the
                       branch switcher and PR trigger beside it, so the row reads
                       as one set of controls. */}
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     size="sm"
                     type="button"
@@ -301,7 +301,7 @@ export function TopBar() {
                     <span className={sx(topBarStyles.collapsibleLabel)}>
                       {i18n.t(COMMIT_GRAPH_TITLE_KEY)}
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 </span>
               </Tooltip>
               <TopBarOpenPR

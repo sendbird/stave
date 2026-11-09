@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { SlidersHorizontal } from "lucide-react";
 import { buttonVariants } from "@/components/ui";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import type { PromptInputRuntimeProfile } from "./prompt-input-runtime-bar";
 

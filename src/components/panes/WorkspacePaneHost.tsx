@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { transition } from "@/components/aui/recipes/transition";
 import {
   DockviewReact,
   type DockviewApi,
@@ -119,28 +119,28 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
     <div className={sx(styles.picker)}>
       <span className={sx(styles.label)}>{i18n.t("panes:workspacePaneHost.icon")}</span>
       <Tooltip content={i18n.t("panes:workspacePaneHost.default")}>
-        <AdsButton layout="host"
+        <AuiButton layout="host"
           type="button"
           xstyle={[styles.reset, transition.colors]}
           aria-label={i18n.t("panes:workspacePaneHost.useDefaultTabIcon")}
           onClick={() => setIcon(undefined)}
         >
           ×
-        </AdsButton>
+        </AuiButton>
       </Tooltip>
       {PANE_CUSTOM_ICON_OPTIONS.map((option) => {
         const Icon = option.icon;
         const selected = options?.selectedIcon === option.id;
         return (
           <Tooltip key={option.id} content={option.label}>
-            <AdsButton layout="host"
+            <AuiButton layout="host"
               type="button"
               xstyle={[styles.choice, selected && styles.selected, transition.colors]}
               aria-label={i18n.t("panes:workspacePaneHost.useTabIcon", { value1: option.label })}
               onClick={() => setIcon(option.id)}
             >
               <Icon className={sx(styles.icon)} />
-            </AdsButton>
+            </AuiButton>
           </Tooltip>
         );
       })}
@@ -1208,11 +1208,11 @@ export function WorkspacePaneHost() {
 }
 
 const styles = stylex.create({
-choice: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--ads-color-canvas-subtle"]}},
-selected:{backgroundColor:vars["--ads-color-accent-soft"],color:vars["--ads-color-text"]},
+choice: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,color:{default:vars["--aui-color-text-muted"],":hover":vars["--aui-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--aui-color-canvas-subtle"]}},
+selected:{backgroundColor:vars["--aui-color-accent-soft"],color:vars["--aui-color-text"]},
 picker: {display:"flex",minWidth:192,alignItems:"center",gap:4,paddingInline:8,paddingBlock:6},
-label: {marginRight:4,fontSize: vars["--ads-font-size-caption"],color:vars["--ads-color-text-muted"]},
-reset: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],fontSize: vars["--ads-font-size-caption"],color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--ads-color-canvas-subtle"]}},
+label: {marginRight:4,fontSize: vars["--aui-font-size-caption"],color:vars["--aui-color-text-muted"]},
+reset: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--aui-color-border"],fontSize: vars["--aui-font-size-caption"],color:{default:vars["--aui-color-text-muted"],":hover":vars["--aui-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--aui-color-canvas-subtle"]}},
 icon: {width:16,height:16},
 root: {
   height: "100%",

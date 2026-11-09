@@ -1,4 +1,4 @@
-import { diffLines, splitLines } from "@/components/ads/components/DiffViewer.diff";
+import { diffLines, splitLines } from "@/components/aui/components/DiffViewer.diff";
 import {
   LEGACY_WORKSPACE_PLANS_DIRECTORY,
   parseWorkspacePlanFilePath,

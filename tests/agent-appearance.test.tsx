@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { darkThemeValues, highContrastThemeValues, lightThemeValues } from "@/components/ads/tokens/theme-values";
+import { darkThemeValues, highContrastThemeValues, lightThemeValues } from "@/components/aui/tokens/theme-values";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { BUILTIN_CUSTOM_THEMES, PRESET_THEME_TOKENS } from "@/lib/themes";
 import { contrastRatio, mixOklab, parseCssColor } from "@/lib/themes/contrast";
@@ -20,7 +20,7 @@ import {
   updateAgentAppearance,
 } from "@/lib/agents/agent-appearance";
 import { AGENT_ICONS, agentIconLabel, getAgentIcon, matchAgentIcons } from "@/lib/agents/agent-icons";
-import { adsThemeVariables } from "@/components/system/ads-theme";
+import { auiThemeVariables } from "@/components/system/aui-theme";
 import { i18n } from "@/i18n/runtime";
 import { findAgentReferences, agentIsDeletable } from "@/lib/agents/agent-references";
 import {
@@ -70,7 +70,7 @@ describe("agent appearance", () => {
       expect(index).toBeGreaterThanOrEqual(1);
       expect(index).toBeLessThanOrEqual(14);
     }
-    expect(agentColorToken(custom({ appearance: { color: "blue" } }))).toBe("var(--ads-chart-1)");
+    expect(agentColorToken(custom({ appearance: { color: "blue" } }))).toBe("var(--aui-chart-1)");
   });
 
   test("initials take the first letters of up to two words", () => {
@@ -174,10 +174,10 @@ describe("agent avatar icon", () => {
     // The selected cell paints body ink on the soft wash with a muted-ink ring,
     // inside a popover. Check that the bridge still maps those roles as computed
     // below, then measure each pair in every theme a user can pick.
-    expect(adsThemeVariables["--ads-color-text"]).toBe("var(--foreground)");
-    expect(adsThemeVariables["--ads-color-accent-soft"]).toBe("color-mix(in oklab, var(--foreground) 4%, var(--card))");
-    expect(adsThemeVariables["--ads-color-border-strong"]).toBe("var(--muted-foreground)");
-    expect(adsThemeVariables["--ads-color-surface-raised"]).toBe("var(--popover)");
+    expect(auiThemeVariables["--aui-color-text"]).toBe("var(--foreground)");
+    expect(auiThemeVariables["--aui-color-accent-soft"]).toBe("color-mix(in oklab, var(--foreground) 4%, var(--card))");
+    expect(auiThemeVariables["--aui-color-border-strong"]).toBe("var(--muted-foreground)");
+    expect(auiThemeVariables["--aui-color-surface-raised"]).toBe("var(--popover)");
     const themes = [
       { id: "preset-light", tokens: PRESET_THEME_TOKENS.light as Record<string, string> },
       { id: "preset-dark", tokens: PRESET_THEME_TOKENS.dark as Record<string, string> },
@@ -220,17 +220,17 @@ describe("agent avatar icon", () => {
 });
 
 describe("agent avatar", () => {
-  const adsThemes = { light: lightThemeValues, dark: darkThemeValues, "high contrast": highContrastThemeValues };
-  type AdsValues = typeof lightThemeValues;
-  const chart = (values: AdsValues) => (index: number) => values[`--ads-chart-${index}` as keyof AdsValues];
-  // Every theme a user can pick: the ADS bases, Stave's two presets and each
-  // built-in port. Stave themes reach the avatar through `ads-theme.ts`
-  // (surface = `--card`, text = `--foreground`); chart hues stay ADS's own.
+  const auiThemes = { light: lightThemeValues, dark: darkThemeValues, "high contrast": highContrastThemeValues };
+  type AuiValues = typeof lightThemeValues;
+  const chart = (values: AuiValues) => (index: number) => values[`--aui-chart-${index}` as keyof AuiValues];
+  // Every theme a user can pick: the AUI bases, Stave's two presets and each
+  // built-in port. Stave themes reach the avatar through `aui-theme.ts`
+  // (surface = `--card`, text = `--foreground`); chart hues stay AUI's own.
   const catalog = [
-    ...Object.entries(adsThemes).map(([id, values]) => ({
+    ...Object.entries(auiThemes).map(([id, values]) => ({
       id: `ads ${id}`,
-      surface: values["--ads-color-surface"],
-      text: values["--ads-color-text"],
+      surface: values["--aui-color-surface"],
+      text: values["--aui-color-text"],
       hues: chart(values),
     })),
     ...[
@@ -264,8 +264,8 @@ describe("agent avatar", () => {
   });
 
   test("the clamp leaves a readable ink alone and only moves a short one towards the far pole", () => {
-    const surface = parseCssColor(lightThemeValues["--ads-color-surface"])!;
-    const hue = parseCssColor(lightThemeValues["--ads-chart-1"])!;
+    const surface = parseCssColor(lightThemeValues["--aui-color-surface"])!;
+    const hue = parseCssColor(lightThemeValues["--aui-chart-1"])!;
     const fill = mixOklab(surface, hue, AGENT_AVATAR_FILL_SHARE / 100);
     const text = parseCssColor("oklch(0.2 0 0)")!;
     const readable = mixOklab(text, hue, AGENT_AVATAR_INK_SHARE / 100);
@@ -294,8 +294,8 @@ describe("agent avatar", () => {
 
   test("the tone mixes the agent's own hue into the fill and the ink", () => {
     const tone = agentAvatarTone(custom({ appearance: { color: "green" } }));
-    expect(tone.fill).toContain("var(--ads-chart-3)");
-    expect(tone.ink).toContain("var(--ads-chart-3)");
+    expect(tone.fill).toContain("var(--aui-chart-3)");
+    expect(tone.ink).toContain("var(--aui-chart-3)");
   });
 
   test("an agent is a rounded square; a provider mark appears only when asked", () => {

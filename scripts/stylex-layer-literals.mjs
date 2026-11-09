@@ -4,14 +4,14 @@
  * `zIndex: 10` says nothing about what the surface has to beat, so two such
  * numbers written in different files can only be compared by reading both.
  * The host owns one vocabulary for this: the `layers` bands and the
- * `localStack` rungs in `src/lib/ui-layers.stylex.ts`, plus ADS's own
- * `--ads-z-index-*` tokens. A new surface names the rung it sits on, so its
+ * `localStack` rungs in `src/lib/ui-layers.stylex.ts`, plus AUI's own
+ * `--aui-z-index-*` tokens. A new surface names the rung it sits on, so its
  * position is decided where the other rungs are, not where it is written.
  *
  * What is flagged: a `zIndex` property whose value is a non-zero numeric
  * literal, directly or inside a conditional map
  * (`zIndex: { default: 1, ":hover": 2 }`), in any `.ts`/`.tsx` under `src/`
- * except the installed ADS copy and the tokens file itself. `zIndex: 0` is
+ * except the installed AUI copy and the tokens file itself. `zIndex: 0` is
  * left alone — it opens a stacking context and claims no order, which is the
  * one number that has no rung to name.
  *
@@ -27,7 +27,7 @@ const ALLOW = /layer-ok:\s*(\S[^*]*?)\s*(?:\*\/|$)/;
 
 function isScanned(path) {
   if (!/\.tsx?$/.test(path)) return false;
-  if (path.startsWith("components/ads/")) return false;
+  if (path.startsWith("components/aui/")) return false;
   if (path === "lib/ui-layers.stylex.ts") return false;
   return true;
 }

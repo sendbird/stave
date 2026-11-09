@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 const MAX_WIDTH = "1536px";
 
@@ -11,71 +11,71 @@ export const docsStyles = stylex.create({
     flexDirection: "column",
   },
   sidebar: {
-    borderRightWidth: vars["--ads-border-width-hairline"],
+    borderRightWidth: vars["--aui-border-width-hairline"],
     borderRightStyle: "solid",
     borderRightColor: "color-mix(in oklab, var(--border) 70%, transparent)",
   },
   sidebarHeader: {
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
     borderBottomColor: "color-mix(in oklab, var(--sidebar-border) 80%, transparent)",
-    paddingInline: vars["--ads-space-16"],
-    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-16"],
+    paddingBlock: vars["--aui-space-12"],
   },
   sidebarHeaderLink: {
     display: "inline-flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     color: {
       default: "var(--muted-foreground)",
       ":hover": "var(--foreground)",
     },
   },
   sidebarContent: {
-    paddingInline: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-12"],
   },
   sidebarGroupLabel: {
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
     fontSize: "11px",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     letterSpacing: "0.05em",
     textTransform: "uppercase",
   },
   toc: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   tocLabel: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "0.05em",
     color: "var(--foreground)",
     textTransform: "uppercase",
   },
   tocList: {
-    borderLeftWidth: vars["--ads-border-width-hairline"],
+    borderLeftWidth: vars["--aui-border-width-hairline"],
     borderLeftStyle: "solid",
     borderLeftColor: "var(--border)",
   },
   tocLink: {
     display: "block",
-    borderLeftWidth: vars["--ads-border-width-hairline"],
+    borderLeftWidth: vars["--aui-border-width-hairline"],
     borderLeftStyle: "solid",
     borderLeftColor: {
       default: "transparent",
       '[data-active="true"]': "var(--primary)",
     },
-    paddingBlock: vars["--ads-space-4"],
-    paddingLeft: vars["--ads-space-12"],
-    fontSize: vars["--ads-font-size-body"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingLeft: vars["--aui-space-12"],
+    fontSize: vars["--aui-font-size-body"],
     lineHeight: "1.5rem",
     fontWeight: {
-      default: vars["--ads-font-weight-regular"],
-      '[data-active="true"]': vars["--ads-font-weight-medium"],
+      default: vars["--aui-font-weight-regular"],
+      '[data-active="true"]': vars["--aui-font-weight-medium"],
     },
     color: {
       default: "var(--muted-foreground)",
@@ -86,12 +86,12 @@ export const docsStyles = stylex.create({
     transitionDuration: "150ms",
   },
   tocLinkNested: {
-    paddingLeft: vars["--ads-space-24"],
+    paddingLeft: vars["--aui-space-24"],
   },
   header: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-24"],
+    gap: vars["--aui-space-24"],
   },
   breadcrumbMuted: {
     color: "var(--muted-foreground)",
@@ -99,13 +99,13 @@ export const docsStyles = stylex.create({
   heroBody: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
   },
   heroBadge: {
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
     borderColor: "color-mix(in oklab, var(--border) 80%, transparent)",
     backgroundColor: "color-mix(in oklab, var(--card) 60%, transparent)",
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
     paddingBlock: "0.125rem",
     fontSize: "11px",
     letterSpacing: "0.05em",
@@ -119,7 +119,7 @@ export const docsStyles = stylex.create({
       "@media (min-width: 640px)": "3rem",
     },
     lineHeight: 1.1,
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "-0.025em",
     textWrap: "balance",
     color: "var(--foreground)",
@@ -127,7 +127,7 @@ export const docsStyles = stylex.create({
   heroDescription: {
     maxInlineSize: "48rem",
     fontSize: {
-      default: vars["--ads-font-size-lead"],
+      default: vars["--aui-font-size-lead"],
       "@media (min-width: 640px)": "1.125rem",
     },
     lineHeight: "1.75rem",
@@ -135,15 +135,15 @@ export const docsStyles = stylex.create({
   },
   heroPreview: {
     overflow: "hidden",
-    borderRadius: vars["--ads-radius-frame"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-frame"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
     borderColor: "var(--border)",
     backgroundColor: "color-mix(in oklab, var(--muted) 30%, transparent)",
   },
   neighbors: {
     display: "grid",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     gridTemplateColumns: {
       default: "1fr",
       "@media (min-width: 640px)": "repeat(2, minmax(0, 1fr))",
@@ -153,15 +153,15 @@ export const docsStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    borderRadius: vars["--ads-radius-frame"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-frame"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
     borderColor: {
       default: "color-mix(in oklab, var(--border) 70%, transparent)",
       ":hover": "color-mix(in oklab, var(--foreground) 20%, transparent)",
     },
     backgroundColor: "color-mix(in oklab, var(--card) 50%, transparent)",
-    padding: vars["--ads-space-20"],
+    padding: vars["--aui-space-20"],
     transitionProperty: "color, background-color, border-color",
     transitionDuration: "150ms",
   },
@@ -171,18 +171,18 @@ export const docsStyles = stylex.create({
   neighborLabel: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
     color: "var(--muted-foreground)",
   },
   neighborLabelNext: {
     justifyContent: "flex-end",
   },
   neighborTitle: {
-    marginTop: vars["--ads-space-8"],
+    marginTop: vars["--aui-space-8"],
     fontFamily: "var(--font-heading)",
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-lead"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "-0.025em",
     color: "var(--foreground)",
   },
@@ -195,7 +195,7 @@ export const docsStyles = stylex.create({
     borderColor: "color-mix(in oklab, var(--border) 80%, transparent)",
     backgroundColor: "color-mix(in oklab, var(--background) 95%, transparent)",
     padding: 0,
-    boxShadow: vars["--ads-elevation-modal"],
+    boxShadow: vars["--aui-elevation-modal"],
   },
   searchCommand: {
     display: "flex",
@@ -206,31 +206,31 @@ export const docsStyles = stylex.create({
   },
   searchInputWrap: {
     flexShrink: 0,
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
     borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
-    paddingInline: vars["--ads-space-4"],
-    paddingBottom: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
+    paddingBottom: vars["--aui-space-4"],
   },
   searchList: {
     minBlockSize: 0,
     maxBlockSize: "none",
     flexGrow: 1,
-    paddingInline: vars["--ads-space-8"],
-    paddingBottom: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-8"],
+    paddingBottom: vars["--aui-space-12"],
   },
   searchEmpty: {
-    paddingInline: vars["--ads-space-16"],
-    paddingBlock: vars["--ads-space-40"],
-    fontSize: vars["--ads-font-size-body"],
+    paddingInline: vars["--aui-space-16"],
+    paddingBlock: vars["--aui-space-40"],
+    fontSize: vars["--aui-font-size-body"],
     color: "var(--muted-foreground)",
   },
   searchGroup: {
-    paddingBlock: vars["--ads-space-4"],
+    paddingBlock: vars["--aui-space-4"],
   },
   searchItemMeta: {
     marginInlineStart: "auto",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     color: "var(--muted-foreground)",
   },
   layoutRow: {
@@ -248,20 +248,20 @@ export const docsStyles = stylex.create({
     },
     blockSize: "3rem",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
     borderBottomColor: "color-mix(in oklab, var(--border) 70%, transparent)",
     backgroundColor: "color-mix(in oklab, var(--background) 85%, transparent)",
-    paddingInline: vars["--ads-space-16"],
+    paddingInline: vars["--aui-space-16"],
     backdropFilter: "blur(12px)",
   },
   mobileBarSeparator: {
-    blockSize: vars["--ads-space-16"],
+    blockSize: vars["--aui-space-16"],
   },
   mobileBarTitle: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     color: "var(--foreground)",
   },
   main: {
@@ -271,18 +271,18 @@ export const docsStyles = stylex.create({
     maxInlineSize: MAX_WIDTH,
     flexGrow: 1,
     paddingInline: {
-      default: vars["--ads-space-16"],
-      "@media (min-width: 640px)": vars["--ads-space-24"],
-      "@media (min-width: 1024px)": vars["--ads-space-40"],
+      default: vars["--aui-space-16"],
+      "@media (min-width: 640px)": vars["--aui-space-24"],
+      "@media (min-width: 1024px)": vars["--aui-space-40"],
     },
     paddingBlock: {
-      default: vars["--ads-space-40"],
+      default: vars["--aui-space-40"],
       "@media (min-width: 1024px)": "3.5rem",
     },
   },
   contentGrid: {
     display: "grid",
-    gap: vars["--ads-space-40"],
+    gap: vars["--aui-space-40"],
     gridTemplateColumns: {
       default: "1fr",
       "@media (min-width: 1280px)": "minmax(0, 1fr) 220px",
@@ -291,7 +291,7 @@ export const docsStyles = stylex.create({
   article: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-40"],
+    gap: vars["--aui-space-40"],
     minInlineSize: 0,
     maxInlineSize: "48rem",
   },
@@ -308,12 +308,12 @@ export const docsStyles = stylex.create({
   notFound: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
   },
   notFoundTitle: {
     fontFamily: "var(--font-heading)",
-    fontSize: vars["--ads-font-size-title"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-title"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   notFoundText: {
     color: "var(--muted-foreground)",
@@ -323,7 +323,7 @@ export const docsStyles = stylex.create({
     textDecorationLine: "underline",
   },
   icon: {
-    inlineSize: vars["--ads-control-icon-size-md"],
-    blockSize: vars["--ads-control-icon-size-md"],
+    inlineSize: vars["--aui-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
   },
 });

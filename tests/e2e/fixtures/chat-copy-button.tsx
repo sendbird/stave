@@ -4,7 +4,7 @@ import { CopyButton } from "@/components/session/chat-panel-message-parts";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { Toaster } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 
 const params = new URLSearchParams(location.search);

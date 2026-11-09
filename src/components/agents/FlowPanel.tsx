@@ -3,10 +3,10 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import { buildFlow, deriveFlowBase, FLOW_STATE_LABELS, type FlowNode } from "@/lib/agents/flow-view";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
@@ -204,75 +204,75 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
 }
 
 const styles = stylex.create({
-  received: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], marginBottom: vars["--ads-space-8"] },
-  changed: { color: vars["--ads-color-warning-text"] },
-  receivedList: { margin: 0, display: "flex", flexDirection: "column", gap: 2, paddingInlineStart: vars["--ads-space-16"] },
-  receivedRow: { display: "flex", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"] },
+  received: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], marginBottom: vars["--aui-space-8"] },
+  changed: { color: vars["--aui-color-warning-text"] },
+  receivedList: { margin: 0, display: "flex", flexDirection: "column", gap: 2, paddingInlineStart: vars["--aui-space-16"] },
+  receivedRow: { display: "flex", gap: vars["--aui-space-8"], fontSize: vars["--aui-font-size-caption"] },
   receivedValue: { margin: 0, minWidth: 0, overflowWrap: "anywhere" },
   list: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column" },
-  nested: { marginTop: vars["--ads-space-8"] },
-  item: { display: "flex", gap: vars["--ads-space-8"], minWidth: 0 },
+  nested: { marginTop: vars["--aui-space-8"] },
+  item: { display: "flex", gap: vars["--aui-space-8"], minWidth: 0 },
   rail: { display: "flex", flexDirection: "column", alignItems: "center", flex: "0 0 12px", paddingTop: 5 },
-  dot: { width: 10, height: 10, borderRadius: vars["--ads-radius-full"], flex: "0 0 auto" },
+  dot: { width: 10, height: 10, borderRadius: vars["--aui-radius-full"], flex: "0 0 auto" },
   line: {
     flex: "1 1 auto",
-    width: vars["--ads-border-width-hairline"],
+    width: vars["--aui-border-width-hairline"],
     marginBlock: 2,
-    backgroundColor: vars["--ads-color-border-subtle"],
+    backgroundColor: vars["--aui-color-border-subtle"],
   },
-  body: { flex: "1 1 auto", minWidth: 0, paddingBottom: vars["--ads-space-12"] },
-  head: { display: "flex", alignItems: "baseline", gap: vars["--ads-space-8"], minWidth: 0 },
+  body: { flex: "1 1 auto", minWidth: 0, paddingBottom: vars["--aui-space-12"] },
+  head: { display: "flex", alignItems: "baseline", gap: vars["--aui-space-8"], minWidth: 0 },
   title: {
     flex: "1 1 auto",
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text"],
   },
-  state: { flex: "0 0 auto", fontSize: vars["--ads-font-size-caption"] },
+  state: { flex: "0 0 auto", fontSize: vars["--aui-font-size-caption"] },
   detail: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
     overflowWrap: "anywhere",
   },
-  actions: { display: "flex", gap: vars["--ads-space-4"], marginTop: 2 },
+  actions: { display: "flex", gap: vars["--aui-space-4"], marginTop: 2 },
   chevron: { width: 12, height: 12 },
   chevronOpen: { transform: "rotate(90deg)" },
   timeline: {
     margin: 0,
-    marginTop: vars["--ads-space-4"],
-    paddingInlineStart: vars["--ads-space-12"],
+    marginTop: vars["--aui-space-4"],
+    paddingInlineStart: vars["--aui-space-12"],
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
-  event: { display: "flex", gap: vars["--ads-space-8"] },
-  eventTime: { flex: "0 0 auto", color: vars["--ads-color-text-muted"], fontVariantNumeric: "tabular-nums" },
+  event: { display: "flex", gap: vars["--aui-space-8"] },
+  eventTime: { flex: "0 0 auto", color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums" },
 });
 
 const dotStyles = stylex.create({
-  waiting: { backgroundColor: vars["--ads-color-border-subtle"] },
-  running: { backgroundColor: vars["--ads-color-accent"] },
-  "action-required": { backgroundColor: vars["--ads-color-warning"] },
-  done: { backgroundColor: vars["--ads-color-success"] },
-  failed: { backgroundColor: vars["--ads-color-danger"] },
-  skipped: { backgroundColor: vars["--ads-color-text-subtle"] },
-  cancelled: { backgroundColor: vars["--ads-color-text-subtle"] },
+  waiting: { backgroundColor: vars["--aui-color-border-subtle"] },
+  running: { backgroundColor: vars["--aui-color-accent"] },
+  "action-required": { backgroundColor: vars["--aui-color-warning"] },
+  done: { backgroundColor: vars["--aui-color-success"] },
+  failed: { backgroundColor: vars["--aui-color-danger"] },
+  skipped: { backgroundColor: vars["--aui-color-text-subtle"] },
+  cancelled: { backgroundColor: vars["--aui-color-text-subtle"] },
 });
 
 const stateStyles = stylex.create({
-  waiting: { color: vars["--ads-color-text-subtle"] },
-  running: { color: vars["--ads-color-text"] },
-  "action-required": { color: vars["--ads-color-warning-text"] },
-  done: { color: vars["--ads-color-text-muted"] },
-  failed: { color: vars["--ads-color-danger-text"] },
-  skipped: { color: vars["--ads-color-text-subtle"] },
-  cancelled: { color: vars["--ads-color-text-subtle"] },
+  waiting: { color: vars["--aui-color-text-subtle"] },
+  running: { color: vars["--aui-color-text"] },
+  "action-required": { color: vars["--aui-color-warning-text"] },
+  done: { color: vars["--aui-color-text-muted"] },
+  failed: { color: vars["--aui-color-danger-text"] },
+  skipped: { color: vars["--aui-color-text-subtle"] },
+  cancelled: { color: vars["--aui-color-text-subtle"] },
 });

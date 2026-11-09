@@ -27,11 +27,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import { Badge } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import {
   Select,
   SelectContent,

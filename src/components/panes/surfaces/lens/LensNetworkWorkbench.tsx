@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { Badge } from "@/components/ads/components/Badge";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { Badge } from "@/components/aui/components/Badge";
 import * as stylex from "@stylexjs/stylex";
 import {
   ArrowDownToLine,
@@ -204,7 +204,7 @@ export function LensNetworkWorkbench(props: {
                 {filteredNetworkEntries.map((entry) => {
                   const selected = selectedNetworkEntryId === entry.entryId;
                   return (
-                    <AdsButton
+                    <AuiButton
                       layout="host"
                       key={entry.entryId}
                       type="button"
@@ -255,7 +255,7 @@ export function LensNetworkWorkbench(props: {
                         entry={entry}
                         maxDurationMs={networkWaterfallMaxMs}
                       />
-                    </AdsButton>
+                    </AuiButton>
                   );
                 })}
               </div>

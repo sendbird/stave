@@ -16,7 +16,7 @@ import {
   formatLensNetworkBytes,
   formatLensNetworkStatus,
 } from "@/lib/lens/lens-network";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export const LENS_LOG_LIMIT = 200;
 
@@ -169,10 +169,10 @@ export function formatNetworkHeaders(
 }
 
 /**
- * Semantic tone for a log/status pill. Consumers map the tone to an ADS
+ * Semantic tone for a log/status pill. Consumers map the tone to an AUI
  * `Badge` tone or a StyleX style; this module deliberately holds no styling
  * syntax. (`neutral` is the quiet default; `info`/`warning`/`danger`/`success`
- * mirror the ADS tone families.)
+ * mirror the AUI tone families.)
  */
 export type LensLogTone = Extract<Tone, "neutral" | "info" | "warning" | "danger" | "success">;
 

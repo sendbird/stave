@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import { resolveTimeLeftHand } from "@/components/layout/status-bar-usage-strip.utils";
 

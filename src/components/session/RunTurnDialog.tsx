@@ -3,9 +3,9 @@ import { questionReplyAnswerText } from "@/lib/question-reply";
 import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
-import { Button } from "@/components/ads/components/Button";
-import { Dialog } from "@/components/ads/components/Dialog";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Dialog } from "@/components/aui/components/Dialog";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Message,
   MessageContent,

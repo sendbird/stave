@@ -7,11 +7,11 @@
     /* The hover below repaints `color` with no easing, which is the one thing
        every StyleX interactive surface in the app transitions. Declared here
        rather than on `:hover` so the return to rest eases too. Named property,
-       ADS duration/easing — the same contract `transition.colors` compiles to.
-       The colour itself stays on `--foreground`: ADS role variables are
+       AUI duration/easing — the same contract `transition.colors` compiles to.
+       The colour itself stays on `--foreground`: AUI role variables are
        StyleX-hashed at build time and have no stable name a hand-written CSS
-       file can reference, so `--foreground` (which ADS `colorText` maps to in
-       `system/ads-theme.ts`) is the exposed equivalent. */
+       file can reference, so `--foreground` (which AUI `colorText` maps to in
+       `system/aui-theme.ts`) is the exposed equivalent. */
     transition: color var(--atelier-motion-duration-fast)
       var(--atelier-motion-ease-standard);
   }

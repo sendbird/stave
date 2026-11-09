@@ -2,8 +2,8 @@ import { useTranslation } from "@/i18n";
 import { useState, type DragEvent } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Upload } from "lucide-react";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
 import { dragCarriesFiles } from "@/lib/files/file-drop";
 import { TASK_DRAG_MIME } from "@/lib/task-context/attached-task-context";
@@ -93,34 +93,34 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
-    gap: vars["--ads-space-8"],
-    padding: vars["--ads-space-12"],
+    gap: vars["--aui-space-8"],
+    padding: vars["--aui-space-12"],
     borderRadius: "inherit",
     // The form's dashed drop outline sits inside its box, under this layer, so the layer draws it again.
-    outlineColor: vars["--ads-color-accent"],
+    outlineColor: vars["--aui-color-accent"],
     outlineOffset: -2,
     outlineStyle: "dashed",
     outlineWidth: 2,
     // Opaque enough to put the draft behind the words, in the accent wash the outline already uses.
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-accent-soft"]} 92%, ${vars["--ads-color-surface"]})`,
-    color: vars["--ads-color-text"],
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-accent-soft"]} 92%, ${vars["--aui-color-surface"]})`,
+    color: vars["--aui-color-text"],
     pointerEvents: "none",
     textAlign: "center",
   },
   icon: {
     flexShrink: 0,
-    inlineSize: vars["--ads-control-icon-size-md"],
-    blockSize: vars["--ads-control-icon-size-md"],
-    color: vars["--ads-color-accent"],
+    inlineSize: vars["--aui-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
+    color: vars["--aui-color-accent"],
   },
   title: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   hint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
 });

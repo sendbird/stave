@@ -1,7 +1,7 @@
 import { describeAutomationDraftIssue } from "@/lib/automation-presentation";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Button,
   Select,

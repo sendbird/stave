@@ -13,9 +13,9 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Loader } from "@/components/ui/loader";
-import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import { buildGraphBranchPaths, graphLaneX } from "@/lib/git-graph/edge-path";
 import { buildGraphLayout } from "@/lib/git-graph/graph-layout";
 import type {
@@ -42,20 +42,20 @@ import { gitGraphCanvasStyles as styles } from "./git-graph-canvas.styles";
 
 // Graph lanes follow the active theme.
 export const GIT_GRAPH_LANE_PALETTE = [
-  "var(--ads-chart-1)",
-  "var(--ads-chart-2)",
-  "var(--ads-chart-3)",
-  "var(--ads-chart-4)",
-  "var(--ads-chart-5)",
-  "var(--ads-chart-6)",
-  "var(--ads-chart-7)",
-  "var(--ads-chart-8)",
-  "var(--ads-chart-9)",
-  "var(--ads-chart-10)",
-  "var(--ads-chart-11)",
-  "var(--ads-chart-12)",
-  "var(--ads-chart-13)",
-  "var(--ads-chart-14)",
+  "var(--aui-chart-1)",
+  "var(--aui-chart-2)",
+  "var(--aui-chart-3)",
+  "var(--aui-chart-4)",
+  "var(--aui-chart-5)",
+  "var(--aui-chart-6)",
+  "var(--aui-chart-7)",
+  "var(--aui-chart-8)",
+  "var(--aui-chart-9)",
+  "var(--aui-chart-10)",
+  "var(--aui-chart-11)",
+  "var(--aui-chart-12)",
+  "var(--aui-chart-13)",
+  "var(--aui-chart-14)",
 ] as const;
 // Uncommitted work follows the theme's muted ink instead of a fixed gray.
 const UNCOMMITTED_STROKE = "var(--muted-foreground)";

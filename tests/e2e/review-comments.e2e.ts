@@ -49,7 +49,7 @@ test("a comment row opens its file and lands on its line", async ({ page }) => {
   await page.getByRole("button", { name: "Show src/billing/billing-table.test.tsx:2 in the diff" }).click();
   await expect(page.getByRole("group", { name: /billing-table\.test\.tsx/ })).toBeVisible();
   const focusedLine = () => page.evaluate(() => {
-    const cells = document.activeElement?.querySelectorAll(":scope > [data-ads-slot='line-number']");
+    const cells = document.activeElement?.querySelectorAll(":scope > [data-aui-slot='line-number']");
     return cells?.[1]?.textContent ?? null;
   });
   await expect.poll(focusedLine).toBe("2");
@@ -120,11 +120,11 @@ test("the jump mark shows on the hovered or focused row only", async ({ page }) 
 test("delete turns to the danger tone under the pointer, and changed lines read in the success tone", async ({ page }) => {
   await open(page);
   const remove = pending(page).first().locator("[data-review-comment-remove]");
-  const danger = await tokenColor(page, "--ads-color-danger");
+  const danger = await tokenColor(page, "--aui-color-danger");
   await page.mouse.move(0, 0);
   expect(await remove.evaluate((element) => getComputedStyle(element).color)).not.toBe(danger);
   await remove.hover();
   await expect.poll(() => remove.evaluate((element) => getComputedStyle(element).color)).toBe(danger);
   const changed = sent(page).nth(1).getByText("Sent · lines changed since");
-  expect(await changed.evaluate((element) => getComputedStyle(element).color)).toBe(await tokenColor(page, "--ads-color-success-text"));
+  expect(await changed.evaluate((element) => getComputedStyle(element).color)).toBe(await tokenColor(page, "--aui-color-success-text"));
 });

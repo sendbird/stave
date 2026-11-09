@@ -21,7 +21,7 @@ import {
   ToolApprovalCard,
 } from "@/components/session/ToolApprovalCard";
 import { Button, Loader, Textarea } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   resolveFleetCurrentTaskControlState,
   validateFleetInteractionAction,
@@ -39,7 +39,7 @@ import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
 import { resolveApprovalRequesterName } from "@/lib/approvals/approval-requester";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { controlPanelStyles as styles } from "./fleet-task-control-panel.styles";
 import { useAppStore } from "@/store/app.store";
 import {

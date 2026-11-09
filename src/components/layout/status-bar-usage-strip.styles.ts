@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 
 import type { UsageStripBreakpoint } from "@/components/layout/status-bar-usage-strip.utils";
-import { vars } from "../ads/tokens/tokens.stylex";
-import type { StyleXValue } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 
 /** The usage strip in the status bar: rings, token counts, and the hints behind them. */
 export const usageStripStyles = stylex.create({
@@ -32,29 +32,29 @@ export const usageStripStyles = stylex.create({
   // each ring reads as the start of its own entry.
   full: {
     alignItems: "center",
-    gap: vars["--ads-space-4"],
-    marginInlineStart: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
+    marginInlineStart: vars["--aui-space-4"],
   },
   percent: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   // Regular weight under the button's medium, so the figure is what reads first.
   context: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-regular"],
+    fontWeight: vars["--aui-font-weight-regular"],
   },
   glyph: { display: "block", flexShrink: 0 },
-  ringTrack: { stroke: vars["--ads-color-overlay-pressed"] },
-  ringOk: { stroke: vars["--ads-color-success"] },
-  ringWarn: { stroke: vars["--ads-color-warning"] },
-  ringDanger: { stroke: vars["--ads-color-danger"] },
-  ringHand: { color: vars["--ads-color-text-muted"] },
+  ringTrack: { stroke: vars["--aui-color-overlay-pressed"] },
+  ringOk: { stroke: vars["--aui-color-success"] },
+  ringWarn: { stroke: vars["--aui-color-warning"] },
+  ringDanger: { stroke: vars["--aui-color-danger"] },
+  ringHand: { color: vars["--aui-color-text-muted"] },
   ringWedge: { fill: "currentColor", opacity: 0.45 },
-  hint: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
-  hintLine: { fontWeight: vars["--ads-font-weight-regular"] },
+  hint: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"] },
+  hintLine: { fontWeight: vars["--aui-font-weight-regular"] },
 });
 
 // One rule per breakpoint step: a container query condition cannot read a

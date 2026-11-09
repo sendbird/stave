@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowLeft, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Kbd } from "@/components/ads/components/Kbd";
+import { Button } from "@/components/aui/components/Button";
+import { Kbd } from "@/components/aui/components/Kbd";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import type { I18nKey } from "@/i18n";
 import type { ReviewScope, ReviewScopeKind, ReviewScopeLimit } from "@/lib/review/review-scope";

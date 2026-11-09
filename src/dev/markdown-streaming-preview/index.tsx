@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { LONG_STREAMING_REPLY, streamingDeltas } from "./fixture";
@@ -174,22 +174,22 @@ export function MarkdownStreamingPreview() {
 
 const styles = stylex.create({
   page: {
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
     minHeight: "100vh",
-    padding: vars["--ads-space-24"],
+    padding: vars["--aui-space-24"],
   },
   header: {
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     marginInline: "auto",
     maxWidth: "48rem",
-    marginBottom: vars["--ads-space-24"],
+    marginBottom: vars["--aui-space-24"],
   },
-  title: { fontSize: vars["--ads-font-size-lead"], fontWeight: vars["--ads-font-weight-semibold"] },
-  note: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  title: { fontSize: vars["--aui-font-size-lead"], fontWeight: vars["--aui-font-weight-semibold"] },
+  note: { fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
   column: { maxWidth: "48rem", marginInline: "auto", minWidth: 0 },
   reference: { position: "absolute", visibility: "hidden", insetInlineStart: 0, insetBlockStart: 0, width: "48rem" },
 });

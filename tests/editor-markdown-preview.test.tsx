@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
 import { editorMarkdownPreviewStyles } from "@/components/layout/editor-markdown-preview.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 describe("EditorMarkdownPreview", () => {
   test("renders headings, tables, and fenced code blocks for editor preview", () => {

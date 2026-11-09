@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Target } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { goalStatusStyles } from "./prompt-input-goal-status.styles";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export interface PromptInputGoalStatus {
   statusLabel: string;

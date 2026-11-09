@@ -16,7 +16,7 @@ import {
   describeFailedSendAttachments,
   type FailedOutgoingSend,
 } from "@/store/failed-send-recovery";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { failedOutgoingMessagesStyles as styles } from "./failed-outgoing-messages.styles";
 
 const EMPTY_FAILED_SENDS: FailedOutgoingSend[] = [];

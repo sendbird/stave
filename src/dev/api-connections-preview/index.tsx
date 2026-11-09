@@ -4,7 +4,7 @@ import {
   buildModelSelectorOptions,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector.utils";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ApiConnectionsSettings } from "@/components/layout/ApiConnectionsSettings";
 import { RoutingDecisionField } from "@/components/layout/RoutingDecisionField";
 import { SettingsCard } from "@/components/layout/settings-dialog.shared";

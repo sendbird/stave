@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
-import { Meter, type MeterTone } from "@/components/ads/components/Meter";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
+import { Meter, type MeterTone } from "@/components/aui/components/Meter";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   formatKB,
   formatSignedKB,

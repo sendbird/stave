@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { sx } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 // ---------------------------------------------------------------------------
 // PR context dialog — pick review threads and failed checks to attach
 // ---------------------------------------------------------------------------

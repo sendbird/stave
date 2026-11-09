@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   TASK_DRAG_MIME,
   encodeTaskDragPayload,
@@ -10,11 +10,11 @@ import {
   buildWorkspaceProgressTaskItems,
   type WorkspaceProgressTaskItem,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { StateMark } from "@/components/aui/components/StateMark";
 import { Loader } from "@/components/ui";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { ProviderMark } from "@/components/system/ProviderMark";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { fleetStatusToWorkState, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ChatMessage, Task } from "@/types/chat";
@@ -95,7 +95,7 @@ export function WorkspaceProgressTaskTreeView(args: {
       const statusLabel = STATUS_LABEL[item.status];
       return (
         <li key={item.taskId}>
-          <AdsButton layout="host"
+          <AuiButton layout="host"
             type="button"
             data-workspace-progress-task={item.taskId}
             data-workspace-progress-status={item.status}
@@ -132,7 +132,7 @@ export function WorkspaceProgressTaskTreeView(args: {
                 xstyle={styles.progress}
               />
             ) : null}
-          </AdsButton>
+          </AuiButton>
         </li>
       );
     });

@@ -1,8 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
-import { Thinking } from "@/components/ads/components/Thinking";
-import { ToolRun } from "@/components/ads/components/ToolRun";
+import { Thinking } from "@/components/aui/components/Thinking";
+import { ToolRun } from "@/components/aui/components/ToolRun";
 import { ReasoningRow } from "@/components/session/message/turn-event-rows";
 import { TraceToolRun } from "@/components/session/message/turn-event-tool-runs";
 import { LiveTurnTraceTimeline } from "@/components/session/TurnTraceTimeline";

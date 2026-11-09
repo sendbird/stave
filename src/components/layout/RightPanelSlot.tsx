@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 const slideIn = stylex.keyframes({
   from: { transform: "translateX(100%)" },
@@ -92,15 +92,15 @@ const styles = stylex.create({
     width: "100%",
   },
   enter: {
-    animationDuration: vars["--ads-motion-duration-normal"],
+    animationDuration: vars["--aui-motion-duration-normal"],
     animationFillMode: "both",
     animationName: slideIn,
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
+    animationTimingFunction: vars["--aui-motion-ease-standard"],
   },
   exit: {
-    animationDuration: vars["--ads-motion-duration-normal"],
+    animationDuration: vars["--aui-motion-duration-normal"],
     animationFillMode: "both",
     animationName: slideOut,
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
+    animationTimingFunction: vars["--aui-motion-ease-standard"],
   },
 });

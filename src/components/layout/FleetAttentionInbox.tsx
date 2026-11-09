@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   BellOff,
   ChevronDown,
@@ -8,7 +8,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
@@ -26,8 +26,8 @@ import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
 import type { FleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import { FleetAttentionBulkMenu, FleetReviewClearMenu } from "./FleetAttentionBulkMenu";
-import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import {
   Button,
   DropdownMenu,
@@ -580,7 +580,7 @@ export function FleetAttentionInbox(args: {
         {review.length > 0 ? (
           <div className={sx(styles.reviewGroup)}>
             <div className={sx(styles.reviewHeader)}>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={[styles.reviewToggle, focusRing.ringInset]}
@@ -600,7 +600,7 @@ export function FleetAttentionInbox(args: {
                 )}
                 <span className={sx(styles.groupHeading)}>{FLEET_TIER_LABEL.review}</span>
                 <span className={sx(styles.reviewCount)}>{review.length}</span>
-              </AdsButton>
+              </AuiButton>
               {/*
                 Bulk clear is scoped to this group on purpose. Nothing here is
                 stalled, so acknowledging it in one gesture is safe; doing the

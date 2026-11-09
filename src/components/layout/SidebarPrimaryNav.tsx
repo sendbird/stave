@@ -1,14 +1,14 @@
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { CountBadge } from "@/components/system/CountBadge";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 import { Bot, Gauge, LayoutGrid } from "lucide-react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { transition } from "@/components/ads/recipes/transition";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { transition } from "@/components/aui/recipes/transition";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { collectAgentsWithWork } from "@/lib/agents/agent-work";
@@ -82,7 +82,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   return (
     <>
       {props.showFleetView ? (
-        <AdsTooltip content={i18n.t("shell:sidebarPrimaryNav.fleetView")} shortcut={fleetShortcut}><AdsButton
+        <AuiTooltip content={i18n.t("shell:sidebarPrimaryNav.fleetView")} shortcut={fleetShortcut}><AuiButton
           layout="host"
           type="button"
           onClick={() => openFleetView()}
@@ -96,11 +96,11 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
         >
           <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
           {i18n.t("shell:sidebarPrimaryNav.fleetView")}
-        </AdsButton></AdsTooltip>
+        </AuiButton></AuiTooltip>
       ) : null}
       {showAgents ? (
         <>
-          <AdsTooltip content={i18n.t("shell:sidebarPrimaryNav.agents")} shortcut={agentsShortcut}><AdsButton
+          <AuiTooltip content={i18n.t("shell:sidebarPrimaryNav.agents")} shortcut={agentsShortcut}><AuiButton
             layout="host"
             type="button"
             onClick={() => openAgents()}
@@ -117,9 +117,9 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
             {agentsWithWork.total > 0 ? (
               <CountBadge count={agentsWithWork.total} tone={agentsWithWork.agents.some((agent) => agent.needsYou) ? "warning" : "neutral"} />
             ) : null}
-          </AdsButton></AdsTooltip>
+          </AuiButton></AuiTooltip>
           {agentsWithWork.agents.map((agent) => (
-            <AdsButton
+            <AuiButton
               key={agent.agentConfigId}
               layout="host"
               type="button"
@@ -144,17 +144,17 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
               />
               <span className={sx(styles.label)}>{agent.agentName}</span>
               {agent.count > 0 ? <CountBadge count={agent.count} tone={agent.needsYou ? "warning" : "neutral"} /> : null}
-            </AdsButton>
+            </AuiButton>
           ))}
         </>
       ) : null}
       {showAiUsage ? (
-        <AdsTooltip content={i18n.t("shell:sidebarPrimaryNav.aIUsage")} shortcut={usageShortcut}><AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
+        <AuiTooltip content={i18n.t("shell:sidebarPrimaryNav.aIUsage")} shortcut={usageShortcut}><AuiButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
           aria-current={surface === "usage" ? "page" : undefined}
           xstyle={[repositorySidebarStyles.navButton, transition.colors,
             surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
           <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
-        </AdsButton></AdsTooltip>
+        </AuiButton></AuiTooltip>
       ) : null}
     </>
   );
@@ -233,10 +233,10 @@ const styles = stylex.create({
     insetInlineEnd: 5,
     width: 7,
     height: 7,
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-warning"],
-    boxShadow: `0 0 0 2px ${vars["--ads-color-canvas"]}`,
+    borderRadius: vars["--aui-radius-full"],
+    backgroundColor: vars["--aui-color-warning"],
+    boxShadow: `0 0 0 2px ${vars["--aui-color-canvas"]}`,
   },
   label: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },
-  childRow: { height: 28, paddingInlineStart: vars["--ads-space-24"], fontSize: vars["--ads-font-size-caption"] },
+  childRow: { height: 28, paddingInlineStart: vars["--aui-space-24"], fontSize: vars["--aui-font-size-caption"] },
 });

@@ -1,15 +1,15 @@
 # Turn-event grammar
 
 How Stave renders one assistant turn. This document is prescriptive: it names
-the event kinds, the anatomy each one gets, the state matrix, and the ADS
+the event kinds, the anatomy each one gets, the state matrix, and the AUI
 component every kind maps to. A new kind is added by extending this table, not
 by inventing a surface.
 
-The design authority is the ADS agent-surface grammar
+The design authority is the AUI agent-surface grammar
 (`decisions/agent-surface-grammar.md` in Atelier) and the tokens in
-[`src/components/ads/tokens/tokens.stylex.ts`](../../src/components/ads/tokens/tokens.stylex.ts).
+[`src/components/aui/tokens/tokens.stylex.ts`](../../src/components/aui/tokens/tokens.stylex.ts).
 Values below are tokens, never literals. Where a token does not exist, the
-value is a caller-owned prop on an ADS component, and that is stated.
+value is a caller-owned prop on an AUI component, and that is stated.
 
 ## 1. Kinds and their components
 
@@ -17,18 +17,18 @@ The trace is built by
 [`assistant-trace-builder.ts`](../../src/components/session/message/assistant-trace-builder.ts),
 which produces one entry per kind. Every entry is one step on the rail.
 
-| Kind                     | ADS component                | Notes                                                                        |
+| Kind                     | AUI component                | Notes                                                                        |
 | ------------------------ | ---------------------------- | ---------------------------------------------------------------------------- |
 | reasoning                | `Thinking`                   | phase label shimmers, settles to its measured duration                       |
 | tool run                 | `ToolRun`                    | `icon` names the kind of work; `tool` carries the target                      |
-| command run              | `ToolRun` + `CommandResult`  | `CommandResult` is a host composition, not a second ADS component            |
+| command run              | `ToolRun` + `CommandResult`  | `CommandResult` is a host composition, not a second AUI component            |
 | file change / diff       | `FileChangeSummary` + `DiffViewer` | the summary is the header the diff does not draw                       |
 | search / web + citations | `ToolRun` + `Citation.List`  | sources come from URLs in the provider's own output                          |
 | subagent                 | `ToolRun`                    | `Bot` glyph, prompt in `input`, report in `output` as prose                   |
 | todo / plan              | `ToolRun` + `Plan`           | TodoWrite is a real tool call; the plan is its payload                        |
-| approval                 | `Approval` via `ToolApprovalCard` | ADS is presentation only — the decision still calls `resolveApproval`    |
-| user input               | `Clarification`              | fields are ADS `RadioGroup` / `Checkbox` / `TextField`                        |
-| system                   | `agentSurface` + `inlineDisclosure` | a recipe composition: ADS has no notice surface — see §8               |
+| approval                 | `Approval` via `ToolApprovalCard` | AUI is presentation only — the decision still calls `resolveApproval`    |
+| user input               | `Clarification`              | fields are AUI `RadioGroup` / `Checkbox` / `TextField`                        |
+| system                   | `agentSurface` + `inlineDisclosure` | a recipe composition: AUI has no notice surface — see §8               |
 | assistant text (interim) | none                         | prose on the rail, no disclosure — it is language, not an event               |
 
 One renderer per kind, wherever the event is shown:
@@ -102,7 +102,7 @@ has none.
 ## 3. The rail
 
 Rung 2 of the containment ladder, and one primitive:
-[`StepRail`](../../src/components/ads/components/StepRail.tsx).
+[`StepRail`](../../src/components/aui/components/StepRail.tsx).
 
 - Gutter: `space24`. Column gap: `space8`.
 - Marker box: `controlHeightSm`, centred in the gutter, so two adjacent steps
@@ -121,7 +121,7 @@ number would go if it did.
 
 ## 4. State matrix
 
-One lifecycle union — ADS `AgentRunState` — shared by every surface. The host
+One lifecycle union — AUI `AgentRunState` — shared by every surface. The host
 maps into it exactly once, in
 [`turn-event-state.ts`](../../src/components/session/message/turn-event-state.ts).
 
@@ -182,7 +182,7 @@ correct answer rather than a gap:
 Two states in this family are neither answered nor pending, and §5 forbids
 rendering them as the nearest one:
 
-| Stave state            | ADS value                        | Why not the nearest decision                                                 |
+| Stave state            | AUI value                        | Why not the nearest decision                                                 |
 | ---------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
 | `approval-responded`   | `outcome.decision: "allowed"`    | Unless a person's grant was recorded (then `allow-once` or `allow-always`): a part saved before the approval record, or one allowed automatically, keeps no grant, and either scoped word would state a fact nobody recorded. |
 | `approval-interrupted` | `outcome.decision: "lapsed"`     | `deny` credits the reader with a refusal they never gave; a `null` outcome leaves three live buttons on a gate the host can no longer answer.                      |
@@ -193,11 +193,11 @@ trusted tools, Stave after no answer in time, ...) and when. A part saved
 before the record has no audit line, only its status word.
 
 Both `lapsed` values take neutral ink and never `danger`: a lapse is not a
-refusal. They were added to ADS in this pass —
+refusal. They were added to AUI in this pass —
 `consumer-changes/2026-09-07-approval-resolution-beyond-the-decision.json` and
 `2026-09-07-clarification-lapsed-result.json`.
 
-Rules, all owned by ADS `useSettleDisclosure` and `isActionRequiredState` — do
+Rules, all owned by AUI `useSettleDisclosure` and `isActionRequiredState` — do
 not re-derive them per call site:
 
 1. **Closed by default.** A running or failed payload stays behind the
@@ -219,7 +219,7 @@ not re-derive them per call site:
 
 `durationMs` is passed only where something was measured — `elapsedSeconds` from
 the provider, or a reasoning pass's `startedAt`/`completedAt`. Given no
-measurement, ADS renders **no** duration; that is the correct output, not a gap
+measurement, AUI renders **no** duration; that is the correct output, not a gap
 to fill. No percentages, ever: there is no percentage to know.
 
 `NormalizedProviderEvent.tool_result` carries `output` and `isError` and nothing
@@ -228,7 +228,7 @@ invented `exit 1` beside a real stderr dump is worse than no number.
 
 ## 6. Capped viewports
 
-[`CappedViewport`](../../src/components/ads/components/CappedViewport.tsx) bounds
+[`CappedViewport`](../../src/components/aui/components/CappedViewport.tsx) bounds
 a payload that has no bound of its own: a growing chain of thought, a command's
 output.
 
@@ -268,7 +268,7 @@ properties.
 | reasoning glyph pulse    | `motionDurationLoopSlow`, `motionEaseInOut`              |
 | phase-label shimmer      | `recipes/text-shimmer` via `TextShimmer` — never re-implemented |
 
-The collapse is a **row-track animation on a mounted panel**: ADS animates
+The collapse is a **row-track animation on a mounted panel**: AUI animates
 `block-size` against the panel's measured height
 (`.atelier-motion-collapse` in `overlay-motion.css`), which is this system's
 form of the `grid-template-rows: 0fr → 1fr` construction. It is not a
@@ -286,10 +286,10 @@ that arrive as a unit — a step, a chip — which may rise a few pixels. Under
 blur and overshoot go; every `transition.*` key already carries that override,
 which is why components compose it instead of hand-rolling a transition.
 
-## 8. Notices, and the one surface ADS does not have
+## 8. Notices, and the one surface AUI does not have
 
 `todo`, `approval` and `user input` now render through `Plan`, `Approval` and
-`Clarification`. `system` does not, because ADS has no notice surface and the
+`Clarification`. `system` does not, because AUI has no notice surface and the
 two candidates are both the wrong shape:
 
 - `ToolRun` would name a runtime event a "tool call", which is exactly the
@@ -298,13 +298,13 @@ two candidates are both the wrong shape:
   disclosure, and a transcript notice is neither authored nor short — its
   payload is a stack trace or a recovery action.
 
-So the notice row is *composed* from the primitives ADS publishes for the job:
+So the notice row is *composed* from the primitives AUI publishes for the job:
 `agentSurface.row` for the row, the `inlineDisclosure` recipe for the
 trigger / panel / body rungs, `InlineDisclosureIcon` for the single leading
 slot that swaps the glyph for the chevron, and `useSettleDisclosure` for the
-lifecycle. Every token, rung and curve therefore still comes from ADS and
+lifecycle. Every token, rung and curve therefore still comes from AUI and
 nothing is re-derived, which is the difference between composing the system and
-forking it. If ADS grows an agent-notice component, this composition is what it
+forking it. If AUI grows an agent-notice component, this composition is what it
 should replace.
 
 `Checkpoint` is installed but not yet wired. It is the right surface for a
@@ -313,7 +313,7 @@ and a Restore control, and explicitly not a card in the stack — but Stave's
 restore runs a destructive `git restore --worktree` behind a
 **confirm-then-restore** second click, and `Checkpoint` models a single
 `onRestore`. Swapping now would silently drop the confirmation step, so the
-boundary keeps the host surface until ADS can express a destructive restore.
+boundary keeps the host surface until AUI can express a destructive restore.
 
 `ToolRun.Group` is likewise not used yet. The trace's grouping axis is
 adjacency *within* a step — reasoning parts, diff parts — not runs of sibling
@@ -324,7 +324,7 @@ non-rolled-up group would.
 
 The transcript's markdown renderer had no `h1`–`h6` overrides, so a heading in
 assistant prose fell through to the user-agent sheet at `2em` bold — and once
-ADS's reset zeroed the UA `margin-block` on headings, that landed as an
+AUI's reset zeroed the UA `margin-block` on headings, that landed as an
 outsized bold line with no separation from the paragraphs around it. It is
 fixed in the host prose layer, where it belongs: `markdownStyles.heading*` in
 [`message-markdown.styles.ts`](../../src/components/ai-elements/message-markdown.styles.ts).

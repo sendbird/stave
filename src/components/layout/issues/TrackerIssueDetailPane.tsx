@@ -1,8 +1,8 @@
 import { formatDateTime } from "@/i18n/format";
 import { useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
-import { Badge } from "@/components/ads/components/Badge";
+import { Badge } from "@/components/aui/components/Badge";
 import {
   ChevronRight,
   ExternalLink,
@@ -36,7 +36,7 @@ import {
 } from "@/lib/tracker-issues/client-state";
 import { trackerIssueKey } from "@/lib/tracker-issues/client-store";
 import type { TrackerIssueListItem } from "@/lib/tracker-issues/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { TrackerIssueMeta } from "./TrackerIssueMeta";
 import { taskLayoutStyles } from "./issues-layout.stylex";
 import {
@@ -176,7 +176,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
 
       <div className={sx(taskLayoutStyles.detailBody)}>
         {linkPresentation && link ? (
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             onClick={() => props.onOpenStaveTask(key)}
@@ -203,7 +203,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
             <Badge variant="outline" tone={linkPresentation.tone}>
               {link.craneJobId ? tI18n("issues:trackerIssueDetailPane.reportedToCrane") : tI18n("issues:trackerIssueDetailPane.localOnly")}
             </Badge>
-          </AdsButton>
+          </AuiButton>
         ) : null}
 
         <TrackerIssueMeta task={task} now={props.now} />

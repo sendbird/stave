@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUp, Check, Copy, Eraser, MessageCircleQuestion, X } from "lucide-react";
 import { useEffect, useId, useRef, type KeyboardEvent } from "react";
-import { Banner } from "@/components/ads/components/Banner";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Banner } from "@/components/aui/components/Banner";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { MESSAGE_BODY_LINE_HEIGHT } from "@/components/ai-elements/message-styles";
 import { MessageTextScaleContext, scaleMessageFontSize } from "@/components/ai-elements/message-text-scale";
@@ -96,7 +96,7 @@ function SideChatCard(props: { taskId: string; host: TaskSurfaceMode }) {
           <p className={sx(styles.note)}>{i18n.t("session:sideChat.note")}</p>
         </div>
         {thread?.length ? (
-          <AdsButton
+          <AuiButton
             variant="quiet"
             size="sm"
             iconOnly
@@ -106,9 +106,9 @@ function SideChatCard(props: { taskId: string; host: TaskSurfaceMode }) {
             onClick={() => useSideChatStore.getState().clearThread(taskId)}
           >
             <Eraser aria-hidden />
-          </AdsButton>
+          </AuiButton>
         ) : null}
-        <AdsButton
+        <AuiButton
           variant="quiet"
           size="sm"
           iconOnly
@@ -117,7 +117,7 @@ function SideChatCard(props: { taskId: string; host: TaskSurfaceMode }) {
           onClick={close}
         >
           <X aria-hidden />
-        </AdsButton>
+        </AuiButton>
       </header>
       <div ref={bodyRef} className={sx(styles.body)} aria-live="polite">
         {thread?.length ? (
@@ -148,7 +148,7 @@ function SideChatCard(props: { taskId: string; host: TaskSurfaceMode }) {
             onKeyDown={onFieldKeyDown}
             xstyle={styles.field}
           />
-          <AdsButton
+          <AuiButton
             variant="primary"
             size="md"
             iconOnly
@@ -158,7 +158,7 @@ function SideChatCard(props: { taskId: string; host: TaskSurfaceMode }) {
             onClick={ask}
           >
             <ArrowUp aria-hidden />
-          </AdsButton>
+          </AuiButton>
         </div>
         <p id={hintId} className={sx(styles.hint)}>
           {i18n.t("session:sideChat.keyHint")}
@@ -177,7 +177,7 @@ function SideChatEmpty(props: { taskId: string }) {
         {SUGGESTION_KEYS.map((key) => {
           const question = i18n.t(`session:sideChat.${key}`);
           return (
-            <AdsButton
+            <AuiButton
               key={key}
               variant="outline"
               size="sm"
@@ -186,7 +186,7 @@ function SideChatEmpty(props: { taskId: string }) {
               onClick={() => void useSideChatStore.getState().ask(props.taskId, question)}
             >
               {question}
-            </AdsButton>
+            </AuiButton>
           );
         })}
       </div>
@@ -234,9 +234,9 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
           </div>
           <div className={sx(styles.actions)}>
             <CopyAnswerButton answer={exchange.answer} />
-            <AdsButton variant="quiet" size="sm" onClick={() => copySideAnswerToComposer(taskId, exchange.answer)}>
+            <AuiButton variant="quiet" size="sm" onClick={() => copySideAnswerToComposer(taskId, exchange.answer)}>
               {i18n.t("session:sideChat.copyToComposer")}
-            </AdsButton>
+            </AuiButton>
             <span className={sx(styles.byline)}>{provider}</span>
           </div>
         </div>
@@ -247,13 +247,13 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
           title={describeFailure(exchange)}
           action={
             exchange.reason === "error" ? (
-              <AdsButton
+              <AuiButton
                 size="sm"
                 variant="outline"
                 onClick={() => void useSideChatStore.getState().retry(taskId, exchange.id)}
               >
                 {i18n.t("common:actions.retry")}
-              </AdsButton>
+              </AuiButton>
             ) : undefined
           }
         >
@@ -271,7 +271,7 @@ function CopyAnswerButton(props: { answer: string }) {
   const label = copied ? i18n.t("session:sideChat.copied") : i18n.t("session:sideChat.copyAnswer");
   return (
     <>
-      <AdsButton
+      <AuiButton
         variant="quiet"
         size="sm"
         iconOnly
@@ -282,7 +282,7 @@ function CopyAnswerButton(props: { answer: string }) {
         }}
       >
         {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-      </AdsButton>
+      </AuiButton>
       <ClipboardCopyAnnouncement status={status} />
     </>
   );

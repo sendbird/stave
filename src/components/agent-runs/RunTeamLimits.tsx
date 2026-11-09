@@ -4,10 +4,10 @@ import { i18n, useTranslation } from "@/i18n";
 import { formatNumber } from "@/i18n/format";
 import type { AgentResourceSnapshot } from "@/lib/agent-runs/resources";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import { Button } from "@/components/ads/components/Button";
-import { Meter } from "@/components/ads/components/Meter";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Meter } from "@/components/aui/components/Meter";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
@@ -84,22 +84,22 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
 }
 
 const metrics = stylex.create({
-  headroom: { flexShrink: 0, fontSize: vars["--ads-font-size-caption"], fontVariantNumeric: "tabular-nums", color: vars["--ads-color-text-muted"] },
+  headroom: { flexShrink: 0, fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums", color: vars["--aui-color-text-muted"] },
   /** Clips the reserved overlay to the meter track's rounded ends. */
-  frame: { position: "relative", borderRadius: vars["--ads-radius-full"], overflow: "hidden" },
+  frame: { position: "relative", borderRadius: vars["--aui-radius-full"], overflow: "hidden" },
   /** Held, not spent: the reserved turns are striped so they never read as the solid spent fill, even near the limit. */
   reservedOverlay: { position: "absolute", insetBlock: 0, pointerEvents: "none",
-    backgroundImage: `repeating-linear-gradient(135deg, ${vars["--ads-color-warning"]} 0 2px, transparent 2px 4px)` },
+    backgroundImage: `repeating-linear-gradient(135deg, ${vars["--aui-color-warning"]} 0 2px, transparent 2px 4px)` },
   /** Legend swatches in the meter's own inks: the neutral fill, the reserved overlay and the bare track. */
-  used: { backgroundColor: vars["--ads-color-text-muted"] },
-  reserved: { backgroundImage: `repeating-linear-gradient(135deg, ${vars["--ads-color-warning"]} 0 2px, transparent 2px 4px)` },
-  available: { backgroundColor: vars["--ads-color-canvas-subtle"], boxShadow: `inset 0 0 0 ${vars["--ads-border-width-hairline"]} ${vars["--ads-color-border"]}` },
-  warning: { backgroundColor: vars["--ads-color-warning"] },
-  legend: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: vars["--ads-space-8"], margin: 0 },
-  helpers: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: vars["--ads-space-8"], margin: 0 },
+  used: { backgroundColor: vars["--aui-color-text-muted"] },
+  reserved: { backgroundImage: `repeating-linear-gradient(135deg, ${vars["--aui-color-warning"]} 0 2px, transparent 2px 4px)` },
+  available: { backgroundColor: vars["--aui-color-canvas-subtle"], boxShadow: `inset 0 0 0 ${vars["--aui-border-width-hairline"]} ${vars["--aui-color-border"]}` },
+  warning: { backgroundColor: vars["--aui-color-warning"] },
+  legend: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: vars["--aui-space-8"], margin: 0 },
+  helpers: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: vars["--aui-space-8"], margin: 0 },
   stat: { minWidth: 0 },
-  label: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
-  swatch: { flexShrink: 0, width: 6, height: 6, borderRadius: vars["--ads-radius-full"] },
-  value: { margin: 0, marginTop: vars["--ads-space-4"], fontSize: vars["--ads-font-size-lead"], fontWeight: vars["--ads-font-weight-semibold"], fontVariantNumeric: "tabular-nums", color: vars["--ads-color-text"] },
+  label: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
+  swatch: { flexShrink: 0, width: 6, height: 6, borderRadius: vars["--aui-radius-full"] },
+  value: { margin: 0, marginTop: vars["--aui-space-4"], fontSize: vars["--aui-font-size-lead"], fontWeight: vars["--aui-font-weight-semibold"], fontVariantNumeric: "tabular-nums", color: vars["--aui-color-text"] },
   copy: { minWidth: 0, whiteSpace: "normal", overflowWrap: "anywhere" },
 });

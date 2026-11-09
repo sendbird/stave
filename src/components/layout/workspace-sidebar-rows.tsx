@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   AlertTriangle,
   GitMerge,
@@ -18,9 +18,9 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   formatWorkQueueWorkspaceLabel,
   formatWorkspaceDisplayName,
@@ -33,7 +33,7 @@ import {
   type SidebarWorkQueueEntry,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { StateMark } from "@/components/aui/components/StateMark";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
@@ -547,7 +547,7 @@ export function WorkQueueRow(args: {
           repositoryName={entry.repositoryName}
           side="right"
         >
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             onClick={() =>
@@ -599,7 +599,7 @@ export function WorkQueueRow(args: {
             <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
             {/* The revealed menu's room, so the counts step aside instead of sitting under it. */}
             {args.actions ? <span aria-hidden className={sx(repositorySidebarStyles.rowActionReserve)} /> : null}
-          </AdsButton>
+          </AuiButton>
         </WorkspaceHoverPreviewTooltip>
         {args.actions}
       </div>

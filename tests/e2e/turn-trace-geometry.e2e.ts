@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The turn timeline's rows on the real component (ADS regression preview, at
+ * The turn timeline's rows on the real component (AUI regression preview, at
  * the Task panel's 560px): every bar sits on one shared axis, centred on its
  * row's label, at the place its observed start puts it; the "now" line runs
  * straight down every track; and a long trailing figure on one row does not
@@ -12,7 +12,7 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 async function open(page: Page, args: { locale: "en" | "ko"; dark: boolean }) {
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   await expect(page.getByTestId("turn-trace-fixture")).toBeVisible();
   if (args.dark) {
     await page.getByRole("button", { name: "Light", exact: true }).click();
@@ -32,7 +32,7 @@ async function measure(page: Page) {
     return rows.map((row) => {
       const name = row.querySelector<HTMLElement>("[data-trace-span-name]")!.getBoundingClientRect();
       const label = row.querySelector<HTMLElement>("[data-trace-span-name] > span")!.getBoundingClientRect();
-      const track = row.querySelector<HTMLElement>('[data-ads-slot="track"]')!.getBoundingClientRect();
+      const track = row.querySelector<HTMLElement>('[data-aui-slot="track"]')!.getBoundingClientRect();
       const bar = row.querySelector<HTMLElement>("[data-trace-bar]")!.getBoundingClientRect();
       const marker = row.querySelector<HTMLElement>("[data-trace-marker]")?.getBoundingClientRect() ?? null;
       const rowBox = row.getBoundingClientRect();
@@ -122,7 +122,7 @@ for (const locale of ["en", "ko"] as const) {
 async function measureTicks(page: Page) {
   return page.getByTestId("turn-trace-fixture").evaluate((fixture) => {
     const axis = fixture.querySelector<HTMLElement>("[data-trace-axis]")!;
-    const firstTrack = fixture.querySelector<HTMLElement>('[data-trace-span-id] [data-ads-slot="track"]')!.getBoundingClientRect();
+    const firstTrack = fixture.querySelector<HTMLElement>('[data-trace-span-id] [data-aui-slot="track"]')!.getBoundingClientRect();
     const axisTrack = axis.children[1]!.getBoundingClientRect();
     const firstRow = fixture.querySelector<HTMLElement>("[data-trace-span-id]")!.getBoundingClientRect();
     const labels = [...axis.querySelectorAll<HTMLElement>("[data-trace-tick]")].map((label) => {

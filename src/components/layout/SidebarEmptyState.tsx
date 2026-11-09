@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { FolderOpen, X } from "lucide-react";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "../aui/utils/stylex";
 import { Button } from "@/components/ui";
 import { useTranslation } from "@/i18n";
 
@@ -54,22 +54,22 @@ const styles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-8"],
+    gap: vars["--aui-space-4"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-8"],
   },
   title: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   reason: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
   },
-  action: { alignSelf: "flex-start", marginBlockStart: vars["--ads-space-8"] },
+  action: { alignSelf: "flex-start", marginBlockStart: vars["--aui-space-8"] },
 });

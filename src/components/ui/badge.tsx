@@ -7,19 +7,19 @@ import {
   type BadgeSize,
   type BadgeTone,
   type BadgeVariant,
-} from "../ads/components/Badge";
-import { withTruncatingLabels } from "../ads/components/truncating-label";
-import { themeProps, themeSlotProps } from "../ads/theming/theme-props";
-import { sx, cx, type XstyleProp } from "../ads/utils/stylex";
-import { transition } from "../ads/recipes/transition";
+} from "../aui/components/Badge";
+import { withTruncatingLabels } from "../aui/components/truncating-label";
+import { themeProps, themeSlotProps } from "../aui/theming/theme-props";
+import { sx, cx, type XstyleProp } from "../aui/utils/stylex";
+import { transition } from "../aui/recipes/transition";
 import {
   statusChip,
   statusChipSizeStyles,
   statusChipSolidToneStyles,
-} from "../ads/recipes/status-chip";
+} from "../aui/recipes/status-chip";
 
 /**
- * The legacy shim vocabulary, which folds ADS's two orthogonal axes — `tone`
+ * The legacy shim vocabulary, which folds AUI's two orthogonal axes — `tone`
  * (hue) and `variant` (fill weight) — into one `variant` word.
  */
 type LegacyVariant =
@@ -33,7 +33,7 @@ type LegacyVariant =
   | "link";
 
 /**
- * Each legacy word decomposed back into the ADS pair it means. Typed as an
+ * Each legacy word decomposed back into the AUI pair it means. Typed as an
  * exhaustive `Record`, so adding a legacy name without deciding its tone and
  * fill is a compile error rather than a silently untoned badge.
  */
@@ -57,11 +57,11 @@ const isLegacyVariant = (
 
 /**
  * `variant` accepts BOTH vocabularies. Previously it accepted only the legacy
- * words, so a caller reaching for the ADS spelling (`variant="soft"`) fell
+ * words, so a caller reaching for the AUI spelling (`variant="soft"`) fell
  * through the tone map to `undefined` and rendered an untoned badge. The two
  * unions overlap only on `"outline"`, which means the same thing in each.
  *
- * `tone` is the ADS axis and always wins when given; without it the legacy word
+ * `tone` is the AUI axis and always wins when given; without it the legacy word
  * supplies the tone, so every existing caller renders byte-identically.
  */
 export type BadgeShimProps = {

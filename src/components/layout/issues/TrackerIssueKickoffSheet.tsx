@@ -22,7 +22,7 @@ import type {
   TrackerIssueListItem,
   TrackerIssueStartMode,
 } from "@/lib/tracker-issues/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { useAppStore } from "@/store/app.store";
 import {

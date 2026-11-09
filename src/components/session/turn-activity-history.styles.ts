@@ -1,30 +1,30 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const turnActivityHistoryStyles = stylex.create({
   bar: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   label: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   picker: {
     flex: 1,
     minWidth: 0,
   },
   notice: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flex: 1,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "1rem",
     margin: 0,
     minWidth: 0,
@@ -37,11 +37,11 @@ export const turnActivityHistoryStyles = stylex.create({
     flexShrink: 0,
     flexWrap: "wrap",
     justifyContent: "space-between",
-    columnGap: vars["--ads-space-12"],
-    rowGap: vars["--ads-space-4"],
+    columnGap: vars["--aui-space-12"],
+    rowGap: vars["--aui-space-4"],
     minWidth: 0,
-    paddingBlockEnd: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlockEnd: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   body: {
     display: "flex",

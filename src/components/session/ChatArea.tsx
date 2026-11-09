@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { chatAreaStyles } from "./chat-area.styles";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
 import { ChatInput } from "@/components/session/ChatInput";
 import { TaskStartGuide } from "@/components/session/TaskStartGuide";

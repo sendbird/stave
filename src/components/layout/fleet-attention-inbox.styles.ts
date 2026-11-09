@@ -1,11 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const attentionStyles = stylex.create({
   // Fills the band above the board; the band bounds its height.
   root: {
-    backgroundColor: vars["--ads-color-surface"],
+    backgroundColor: vars["--aui-color-surface"],
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
@@ -14,34 +14,34 @@ export const attentionStyles = stylex.create({
   },
   header: {
     alignItems: "baseline",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyContent: "space-between",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   /** Section eyebrow: Caption, uppercase, medium. */
   groupHeading: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   count: {
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   countBlocking: {
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   countClear: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   // Sized by its rows up to the band's bound, then it scrolls.
   scroller: {
@@ -65,13 +65,13 @@ export const attentionStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-16"],
-    paddingInline: vars["--ads-space-16"],
+    gap: vars["--aui-space-4"],
+    paddingBlock: vars["--aui-space-16"],
+    paddingInline: vars["--aui-space-16"],
     textAlign: "center",
   },
   emptyIcon: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--aui-color-text-subtle"],
     height: 20,
     width: 20,
   },
@@ -84,20 +84,20 @@ export const attentionStyles = stylex.create({
    * the column without leaving the column's scale.
    */
   emptyTitle: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    lineHeight: vars["--aui-line-height-normal"],
   },
   emptyHint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
   },
   reviewGroup: {
-    borderTopColor: vars["--ads-color-border"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
   },
   /**
    * The toggle and the bulk clear are siblings rather than nested: a button
@@ -106,50 +106,50 @@ export const attentionStyles = stylex.create({
   reviewHeader: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     paddingInlineEnd: 6,
   },
   reviewToggle: {
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
     display: "flex",
     gap: 6,
     minHeight: 32,
     paddingBlock: 6,
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
     textAlign: "left",
     width: "100%",
   },
   reviewIcon: {
-    color: vars["--ads-color-text-muted"],
-    height: vars["--ads-control-icon-size-sm"],
-    width: vars["--ads-control-icon-size-sm"],
+    color: vars["--aui-color-text-muted"],
+    height: vars["--aui-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
   },
   reviewCount: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   /** Keeps hidden rows accountable: a snooze must never be a silent delete. */
   snoozedFooter: {
     alignItems: "center",
-    borderTopColor: vars["--ads-color-border"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     gap: 6,
     minHeight: 32,
     paddingBlock: 6,
     paddingInlineEnd: 6,
-    paddingInlineStart: vars["--ads-space-12"],
+    paddingInlineStart: vars["--aui-space-12"],
   },
   snoozedLabel: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexGrow: 1,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
 });

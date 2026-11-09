@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /**
  * The single geometry + type contract for every control that sits directly in
@@ -9,7 +9,7 @@ import { vars } from "../ads/tokens/tokens.stylex";
  * hand-rolled `height: 28`, `gap: 6`, `paddingInline: "0.625rem"` and picked its
  * own font weight, so the row read as five slightly different controls.
  *
- * One rung of the ADS control ramp (`sm`, 32px) for the whole row, centred in a
+ * One rung of the AUI control ramp (`sm`, 32px) for the whole row, centred in a
  * 48px bar with 8px of air above and below. The label stays on
  * `fontSizeCaption` + `fontWeightMedium` for every control including the
  * primary "Create PR" one: the bar is a dense chrome row read as a unit, and a
@@ -19,16 +19,16 @@ import { vars } from "../ads/tokens/tokens.stylex";
 export const topBarControlStyles = stylex.create({
   control: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-8"],
-    height: vars["--ads-control-height-sm"],
-    lineHeight: vars["--ads-line-height-control"],
-    paddingInline: vars["--ads-space-8"],
-    // One line at one height. A host-layout button does not get the ADS
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    gap: vars["--aui-space-8"],
+    height: vars["--aui-control-height-sm"],
+    lineHeight: vars["--aui-line-height-control"],
+    paddingInline: vars["--aui-space-8"],
+    // One line at one height. A host-layout button does not get the AUI
     // control's `nowrap`, so a two-word label ("Commit graph") inside a
     // shrinking tooltip wrapper would otherwise break and spill over its
     // neighbour on a tight bar.
@@ -37,25 +37,25 @@ export const topBarControlStyles = stylex.create({
   /** Bordered chrome fill shared by the path chip, branch chip, Commit graph, and buttons. */
   surface: {
     backgroundColor: {
-      default: vars["--ads-color-canvas"],
-      ":hover": vars["--ads-color-overlay-hover"],
+      default: vars["--aui-color-canvas"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
-    borderColor: vars["--ads-color-border-subtle"],
+    borderColor: vars["--aui-color-border-subtle"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    borderWidth: vars["--aui-border-width-hairline"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
   /** Square the control and drop the inline gutter for glyph-only triggers. */
   iconOnly: {
     justifyContent: "center",
     paddingInline: 0,
-    width: vars["--ads-control-height-sm"],
+    width: vars["--aui-control-height-sm"],
   },
-  /** Glyphs inside a `sm` control: the ADS rung, not a hand-picked 12/14/16. */
+  /** Glyphs inside a `sm` control: the AUI rung, not a hand-picked 12/14/16. */
   icon: {
-    blockSize: vars["--ads-control-icon-size-sm"],
+    blockSize: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
-    inlineSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--aui-control-icon-size-sm"],
   },
 });
 
@@ -86,17 +86,17 @@ const PATH_CHIP_MIN_WIDTH = 72;
 export const topBarStyles = stylex.create({
   header: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-surface"],
-    borderBottomColor: vars["--ads-color-border-subtle"],
+    backgroundColor: vars["--aui-color-surface"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     height: "3rem",
     justifyContent: "space-between",
     paddingInline: "0.875rem",
     position: "relative",
-    zIndex: vars["--ads-z-index-app-chrome"],
+    zIndex: vars["--aui-z-index-app-chrome"],
   },
   // Everything but the window controls: the lead and the trailing groups.
   // Size containment makes it take exactly the room the header leaves it.
@@ -106,7 +106,7 @@ export const topBarStyles = stylex.create({
     containerType: "inline-size",
     display: "flex",
     flex: 1,
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     height: "100%",
     justifyContent: "space-between",
     minWidth: 0,
@@ -116,7 +116,7 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 1,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   // Where you are: the path, branch, Commit graph and PR controls. Only the
@@ -125,20 +125,20 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 1,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   sidebarToggle: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-control"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    borderRadius: vars["--aui-radius-control"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     flexShrink: 0,
-    height: vars["--ads-control-height-sm"],
+    height: vars["--aui-control-height-sm"],
     padding: 0,
-    width: vars["--ads-control-height-sm"],
+    width: vars["--aui-control-height-sm"],
   },
   // The path chip gives way down to its minimum, never the "Open in" half
   // beside it: with a `0` floor the group shrank below its two halves and the
@@ -147,7 +147,7 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 1,
-    minWidth: `calc(${PATH_CHIP_MIN_WIDTH}px + ${vars["--ads-control-height-sm"]})`,
+    minWidth: `calc(${PATH_CHIP_MIN_WIDTH}px + ${vars["--aui-control-height-sm"]})`,
   },
   // Composed after `topBarControlStyles.control` + `.surface`; this only
   // states what makes it the leading half of a segmented pair.
@@ -160,7 +160,7 @@ export const topBarStyles = stylex.create({
     minWidth: PATH_CHIP_MIN_WIDTH,
   },
   pathLabel: {
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -173,7 +173,7 @@ export const topBarStyles = stylex.create({
   // Geometry, type and fill come from `topBarControlStyles`; only the
   // disabled fade (no active workspace) is local, as on the PR trigger.
   gitGraphButton: {
-    opacity: { default: 1, ":disabled": vars["--ads-opacity-disabled"] },
+    opacity: { default: 1, ":disabled": vars["--aui-opacity-disabled"] },
   },
   // A text label that steps aside for its icon on a narrow bar; the
   // control's `aria-label` and tooltip still name it.
@@ -184,7 +184,7 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flex: 1,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyContent: "flex-end",
     minWidth: "min-content",
   },
@@ -204,7 +204,7 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   // A group that follows another one draws the rule between them as its own
   // first mark, so a group that renders nothing (no notifications outside a
@@ -214,12 +214,12 @@ export const topBarStyles = stylex.create({
   ruledGroup: {
     display: { default: "flex", ":empty": "none" },
     "::before": {
-      backgroundColor: vars["--ads-color-border"],
+      backgroundColor: vars["--aui-color-border"],
       content: "''",
       flexShrink: 0,
       height: 16,
-      marginInlineEnd: vars["--ads-space-8"],
-      marginInlineStart: vars["--ads-space-4"],
+      marginInlineEnd: vars["--aui-space-8"],
+      marginInlineStart: vars["--aui-space-4"],
       width: 1,
     },
   },
@@ -227,6 +227,6 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
 });

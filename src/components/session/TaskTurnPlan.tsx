@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { i18n, useTranslation } from "@/i18n";
-import { Plan } from "@/components/ads/components/Plan";
+import { Plan } from "@/components/aui/components/Plan";
 import { toPlanSteps } from "@/components/agent-runs/AgentRunPlan";
 import { parseTodoInput } from "@/lib/todo-progress";
 import { useAppStore } from "@/store/app.store";

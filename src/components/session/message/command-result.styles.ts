@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * The command surface's own styles. Every value is a token: the surface is a
@@ -10,17 +10,17 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  */
 export const commandResultStyles = stylex.create({
   root: {
-    gap: vars["--ads-space-8"],
-    padding: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
+    padding: vars["--aui-space-8"],
   },
   header: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   glyph: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--aui-color-text-subtle"],
     flexShrink: 0,
   },
   /**
@@ -29,7 +29,7 @@ export const commandResultStyles = stylex.create({
    * thing they will copy.
    */
   command: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     flex: "1 1 auto",
     minInlineSize: 0,
     overflow: "hidden",
@@ -45,11 +45,11 @@ export const commandResultStyles = stylex.create({
    * min-content width wider than the disclosure holding it.
    */
   output: {
-    color: vars["--ads-color-text"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantLigatures: "none",
-    lineHeight: vars["--ads-line-height-normal"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
     minInlineSize: 0,
     overflowWrap: "anywhere",
@@ -62,12 +62,12 @@ export const commandResultStyles = stylex.create({
    * dump is worse than no number at all.
    */
   outputError: {
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   empty: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
 });
 
@@ -77,15 +77,15 @@ export const commandResultStyles = stylex.create({
  * out where a theme's red sits close to its body text.
  */
 export const shellTokenStyles = stylex.create({
-  command: { fontWeight: vars["--ads-font-weight-semibold"] },
-  flag: { color: vars["--ads-color-info-text"] },
-  string: { color: vars["--ads-color-success-text"] },
-  variable: { color: vars["--ads-color-warning-text"] },
-  operator: { color: vars["--ads-color-text-muted"] },
-  comment: { color: vars["--ads-color-text-subtle"], fontStyle: "italic" },
+  command: { fontWeight: vars["--aui-font-weight-semibold"] },
+  flag: { color: vars["--aui-color-info-text"] },
+  string: { color: vars["--aui-color-success-text"] },
+  variable: { color: vars["--aui-color-warning-text"] },
+  operator: { color: vars["--aui-color-text-muted"] },
+  comment: { color: vars["--aui-color-text-subtle"], fontStyle: "italic" },
   danger: {
-    color: vars["--ads-color-danger-text"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-danger-text"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   text: {},
 });

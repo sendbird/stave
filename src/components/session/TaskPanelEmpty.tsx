@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Plus } from "lucide-react";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "../aui/utils/stylex";
 import { Button, Kbd, KbdGroup } from "@/components/ui";
 import { RightRailPanelHeader, RightRailPanelTitle } from "@/components/layout/RightRailPanelShell";
 import { TASK_PANEL_TABS } from "@/lib/right-rail-panels";
@@ -67,31 +67,31 @@ const styles = stylex.create({
   body: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     overflowY: "auto",
-    paddingBlock: vars["--ads-space-16"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-16"],
+    paddingInline: vars["--aui-space-12"],
   },
-  intro: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
+  intro: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"] },
   title: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
     margin: 0,
   },
   reason: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
   },
   // One surface with hairlines between its rows, not a box per row.
   list: {
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     listStyle: "none",
     margin: 0,
     padding: 0,
@@ -100,23 +100,23 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   rowDivided: {
-    borderBlockStartColor: vars["--ads-color-border-subtle"],
+    borderBlockStartColor: vars["--aui-color-border-subtle"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars["--ads-border-width-hairline"],
+    borderBlockStartWidth: vars["--aui-border-width-hairline"],
   },
   rowLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   rowDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   action: { alignSelf: "flex-start" },
-  shortcut: { marginInlineStart: vars["--ads-space-4"] },
+  shortcut: { marginInlineStart: vars["--aui-space-4"] },
 });

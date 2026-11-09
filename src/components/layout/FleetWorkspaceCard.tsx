@@ -3,10 +3,10 @@ import { formatTimeAgo } from "@/i18n/format";
 import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { agentRunDecisionOfMessages, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
+import { StateMark } from "@/components/aui/components/StateMark";
 import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
@@ -18,14 +18,14 @@ import {
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { prToneBadgeStyles } from "@/components/layout/pr-status.styles";
 import { ProviderMark } from "@/components/system/ProviderMark";
-import { Badge } from "@/components/ads/components/Badge";
+import { Badge } from "@/components/aui/components/Badge";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useFleetWorkspaceShell } from "@/store/fleet-workspace-shells-store";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import { cardStyles as styles } from "./fleet-workspace-card.styles";
 import {
@@ -595,7 +595,7 @@ export function FleetWorkspaceCard(args: {
               const taskAgent = runLead ? undefined : taskAgents[row.task.id];
               return (
                 <li key={row.task.id} className={sx(styles.listItem)}>
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     id={`fleet-task-trigger-${taskKey}`}
                     type="button"
@@ -660,13 +660,13 @@ export function FleetWorkspaceCard(args: {
                         label={statusLabel}
                       />
                     )}
-                  </AdsButton>
+                  </AuiButton>
                 </li>
               );
             })}
             {hiddenTaskCount > 0 || showAllTasks ? (
               <li>
-                <AdsButton
+                <AuiButton
                   layout="host"
                   type="button"
                   xstyle={[styles.disclosure, focusRing.ringInset]}
@@ -676,7 +676,7 @@ export function FleetWorkspaceCard(args: {
                   {showAllTasks
                     ? tI18n("fleet:fleetWorkspaceCard.showFewer")
                     : tI18n("fleet:fleetWorkspaceCard.valueMoreTaskvalue", { count: hiddenTaskCount })}
-                </AdsButton>
+                </AuiButton>
               </li>
             ) : null}
           </ul>

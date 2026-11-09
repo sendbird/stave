@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { AgentRunOverview } from "@/components/agent-runs/AgentRunOverview";
 import { FleetAgentRunStrip } from "@/components/agent-runs/FleetAgentRunStrip";
 import { ComposerShelf } from "@/components/session/composer-shelf/ComposerShelf";

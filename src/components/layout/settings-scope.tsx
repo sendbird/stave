@@ -1,8 +1,8 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { Badge } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { AppSettings } from "@/store/app-settings";
 import {

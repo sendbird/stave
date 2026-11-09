@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useState, type HTMLAttributes } from "react";
 import { BookmarkIcon, RotateCcw } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { ElapsedClock } from "@/components/agent-runs/ElapsedClock";
 import { compactionElapsed } from "./compaction-progress";
 import { checkpointStyles as s } from "./checkpoint.styles";

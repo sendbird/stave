@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Hand, ShieldCheck } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { managedTaskTakeoverNoticeStyles as styles } from "./managed-task-takeover-notice.styles";
 import type { TaskControlOwner } from "@/types/chat";
 

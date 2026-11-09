@@ -8,7 +8,7 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 async function mountToolCard(page: Page, locale: "en" | "ko") {
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   await expect(page.locator("main svg").first()).toBeVisible();
   await page.evaluate(async (language) => {
     const resources = performance.getEntriesByType("resource");
@@ -28,7 +28,7 @@ async function mountToolCard(page: Page, locale: "en" | "ko") {
     document.body.append(host);
     const output = Array.from(
       { length: 42 },
-      (_, index) => `src/components/session/file-${index}.tsx:${index + 1}:  animation: traceStepEnter var(--ads-motion-duration-fast) ease-out;`,
+      (_, index) => `src/components/session/file-${index}.tsx:${index + 1}:  animation: traceStepEnter var(--aui-motion-duration-fast) ease-out;`,
     ).join("\n");
     createRoot(host).render(
       React.createElement(

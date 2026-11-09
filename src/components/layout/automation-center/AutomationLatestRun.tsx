@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ads/components/Badge";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import type { AutomationRun } from "@/lib/automations";
 import { automationStyles } from "./automation-center.styles";

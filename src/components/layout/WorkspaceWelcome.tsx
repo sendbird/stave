@@ -1,8 +1,8 @@
-import { typeRoles } from "@/components/ads/recipes/type-roles";
+import { typeRoles } from "@/components/aui/recipes/type-roles";
 import { FolderOpen } from "lucide-react";
 import { useState } from "react";
-import { sx } from "@/components/ads/utils/stylex";
-import { Button } from "@/components/ads/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
 import { ActionButton } from "@/components/system/ActionButton";
 import { OpenPathDialog } from "./OpenPathDialog";
 import { useAppStore } from "@/store/app.store";

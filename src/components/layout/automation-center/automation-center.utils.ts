@@ -13,7 +13,7 @@ import {
   resolveCurrentRepositoryDefaultWorkspaceId,
   type RecentRepositoryState,
 } from "@/store/repository.utils";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 /** A workspace a schedule can run in. */
 export interface AutomationWorkspaceOption {
@@ -220,7 +220,7 @@ export function formatRunDuration(run: AutomationRun, now = Date.now()) {
 }
 
 /**
- * Semantic tone for a run status, in the same vocabulary the ADS `Badge`
+ * Semantic tone for a run status, in the same vocabulary the AUI `Badge`
  * tones use. Values only: this module stays free of styling so a worker, a
  * test, or a menu can import it without pulling in a stylesheet.
  */

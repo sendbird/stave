@@ -11,8 +11,8 @@ import {
 } from "react";
 import { AlertCircle, GitGraph, X } from "lucide-react";
 import { Button, Loader, toast } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   COMMIT_GRAPH_WORKING_TREE_REVISION,
   commitGraphDiffTabId,

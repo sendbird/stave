@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import type { IDockviewHeaderActionsProps } from "dockview-react";
 import { Ellipsis } from "lucide-react";
 import { useRef } from "react";
@@ -80,19 +80,19 @@ const styles = stylex.create({
     // The actions keep their one-line width; the tabs beside them overflow
     // into the strip's own overflow menu instead of squeezing these to wrap.
     flexShrink: 0,
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     height: "100%",
     minWidth: "max-content",
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
     whiteSpace: "nowrap",
   },
   trigger: {
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
+    borderRadius: vars["--aui-radius-mark"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    height: vars["--ads-control-height-xs"],
+    height: vars["--aui-control-height-xs"],
     padding: 0,
-    width: vars["--ads-control-height-xs"],
+    width: vars["--aui-control-height-xs"],
   },
   icon: { height: 16, width: 16 },
   options: { width: 176 },

@@ -1,9 +1,9 @@
 import { i18n, useTranslation, Trans } from "@/i18n";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronRight } from "lucide-react";
 import type { FormEventHandler } from "react";
@@ -356,7 +356,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
               {/* Uncommitted Changes */}
               {props.changes.files.length > 0 && (
                 <div className={sx(openPrStyles.field)}>
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     type="button"
                     xstyle={openPrStyles.changesToggle}
@@ -379,7 +379,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                     <span className={sx(openPrStyles.changesHint)}>
                       {i18n.t("sourceControl:createPullRequestDialog.allFilesSelectedByDefault")}
                     </span>
-                  </AdsButton>
+                  </AuiButton>
 
                   <div
                     id="create-pr-changed-files"
@@ -397,7 +397,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                             <label
                               key={file.path}
                               // A hover wash on a selectable file row, on a
-                              // `<label>` — no ADS control underneath it to
+                              // `<label>` — no AUI control underneath it to
                               // supply the fade the rest of the dialog's rows
                               // have.
                               className={sx(

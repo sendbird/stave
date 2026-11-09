@@ -1,13 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * Mounts the real Fleet table view (the ADS table with sortable headers) on
+ * Mounts the real Fleet table view (the AUI table with sortable headers) on
  * an otherwise empty preview page, with rows already built, so the header
  * buttons can be measured and pressed without seeding a whole workspace.
  */
 async function mountTable(page: Page, options: { locale: "en" | "ko"; mode: "light" | "dark"; density: "regular" | "compact" }) {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto(`/?stavePreview=ads-regressions${options.mode === "dark" ? "&theme=dark" : ""}`);
+  await page.goto(`/?stavePreview=aui-regressions${options.mode === "dark" ? "&theme=dark" : ""}`);
   await expect(page.locator("main svg").first()).toBeVisible();
   await page.evaluate(async ({ locale, mode, density }) => {
     const resources = performance.getEntriesByType("resource");

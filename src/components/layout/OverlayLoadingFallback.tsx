@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
-import { sx } from "@/components/ads/utils/stylex";
+import { LoadingSurface } from "@/components/aui/components/LoadingSurface";
+import { sx } from "@/components/aui/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { layers } from "@/lib/ui-layers.stylex";
 

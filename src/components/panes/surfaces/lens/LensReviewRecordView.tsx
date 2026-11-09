@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { CircleCheck, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { ReviewVersionCompare } from "@/components/system/ReviewVersionCompare";
 import { formatDateTime } from "@/i18n/format";
 import type { LensReviewRecord, LensReviewVerdict } from "@/lib/lens/lens-review-record";

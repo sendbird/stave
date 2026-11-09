@@ -1,20 +1,20 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const scriptsSectionStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
   },
   emptyState: {
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "dashed",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface-tint"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface-tint"],
   },
   emptyIcon: {
-    inlineSize: vars["--ads-control-icon-size-md"],
-    blockSize: vars["--ads-control-icon-size-md"],
+    inlineSize: vars["--aui-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
   },
 });

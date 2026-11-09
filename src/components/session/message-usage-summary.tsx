@@ -1,6 +1,6 @@
 import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { ArrowDownRight, ArrowUpRight, Gauge, Zap } from "lucide-react";
 import { useId } from "react";
 
@@ -11,7 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { messageUsageSummaryStyles as styles } from "./message-usage-summary.styles";
 import {
   computePromptCacheStats,
@@ -408,7 +408,7 @@ export function MessageUsageSummary(props: {
       <Tooltip>
         <TooltipTrigger
           render={
-            <AdsButton
+            <AuiButton
               layout="host"
               type="button"
               aria-label={accessibleLabel}

@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 /**
  * Shared chrome for the 46px panel bar that tops the right rail, the sidebar
@@ -13,18 +13,18 @@ export const panelBarStyles = stylex.create({
   bar: { height: 46 },
   headerTitle: {
     alignItems: "center",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     display: "inline-flex",
-    fontFamily: vars["--ads-font-sans"],
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-8"],
+    fontFamily: vars["--aui-font-sans"],
+    fontSize: vars["--aui-font-size-lead"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    gap: vars["--aui-space-8"],
     lineHeight: 1,
   },
   headerIcon: {
-    color: vars["--ads-color-text-muted"],
-    height: vars["--ads-control-icon-size-md"],
-    width: vars["--ads-control-icon-size-md"],
+    color: vars["--aui-color-text-muted"],
+    height: vars["--aui-control-icon-size-md"],
+    width: vars["--aui-control-icon-size-md"],
   },
 });
 

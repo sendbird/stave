@@ -4,7 +4,7 @@ import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import { createWorkGraph, reduceWorkGraphEvent } from "@/lib/work-graph/work-graph-reducer";
 import { parseToolInput, truncateWorkText } from "@/lib/providers/subagent-identity";
 import { selectDelegationExchanges, sortDelegationExchanges, type DelegationExchange, type SelectDelegationExchangesArgs } from "./exchange";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import { exchangeStatusToWorkState, isExchangeStatusLive } from "./format";
 
 function isSpawnHandle(part: ToolUsePart) {

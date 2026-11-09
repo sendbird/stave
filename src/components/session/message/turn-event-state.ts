@@ -1,12 +1,12 @@
-import type { AgentStepState } from "@/components/ads/components/agent-state";
+import type { AgentStepState } from "@/components/aui/components/agent-state";
 import type { FileChangeStatus } from "@/components/session/chat-panel.utils";
 import type { CodeDiffPart, MessagePart, ToolUsePart } from "@/types/chat";
 import { normalizeTraceToolName } from "./assistant-trace.utils";
 
 /**
- * The one place a Stave tool-part state becomes an ADS `AgentStepState`.
+ * The one place a Stave tool-part state becomes an AUI `AgentStepState`.
  *
- * ADS shares one lifecycle union across every agent surface precisely so that
+ * AUI shares one lifecycle union across every agent surface precisely so that
  * two components cannot name the same state differently, and that guarantee
  * only holds if the host maps into it once. `ToolRun`, `Thinking` and
  * `FileChangeSummary` all read this union, so this function is what keeps a
@@ -15,7 +15,7 @@ import { normalizeTraceToolName } from "./assistant-trace.utils";
  *
  * `input-streaming` and `input-available` are both `running`: the distinction
  * between "the arguments are still arriving" and "the call is out" is not
- * something a reader can act on, and ADS's `running` already carries the live
+ * something a reader can act on, and AUI's `running` already carries the live
  * clock and the open payload that both need.
  */
 export function toAgentStepState(state?: ToolUsePart["state"]): AgentStepState {
@@ -33,7 +33,7 @@ export function toAgentStepState(state?: ToolUsePart["state"]): AgentStepState {
 }
 
 /**
- * A diff part's own status in ADS's shared run vocabulary. `accepted` is a
+ * A diff part's own status in AUI's shared run vocabulary. `accepted` is a
  * change that landed, `rejected` one a human refused, and `pending` one still
  * waiting on that decision.
  */

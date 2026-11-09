@@ -9,7 +9,7 @@
   "env": { "browser": true, "node": true, "es2024": true },
   "ignorePatterns": [
     // Vendored design-system source bundle, updated from upstream as a unit.
-    "src/components/ads/**",
+    "src/components/aui/**",
     "**/node_modules/**",
     "out/**",
     "dist/**",

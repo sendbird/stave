@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   CheckCircle2,
   CircleAlert,
@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { Badge, Button, Input } from "@/components/ui";
 import {
@@ -152,7 +152,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                       styles.listItemLast,
                   )}
                 >
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     type="button"
                     xstyle={styles.rowButton}
@@ -185,7 +185,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                         <span>{t("compare:messages.updated", { updatedAt: formatTimeAgo(entry.updatedAt) })}</span>
                       </span>
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 </li>
               ))}
             </ul>

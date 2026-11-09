@@ -2,12 +2,12 @@ import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { ListChecks, Paperclip } from "lucide-react";
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { transition } from "@/components/ads/recipes/transition";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { transition } from "@/components/aui/recipes/transition";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   describeReviewFindingsSummary,
   summarizeReviewFindings,
@@ -174,38 +174,38 @@ const styles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-8"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-8"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
   },
   header: {
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   heading: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     letterSpacing: "0.06em",
     textTransform: "uppercase",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   meta: {
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   notice: {
     margin: 0,
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text-muted"],
   },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     margin: 0,
     padding: 0,
     listStyle: "none",
@@ -213,44 +213,44 @@ const styles = stylex.create({
   row: {
     display: "flex",
     alignItems: "flex-start",
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-4"],
-    borderRadius: vars["--ads-radius-control"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-4"],
+    borderRadius: vars["--aui-radius-control"],
   },
   selectable: {
     cursor: "pointer",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-canvas-subtle"],
+      ":hover": vars["--aui-color-canvas-subtle"],
     },
   },
   text: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     minWidth: 0,
   },
   title: {
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text"],
     overflowWrap: "anywhere",
   },
   location: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
     overflowWrap: "anywhere",
   },
   detail: {
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
     overflowWrap: "anywhere",
   },
   actions: {
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
 });

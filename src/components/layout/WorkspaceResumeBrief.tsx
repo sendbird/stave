@@ -8,11 +8,11 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { workspaceInformationPanelStyles as panelStyles } from "./workspace-information-panel.styles";
-import { Textarea as AdsTextarea } from "@/components/ui/textarea";
+import { Textarea as AuiTextarea } from "@/components/ui/textarea";
 import { useEffect, useId, useRef, useState } from "react";
 import { ActionButton } from "@/components/system/ActionButton";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import {
   emptyResumeBriefFields,
@@ -304,7 +304,7 @@ export function WorkspaceResumeBrief(props: {
                     className={sx(styles.fieldLabel)}
                   >
                     {tI18n("workspace:workspaceResumeBrief.instructionsForAllTasks")}</label>
-                  <AdsTextarea
+                  <AuiTextarea
                     id={`${id}-instructions`}
                     aria-describedby={`${id}-instructions-hint`}
                     maxLength={SHARED_INSTRUCTIONS_MAX_LENGTH}

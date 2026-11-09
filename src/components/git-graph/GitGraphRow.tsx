@@ -2,9 +2,9 @@ import { formatTimeAgo } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import * as React from "react";
 import { GitBranch, Tag } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import type {
   GraphCommit,
   GraphRef,

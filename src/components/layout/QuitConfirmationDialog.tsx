@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { FileWarning, Power, TerminalSquare } from "lucide-react";
 import { useEffect, useRef, type FormEvent } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button, Kbd, Loader } from "@/components/ui";
 import {
   Dialog,

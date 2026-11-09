@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
 import { History, X } from "lucide-react";
 import { useEffect, useId, useMemo } from "react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { sx } from "@/components/aui/utils/stylex";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   buildReturnSummary,
@@ -117,7 +117,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
           <h2 id={titleId} className={sx(styles.title)}>{i18n.t("session:returnSummary.title")}</h2>
           <p className={sx(styles.since)} title={sinceText}>{sinceText}</p>
         </div>
-        <AdsButton
+        <AuiButton
           variant="quiet"
           size="xs"
           iconOnly
@@ -126,7 +126,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
           onClick={() => useTaskReturnStore.getState().dismiss(taskId)}
         >
           <X aria-hidden />
-        </AdsButton>
+        </AuiButton>
       </div>
       <div className={sx(styles.status)} data-return-line="status" data-state={status.state}>
         <div className={sx(styles.statusContent)}>
@@ -143,7 +143,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
             ) : null}
           </div>
         </div>
-        <AdsButton
+        <AuiButton
           variant={status.urgent ? "primary" : "secondary"}
           size="sm"
           xstyle={styles.statusAction}
@@ -151,7 +151,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
           onClick={() => followReturnLink(status.action.target, workspaceId, taskId)}
         >
           {status.action.label}
-        </AdsButton>
+        </AuiButton>
       </div>
       {facts.length > 0 ? (
         <dl className={sx(styles.facts)}>
@@ -163,13 +163,13 @@ export function ReturnSummaryCard(props: { taskId: string }) {
               </dd>
               <dd className={sx(styles.action)}>
                 {line.link ? (
-                  <AdsButton
+                  <AuiButton
                     variant="quiet"
                     size="xs"
                     onClick={() => line.link && followReturnLink(line.link.target, workspaceId, taskId)}
                   >
                     {line.link.label}
-                  </AdsButton>
+                  </AuiButton>
                 ) : null}
               </dd>
             </div>

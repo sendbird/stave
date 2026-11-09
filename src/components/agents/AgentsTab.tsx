@@ -3,13 +3,13 @@ import { getAgentDisplayName, getAgentDisplayAvoidWhen } from "@/lib/agents/disp
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArchiveRestore, Copy, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { Dialog } from "@/components/ads/components/Dialog";
-import { Select } from "@/components/ads/components/Select";
-import { Tabs } from "@/components/ads/components/Tabs";
-import { TextField } from "@/components/ads/components/TextField";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { Dialog } from "@/components/aui/components/Dialog";
+import { Select } from "@/components/aui/components/Select";
+import { Tabs } from "@/components/aui/components/Tabs";
+import { TextField } from "@/components/aui/components/TextField";
+import { sx } from "@/components/aui/utils/stylex";
 import { type AgentAssignment } from "@/lib/agents/assign";
 import {
   SUPPORT_LEVEL_LABELS,

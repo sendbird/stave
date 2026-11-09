@@ -1,17 +1,17 @@
 import { useTranslation } from "@/i18n";
 import { optionStyles } from "./composer-option.styles";
-import { styles as selectStyles } from "../ads/recipes/select-styles";
-import { sx } from "../ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { styles as selectStyles } from "../aui/recipes/select-styles";
+import { sx } from "../aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import type { ReactNode } from "react";
 import { Check, Info, TriangleAlert } from "lucide-react";
 
-import { RadioRoot } from "@/components/ads/headless/radio-group";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
+import { RadioRoot } from "@/components/aui/headless/radio-group";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import { questionOptionRowStyles as radioMark } from "./question-option-row.styles";
-import { cx } from "../ads/utils/stylex";
-import type { Tone } from "@/components/ads/utils/tone";
+import { cx } from "../aui/utils/stylex";
+import type { Tone } from "@/components/aui/utils/tone";
 
 /**
  * The shared vocabulary of a composer control's configuration menu.
@@ -64,7 +64,7 @@ export function ComposerOptionMenuSection(props: {
  * options are strategies (Advisor provider, Worker preset, provider mode)
  * rather than a list of names.
  *
- * Geometry is ADS's two-line item recipe — see `optionStyles.rowReset` for why
+ * Geometry is AUI's two-line item recipe — see `optionStyles.rowReset` for why
  * the local box it replaced could not place the trailing check.
  */
 export function ComposerOptionCard(props: {
@@ -80,7 +80,7 @@ export function ComposerOptionCard(props: {
 }) {
   useTranslation();
   return (
-    <AdsButton
+    <AuiButton
       layout="host"
       type="button"
       variant="quiet"
@@ -105,7 +105,7 @@ export function ComposerOptionCard(props: {
           <Check className={sx(optionStyles.check, optionStyles.selectedCheck)} />
         </span>
       ) : null}
-    </AdsButton>
+    </AuiButton>
   );
 }
 
@@ -233,7 +233,7 @@ export function ComposerOptionModelRow(props: {
 }) {
   useTranslation();
   return (
-    <AdsButton
+    <AuiButton
       layout="host"
       type="button"
       variant="quiet"
@@ -256,7 +256,7 @@ export function ComposerOptionModelRow(props: {
           <Check className={sx(optionStyles.check, optionStyles.selectedCheck)} />
         </span>
       ) : null}
-    </AdsButton>
+    </AuiButton>
   );
 }
 

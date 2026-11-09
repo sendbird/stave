@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /** The status word next to a task's glyph only fits once the board is wide. */
 const WIDE = "@media (min-width: 40rem)";
@@ -8,16 +8,16 @@ const WIDE = "@media (min-width: 40rem)";
 export const cardStyles = stylex.create({
   card: {
     backgroundColor: {
-      default: vars["--ads-color-surface"],
-      ":hover": vars["--ads-color-surface-raised"],
+      default: vars["--aui-color-surface"],
+      ":hover": vars["--aui-color-surface-raised"],
     },
     borderColor: {
-      default: vars["--ads-color-border-subtle"],
-      ":hover": vars["--ads-color-border"],
+      default: vars["--aui-color-border-subtle"],
+      ":hover": vars["--aui-color-border"],
     },
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
     minWidth: 0,
@@ -34,15 +34,15 @@ export const cardStyles = stylex.create({
     },
   },
   cardExpanded: {
-    boxShadow: `0 0 0 1px ${vars["--ads-color-border-focus"]}`,
+    boxShadow: `0 0 0 1px ${vars["--aui-color-border-focus"]}`,
   },
   header: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
-    paddingBottom: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBottom: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
     paddingTop: 10,
   },
   headerMain: {
@@ -57,11 +57,11 @@ export const cardStyles = stylex.create({
     minWidth: 0,
   },
   name: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     // Was a bare `13`, between Caption (12) and Body (14). Row titles are Body
     // medium across the fleet surfaces.
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -77,17 +77,17 @@ export const cardStyles = stylex.create({
     flexShrink: 0,
   },
   dormantIcon: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     height: 12,
     width: 12,
   },
   metaRow: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
-    marginTop: vars["--ads-space-2"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
+    marginTop: vars["--aui-space-2"],
     minWidth: 0,
   },
   metaPart: {
@@ -101,23 +101,23 @@ export const cardStyles = stylex.create({
     width: 12,
   },
   tasks: {
-    borderTopColor: vars["--ads-color-border"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     minWidth: 0,
   },
   tasksEmpty: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-12"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   searchNote: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     margin: 0,
-    paddingBlockStart: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlockStart: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
   },
   // The search-hit tint the Explorer and Git graph use.
   list: {
@@ -130,25 +130,25 @@ export const cardStyles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minHeight: 36,
     minWidth: 0,
     paddingBlock: 6,
-    paddingInlineEnd: vars["--ads-space-12"],
-    paddingInlineStart: vars["--ads-space-16"],
+    paddingInlineEnd: vars["--aui-space-12"],
+    paddingInlineStart: vars["--aui-space-16"],
     position: "relative",
     textAlign: "left",
     width: "100%",
     zIndex: {
       default: null,
-      ":focus-visible": vars["--ads-z-index-panel"],
+      ":focus-visible": vars["--aui-z-index-panel"],
     },
   },
   taskRowExpanded: {
-    backgroundColor: vars["--ads-color-selection-fill"],
+    backgroundColor: vars["--aui-color-selection-fill"],
   },
   providerMark: {
     alignItems: "center",
@@ -168,12 +168,12 @@ export const cardStyles = stylex.create({
     flexBasis: 0,
     flexGrow: 1,
     minWidth: 0,
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   // The row title takes the body step; its timestamp uses the caption step.
   taskTitle: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -183,9 +183,9 @@ export const cardStyles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    gap: vars["--aui-space-4"],
   },
   statusLabel: {
     display: {
@@ -195,32 +195,32 @@ export const cardStyles = stylex.create({
   },
   disclosure: {
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-16"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-16"],
     textAlign: "left",
     width: "100%",
   },
   controls: {
-    borderTopColor: vars["--ads-color-border"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
   },
   footer: {
     alignItems: "center",
-    borderTopColor: vars["--ads-color-border"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     marginTop: "auto",
     minWidth: 0,
     paddingBlock: 6,
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   todo: {
     alignItems: "center",
@@ -229,26 +229,26 @@ export const cardStyles = stylex.create({
     gap: 6,
   },
   todoTrack: {
-    backgroundColor: vars["--ads-color-track"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-track"],
+    borderRadius: vars["--aui-radius-full"],
     height: 4,
     overflow: "hidden",
     width: 40,
   },
   todoFill: {
-    backgroundColor: vars["--ads-color-accent"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-accent"],
+    borderRadius: vars["--aui-radius-full"],
     display: "block",
     height: "100%",
   },
   todoCount: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   activity: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -256,10 +256,10 @@ export const cardStyles = stylex.create({
   },
   openAction: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     height: 24,
     marginInlineStart: "auto",
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   openIcon: {
     height: 12,

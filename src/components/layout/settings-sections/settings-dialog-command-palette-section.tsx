@@ -9,8 +9,8 @@ import {
 } from "@/components/layout/command-palette-registry";
 import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
   Select,

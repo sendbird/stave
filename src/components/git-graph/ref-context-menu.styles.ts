@@ -1,17 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const refContextMenuStyles = stylex.create({
   dialogNarrow: {
     maxWidth: "24rem",
   },
   destructiveHeader: {
-    marginBottom: vars["--ads-space-4"],
+    marginBottom: vars["--aui-space-4"],
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    color: vars["--ads-color-danger-text"],
+    gap: vars["--aui-space-8"],
+    color: vars["--aui-color-danger-text"],
   },
   destructiveIcon: {
     width: 16,
@@ -19,38 +19,38 @@ export const refContextMenuStyles = stylex.create({
     flexShrink: 0,
   },
   destructiveTitle: {
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   forceToggle: {
     display: "flex",
     cursor: "pointer",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 60%, transparent)`,
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 60%, transparent)`,
+    paddingInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
     backgroundColor: {
       default: "transparent",
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-canvas-subtle"]} 30%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--aui-color-canvas-subtle"]} 30%, transparent)`,
     },
   },
   forceLabelActive: {
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   forceLabelMuted: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   menu: {
     width: "15rem",
   },
   menuLabel: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -60,10 +60,10 @@ export const refContextMenuStyles = stylex.create({
     alignItems: "flex-start",
     gap: 6,
     whiteSpace: "normal",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-regular"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-regular"],
     lineHeight: "16px",
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   warningIcon: {
     marginTop: 2,

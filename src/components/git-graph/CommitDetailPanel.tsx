@@ -1,7 +1,7 @@
 import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useMemo, useState } from "react";
 import {
   Calendar,
@@ -31,7 +31,7 @@ import type {
   GraphFileChange,
   GraphWorkingTreeSummary,
 } from "@/lib/git-graph/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { GitGraphSelection } from "./useGitGraphData";
 import { commitDetailPanelStyles as styles } from "./commit-detail-panel.styles";
@@ -255,7 +255,7 @@ export function CommitDetailPanel({
                   : (details?.subject ?? commit?.subject ?? i18n.t("gitGraph:commitDetailPanel.commit"))}
               </p>
               {!isWorkingTree && commit ? (
-                <AdsButton
+                <AuiButton
                   layout="host"
                   type="button"
                   xstyle={styles.hashButton}
@@ -264,7 +264,7 @@ export function CommitDetailPanel({
                 >
                   {commit.hash.slice(0, 12)}
                   <Copy className={sx(styles.hashIcon)} />
-                </AdsButton>
+                </AuiButton>
               ) : null}
             </div>
             <Tooltip content={i18n.t("gitGraph:commitDetailPanel.closeDetails")}>
@@ -360,7 +360,7 @@ export function CommitDetailPanel({
           ) : (
             <div className={sx(styles.fileListEntries)}>
               {files.map((file) => (
-                <AdsButton
+                <AuiButton
                   layout="host"
                   key={`${file.status}:${file.oldPath ?? ""}:${file.path}`}
                   type="button"
@@ -404,7 +404,7 @@ export function CommitDetailPanel({
                       ) : null}
                     </span>
                   ) : null}
-                </AdsButton>
+                </AuiButton>
               ))}
             </div>
           )}

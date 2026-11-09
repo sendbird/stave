@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { TextShimmer } from "@/components/ads/components/TextShimmer";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { TextShimmer } from "@/components/aui/components/TextShimmer";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import {
@@ -78,7 +78,7 @@ function SubagentMark(props: { state: WorkState; moving: boolean }) {
 
 const styles = stylex.create({
   mark: {
-    marginInlineEnd: vars["--ads-space-4"],
+    marginInlineEnd: vars["--aui-space-4"],
     verticalAlign: "-2px",
   },
 });

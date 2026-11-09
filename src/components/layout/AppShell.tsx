@@ -38,7 +38,7 @@ import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-pa
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import { Toaster, toast } from "@/components/ui";
-import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
+import { LoadingSurface } from "@/components/aui/components/LoadingSurface";
 import { OverlayLoadingFallback } from "@/components/layout/OverlayLoadingFallback";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
@@ -46,7 +46,7 @@ import { requestComparePreparation } from "@/components/compare/compare-prepare-
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
 import { layers } from "@/lib/ui-layers.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";

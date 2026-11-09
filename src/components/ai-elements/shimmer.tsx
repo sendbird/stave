@@ -2,8 +2,8 @@ import { useTranslation } from "@/i18n";
 import type { CSSProperties, ElementType, HTMLAttributes, ReactNode } from "react";
 import { memo, useMemo } from "react";
 import { coreStyles } from "./ai-element-core.styles";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { cx, sx } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { cx, sx } from "../aui/utils/stylex";
 
 /**
  * The band is a token pair, not a literal. It used to mix the base ink with
@@ -13,8 +13,8 @@ import { cx, sx } from "../ads/utils/stylex";
  * into the surface it sits on) in every theme, because the canvas follows the
  * theme.
  */
-const SHIMMER_BASE = `var(--shimmer-base-color, ${vars["--ads-color-text-muted"]})`;
-const SHIMMER_HIGHLIGHT = `color-mix(in srgb, ${SHIMMER_BASE}, ${vars["--ads-color-canvas"]} 60%)`;
+const SHIMMER_BASE = `var(--shimmer-base-color, ${vars["--aui-color-text-muted"]})`;
+const SHIMMER_HIGHLIGHT = `color-mix(in srgb, ${SHIMMER_BASE}, ${vars["--aui-color-canvas"]} 60%)`;
 
 export interface ShimmerProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
   /**

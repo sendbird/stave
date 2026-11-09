@@ -9,8 +9,8 @@ import {
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import type { WorkGraphStatus } from "@/lib/work-graph/work-graph.types";
-import type { Tone } from "@/components/ads/utils/tone";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { Tone } from "@/components/aui/utils/tone";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 
 export {
   describeDeadline,
@@ -110,7 +110,7 @@ export const EXCHANGE_STATUSES = [
 
 export type ExchangeStatus = (typeof EXCHANGE_STATUSES)[number];
 
-/** Semantic tone, matching the ADS Badge tone axis. */
+/** Semantic tone, matching the AUI Badge tone axis. */
 export type ExchangeStatusTone = Extract<
   Tone,
   "neutral" | "info" | "success" | "warning" | "danger"

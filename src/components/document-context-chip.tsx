@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { FileText } from "lucide-react";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Button,
   ContextChip,

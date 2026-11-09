@@ -2,9 +2,9 @@ import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import {
   Table,
   TableBody,
@@ -12,12 +12,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ads/components/Table";
-import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/Table";
+import { LoadingSurface } from "@/components/aui/components/LoadingSurface";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { fleetStatusToWorkState } from "@/lib/fleet/task-status";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import {
@@ -494,7 +494,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
       <TableCell xstyle={styles.taskCell}>
         <span className={sx(styles.task)}>
           <FleetProviderIcon provider={row.task.provider} />
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             xstyle={[styles.taskButton, focusRing.ring, transition.colors]}
@@ -508,7 +508,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
             }
           >
             {title}
-          </AdsButton>
+          </AuiButton>
         </span>
       </TableCell>
       <TableCell>
@@ -547,16 +547,16 @@ const styles = stylex.create({
     minWidth: 0,
   },
   reading: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     margin: 0,
-    paddingBlock: vars["--ads-space-4"],
+    paddingBlock: vars["--aui-space-4"],
   },
   empty: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     margin: 0,
-    paddingBlock: vars["--ads-space-24"],
+    paddingBlock: vars["--aui-space-24"],
     textAlign: "center",
   },
   taskCell: {
@@ -565,17 +565,17 @@ const styles = stylex.create({
   task: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   taskButton: {
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     color: {
-      default: vars["--ads-color-text"],
-      ":hover": vars["--ads-color-accent-text"],
+      default: vars["--aui-color-text"],
+      ":hover": vars["--aui-color-accent-text"],
     },
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     minWidth: 0,
     overflow: "hidden",
     textAlign: "start",
@@ -583,12 +583,12 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   secondary: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
     whiteSpace: "nowrap",
   },
   muted: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   numeric: {
     fontVariantNumeric: "tabular-nums",

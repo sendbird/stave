@@ -3,7 +3,7 @@ import { TerminalTabSurface } from "@/components/layout/TerminalTabSurface";
 import { useTerminalTabManager } from "@/components/layout/useTerminalTabManager";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { applyAppLocale } from "@/i18n";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 applyAppLocale("en");
 const tabs = [{ id: "find-terminal" }];

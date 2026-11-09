@@ -3,7 +3,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildConnectedToolOverviews,
   buildMcpServerOverviews,

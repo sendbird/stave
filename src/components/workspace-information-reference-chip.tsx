@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Info } from "lucide-react";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   ContextChip,
   ContextChipRemoveButton,

@@ -13,8 +13,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button, Input, Loader, Textarea, toast } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { secretsStyles as styles } from "./settings-dialog-secrets.styles";

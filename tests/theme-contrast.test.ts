@@ -40,7 +40,7 @@ describe("theme contrast helpers", () => {
   });
 });
 
-describe("built-in themes meet ADS text floors", () => {
+describe("built-in themes meet AUI text floors", () => {
   it("keeps body ink at 4.5:1 on the surfaces it sits on", () => {
     const pairs = [
       ["foreground", "background"],
@@ -68,7 +68,7 @@ describe("built-in themes meet ADS text floors", () => {
     expect(failures).toEqual([]);
   });
 
-  it("keeps muted, placeholder, and subtle copy above ADS floors", () => {
+  it("keeps muted, placeholder, and subtle copy above AUI floors", () => {
     const failures: string[] = [];
     for (const theme of catalog) {
       const ramp = deriveAdsTextRamp(theme.tokens);

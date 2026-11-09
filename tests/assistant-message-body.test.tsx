@@ -545,7 +545,7 @@ describe("AssistantMessageBody", () => {
       streamingEnabled: true,
     }));
 
-    // The same ADS row as the trace: closed unless the reader opens it.
+    // The same AUI row as the trace: closed unless the reader opens it.
     expect(html).toContain("Capture screen");
     expect(html).toMatch(
       /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
@@ -579,7 +579,7 @@ describe("AssistantMessageBody", () => {
    * The settled turn header is the container of every row on the rail, and it
    * was the one row that disagreed with them about its own anatomy: a trailing
    * `ChevronDown`, no padding, no hover wash and no glyph column. It now
-   * composes the same ADS `inlineDisclosure` trigger the rows do, so the
+   * composes the same AUI `inlineDisclosure` trigger the rows do, so the
    * chevron lives in the LEADING slot that swaps for the object glyph.
    */
   test("the turn header is an inline disclosure row with a leading chevron", async () => {
@@ -603,7 +603,7 @@ describe("AssistantMessageBody", () => {
     }));
 
     const header = html.slice(html.indexOf("<button"));
-    /* The shared hover/focus hook, and the ADS box that comes with it. */
+    /* The shared hover/focus hook, and the AUI box that comes with it. */
     expect(header).toContain("atelier-inline-disclosure-trigger");
     /*
      * The first element inside the header is the disclosure slot — that is
@@ -611,20 +611,20 @@ describe("AssistantMessageBody", () => {
      * trailing chevron would break.
      */
     expect(header).toMatch(
-      /^<button(?:(?!<span)[\s\S])*?<span[^>]*data-ads-inline-disclosure-icon/,
+      /^<button(?:(?!<span)[\s\S])*?<span[^>]*data-aui-inline-disclosure-icon/,
     );
-    expect(header).toContain("data-ads-inline-disclosure-chevron");
+    expect(header).toContain("data-aui-inline-disclosure-chevron");
   });
 
   /*
    * The changed-file row is `ToolRun`, the same primitive as every other call
    * on the rail — not the host `ChainOfThoughtStep` it used to be, which put
    * its chevron on the trailing edge and sized its glyph in `em`. These pin the
-   * two halves of that: the ADS row anatomy is present, and the pending /
+   * two halves of that: the AUI row anatomy is present, and the pending /
    * rejected state is reported through `AgentStepState` rather than a local
    * open flag, so `isActionRequiredState` decides which rows stay open.
    */
-  test("renders a changed file as an ADS tool run row awaiting approval", async () => {
+  test("renders a changed file as an AUI tool run row awaiting approval", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
@@ -647,7 +647,7 @@ describe("AssistantMessageBody", () => {
     }));
 
     expect(html).toContain("Changed file");
-    // The ADS row, keyed by the state the whole family shares.
+    // The AUI row, keyed by the state the whole family shares.
     expect(html).toContain('data-tool-run-status="approval"');
     expect(html).toContain("Awaiting approval");
     // The disclosure's leading glyph slot, which is what swaps for the chevron.

@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { Badge } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 

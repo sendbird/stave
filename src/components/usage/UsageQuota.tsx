@@ -1,10 +1,10 @@
 import { formatDateTime, formatDuration, formatNumber, formatPercent, formatTimeAgo } from "@/i18n/format";
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { Meter, type MeterTone } from "@/components/ads/components/Meter";
-import { Select } from "@/components/ads/components/Select";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Meter, type MeterTone } from "@/components/aui/components/Meter";
+import { Select } from "@/components/aui/components/Select";
+import { sx } from "@/components/aui/utils/stylex";
 import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";

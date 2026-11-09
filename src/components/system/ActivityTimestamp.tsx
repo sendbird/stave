@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useTranslation } from "@/i18n";
 import { formatAgeCompact, formatDateTime } from "@/i18n/format";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 export function ActivityTimestamp(props: {
   value?: string;
@@ -36,10 +36,10 @@ export function ActivityTimestamp(props: {
 
 const styles = stylex.create({
   time: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: vars["--ads-line-height-normal"],
+    lineHeight: vars["--aui-line-height-normal"],
     overflowWrap: "anywhere",
   },
 });
