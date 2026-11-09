@@ -108,7 +108,7 @@ test("actual preload exposes strict send/list/cancel and rejects malformed respo
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
-    const input = { requestId: "preload", text: "Discuss" };
+    const input = { requestId: "preload", text: "Discuss", attachments: [{ type: "file_context", filePath: "notes.txt", content: "Attachment bytes", language: "text" }] };
     const settings = { providerId: "codex", model: "chosen", maxTurns: 30 };
     reply = settings; await api.tars.configureConversation(settings);
     const routed = { ...settings, executionModel: { providerId: "codex", model: "gpt-6.1-sol" }, allowedAgentIds: ["release-notes"] };

@@ -168,7 +168,7 @@ export function PromptInput(args: PromptInputProps) {
     onAbort,
     onEmptyEditorKey,
   } = args;
-  const attachmentsEnabled = !plainText;
+  const attachmentsEnabled = !plainText || Boolean(args.allowPlainTextAttachments);
   const windowShortcutsEnabled = !plainText && requestedWindowShortcutsEnabled;
   const onOpenFileSelector = attachmentsEnabled ? requestedOpenFileSelector : undefined;
   const isMobile = useIsMobile();
@@ -230,7 +230,7 @@ export function PromptInput(args: PromptInputProps) {
   const modelVisibility = useAppStore(
     (state) => state.settings.modelVisibility,
   );
-  const composerTextStyle = useComposerTextSize(minimal);
+  const composerTextStyle = useComposerTextSize(minimal && !trayChrome);
   const interactionsDisabled = Boolean(disabled);
   const drop = usePromptInputDrop({ onAttachTask: plainText ? undefined : onAttachTask, acceptsFiles: acceptsFiles && !interactionsDisabled, attachTransfer });
   const promptEnhancementBusy =

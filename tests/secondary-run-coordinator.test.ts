@@ -274,6 +274,34 @@ describe("secondary run main coordinator", () => {
     database.close();
   });
 
+  test("attachment bytes are bound to the claim hash and never echoed in ledger responses", async () => {
+    const { database, port } = createLedgerPort();
+    const requests: SecondaryProviderExecutionRequest[] = [];
+    const coordinator = createSecondaryRunCoordinator({
+      getLedger: () => port, now: () => NOW, createExecutionId: () => "attachment-hash",
+      executeHost: async request => { requests.push(request); return completedExecution(request); },
+      cancelHost: async () => ({ ok: true }),
+    });
+    try {
+      const claim = createClaimArgs();
+      claim.input.attachments = [{ type: "image_context", label: "screen.png", mimeType: "image/png",
+        dataUrl: "data:image/png;base64," + "A".repeat(5_333_336) }];
+      const claimed = await coordinator.claim(claim);
+      expect(claimed.accepted).toBe(true);
+      expect(JSON.stringify(claimed)).not.toContain("data:image");
+      const changed = structuredClone(claim.input);
+      changed.attachments = [{ type: "image_context", label: "screen.png", mimeType: "image/png", dataUrl: "data:image/png;base64,AQID" }];
+      expect(await coordinator.execute({ ...toExecuteArgs(claim, "attachment-hash"), input: changed })).toMatchObject({
+        accepted: false, reason: "input-mismatch",
+      });
+      expect(requests).toHaveLength(0);
+      const result = await coordinator.execute(toExecuteArgs(claim, "attachment-hash"));
+      expect(result.accepted).toBe(true);
+      expect(requests[0]?.input.attachments).toEqual(claim.input.attachments);
+      expect(JSON.stringify(result)).not.toContain("data:image");
+    } finally { database.close(); }
+  });
+
   test("rejects an input change and a cwd outside the owning project", async () => {
     const { database, port } = createLedgerPort();
     const coordinator = createSecondaryRunCoordinator({

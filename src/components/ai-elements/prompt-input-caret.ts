@@ -58,7 +58,10 @@ export function usePromptInputCaret(args: {
       return;
     }
     const frameId = window.requestAnimationFrame(() => {
-      promptEditorRef.current?.focus();
+      const editor = promptEditorRef.current;
+      const root = editor?.getRootElement();
+      if (root?.contains(root.ownerDocument.activeElement)) return;
+      editor?.focus();
     });
     return () => window.cancelAnimationFrame(frameId);
   }, [focusToken, interactionsDisabled]);

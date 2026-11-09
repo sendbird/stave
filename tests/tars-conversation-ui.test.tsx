@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { i18n, applyAppLocale } from "../src/i18n";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TarsConversationMessage } from "../src/components/tars/TarsConversation";
@@ -10,6 +11,18 @@ const receipt: TarsActionReceipt = { messageId: message.id, actionIndex: 0, requ
 const render = (item: TarsMessage, receipts: TarsActionReceipt[] = []) => renderToStaticMarkup(createElement(TarsConversationMessage, { message: item, receipts, name: "My representative", busy: false, onCancel() {} }));
 
 describe("persistent conversation UI", () => {
+  test("an attachment-only delegation refusal uses the localized reason, not the diagnostic", async () => {
+    try {
+      for (const locale of ["en", "ko"] as const) {
+        applyAppLocale(locale); await i18n.changeLanguage(locale);
+        const html = render({ ...message, text: "", state: "answered", reply: "", decision: { reply: "", actions: [receipt.action] } },
+          [{ ...receipt, status: "rejected", reason: "missingMandate", error: "host-only diagnostic" }]);
+        expect(html).toContain(locale === "en" ? "Write what you want Tars to do" : "Tars에게 맡길 일을 글로 적어");
+        expect(html).not.toContain("host-only diagnostic");
+      }
+    } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
+  });
+
   test("pending messages can be cancelled, settled answers cannot", () => {
     expect(render(message)).toContain("Cancel message");
     const decision = { reply: "The work is queued", actions: [receipt.action] };
