@@ -743,6 +743,15 @@ const TARS_DECISION_DETAIL_KEY = {
   handBack: "fleet:tarsAttention.proposal.handBack",
   acceptCompletion: "fleet:tarsAttention.proposal.acceptCompletion",
   startNow: "fleet:tarsAttention.proposal.startNow",
+  extend: "fleet:tarsAttention.proposal.extend",
+  retryStage: "fleet:tarsAttention.proposal.retryStage",
+  skipStage: "fleet:tarsAttention.proposal.skipStage",
+  signOff: "fleet:tarsAttention.proposal.signOff",
+  approve: "fleet:tarsAttention.proposal.approve",
+  deny: "fleet:tarsAttention.proposal.deny",
+  answer: "fleet:tarsAttention.proposal.answer",
+  message: "fleet:tarsAttention.proposal.message",
+  requestChanges: "fleet:tarsAttention.proposal.requestChanges",
 } as const satisfies Record<TarsControlOperation, string>;
 
 function repositoryNameOf(repositoryPath: string) {

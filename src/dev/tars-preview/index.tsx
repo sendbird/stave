@@ -153,8 +153,10 @@ export function TarsPreview() {
         : operation === "handBack" && !takenOver ? "notTakenOver" as const : operation === "takeover" && takenOver ? "alreadyTakenOver" as const
           : (operation === "pause" || operation === "resume") && takenOver ? "takenOver" as const : null;
       const error = reason ? "Preview control is not admissible." : null;
+      // A run command leaves the run going.
       const state = operation === "pause" ? "paused" : operation === "cancel" ? "cancelled" : operation === "takeover" ? "takenOver"
-        : operation === "acceptCompletion" ? "completed" : operation === "startNow" ? "running" : "queued";
+        : operation === "acceptCompletion" ? "completed" : operation === "startNow" ? "running"
+          : operation === "extend" || operation === "retryStage" || operation === "skipStage" || operation === "signOff" ? "running" : "queued";
       if (!error) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => candidate.id !== responsibilityId ? candidate
         : { ...candidate, revision: expectedRevision + 1, state, reverifyAfter: operation === "handBack" ? now : candidate.reverifyAfter }),
         // A control moves the revision past any proposal waiting on it, so Fleet's decision row ends with it.
@@ -264,6 +266,15 @@ export function TarsPreview() {
           const proposal = params.get("proposal");
           if (proposal === "resume" || proposal === "cancel" || proposal === "handBack")
             decision.actions.push({ kind: "control", responsibilityId: "preview-responsibility", expectedRevision: 1, operation: proposal });
+          // `proposal=approve` / `proposal=message`: a task operation whose card shows the request it answers or the words it sends.
+          if (proposal === "approve" || proposal === "message") {
+            const row = snapshot.responsibilities.find((candidate) => candidate.id === "preview-responsibility");
+            if (row && proposal === "approve") snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => candidate !== row ? candidate
+              : { ...candidate, pendingRequests: [{ kind: "approval", ref: "preview-approval-ref", requestId: "preview-approval", messageId: "preview-message", taskId: "preview-task", workspaceId: "preview-workspace",
+                toolName: "Bash", summary: "Run the search tests — bun test tests/search.test.ts" }] }) };
+            decision.actions.push({ kind: "control", responsibilityId: "preview-responsibility", expectedRevision: row?.revision ?? 1, operation: proposal,
+              input: proposal === "approve" ? { requestRef: "preview-approval-ref" } : { text: "Use the existing search index instead of building a new one." } });
+          }
           // `decision=ask`: Tars asks a question whose options pause the work or answer back, in the app's language.
           if (params.get("decision") === "ask") {
             const korean = params.get("lang") === "ko";

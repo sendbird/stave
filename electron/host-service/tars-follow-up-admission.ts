@@ -1,4 +1,5 @@
 import { TARS_CONFIRMED_OPERATIONS, type TarsControlOperation, type TarsDecisionAction, type TarsMessageOrigin } from "../../src/lib/tars/conversation";
+import { isTarsTaskOperation } from "../../src/lib/tars/types";
 import type { TarsStore } from "../persistence/tars-store";
 
 type FollowUpOrigin = Extract<TarsMessageOrigin, { kind: "followUp" }>;
@@ -29,7 +30,11 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowU
   const staveAsks = (id: string, operation: TarsControlOperation) => (operation === "acceptCompletion" || operation === "cancel")
     && row(id)?.state === "blocked" && row(id)?.detailCode === "unverifiedCompletion";
   const refused = (id: string, operation: TarsControlOperation) => outOfReach(id) || staveAsks(id, operation)
-    || !TARS_CONFIRMED_OPERATIONS.has(operation) || operation === "handBack" || operation === "acceptCompletion";
+    || !TARS_CONFIRMED_OPERATIONS.has(operation) || operation === "handBack" || operation === "acceptCompletion"
+    // Skipping a stage cannot be undone and drops work the run planned: only the user's own words propose it.
+    || operation === "skipStage"
+    // Answering in the task for the user, or speaking for them, needs their own words; a follow-up may only ask.
+    || isTarsTaskOperation(operation);
   if (action.kind === "control" && refused(action.responsibilityId, action.operation))
     return "An automatic follow-up cannot propose this control: only the user starts it, or the work is held by the user or ended.";
   if (action.kind === "show" && outOfReach(action.responsibilityId))
@@ -37,7 +42,9 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowU
   // An option applies only when the user chooses it, but it may still not offer what the follow-up could not propose.
   if (action.kind === "ask" && action.options.some((option) => option.effect.kind === "control"
     && (outOfReach(option.effect.responsibilityId) || staveAsks(option.effect.responsibilityId, option.effect.operation)
-      || option.effect.operation === "handBack" || option.effect.operation === "acceptCompletion" || option.effect.operation === "startNow")))
+      || option.effect.operation === "handBack" || option.effect.operation === "acceptCompletion" || option.effect.operation === "startNow" || option.effect.operation === "skipStage"
+      // Approve or deny are the user's own click on an option; words written for them (answer, message, changes) are not.
+      || option.effect.operation === "answer" || option.effect.operation === "message" || option.effect.operation === "requestChanges")))
     return "An automatic follow-up cannot offer to continue or settle work the user holds, that ended, or that Stave already asks about.";
   return null;
 }

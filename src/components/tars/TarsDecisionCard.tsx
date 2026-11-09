@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, type KeyboardEvent } from "react";
-import { CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, ShieldAlert, Undo2, type LucideIcon } from "lucide-react";
+import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/aui/components/Badge";
@@ -11,7 +11,7 @@ import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { sx } from "@/components/aui/utils/stylex";
 import type { TarsAnswerSource } from "@/lib/tars/conversation";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
-import { isIrreversibleOption, tarsDecisionKeyChoice, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
+import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { tarsStyles } from "./tars.styles";
@@ -81,6 +81,8 @@ export function isTarsDecisionDismissKey(event: Pick<KeyboardEvent<HTMLElement>,
 
 const OPERATION_ICON: Record<TarsControlOperation, LucideIcon> = {
   pause: CirclePause, resume: CirclePlay, cancel: CircleStop, takeover: Hand, handBack: Undo2, acceptCompletion: CircleCheck, startNow: FastForward,
+  extend: Plus, retryStage: RotateCcw, skipStage: SkipForward, signOff: Stamp,
+  approve: ShieldCheck, deny: Ban, answer: MessageSquareReply, message: MessageSquareText, requestChanges: PencilLine,
 };
 
 /** What a confirmation card shows about its target: where it runs and which revision it was asked for. Unknown rows are left out. */
@@ -224,10 +226,13 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const irreversible = decision.options.some(isIrreversibleOption);
   const target = describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf });
   const effect = operation ? t(`shell:tars.decision.card.effect.${operation}`) : t("shell:tars.decision.card.unverifiedEffect");
+  // A task operation shows exactly what it answers or sends before anyone confirms it.
+  const payload = option?.kind === "control" ? describeTarsControlInput(option.control, target ? rowOf?.(option.control.responsibilityId) : undefined) : null;
   const rows = [
     target.repository ? { key: "repository", label: t("shell:tars.decision.card.rows.repository"), value: target.repository, title: target.repositoryPath ?? undefined } : null,
     target.workspace ? { key: "workspace", label: t("shell:tars.decision.card.rows.workspace"), value: target.workspace } : null,
     target.revision !== null ? { key: "revision", label: t("shell:tars.decision.card.rows.revision"), value: t("shell:tars.decision.card.revision", { revision: target.revision }) } : null,
+    payload ? { key: payload.key, label: t(`shell:tars.decision.card.rows.${payload.key}`), value: payload.value } : null,
     { key: "effect", label: t("shell:tars.decision.card.rows.effect"), value: effect },
   ].filter((row): row is { key: string; label: string; value: string; title?: string } => Boolean(row));
   return <section ref={cardRef} {...common} role="group" tabIndex={0} aria-labelledby={`${questionId} ${subtitleId}`} aria-describedby={hintId}

@@ -69,3 +69,12 @@ test("a native Run card loaded without its turn is treated as saved", async () =
   await expect(respondHostUserInput({ workspaceId: "ws", taskId: "task-1", requestId, denied: true }, ports)).resolves.toMatchObject({ ok: true, denied: true });
   expect(calls).toBe(1);
 });
+
+test("an answer bound to a message is refused when the request id now names a question in another message", async () => {
+  const { ports, persisted } = harness(sessionWith("async"));
+  setRunQuestionAnswerer(async () => { throw new Error("must not answer"); });
+  // A provider reused the id: the card Tars showed was for message "m0", not the question waiting now in "m1".
+  await expect(respondHostUserInput({ workspaceId: "ws", taskId: "task-1", requestId, answers: { file: "B.md" }, expectedMessageId: "m0" }, ports))
+    .rejects.toThrow("Pending user input not found");
+  expect(persisted).toHaveLength(0);
+});
