@@ -7,6 +7,7 @@ import { createTarsRuntime, type TarsRuntimePorts } from "../electron/host-servi
 import { TarsStore } from "../electron/persistence/tars-store";
 import { TarsConversationStore, TarsStorageBusyError } from "../electron/persistence/tars-conversation-store";
 import { TarsConversationSettingsSchema } from "../src/lib/tars/conversation";
+import { TARS_WAIT_FOLLOW_UP_MS } from "../src/lib/tars/events";
 import { actTars } from "../electron/host-service/tars-control";
 
 const NOW = "2026-11-09T00:00:00.000Z";
@@ -164,4 +165,78 @@ test("unknown provider observation reserves one slot and does not block a second
   expect((await f.runtime.get()).responsibilities.find((row) => row.requestId === "later")?.queueWait)
     .toEqual({ code: "capacity", active: 2, limit: 2 });
   f.runtime.stop(); f.db.close();
+});
+
+for (const state of ["waiting", "running"] as const) test(`an unchanged observation of ${state} work saved without an execution reservation leaves the row and its follow-up as they were`, async () => {
+  // First observation after an upgrade, already past the quiet wait the row was saved with.
+  const later = new Date(Date.parse(NOW) + TARS_WAIT_FOLLOW_UP_MS + 60_000).toISOString();
+  const detail = state === "waiting" ? { detail: "Waiting for your answer.", detailCode: "waitingForUser" as const } : { detail: null };
+  const f = fixture({ now: () => later, observe: async () => ({ state, ...detail }) });
+  const created = f.store.create(input("legacy"), NOW);
+  const saved = f.store.patch(created.id, created.revision, { state, taskId: "legacy-task", executionWorkspaceId: "legacy-workspace",
+    agentRunId: "legacy-run", ...detail }, NOW);
+  // Rows saved before the scheduler kept this field have no value for it at all.
+  expect(Object.hasOwn(saved, "executionPending")).toBe(false);
+  await f.tick(); await f.tick();
+  expect(f.store.get(saved.id)).toEqual(saved);
+  const expired = f.store.events.listRecent().filter((event) => event.kind === "waitExpired");
+  expect(expired.map((event) => [event.responsibilityId, event.episode])).toEqual(state === "waiting" ? [[saved.id, String(saved.revision)]] : []);
+  f.runtime.stop(); f.db.close();
+});
+
+test("a blocked run saved without the field keeps its uncertain reservation until one observation settles it, and only once", async () => {
+  const f = fixture({ concurrencyLimit: () => 1, observe: async () => ({ state: "blocked", detail: "Run stopped" }) });
+  const created = f.store.create(input("legacy", 100), NOW);
+  const saved = f.store.patch(created.id, created.revision, { state: "blocked", detail: "Run stopped", taskId: "legacy-task",
+    executionWorkspaceId: "legacy-workspace", agentRunId: "legacy-run" }, NOW);
+  f.store.create(input("next", 10), NOW);
+  await f.tick();
+  expect(f.store.get(saved.id)).toMatchObject({ revision: saved.revision + 1, executionPending: false });
+  expect(f.starts).toEqual(["next"]);
+  await f.tick();
+  expect(f.store.get(saved.id)?.revision).toBe(saved.revision + 1);
+  f.runtime.stop(); f.db.close();
+});
+
+for (const step of ["workspace", "run"] as const) test(`start now under a full limit survives a restart at ${step} creation and a storage-busy retry, starting its run once`, async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "tars-start-now-")), file = path.join(dir, "state.sqlite");
+  const runs = new Map<string, string>(), created: string[] = [];
+  const hangs = (at: typeof step, hang: boolean, requestId: string) => hang && step === at && requestId === "chosen";
+  const execution = (hang: boolean): Partial<TarsRuntimePorts> => ({
+    findRun: async (row) => runs.get(row.taskId!) ?? null,
+    prepareWorkspace: async (row) => hangs("workspace", hang, row.requestId) ? new Promise<string>(() => {}) : `workspace-${row.id}`,
+    startRun: async (row) => {
+      created.push(row.requestId); runs.set(row.taskId!, `run-${row.id}`);
+      // The run exists, but its acknowledgement is lost with the process.
+      return hangs("run", hang, row.requestId) ? new Promise<string>(() => {}) : `run-${row.id}`;
+    },
+  });
+  try {
+    const first = fixture(execution(true), new Database(file));
+    first.conversations.configure({ providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30, maxConcurrentResponsibilities: 1 });
+    first.store.create(input("running", 90), NOW); await first.tick();
+    const chosen = first.store.create(input("chosen", 10), NOW);
+    first.store.create(input("other", 50), NOW); await first.tick();
+    expect((await first.runtime.get()).responsibilities.find((row) => row.id === chosen.id)?.queueWait).toEqual({ code: "capacity", active: 1, limit: 1 });
+    expect((await actTars({ requestId: "start-now", responsibilityId: chosen.id, expectedRevision: first.store.get(chosen.id)!.revision,
+      operation: "startNow", source: "click" }, { conversations: first.conversations, runtime: first.runtime, now: () => NOW })).record).toMatchObject({ status: "applied" });
+    await flush();
+    // The host stops while the started work prepares.
+    first.runtime.stop(); first.db.close();
+    let busy = true;
+    const busyOnce = (requestId: string) => { if (requestId === "chosen" && busy) { busy = false; throw new TarsStorageBusyError(); } };
+    const f = fixture({ ...execution(false), validateScope: async (row) => busyOnce(row.requestId),
+      findRun: async (row) => { busyOnce(row.requestId); return runs.get(row.taskId!) ?? null; } }, new Database(file));
+    await f.tick();
+    // The lock wait changed nothing: the started work keeps its reservation instead of queueing behind the limit.
+    expect(busy).toBe(false);
+    expect(f.store.get(chosen.id)).toMatchObject({ state: "preparing", agentRunId: null });
+    await f.tick();
+    expect(f.store.get(chosen.id)).toMatchObject({ state: "running", agentRunId: `run-${chosen.id}`, executionPending: false });
+    expect(created).toEqual(["running", "chosen"]);
+    // Only the chosen work bypassed the limit; the rest of the queue still follows it.
+    expect((await f.runtime.get()).responsibilities.find((row) => row.requestId === "other"))
+      .toMatchObject({ state: "queued", queueWait: { code: "capacity", active: 2, limit: 1 } });
+    f.runtime.stop(); f.db.close();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

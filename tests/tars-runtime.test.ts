@@ -310,7 +310,7 @@ describe("Tars accept as done", () => {
 
 
 describe("Tars start now", () => {
-  test("starts queued work at once beside running work, and the queue still waits for the slot", async () => {
+  test("starts queued work at once beside running work, and the rest of the queue still waits within the limit", async () => {
     const f = fixture();
     const first = f.store.create(input("first", 90), NOW);
     await f.tick();
@@ -322,7 +322,7 @@ describe("Tars start now", () => {
     expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
     await f.runtime.drain();
     expect(f.store.get(second.id)).toMatchObject({ state: "running", taskId: `tars-${second.id}`, agentRunId: `run-${second.id}` });
-    // Only the named work skipped the queue: the rest still waits for the portfolio slot.
+    // Only the named work bypassed the configured limit (1 in this fixture): the rest still waits for it.
     await f.tick();
     expect(f.store.get(third.id)?.state).toBe("queued");
     expect(f.calls.filter((call) => call.startsWith("run:"))).toEqual(["run:first", "run:second"]);
