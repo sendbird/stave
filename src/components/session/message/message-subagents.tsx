@@ -4,17 +4,18 @@ import { i18n, useTranslation } from "@/i18n";
 import { formatNumber } from "@/i18n/format";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/aui/components/Button";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { isDelegationExchangeLive, type DelegationExchange } from "@/lib/delegation/exchange";
 import { SubagentExchangeCard } from "./SubagentExchangeCard";
+import { subagentCardStyles } from "./subagent-card.styles";
 import { GitBranch } from "lucide-react";
 import { useAppStore } from "@/store/app.store";
 import { selectMessageSubagents } from "@/lib/delegation/message-subagents";
 import { describeSubagentState, subagentResultLine, type SubagentMessage } from "@/lib/delegation/subagent-summary";
 import { useTranscriptDelegations } from "./transcript-delegations-context";
 
-/** Results remain in the reading column; full evidence expands in place. */
+/** Subagents of one message as run monitors side by side; full evidence expands in place. */
 export function MessageSubagents(props: { message: SubagentMessage; taskId: string; readOnly?: boolean }) {
   useTranslation();
   const { children, blocked } = useTranscriptDelegations();
@@ -32,9 +33,11 @@ export function MessageSubagents(props: { message: SubagentMessage; taskId: stri
   if (!rows.length) return null;
   return <section className={sx(styles.section)} aria-label={i18n.t("session:assistantTrace.subagents")} data-testid="message-subagents">
     <h3 className={sx(styles.heading)}><GitBranch className={sx(styles.icon)} aria-hidden="true" />{i18n.t("session:assistantTrace.subagents")}<span className={sx(styles.count)}>{formatNumber(rows.length)}</span></h3>
-    {rows.map((exchange) => <ResultRow key={exchange.id} exchange={exchange}
-      blockedKind={!props.readOnly && exchange.outcome.status === "needs_user" && exchange.ref.delegationKey
-        ? blocked[exchange.ref.delegationKey] : undefined} />)}
+    <div className={sx(subagentCardStyles.list)}>
+      {rows.map((exchange) => <ResultRow key={exchange.id} exchange={exchange}
+        blockedKind={!props.readOnly && exchange.outcome.status === "needs_user" && exchange.ref.delegationKey
+          ? blocked[exchange.ref.delegationKey] : undefined} />)}
+    </div>
   </section>;
 }
 
@@ -64,7 +67,7 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
   };
   return <SubagentExchangeCard exchange={exchange} nowMs={now} status={status}
     preview={preview} statusNote={error}
-    extraActions={exchange.ref.delegatedTaskId ? <Button size="xs" variant="outline" disabled={opening} onClick={() => void open()}>
+    extraActions={exchange.ref.delegatedTaskId ? <Button size="2xs" variant="secondary" disabled={opening} onClick={() => void open()}>
       {blockedKind === "user-input" ? i18n.t("session:assistantTrace.needsAnswer")
         : blockedKind === "approval" ? i18n.t("session:assistantTrace.needsApproval")
         : i18n.t("session:assistantTrace.openChild")}
@@ -73,7 +76,7 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
 }
 
 const styles = stylex.create({
-  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, marginBlock: vars["--aui-space-12"] },
+  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, marginBlock: vars["--aui-space-12"] },
   icon: { width: "1rem", height: "1rem", flexShrink: 0 },
   count: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-regular"] },
   heading: { margin: 0, display: "flex", alignItems: "center", gap: vars["--aui-space-8"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-semibold"], color: vars["--aui-color-text"] },

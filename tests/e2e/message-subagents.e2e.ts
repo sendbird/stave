@@ -33,24 +33,10 @@ for (const locale of ["en", "ko"] as const) {
             }));
           });
           expect(overflow).toBeLessThanOrEqual(1);
-          const geometry = await row.evaluate(async (element) => {
-            const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
-            const button = element.querySelector("button")!;
-            const head = button.firstElementChild!;
-            const probe = document.createElement("div");
-            probe.style.paddingLeft = vars["--aui-space-12"];
-            probe.style.gap = vars["--aui-space-8"];
-            button.append(probe);
-            const expectedPadding = parseFloat(getComputedStyle(probe).paddingLeft);
-            const expectedGap = parseFloat(getComputedStyle(probe).gap);
-            probe.remove();
-            const mark = head.children[0].getBoundingClientRect();
-            const identity = head.children[1].getBoundingClientRect();
-            return Math.max(Math.abs(parseFloat(getComputedStyle(button).paddingLeft) - expectedPadding),
-              Math.abs(identity.left - mark.right - expectedGap));
-          });
-          expect(geometry).toBeLessThanOrEqual(0.5);
-          const trigger = row.getByRole("button").first();
+          // The run monitor stays a lifted card with its own state tag, never wider than the column.
+          await expect(row.locator("[data-run-status]")).toHaveCount(1);
+          const trigger = row.locator("button[aria-controls]");
+          await expect(trigger).toHaveAccessibleName(locale === "en" ? "View result" : "결과 보기");
           await trigger.focus();
           await page.keyboard.press("Enter");
           await expect(trigger).toHaveAttribute("aria-expanded", "true");
@@ -144,10 +130,82 @@ test("one ledger subscription links a child question to its task and updates its
   await expect(region).toContainText("The redirect needs a guard.");
   await expect(region.getByRole("button", { name: "Answer in the subagent task" })).toHaveCount(0);
   await expect(liveRow.locator('[data-motion="moving"]')).toHaveCount(0);
-  await liveRow.getByRole("button").first().click();
+  await liveRow.getByRole("button", { name: "View result" }).click();
   await expect(liveRow.getByTestId("exchange-detail")).toBeVisible();
   await page.getByRole("button", { name: "Fixture: fail child" }).click();
   await expect(liveRow).toHaveAttribute("data-exchange-status", "failed");
   await expect(liveRow).toContainText("Permission check failed");
   await expect(liveRow).not.toContainText("Result returned by the subagent");
+});
+
+test("several subagents sit side by side, wrap on a narrow column and an open one takes the row", async ({ page }) => {
+  await page.goto("/?stavePreview=agent-messages");
+  await expect(page.getByRole("heading", { name: "Agent trace preview" })).toBeVisible();
+  await page.evaluate(async () => {
+    const resources = performance.getEntriesByType("resource");
+    const moduleUrl = (name: string) => resources.find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+    const React = (await import(moduleUrl("react"))).default;
+    const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
+    const { AssistantMessageBody } = await import("/src/components/session/message/assistant-trace.tsx");
+    const { TranscriptDelegationsProvider } = await import("/src/components/session/message/transcript-delegations-context.tsx");
+    const { StaveDesignProvider } = await import("/src/components/system/StaveDesignProvider.tsx");
+    const base = {
+      runId: "run-1", parentTaskId: "parent", delegatedWorkspaceId: "workspace", providerId: "codex",
+      requestedModel: "gpt-6.1-sol", requestedEffort: "high", lifecycle: "one-turn", reason: null, attempt: 0,
+      createdAt: new Date(Date.now() - 84_000).toISOString(), updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const children = [
+      { ...base, stepId: "s1", delegationKey: "security", delegatedTaskId: "c1", delegatedTurnId: "t1", phase: "running", completedAt: null },
+      { ...base, stepId: "s2", delegationKey: "tests", delegatedTaskId: "c2", delegatedTurnId: "t2", phase: "completed", result: "All 27 focused tests pass.", completedAt: new Date().toISOString() },
+      { ...base, stepId: "s3", delegationKey: "docs", delegatedTaskId: "c3", delegatedTurnId: "t3", phase: "failed", reason: "Permission check failed", completedAt: new Date().toISOString() },
+    ];
+    window.api.runs = {
+      listDelegatedTasks: async () => children,
+      onDelegatedTasksChanged: () => () => {},
+    } as unknown as typeof window.api.runs;
+    document.getElementById("root")!.style.display = "none";
+    const host = document.createElement("div");
+    host.id = "results-harness";
+    host.style.cssText = "max-width:760px;padding:24px";
+    document.body.append(host);
+    const titles = ["Security review", "Run focused tests", "Update the guide"];
+    const message = {
+      role: "assistant", providerId: "codex", turnId: "parent-turn", content: "",
+      parts: children.map((child, index) => ({
+        type: "tool_use", toolName: "stave_delegate_task", toolUseId: `call-${index}`, state: "output-available",
+        input: JSON.stringify({ title: titles[index], prompt: titles[index] }),
+        output: JSON.stringify({ delegation: { accepted: true, child } }),
+      })),
+    };
+    createRoot(host).render(React.createElement(StaveDesignProvider, null,
+      React.createElement(TranscriptDelegationsProvider, { taskId: "parent" },
+        React.createElement(AssistantMessageBody, { message, taskId: "parent", messageId: "m1", streamingEnabled: false }))));
+  });
+  const region = page.locator("#results-harness").getByTestId("message-subagents");
+  const rows = region.getByTestId("exchange-row");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(1)).toContainText("All 27 focused tests pass.");
+  await expect(rows.nth(2)).toContainText("Permission check failed");
+  const boxes = async () => Promise.all([0, 1, 2].map(async (index) => (await rows.nth(index).boundingBox())!));
+
+  await page.setViewportSize({ width: 1200, height: 900 });
+  let [first, second, third] = await boxes();
+  expect(Math.abs(first.y - second.y)).toBeLessThanOrEqual(1);
+  expect(second.x).toBeGreaterThan(first.x + first.width - 1);
+  expect(Math.abs(first.height - second.height)).toBeLessThanOrEqual(1);
+  expect(third.y).toBeGreaterThan(first.y);
+
+  await page.setViewportSize({ width: 360, height: 900 });
+  [first, second, third] = await boxes();
+  expect(Math.abs(first.x - second.x)).toBeLessThanOrEqual(1);
+  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
+  for (const box of [first, second, third]) expect(box.x + box.width).toBeLessThanOrEqual(360);
+
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await rows.nth(0).locator("button[aria-controls]").click();
+  await expect(rows.nth(0).getByTestId("exchange-detail")).toBeVisible();
+  const list = (await region.getByTestId("exchange-row").first().locator("..").boundingBox())!;
+  [first, second] = await boxes();
+  expect(Math.abs(first.width - list.width)).toBeLessThanOrEqual(1);
+  expect(second.y).toBeGreaterThan(first.y + first.height - 1);
 });
