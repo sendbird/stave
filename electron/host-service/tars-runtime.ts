@@ -2,8 +2,9 @@ import {
   CreateTarsResponsibilityInputSchema, isTarsRunCommandOperation, isTarsTaskOperation,
   UpdateTarsIdentityInputSchema, tarsSnapshotForWindow,
   type TarsDetailCode, type TarsDetailParams, type TarsPendingRequest, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation,
+  type TarsWorkRequest,
 } from "../../src/lib/tars/types";
-import { buildTarsBrief, TarsBriefInputSchema } from "../../src/lib/tars/brief";
+import { buildTarsBrief, resolveTarsWorkRequest, TarsBriefInputSchema } from "../../src/lib/tars/brief";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError } from "./tars-ownership";
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
@@ -45,6 +46,12 @@ export interface TarsRuntimePorts {
   controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation) => Promise<void>;
   /** Answers a request in the work's task, or sends the user's words to its run (`TarsTaskOperation`), after rechecking ownership. */
   respondTask: (row: TarsResponsibility, request: TarsControlRequest) => Promise<void>;
+  /**
+   * Reads one conversation message as a work request, without its
+   * attachments; the brief of work admitted before Stave saved its request
+   * recovers it this way (`resolveTarsWorkRequest`).
+   */
+  readRequest?: (messageId: string) => TarsWorkRequest | null;
   now?: () => string;
   onError?: (error: unknown) => void;
 }
@@ -205,7 +212,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const { responsibilityId } = TarsBriefInputSchema.parse(raw);
       const row = ports.store.get(responsibilityId);
       if (!row) throw new Error("The responsibility was not found.");
-      return buildTarsBrief(row);
+      return buildTarsBrief(row, resolveTarsWorkRequest(row, ports.readRequest)?.request ?? null);
     },
     /**
      * The one admitted control path for words and clicks. Admission is

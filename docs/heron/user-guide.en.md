@@ -547,9 +547,17 @@ conversation.
   choice on a Tars question, that question). **Tars's instruction** is what
   Tars wrote for this work; the run receives it together with your message.
   **Completion criteria** lists the saved criteria. Long text, line breaks and
-  code are shown whole, and each text has a copy button. Work Tars took on
-  before this view existed says **The original message was not saved for this
-  work** and shows the whole instruction the run received instead.
+  code are shown whole, and each text has a copy button. For work Tars took on
+  before this view existed, Stave reads the message that started it back from
+  the conversation and shows it as **Your message**, next to the whole
+  instruction the run received. When that message is no longer in the
+  conversation, or the work was not started from a message, it says **The
+  original message was not saved for this work** and shows the whole
+  instruction the run received instead. You can also ask Tars for your
+  requests in the order you sent them, for example "show the queued ones in
+  the order I asked". Tars answers from up to the 20 most recent requests:
+  when each was sent, its first 300 characters and the work it started. It
+  says when an excerpt was cut and points you to this view for the full text.
 - **Result report**: each criterion's status and what decided it (the agent's
   report in a stage, or a Stave check and its result), with the revision it was
   checked on and whether that is the final revision. Evidence is listed once

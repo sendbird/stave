@@ -25,6 +25,7 @@ import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
 import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef } from "./tars-working-changes";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
+import { parseTarsRequestMessageId } from "../../src/lib/tars/brief";
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -103,7 +104,7 @@ export function createHostTarsRuntime(args: {
    * admission has settled, so a retried admission still finds it.
    */
   async function releaseSnapshotWhenUnused(row: TarsResponsibility, ref: string) {
-    const messageId = /^tars-message:(.+):\d+$/.exec(row.requestId)?.[1];
+    const messageId = parseTarsRequestMessageId(row.requestId);
     if (!messageId || persistence.tarsConversations.listReceipts(messageId).some((receipt) => receipt.status === "pending")) return;
     const waiting = persistence.tars.snapshot().responsibilities.some((other) => other.id !== row.id && !other.executionWorkspaceId
       && other.workingChanges?.kind === "snapshot" && other.workingChanges.ref === ref && !isTarsResponsibilityTerminal(other));
@@ -294,6 +295,8 @@ export function createHostTarsRuntime(args: {
         abortTurn: (turnId) => { providerRuntime.abortTurn({ turnId }); },
       });
     },
+    // Older work's brief reads its admitting message back, without the message's attachments.
+    readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
     onError: (error) => console.error("[tars] reconciliation failed", error),
   });
 }

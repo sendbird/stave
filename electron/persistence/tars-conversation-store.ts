@@ -12,6 +12,8 @@ import {
 import {
   TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
 } from "../../src/lib/tars/publication";
+import { TarsWorkRequestSchema, type TarsWorkRequest } from "../../src/lib/tars/types";
+import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readSettledTarsTargets } from "./tars-proposals";
 
@@ -129,6 +131,22 @@ export class TarsConversationStore {
 
   get(id: string): TarsMessage | null {
     return this.readMessage(this.db.prepare("SELECT body_json FROM tars_messages WHERE id = ?").get(id));
+  }
+
+  /**
+   * The text, time and answered question of one message, read without its
+   * attachments: what a work unit keeps as its original request
+   * (`tarsWorkRequestOf`). Null when the message is gone or has no text.
+   */
+  workRequestOf(messageId: string): TarsWorkRequest | null {
+    const row = this.db.prepare(`SELECT json_extract(body_json, '$.text') AS text, json_extract(body_json, '$.createdAt') AS created_at,
+      json_extract(body_json, '$.origin') AS origin_json FROM tars_messages WHERE id = ?`).get(messageId) as
+      { text: unknown; created_at: unknown; origin_json: unknown } | undefined;
+    if (!row || typeof row.text !== "string" || !row.text || typeof row.created_at !== "string") return null;
+    const origin = typeof row.origin_json === "string" ? TarsMessageOriginSchema.safeParse(JSON.parse(row.origin_json)) : null;
+    const parsed = TarsWorkRequestSchema.safeParse(tarsWorkRequestOf({ id: messageId, text: row.text, createdAt: row.created_at,
+      ...(origin?.success ? { origin: origin.data } : {}) }));
+    return parsed.success ? parsed.data : null;
   }
 
   /** Return the most recent bounded window in conversation order. */

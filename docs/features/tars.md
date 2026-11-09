@@ -638,11 +638,21 @@ recorded in the conversation.
   saved with the work. Texts are shown whole as plain text: line breaks,
   indentation and code blocks are kept and long lines wrap, and each text has
   a copy button. Work Tars admitted before this view existed did not keep your
-  message apart: it says **The original message was not saved for this work**
-  and shows the whole saved instruction the run received (and, for a long
+  message apart. For such work Stave reads the message that admitted it back
+  from the conversation (the same message, so the text is exact) and shows it
+  as **Your message**, next to the whole saved instruction the run received.
+  Only when that message is no longer in the conversation, or the work was not
+  admitted from a message, does it say **The original message was not saved
+  for this work** and show the whole saved instruction (and, for a long
   message, the text attached in full) instead of a guess. Two work units from
   one message share that message, never each other's instruction. If the
   saved texts cannot be read, the criteria stay and **Retry** reads again.
+  You can also ask Tars for your requests in the order you sent them, for
+  example "show the queued ones in the order I asked". Tars sees, for up to
+  the 20 most recent requests, when each was sent, its first 300 characters
+  and which work it started, plus when each work was created. It quotes only
+  that excerpt, says when it was cut and points you to this view for the full
+  text; it says so when a work's message was not stored.
 - **Report**: per acceptance criterion, its status and what decided it: the
   agent's report in a named stage, or a Stave check with its result, each with
   the workspace revision it was checked on and whether that is the revision the
