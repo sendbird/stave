@@ -1,7 +1,7 @@
 import {
   CreateTarsResponsibilityInputSchema, isTarsRunCommandOperation, isTarsTaskOperation,
   UpdateTarsIdentityInputSchema, tarsSnapshotForWindow,
-  type TarsDetailCode, type TarsDetailParams, type TarsPendingRequest, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation,
+  type TarsDetailCode, type TarsDetailParams, type TarsPendingRequest, type TarsQueueWait, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation,
   type TarsStageWait, type TarsWorkRequest,
 } from "../../src/lib/tars/types";
 import { buildTarsBrief, resolveTarsWorkRequest, TarsBriefInputSchema } from "../../src/lib/tars/brief";
@@ -46,6 +46,9 @@ export interface TarsRuntimePorts {
   startRun: (row: TarsResponsibility, assertAdmitted: () => void) => Promise<string>;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
   controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation) => Promise<void>;
+  /** Live persisted setting: 0 or absent admits all independent responsibilities. */
+  concurrencyLimit?: () => number;
+  onQueueChanged?: () => void;
   /**
    * Answers a request in the work's task, or sends the user's words to its run
    * (`TarsTaskOperation`), after rechecking ownership. With `canQueue`, a
@@ -78,28 +81,37 @@ const OWNED = new Set(["preparing", "running", "waiting", "blocked"]);
 const ENDS_QUEUED_MESSAGES: ReadonlyMap<string, "takenOver" | "ended"> = new Map([["takeover", "takenOver"], ["cancel", "ended"], ["acceptCompletion", "ended"]]);
 // i18n-ignore: persisted diagnostic; the interface translates the reason code
 const QUEUED_MESSAGE_CANCELLED = "The work was taken over, cancelled or completed before its task's turn ended, so the message was not sent.";
+/** The operation key of the pass that says queued words; each one is then said in its own work's queue. */
+const DELIVERIES = "tars:deliveries";
 
 /** Owns responsibilities, not provider turns. All execution crosses existing Run admission. */
 export function createTarsRuntime(ports: TarsRuntimePorts) {
   const now = ports.now ?? (() => new Date().toISOString());
-  let chain: Promise<unknown> = Promise.resolve();
+  const operations = new Map<string, Promise<unknown>>();
+  const queueWaits = new Map<string, TarsQueueWait>();
+  let scheduled: Promise<void> | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
-  let ticking = false;
   let stopped = false;
   // Invalidate pending dispatch synchronously, even while preparation awaits I/O.
   const held = new Set<string>();
   // One control per responsibility at a time; a duplicate request joins its attempt.
   const inflight = new Map<string, { key: string; promise: Promise<unknown> }>();
-  /**
-   * Task operations whose effect (an answer or a reply turn in the task)
-   * already ran but whose outcome is not saved yet, by request key. A retry of
-   * the same request only saves the outcome; it never answers or sends twice.
-   */
+  // Retain already-sent task effects until their ledger outcome is saved, so retries never send twice.
   const sentEffects = new Set<string>();
-  function enqueue<T>(work: () => Promise<T> | T): Promise<T> {
-    const next = chain.then(work);
-    chain = next.catch(() => {});
+  // Only mutations of the same responsibility wait for its Git/run I/O.
+  function enqueue<T>(key: string, work: () => Promise<T> | T): Promise<T> {
+    const next = (operations.get(key) ?? Promise.resolve()).catch(() => {}).then(work);
+    operations.set(key, next);
+    void next.finally(() => { if (operations.get(key) === next) operations.delete(key); }).catch(() => {});
     return next;
+  }
+  function snapshot() {
+    const value = tarsSnapshotForWindow(ports.store.snapshot());
+    const limit = ports.concurrencyLimit?.() ?? 0;
+    const active = value.responsibilities.filter((row) => occupiesSlot(row) || row.state === "queued" && operations.has(row.id)).length;
+    return { ...value, responsibilities: value.responsibilities.map((row) => row.state === "queued"
+      ? { ...row, queueWait: limit > 0 && active >= limit && !operations.has(row.id) ? { code: "capacity" as const, active, limit }
+        : queueWaits.get(row.id)?.code === "storageBusy" ? { code: "storageBusy" as const } : { code: "unknown" as const } } : row) };
   }
   function patch(row: TarsResponsibility, raw: TarsResponsibilityPatch, options: { recovered?: boolean } = {}) {
     // A detail written without a code is free text: it clears any earlier code.
@@ -133,6 +145,14 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   async function prepare(initial: TarsResponsibility) {
     let row = initial;
     try {
+      if (row.state === "preparing" && row.taskId && row.executionWorkspaceId) {
+        const existing = await ports.findRun(row);
+        if (existing) {
+          row = patch(row, { agentRunId: existing, state: "running", detail: null, executionPending: false }, { recovered: true });
+          await reconcile(row);
+          return;
+        }
+      }
       await ports.validateScope({ ...row, workspaceId: row.executionWorkspaceId ?? row.workspaceId });
       if (stopped || held.has(row.id)) return;
       row = patch(row, { state: "preparing", taskId: row.taskId ?? `tars-${row.id}`, detail: null });
@@ -146,67 +166,91 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       // Task identity was persisted before task/run creation. A lost response must not mint another run.
       const existing = await ports.findRun(row);
       if (stopped || held.has(row.id)) return;
+      if (!existing) row = patch(row, { executionPending: true });
       const agentRunId = existing ?? await ports.startRun(row, () => {
         if (stopped || held.has(row.id)) throw new TarsDetailError("admissionWithdrawn", "Responsibility execution was paused or cancelled before admission.");
       });
       // A run found here was created before a lost acknowledgement: adopt it and record the recovery.
-      row = patch(row, { agentRunId, state: "running", detail: null }, { recovered: existing !== null });
+      row = patch(row, { agentRunId, state: "running", detail: null, executionPending: false }, { recovered: existing !== null });
       // A pause/cancel that raced startRun is applied by the queued control next.
     } catch (error) {
       // A lock wait is not a verdict on the work: leave the row for the next tick,
       // whose reconciliation finds any run created before the wait.
-      if (isTarsStorageBusy(error)) return;
+      if (isTarsStorageBusy(error)) { queueWaits.set(row.id, { code: "storageBusy" }); return; }
       blocked(row, error);
     }
   }
-  async function tick() {
-    if (stopped) return;
-    let unknownExecution = false;
-    for (let initial of ports.store.snapshot().responsibilities) {
-      if ((initial.state === "blocked" || initial.state === "preparing") && !initial.agentRunId && initial.taskId && initial.executionWorkspaceId && !held.has(initial.id)) {
-        try {
-          // Run creation may have succeeded even when its response was lost.
-          // Read its receipt before admitting another writer; never replay the write here.
-          const agentRunId = await ports.findRun(initial);
-          if (agentRunId) initial = patch(initial, { agentRunId, state: "running", detail: null }, { recovered: true });
-        } catch (error) {
-          if (!(error instanceof TarsOwnershipLostError)) unknownExecution = true;
-          if (!isTarsStorageBusy(error)) blocked(initial, error);
-          continue;
-        }
+  async function reconcile(initial: TarsResponsibility) {
+    try {
+      if ((initial.state === "blocked" || initial.state === "preparing") && !initial.agentRunId && initial.taskId && initial.executionWorkspaceId) {
+        // A lost start acknowledgement is reconciled only for its own task.
+        const agentRunId = await ports.findRun(initial);
+        if (agentRunId) initial = patch(initial, { agentRunId, state: "running", detail: null, executionPending: false }, { recovered: true });
+        else initial = patch(initial, { executionPending: false });
       }
-      if (!initial.agentRunId || !OWNED.has(initial.state) || held.has(initial.id)) continue;
-      try {
-        // Observe the owned execution even if its original source workspace was removed.
-        // The execution port validates the task/run identity itself.
-        const observed = await ports.observe(initial);
-        if (stopped || held.has(initial.id)) continue;
-        // Absent means a plain wait, so a stage that stopped asking clears the mark.
-        const { runTurns, runStage, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
-        const waiting = observed.state === "waiting";
-        const going = waiting || observed.state === "running";
-        const asks = waiting && observed.stageAsksUser === true;
-        noteExpiredWait(patch(initial, { ...change, stageAsksUser: asks || undefined, stageWait: asks ? stageWait : undefined,
-          activeStage: going ? activeStage : undefined,
-          pendingRequests: waiting && pendingRequests?.length ? pendingRequests : undefined,
-          observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
-          waitingTaskId: waiting ? waitingTaskId : undefined }));
-      } catch (error) {
-        if (!(error instanceof TarsOwnershipLostError)) unknownExecution = true;
-        if (!isTarsStorageBusy(error)) blocked(initial, error);
+      if (!initial.agentRunId || !OWNED.has(initial.state) || held.has(initial.id)) return;
+      const observed = await ports.observe(initial);
+      if (stopped || held.has(initial.id)) return;
+      // Absent means a plain wait, so a stage that stopped asking clears the mark.
+      const { runTurns, runStage, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
+      const waiting = observed.state === "waiting";
+      const going = waiting || observed.state === "running";
+      const asks = waiting && observed.stageAsksUser === true;
+      // An unchanged observation must not reset an existing wait just to add scheduler metadata.
+      noteExpiredWait(patch(initial, { ...change, executionPending: initial.executionPending === true || initial.state === "blocked" ? false : initial.executionPending,
+        stageAsksUser: asks || undefined, stageWait: asks ? stageWait : undefined,
+        activeStage: going ? activeStage : undefined,
+        pendingRequests: waiting && pendingRequests?.length ? pendingRequests : undefined,
+        observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
+        waitingTaskId: waiting ? waitingTaskId : undefined }));
+    } catch (error) {
+      if (!isTarsStorageBusy(error)) {
+        if (error instanceof TarsOwnershipLostError) patch(initial, { state: "takenOver", ...tarsDetailFromError(error) });
+        else patch(initial, { state: "blocked", executionPending: true, ...tarsDetailFromError(error) });
       }
     }
-    // Awaited only when a message waits, so a tick with nothing to deliver ends as soon as before.
-    const delivering = deliverQueuedMessages();
-    if (delivering) await delivering;
+  }
+  // Unknown outcomes retain one reservation (also after restart), never the whole portfolio.
+  const occupiesSlot = (row: TarsResponsibility) => row.state === "running" || row.state === "preparing" ||
+    (row.state === "blocked" && row.executionPending !== false && Boolean(row.agentRunId || row.taskId && row.executionWorkspaceId));
+  function tick() {
+    if (stopped) return;
     const rows = ports.store.snapshot().responsibilities;
-    // One active responsibility; its own supervised team may run independent isolated units.
-    // Waiting goals yield the portfolio slot so a human question cannot starve independent work.
-    // A user's start now prepares its work in its own control, outside this slot.
-    if (unknownExecution || rows.some((row) => row.state === "running" || (row.state === "preparing" && row.agentRunId))) return;
-    const next = rows.filter((row) => (row.state === "queued" || (row.state === "preparing" && !row.agentRunId)) && !held.has(row.id))
-      .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
-    if (next) await prepare(next);
+    const previousWaits = JSON.stringify([...queueWaits]);
+    const queuedIds = new Set(rows.filter((row) => row.state === "queued").map((row) => row.id));
+    for (const id of queueWaits.keys()) if (!queuedIds.has(id)) queueWaits.delete(id);
+    const limit = ports.concurrencyLimit?.() ?? 0;
+    let active = rows.filter((row) => occupiesSlot(row) || row.state === "queued" && operations.has(row.id)).length;
+    for (const row of rows) {
+      if (operations.has(row.id) || held.has(row.id)) continue;
+      if (!row.agentRunId && row.state !== "blocked") continue;
+      if (!OWNED.has(row.state)) continue;
+      const before = JSON.stringify([row.state, row.agentRunId, row.executionPending]);
+      void enqueue(row.id, () => reconcile(row)).catch((error) => ports.onError?.(error)).finally(() => {
+        const current = ports.store.get(row.id);
+        if (current && before !== JSON.stringify([current.state, current.agentRunId, current.executionPending])) requestTick();
+      });
+    }
+    // Words kept for a busy task: one pass at a time, each said in its work's own order after this tick's observation.
+    if (!operations.has(DELIVERIES)) void enqueue(DELIVERIES, async () => { await deliverQueuedMessages(); }).catch((error) => ports.onError?.(error));
+    const queued = rows.filter((row) => row.state === "queued" || row.state === "preparing" && !row.agentRunId)
+      .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    for (const row of queued) {
+      if (operations.has(row.id) || held.has(row.id)) continue;
+      const reserved = occupiesSlot(row);
+      if (!reserved && limit > 0 && active >= limit) {
+        queueWaits.set(row.id, { code: "capacity", active, limit });
+        continue;
+      }
+      if (!reserved) active++;
+      queueWaits.delete(row.id);
+      void enqueue(row.id, () => prepare(ports.store.get(row.id)!)).catch((error) => ports.onError?.(error)).finally(() => {
+        const current = ports.store.get(row.id);
+        if (current && current.state !== "running" && current.state !== "preparing" && current.state !== "queued") requestTick();
+        ports.onQueueChanged?.();
+      });
+    }
+    if (previousWaits !== JSON.stringify([...queueWaits])) ports.onQueueChanged?.();
   }
   /**
    * Says each message kept for a busy task once that task's turn has ended:
@@ -230,74 +274,86 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     for (const record of open) {
       if (stopped) return;
       const action = record.action;
-      const delivery = record.delivery;
-      if (action.kind !== "control" || !delivery || !action.input?.text) continue;
-      const id = action.responsibilityId;
-      try {
-        const row = ports.store.get(id);
-        const sameRun = Boolean(row?.agentRunId && row.agentRunId === delivery.agentRunId);
-        const turns = () => { try { return sameRun ? ports.userTurns!(row!) : null; } catch { return null; } };
-        const deliver = ports.deliverMessage!;
-        const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2]) =>
-          queue.transitionDelivery(record.requestId, from, next, now());
-        if (delivery.status === "delivering") {
-          const count = turns();
-          // An unreadable count leaves it under way: never said twice, never dropped on a guess.
-          if (count === null && sameRun) continue;
-          move(["delivering"], count !== null && count > (delivery.userTurns ?? Number.MAX_SAFE_INTEGER) ? { status: "delivered" } : { status: "queued" });
-          continue;
-        }
-        if (!row || row.state === "completed" || row.state === "cancelled" || row.state === "takenOver" || !sameRun) {
-          move(["queued"], { status: "cancelled", reason: row?.state === "takenOver" ? "takenOver" : !row || !sameRun ? "ownershipLost" : "ended",
-            error: QUEUED_MESSAGE_CANCELLED });
-          continue;
-        }
-        // A control in flight, or work the user paused through Tars, waits; one attempt per work per tick.
-        if (row.state === "paused" || held.has(id) || inflight.has(id) || attempted.has(id)) continue;
-        attempted.add(id);
-        const before = turns();
-        if (before === null || !move(["queued"], { status: "delivering", userTurns: before })) continue;
-        try {
-          const result = await deliver(row!, action.input.text);
-          move(["delivering"], result === "sent" ? { status: "delivered" } : { status: "queued" });
-        } catch (error) {
-          // A lock wait after the effect leaves it under way; the next tick settles it from the run's turns.
-          if (isTarsStorageBusy(error)) continue;
-          const after = turns();
-          if (after !== null && after > before) { move(["delivering"], { status: "delivered" }); continue; }
-          const { reason, error: text } = tarsControlRejection(error);
-          // A run that ended or changed owner cannot take it any more; anything else the run refused.
-          const gone = error instanceof TarsOwnershipLostError || error instanceof TarsRunEndedError;
-          move(["delivering"], { status: gone ? "cancelled" : "failed", reason, error: text });
-        }
-      } catch (error) {
-        if (!isTarsStorageBusy(error)) ports.onError?.(error);
+      if (action.kind !== "control" || !record.delivery || !action.input?.text) continue;
+      // Said inside the work's own queue, so it never overlaps that work's observation, preparation or control.
+      await enqueue(action.responsibilityId, () => deliverOne(queue, record, attempted)).catch((error) => ports.onError?.(error));
+    }
+  }
+  async function deliverOne(queue: NonNullable<TarsRuntimePorts["messages"]>, record: ReturnType<NonNullable<TarsRuntimePorts["messages"]>["listOpenDeliveries"]>[number],
+    attempted: Set<string>) {
+    const action = record.action;
+    const delivery = record.delivery;
+    if (stopped || action.kind !== "control" || !delivery || !action.input?.text) return;
+    const id = action.responsibilityId;
+    try {
+      const row = ports.store.get(id);
+      const sameRun = Boolean(row?.agentRunId && row.agentRunId === delivery.agentRunId);
+      const turns = () => { try { return sameRun ? ports.userTurns!(row!) : null; } catch { return null; } };
+      const deliver = ports.deliverMessage!;
+      const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2]) =>
+        queue.transitionDelivery(record.requestId, from, next, now());
+      if (delivery.status === "delivering") {
+        const count = turns();
+        // An unreadable count leaves it under way: never said twice, never dropped on a guess.
+        if (count === null && sameRun) return;
+        move(["delivering"], count !== null && count > (delivery.userTurns ?? Number.MAX_SAFE_INTEGER) ? { status: "delivered" } : { status: "queued" });
+        return;
       }
+      if (!row || row.state === "completed" || row.state === "cancelled" || row.state === "takenOver" || !sameRun) {
+        move(["queued"], { status: "cancelled", reason: row?.state === "takenOver" ? "takenOver" : !row || !sameRun ? "ownershipLost" : "ended",
+          error: QUEUED_MESSAGE_CANCELLED });
+        return;
+      }
+      // A control in flight, or work the user paused through Tars, waits; one attempt per work per tick.
+      if (row.state === "paused" || held.has(id) || inflight.has(id) || attempted.has(id)) return;
+      attempted.add(id);
+      const before = turns();
+      if (before === null || !move(["queued"], { status: "delivering", userTurns: before })) return;
+      try {
+        const result = await deliver(row!, action.input.text);
+        move(["delivering"], result === "sent" ? { status: "delivered" } : { status: "queued" });
+      } catch (error) {
+        // A lock wait after the effect leaves it under way; the next tick settles it from the run's turns.
+        if (isTarsStorageBusy(error)) return;
+        const after = turns();
+        if (after !== null && after > before) { move(["delivering"], { status: "delivered" }); return; }
+        const { reason, error: text } = tarsControlRejection(error);
+        // A run that ended or changed owner cannot take it any more; anything else the run refused.
+        const gone = error instanceof TarsOwnershipLostError || error instanceof TarsRunEndedError;
+        move(["delivering"], { status: gone ? "cancelled" : "failed", reason, error: text });
+      }
+    } catch (error) {
+      if (!isTarsStorageBusy(error)) ports.onError?.(error);
     }
   }
   function requestTick() {
-    if (ticking || stopped) return;
-    ticking = true;
-    void enqueue(tick).catch((error) => ports.onError?.(error)).finally(() => { ticking = false; });
+    if (scheduled || stopped) return;
+    scheduled = Promise.resolve().then(() => { scheduled = null; tick(); }).catch((error) => ports.onError?.(error));
   }
   return {
     start() { if (timer) return; stopped = false; requestTick(); timer = setInterval(requestTick, 5_000); timer.unref?.(); },
     stop() { stopped = true; if (timer) clearInterval(timer); timer = null; },
     requestTick,
-    /** Tests and orderly shutdown can await admitted mutations. */
-    drain: () => chain,
-    // SQLite snapshots are synchronous; reads need not queue behind Git/provider I/O.
-    get: () => Promise.resolve(tarsSnapshotForWindow(ports.store.snapshot())),
-    create: (raw: unknown) => enqueue(async () => {
+    /** Tests and orderly shutdown await all work admitted before they become idle. */
+    drain: async () => {
+      while (scheduled || operations.size) {
+        await scheduled;
+        await Promise.allSettled([...operations.values()]);
+      }
+    },
+    get: () => Promise.resolve(snapshot()),
+    create: async (raw: unknown) => {
       const input = CreateTarsResponsibilityInputSchema.parse(raw);
-      await ports.validateScope(input);
-      ports.store.create(input, now());
-      requestTick();
-      return tarsSnapshotForWindow(ports.store.snapshot());
-    }),
-    updateIdentity: (raw: unknown) => enqueue(() => {
+      return enqueue(`create:${input.requestId}`, async () => {
+        await ports.validateScope(input);
+        ports.store.create(input, now());
+        requestTick();
+        return snapshot();
+      });
+    },
+    updateIdentity: (raw: unknown) => enqueue("identity", () => {
       ports.store.updateIdentity(UpdateTarsIdentityInputSchema.parse(raw), now());
-      return tarsSnapshotForWindow(ports.store.snapshot());
+      return snapshot();
     }),
     /** One responsibility's saved message and instruction, read from its row; like `get`, it need not queue. */
     brief: async (raw: unknown) => {
@@ -334,7 +390,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         try { return Promise.resolve(settle(error)); } catch (busy) { return Promise.reject(busy); }
       }
       if (TARS_STOPPING_OPERATIONS.has(request.operation)) held.add(id);
-      const promise = enqueue(async () => {
+      const promise = enqueue(id, async () => {
         const replay = ledger.settled();
         if (replay) return replay;
         const current = ports.store.get(id);
@@ -405,10 +461,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         };
         const outcome = queued ? ledger.queue!(effect, row.agentRunId!) : ledger.apply(effect);
         if (TARS_GRANTING_OPERATIONS.has(request.operation)) held.delete(id);
-        // Start now prepares and starts the run next on the chain, without waiting for the
-        // portfolio slot. It runs after this control settles, so a pause or cancel clicked
+        // Start now prepares and starts the run next on its responsibility queue, bypassing
+        // the configured admission limit. It runs after this control settles, so a pause or cancel clicked
         // during preparation is admitted (it holds the work) instead of refused as in flight.
-        if (request.operation === "startNow") void enqueue(async () => {
+        if (request.operation === "startNow") void enqueue(id, async () => {
           const started = ports.store.get(id);
           if (started?.state === "preparing" && !started.agentRunId && !stopped && !held.has(id)) await prepare(started);
         }).catch((error) => ports.onError?.(error));

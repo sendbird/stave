@@ -15,6 +15,7 @@ import {
 import { TarsWorkRequestSchema, type TarsWorkRequest } from "../../src/lib/tars/types";
 import { AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/providers/attachment-context";
 import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
+import { TarsComposerDraftSchema, type TarsComposerDraft } from "../../src/lib/tars/composer-draft";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readSettledTarsTargets } from "./tars-proposals";
 
@@ -92,6 +93,9 @@ export class TarsConversationStore {
         created_at TEXT NOT NULL, body_json TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_tars_publish_requests_created ON tars_publish_requests(created_at, request_id);
+      CREATE TABLE IF NOT EXISTS tars_composer_drafts (
+        id TEXT PRIMARY KEY CHECK (id = 'personal'), body_json TEXT NOT NULL
+      );
     `);
   }
 
@@ -250,6 +254,43 @@ export class TarsConversationStore {
           AND json_extract(r.body_json, '$.status') IN ('applied', 'rejected', 'proposed'))`;
   }
 
+  /** The words being written to Tars, kept across views and restarts until a send saves them as a message. */
+  getDraft(): TarsComposerDraft | null {
+    const row = this.db.prepare("SELECT body_json FROM tars_composer_drafts WHERE id = 'personal'").get() as Pick<StoredRow, "body_json"> | undefined;
+    if (!row) return null;
+    // An unreadable draft is dropped rather than blocking the composer.
+    try {
+      const parsed = TarsComposerDraftSchema.safeParse(JSON.parse(row.body_json));
+      // A draft whose request is already a message was sent; it is never offered again.
+      return parsed.success && !this.isSentRequest(parsed.data.requestId) ? parsed.data : null;
+    } catch { return null; }
+  }
+
+  /**
+   * Saves or (with `null`) deletes the draft. Not a conversation change: the
+   * renderer that wrote it already shows it, and announcing every keystroke
+   * would make every surface read the conversation again.
+   */
+  saveDraft(rawDraft: TarsComposerDraft | null): void {
+    const draft = rawDraft === null ? null : TarsComposerDraftSchema.parse(rawDraft);
+    // A retry of a send whose acknowledgement was lost carries a request that is already a message: that draft is gone, not saved again.
+    if (!draft || this.isSentRequest(draft.requestId)) {
+      this.db.prepare("DELETE FROM tars_composer_drafts WHERE id = 'personal'").run();
+      return;
+    }
+    this.db.prepare(`INSERT INTO tars_composer_drafts (id, body_json) VALUES ('personal', ?)
+      ON CONFLICT(id) DO UPDATE SET body_json = excluded.body_json`).run(JSON.stringify(draft));
+  }
+
+  private isSentRequest(requestId: string | null): boolean {
+    return requestId !== null && Boolean(this.db.prepare("SELECT 1 FROM tars_messages WHERE request_id = ?").get(requestId));
+  }
+
+  /** The draft that sent this request is now a message; a draft with another or no request ID is newer and stays. */
+  private clearSentDraft(requestId: string) {
+    this.db.prepare("DELETE FROM tars_composer_drafts WHERE id = 'personal' AND json_extract(body_json, '$.requestId') = ?").run(requestId);
+  }
+
   /** `origin` marks a message the user did not type (a chosen reply option, an automatic follow-up); its request id is its identity. */
   create(rawInput: TarsMessageInput, now: string, maxOutstanding?: number, rawOrigin?: TarsMessageOrigin): TarsMessage {
     const input = TarsMessageInputSchema.parse(rawInput);
@@ -261,6 +302,7 @@ export class TarsConversationStore {
         .get(input.requestId) as StoredRow | undefined;
       if (prior) {
         if (prior.request_hash !== requestHash) throw new Error("This request ID already names a different message.");
+        this.clearSentDraft(input.requestId);
         return this.readMessage(prior)!;
       }
       const settings = this.getSettings();
@@ -277,6 +319,7 @@ export class TarsConversationStore {
       this.db.prepare(`INSERT INTO tars_messages (id, request_id, request_hash, revision, state, created_at, body_json)
         VALUES (?, ?, ?, ?, ?, ?, ?)`)
         .run(message.id, message.requestId, requestHash, message.revision, message.state, now, JSON.stringify(message));
+      this.clearSentDraft(message.requestId);
       this.changes.emit("conversation");
       return message;
     });

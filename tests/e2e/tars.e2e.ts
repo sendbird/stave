@@ -91,6 +91,8 @@ test("global settings save once, survive reload and do not appear in the compose
   const sheet = page.getByRole("dialog");
   await sheet.getByRole("textbox", { name: "Name", exact: true }).fill("My representative");
   await sheet.getByRole("textbox", { name: "Standing instructions", exact: true }).fill("Keep status reports concise.");
+  await expect(sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true })).toHaveValue("0");
+  await sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true }).fill("48");
   await sheet.getByRole("spinbutton", { name: "Turn limit per work unit" }).fill("12");
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toHaveCount(0);
@@ -99,6 +101,7 @@ test("global settings save once, survive reload and do not appear in the compose
   await expect(page.getByRole("heading", { name: "My representative", exact: true })).toBeVisible();
   await expect(composer(page).getByRole("spinbutton")).toHaveCount(0);
   await page.getByRole("button", { name: "Conversation settings", exact: true }).click();
+  await expect(sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true })).toHaveValue("48");
   await expect(sheet.getByRole("spinbutton", { name: "Turn limit per work unit" })).toHaveValue("12");
   await expect(sheet.getByRole("textbox", { name: "Standing instructions", exact: true })).toHaveValue("Keep status reports concise.");
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
@@ -185,16 +188,25 @@ test("a click in the tray appends a one-line action record, never a user message
 
 test("include my working changes is off by default, travels with one message and resets after it is sent", async ({ page }) => {
   await page.goto("/?stavePreview=tars");
-  const toggle = composer(page).getByRole("switch", { name: "Include my working changes", exact: true });
-  await expect(toggle).not.toBeChecked();
-  // Keyboard first: Space on the focused switch turns it on.
-  await toggle.focus();
+  const toggle = composer(page).getByRole("button", { name: "Include my working changes", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  // What it does is its description, not part of its name.
+  await expect(toggle).toHaveAccessibleDescription(/uncommitted changes/);
+  // Keyboard first: Tab from the message box reaches it, and Space turns it on.
+  await editor(page).focus();
+  await page.keyboard.press("Tab");
+  await expect(toggle).toBeFocused();
   await page.keyboard.press("Space");
-  await expect(toggle).toBeChecked();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // Then Attach files, then Send: the composer's controls keep their order.
+  await page.keyboard.press("Tab");
+  await expect(composer(page).getByRole("button", { name: "Attach files", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(composer(page).getByRole("button", { name: "Send", exact: true })).toBeFocused();
   await send(page, "Fix the export on top of my edits");
   await expect(page.locator("[data-tars-message]")).toHaveCount(1);
   await expect(page.locator("[data-tars-message-working-changes]")).toHaveText("Includes working changes");
-  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await send(page, "And tell me what is running");
   await expect(page.locator("[data-tars-message]")).toHaveCount(2);
   await expect(page.locator("[data-tars-message-working-changes]")).toHaveCount(1);
@@ -202,6 +214,143 @@ test("include my working changes is off by default, travels with one message and
   expect(saved.messages[0].includeWorkingChanges).toBe(true);
   expect(saved.messages[1]).not.toHaveProperty("includeWorkingChanges");
 });
+
+const savedDraft = (page: Page) => page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-draft") ?? "null"));
+
+test("a draft and its working-changes choice survive leaving Tars and a restart, and a successful send clears them", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  const toggle = composer(page).getByRole("button", { name: "Include my working changes", exact: true });
+  await editor(page).fill("Draft that must survive");
+  await toggle.click();
+  // Leaving Tars unmounts the view; coming back shows the same draft at once.
+  await page.getByRole("button", { name: "Close Tars", exact: true }).click();
+  await expect(page.getByTestId("tars-view")).toHaveCount(0);
+  await page.locator("[data-preview-reopen-tars]").click();
+  await expect(editor(page)).toHaveText("Draft that must survive");
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // A restart reads the saved draft back.
+  await expect.poll(() => savedDraft(page)).toEqual({ text: "Draft that must survive", includeWorkingChanges: true, requestId: null });
+  await page.reload();
+  await expect(editor(page)).toHaveText("Draft that must survive");
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await editor(page).press("Enter");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(page.locator("[data-tars-message-working-changes]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(() => savedDraft(page)).toBeNull();
+  // The sent message is not restored as a draft after a restart.
+  await page.reload();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+});
+
+test("a message with surrounding spaces is cleared after it is sent (the composer sends it trimmed), and stays cleared after a restart", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  await editor(page).click();
+  await page.keyboard.type("   Padded words   ");
+  await expect.poll(() => savedDraft(page).then((draft) => draft?.text)).toBe("   Padded words   ");
+  await editor(page).press("Enter");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+  await expect.poll(() => savedDraft(page)).toBeNull();
+  await page.reload();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+});
+
+test("a send refused before it was saved keeps the draft through a restart, and the retry sends it once with the same request", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&sendFailure=before");
+  await send(page, "Keep this if sending fails");
+  await expect(page.getByRole("alert")).toContainText("refused before it was saved");
+  await expect(editor(page)).toHaveText("Keep this if sending fails");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(0);
+  const kept = await savedDraft(page);
+  expect(kept).toMatchObject({ text: "Keep this if sending fails", includeWorkingChanges: false });
+  expect(kept.requestId).toBeTruthy();
+  await page.goto("/?stavePreview=tars");
+  await expect(editor(page)).toHaveText("Keep this if sending fails");
+  await editor(page).press("Enter");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.messages).toHaveLength(1);
+  expect(saved.messages[0].requestId).toBe(kept.requestId);
+  await expect.poll(() => savedDraft(page)).toBeNull();
+});
+
+test("a send saved by the host but not acknowledged is not restored as a draft after a restart", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&sendFailure=once");
+  await send(page, "Saved but not acknowledged");
+  await expect(page.getByRole("alert")).toContainText("Preview message transport failed");
+  // The words stay in this window, so the user sees what did not come back.
+  await expect(editor(page)).toHaveText("Saved but not acknowledged");
+  await expect.poll(() => savedDraft(page)).toBeNull();
+  await page.goto("/?stavePreview=tars");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+});
+
+for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
+  test(`your messages and Tars's replies read apart, and long replies stay readable at ${width}px (${lang})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto(`/?stavePreview=tars&richReply=true&lang=${lang}`);
+    const view = page.getByTestId("tars-view");
+    await send(page, "Why is the nightly billing export late? " + "Look at the retry path and suggest a fix. ".repeat(6));
+    const user = view.locator("[data-tars-user-message]");
+    const reply = view.locator("[data-tars-reply]");
+    await expect(reply).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await expect(user).toHaveAccessibleName(lang === "ko" ? "내 메시지" : "Your message");
+    await expect(reply).toHaveAccessibleName(lang === "ko" ? "Tars의 답변" : "Reply from Tars");
+    await expect(reply.locator("[data-tars-mark]")).toBeVisible();
+    const geometry = await view.evaluate((node) => {
+      const box = (selector: string) => node.querySelector(selector)!.getBoundingClientRect();
+      const row = box("[data-tars-user-message]");
+      const bubble = node.querySelector("[data-tars-user-message] > div")!.getBoundingClientRect();
+      const meta = box("[data-tars-message-meta]");
+      const reply = box("[data-tars-reply]");
+      const pre = node.querySelector<HTMLElement>("[data-tars-reply] pre")!;
+      const table = box("[data-tars-reply] table");
+      const paragraph = box("[data-tars-reply] p:not(:first-child)");
+      return { view: [node.clientWidth, node.scrollWidth], row: [row.left, row.right, row.width], bubble: [bubble.left, bubble.right, bubble.width], metaRight: meta.right,
+        reply: [reply.left, reply.right], pre: [pre.clientWidth, pre.scrollWidth, getComputedStyle(pre).overflowX], table: [table.left, table.right], paragraph: [paragraph.left, paragraph.right] };
+    });
+    // Nothing widens the view; the code block scrolls inside itself instead.
+    expect(geometry.view[1]).toBeLessThanOrEqual(geometry.view[0] + 1);
+    expect(geometry.pre[1]).toBeGreaterThan(geometry.pre[0]);
+    expect(geometry.pre[2]).toBe("auto");
+    // Your words end on the trailing edge in a bubble that leaves the leading side open; their time follows them there.
+    expect(Math.abs(geometry.bubble[1] - geometry.row[1])).toBeLessThanOrEqual(1);
+    expect(geometry.bubble[2]).toBeLessThanOrEqual(geometry.row[2] * 0.88 + 1);
+    expect(geometry.bubble[0]).toBeGreaterThan(geometry.row[0] + 8);
+    expect(Math.abs(geometry.metaRight - geometry.row[1])).toBeLessThanOrEqual(1);
+    // Tars's reply starts on the leading edge of the same column.
+    expect(Math.abs(geometry.reply[0] - geometry.row[0])).toBeLessThanOrEqual(1);
+    // Prose keeps the reading column; a table may take the wider measure when there is room, centred on the same axis.
+    expect(geometry.paragraph[1]).toBeLessThanOrEqual(geometry.reply[1] + 1);
+    if (width >= 1088) {
+      expect(geometry.table[1] - geometry.table[0]).toBeGreaterThan(geometry.reply[1] - geometry.reply[0]);
+      expect(Math.abs((geometry.table[0] + geometry.table[1]) / 2 - (geometry.reply[0] + geometry.reply[1]) / 2)).toBeLessThanOrEqual(1);
+    }
+    // The composer's one choice is icon-only at every width, like Attach and Send: its full name is its accessible name,
+    // and the tooltip leads with that same name, then what it does.
+    const name = lang === "ko" ? "작업 중인 변경 포함" : "Include my working changes";
+    const toggle = composer(page).getByRole("button", { name, exact: true });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAccessibleDescription(lang === "ko" ? /커밋하지 않은 변경/ : /uncommitted changes/);
+    const toggleBox = await toggle.boundingBox();
+    const sendBox = await composer(page).getByRole("button", { name: lang === "ko" ? "보내기" : "Send", exact: true }).boundingBox();
+    expect(Math.abs(toggleBox!.width - toggleBox!.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(toggleBox!.height - sendBox!.height)).toBeLessThanOrEqual(1);
+    expect(await toggle.evaluate((node) => [...node.querySelectorAll("span")].some((span) => span.textContent && span.getBoundingClientRect().width > 1))).toBe(false);
+    expect(toggleBox!.x + toggleBox!.width).toBeLessThanOrEqual(sendBox!.x);
+    expect(Math.abs((toggleBox!.y + toggleBox!.height / 2) - (sendBox!.y + sendBox!.height / 2))).toBeLessThanOrEqual(1);
+    await toggle.hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    expect((await page.getByRole("tooltip").innerText()).trim().startsWith(name)).toBe(true);
+  });
+}
 
 test("tray cards say when work starts from the user's working changes, with the short commit", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -315,6 +464,19 @@ test("a short answer in words binds to the one waiting decision's recommended op
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
   // The bound word was an answer, not another message to Tars.
   expect(saved.messages.map((message: { text: string }) => message.text)).not.toContain("응");
+});
+
+test("a short answer whose control is refused keeps the words in the composer", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&decision=ask&controlRefusal=true");
+  const view = page.getByTestId("tars-view");
+  await send(page, "What should happen with the release check?");
+  await expect(view.locator('[data-tars-decision-state="waiting"]')).toBeVisible();
+  // "1" binds to "Pause it now"; the host records the answer but refuses the pause, without a refusal code.
+  await send(page, "1");
+  await expect(view.locator('[data-tars-decision-attempt="rejected"]')).toContainText("Pause it now");
+  await expect(editor(page)).toHaveText("1");
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.answers.map((answer: { status: string }) => answer.status)).toEqual(["rejected"]);
 });
 
 test("an unverified completion is a decision card: verification work goes to the composer, Accept applies by click", async ({ page }) => {

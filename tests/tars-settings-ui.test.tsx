@@ -82,6 +82,8 @@ describe("Tars settings agent allowlist", () => {
     const identity = { id: "personal" as const, name: "Tars", instructions: "", updatedAt: NOW };
     const automatic = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30 } }));
+    expect(automatic).toContain("Concurrent responsibilities");
+    expect(automatic).toContain("0 starts all eligible independent work");
     expect(automatic).toContain("Conversation model");
     expect(automatic).toContain("Execution model");
     expect(automatic).toContain("Automatic");

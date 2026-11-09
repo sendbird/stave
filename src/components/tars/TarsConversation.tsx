@@ -1,18 +1,22 @@
+import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { FileDiff } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
-import type { AttachmentContext } from "@/lib/providers/attachment-context";
-import { useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import { Button } from "@/components/ui";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { StateMark } from "@/components/aui/components/StateMark";
 import type { WorkState } from "@/components/aui/components/state-vocabulary";
-import { Switch } from "@/components/aui/components/Switch";
+import { Toggle } from "@/components/aui/components/Toggle";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { composerTray } from "@/components/aui/recipes/composer-tray";
 import { sx } from "@/components/aui/utils/stylex";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
 import { TarsWelcome } from "./TarsGuide";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
+import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
+import { TarsMark } from "./TarsMark";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
 import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessage, TarsMessageView } from "@/lib/tars/conversation";
@@ -35,6 +39,10 @@ import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsPublishRecordLine } from "./TarsPublishRecordLine";
 import type { TarsPublishContext } from "./use-tars-publish";
 import { TarsPublishReasonSchema } from "@/lib/tars/publication";
+import type { TarsBridgeApi } from "@/lib/tars/types";
+import {
+  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, hydrateTarsDraft, setTarsDraftText, setTarsDraftWorkingChanges, settleTarsDraftSend, useTarsDraftStore,
+} from "@/store/tars-draft-store";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -137,13 +145,18 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       : origin?.kind === "followUp" ? <p className={sx(styles.actionRecord)} data-tars-follow-up={origin.reason}><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
         <span>{t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
-        : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p>
-          {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index} data-tars-attachment-kind={part.kind}>{part.name}</li>)}</ul> : null}</MessageContent></Message>}
-    <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
+        // The user's words sit on the trailing side in a bubble no wider than they need; Tars's reply reads full-width under its name.
+        : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(styles.userBubble)}>
+          <MessageContent><p className={sx(styles.messageText)}>{message.text}</p>
+            {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index} data-tars-attachment-kind={part.kind}>{part.name}</li>)}</ul> : null}</MessageContent></div></Message>}
+    <div className={sx(styles.actions, !origin && styles.metaUser)} data-tars-message-meta=""><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
       {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}
     </div>
-    {message.reply !== null ? <Message from="assistant"><MessageContent><p className={sx(styles.author)}>{name}</p><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></MessageContent></Message> : null}
+    {message.reply !== null ? <Message from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
+      <p className={sx(styles.author)}><TarsMark className={sx(styles.authorMark)} />{name}</p>
+      {/* Code, tables and diffs may claim the transcript's wide measure; prose keeps the reading column. */}
+      <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message> : null}
     {failure ? <p className={sx(styles.error)}>{failure}</p> : null}
     {message.state === "failed" ? <p className={sx(styles.text)}>{t("shell:tars.conversation.failedHint")}</p> : null}
     {origin?.kind === "followUp" && message.state === "cancelled"
@@ -172,7 +185,29 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   </div>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus }: {
+/**
+ * The composer's one per-message choice, icon-only at every width like the
+ * composer's other controls. Its accessible name is the full choice (the
+ * Toggle's hidden label), the tooltip leads with that same name, and what it
+ * does is the tooltip's second line and the control's description.
+ */
+function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pressed: boolean; disabled: boolean; onPressedChange: (pressed: boolean) => void }) {
+  const { t } = useTranslation(["shell"]);
+  const hintId = useId();
+  const label = t("shell:tars.conversation.workingChanges.toggle");
+  const hint = t("shell:tars.conversation.workingChanges.hint");
+  return <>
+    <Tooltip content={<span className={sx(styles.tooltipBody)}><span>{label}</span><span className={sx(styles.tooltipHint)}>{hint}</span></span>}>
+      <Toggle size="sm" iconOnly pressed={pressed} disabled={disabled} onPressedChange={(next) => onPressedChange(next)}
+        icon={<FileDiff aria-hidden="true" className={sx(styles.toggleIcon)} />} aria-describedby={hintId} data-tars-working-changes-toggle="">
+        {label}
+      </Toggle>
+    </Tooltip>
+    <VisuallyHidden id={hintId}>{hint}</VisuallyHidden>
+  </>;
+}
+
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -191,15 +226,22 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   publish?: TarsPublishContext;
   /** The work running now, in the composer band above the message field; absent while nothing runs. */
   composerStatus?: ReactNode;
+  /** Where the draft is saved across restarts; absent, it lasts for this window. */
+  draftBridge?: Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
 }) {
   const { t } = useTranslation(["shell"]);
-  const [text, setText] = useState("");
+  // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again. Its files stay for this window.
+  const text = useTarsDraftStore((draft) => draft.text);
   const attached = useTarsAttachments();
   // Per message and off by default: the next send carries it, then it resets.
-  const [includeWorkingChanges, setIncludeWorkingChanges] = useState(false);
+  const includeWorkingChanges = useTarsDraftStore((draft) => draft.includeWorkingChanges);
+  const draftReady = useTarsDraftStore((draft) => draft.ready);
+  useEffect(() => {
+    void hydrateTarsDraft(draftBridge);
+    return () => { void flushTarsDraft(); };
+  }, [draftBridge]);
   const [answerErrors, setAnswerErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [answering, setAnswering] = useState(false);
-  const request = useRef<{ text: string; includeWorkingChanges: boolean; attachments: AttachmentContext[]; id: string } | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const composerErrorId = useId();
   const settings = state.conversation?.settings ?? initialSettings;
@@ -225,33 +267,40 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
     + (publish?.open ? `|open:${publish.open.id}` : "");
   const tooLong = text.length > TARS_MESSAGE_LIMIT;
-  const composerDisabled = !state.available || !state.conversation || state.busy || attached.reading;
+  const composerDisabled = !state.available || !state.conversation || state.busy || !draftReady || attached.reading;
   const focusComposer = () => composerRef.current?.querySelector<HTMLElement>("[contenteditable='true'], textarea")?.focus();
-  /** Click, key and words take this one path; only Stave's "ask for new verification work" stays in the composer. */
-  const answer: TarsDecisionAnswerHandler = (decision, optionIndex, source) => {
+  const verifyRequest = (responsibilityId: string) => t("shell:tars.decision.verifyRequest", { title: titleOf?.(responsibilityId) ?? responsibilityId });
+  /**
+   * Click, key and words take this one path; only Stave's "ask for new
+   * verification work" stays in the composer, added after the draft so nothing
+   * the user wrote is lost. Resolves whether the answer was taken.
+   */
+  const answer = (decision: TarsDecisionView, optionIndex: number, source: TarsAnswerSource): Promise<boolean> => {
     const option = decision.options[optionIndex];
-    if (!option) return;
+    if (!option) return Promise.resolve(false);
     if (option.kind === "verify") {
-      setText(t("shell:tars.decision.verifyRequest", { title: titleOf?.(option.responsibilityId) ?? option.responsibilityId }));
+      appendTarsDraft(verifyRequest(option.responsibilityId));
       focusComposer();
-      return;
+      return Promise.resolve(false);
     }
-    if (!onAnswer || answering) return;
+    if (!onAnswer || answering) return Promise.resolve(false);
     setAnswering(true);
-    void onAnswer({ decisionId: decision.id, optionIndex, source }).then((result) => {
+    return onAnswer({ decisionId: decision.id, optionIndex, source }).catch(() => null).then((result) => {
       const message = !result ? t("shell:tars.decision.refusal.failed") : result.refusal ? t(`shell:tars.decision.refusal.${result.refusal}`) : null;
       setAnswerErrors((current) => {
         const next = new Map(current);
         if (message) next.set(decision.id, message); else next.delete(decision.id);
         return next;
       });
+      // A recorded answer the host refused (its card shows why) was not taken either.
+      return !message && result?.answer?.status !== "rejected";
     }).finally(() => setAnswering(false));
   };
   const cardHandler = onAnswer ? answer : undefined;
   // Esc on a waiting card leaves it waiting and hands focus back to the message box.
   const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer };
   const insertDraft = (quote: string) => {
-    setText((current) => current.trim() ? `${current.trimEnd()}\n\n${quote}` : quote);
+    appendTarsDraft(quote);
     focusComposer();
   };
   useImperativeHandle(controller, () => ({
@@ -299,9 +348,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       <div className={sx(composerTray.tray)}>
       {composerStatus}
       <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />
-      <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={composerDisabled}
-        sendAccessory={<Switch size="xs" checked={includeWorkingChanges} onCheckedChange={setIncludeWorkingChanges} disabled={composerDisabled}
-          label={t("shell:tars.conversation.workingChanges.toggle")} title={t("shell:tars.conversation.workingChanges.hint")} data-tars-working-changes-toggle="" />}
+      <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setTarsDraftText} disabled={composerDisabled}
+        sendAccessory={<TarsWorkingChangesToggle pressed={includeWorkingChanges} disabled={composerDisabled} onPressedChange={setTarsDraftWorkingChanges} />}
         selectedModel={buildModelSelectorValue({ providerId: settings.providerId, model: settings.model })} modelOptions={[]} onModelSelect={() => undefined}
         attachedFilePaths={attached.parts.map(attachmentName)} plainText allowPlainTextAttachments
         onAttachFilesChange={({ filePaths }) => attached.keep(filePaths)} onOpenFileSelector={() => attached.picker.current?.click()}
@@ -311,16 +359,21 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           // A short answer binds to the one waiting decision; anything else is a message to Tars.
           const bound = onAnswer && !attached.parts.length ? bindTarsShortAnswer(submitted, selectAnswerableTarsDecisions(decisions)) : null;
           if (bound) {
-            if (bound.decision.options[bound.optionIndex]?.kind !== "verify") setText("");
-            answer(bound.decision, bound.optionIndex, "words");
+            const option = bound.decision.options[bound.optionIndex];
+            // The words were only the answer, so the verification request takes their place.
+            if (option?.kind === "verify") { setTarsDraftText(verifyRequest(option.responsibilityId)); focusComposer(); return; }
+            // The answer clears the draft only once it was taken, and only if it still holds those words; a refused or failed answer leaves them.
+            const words = useTarsDraftStore.getState().text;
+            if (await answer(bound.decision, bound.optionIndex, "words") && useTarsDraftStore.getState().text === words) setTarsDraftText("");
             return;
           }
-          // An unchanged draft and choice retries the same request; changing either is a new message.
-          if (request.current?.text !== submitted || request.current.includeWorkingChanges !== includeWorkingChanges || request.current.attachments !== attached.parts)
-            request.current = { text: submitted, includeWorkingChanges, attachments: attached.parts, id: crypto.randomUUID() };
-          const message = await state.send({ requestId: request.current.id, text: submitted, ...(attached.parts.length ? { attachments: attached.parts } : {}), ...(includeWorkingChanges ? { includeWorkingChanges: true } : {}) },
-            initialSettings);
-          if (message) { request.current = null; if (message.state !== "failed") { setText(""); attached.clear(); setIncludeWorkingChanges(false); } }
+          // An unchanged draft, choice and files retry the same request (a lost acknowledgement cannot send twice); any edit is a new message.
+          const sending = await beginTarsDraftSend();
+          // The request ID could not be saved with the draft, so nothing was sent: the words stay and the send shows as failed.
+          if (!sending) { state.reportSendFailure(); return; }
+          const message = await state.send({ requestId: sending.requestId, text: submitted, ...(sending.attachments.length ? { attachments: [...sending.attachments] } : {}),
+            ...(sending.includeWorkingChanges ? { includeWorkingChanges: true } : {}) }, initialSettings);
+          settleTarsDraftSend({ ...sending, outcome: !message ? "unsent" : message.state === "failed" ? "failed" : "sent" });
         }} />
       {attached.error ? <p role="alert" className={sx(composerTray.footnote, composerTray.footnoteError)}>{attached.error}</p> : null}
       {tooLong ? <p id={composerErrorId} className={sx(composerTray.footnote, composerTray.footnoteError)} role="alert" data-tars-composer-error="tooLong">{t("shell:tars.conversation.tooLong")}</p> : null}

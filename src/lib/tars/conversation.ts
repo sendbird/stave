@@ -60,6 +60,8 @@ export const TarsConversationSettingsSchema = z.object({
   runtimeHints: SecondaryRunRuntimeHintsSchema.optional(),
   maxTurns: z.number().int().min(1).max(100),
   executionModel: TarsExecutionModelSchema.optional(),
+  /** Portfolio admission limit, not a per-run turn budget. 0/absent means no extra cap. */
+  maxConcurrentResponsibilities: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
   allowedAgentIds: z.array(TarsAgentIdSchema).max(TARS_MAX_ALLOWED_AGENTS)
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((ids) => new Set(ids).size === ids.length, "Each allowed agent is listed once.").optional(),

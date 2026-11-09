@@ -36,8 +36,8 @@ across workspaces, tasks and restarts.
    `fix/billing-export-empty-3fa9c1`, so the new workspace never reuses a
    branch or workspace you already have. Uncommitted changes in your
    workspace are not part of it unless you turn on **Include my working
-   changes** next to **Send** for that message: then, when the work is
-   admitted, Stave snapshots the target workspace's working tree (modified,
+   changes**, the icon button next to **Send**, for that message: then, when
+   the work is admitted, Stave snapshots the target workspace's working tree (modified,
    staged and new files, and deletions; files your `.gitignore` ignores stay
    out) as a commit on top of its current commit, without changing your files
    or staging, and the new workspace starts from that commit. A tree without
@@ -175,18 +175,19 @@ reports on the work.
   sandbox, so the task's provider permissions and safety controls still apply.
 - **Only while Stave is open.** Nothing executes while Stave is closed or the
   computer is asleep, and Tars does not schedule wake-ups of its own.
-- **One responsibility runs at a time.** Others wait in the queue, and a
-  queued card names the work it waits behind. Work waiting for your answer
-  gives up its slot to independent queued work. Only queued work can change
-  its place; work that started keeps it, and priorities stay between 0 and
-  100. **Start now** is the one exception you choose: that work starts beside
-  the running work, and the rest of the queue still waits for the slot.
+- **Independent work runs concurrently.** There is no cap unless you set
+  **Settings → Concurrent responsibilities** to a positive number; then work
+  beyond it waits in the queue, and a queued card says only the reason Stave
+  observed (the limit, a busy database, or not confirmed). Work waiting for
+  your answer gives up its slot. Only queued work can change its place; work
+  that started keeps it, and priorities stay between 0 and 100. **Start now**
+  starts the work you chose even when the limit is reached.
 - **Reasoning has no tools.** Tars itself cannot read files, run commands or
   call MCP tools; it sees only the summary Stave supplies. Connected apps are
   not read merely because they are available.
 - **Uncommitted changes only when you include them.** The Tars workspace
   starts from the branch, not from your working copy, unless the message had
-  **Include my working changes** on. Then it starts from a snapshot taken when
+  **Working changes** on. Then it starts from a snapshot taken when
   the work was admitted, not when you sent the message; later edits are not
   part of it. Ignored files, Stave's own `.stave` folder and changes inside
   submodules are never included.
@@ -243,8 +244,8 @@ Name the workspace and say what "done" means; Tars turns that into acceptance
 criteria. If something is unclear it asks first. The first send saves the
 conversation settings (see [Settings and models](#settings-and-models)).
 
-An empty conversation offers a few example requests; pressing one puts its
-full text in the message box without sending it. **How Tars works** below the
+An empty conversation offers a few example requests; pressing one adds its
+full text to the message box without sending it. **How Tars works** below the
 examples, and the help button in the Tars header at any time, show what Tars
 can do and its limits in short form.
 
@@ -266,7 +267,7 @@ explicitly. Details are in [Decisions](#decisions).
 
 | Control | Effect |
 |---|---|
-| **Start now** | The main action on a queued card: starts that work at once, beside work already running, without waiting for its place in the queue. Other queued work keeps waiting. |
+| **Start now** | The main action on a queued card: starts that work at once, beside work already running, bypassing the configured admission limit. Other queued work keeps its priority and follows normal admission. |
 | **Pause** | Holds the responsibility. A manual pause stays paused after a restart. |
 | **Resume** | Continues paused or blocked work. Never continues work you took over. |
 | **Take over** | Stops Tars's execution and makes the work yours; continue in its task. |
@@ -337,7 +338,7 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Conversation**: a flow block for each delegated unit, with the state's mark
   and the work's observation line visible while folded, one-line status and
   control records, and **Automatic follow-up** turns. A message sent with
-  **Include my working changes** carries that tag; a reply Tars is still
+  **Working changes** on carries that tag; a reply Tars is still
   writing reads **Thinking** with the moving mark.
 - **Composer**: while work runs, the band above the message box names each
   running piece of work (two at most, then a count), its stage and what Stave
@@ -369,8 +370,8 @@ provider or model than a pinned execution model, or needs more permission than
 delegated work allows.
 
 **My uncommitted changes are missing from Tars's work.** Tars starts from the
-target workspace's branch unless you turn on **Include my working changes**
-next to **Send** for that message; the switch turns off after each send. With
+target workspace's branch unless you turn on **Working changes** next to
+**Send** for that message; the toggle turns off after each send. With
 it on, the tray card says **From your working changes** with the snapshot's
 short commit, or **No working changes to include** when the workspace had
 none. Files your `.gitignore` ignores are never included. If Stave could not
@@ -440,6 +441,33 @@ same conversation.
   task.
 - **Cancel message** stops queued or running reasoning. It does not undo
   already admitted responsibilities; use their own controls.
+
+**Your draft is kept.** What you type in the message box, with its
+**Include my working changes** choice, stays when you leave Tars for a
+workspace and after Stave restarts. Attached files stay with it while Stave is
+open, but are not saved across a restart: attach them again after one. Files
+still being read hold **Send** until they are attached, even if you leave Tars
+and come back. A
+message Tars saved clears the draft. A send that fails keeps it, so you can
+retry or edit it; a retry of the unchanged draft, with the same files, is the
+same request, so a send whose response was lost cannot become a second
+message. Editing the words, the choice or the attached files makes it a new
+message. If the draft cannot be saved when you press **Send**, nothing is
+sent: the send shows as failed and the draft stays, so a restart cannot send
+the same words twice. If it cannot be saved when Stave quits, Stave says it
+could not save your latest workspace changes or Tars draft and offers **Keep
+Stave open**, **Retry saving** or **Quit without saving**.
+Answering a decision with a short word clears the word only once the answer
+is taken.
+
+**Reading the conversation.** Your messages sit on the right in a bubble only
+as wide as their words, with their time and state under them. Tars's replies
+start on the left under its name and mark. Prose keeps a readable line length;
+code blocks and tables may use a wider measure when the window has room, and a
+long code line scrolls sideways inside its block instead of widening the view.
+**Include my working changes** is an icon button at every width, like
+**Attach files** and **Send**; hover or focus it to see its name and what it
+does. It looks pressed while it is on.
 
 Messages, answers and action outcomes survive restart. If sending loses its
 response, retry the unchanged draft to recover the same message. An
@@ -539,12 +567,12 @@ Control details beyond the [quick start table](#3-control-work):
   changes already made or delete its worktree, task or history.
 - **Start now** applies only to queued work you delegated earlier: right after
   the control settles, Tars prepares the worktree and task and starts the run
-  outside the one-responsibility portfolio slot, so it runs beside work already
+  outside the configured admission limit, so it runs beside work already
   running. Pause or cancel still apply while it prepares.
   It does not change the priority or the order of the rest of the queue. If
   preparation fails, the work is blocked with its reason. If a restart or a
   database lock interrupts preparation, it continues like any interrupted
-  preparation, by priority when the slot frees. Started, paused, blocked or
+  preparation in its reserved slot. Started, paused, blocked or
   taken-over work is refused (`notStartable`). An automatic follow-up never
   proposes or offers it.
 
@@ -560,7 +588,27 @@ refused with its reason, and retrying the same request applies it at most
 once. Each click adds a one-line record such as "Paused · click" to the
 conversation; it is not shown as a message from you.
 
-- Previously admitted runs can resume concurrently when their waits end.
+- Eligible independent responsibilities start concurrently by default, including
+  isolated worktrees of the same repository. No portfolio cap is imposed unless
+  **Settings → Concurrent responsibilities** is a positive integer; `0` (the
+  default, including earlier saved settings without this field) adds no cap.
+  This is separate from the per-run turn budget and team helper limits.
+- A configured cap counts running work, preparation and uncertain execution
+  receipts. Waiting work yields its slot; admitted runs may resume when their
+  own constraints clear. Lowering the cap does not interrupt admitted work.
+- Tars prepares, observes and controls each responsibility on its own queue, so
+  slow worktree or task preparation, a denied scope or an unavailable provider
+  for one responsibility does not hold back another's preparation. The runs
+  underneath still start, advance and take pause or cancel through one host-wide
+  run queue, one operation at a time: a slow start or update of one run can
+  delay another responsibility's run start or control until it finishes.
+  Task/run identity checks, SQLite write transactions, native provider/account
+  limits and same-task duplicate protection remain in force.
+- Queued cards display the scheduler's observed active count and configured
+  cap, or an observed database lock with automatic retry. Before observation,
+  the reason is explicitly unconfirmed. A different running task alone is never
+  evidence of a blocking dependency. These live facts use `queueWait` on the
+  responsibility snapshot; they do not add timeline events or imply progress.
 - An unreadable task or run is shown as blocked rather than as completed.
   Open its task to inspect the cause; a refused control shows why.
 
@@ -603,7 +651,7 @@ did not record, such as a start time, are left out rather than shown as zero.
 the one moving mark (reduced motion settles it); blocked work wears the
 warning tone, completed work the success tone, and queued, waiting, paused and
 taken-over work stays neutral, told apart by its glyph and word. The header
-counts work as **running** only while it holds the active slot (running, or
+counts work as **running** only while its run is active (running, or
 preparing with its run created); the rest of **In progress** counts as
 **waiting**, or **yours** once you took it over. The conversation's one-line
 notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.

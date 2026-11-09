@@ -37,7 +37,7 @@
   },
   "unsavedChanges": {
     "title": "변경 사항이 저장되지 않았습니다",
-    "message": "Stave가 최근 워크스페이스 변경 사항을 저장하지 못했습니다.",
+    "message": "Stave가 최근 워크스페이스 변경 사항 또는 Tars 초안을 저장하지 못했습니다.",
     "detail": "현재 작업을 보존하려면 Stave를 열어 두거나, 종료하기 전에 다시 저장해 보세요.",
     "keepOpen": "Stave 열어 두기",
     "retry": "다시 저장",

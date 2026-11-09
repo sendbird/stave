@@ -602,10 +602,14 @@ shows its reason and opens the same place.
 Work runs in an
 isolated worktree with execution, independent review and verification.
 Uncommitted source changes are not copied unless you turn on **Include my
-working changes** next to **Send** for that message: Stave then snapshots the
-workspace's uncommitted changes (ignored files stay out) without touching your
-files, starts the work from that snapshot and says so on its tray card with the
-short commit. The switch turns off after each send. **Pause**, **Resume**, **Take
+working changes**, the icon button next to **Send**, for that message: Stave
+then snapshots the workspace's uncommitted changes (ignored files stay out)
+without touching your files, starts the work from that snapshot and says so on
+its tray card with the short commit. The toggle turns off after each send. What you type stays as a
+draft, with that choice, when you leave Tars and after a restart; attached
+files stay with it until Stave quits. A sent message clears it and a failed
+send keeps it. If the draft cannot be saved, sending stops and keeps it, and
+quitting offers to keep Stave open, retry saving or quit without saving. **Pause**, **Resume**, **Take
 over**, **Hand back** and **Cancel responsibility** control owned work. You can
 also ask in words, such as "stop it" or "I'll take it from here"; both go
 through the same check, and each click leaves a one-line record in the
@@ -651,10 +655,20 @@ include it. **Cancel message** stops unfinished
 reasoning; it does not undo admitted work. Interrupted reasoning requires a
 new message and is not run again automatically.
 
-Higher numeric priorities start first, with oldest first on a tie. A waiting
-responsibility lets independent queued work begin; admitted runs may resume
-concurrently. Use **Settings** to guide newly admitted
-work without changing an existing run or granting permissions.
+Higher numeric priorities start first, with oldest first on a tie. Independent
+responsibilities start concurrently, including work in separate worktrees of
+the same repository. Each is prepared on its own, but Stave starts, pauses and
+cancels their runs one at a time, so a slow start can delay another work's
+start or pause until it finishes. **Settings → Concurrent responsibilities** defaults to
+**0**, which adds no limit. Set a positive number to bound admissions; lowering
+it leaves existing runs running. **Start now** explicitly bypasses this admission
+limit for the selected queued work. Waiting work yields its slot and admitted runs
+may resume when their constraints clear. This setting is separate from the turn
+budget. Queued cards show the observed active count and limit or a database
+lock being retried. If the cause has not been observed, they say it has not
+been confirmed. Provider/account limits and task ownership still apply.
+Other execution preferences guide newly admitted work without changing an
+existing run or granting permissions.
 
 Tars also follows up by itself when work needs judgment: it became blocked,
 its run or one of its helpers stopped its stage (followed up at once), its completion could not be verified, it ended with criteria unmet,
