@@ -534,10 +534,14 @@ conversation; it is not shown as a message from you.
 - A configured cap counts running work, preparation and uncertain execution
   receipts. Waiting work yields its slot; admitted runs may resume when their
   own constraints clear. Lowering the cap does not interrupt admitted work.
-- Slow preparation or observation, a denied scope or an unavailable provider
-  for one responsibility does not serialize unrelated responsibilities. Task/run
-  identity checks, SQLite write transactions, native provider/account limits and
-  same-task duplicate protection remain in force.
+- Tars prepares, observes and controls each responsibility on its own queue, so
+  slow worktree or task preparation, a denied scope or an unavailable provider
+  for one responsibility does not hold back another's preparation. The runs
+  underneath still start, advance and take pause or cancel through one host-wide
+  run queue, one operation at a time: a slow start or update of one run can
+  delay another responsibility's run start or control until it finishes.
+  Task/run identity checks, SQLite write transactions, native provider/account
+  limits and same-task duplicate protection remain in force.
 - Queued cards display the scheduler's observed active count and configured
   cap, or an observed database lock with automatic retry. Before observation,
   the reason is explicitly unconfirmed. A different running task alone is never
