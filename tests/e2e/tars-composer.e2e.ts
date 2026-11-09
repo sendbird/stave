@@ -131,3 +131,37 @@ test("Tars body, supporting copy, report and settings remain readable across lay
     }
   }
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`Tars invalid composer keeps all four danger edges through focus and hover: ${theme}`, async ({ page }) => {
+    await page.goto(`/?stavePreview=tars&theme=${theme}`);
+    const composer = page.locator("[data-tars-composer]");
+    const editor = composer.getByRole("textbox");
+    const form = composer.locator("form");
+    await expect(editor).toBeEditable();
+    await page.evaluate(() => document.fonts.ready);
+    await editor.fill("x".repeat(32_001));
+    await expect(composer.locator('[data-tars-composer-error="tooLong"]')).toBeVisible();
+    const danger = await form.evaluate(node => {
+      const probe = document.createElement("div"); probe.style.borderColor = "var(--aui-color-danger-border)";
+      node.append(probe); const color = getComputedStyle(probe).borderColor; probe.remove(); return color;
+    });
+    const checkEdges = async () => expect.poll(() => form.evaluate(node => {
+      const style = getComputedStyle(node);
+      return [style.borderTopColor, style.borderRightColor, style.borderBottomColor, style.borderLeftColor];
+    })).toEqual([danger, danger, danger, danger]);
+    await expect(editor).toHaveAttribute("aria-invalid", "true");
+    await checkEdges();
+    await page.locator("[data-tars-guide-toggle]").focus();
+    await page.mouse.move(0, 0);
+    await checkEdges();
+    await form.hover();
+    await checkEdges();
+    await editor.focus();
+    await checkEdges();
+    await page.screenshot({ path: `.stave/artifacts/tars/invalid-composer-${theme}.png` });
+    await editor.fill("Recovered draft");
+    await expect(composer.locator('[data-tars-composer-error="tooLong"]')).toHaveCount(0);
+    await expect.poll(() => form.evaluate(node => getComputedStyle(node).borderTopColor)).not.toBe(danger);
+  });
+}

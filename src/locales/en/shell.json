@@ -1448,6 +1448,7 @@
       "missing": "This agent is no longer available. Uncheck it to remove it."
     },
     "delegateReasons": {
+      "missingMandate": "Attachments alone do not authorize work. Write what you want Tars to do, then send it with the files.",
       "agentUnknown": "Tars named an agent that does not exist or is archived, so this work was not started.",
       "agentNotAllowed": "This saved agent is not allowed for Tars. Allow it in Tars settings, then ask again.",
       "agentPublishes": "This agent publishes or delivers work outside the workspace, which needs a separate request from you, so this work was not started.",

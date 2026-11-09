@@ -97,6 +97,8 @@ Stave saves the selected contents with the message and passes them to the
 conversation model. A retry uses the same snapshot; switching workspaces or
 reopening Stave preserves the attachment names in the conversation. Attached
 material supplies context and does not authorize delegated work on its own.
+You can discuss attachments without text; to start work, include a written
+instruction with them. The host refuses delegation from an attachment-only message.
 
 ## What it can do
 

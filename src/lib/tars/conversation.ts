@@ -89,9 +89,11 @@ export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
  * workspace (which needs a separate request), it cannot take delegated work on
  * Claude or Codex, it conflicts with the pinned execution model, or it would
  * exceed the delegated permission ceiling; or the user's working changes,
- * which the message asked to include, could not be snapshotted.
+ * which the message asked to include, could not be snapshotted. Attachments
+ * without a written user mandate cannot authorize delegation.
  */
 export const TarsDelegateReasonSchema = z.enum([
+  "missingMandate",
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
   // The message asked to include the user's working changes, and the host could not snapshot them.
   "workingChangesUnavailable",
