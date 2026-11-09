@@ -25,7 +25,7 @@ import {
 } from "@/lib/tracker-issues/types";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { TRACKER_SOURCE_LABELS } from "@/lib/tracker-issues/context";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { tasksSectionStyles as styles } from "./settings-dialog-issues-section.styles";
 import type { SectionId } from "./settings-dialog.schema";
 import {

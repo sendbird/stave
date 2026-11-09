@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const rightRailPanelShellStyles = stylex.create({
   root: {
-    backgroundColor: vars["--ads-color-surface"],
+    backgroundColor: vars["--aui-color-surface"],
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -14,12 +14,12 @@ export const rightRailPanelShellStyles = stylex.create({
   },
   header: {
     alignItems: "center",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   actions: {
     alignItems: "center",

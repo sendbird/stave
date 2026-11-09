@@ -1,8 +1,8 @@
 import { formatTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { LensAutomationState } from "@/lib/lens/lens-review.types";
 import { feedbackStyles as styles } from "./lens-feedback.styles";

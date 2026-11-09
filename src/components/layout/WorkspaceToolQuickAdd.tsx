@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { toolStyles } from "./workspace-tools.styles";
-import { sx } from "../ads/utils/stylex";
-import { Textarea as AdsTextarea } from "@/components/ui/textarea";
-import { Input as AdsInput } from "@/components/ui/input";
+import { sx } from "../aui/utils/stylex";
+import { Textarea as AuiTextarea } from "@/components/ui/textarea";
+import { Input as AuiInput } from "@/components/ui/input";
 import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -54,9 +54,9 @@ export function WorkspaceToolQuickAdd(props: {
       })();
     }}>
       <label htmlFor={`${id}-name`} className={sx(toolStyles.fieldLabel)}>{tI18n("workspace:workspaceToolQuickAdd.name")}</label>
-      <AdsInput id={`${id}-name`} autoFocus maxLength={200} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={process ? tI18n("workspace:workspaceToolQuickAdd.devServer") : tI18n("workspace:workspaceToolQuickAdd.checkTheRepository")} />
+      <AuiInput id={`${id}-name`} autoFocus maxLength={200} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={process ? tI18n("workspace:workspaceToolQuickAdd.devServer") : tI18n("workspace:workspaceToolQuickAdd.checkTheRepository")} />
       <label htmlFor={`${id}-command`} className={sx(toolStyles.fieldLabel)}>{tI18n("workspace:workspaceToolQuickAdd.command")}</label>
-      <AdsTextarea id={`${id}-command`} required maxLength={16_000} value={command} onChange={(e) => setCommand(e.target.value)} placeholder={process ? ("bun run dev" /* i18n-ignore: shell command example */) : ("bun run typecheck" /* i18n-ignore: shell command example */)} xstyle={toolStyles.commandInput} />
+      <AuiTextarea id={`${id}-command`} required maxLength={16_000} value={command} onChange={(e) => setCommand(e.target.value)} placeholder={process ? ("bun run dev" /* i18n-ignore: shell command example */) : ("bun run typecheck" /* i18n-ignore: shell command example */)} xstyle={toolStyles.commandInput} />
       <p className={sx(toolStyles.muted)}>
           {tI18n("workspace:workspaceToolQuickAdd.savedGuidance")}
         </p>

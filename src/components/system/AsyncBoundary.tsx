@@ -1,11 +1,11 @@
 import { i18n, useTranslation } from "@/i18n";
 import {
-  AsyncBoundary as AdsAsyncBoundary,
+  AsyncBoundary as AuiAsyncBoundary,
   type AsyncBoundaryProps,
-} from "@/components/ads/components/AsyncBoundary";
-import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
+} from "@/components/aui/components/AsyncBoundary";
+import { LoadingSurface } from "@/components/aui/components/LoadingSurface";
 
-import type { AsyncState } from "@/components/ads/utils/async";
+import type { AsyncState } from "@/components/aui/utils/async";
 
 export type { AsyncState };
 
@@ -37,7 +37,7 @@ export type HostAsyncBoundaryProps<T> = Omit<AsyncBoundaryProps<T>, HostWords> &
   Partial<Pick<AsyncBoundaryProps<T>, HostWords>>;
 
 /**
- * ADS `AsyncBoundary` with Stave's words in English and Korean: the pending,
+ * AUI `AsyncBoundary` with Stave's words in English and Korean: the pending,
  * error, empty and ready switch for a panel that reads data, which keeps the
  * last result on screen under a notice when a refresh fails. A failed read
  * never renders as the empty state. Props passed by the caller win.
@@ -45,7 +45,7 @@ export type HostAsyncBoundaryProps<T> = Omit<AsyncBoundaryProps<T>, HostWords> &
 export function AsyncBoundary<T>(props: HostAsyncBoundaryProps<T>) {
   useTranslation();
   return (
-    <AdsAsyncBoundary
+    <AuiAsyncBoundary
       pending={<LoadingSurface label={i18n.t("common:asyncBoundary.loading")} size="sm" />}
       errorTitle={i18n.t("common:asyncBoundary.errorTitle")}
       retryLabel={i18n.t("common:actions.retry")}

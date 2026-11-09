@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { Fragment } from "react";
 import type { ModelExecution } from "@/lib/providers/model-execution";
 import type { AgentTurnProvenance } from "@/lib/agents/turn-provenance";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
 import type {
   AutoRoutingModelResolution,

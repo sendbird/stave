@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describePlanDelta, flattenPlan } from "../src/components/ads/components/Plan.parts";
+import { describePlanDelta, flattenPlan } from "../src/components/aui/components/Plan.parts";
 import { AgentRunPlan, toPlanSteps } from "../src/components/agent-runs/AgentRunPlan";
 import { AgentRunDetailView } from "../src/components/agent-runs/AgentRunPanel";
 import { AgentRunOverview } from "../src/components/agent-runs/AgentRunOverview";

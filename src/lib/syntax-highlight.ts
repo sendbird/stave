@@ -12,7 +12,7 @@ import {
 } from "./syntax-themes";
 
 /**
- * Shared Shiki singleton for host-owned highlighting. ADS CodeBlock /
+ * Shared Shiki singleton for host-owned highlighting. AUI CodeBlock /
  * DiffViewer stay highlighter-free; this module is the app-side adapter.
  */
 

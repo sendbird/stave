@@ -1,29 +1,29 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** Standalone CLI folder field row inside its settings card. */
 export const standaloneCliCardStyles = stylex.create({
   row: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   input: {
-    blockSize: vars["--ads-control-height-lg"],
+    blockSize: vars["--aui-control-height-lg"],
   },
   browse: {
     flexShrink: 0,
-    gap: vars["--ads-space-8"],
-    blockSize: vars["--ads-control-height-lg"],
+    gap: vars["--aui-space-8"],
+    blockSize: vars["--aui-control-height-lg"],
   },
   browseIcon: {
-    blockSize: vars["--ads-control-icon-size-md"],
-    inlineSize: vars["--ads-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
+    inlineSize: vars["--aui-control-icon-size-md"],
   },
   error: {
-    color: vars["--ads-color-danger-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginBlockStart: vars["--ads-space-8"],
+    color: vars["--aui-color-danger-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginBlockStart: vars["--aui-space-8"],
   },
 });

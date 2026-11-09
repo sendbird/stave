@@ -720,7 +720,7 @@ As-built (PR 10a):
   - The web app shell was checked for errors with the new hooks.
   - Not checked: a live mission in the Electron app, because no start
     surface exists before PR 11.
-- [x] Theme: existing ADS tokens only; no new theme tokens.
+- [x] Theme: existing AUI tokens only; no new theme tokens.
 - Deferred to PR 10b or later, as recorded:
   - report actions: Add to PR description, Save decisions to memory
   - wake-up visibility and its IPC

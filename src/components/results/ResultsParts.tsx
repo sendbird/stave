@@ -2,11 +2,11 @@ import { formatNumber, formatPercent, formatTimeAgo, formatDuration, formatCost 
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Meter } from "@/components/ads/components/Meter";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Meter } from "@/components/aui/components/Meter";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { WORK_STATE, type WorkState } from "@/components/aui/components/state-vocabulary";
+import { sx } from "@/components/aui/utils/stylex";
 import { RUN_END_REASON_LABELS, RUN_OUTCOMES, type AgentRunInsights, type ResultRun, type ResultsAgentRow, type ResultsSummary, type RunOutcome } from "@/lib/agent-runs/insights";
 import { ResultsCard } from "./ResultsCard";
 import { performanceMetrics } from "./results-metrics";

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { RightRail } from "@/components/layout/RightRail";
 import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { TopBar } from "@/components/layout/TopBar";

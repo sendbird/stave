@@ -1,13 +1,13 @@
 import { useTranslation } from "@/i18n";
 import { controlStyles } from "./composer-control.stylex";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import type { ReactNode } from "react";
 
 import {
   COMPOSER_CONTROL_LANE,
   ComposerControlDensityProvider,
 } from "@/components/ai-elements/composer-control-density";
-import { cx } from "../ads/utils/stylex";
+import { cx } from "../aui/utils/stylex";
 
 export interface ComposerControlMenuItem {
   id: string;

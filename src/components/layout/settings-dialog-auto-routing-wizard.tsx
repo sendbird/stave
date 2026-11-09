@@ -1,7 +1,7 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Badge } from "@/components/ads/components/Badge";
-import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Badge } from "@/components/aui/components/Badge";
+import { Checkbox } from "@/components/aui/components/Checkbox";
 import {
   Table,
   TableBody,
@@ -9,11 +9,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ads/components/Table";
-import { sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/Table";
+import { sx } from "@/components/aui/utils/stylex";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { ActionButton } from "@/components/system/ActionButton";
-import { Stepper } from "@/components/ads/components/Stepper";
+import { Stepper } from "@/components/aui/components/Stepper";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import {
   STANCE_DESCRIPTIONS,

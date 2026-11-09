@@ -1,15 +1,15 @@
 import * as stylex from "@stylexjs/stylex";
 import { MessagesSquare } from "lucide-react";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import {
   Button,
   ContextChip,
   ContextChipRemoveButton,
   contextChipStyles,
 } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useTranslation, type I18nKey } from "@/i18n";
 import { TASK_CONTEXT_SCOPE_LABEL_KEYS } from "@/lib/task-context/attached-task-context";
 import type { TaskContextScope } from "@/types/chat";
@@ -115,10 +115,10 @@ const styles = stylex.create({
   label: { maxWidth: "18rem" },
   scopeButton: {
     flexShrink: 0,
-    height: vars["--ads-line-height-control"],
-    paddingInline: vars["--ads-space-4"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-    fontSize: vars["--ads-font-size-caption"],
+    height: vars["--aui-line-height-control"],
+    paddingInline: vars["--aui-space-4"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
+    fontSize: vars["--aui-font-size-caption"],
     whiteSpace: "nowrap",
   },
 });

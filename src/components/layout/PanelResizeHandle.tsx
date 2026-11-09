@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { layers } from "@/lib/ui-layers.stylex";
 import { appShellStyles } from "./app-shell.styles";
 

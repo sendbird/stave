@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /**
  * The answer rows every question surface shares: the answering panel, a
@@ -12,10 +12,10 @@ import { vars } from "../ads/tokens/tokens.stylex";
 export const questionOptionRowStyles = stylex.create({
   list: {
     overflow: "hidden",
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 90%, transparent)`,
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 90%, transparent)`,
   },
   row: {
     position: "relative",
@@ -23,17 +23,17 @@ export const questionOptionRowStyles = stylex.create({
     minWidth: 0,
     cursor: "pointer",
     alignItems: "flex-start",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     // Rows nobody picked step back so the picked one reads first.
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
     backgroundColor: {
       default: "transparent",
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-canvas"]} 70%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--aui-color-canvas"]} 70%, transparent)`,
     },
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
     paddingBlock: "0.625rem",
     transitionProperty: "background-color, color",
     transitionDuration: {
@@ -43,32 +43,32 @@ export const questionOptionRowStyles = stylex.create({
     transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
   },
   rowDivided: {
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
+    borderTopColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
   },
   // The list clips its rows to the rounded corners, so the keyboard ring is
   // drawn inside each row instead of outside it.
   rowFocusInset: {
     outlineOffset: {
       default: 0,
-      ":has(:focus-visible)": `calc(-1 * (${vars["--ads-focus-ring-offset"]} + ${vars["--ads-focus-ring-width"]}))`,
+      ":has(:focus-visible)": `calc(-1 * (${vars["--aui-focus-ring-offset"]} + ${vars["--aui-focus-ring-width"]}))`,
     },
   },
   rowSelected: {
     color: {
-      default: vars["--ads-color-text"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text"],
+      ":hover": vars["--aui-color-text"],
     },
     backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--ads-color-accent"]} 7%, transparent)`,
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`,
+      default: `color-mix(in oklch, ${vars["--aui-color-accent"]} 7%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--aui-color-accent"]} 10%, transparent)`,
     },
   },
   rowDisabled: {
     pointerEvents: "none",
     cursor: "not-allowed",
-    opacity: vars["--ads-opacity-disabled"],
+    opacity: vars["--aui-opacity-disabled"],
   },
   rowReadOnly: { pointerEvents: "none", cursor: "default" },
   // A text row takes its whole line and is clicked to type, not to pick.
@@ -81,7 +81,7 @@ export const questionOptionRowStyles = stylex.create({
   markSlot: {
     display: "flex",
     width: 20,
-    height: vars["--ads-line-height-control"],
+    height: vars["--aui-line-height-control"],
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
@@ -92,19 +92,19 @@ export const questionOptionRowStyles = stylex.create({
     height: 16,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: vars["--ads-radius-full"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-full"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border-strong"],
-    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--aui-color-border-strong"],
+    backgroundColor: vars["--aui-color-surface-raised"],
   },
-  radioChecked: { borderColor: vars["--ads-color-accent"] },
+  radioChecked: { borderColor: vars["--aui-color-accent"] },
   radioDot: {
     display: "block",
     width: 8,
     height: 8,
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--aui-radius-full"],
+    backgroundColor: vars["--aui-color-accent"],
   },
   checkbox: {
     display: "flex",
@@ -112,16 +112,16 @@ export const questionOptionRowStyles = stylex.create({
     height: 16,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: vars["--ads-radius-mark"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-mark"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border-strong"],
-    backgroundColor: vars["--ads-color-surface-raised"],
-    color: vars["--ads-color-accent-text"],
+    borderColor: vars["--aui-color-border-strong"],
+    backgroundColor: vars["--aui-color-surface-raised"],
+    color: vars["--aui-color-accent-text"],
   },
   checkboxChecked: {
-    borderColor: vars["--ads-color-accent"],
-    backgroundColor: vars["--ads-color-accent"],
+    borderColor: vars["--aui-color-accent"],
+    backgroundColor: vars["--aui-color-accent"],
   },
   checkIcon: { width: 12, height: 12 },
   textIcon: { width: 14, height: 14 },
@@ -136,20 +136,20 @@ export const questionOptionRowStyles = stylex.create({
     gap: "0.375rem",
   },
   label: {
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-control"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-control"],
   },
   recommendedBadge: {
     height: 16,
-    paddingInline: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    paddingInline: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-micro"],
   },
   description: {
-    marginTop: vars["--ads-space-2"],
+    marginTop: vars["--aui-space-2"],
     display: "block",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "18px",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
 
   // ── Trailing key ─────────────────────────────────────────────

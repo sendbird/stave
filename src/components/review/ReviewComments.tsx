@@ -1,9 +1,9 @@
 import { i18n, Trans, useTranslation, type I18nKey } from "@/i18n";
 import { useId, useMemo } from "react";
 import { ArrowUpRight, Trash2 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
 import { formatDateTime } from "@/i18n/format";
 import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
 import {

@@ -2,8 +2,8 @@ import { useLayoutEffect, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AutomationRun, AutomationSpec } from "@/lib/automations";
 import type { WakeUp, WakeUpSummary } from "@/lib/supervision/wake-up-policy";
 import { DEFAULT_PULL_REQUEST_WATCH_PROMPT } from "@/lib/supervision/pull-request-watch";
@@ -265,8 +265,8 @@ const styles = stylex.create({
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
   frame: { flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" },
 });

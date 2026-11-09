@@ -6,7 +6,7 @@ import type {
   TrackerIssueStaveLink,
 } from "@/lib/tracker-issues/types";
 import { toast } from "@/components/ui";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export { TRACKER_SOURCE_LABELS };
 

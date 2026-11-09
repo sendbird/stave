@@ -1,8 +1,8 @@
 import { formatList } from "@/i18n/format";
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import {
   VERCEL_AI_GATEWAY,

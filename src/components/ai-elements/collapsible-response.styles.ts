@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const collapsibleResponseStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
   // The body owns the width so a fenced block scrolls inside it instead of
@@ -17,6 +17,6 @@ export const collapsibleResponseStyles = stylex.create({
   bodyCollapsed: {
     maxBlockSize: "16rem",
     overflow: "hidden",
-    maskImage: `linear-gradient(to bottom, black calc(100% - ${vars["--ads-space-48"]}), transparent)`,
+    maskImage: `linear-gradient(to bottom, black calc(100% - ${vars["--aui-space-48"]}), transparent)`,
   },
 });

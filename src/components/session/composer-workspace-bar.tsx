@@ -2,7 +2,7 @@ import { i18n } from "@/i18n";
 import { useTranslation } from "@/i18n";
 import { FolderGit2, GitBranch } from "lucide-react";
 import { sessionCoreStyles } from "./session-core.styles";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
 

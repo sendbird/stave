@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useSharedNow } from "@/components/ads/components/DurationTimer";
+import { useSharedNow } from "@/components/aui/components/DurationTimer";
 import { WorkspaceProgressTaskTreeView } from "@/components/layout/WorkspaceProgressTaskTree";
 import { workspaceProgressTaskTreeStyles } from "@/components/layout/workspace-progress-task-tree.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { applyProviderTurnActivityEvents } from "@/lib/providers/turn-status";
 import { useAppStore } from "@/store/app.store";
 

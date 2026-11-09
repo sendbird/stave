@@ -1,14 +1,14 @@
 import { formatDateTime } from "@/i18n/format";
-import { StateMark } from "@/components/ads/components/StateMark";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import { StateMark } from "@/components/aui/components/StateMark";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { Button } from "@/components/ads/components/Button";
-import { Select } from "@/components/ads/components/Select";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { Button } from "@/components/aui/components/Button";
+import { Select } from "@/components/aui/components/Select";
+import { sx } from "@/components/aui/utils/stylex";
 import { ASSIGNMENT_STATE_LABELS, type AgentAssignment } from "@/lib/agents/assign";
 import {
   AGENT_ACTIVITY_FILTERS,

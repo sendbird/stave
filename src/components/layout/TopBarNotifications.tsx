@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Archive, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -37,7 +37,7 @@ import { isTaskArchived } from "@/lib/tasks";
 import { isNotificationUnread } from "@/lib/notifications/notification.types";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { notificationsStyles } from "./top-bar-notifications.styles";
 

@@ -1,9 +1,9 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useId, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { Input } from "@/components/ui";
 import {
   ApiConnectionModelIdSchema,

@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { frameStyles } from "./composer-frame.styles";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import type { CSSProperties, ReactNode } from "react";
 import {
   COMPOSER_CONTROL_LANE,
@@ -10,7 +10,7 @@ import {
   COMPOSER_WING_COLLAPSED_WIDTH_PX,
   useComposerWingReveal,
 } from "@/hooks/use-composer-wing-reveal";
-import { cx } from "../ads/utils/stylex";
+import { cx } from "../aui/utils/stylex";
 
 /**
  * Frame geometry, in one place.

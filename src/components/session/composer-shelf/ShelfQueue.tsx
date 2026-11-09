@@ -20,10 +20,10 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx } from "@/components/aui/utils/stylex";
 import { describeQueuedTurnDispatch } from "@/components/ai-elements/prompt-input-queued-turn";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 import { ShortcutKeys } from "@/components/system/ShortcutKeys";

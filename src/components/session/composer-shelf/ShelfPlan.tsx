@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { i18n, useTranslation } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { Button } from "@/components/ads/components/Button";
-import { Plan } from "@/components/ads/components/Plan";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Plan } from "@/components/aui/components/Plan";
+import { sx } from "@/components/aui/utils/stylex";
 import { toPlanSteps } from "@/components/agent-runs/AgentRunPlan";
 import type { StagePlan } from "@/lib/agent-runs/domain";
 
@@ -52,15 +52,15 @@ export function ShelfPlan({ items, live }: { items: StagePlan["items"]; live: bo
 const styles = stylex.create({
   root: {
     minWidth: 0,
-    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 50%, transparent)`,
+    borderTopColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 50%, transparent)`,
     borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     // A long plan scrolls inside the shelf instead of pushing the composer down.
     maxHeight: "25vh",
     overflowY: "auto",
     overscrollBehavior: "contain",
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-4"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
-  toggle: { color: vars["--ads-color-text-muted"] },
+  toggle: { color: vars["--aui-color-text-muted"] },
 });

@@ -4,8 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
   LensAgentPresentationMode,

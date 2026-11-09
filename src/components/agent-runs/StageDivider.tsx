@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { memo } from "react";
 import { Target } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useAgentRunForTurn, useAgentRunTurnDivider } from "@/store/agent-runs-store";
 import { agentRunStyles as styles } from "./agent-runs.styles";

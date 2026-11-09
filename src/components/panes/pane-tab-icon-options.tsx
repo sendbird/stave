@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import {
   Bookmark,
   Circle,
@@ -44,5 +44,5 @@ export function PaneCustomIcon(props: { name: string }) {
 }
 
 const styles = stylex.create({
-icon: {width:16,height:16,color:vars["--ads-color-text-muted"]}
+icon: {width:16,height:16,color:vars["--aui-color-text-muted"]}
 });

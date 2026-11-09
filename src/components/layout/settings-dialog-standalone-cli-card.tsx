@@ -8,7 +8,7 @@ import {
   SettingsCard,
 } from "@/components/layout/settings-dialog.shared";
 import { isAbsolutePosixOrWindowsPath } from "@/lib/path-utils";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { standaloneCliCardStyles as styles } from "./settings-dialog-standalone-cli-card.styles";
 

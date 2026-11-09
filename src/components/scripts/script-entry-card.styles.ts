@@ -1,16 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const entryCardStyles = stylex.create({
   root: {
-    borderRadius: vars["--ads-radius-panel"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-panel"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface"],
   },
   rootAttention: {
-    borderColor: vars["--ads-color-danger-border"],
+    borderColor: vars["--aui-color-danger-border"],
   },
   header: {
     display: "flex",
@@ -18,8 +18,8 @@ export const entryCardStyles = stylex.create({
       default: "column",
       "@media (min-width: 80rem)": "row",
     },
-    gap: vars["--ads-space-12"],
-    padding: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
+    padding: vars["--aui-space-12"],
     alignItems: {
       default: null,
       "@media (min-width: 80rem)": "flex-start",
@@ -34,7 +34,7 @@ export const entryCardStyles = stylex.create({
     minWidth: 0,
     flex: 1,
     alignItems: "flex-start",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     textAlign: "left",
     background: "none",
     borderStyle: "none",
@@ -51,7 +51,7 @@ export const entryCardStyles = stylex.create({
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   chevronIcon: {
     width: 16,
@@ -62,69 +62,69 @@ export const entryCardStyles = stylex.create({
     minWidth: 0,
     flex: 1,
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   titleRow: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   title: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text"],
   },
   runningBadge: {
-    borderRadius: vars["--ads-radius-mark"],
-    paddingInline: vars["--ads-space-8"],
+    borderRadius: vars["--aui-radius-mark"],
+    paddingInline: vars["--aui-space-8"],
     paddingBlock: 0,
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-accent"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-accent"],
   },
   attention: {
     display: "inline-flex",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-danger-text"],
+    gap: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-danger-text"],
   },
   attentionIcon: {
     width: 12,
     height: 12,
   },
   metaText: {
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   triggerRow: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     paddingTop: 2,
   },
   triggerLabel: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     textTransform: "uppercase",
     letterSpacing: "0.05em",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   triggerBadge: {
-    borderRadius: vars["--ads-radius-full"],
-    paddingInline: vars["--ads-space-8"],
+    borderRadius: vars["--aui-radius-full"],
+    paddingInline: vars["--aui-space-8"],
     paddingBlock: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
   },
   actions: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   iconButton: {
     width: 32,
@@ -150,12 +150,12 @@ export const entryCardStyles = stylex.create({
     // read as "this control has a hover tone" to every later reader and to the
     // hard-cut check, which flagged the module for a transition it did not
     // need. The delete affordance is red at rest and stays red.
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   body: {
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border"],
-    padding: vars["--ads-space-12"],
+    borderTopColor: vars["--aui-color-border"],
+    padding: vars["--aui-space-12"],
   },
 });

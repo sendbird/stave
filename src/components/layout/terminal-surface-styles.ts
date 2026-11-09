@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 export const terminalSurfaceStyles = stylex.create({
   panel: {
@@ -28,7 +28,7 @@ export const terminalSurfaceStyles = stylex.create({
     outline: "none",
     width: "100%",
     ':focus-visible': {
-      boxShadow: `inset 0 0 0 1px ${vars["--ads-color-border-focus"]}`,
+      boxShadow: `inset 0 0 0 1px ${vars["--aui-color-border-focus"]}`,
     },
   },
   dimmed: { opacity: 0.6 },

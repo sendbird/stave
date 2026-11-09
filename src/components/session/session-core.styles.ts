@@ -1,28 +1,28 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 // Tailwind used to supply the global `spin` keyframes; it is gone, so the
 // rotation is authored locally like every other spinner in the app.
 const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
 export const sessionCoreStyles = stylex.create({
-  workspaceBar: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--ads-space-4"], overflow: "hidden" },
+  workspaceBar: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--aui-space-4"], overflow: "hidden" },
   // Repository leads: brighter, medium weight, kept whole up to 10rem.
-  repository: { display: "inline-flex", maxWidth: "10rem", flexShrink: 0, alignItems: "center", gap: vars["--ads-space-4"], color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
+  repository: { display: "inline-flex", maxWidth: "10rem", flexShrink: 0, alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
   truncate: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  workspaceSeparator: { flexShrink: 0, color: vars["--ads-color-text-subtle"] },
+  workspaceSeparator: { flexShrink: 0, color: vars["--aui-color-text-subtle"] },
   // The workspace gives way after the branch does.
-  workspaceName: { minWidth: "3rem", flexShrink: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: vars["--ads-color-text"] },
+  workspaceName: { minWidth: "3rem", flexShrink: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: vars["--aui-color-text"] },
   // Last and first to truncate; a little air separates it from the name.
-  branchGroup: { display: "inline-flex", minWidth: "3.5rem", flexShrink: 100, alignItems: "center", gap: vars["--ads-space-4"], marginInlineStart: vars["--ads-space-4"] },
+  branchGroup: { display: "inline-flex", minWidth: "3.5rem", flexShrink: 100, alignItems: "center", gap: vars["--aui-space-4"], marginInlineStart: vars["--aui-space-4"] },
   branchIcon: { width: 12, height: 12, flexShrink: 0 },
-  monoTruncate: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: vars["--ads-font-mono"] },
-  macroInitial: { display: "flex", width: 16, height: 16, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "0.25rem", backgroundColor: vars["--ads-color-surface-tint"], fontSize: vars["--ads-font-size-micro"], lineHeight: 1, fontWeight: vars["--ads-font-weight-semibold"], textTransform: "uppercase" },
-  statusIcon: { marginTop: vars["--ads-space-2"], width: 14, height: 14, flexShrink: 0 },
-  pass: { color: vars["--ads-color-success-text"] }, fail: { color: vars["--ads-color-danger-text"] }, muted: { color: vars["--ads-color-text-muted"] }, mutedSoft: { color: vars["--ads-color-text-muted"], opacity: 0.6 },
+  monoTruncate: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: vars["--aui-font-mono"] },
+  macroInitial: { display: "flex", width: 16, height: 16, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "0.25rem", backgroundColor: vars["--aui-color-surface-tint"], fontSize: vars["--aui-font-size-micro"], lineHeight: 1, fontWeight: vars["--aui-font-weight-semibold"], textTransform: "uppercase" },
+  statusIcon: { marginTop: vars["--aui-space-2"], width: 14, height: 14, flexShrink: 0 },
+  pass: { color: vars["--aui-color-success-text"] }, fail: { color: vars["--aui-color-danger-text"] }, muted: { color: vars["--aui-color-text-muted"] }, mutedSoft: { color: vars["--aui-color-text-muted"], opacity: 0.6 },
   spinning: {
     animationDuration: {
-      default: vars["--ads-motion-duration-loop"],
+      default: vars["--aui-motion-duration-loop"],
       "@media (prefers-reduced-motion: reduce)": "0s",
     },
     animationIterationCount: "infinite",

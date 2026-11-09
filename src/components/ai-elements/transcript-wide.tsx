@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { transcriptWideStyles as styles } from "./transcript-wide.styles";
 
 /**

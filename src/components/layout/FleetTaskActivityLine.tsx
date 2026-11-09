@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import {
@@ -97,12 +97,12 @@ export function FleetQuietDuration(props: { since: string; xstyle?: StyleXValue 
 const styles = stylex.create({
   line: {
     alignItems: "baseline",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    gap: vars["--ads-space-4"],
-    lineHeight: vars["--ads-line-height-normal"],
+    gap: vars["--aui-space-4"],
+    lineHeight: vars["--aui-line-height-normal"],
     minWidth: 0,
   },
   last: {

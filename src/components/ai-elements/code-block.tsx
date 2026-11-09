@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import type { HTMLAttributes } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
 import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { highlightCodeBlockHtml } from "@/lib/syntax-highlight-client";
@@ -208,7 +208,7 @@ export function CodeBlockCopyButton({
 
   return (
     <>
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         xstyle={[styles.copyButton, transition.colors]}
@@ -223,7 +223,7 @@ export function CodeBlockCopyButton({
         ) : (
           <Copy className={sx(styles.copyIcon)} />
         )}
-      </AdsButton>
+      </AuiButton>
       <ClipboardCopyAnnouncement status={status} />
     </>
   );

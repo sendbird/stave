@@ -1,8 +1,8 @@
 import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
 import { i18n, useTranslation } from "@/i18n";
 import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   memo,
   useCallback,
@@ -86,11 +86,11 @@ import {
 } from "@/components/session/turn-activity.utils";
 import { Badge, Button } from "@/components/ui";
 import { AgentRunMark } from "@/components/system/AgentRunMark";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { cx, sx } from "../ads/utils/stylex";
-import { focusRing } from "../ads/recipes/focus-ring";
-import { surfaceChrome } from "../ads/recipes/surface-chrome";
-import { transition } from "../ads/recipes/transition";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { cx, sx } from "../aui/utils/stylex";
+import { focusRing } from "../aui/recipes/focus-ring";
+import { surfaceChrome } from "../aui/recipes/surface-chrome";
+import { transition } from "../aui/recipes/transition";
 import { turnActivityStyles as styles } from "./turn-activity.styles";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import { useThrottledValue } from "@/hooks/use-throttled-value";
@@ -1513,7 +1513,7 @@ function TurnActivityFloatingGrip(props: {
       <h2 className={sx(styles.floatingGripTitle)}>{i18n.t("session:turnActivity.turnActivityFloatingGrip")}</h2>
       {props.onClose ? (
         <Tooltip content={i18n.t("session:turnActivity.title2")}>
-          <AdsButton
+          <AuiButton
             variant="quiet"
             size="xs"
             iconOnly
@@ -1522,7 +1522,7 @@ function TurnActivityFloatingGrip(props: {
             xstyle={styles.floatingGripClose}
           >
             <X aria-hidden />
-          </AdsButton>
+          </AuiButton>
         </Tooltip>
       ) : null}
     </div>
@@ -1666,7 +1666,7 @@ export const TurnActivityRow = memo(function TurnActivityRow({
   }
 
   return (
-    <AdsButton
+    <AuiButton
       layout="host"
       type="button"
       data-turn-activity-item-id={item.id}
@@ -1690,7 +1690,7 @@ export const TurnActivityRow = memo(function TurnActivityRow({
       onClick={handler.onClick}
     >
       {body}
-    </AdsButton>
+    </AuiButton>
   );
 });
 

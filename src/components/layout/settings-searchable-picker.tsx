@@ -1,12 +1,12 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
 import { useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { i18n, useTranslation } from "@/i18n";
-import { Badge } from "@/components/ads/components/Badge";
-import { Combobox } from "@/components/ads/components/Combobox";
-import { groupOptions, type OptionGroup } from "@/components/ads/components/Combobox.options";
-import { Loader } from "@/components/ads/components/Loader";
-import { listbox } from "@/components/ads/recipes/listbox";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { Combobox } from "@/components/aui/components/Combobox";
+import { groupOptions, type OptionGroup } from "@/components/aui/components/Combobox.options";
+import { Loader } from "@/components/aui/components/Loader";
+import { listbox } from "@/components/aui/recipes/listbox";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import {
   matchesSearchablePickerOption,
   type SearchablePickerOption,
@@ -143,7 +143,7 @@ function usePickerItems(options: readonly SearchablePickerOption[]) {
 }
 
 /**
- * A picker whose search box lives inside its own list (the ADS Combobox with a
+ * A picker whose search box lives inside its own list (the AUI Combobox with a
  * field trigger). A filter sitting next to a Select reads like a second
  * setting; here the trigger shows only the saved choice, and the search exists
  * only while the list is open. Search matches the label, value, detail and

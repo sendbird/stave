@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { AgentRunBar } from "@/components/agent-runs/AgentRunBar";
 import { RunStartNotice, useRunStartPlanned } from "@/components/agent-runs/RunContract";
 import type { AgentRunPromptFit } from "@/lib/agent-runs/agent-run";

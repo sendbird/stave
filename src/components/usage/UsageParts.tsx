@@ -3,14 +3,14 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useRef, useState, type KeyboardEvent } from "react";
 import { ChevronRight } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { Meter } from "@/components/ads/components/Meter";
-import { Select } from "@/components/ads/components/Select";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { transition } from "@/components/ads/recipes/transition";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Meter } from "@/components/aui/components/Meter";
+import { Select } from "@/components/aui/components/Select";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { transition } from "@/components/aui/recipes/transition";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -130,19 +130,19 @@ const splitOptions = [{ value: "none", get label() { return i18n.t("usage:chart.
 /** Stacking order and ink: each provider keeps its chart color whichever others are shown. */
 export const USAGE_CHART_PROVIDERS: readonly ProviderId[] = ["claude-code", "codex", "cursor", "kiro", "opencode"];
 const SERIES = stylex.create({
-  "claude-code": { backgroundColor: vars["--ads-chart-1"] },
-  codex: { backgroundColor: vars["--ads-chart-2"] },
-  cursor: { backgroundColor: vars["--ads-chart-3"] },
-  kiro: { backgroundColor: vars["--ads-chart-4"] },
-  opencode: { backgroundColor: vars["--ads-chart-5"] },
+  "claude-code": { backgroundColor: vars["--aui-chart-1"] },
+  codex: { backgroundColor: vars["--aui-chart-2"] },
+  cursor: { backgroundColor: vars["--aui-chart-3"] },
+  kiro: { backgroundColor: vars["--aui-chart-4"] },
+  opencode: { backgroundColor: vars["--aui-chart-5"] },
 });
 /** A hidden series keeps its color as a ring, so the legend still says which button is which. */
 const SERIES_RING = stylex.create({
-  "claude-code": { boxShadow: `inset 0 0 0 1.5px ${vars["--ads-chart-1"]}` },
-  codex: { boxShadow: `inset 0 0 0 1.5px ${vars["--ads-chart-2"]}` },
-  cursor: { boxShadow: `inset 0 0 0 1.5px ${vars["--ads-chart-3"]}` },
-  kiro: { boxShadow: `inset 0 0 0 1.5px ${vars["--ads-chart-4"]}` },
-  opencode: { boxShadow: `inset 0 0 0 1.5px ${vars["--ads-chart-5"]}` },
+  "claude-code": { boxShadow: `inset 0 0 0 1.5px ${vars["--aui-chart-1"]}` },
+  codex: { boxShadow: `inset 0 0 0 1.5px ${vars["--aui-chart-2"]}` },
+  cursor: { boxShadow: `inset 0 0 0 1.5px ${vars["--aui-chart-3"]}` },
+  kiro: { boxShadow: `inset 0 0 0 1.5px ${vars["--aui-chart-4"]}` },
+  opencode: { boxShadow: `inset 0 0 0 1.5px ${vars["--aui-chart-5"]}` },
 });
 
 const metricValue = (metrics: UsageMetrics | undefined, metric: UsageChartMetric) => metric === "costUsd" ? metrics?.costUsd ?? 0 : metrics?.[metric] ?? 0;
@@ -393,29 +393,29 @@ export function UsageTurnHistory(props: { report: UsageStatisticsReport; profile
 
 /** Chart, comparison and share geometry owned by these parts; the page-level styles stay in `usage.styles`. */
 const parts = stylex.create({
-  delta: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--ads-space-4"], margin: 0, minInlineSize: 0,
-    fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"] },
-  chips: { display: "inline-flex", alignItems: "center", gap: vars["--ads-space-4"] },
-  chipGroup: { display: "inline-flex", alignItems: "center", gap: vars["--ads-space-4"] },
+  delta: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-4"], margin: 0, minInlineSize: 0,
+    fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-normal"] },
+  chips: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"] },
+  chipGroup: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"] },
   /** Neutral on purpose: more tokens or spend is not good or bad by itself, so the direction is the arrow and the words. */
-  chip: { display: "inline-flex", alignItems: "center", paddingInline: vars["--ads-space-4"], borderRadius: vars["--ads-radius-full"],
-    borderWidth: vars["--ads-border-width-hairline"], borderStyle: "solid", borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text"], fontVariantNumeric: "tabular-nums", fontWeight: vars["--ads-font-weight-medium"], whiteSpace: "nowrap" },
-  controls: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--ads-space-8"], minInlineSize: 0 },
+  chip: { display: "inline-flex", alignItems: "center", paddingInline: vars["--aui-space-4"], borderRadius: vars["--aui-radius-full"],
+    borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border"],
+    color: vars["--aui-color-text"], fontVariantNumeric: "tabular-nums", fontWeight: vars["--aui-font-weight-medium"], whiteSpace: "nowrap" },
+  controls: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minInlineSize: 0 },
   control: { inlineSize: "auto", minInlineSize: "10rem" },
-  legend: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--ads-space-4"], minInlineSize: 0 },
-  swatch: { display: "inline-block", flexShrink: 0, inlineSize: vars["--ads-space-8"], blockSize: vars["--ads-space-8"], borderRadius: vars["--ads-radius-mark"] },
-  readout: { display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: vars["--ads-space-8"], minInlineSize: 0,
-    fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"], color: vars["--ads-color-text"] },
-  readoutMain: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--ads-space-8"], minInlineSize: 0 },
-  readoutDate: { fontWeight: vars["--ads-font-weight-semibold"], fontVariantNumeric: "tabular-nums" },
-  readoutProvider: { display: "inline-flex", alignItems: "center", gap: vars["--ads-space-4"], color: vars["--ads-color-text-muted"], fontVariantNumeric: "tabular-nums" },
-  readoutHint: { color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },
+  legend: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-4"], minInlineSize: 0 },
+  swatch: { display: "inline-block", flexShrink: 0, inlineSize: vars["--aui-space-8"], blockSize: vars["--aui-space-8"], borderRadius: vars["--aui-radius-mark"] },
+  readout: { display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: vars["--aui-space-8"], minInlineSize: 0,
+    fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-normal"], color: vars["--aui-color-text"] },
+  readoutMain: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], minInlineSize: 0 },
+  readoutDate: { fontWeight: vars["--aui-font-weight-semibold"], fontVariantNumeric: "tabular-nums" },
+  readoutProvider: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums" },
+  readoutHint: { color: vars["--aui-color-text-muted"], whiteSpace: "nowrap" },
   /** A split bar is its segments: the bar keeps the geometry, the providers paint it bottom-up. */
   barStacked: { display: "flex", flexDirection: "column-reverse", overflow: "hidden", backgroundColor: "transparent" },
   barRead: { opacity: 1 },
   segment: { flexBasis: 0, flexShrink: 0, minBlockSize: 0, inlineSize: "100%" },
-  share: { display: "inline-grid", gridTemplateColumns: "minmax(2.5rem, 4.5rem) 4ch", justifyContent: "start", alignItems: "center", gap: vars["--ads-space-8"], minInlineSize: 0 },
+  share: { display: "inline-grid", gridTemplateColumns: "minmax(2.5rem, 4.5rem) 4ch", justifyContent: "start", alignItems: "center", gap: vars["--aui-space-8"], minInlineSize: 0 },
   shareMeter: { minInlineSize: 0 },
   sharePercent: { textAlign: "end", minInlineSize: "3ch" },
 });

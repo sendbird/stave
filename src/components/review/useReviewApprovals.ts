@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useAsync, type AsyncState } from "@/components/ads/utils/async";
+import { useAsync, type AsyncState } from "@/components/aui/utils/async";
 import { useRunTurnMessages } from "@/components/session/RunTurnDialog";
 import { collectApprovalRecord, messagesInWindow, type ApprovalRecordEntry } from "@/lib/approvals/approval-record";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";

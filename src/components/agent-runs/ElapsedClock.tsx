@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useSharedNow } from "@/components/ads/components/DurationTimer";
+import { useSharedNow } from "@/components/aui/components/DurationTimer";
 
 /**
  * The text that shows a live elapsed span. While `live` it reads the design

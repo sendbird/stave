@@ -36,7 +36,7 @@ describe("ProviderModelPicker", () => {
     const { ProviderModelPicker } = await import(
       "@/components/session/ProviderModelPicker"
     );
-    const { sx } = await import("@/components/ads/utils/stylex");
+    const { sx } = await import("@/components/aui/utils/stylex");
     const { providerModelPickerStyles } = await import(
       "@/components/session/provider-model-picker.styles"
     );

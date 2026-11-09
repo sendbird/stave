@@ -5,7 +5,7 @@ import {
   TERMINAL_SURFACE_FRAME_CLASS_NAME,
   terminalSurfaceStyles,
 } from "@/components/layout/terminal-surface-styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useTerminalInstance } from "@/components/layout/useTerminalInstance";
 import type { UseTerminalTabManagerReturn } from "@/components/layout/useTerminalTabManager";
 import { getTerminalSessionRouter } from "@/lib/terminal/terminal-session-router";

@@ -6,7 +6,7 @@ type Locale = "en" | "ko";
 
 const REGION: Record<Locale, string> = { en: "Notifications", ko: "알림" };
 
-/** `--ads-space-20`: the stack's gap from the window edge and from what it clears. */
+/** `--aui-space-20`: the stack's gap from the window edge and from what it clears. */
 const GAP_PX = 20;
 
 async function seedShell(page: Page, locale: Locale) {
@@ -272,7 +272,7 @@ for (const width of [900, 1440]) {
           await expect.poll(() => card.evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBe(density === "compact" ? 16 : GAP_PX);
           const geometry = await card.evaluate((element) => {
             const rect = element.getBoundingClientRect();
-            const title = element.querySelector('[data-ads-slot="title"]') ?? element.querySelector("h2");
+            const title = element.querySelector('[data-aui-slot="title"]') ?? element.querySelector("h2");
             const close = element.querySelector('button[aria-label]')!;
             const copy = title!.parentElement!;
             const description = copy.lastElementChild!;

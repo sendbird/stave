@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { Badge } from "@/components/ui";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { countUnansweredInteractions } from "@/lib/fleet/inbox-model";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { repositorySidebarStyles } from "./repository-workspace-sidebar.styles";

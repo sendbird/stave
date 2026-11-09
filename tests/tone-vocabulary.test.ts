@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { thresholdTone } from "@/components/ads/utils/tone";
+import { thresholdTone } from "@/components/aui/utils/tone";
 
 const ROOT = path.resolve(import.meta.dir, "..");
 
@@ -31,9 +31,9 @@ describe("tone vocabulary", () => {
   test("product code declares no tone union of its own", () => {
     const offenders = listSourceFiles(path.join(ROOT, "src"))
       .map((file) => path.relative(ROOT, file))
-      .filter((file) => !file.startsWith(`src${path.sep}components${path.sep}ads${path.sep}`))
+      .filter((file) => !file.startsWith(`src${path.sep}components${path.sep}aui${path.sep}`))
       .flatMap((file) => toneUnionDeclarations(file, readFileSync(path.join(ROOT, file), "utf8")));
-    // Use `Tone` or `Extract<Tone, …>` from `src/components/ads/utils/tone`, a
+    // Use `Tone` or `Extract<Tone, …>` from `src/components/aui/utils/tone`, a
     // `*State` for a work state, or a `*Hue` for an identity or a category.
     expect(offenders).toEqual([]);
   });

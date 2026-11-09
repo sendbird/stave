@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CircleAlert, CircleCheck, CircleDashed, CircleHelp, CircleMinus, CirclePause, CircleX, Clock, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
-import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentStepState } from "../src/components/ads/components/agent-state";
-import { StateMark } from "../src/components/ads/components/StateMark";
-import { StatusDot, statusDotWorkState } from "../src/components/ads/components/StatusDot";
-import { WORK_STATE, WORK_STATES } from "../src/components/ads/components/state-vocabulary";
+import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentStepState } from "../src/components/aui/components/agent-state";
+import { StateMark } from "../src/components/aui/components/StateMark";
+import { StatusDot, statusDotWorkState } from "../src/components/aui/components/StatusDot";
+import { WORK_STATE, WORK_STATES } from "../src/components/aui/components/state-vocabulary";
 import { AGENT_RUN_BADGE_LABELS } from "../src/lib/agent-runs/agent-run-status";
 
 describe("work state vocabulary", () => {
@@ -72,7 +72,7 @@ describe("work state vocabulary", () => {
     expect(working).toContain('stroke-dasharray="16 47"');
     expect(working).toContain('stroke-linecap="round"');
     expect(working).toContain('r="2.5"');
-    expect(working).not.toContain("data-ads-loader-variant");
+    expect(working).not.toContain("data-aui-loader-variant");
     expect(working).not.toContain("lucide-circle-dot");
 
     const still = renderToStaticMarkup(createElement(StateMark, { state: "working", motion: "still" }));

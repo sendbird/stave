@@ -27,8 +27,8 @@ import {
   getTaskPresetShortcutLabel,
   type TaskPreset,
 } from "@/lib/task-presets";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -37,7 +37,7 @@ import {
 } from "./settings-dialog.shared";
 import { TaskPresetEditor } from "./task-preset-editor";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { presetsSectionStyles as styles } from "./settings-dialog-presets-section.styles";
 import { useModelCatalogRevision } from "@/lib/providers/use-model-catalog-revision";
 
@@ -225,7 +225,7 @@ export function PresetsSection() {
 
                       <div className={sx(styles.rowActions)}>
                         <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.moveUp")}>
-                          <AdsButton
+                          <AuiButton
                             variant="quiet"
                             size="xs"
                             iconOnly
@@ -234,10 +234,10 @@ export function PresetsSection() {
                             onClick={() => handleMovePreset(preset.id, -1)}
                           >
                             <ChevronUp />
-                          </AdsButton>
+                          </AuiButton>
                         </Tooltip>
                         <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.moveDown")}>
-                          <AdsButton
+                          <AuiButton
                             variant="quiet"
                             size="xs"
                             iconOnly
@@ -246,13 +246,13 @@ export function PresetsSection() {
                             onClick={() => handleMovePreset(preset.id, 1)}
                           >
                             <ChevronDown />
-                          </AdsButton>
+                          </AuiButton>
                         </Tooltip>
                         <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.editPreset")}>
                           <span className={sx(layoutShellStyles.inlineFlex)}>
                             <PopoverTrigger
                               render={
-                                <AdsButton
+                                <AuiButton
                                   variant="quiet"
                                   size="xs"
                                   iconOnly
@@ -271,7 +271,7 @@ export function PresetsSection() {
                           </span>
                         </Tooltip>
                         <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.deletePreset")}>
-                          <AdsButton
+                          <AuiButton
                             variant="quiet"
                             size="xs"
                             iconOnly
@@ -280,7 +280,7 @@ export function PresetsSection() {
                             onClick={() => handleDeletePreset(preset.id)}
                           >
                             <Trash2 />
-                          </AdsButton>
+                          </AuiButton>
                         </Tooltip>
                       </div>
                     </div>

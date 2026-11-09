@@ -84,9 +84,9 @@ for (const locale of ["en", "ko"] as const) {
           animation.effect.target instanceof Node &&
           animation.effect.target.contains(element)).map((animation) => animation.finished)));
       const worst = await list.evaluate(async (element) => {
-        const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+        const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
         const probe = document.createElement("div");
-        probe.style.columnGap = vars["--ads-space-8"];
+        probe.style.columnGap = vars["--aui-space-8"];
         element.append(probe);
         const gap = Number.parseFloat(getComputedStyle(probe).columnGap);
         probe.remove();
@@ -147,7 +147,7 @@ test("the approval card's risk word and status word share a baseline", async ({ 
   await expect(card).toBeVisible();
   const delta = await card.evaluate((section) => {
     const risk = section.querySelector("[data-approval-risk]")!;
-    const status = section.querySelector('[data-ads-slot="status"]')!;
+    const status = section.querySelector('[data-aui-slot="status"]')!;
     const baseline = (node: Element) => {
       const range = document.createRange();
       range.selectNodeContents(node.firstChild ?? node);

@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Button } from "@/components/aui/components/Button";
+import { Checkbox } from "@/components/aui/components/Checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import {
   describeProviderAccountSetup,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/providers/provider-account-setup";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { accountStyles as styles } from "./provider-accounts.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 export const USE_SYSTEM_SETUP_LABEL_KEY = "settingsConnections:accountSetup.useSystem" as const;
 

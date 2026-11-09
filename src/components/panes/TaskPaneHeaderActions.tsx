@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { GitCompareArrows, MessageSquare } from "lucide-react";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { openTaskReview, showTaskConversation } from "@/components/panes/task-surface-entry";
 import { useLatestTurnChanges, type TurnChangeSummary } from "@/components/panes/task-review-changes";
@@ -103,14 +103,14 @@ const styles = stylex.create({
   reviewLabel: {
     display: "inline-flex",
     alignItems: "baseline",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   counts: {
     display: "inline-flex",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
-  added: { color: vars["--ads-color-diff-added-text"] },
-  removed: { color: vars["--ads-color-diff-removed-text"] },
+  added: { color: vars["--aui-color-diff-added-text"] },
+  removed: { color: vars["--aui-color-diff-removed-text"] },
 });

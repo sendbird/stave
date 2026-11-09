@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { FolderOpen } from "lucide-react";
 import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
-import { Label } from "@/components/ads/components/Label";
-import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { Label } from "@/components/aui/components/Label";
+import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { Button, Input } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { openPathDialogStyles } from "./open-path-dialog.styles";

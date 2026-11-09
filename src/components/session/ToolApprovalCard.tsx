@@ -5,11 +5,11 @@ import {
   Approval,
   type ApprovalDecision,
   type ApprovalOutcome,
-} from "@/components/ads/components/Approval";
-import { Button } from "@/components/ads/components/Button";
-import { Kbd } from "@/components/ads/components/Kbd";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/Approval";
+import { Button } from "@/components/aui/components/Button";
+import { Kbd } from "@/components/aui/components/Kbd";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { describeApprovalDecider } from "@/components/approvals/ApprovalRecord";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { formatTime } from "@/i18n/format";
@@ -80,7 +80,7 @@ export function ApprovalExpiryNote(props: { part: Pick<ApprovalPart, "expiresAt"
  * The decision word follows the part's state; who decided and when come from
  * its `resolution`. A person's allow names its grant (once or always) when it
  * was recorded; a part from before the record, or one allowed automatically,
- * is ADS's `allowed`, because a scoped word would state a fact nobody wrote
+ * is AUI's `allowed`, because a scoped word would state a fact nobody wrote
  * down. `approval-interrupted` is `lapsed` — the turn that asked ended —
  * which is neither a denial nor a pending gate.
  */
@@ -248,7 +248,7 @@ export type ToolApprovalCardProps = {
 >;
 
 /**
- * The one approval card: a tool approval part drawn with ADS `Approval`
+ * The one approval card: a tool approval part drawn with AUI `Approval`
  * wherever it is answered — the transcript, a delegated child's slot and
  * Fleet. Every surface shows the same title, description and input and the
  * same decision words ("Allow once", "Always allow" wherever the runtime
@@ -371,33 +371,33 @@ const styles = stylex.create({
   keys: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars["--ads-space-2"],
-    marginInlineStart: vars["--ads-space-4"],
+    gap: vars["--aui-space-2"],
+    marginInlineStart: vars["--aui-space-4"],
   },
   requester: {
-    color: vars["--ads-color-text-muted"],
-    fontWeight: vars["--ads-font-weight-regular"],
-    marginInlineStart: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontWeight: vars["--aui-font-weight-regular"],
+    marginInlineStart: vars["--aui-space-4"],
   },
   // Muted caption beside the decisions, as the AFTER card shows it.
   expiry: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     overflowWrap: "anywhere",
   },
   requesterName: {
-    color: vars["--ads-color-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   trusted: {
     alignItems: "baseline",
     display: "inline-flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   entry: {
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     overflowWrap: "anywhere",
   },
 });

@@ -1,9 +1,9 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { isDarkDocument } from "@/lib/themes/theme-change";
 import { useAppStore } from "@/store/app.store";
 import { sanitizeMermaidSvg } from "./mermaid-sanitize";
@@ -108,18 +108,18 @@ export function MermaidBlock(props: { code: string; isStreaming: boolean; source
 const styles = stylex.create({
   stack: {
     display: "grid",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   frame: {
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-panel"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     margin: 0,
     minInlineSize: 0,
     overflowX: "auto",
-    padding: vars["--ads-space-12"],
+    padding: vars["--aui-space-12"],
   },
   canvas: {
     display: "flex",
@@ -131,8 +131,8 @@ const styles = stylex.create({
     justifyContent: "flex-end",
   },
   note: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     margin: 0,
   },
 });

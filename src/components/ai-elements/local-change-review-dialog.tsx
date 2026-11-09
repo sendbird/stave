@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   Check,
   FileDiff,
@@ -18,7 +18,7 @@ import {
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
-import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Checkbox } from "@/components/aui/components/Checkbox";
 import { Button, Input, Loader, Textarea } from "@/components/ui";
 import {
   Dialog,
@@ -57,7 +57,7 @@ import {
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { localChangeReviewStyles as styles } from "./local-change-review-dialog.styles";
 import { useAppStore } from "@/store/app.store";
 import { ModelIcon } from "./model-icon";
@@ -461,7 +461,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                 const selected = effectiveTarget === option.value;
                 const unavailable = option.value === "latest-reply" && !hasReply;
                 return (
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     key={option.value}
                     type="button"
@@ -495,7 +495,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                         {option.description}
                       </span>
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 );
               })}
             </div>
@@ -545,7 +545,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                   variant: "full",
                 });
                 return (
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     key={providerId}
                     type="button"
@@ -565,7 +565,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                     {selected ? (
                       <Check className={sx(styles.reviewerCheck)} />
                     ) : null}
-                  </AdsButton>
+                  </AuiButton>
                 );
               })}
             </div>
@@ -607,7 +607,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
               {LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS.map((option) => {
                 const selected = focuses.includes(option.value);
                 return (
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     key={option.value}
                     type="button"
@@ -637,7 +637,7 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
                         {option.description}
                       </span>
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 );
               })}
             </div>

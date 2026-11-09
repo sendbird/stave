@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { diffReviewHoverMenuStyles as styles } from "@/components/layout/editor-diff-review-hover-menu.styles";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { Plus } from "lucide-react";
@@ -35,7 +35,7 @@ export function DiffReviewHoverMenu(args: {
 
   return (
     <Tooltip content={ariaLabel}>
-      <AdsButton layout="host"
+      <AuiButton layout="host"
         type="button"
         data-testid="diff-review-hover-menu"
         data-review-line={args.line}
@@ -46,7 +46,7 @@ export function DiffReviewHoverMenu(args: {
         onClick={args.onAddComment}
       >
         <Plus className={sx(styles.glyph)} />
-      </AdsButton>
+      </AuiButton>
     </Tooltip>
   );
 }

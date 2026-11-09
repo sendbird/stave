@@ -2,7 +2,7 @@
 
 ## Authoring contract
 
-The target is one Stave design system: ADS tokens, StyleX declarations, and shared
+The target is one Stave design system: AUI tokens, StyleX declarations, and shared
 state/focus/motion recipes across both installed and custom components. Existing
 compound APIs can remain when useful. Removing a component because of its origin
 is not the goal; removing competing utility syntax is.
@@ -25,9 +25,9 @@ class names matched on external pages.
 
 ## Ownership
 
-The host-owned canonical source is in `src/components/ads`. It supplies tokens,
+The host-owned canonical source is in `src/components/aui`. It supplies tokens,
 StyleX recipes, accessible component behavior, and theme context. Source version
-and original integrity metadata live beside it in `.ads-source.json`.
+and original integrity metadata live beside it in `.aui-source.json`.
 `package.json` must declare that bundle's dependency closure — including the
 webfont packages imported by `fonts.css` — so a clean install can resolve those
 CSS files.
@@ -51,7 +51,7 @@ below it.
 
 Theme roles (`background`, `card`, `foreground`, `primary`, `destructive`,
 `warning`, `success`, `info`, the chart colors and the rest of
-`src/lib/themes/types.ts`) are the only colors. `src/components/system/ads-theme.ts`
+`src/lib/themes/types.ts`) are the only colors. `src/components/system/aui-theme.ts`
 maps them onto the canonical variables that components read through `vars`.
 
 Agent work states have their own tokens: `--state-running`,
@@ -69,7 +69,7 @@ A built-in theme that fails sets the failing state color by hand, and
 `tests/theme-state-colors.test.ts` checks every built-in theme. User themes get
 the same derivation when applied.
 
-Tones have one vocabulary: `Tone` in `src/components/ads/utils/tone.tsx`, the
+Tones have one vocabulary: `Tone` in `src/components/aui/utils/tone.tsx`, the
 seven values `StatusDot` draws (`neutral`, `muted`, `accent`, `info`, `warning`,
 `success`, `danger`). A product type that means a tone is `Tone` or an
 `Extract<Tone, …>`; a work state is a `*State` drawn through `StateMark`; an
@@ -79,9 +79,9 @@ context, quota, budget) goes through `thresholdTone` with its scale written
 out as named data. `tests/tone-vocabulary.test.ts` fails when a new `…Tone`
 type declares its own values.
 
-### Primitives: ADS components
+### Primitives: AUI components
 
-`src/components/ads/components` holds the canonical components. Controls
+`src/components/aui/components` holds the canonical components. Controls
 (`Button`, `Select`, `Checkbox`, `Switch`, `TextField`), surfaces (`Card`,
 `Dialog`, `Popover`, `Drawer`), feedback (`Banner`, `EmptyState`,
 `LoadingSurface`, `Toast`) and the agent-facing pieces (`Approval`,
@@ -96,7 +96,7 @@ optional count); a toggle that is on or off stays a pressed button, and a
 switch that shows its own panel stays `Tabs`. A list that is long or grows
 (models, macros, agents, projects, filter values) is `SearchablePicker` or
 `SearchableMultiPicker` (`src/components/layout/settings-searchable-picker.tsx`,
-on the ADS `Combobox`), whose search matches labels, ids, details and section
+on the AUI `Combobox`), whose search matches labels, ids, details and section
 names. Filters that narrow a list show as `AppliedFilters` chips with Clear
 all.
 
@@ -105,7 +105,7 @@ all.
 Work components give a primitive Stave's meaning, so every surface says the
 same thing the same way.
 
-- A state is drawn with `StateMark` (`src/components/ads/components/StateMark.tsx`).
+- A state is drawn with `StateMark` (`src/components/aui/components/StateMark.tsx`).
   It takes a `WorkState` from the vocabulary in `state-vocabulary.ts` and draws
   its glyph in its state token, optionally with its word; only `working`
   moves (a short arc turns round its ring in the glyph's box), and reduced
@@ -115,7 +115,7 @@ same thing the same way.
   `WorkState`, then `StateMark`: never paint a state with a role color, and
   never draw a second glyph set.
 - A panel that reads data renders through `AsyncBoundary`
-  (`src/components/system/AsyncBoundary.tsx`, which fills the ADS boundary
+  (`src/components/system/AsyncBoundary.tsx`, which fills the AUI boundary
   with Stave's words). It tells four things apart: a read that is running
   (pending), a read that failed before anything loaded (an error with Retry),
   a read that answered with nothing (empty), and data. A failed refresh keeps
@@ -161,7 +161,7 @@ Patterns combine work components into the moments an agent workflow repeats.
   show the gate or the question on its step in the conversation. Elsewhere
   the waiting reads as the `approval` or `needs-you` state, drawn with
   `StateMark`. Once decided, the card's audit line names who decided and
-  when, and `ApprovalRecordView` (`src/components/approvals`, on ADS
+  when, and `ApprovalRecordView` (`src/components/approvals`, on AUI
   `ActivityFeed`) counts a run's requests by who decided them (you, a Stave
   rule, the provider's mode) and lists them, in Review and under Activity.
 - Recovery: a failure says what failed and offers the next step.
@@ -171,23 +171,23 @@ Patterns combine work components into the moments an agent workflow repeats.
 ## Theme and layout
 
 Saved theme colors and fonts remain authoritative in `src/lib/themes` and
-`src/globals.css`. `src/components/system/ads-theme.ts` maps those roles to the
+`src/globals.css`. `src/components/system/aui-theme.ts` maps those roles to the
 canonical variables and preserves the application's overlay stacking order.
 Components import canonical tokens directly; do not introduce token aliases in a
 new StyleX variable module.
 
 Agent work state colors are a foundation of their own; see Semantic layers.
 
-High contrast and density reach ADS through `StaveDesignProvider`, which reads
+High contrast and density reach AUI through `StaveDesignProvider`, which reads
 them from the document so previews behave like the app. A theme flagged
 `contrast: "high"` (the two built-in high-contrast themes; a user theme may set
 it too) marks the document `data-contrast="high"`. In light mode Stave then
-renders ADS's `high-contrast` theme, whose stronger elevations and drawn media
-edges apply while the theme's colors still come from the role mapping. ADS has
-no dark high-contrast theme, so dark high contrast stays on ADS `dark` and adds
-the host emphasis in `adsDarkHighContrastVariables`: subtle borders at full
+renders AUI's `high-contrast` theme, whose stronger elevations and drawn media
+edges apply while the theme's colors still come from the role mapping. AUI has
+no dark high-contrast theme, so dark high contrast stays on AUI `dark` and adds
+the host emphasis in `auiDarkHighContrastVariables`: subtle borders at full
 strength, media edges drawn and a 3px focus ring. Settings → Appearance → Density
-writes `data-ui-density`, which becomes the ADS `ThemeProvider` density:
+writes `data-ui-density`, which becomes the AUI `ThemeProvider` density:
 Compact moves the control-height ramp down a tier and the spacing ramp down a
 step from `space12`; text sizes do not change, and fixed geometry such as the
 46px panel bars does not move.
@@ -206,8 +206,8 @@ small panels, keyboard focus, and custom theme changes in the built renderer.
   attributes. Standalone controls and input-group controls share the same source.
 - Tooltips and popovers preserve host portal, collision, and focus settings.
 - Command, Calendar, ToastHost, Sidebar, and Lightbox now use canonical behavior.
-  Command adapts compound children and host filtering to ADS Autocomplete;
-  notification producers use a shared ADS manager with stable identifiers.
+  Command adapts compound children and host filtering to AUI Autocomplete;
+  notification producers use a shared AUI manager with stable identifiers.
   Calendar supports the product's single-date selection and deselection.
   The retired command, date-picker, and notification packages are removed.
 - SidebarProvider supplies context; Settings explicitly owns its horizontal
@@ -234,11 +234,11 @@ ratchet rejects new utility syntax, reintroduced legacy recipes, and missing can
 Run `bun run check:ui-layout` for the full static authoring gate (including
 style-channel checks). Renderer and desktop builds run it before compiling.
 All new nonzero absolute padding, margin and gap literals fail, including
-on-grid values such as `8` or `"0.5rem"`; use ADS space tokens or `densityPad`
+on-grid values such as `8` or `"0.5rem"`; use AUI space tokens or `densityPad`
 so density changes stay coherent. Zero, percentages and `auto` remain valid.
 `scripts/stylex-spacing-literals.mjs` scans TypeScript property declarations,
 including strings, conditionals and logical spacing properties. It does not
-evaluate arbitrary JavaScript, resolve aliases or inspect global CSS. ADS token
+evaluate arbitrary JavaScript, resolve aliases or inspect global CSS. AUI token
 sources are excluded. This is an authoring guard, not a general CSS validator.
 
 `config/spacing-ratchet.json` inventories existing debt by file, semantic owner,
@@ -276,7 +276,7 @@ checks after integration.
 
 Product action elements use canonical Button. Its host layout preserves the
 existing child DOM, form type, event handlers, and dimensions for rows, tabs,
-custom tool controls, and composer lanes. ADS supplies focus, interaction states,
+custom tool controls, and composer lanes. AUI supplies focus, interaction states,
 and accessible button behavior; the host continues to own product composition.
 The syntax-aware native-button gate covers existing and new product files,
 preventing those surfaces from quietly returning to independent controls. This is not a claim that a row was redesigned merely
@@ -299,4 +299,4 @@ never creates a sent-feedback record.
 
 ## Literal metric inventory
 
-`check:design-system` also enforces `config/token-ratchet.json`. Existing non-ADS consumers have a decreasing per-file allowance for control dimensions, line heights, letter spacing, numeric radii, status colour mixes, icon metrics, and focus resets. New files have no allowance. Remove or lower an allowance when fixing a declaration; do not increase it. Structural dimensions are outside the control-size rule. Use `typeRoles.caption` / `typeRoles.eyebrow` and ADS control metrics for new UI. Text ink must not fade the muted foreground into transparent.
+`check:design-system` also enforces `config/token-ratchet.json`. Existing non-AUI consumers have a decreasing per-file allowance for control dimensions, line heights, letter spacing, numeric radii, status colour mixes, icon metrics, and focus resets. New files have no allowance. Remove or lower an allowance when fixing a declaration; do not increase it. Structural dimensions are outside the control-size rule. Use `typeRoles.caption` / `typeRoles.eyebrow` and AUI control metrics for new UI. Text ink must not fade the muted foreground into transparent.

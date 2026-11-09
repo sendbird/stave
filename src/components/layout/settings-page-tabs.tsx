@@ -1,5 +1,5 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui";
 import { settingsSectionsById, type SectionId } from "./settings-dialog.schema";
 import { settingsPageTabsStyles as styles } from "./settings-page-tabs.styles";

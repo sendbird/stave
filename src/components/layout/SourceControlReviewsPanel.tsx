@@ -1,7 +1,7 @@
 import { formatDateTime, formatTimeAgo } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -34,8 +34,8 @@ import type {
   GitHubPrReviewDetail,
   GitHubPrReviewEvent,
 } from "@/lib/github-pr-review";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { SourceControlReviewDialog } from "./SourceControlReviewDialog";
 import { reviewsStyles } from "./source-control-reviews-panel.styles";
 
@@ -90,7 +90,7 @@ function InboxRow(props: {
   useTranslation();
   return (
     <li>
-      <AdsButton layout="host"
+      <AuiButton layout="host"
         type="button"
         xstyle={[reviewsStyles.inboxRow, transition.colors]}
         onClick={props.onSelect}
@@ -124,7 +124,7 @@ function InboxRow(props: {
             <RelativeTime value={props.item.updatedAt} />
           </span>
         </span>
-      </AdsButton>
+      </AuiButton>
     </li>
   );
 }
@@ -214,7 +214,7 @@ function FilesView(props: {
         </p>
       ) : null}
       {props.detail.files.map((file) => (
-        <AdsButton layout="host"
+        <AuiButton layout="host"
           key={file.path}
           type="button"
           xstyle={[reviewsStyles.fileRow, transition.colors]}
@@ -234,7 +234,7 @@ function FilesView(props: {
             <span className={sx(reviewsStyles.additions)}>+{file.additions}</span>{" "}
             <span className={sx(reviewsStyles.deletions)}>-{file.deletions}</span>
           </span>
-        </AdsButton>
+        </AuiButton>
       ))}
       {props.detail.filesTruncated ? (
         <p className={sx(reviewsStyles.filesFootnote)}>{i18n.t("sourceControl:sourceControlReviewsPanel.fileLimit", { shown: props.detail.files.length, total: props.detail.changedFiles })}</p>

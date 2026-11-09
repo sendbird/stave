@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Lightbox } from "../ads/components/Lightbox";
+import { Lightbox } from "../aui/components/Lightbox";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 
 export function ImageLightbox(args: {

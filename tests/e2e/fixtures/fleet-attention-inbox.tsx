@@ -5,7 +5,7 @@ import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { useAppStore } from "@/store/app.store";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 
 const params = new URLSearchParams(location.search);

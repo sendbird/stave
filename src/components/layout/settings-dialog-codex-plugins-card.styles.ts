@@ -1,76 +1,76 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** Installed and discoverable Codex plugins inside the Providers section. */
 export const codexPluginsStyles = stylex.create({
   stack: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
   actions: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   empty: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
   },
   list: {
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
   },
   listItem: {
     alignItems: "start",
     borderTopColor: {
-      default: vars["--ads-color-border"],
+      default: vars["--aui-color-border"],
       ":first-child": "transparent",
     },
     borderTopStyle: "solid",
     borderTopWidth: {
-      default: vars["--ads-border-width-hairline"],
+      default: vars["--aui-border-width-hairline"],
       ":first-child": 0,
     },
     display: "flex",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     justifyContent: "space-between",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   itemBody: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   itemHead: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   itemName: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   itemMeta: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   itemSource: {
-    color: vars["--ads-color-text-muted"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

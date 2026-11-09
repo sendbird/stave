@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 
 export const lexicalEditorStyles = stylex.create({
@@ -28,14 +28,14 @@ export const lexicalEditorStyles = stylex.create({
     insetInlineStart: 0,
     insetBlockStart: 0,
     userSelect: "none",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   placeholderDefaultColor: {
-    color: vars["--ads-color-text-placeholder"],
+    color: vars["--aui-color-text-placeholder"],
   },
   /*
    * Lexical builds its root out of real `<p>` elements. Nothing in this app's
-   * reset zeroes `<p>` (the ADS reset only touches `body`), so the UA's
+   * reset zeroes `<p>` (the AUI reset only touches `body`), so the UA's
    * `margin-block: 1em` applied to the editor's first paragraph: on the default
    * editor that is a font-size of void above the caret, which is why an empty
    * focused composer drew its caret one line BELOW the placeholder — the

@@ -1,8 +1,8 @@
 import { formatAutomationSchedule, formatAutomationRuntimePermissions, formatAutomationWeekday, getAutomationCadencePresetKeys, getAutomationPermissionModeKeys } from "@/lib/automation-presentation";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { CalendarClock, Check, ShieldCheck, SlidersHorizontal, Zap } from "lucide-react";
 import { useMemo } from "react";
 import { ProviderModelPicker } from "@/components/session/ProviderModelPicker";
@@ -435,7 +435,7 @@ function PermissionSection(props: {
           const Icon = PERMISSION_MODE_ICON[candidate];
           const active = candidate === mode;
           return (
-            <AdsButton layout="host"
+            <AuiButton layout="host"
               key={candidate}
               type="button"
               role="radio"
@@ -474,7 +474,7 @@ function PermissionSection(props: {
                   {tI18n(presentation.descriptionKey)}
                 </span>
               </span>
-            </AdsButton>
+            </AuiButton>
           );
         })}
       </div>

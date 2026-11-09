@@ -22,7 +22,7 @@ import {
 import { Button, Textarea } from "@/components/ui";
 import { describeAgentIdentity } from "@/lib/delegation/format";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
-import { sx, cx } from "@/components/ads/utils/stylex";
+import { sx, cx } from "@/components/aui/utils/stylex";
 import {
   delegatedTaskRowsStyles as styles,
   delegatedTaskPhaseToneStyles,

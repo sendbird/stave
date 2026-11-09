@@ -1,6 +1,6 @@
 import { contentLayout } from "./content-layout.styles";
-import { cx, sx } from "../ads/utils/stylex";
-import type { StyleXValue } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 import type { AnchorHTMLAttributes, MouseEvent } from "react";
 import { normalizeExternalUrl, openExternalUrl } from "@/lib/external-links";
 

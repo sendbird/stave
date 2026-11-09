@@ -16,7 +16,7 @@ import {
   StatusBadge,
   SETTINGS_LIST_SWITCH_SIZE,
 } from "./settings-dialog.shared";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { claudePluginsStyles as styles } from "./settings-dialog-claude-plugins.styles";
 
 const CLAUDE_PLUGIN_MODE_HELP = [

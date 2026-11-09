@@ -1,8 +1,8 @@
 import { useTranslation } from "@/i18n";
 import { type LucideIcon } from "lucide-react";
-import { StateMark } from "@/components/ads/components/StateMark";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
-import type { XstyleProp } from "@/components/ads/utils/stylex";
+import { StateMark } from "@/components/aui/components/StateMark";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
+import type { XstyleProp } from "@/components/aui/utils/stylex";
 import type { StageState } from "@/lib/agent-runs/agent-run-view";
 
 /** The shared work state each stage tone stands for (`state-vocabulary.ts`). */

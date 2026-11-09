@@ -29,7 +29,7 @@ describe("chat file diff", () => {
     expect(html).toContain("Expand 197 unchanged lines");
     expect(html).toContain("Expand 196 unchanged lines");
     const shownLines = new Set(
-      [...html.matchAll(/data-ads-slot="line-number"[^>]*>(\d+)</g)].map((match) => Number(match[1])),
+      [...html.matchAll(/data-aui-slot="line-number"[^>]*>(\d+)</g)].map((match) => Number(match[1])),
     );
     expect([...shownLines].sort((a, b) => a - b)).toEqual([198, 199, 200, 201, 202, 203, 204]);
   });

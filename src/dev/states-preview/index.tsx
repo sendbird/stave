@@ -1,11 +1,11 @@
 import { applyAppLocale, useTranslation } from "@/i18n";
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { EmptyState } from "@/components/ads/components/EmptyState";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { WORK_STATES } from "@/components/ads/components/state-vocabulary";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { EmptyState } from "@/components/aui/components/EmptyState";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { WORK_STATES } from "@/components/aui/components/state-vocabulary";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
@@ -76,29 +76,29 @@ export function StatesPreview() {
 
 const styles = stylex.create({
   page: {
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
     display: "grid",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     minBlockSize: "100vh",
-    padding: vars["--ads-space-24"],
+    padding: vars["--aui-space-24"],
     alignContent: "start",
   },
-  heading: { fontSize: vars["--ads-font-size-title"], margin: 0 },
-  subheading: { fontSize: vars["--ads-font-size-caption"], margin: 0, color: vars["--ads-color-text-muted"] },
+  heading: { fontSize: vars["--aui-font-size-title"], margin: 0 },
+  subheading: { fontSize: vars["--aui-font-size-caption"], margin: 0, color: vars["--aui-color-text-muted"] },
   card: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: vars["--aui-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
     borderWidth: 1,
     display: "grid",
-    gap: vars["--ads-space-12"],
-    padding: vars["--ads-space-16"],
+    gap: vars["--aui-space-12"],
+    padding: vars["--aui-space-16"],
     alignContent: "start",
   },
   marks: { gridTemplateColumns: "repeat(auto-fill, minmax(12rem, 1fr))" },
-  markRow: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
-  grid: { display: "grid", gap: vars["--ads-space-16"], gridTemplateColumns: "repeat(auto-fill, minmax(18rem, 1fr))" },
-  list: { margin: 0, paddingInlineStart: vars["--ads-space-16"] },
+  markRow: { alignItems: "center", display: "flex", gap: vars["--aui-space-8"] },
+  grid: { display: "grid", gap: vars["--aui-space-16"], gridTemplateColumns: "repeat(auto-fill, minmax(18rem, 1fr))" },
+  list: { margin: 0, paddingInlineStart: vars["--aui-space-16"] },
 });

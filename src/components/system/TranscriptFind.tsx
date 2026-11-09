@@ -2,11 +2,11 @@ import { useEffect, useRef } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { TextField } from "@/components/ads/components/TextField";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { TextField } from "@/components/aui/components/TextField";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { elevations, localStack } from "@/lib/ui-layers.stylex";
 
 /**
@@ -143,28 +143,28 @@ export function TranscriptFind(props: {
 const styles = stylex.create({
   widget: {
     position: "absolute",
-    top: vars["--ads-space-8"],
-    insetInlineEnd: vars["--ads-space-12"],
+    top: vars["--aui-space-8"],
+    insetInlineEnd: vars["--aui-space-12"],
     zIndex: localStack["--stave-stack-floating"],
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-2"],
-    maxWidth: `calc(100% - 2 * ${vars["--ads-space-12"]})`,
-    paddingBlock: vars["--ads-space-4"],
-    paddingInlineStart: vars["--ads-space-8"],
-    paddingInlineEnd: vars["--ads-space-4"],
+    gap: vars["--aui-space-2"],
+    maxWidth: `calc(100% - 2 * ${vars["--aui-space-12"]})`,
+    paddingBlock: vars["--aui-space-4"],
+    paddingInlineStart: vars["--aui-space-8"],
+    paddingInlineEnd: vars["--aui-space-4"],
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-surface-raised"],
-    color: vars["--ads-color-text"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-surface-raised"],
+    color: vars["--aui-color-text"],
   },
   icon: {
     flexShrink: 0,
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
-    color: vars["--ads-color-text-muted"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
+    color: vars["--aui-color-text-muted"],
   },
   action: { flexShrink: 0 },
   field: {
@@ -176,10 +176,10 @@ const styles = stylex.create({
   result: {
     flexShrink: 0,
     minWidth: "4.5rem",
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
     textAlign: "end",
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
   },

@@ -1,7 +1,7 @@
 # Design system configuration
 
 Component source, tokens, and recipes now live in the host-owned canonical source
-under `src/components/ads`. The former component-generator configuration has been
+under `src/components/aui`. The former component-generator configuration has been
 removed. Saved user theme values remain supported.
 
 See [Stave design system](../developer/design-system.md) for source ownership,

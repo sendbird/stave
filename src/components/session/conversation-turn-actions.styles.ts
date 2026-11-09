@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const conversationTurnActionsStyles = stylex.create({
   groupPreview: {
@@ -12,26 +12,26 @@ export const conversationTurnActionsStyles = stylex.create({
   groupInline: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     marginLeft: "auto",
   },
   // Preview actions are full bordered cards on a translucent surface; the
   // inline variant is a compact text action with no border.
   actionPreview: {
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 55%, transparent)`,
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-canvas"]} 55%, transparent)`,
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    fontSize: vars["--ads-font-size-caption"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    fontSize: vars["--aui-font-size-caption"],
     gap: 6,
     height: 32,
     justifyContent: "flex-start",
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   actionInline: {
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
     height: 28,
     paddingInline: 6,
   },
@@ -40,11 +40,11 @@ export const conversationTurnActionsStyles = stylex.create({
   rollbackPreview: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-danger-soft"],
+      ":hover": vars["--aui-color-danger-soft"],
     },
     color: {
-      default: vars["--ads-color-danger-text"],
-      ":hover": vars["--ads-color-danger-text"],
+      default: vars["--aui-color-danger-text"],
+      ":hover": vars["--aui-color-danger-text"],
     },
   },
   // A disabled action stays legible but inert: no hover recolor, no pointer.
@@ -54,8 +54,8 @@ export const conversationTurnActionsStyles = stylex.create({
       ":hover": "transparent",
     },
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text-muted"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text-muted"],
     },
     cursor: "not-allowed",
     opacity: {

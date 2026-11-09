@@ -33,7 +33,7 @@ import {
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
 import { describeWorkspaceCheckProgress, workspaceCheckMode, workspaceCheckProgress } from "./workspace-check";
 import { CHECK_IN_LABELS, type WorkflowStage, type StaveAction } from "@/lib/workflows/schema";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 /** How a stage status reads and which state its icon draws. */
 export type StageState = "done" | "active" | "waiting" | "attention" | "idle" | "skipped";

@@ -80,7 +80,7 @@ test("ordinary tasks expose their latest plan before the flow in Progress", asyn
   const panel = page.getByRole("tabpanel", { name: "Progress", exact: true });
   await expect(panel.getByRole("group", { name: "Plan", exact: true })).toBeVisible();
   const order = await panel.evaluate((element) => {
-    const plan = element.querySelector('[data-ads-component="plan"], [role="group"]');
+    const plan = element.querySelector('[data-aui-component="plan"], [role="group"]');
     const flow = element.querySelector('[aria-label="Flow"]');
     return Boolean(plan && flow && (plan.compareDocumentPosition(flow) & Node.DOCUMENT_POSITION_FOLLOWING));
   });

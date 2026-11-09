@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CursorModelConfigList } from "@/components/ai-elements/cursor-model-config-list";
 import { cursorModelConfigStyles } from "@/components/ai-elements/cursor-model-config-list.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 
 function option(model: string, label: string): ModelSelectorOption {

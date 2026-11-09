@@ -26,9 +26,9 @@ import {
   type ResolvedWorkspaceFileLink,
 } from "@/lib/message-file-links";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import { markdownStyles as styles } from "./message-markdown.styles";
 import {
   Tooltip,

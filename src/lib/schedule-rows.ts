@@ -19,7 +19,7 @@ import {
   describePullRequestWatchLastSeen,
   describePullRequestWatchTarget,
 } from "./supervision/pull-request-watch-view";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 
 export type ScheduleKind = "start" | "check-back";
 /**

@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
@@ -179,43 +179,43 @@ function FleetAgentRunLine(props: {
 }
 
 const styles = stylex.create({
-  noteWarning: { color: vars["--ads-color-warning-text"] },
+  noteWarning: { color: vars["--aui-color-warning-text"] },
   strip: {
     display: "flex",
     flexDirection: "column",
     alignItems: "stretch",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     width: "100%",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
     borderRadius: 0,
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border-subtle"],
+    borderTopColor: vars["--aui-color-border-subtle"],
     textAlign: "start",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
     cursor: "pointer",
   },
-  head: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0 },
+  head: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   text: {
     flex: "1 1 auto",
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
-  title: { fontWeight: vars["--ads-font-weight-medium"] },
-  muted: { color: vars["--ads-color-text-muted"] },
-  waiting: { color: vars["--ads-color-warning-text"] },
+  title: { fontWeight: vars["--aui-font-weight-medium"] },
+  muted: { color: vars["--aui-color-text-muted"] },
+  waiting: { color: vars["--aui-color-warning-text"] },
   position: {
     flex: "0 0 auto",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
 });

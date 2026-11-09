@@ -11,7 +11,7 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   entryHasAdvancedValues,
   type ScriptEditorEntry,

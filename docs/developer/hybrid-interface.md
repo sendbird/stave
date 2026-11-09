@@ -24,7 +24,7 @@ one consumer of the shared behavior and theme contracts.
 - Base UI owns keyboard behavior, semantics, focus, and controlled tabs/buttons.
 - StyleX compiles primitive styles and the semantic theme bridge at build time.
 - Existing theme definitions remain the only source of color values. The bridge
-  in `src/components/system/ads-theme.ts` maps those roles to canonical variables rather than defining a second palette.
+  in `src/components/system/aui-theme.ts` maps those roles to canonical variables rather than defining a second palette.
 - Tailwind composes product layout and the existing shadcn components. Product
   code chooses primitive size, weight, and tone through props.
 

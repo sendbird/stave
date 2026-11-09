@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import type { SteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { LocalChangeReviewDialog } from "./local-change-review-dialog";
 import {

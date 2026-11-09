@@ -4,9 +4,9 @@ import {
   priorityToneStyles,
   labelColorStyles,
 } from "./tracker-visual.styles";
-import { Badge } from "../../ads/components/Badge";
-import { PriorityIcon } from "@/components/ads/components/WorkflowIcon";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "../../aui/components/Badge";
+import { PriorityIcon } from "@/components/aui/components/WorkflowIcon";
+import { sx } from "@/components/aui/utils/stylex";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import {
   TRACKER_PRIORITY_PRESENTATION,

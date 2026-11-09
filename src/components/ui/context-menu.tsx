@@ -1,7 +1,7 @@
 import { overlayLayout } from "./overlay-layout.styles";
-import { ContextMenu as AdsMenu } from "../ads/components/ContextMenu";
-import { menu } from "../ads/recipes/menu";
-import { sx, cx } from "../ads/utils/stylex";
+import { ContextMenu as AuiMenu } from "../aui/components/ContextMenu";
+import { menu } from "../aui/recipes/menu";
+import { sx, cx } from "../aui/utils/stylex";
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
 
@@ -9,12 +9,12 @@ import { UI_LAYER_CLASS, UI_LAYER_VALUE } from "@/lib/ui-layers";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
-  return <AdsMenu.Root data-slot="context-menu" {...props} />;
+  return <AuiMenu.Root data-slot="context-menu" {...props} />;
 }
 
 function ContextMenuPortal({ ...props }: ContextMenuPrimitive.Portal.Props) {
   return (
-    <AdsMenu.Portal data-slot="context-menu-portal" {...props} />
+    <AuiMenu.Portal data-slot="context-menu-portal" {...props} />
   );
 }
 
@@ -23,7 +23,7 @@ function ContextMenuTrigger({
   ...props
 }: ContextMenuPrimitive.Trigger.Props) {
   return (
-    <AdsMenu.Trigger
+    <AuiMenu.Trigger
       data-slot="context-menu-trigger"
       className={className}
       {...props}
@@ -57,11 +57,11 @@ function ContextMenuContent({
     | "collisionAvoidance"
   >) {
   return (
-    <AdsMenu.Portal>
-      <AdsMenu.Positioner
+    <AuiMenu.Portal>
+      <AuiMenu.Positioner
         data-ui-popup-positioner=""
         className={UI_LAYER_CLASS.popover}
-        // Same reason as the dropdown shim: ADS's `menu.positioner` pins
+        // Same reason as the dropdown shim: AUI's `menu.positioner` pins
         // `zIndex: zIndexDropdown` (60) and string-joins the caller's layer
         // class, so the declared band has to be stated inline to survive.
         style={{ zIndex: UI_LAYER_VALUE.popover }}
@@ -75,19 +75,19 @@ function ContextMenuContent({
         positionMethod={positionMethod}
         collisionAvoidance={collisionAvoidance}
       >
-        <AdsMenu.Popup
+        <AuiMenu.Popup
           data-slot="context-menu-content"
           className={className}
           {...props}
         />
-      </AdsMenu.Positioner>
-    </AdsMenu.Portal>
+      </AuiMenu.Positioner>
+    </AuiMenu.Portal>
   );
 }
 
 function ContextMenuGroup({ ...props }: ContextMenuPrimitive.Group.Props) {
   return (
-    <AdsMenu.Group data-slot="context-menu-group" {...props} />
+    <AuiMenu.Group data-slot="context-menu-group" {...props} />
   );
 }
 
@@ -124,7 +124,7 @@ function ContextMenuItem({
   onSelect?: ContextMenuPrimitive.Item.Props["onClick"];
 }) {
   return (
-    <AdsMenu.Item
+    <AuiMenu.Item
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
@@ -145,7 +145,7 @@ function ContextMenuItem({
 
 function ContextMenuSub({ ...props }: ContextMenuPrimitive.SubmenuRoot.Props) {
   return (
-    <AdsMenu.SubmenuRoot data-slot="context-menu-sub" {...props} />
+    <AuiMenu.SubmenuRoot data-slot="context-menu-sub" {...props} />
   );
 }
 
@@ -158,7 +158,7 @@ function ContextMenuSubTrigger({
   inset?: boolean;
 }) {
   return (
-    <AdsMenu.SubmenuTrigger
+    <AuiMenu.SubmenuTrigger
       data-slot="context-menu-sub-trigger"
       data-inset={inset}
       className={className}
@@ -166,7 +166,7 @@ function ContextMenuSubTrigger({
     >
       {children}
       <ChevronRightIcon className={sx(overlayLayout.submenuArrow)} />
-    </AdsMenu.SubmenuTrigger>
+    </AuiMenu.SubmenuTrigger>
   );
 }
 
@@ -194,7 +194,7 @@ function ContextMenuCheckboxItem({
   inset?: boolean;
 }) {
   return (
-    <AdsMenu.CheckboxItem
+    <AuiMenu.CheckboxItem
       data-slot="context-menu-checkbox-item"
       data-inset={inset}
       className={className}
@@ -202,12 +202,12 @@ function ContextMenuCheckboxItem({
       {...props}
     >
       <span className={sx(overlayLayout.menuIndicator)}>
-        <AdsMenu.CheckboxItemIndicator>
+        <AuiMenu.CheckboxItemIndicator>
           <CheckIcon />
-        </AdsMenu.CheckboxItemIndicator>
+        </AuiMenu.CheckboxItemIndicator>
       </span>
       {children}
-    </AdsMenu.CheckboxItem>
+    </AuiMenu.CheckboxItem>
   );
 }
 
@@ -215,7 +215,7 @@ function ContextMenuRadioGroup({
   ...props
 }: ContextMenuPrimitive.RadioGroup.Props) {
   return (
-    <AdsMenu.RadioGroup
+    <AuiMenu.RadioGroup
       data-slot="context-menu-radio-group"
       {...props}
     />
@@ -231,19 +231,19 @@ function ContextMenuRadioItem({
   inset?: boolean;
 }) {
   return (
-    <AdsMenu.RadioItem
+    <AuiMenu.RadioItem
       data-slot="context-menu-radio-item"
       data-inset={inset}
       className={className}
       {...props}
     >
       <span className={sx(overlayLayout.menuIndicator)}>
-        <AdsMenu.RadioItemIndicator>
+        <AuiMenu.RadioItemIndicator>
           <CheckIcon />
-        </AdsMenu.RadioItemIndicator>
+        </AuiMenu.RadioItemIndicator>
       </span>
       {children}
-    </AdsMenu.RadioItem>
+    </AuiMenu.RadioItem>
   );
 }
 
@@ -252,7 +252,7 @@ function ContextMenuSeparator({
   ...props
 }: ContextMenuPrimitive.Separator.Props) {
   return (
-    <AdsMenu.Separator
+    <AuiMenu.Separator
       data-slot="context-menu-separator"
       className={className}
       {...props}
@@ -265,7 +265,7 @@ function ContextMenuShortcut({
   ...props
 }: React.ComponentProps<"span">) {
   return (
-    <AdsMenu.Shortcut
+    <AuiMenu.Shortcut
       data-slot="context-menu-shortcut"
       className={className}
       {...props}

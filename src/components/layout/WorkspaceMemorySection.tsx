@@ -1,5 +1,5 @@
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Brain, Inbox, Pencil, Pin, Sparkles, Trash2 } from "lucide-react";
 import {
@@ -17,7 +17,7 @@ import { hostSurface } from "@/components/ui/host-surface.styles";
 import { RelativeTime } from "@/components/system/RelativeTime";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { i18n, Trans, useTranslation, type I18nKey } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   REPOSITORY_MEMORY_KINDS,
   REPOSITORY_MEMORY_RECALL_MODES,
@@ -234,14 +234,14 @@ export function WorkspaceMemorySection(props: {
       {error && (
         <p role="alert" className={sx(styles.error)}>
           {error}{" "}
-          <AdsButton
+          <AuiButton
             layout="host"
             type="submit"
             xstyle={styles.retry}
             onClick={() => void reload()}
           >
             {t("common:actions.retry")}
-          </AdsButton>
+          </AuiButton>
         </p>
       )}
       {!loading && !error && !items.length && (
@@ -508,7 +508,7 @@ export function MemoryRow(props: {
           </span>
           {sourceTask && props.onOpenSourceTask ? (
             <Tooltip content={sourceTask.title}>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 onClick={() => props.onOpenSourceTask?.(sourceTask)}
@@ -517,7 +517,7 @@ export function MemoryRow(props: {
                 data-memory-source-task=""
               >
                 {t("memory.row.sourceTask")}
-              </AdsButton>
+              </AuiButton>
             </Tooltip>
           ) : null}
         </div>
@@ -525,7 +525,7 @@ export function MemoryRow(props: {
       <div className={sx(informationRow.trail)} data-memory-row-actions="">
         {memory.recallMode === "candidate" ? (
           <Tooltip content={t("memory.row.promoteTitle")}>
-            <AdsButton
+            <AuiButton
               layout="host"
               type="button"
               disabled={busy}
@@ -534,11 +534,11 @@ export function MemoryRow(props: {
               aria-label={t("memory.row.promoteAriaLabel", { content: memory.content })}
             >
               <Sparkles className={sx(styles.rowActionIcon)} aria-hidden />
-            </AdsButton>
+            </AuiButton>
           </Tooltip>
         ) : null}
         <Tooltip content={t("memory.row.editTitle")}>
-          <AdsButton
+          <AuiButton
             ref={editButton}
             layout="host"
             type="button"
@@ -553,10 +553,10 @@ export function MemoryRow(props: {
             aria-label={t("memory.row.editAriaLabel", { content: memory.content })}
           >
             <Pencil className={sx(styles.rowActionIcon)} aria-hidden />
-          </AdsButton>
+          </AuiButton>
         </Tooltip>
         <Tooltip content={t("memory.row.forgetTitle")}>
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             disabled={busy}
@@ -565,7 +565,7 @@ export function MemoryRow(props: {
             aria-label={t("memory.row.forgetAriaLabel", { content: memory.content })}
           >
             <Trash2 className={sx(styles.rowActionIcon)} aria-hidden />
-          </AdsButton>
+          </AuiButton>
         </Tooltip>
       </div>
     </article>

@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Check, Sparkles } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, useRef } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildStarterProfile,
   cloneProfileAsCustom,
@@ -51,7 +51,7 @@ const PROFILE_ROWS: readonly {
 /**
  * One accent, deepening down the list, so the rows read as a single dial.
  *
- * Mixed toward `transparent` rather than toward the surface: the ADS neutrals
+ * Mixed toward `transparent` rather than toward the surface: the AUI neutrals
  * are warm (oklch hue ~89) and the accent is not, so mixing the two in oklch
  * rotates the hue through magenta and the "ramp" arrives at the bottom row a
  * different colour than it started. Alpha over the surface keeps one hue.
@@ -60,7 +60,7 @@ function swatchColor(index: number, count: number) {
   const range = Math.max(count - 1, 1);
   // Floor at 32% so the lightest rung still reads against a dark surface.
   const mix = Math.round(32 + (index / range) * 58);
-  return `color-mix(in oklch, var(--ads-color-accent) ${mix}%, transparent)`;
+  return `color-mix(in oklch, var(--aui-color-accent) ${mix}%, transparent)`;
 }
 
 /**
@@ -149,7 +149,7 @@ export function AutoRoutingProfileList(args: {
         {rows.map((row, rowIndex) => {
           const selected = args.selected && row.id === activeId;
           return (
-            <AdsButton
+            <AuiButton
               layout="host"
               key={row.id}
               ref={(element) => {
@@ -194,7 +194,7 @@ export function AutoRoutingProfileList(args: {
               {selected ? (
                 <Check className={sx(styles.check)} aria-hidden="true" />
               ) : null}
-            </AdsButton>
+            </AuiButton>
           );
         })}
       </div>

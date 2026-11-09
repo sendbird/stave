@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Input as AdsInput } from "@/components/ui/input";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Input as AuiInput } from "@/components/ui/input";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import type { IDockviewPanelHeaderProps } from "dockview-react";
 import {
   FileCode2,
@@ -26,9 +26,9 @@ import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
 import { AgentRunMark } from "@/components/system/AgentRunMark";
 import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
-import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
@@ -363,7 +363,7 @@ export const PaneTabChip = memo(function PaneTabChip(
         <PaneChipIcon surface={surface} lensState={lensState} />
       )}
       {isEditing ? (
-        <AdsInput
+        <AuiInput
           ref={inputRef}
           xstyle={c.renameInput}
           value={editValue}
@@ -400,7 +400,7 @@ export const PaneTabChip = memo(function PaneTabChip(
         <Pin className={sx(c.pinIcon)} />
       ) : (
         <Tooltip content={i18n.t("panes:paneTabChip.closeNamed", { title })}>
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             xstyle={[
@@ -420,7 +420,7 @@ export const PaneTabChip = memo(function PaneTabChip(
             }}
           >
             <X className={sx(c.closeIcon)} />
-          </AdsButton>
+          </AuiButton>
         </Tooltip>
       )}
     </div>

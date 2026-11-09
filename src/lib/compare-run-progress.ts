@@ -1,4 +1,4 @@
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import type { CompareRunVariantStatus } from "@/lib/compare-runs";
 import type { TaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 

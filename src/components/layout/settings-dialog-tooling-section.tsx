@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, toast } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import type {

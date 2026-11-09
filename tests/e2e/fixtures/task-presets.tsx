@@ -7,7 +7,7 @@ import { PaneNewTabSplitButton } from "@/components/panes/PaneNewTabSplitButton"
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { useAppStore } from "@/store/app.store";
 import type { TaskPreset } from "@/lib/task-presets";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 
 const params = new URLSearchParams(location.search);

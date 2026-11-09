@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import type { ClipboardCopyStatus } from "@/hooks/use-clipboard-copy";
 
 /**

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ToolOutputImage } from "@/lib/tool-images/tool-images";
 
@@ -54,7 +54,7 @@ function ToolImageThumbnail(props: { image: ToolOutputImage; index: number }) {
   }
   return (
     <>
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         xstyle={styles.thumbButton}
@@ -62,7 +62,7 @@ function ToolImageThumbnail(props: { image: ToolOutputImage; index: number }) {
         onClick={() => setOpen(true)}
       >
         <img src={loaded.src} alt={label} className={sx(styles.thumb)} />
-      </AdsButton>
+      </AuiButton>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent xstyle={styles.dialog}>
           <DialogTitle>{label}</DialogTitle>
@@ -95,15 +95,15 @@ const styles = stylex.create({
   grid: {
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   thumbButton: {
     backgroundColor: "transparent",
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     cursor: "zoom-in",
     display: "block",
     overflow: "hidden",
@@ -116,8 +116,8 @@ const styles = stylex.create({
     objectFit: "contain",
   },
   placeholder: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   dialog: {
     maxInlineSize: "min(92vw, 1400px)",

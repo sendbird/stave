@@ -1,18 +1,18 @@
 import { i18n, useTranslation } from "@/i18n";
 import { contentLayout } from "./content-layout.styles";
-import { VisuallyHidden } from "../ads/components/VisuallyHidden";
+import { VisuallyHidden } from "../aui/components/VisuallyHidden";
 import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 
-import { Breadcrumb as AdsBreadcrumb, breadcrumbStyles } from "../ads/components/Breadcrumb";
-import { sx } from "../ads/utils/stylex";
-import { cx } from "../ads/utils/stylex";
+import { Breadcrumb as AuiBreadcrumb, breadcrumbStyles } from "../aui/components/Breadcrumb";
+import { sx } from "../aui/utils/stylex";
+import { cx } from "../aui/utils/stylex";
 import { MoreHorizontalIcon } from "lucide-react";
 
-const Breadcrumb = AdsBreadcrumb.Root;
-const BreadcrumbList = AdsBreadcrumb.List;
-const BreadcrumbItem = AdsBreadcrumb.Item;
+const Breadcrumb = AuiBreadcrumb.Root;
+const BreadcrumbList = AuiBreadcrumb.List;
+const BreadcrumbItem = AuiBreadcrumb.Item;
 
 function BreadcrumbLink({
   className,
@@ -35,8 +35,8 @@ function BreadcrumbLink({
   });
 }
 
-const BreadcrumbPage = AdsBreadcrumb.Page;
-const BreadcrumbSeparator = AdsBreadcrumb.Separator;
+const BreadcrumbPage = AuiBreadcrumb.Page;
+const BreadcrumbSeparator = AuiBreadcrumb.Separator;
 
 function BreadcrumbEllipsis({
   className,

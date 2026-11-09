@@ -1,4 +1,4 @@
-import { ToastHost } from "../ads/components/ToastHost";
+import { ToastHost } from "../aui/components/ToastHost";
 import { toastManager, workspaceToastManager } from "@/lib/notifications/toast";
 
 /** General notifications stay above the task; workspace status clears its controls. */

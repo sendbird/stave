@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
-import { sx } from "../../../ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { sx } from "../../../aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   useCallback,
   useState,
@@ -27,8 +27,8 @@ import type {
   LensDiagnosticsCaptureState,
 } from "@/lib/lens/lens.types";
 import { detailStyles as d } from "./lens-detail.styles";
-import { focusRing } from "../../../ads/recipes/focus-ring";
-import { transition } from "../../../ads/recipes/transition";
+import { focusRing } from "../../../aui/recipes/focus-ring";
+import { transition } from "../../../aui/recipes/transition";
 
 export const LENS_TOOL_ACTIVE_CLASS = sx(chromeStyles.toolActive);
 export const LENS_TOOL_INACTIVE_CLASS = sx(chromeStyles.toolInactive);
@@ -586,7 +586,7 @@ export function LensLogEntryDetail(props: {
           {tabs.map((tab, index) => {
             const selected = tab.id === activeTab?.id;
             return (
-              <AdsButton layout="host"
+              <AuiButton layout="host"
                 key={tab.id}
                 id={`${testId}-${tab.id}-tab`}
                 type="button"
@@ -599,7 +599,7 @@ export function LensLogEntryDetail(props: {
                 onKeyDown={(event) => moveTabFocus(event, index)}
               >
                 {tab.label}
-              </AdsButton>
+              </AuiButton>
             );
           })}
         </div>

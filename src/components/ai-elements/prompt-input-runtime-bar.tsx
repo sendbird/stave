@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { cx, sx } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
 import { runtimeBarStyles } from "./prompt-input-runtime-bar.styles";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export interface PromptInputRuntimeStatusItem {
   id: string;

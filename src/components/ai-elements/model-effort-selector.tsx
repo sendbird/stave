@@ -1,7 +1,7 @@
 import { getAgentDisplayName } from "@/lib/agents/display";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { AlertCircle, Bot, ChevronDown, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
   Fragment,
@@ -30,7 +30,7 @@ import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { readClaudeContext1MPreference } from "@/lib/providers/model-runtime-preferences";
 import { useAppStore } from "@/store/app.store";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import type { AgentConfig } from "@/lib/agents/schema";
@@ -226,7 +226,7 @@ function ModelOnlyList(args: {
         const selected = option.key === args.selectedModelKey;
         const presentation = getCursorModelPresentation(option);
         return (
-          <AdsButton
+          <AuiButton
             layout="host"
             key={option.key}
             ref={(element) => {
@@ -290,7 +290,7 @@ function ModelOnlyList(args: {
                 </span>
               )}
             </span>
-          </AdsButton>
+          </AuiButton>
         );
       })}
     </div>
@@ -978,7 +978,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
 
           {canToggleAllModels && isListTab ? (
             <div className={sx(styles.showAllFooter)}>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 onClick={() => setShowAllModels((value) => !value)}
@@ -994,7 +994,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     ? defaultProviderOptions.length
                     : providerOptions.length}
                 </span>
-              </AdsButton>
+              </AuiButton>
             </div>
           ) : null}
           {args.accountActions && !pinMode ? (
@@ -1039,7 +1039,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           <Popover open={openPanel === "selector"} onOpenChange={setOpen}>
             <PopoverTrigger
               render={
-                <AdsButton
+                <AuiButton
                   layout="host"
                   ref={triggerRef}
                   type="button"
@@ -1071,7 +1071,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           >
             <PopoverTrigger
               render={
-                <AdsButton
+                <AuiButton
                   layout="host"
                   ref={pinTriggerRef}
                   type="button"
@@ -1124,7 +1124,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger
             render={
-              <AdsButton
+              <AuiButton
                 layout="host"
                 ref={triggerRef}
                 type="button"
@@ -1163,7 +1163,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         (args.value.providerId === "cursor" && cursorParameterized)) &&
       args.showFastMode !== false ? (
         <Tooltip content={i18n.t("composer:modelEffortSelector.ariaLabel14", { value1: cursorComposerControls.fastMode ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}>
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             aria-label={i18n.t("composer:modelEffortSelector.ariaLabel14", { value1: cursorComposerControls.fastMode ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}
@@ -1194,12 +1194,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               )}
               aria-hidden="true"
             />
-          </AdsButton>
+          </AuiButton>
         </Tooltip>
       ) : null}
 
       {supportsContext1M ? (
-        <AdsButton
+        <AuiButton
           layout="host"
           type="button"
           aria-label={i18n.t("composer:remaining.presentationCopy140", { v1: isClaudeContext1MModel(args.value.model) ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}
@@ -1214,7 +1214,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           ]}
         >
           1M
-        </AdsButton>
+        </AuiButton>
       ) : null}
     </div>
   );

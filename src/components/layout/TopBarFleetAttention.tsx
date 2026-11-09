@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
 import { useFleetAttention } from "@/store/fleet-attention-store";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Button } from "@/components/ui";
 import { CountBadge } from "@/components/system/CountBadge";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";

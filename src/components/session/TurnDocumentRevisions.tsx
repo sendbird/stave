@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect } from "react";
 import { FileText, GitCompare } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button, toast } from "@/components/ui";
 import { getWorkspaceDocumentTitle } from "@/lib/documents/workspace-documents";
 import type { WorkspaceDocumentTurnLink } from "@/lib/documents/workspace-document-schemas";

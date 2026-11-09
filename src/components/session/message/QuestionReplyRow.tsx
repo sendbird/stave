@@ -3,22 +3,22 @@ import * as stylex from "@stylexjs/stylex";
 import { CircleHelp } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import type { QuestionReply } from "@/lib/question-reply";
-import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
-import { CollapsibleRoot, CollapsibleTrigger, CollapsiblePanel } from "@/components/ads/headless/collapsible";
-import { inlineDisclosure } from "@/components/ads/recipes/inline-disclosure";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { InlineDisclosureIcon } from "@/components/aui/components/inline-disclosure-icon";
+import { CollapsibleRoot, CollapsibleTrigger, CollapsiblePanel } from "@/components/aui/headless/collapsible";
+import { inlineDisclosure } from "@/components/aui/recipes/inline-disclosure";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { controlIconSizes } from "@/components/aui/recipes/control-metrics";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 
 const styles = stylex.create({
   header: { display: "flex", justifyContent: "flex-end", minInlineSize: 0 },
-  label: { fontSize: vars["--ads-font-size-caption"], minInlineSize: 0, overflowWrap: "anywhere" },
-  body: { padding: vars["--ads-space-12"], gap: vars["--ads-space-16"] },
-  pair: { margin: 0, display: "grid", gap: vars["--ads-space-8"], minInlineSize: 0 },
-  question: { color: vars["--ads-color-text-muted"], whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
-  answer: { color: vars["--ads-color-text"], margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  label: { fontSize: vars["--aui-font-size-caption"], minInlineSize: 0, overflowWrap: "anywhere" },
+  body: { padding: vars["--aui-space-12"], gap: vars["--aui-space-16"] },
+  pair: { margin: 0, display: "grid", gap: vars["--aui-space-8"], minInlineSize: 0 },
+  question: { color: vars["--aui-color-text-muted"], whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
+  answer: { color: vars["--aui-color-text"], margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
 });
 
 /** Readable even when the original question card is outside the loaded transcript. */

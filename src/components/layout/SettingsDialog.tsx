@@ -3,10 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ArrowLeft, Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { Input } from "@/components/ui";
 import {
   Select,

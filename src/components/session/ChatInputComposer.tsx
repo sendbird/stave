@@ -82,7 +82,7 @@ import type { SkillCatalogEntry } from "@/lib/skills/types";
 import {
   cx,
   sx,
-} from "@/components/ads/utils/stylex";
+} from "@/components/aui/utils/stylex";
 import { chatInputStyles } from "./chat-input.styles";
 import { resolveQueuePause } from "@/store/task-work-pause";
 import { useTaskContextMentions } from "./use-task-context-mentions";

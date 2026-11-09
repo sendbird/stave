@@ -20,7 +20,7 @@ import { pullRequestWatchPollIntervalMs } from "@/lib/supervision/pull-request-w
 import { formatAge } from "./agent-run-view";
 import { isPullRequestEventWait, type AgentRunEventWait } from "./event-wait";
 import { selectFreshCompletions } from "./event-wait-observe";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export interface WaitLivenessNote {
   text: string;

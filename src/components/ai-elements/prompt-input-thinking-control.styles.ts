@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const thinkingControlStyles = stylex.create({
   // Wide enough for each mode's one-line description beside its name.
@@ -9,12 +9,12 @@ export const thinkingControlStyles = stylex.create({
   },
   // Says the choice is the Claude setting every task shares, not this task's.
   scope: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     margin: 0,
-    paddingBlockEnd: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-8"],
+    paddingBlockEnd: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   item: {
     alignItems: "flex-start",
@@ -23,13 +23,13 @@ export const thinkingControlStyles = stylex.create({
     display: "flex",
     flex: 1,
     flexDirection: "column",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     minInlineSize: 0,
   },
   itemDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     whiteSpace: "normal",
   },
 });

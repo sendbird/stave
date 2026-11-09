@@ -3,10 +3,10 @@ import { ArrowUpRight } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useMemo } from "react";
 import { createFleetAgentFactsSelector } from "./fleet-agent-facts-selector";
-import { AgentFleet, type AgentFleetAgent } from "@/components/ads/components/AgentFleet";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { AgentFleet, type AgentFleetAgent } from "@/components/aui/components/AgentFleet";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   FleetTaskTableView,
   useFleetTaskRows,
@@ -218,7 +218,7 @@ const styles = stylex.create({
   // The cards' grid inset, so the agents line up under the toolbar.
   board: {
     minWidth: 0,
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
   },
 });

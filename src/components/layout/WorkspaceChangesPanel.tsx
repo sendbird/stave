@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   Check,
   ClipboardList,
@@ -57,9 +57,9 @@ import {
 } from "@/lib/pr-status";
 import { prToneIconStyles } from "./pr-status.styles";
 import type { SourceControlStatusItem } from "@/lib/source-control-status";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import {
   changesStyles,
@@ -86,7 +86,7 @@ import type {
   SourceControlSection,
   SourceControlSummary,
 } from "./editor-panel.utils";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 type SourceControlPanelView = "changes" | "history" | "checks";
 type SourceControlPanelMode = "workspace" | "reviews";
@@ -294,7 +294,7 @@ function ChecksTabContent(props: {
           <ul className={sx(changesStyles.checksList)}>
             {intent.findings.map((finding, index) => (
               <li key={`${finding.file}-${index}`}>
-                <AdsButton
+                <AuiButton
                   layout="host"
                   type="button"
                   xstyle={[
@@ -318,7 +318,7 @@ function ChecksTabContent(props: {
                   <span className={sx(changesStyles.findingMessage)}>
                     {finding.message}
                   </span>
-                </AdsButton>
+                </AuiButton>
               </li>
             ))}
           </ul>
@@ -445,10 +445,10 @@ function SourceControlRow(args: {
           <div className={sx(changesStyles.fileRow, transition.colors)} />
         }
       >
-        <AdsButton
+        <AuiButton
           layout="host"
           type="button"
-          // `fileRow` owns the wash. Without `inertChrome` ADS's host-layout
+          // `fileRow` owns the wash. Without `inertChrome` AUI's host-layout
           // trigger recipe washed the copy column a second time, so the row
           // hovered to double opacity behind the file name only.
           xstyle={[
@@ -487,7 +487,7 @@ function SourceControlRow(args: {
             </div>
             <p className={sx(changesStyles.filePath)}>{args.item.pathDetail}</p>
           </div>
-        </AdsButton>
+        </AuiButton>
 
         <div className={sx(changesStyles.fileTail)}>
           <span
@@ -766,7 +766,7 @@ export function WorkspaceChangesPanel(props: {
                 <Popover>
                   <PopoverTrigger
                     render={
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         xstyle={[
@@ -889,7 +889,7 @@ export function WorkspaceChangesPanel(props: {
                 <Popover>
                   <PopoverTrigger
                     render={
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         xstyle={[
@@ -926,7 +926,7 @@ export function WorkspaceChangesPanel(props: {
                     <ul className={sx(changesStyles.popoverList)}>
                       {props.intentCompliance.findings.map((finding, index) => (
                         <li key={`${finding.file}-${index}`}>
-                          <AdsButton
+                          <AuiButton
                             layout="host"
                             type="button"
                             xstyle={changesStyles.findingButton}
@@ -951,7 +951,7 @@ export function WorkspaceChangesPanel(props: {
                             <span className={sx(changesStyles.findingMessage)}>
                               {finding.message}
                             </span>
-                          </AdsButton>
+                          </AuiButton>
                         </li>
                       ))}
                     </ul>

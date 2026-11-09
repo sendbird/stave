@@ -7,7 +7,7 @@ import {
   ModelSelector,
 } from "@/components/ai-elements/model-selector";
 import { LabeledField } from "@/components/layout/settings-dialog.shared";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 import { useAppStore } from "@/store/app.store";

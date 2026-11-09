@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunStageRecord } from "@/lib/agent-runs/domain";

@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { KeyRound, UserRound } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
 import {
   describeProviderAccountBlocker,

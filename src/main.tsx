@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import "@/i18n";
 import "@/lib/renderer-recovery/recovery-i18n";
 import App from "@/App";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { RendererRecoveryRoot } from "@/components/system/renderer-recovery/RendererRecovery";
@@ -76,13 +76,13 @@ if (preview === "question-reply") {
       </StrictMode>,
     );
   });
-} else if (preview === "ads-regressions") {
-  void import("@/dev/ads-regression-preview").then(
-    ({ AdsRegressionPreview }) => {
+} else if (preview === "aui-regressions") {
+  void import("@/dev/aui-regression-preview").then(
+    ({ AuiRegressionPreview }) => {
       root.render(
         <StrictMode>
           <StaveDesignProvider>
-            <AdsRegressionPreview />
+            <AuiRegressionPreview />
           </StaveDesignProvider>
         </StrictMode>,
       );

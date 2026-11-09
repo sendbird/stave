@@ -1,13 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const turnModelChipStyles = stylex.create({
   row: {
     display: "inline-flex",
     maxWidth: "100%",
-    height: vars["--ads-control-height-xs"],
+    height: vars["--aui-control-height-xs"],
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     overflow: "hidden",
     verticalAlign: "middle",
   },
@@ -15,11 +15,11 @@ export const turnModelChipStyles = stylex.create({
     display: "flex",
     minWidth: 0,
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   icon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
   },
   name: {
@@ -27,16 +27,16 @@ export const turnModelChipStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text"],
   },
   detail: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-regular"],
-    lineHeight: vars["--ads-line-height-tight"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-regular"],
+    lineHeight: vars["--aui-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
   },
   context: {
     flexShrink: 0,
@@ -56,12 +56,12 @@ export const turnModelChipStyles = stylex.create({
     // Shrinks before the model name does.
     flexShrink: 2,
     alignItems: "center",
-    gap: vars["--ads-space-4"],
-    color: vars["--ads-color-text-muted"],
+    gap: vars["--aui-space-4"],
+    color: vars["--aui-color-text-muted"],
   },
   accountIcon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
   },
   accountLabel: {
@@ -69,13 +69,13 @@ export const turnModelChipStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-regular"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-regular"],
+    lineHeight: vars["--aui-line-height-tight"],
   },
   fastIcon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     fill: "currentColor",
   },
 });

@@ -2,10 +2,10 @@ import * as stylex from "@stylexjs/stylex";
 import { DiffEditor } from "@monaco-editor/react";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import { useLayoutEffect, useRef, useState } from "react";
-import { Banner } from "@/components/ads/components/Banner";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Banner } from "@/components/aui/components/Banner";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildDiffEditorModelPath,
   releaseDiffEditorModels,
@@ -185,9 +185,9 @@ export function EditorSaveConflictCompare({
 const styles = stylex.create({
   host: {
     flexShrink: 0,
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-8"],
-    backgroundColor: vars["--ads-color-surface"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-8"],
+    backgroundColor: vars["--aui-color-surface"],
   },
   pending: {
     height: "100%",

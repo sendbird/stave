@@ -1,15 +1,15 @@
 import { Layers } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 
 /**
  * Workspace identity tones.
  *
- * Deliberately NOT sourced from `vars["--ads-chart-1"]..6`. `system/ads-theme.ts` leaves
+ * Deliberately NOT sourced from `vars["--aui-chart-1"]..6`. `system/aui-theme.ts` leaves
  * the `chart*` ramp unmapped on purpose — it is categorical DATA ink whose
- * steps are picked against ADS's own contrast floors and CVD separation, and
+ * steps are picked against AUI's own contrast floors and CVD separation, and
  * Stave only owns five chart hues, so a partial remap would break both the
- * ordering guarantee and ADS's colour gate. Reading `chart1..6` here would also
+ * ordering guarantee and AUI's colour gate. Reading `chart1..6` here would also
  * change what this component means: the ramp's first six slots are blue,
  * orange, green, purple, yellow, red, so a hash over workspace names would
  * paint identity marks in six different hues instead of the six blue steps
@@ -33,7 +33,7 @@ const WORKSPACE_BLUE_TONES = [
  * interpolates HUE, and mixing a blue tone 58% into a near-neutral
  * `--foreground` that still carries a nominal hue dragged the identity colour
  * off its own hue (the same defect documented on `colorAccentHover` in
- * `system/ads-theme.ts`) — so two workspaces one slot apart in the ramp could
+ * `system/aui-theme.ts`) — so two workspaces one slot apart in the ramp could
  * land on the same-looking mark. OKLAB is rectangular, so the mix moves
  * lightness and leaves hue where the tone put it.
  */

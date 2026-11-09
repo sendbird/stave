@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import type { TurnVerificationStatus } from "@/lib/workspace-scripts/verification";
 import { prStatusIconStyles, prToneIconStyles } from "./pr-status.styles";
 

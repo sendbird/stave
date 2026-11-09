@@ -15,7 +15,7 @@ import { i18n } from "@/i18n/runtime";
  * the badge, which every run wears (`describeAgentRunStatus`).
  */
 import { describeRunPlan } from "./plan-progress";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import { formatDateTime, formatDuration } from "@/i18n/format";
 import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
 import { extractRunAssignment, hasAgentOrigin } from "./agent-run";

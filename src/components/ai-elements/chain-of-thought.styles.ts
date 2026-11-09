@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /*
  * This module used to run a private motion vocabulary: three local
@@ -98,7 +98,7 @@ export const chainOfThoughtStyles = stylex.create({
 
   // ── Trigger ──────────────────────────────────────────────────
   /*
-   * Composed as `xstyle` on top of ADS `inlineDisclosure.trigger`, which now
+   * Composed as `xstyle` on top of AUI `inlineDisclosure.trigger`, which now
    * owns the whole box — the glyph column's inline padding, the block padding,
    * `controlHeightSm`, the radius, the hover/press wash and the focus ring.
    * What stays here is the three things the recipe cannot decide:
@@ -114,7 +114,7 @@ export const chainOfThoughtStyles = stylex.create({
    *   contents; at the rows' own ink the turn header read as one more row.
    */
   trigger: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     flexWrap: "nowrap",
     minWidth: 0,
     fontSize: "0.875em",
@@ -126,8 +126,8 @@ export const chainOfThoughtStyles = stylex.create({
     overflow: "hidden",
     whiteSpace: "nowrap",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--aui-space-8"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   streamingActivity: {
     flex: "1 1 0",
@@ -136,7 +136,7 @@ export const chainOfThoughtStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   completionLabel: {
     minWidth: 0,
@@ -144,7 +144,7 @@ export const chainOfThoughtStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   /* The machine register, from `agentSurface.meta` at the call site. */
   durationLabel: {
@@ -158,18 +158,18 @@ export const chainOfThoughtStyles = stylex.create({
     alignItems: "center",
     columnGap: "0.6em",
     whiteSpace: "nowrap",
-    fontSize: `max(0.75em, ${vars["--ads-font-size-caption"]})`,
-    color: vars["--ads-color-text-muted"],
+    fontSize: `max(0.75em, ${vars["--aui-font-size-caption"]})`,
+    color: vars["--aui-color-text-muted"],
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
+    animationDuration: { default: vars["--aui-motion-duration-normal"], [reduced]: "0ms" },
+    animationTimingFunction: vars["--aui-motion-ease-standard"],
   },
   summaryItem: {
     display: "inline-flex",
     alignItems: "center",
     gap: "0.3em",
   },
-  summaryDivider: { color: vars["--ads-color-border"] },
+  summaryDivider: { color: vars["--aui-color-border"] },
   summaryItemIcon: {
     display: "inline-flex",
     alignItems: "center",
@@ -180,7 +180,7 @@ export const chainOfThoughtStyles = stylex.create({
    * trigger now carries block padding of its own, so the old `0.75em` read as
    * a gap between two unrelated blocks rather than a header and its panel.
    */
-  content: { marginTop: vars["--ads-space-4"] },
+  content: { marginTop: vars["--aui-space-4"] },
   // ── Open / close ─────────────────────────────────────────────
   /*
    * A one-track grid around the panel. At rest the track is `1fr` and nothing
@@ -194,15 +194,15 @@ export const chainOfThoughtStyles = stylex.create({
   },
   collapseEntering: {
     animationName: { default: rowTrackOpen, [reduced]: "none" },
-    animationDuration: vars["--ads-motion-duration-quick"],
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationDuration: vars["--aui-motion-duration-quick"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     animationFillMode: "both",
   },
   collapseExiting: {
     gridTemplateRows: "0fr",
     animationName: { default: rowTrackClose, [reduced]: "none" },
-    animationDuration: vars["--ads-motion-duration-quick"],
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationDuration: vars["--aui-motion-duration-quick"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     animationFillMode: "both",
   },
   collapseBody: {
@@ -223,29 +223,29 @@ export const chainOfThoughtStyles = stylex.create({
   },
   collapseBodyEntering: {
     animationName: { default: contentFadeIn, [reduced]: "none" },
-    animationDuration: vars["--ads-motion-duration-fast"],
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationDuration: vars["--aui-motion-duration-fast"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     animationFillMode: "both",
   },
   collapseBodyExiting: {
     animationName: { default: contentFadeOut, [reduced]: "none" },
-    animationDuration: vars["--ads-motion-duration-fast"],
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationDuration: vars["--aui-motion-duration-fast"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     animationFillMode: "both",
   },
   contentTraceMotion: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {
-      default: vars["--ads-motion-duration-emphasis"],
+      default: vars["--aui-motion-duration-emphasis"],
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     transformOrigin: "top",
   },
 
   // ── Streaming thought viewport ───────────────────────────────
   /*
-   * The cap, the mask band and the live-edge follow now belong to ADS
+   * The cap, the mask band and the live-edge follow now belong to AUI
    * `CappedViewport`; what stays here is the one thing the host owns, the
    * reading measure of the prose inside it.
    */
@@ -255,7 +255,7 @@ export const chainOfThoughtStyles = stylex.create({
 
   // ── Step ─────────────────────────────────────────────────────
   /*
-   * Composed as `xstyle` onto ADS `StepRail.Step`, which owns the gutter grid
+   * Composed as `xstyle` onto AUI `StepRail.Step`, which owns the gutter grid
    * and the connector, so this key carries type and ink only: re-declaring
    * `display` here would replace the rail's grid with a flex row and drop the
    * gutter track the connector lives in.
@@ -263,18 +263,18 @@ export const chainOfThoughtStyles = stylex.create({
   step: {
     fontSize: "0.875em",
   },
-  stepActive: { color: vars["--ads-color-text"] },
-  stepDone: { color: vars["--ads-color-text-muted"] },
+  stepActive: { color: vars["--aui-color-text"] },
+  stepDone: { color: vars["--aui-color-text-muted"] },
   stepPending: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   stepMotionRowTrace: {
     animationName: { default: traceRowIn, [reduced]: "none" },
     animationDuration: {
-      default: `var(--stave-trace-row-entrance, ${vars["--ads-motion-duration-emphasis"]})`,
+      default: `var(--stave-trace-row-entrance, ${vars["--aui-motion-duration-emphasis"]})`,
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     transformOrigin: "top",
   },
   contentColumn: {
@@ -282,43 +282,43 @@ export const chainOfThoughtStyles = stylex.create({
   },
   /*
    * `controlHeightSm` on the title row is what puts this row on the same
-   * rhythm as the ADS `ToolRun` and `Thinking` rows beside it in the rail.
+   * rhythm as the AUI `ToolRun` and `Thinking` rows beside it in the rail.
    */
   disclosure: {
     display: "flex",
     alignItems: "center",
     gap: "0.35em",
-    minHeight: vars["--ads-control-height-sm"],
+    minHeight: vars["--aui-control-height-sm"],
     textAlign: "left",
   },
   disclosureChevron: {
     width: "0.85em",
     height: "0.85em",
     flexShrink: 0,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     transitionProperty: "transform",
     transitionDuration: {
-      default: vars["--ads-motion-duration-quick"],
+      default: vars["--aui-motion-duration-quick"],
       [reduced]: "0ms",
     },
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+    transitionTimingFunction: vars["--aui-motion-ease-standard"],
   },
   disclosureChevronOpen: { transform: "rotate(180deg)" },
   staticRow: {
     display: "flex",
     alignItems: "center",
     gap: "0.35em",
-    minHeight: vars["--ads-control-height-sm"],
+    minHeight: vars["--aui-control-height-sm"],
   },
-  description: { marginTop: "0.25em", color: vars["--ads-color-text-muted"] },
+  description: { marginTop: "0.25em", color: vars["--aui-color-text-muted"] },
   reveal: { marginTop: "0.5em" },
   revealMotionTrace: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {
-      default: vars["--ads-motion-duration-emphasis"],
+      default: vars["--aui-motion-duration-emphasis"],
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationTimingFunction: vars["--aui-motion-ease-expressive"],
     transformOrigin: "top",
   },
 
@@ -333,27 +333,27 @@ export const chainOfThoughtStyles = stylex.create({
   bullet: {
     width: "0.35em",
     height: "0.35em",
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
   },
-  bulletActive: { backgroundColor: vars["--ads-color-text"] },
+  bulletActive: { backgroundColor: vars["--aui-color-text"] },
   bulletIdle: {
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-text-muted"]} 50%, transparent)`,
   },
   iconChild: {
     display: "inline-flex",
   },
   iconThinking: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     animationName: { default: thinkingShimmer, [reduced]: "none" },
-    animationDuration: vars["--ads-motion-duration-loop-slow"],
-    animationTimingFunction: vars["--ads-motion-ease-in-out"],
+    animationDuration: vars["--aui-motion-duration-loop-slow"],
+    animationTimingFunction: vars["--aui-motion-ease-in-out"],
     animationIterationCount: "infinite",
   },
-  iconAgent: { color: vars["--ads-color-text"] },
-  iconDone: { color: vars["--ads-color-text-muted"] },
+  iconAgent: { color: vars["--aui-color-text"] },
+  iconDone: { color: vars["--aui-color-text-muted"] },
   iconPending: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
-  loaderColor: { color: vars["--ads-color-text"] },
+  loaderColor: { color: vars["--aui-color-text"] },
   statusIcon: { width: "1.15em", height: "1.15em" },
 });

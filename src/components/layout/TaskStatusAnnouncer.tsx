@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import {
   advanceTaskAnnouncement,
   selectTaskAnnouncementState,

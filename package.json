@@ -118,11 +118,11 @@
     "shiki": "^4.4.3",
     "thinking-orbs": "0.3.2",
     "unified": "^11.0.5",
-    "zod": "^4.6.5",
+    "zod": "^4.6.6",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.65.0",
     "@stylexjs/unplugin": "0.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -153,6 +153,6 @@
     "path-to-regexp": "8.4.0",
     "proxy-addr": "2.0.8",
     "qs": "6.16.0",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   }
 }

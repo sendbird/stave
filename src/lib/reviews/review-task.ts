@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import {
   LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS,
   buildLocalChangeReviewPrompt,

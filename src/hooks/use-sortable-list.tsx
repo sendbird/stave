@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import {
   attachClosestEdge,
   extractClosestEdge,
@@ -243,7 +243,7 @@ export function useSortableListMonitor(args: {
 }
 
 const DROP_INDICATOR_THEME_STYLE = {
-  // The Atlaskit drop indicator colors its line with the ADS token
+  // The Atlaskit drop indicator colors its line with the AUI token
   // `--ds-border-selected` (falling back to a hard-coded Atlassian blue).
   // Map it to the app's primary color; custom properties inherit through
   // `display: contents`, so this wrapper adds no box of its own.
@@ -267,8 +267,8 @@ export function SortableDropIndicator(props: { edge: Edge; gap?: string }) {
 }
 
 const styles = stylex.create({
-preview: {display:"flex",maxWidth:240,alignItems:"center",gap:6,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],backgroundColor:vars["--ads-color-surface-raised"],paddingInline:10,paddingBlock:6,fontSize:12,fontWeight:500,color:vars["--ads-color-text"],boxShadow:vars["--ads-elevation-lift"]},
-icon: {display:"flex",width:16,height:16,flexShrink:0,alignItems:"center",justifyContent:"center",color:vars["--ads-color-text-muted"]},
+preview: {display:"flex",maxWidth:240,alignItems:"center",gap:6,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--aui-color-border"],backgroundColor:vars["--aui-color-surface-raised"],paddingInline:10,paddingBlock:6,fontSize:12,fontWeight:500,color:vars["--aui-color-text"],boxShadow:vars["--aui-elevation-lift"]},
+icon: {display:"flex",width:16,height:16,flexShrink:0,alignItems:"center",justifyContent:"center",color:vars["--aui-color-text-muted"]},
 title: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
 indicator: {display:"contents"}
 });

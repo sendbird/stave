@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShieldAlert } from "lucide-react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   APPROVAL_DELIVERY_GUARD_MS,
   ApprovalExpiryNote,
@@ -12,7 +12,7 @@ import { getToolTitle } from "@/components/session/message/assistant-trace.utils
 import { Loader } from "@/components/ui/loader";
 import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { composerApprovalRowStyles as styles } from "@/components/session/composer-approval-row.styles";
 import {
   resolveShownApproval,
@@ -316,7 +316,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           {count > 1 ? (
             <span className={sx(styles.stepper)}>
               <Tooltip content={i18n.t("session:composerApprovalRow.previous")}>
-                <AdsButton
+                <AuiButton
                   aria-label={i18n.t("session:composerApprovalRow.previous")}
                   iconOnly
                   onClick={() => step(-1)}
@@ -324,7 +324,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   variant="quiet"
                 >
                   <ChevronLeft aria-hidden />
-                </AdsButton>
+                </AuiButton>
               </Tooltip>
               <span aria-live="polite" className={sx(styles.position)}>
                 {i18n.t("session:composerApprovalRow.position", {
@@ -333,7 +333,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                 })}
               </span>
               <Tooltip content={i18n.t("session:composerApprovalRow.next")}>
-                <AdsButton
+                <AuiButton
                   aria-label={i18n.t("session:composerApprovalRow.next")}
                   iconOnly
                   onClick={() => step(1)}
@@ -341,7 +341,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   variant="quiet"
                 >
                   <ChevronRight aria-hidden />
-                </AdsButton>
+                </AuiButton>
               </Tooltip>
             </span>
           ) : null}
@@ -352,7 +352,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
             className={sx(styles.actions)}
             data-composer-approval-actions=""
           >
-            <AdsButton
+            <AuiButton
               aria-keyshortcuts={live ? "Enter" : undefined}
               disabled={!live}
               onClick={() => decide({ approved: true, scope: "once" })}
@@ -363,18 +363,18 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               {live ? (
                 <Kbd aria-hidden className={sx(styles.allowKey)}>↵</Kbd>
               ) : null}
-            </AdsButton>
+            </AuiButton>
             {offersAllowAlways ? (
-              <AdsButton
+              <AuiButton
                 disabled={!live}
                 onClick={() => decide({ approved: true, scope: "always" })}
                 size="sm"
                 variant="secondary"
               >
                 {i18n.t("ui:approval.alwaysAllow")}
-              </AdsButton>
+              </AuiButton>
             ) : null}
-            <AdsButton
+            <AuiButton
               disabled={!live}
               onClick={() => decide({ approved: false })}
               size="sm"
@@ -382,10 +382,10 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               variant="outline"
             >
               {i18n.t("ui:approval.deny")}
-            </AdsButton>
+            </AuiButton>
           </div>
           <Tooltip content={detailsLabel}>
-            <AdsButton
+            <AuiButton
               aria-controls={detailsOpen ? detailsId : undefined}
               aria-expanded={detailsOpen}
               aria-label={detailsLabel}
@@ -396,7 +396,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               variant="quiet"
             >
               {detailsOpen ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
-            </AdsButton>
+            </AuiButton>
           </Tooltip>
         </div>
       </div>
@@ -427,7 +427,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           {live && onDraftGuidance ? (
             <div className={sx(styles.detailActions)}>
               {!guidanceOpen ? (
-                <AdsButton
+                <AuiButton
                   aria-keyshortcuts="Tab"
                   onClick={() => openGuidanceDraft({ focusComposer: true })}
                   size="xs"
@@ -435,7 +435,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                 >
                   <Kbd aria-hidden>Tab</Kbd>
                   {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue5")}
-                </AdsButton>
+                </AuiButton>
               ) : null}
             </div>
           ) : null}
@@ -453,7 +453,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
             placeholder={i18n.t("session:chatInputApprovalQueue.placeholder", { value1: part.toolName })}
           />
           <div className={sx(styles.detailActions)}>
-            <AdsButton
+            <AuiButton
               disabled={!guidanceText.trim()}
               onClick={() => {
                 const guidance = guidanceText.trim();
@@ -474,8 +474,8 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               variant="primary"
             >
               {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue3")}
-            </AdsButton>
-            <AdsButton
+            </AuiButton>
+            <AuiButton
               onClick={() => {
                 setGuidanceTarget(null);
                 setGuidanceText("");
@@ -484,7 +484,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               variant="quiet"
             >
               {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue4")}
-            </AdsButton>
+            </AuiButton>
           </div>
         </div>
       ) : null}

@@ -1,40 +1,40 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const previewStyles = stylex.create({
   page: {
     minHeight: "100dvh",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
-    padding: vars["--ads-space-24"],
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    gap: vars["--aui-space-16"],
+    padding: vars["--aui-space-24"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
   heading: {
-    fontSize: vars["--ads-font-size-title"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-title"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   lede: {
     maxWidth: "58rem",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   stage: {
     display: "flex",
     minHeight: "32rem",
     alignItems: "flex-end",
-    gap: vars["--ads-space-16"],
-    borderRadius: vars["--ads-radius-frame"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-16"],
+    borderRadius: vars["--aui-radius-frame"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface"],
-    padding: vars["--ads-space-16"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface"],
+    padding: vars["--aui-space-16"],
   },
   readout: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
 });

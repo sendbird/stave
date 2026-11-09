@@ -8,8 +8,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { StatusBarAccountSection } from "@/components/layout/StatusBarAccountSection";
 import { GatewayCreditsDetail, GatewayCreditsItem } from "@/components/layout/StatusBarGatewayCredits";
 import {

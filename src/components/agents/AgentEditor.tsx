@@ -1,13 +1,13 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import type * as React from "react";
-import { Accordion } from "@/components/ads/components/Accordion";
-import { Button } from "@/components/ads/components/Button";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { Select } from "@/components/ads/components/Select";
-import { TextField } from "@/components/ads/components/TextField";
-import { Textarea } from "@/components/ads/components/Textarea";
-import { sx } from "@/components/ads/utils/stylex";
+import { Accordion } from "@/components/aui/components/Accordion";
+import { Button } from "@/components/aui/components/Button";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { Select } from "@/components/aui/components/Select";
+import { TextField } from "@/components/aui/components/TextField";
+import { Textarea } from "@/components/aui/components/Textarea";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   AGENT_COLOR_CHART_INDEX,
   AGENT_COLOR_LABELS,
@@ -103,7 +103,7 @@ function ColorChooser(props: { value: AgentColor | undefined; onChange: (color: 
           aria-label={AGENT_COLOR_LABELS[color]}
           aria-pressed={props.value === color}
           xstyle={[agentStyles.swatch, props.value === color && agentStyles.swatchSelected]}
-          style={{ "--agent-swatch-color": `var(--ads-chart-${AGENT_COLOR_CHART_INDEX[color]})` } as React.CSSProperties}
+          style={{ "--agent-swatch-color": `var(--aui-chart-${AGENT_COLOR_CHART_INDEX[color]})` } as React.CSSProperties}
           onClick={() => props.onChange(color)}
         />
       ))}

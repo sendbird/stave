@@ -20,7 +20,7 @@ const remaining = inventory();
 for (const [path, count] of Object.entries(remaining)) {
   const allowance = baseline.files[path] ?? dataLiterals[path]?.tokens ?? 0;
   if (count > allowance) {
-    failures.push(`${path}: ${count} utility tokens exceed ${allowance}; author styles with StyleX and ADS recipes`);
+    failures.push(`${path}: ${count} utility tokens exceed ${allowance}; author styles with StyleX and AUI recipes`);
   }
 }
 for (const path of Object.keys(dataLiterals)) {
@@ -43,21 +43,21 @@ if (!htmlLayers || htmlLayers !== cssLayers) {
   );
 }
 /*
- * StyleX no longer emits one flat `priority*` band: `scripts/vite-ads-stylex.mjs`
- * compiles ADS and product modules under different class name prefixes and nests
- * each origin's priority buckets inside `ads` and `product`. `ads-theme` is the
+ * StyleX no longer emits one flat `priority*` band: `scripts/vite-aui-stylex.mjs`
+ * compiles AUI and product modules under different class name prefixes and nests
+ * each origin's priority buckets inside `aui` and `product`. `aui-theme` is the
  * seam between them. Drop any of the three, or reorder them, and a brand recipe
  * has no defined position — so the names are asserted, not just the agreement.
  */
-const ADS_ORIGIN_SEAM = ["ads", "ads-theme", "product"];
-const adsStyles = readFileSync(
-  new URL("../src/components/ads/styles.css", import.meta.url),
+const AUI_ORIGIN_SEAM = ["aui", "aui-theme", "product"];
+const auiStyles = readFileSync(
+  new URL("../src/components/aui/styles.css", import.meta.url),
   "utf8",
 );
 for (const [label, source] of [
   ["index.html", htmlLayers],
   ["src/globals.css", cssLayers],
-  ["src/components/ads/styles.css", adsStyles.match(layerOrder)?.[0]],
+  ["src/components/aui/styles.css", auiStyles.match(layerOrder)?.[0]],
 ]) {
   if (!source) {
     failures.push(`${label}: no canonical \`@layer reset, …;\` statement`);
@@ -68,10 +68,10 @@ for (const [label, source] of [
     .replace(/;$/, "")
     .split(",")
     .map((name) => name.trim());
-  const seam = names.filter((name) => ADS_ORIGIN_SEAM.includes(name));
-  if (seam.join(",") !== ADS_ORIGIN_SEAM.join(",")) {
+  const seam = names.filter((name) => AUI_ORIGIN_SEAM.includes(name));
+  if (seam.join(",") !== AUI_ORIGIN_SEAM.join(",")) {
     failures.push(
-      `${label}: cascade layer statement must name ${ADS_ORIGIN_SEAM.join(", ")} in that order; found ${seam.join(", ") || "none"}`,
+      `${label}: cascade layer statement must name ${AUI_ORIGIN_SEAM.join(", ")} in that order; found ${seam.join(", ") || "none"}`,
     );
   }
 }
@@ -89,14 +89,14 @@ for (const [path, contract] of Object.entries(manifest.files)) {
     .length;
   if (legacyRecipes > contract.legacyRecipeCount)
     failures.push(`${path}: legacy recipe count grew`);
-  if (contract.requiresCanonicalSource && !/from ["'][^"']*ads\//.test(source))
+  if (contract.requiresCanonicalSource && !/from ["'][^"']*aui\//.test(source))
     failures.push(`${path}: canonical source dependency missing`);
   if (/from ["']\.\/tokens\.stylex["']/.test(source))
     failures.push(`${path}: obsolete token authority`);
 }
 const componentRoot = new URL("../src/components/", import.meta.url);
 for (const relative of readdirSync(componentRoot, { recursive: true })) {
-  if (!relative.endsWith(".tsx") || /^(ads|ui)\//.test(relative)) continue;
+  if (!relative.endsWith(".tsx") || /^(aui|ui)\//.test(relative)) continue;
   const path = `src/components/${relative}`;
   const source = readFileSync(new URL(relative, componentRoot), "utf8");
   const tree = ts.createSourceFile(
@@ -121,22 +121,22 @@ for (const relative of readdirSync(componentRoot, { recursive: true })) {
 }
 /*
  * StyleX `{ default: null }` UNSETS a property. On a paint property that is not
- * "leave it alone", it is "delete whatever the ADS recipe declared" — so an ADS
+ * "leave it alone", it is "delete whatever the AUI recipe declared" — so an AUI
  * quiet control loses its `transparent` background and a `<button>` falls back
  * to the UA's opaque `buttonface`, which is the gray-slab regression. Author the
  * resting value explicitly (`"transparent"`, or the token the state maps to).
- * Only ADS itself owns these contracts, so only `src/components/ads` is exempt.
+ * Only AUI itself owns these contracts, so only `src/components/aui` is exempt.
  */
 const unsetPaint = /\b(?:backgroundColor|borderColor|color)\s*:\s*\{\s*default:\s*null/g;
 const srcRoot = new URL("../src/", import.meta.url);
 for (const relative of readdirSync(srcRoot, { recursive: true })) {
   const path = relative.split(sep).join("/");
-  if (!/\.tsx?$/.test(path) || path.startsWith("components/ads/")) continue;
+  if (!/\.tsx?$/.test(path) || path.startsWith("components/aui/")) continue;
   const source = readFileSync(new URL(relative, srcRoot), "utf8");
   for (const match of source.matchAll(unsetPaint)) {
     const line = source.slice(0, match.index).split("\n").length;
     failures.push(
-      `src/${path}:${line}: \`${match[0].split(":")[0].trim()}: { default: null }\` unsets the ADS variant contract; declare the resting value (e.g. "transparent")`,
+      `src/${path}:${line}: \`${match[0].split(":")[0].trim()}: { default: null }\` unsets the AUI variant contract; declare the resting value (e.g. "transparent")`,
     );
   }
 }
@@ -149,12 +149,12 @@ for (const relative of readdirSync(srcRoot, { recursive: true })) {
 const { violations: layerViolations, allowed: layerAllowed } = layerLiterals(srcRoot);
 for (const literal of layerViolations)
   failures.push(
-    `${literal.path}:${literal.line}: \`zIndex: ${literal.value}\` is a raw stacking number; name a \`layers\` band or a \`localStack\` rung from src/lib/ui-layers.stylex.ts (or an \`--ads-z-index-*\` token), or justify it with \`// layer-ok: <reason>\``,
+    `${literal.path}:${literal.line}: \`zIndex: ${literal.value}\` is a raw stacking number; name a \`layers\` band or a \`localStack\` rung from src/lib/ui-layers.stylex.ts (or an \`--aui-z-index-*\` token), or justify it with \`// layer-ok: <reason>\``,
   );
 
 /*
  * The hard-cut ratchet. The analysis lives in `motionless-interactive.mjs`,
- * which documents why an ADS-control call site is not a finding;
+ * which documents why an AUI-control call site is not a finding;
  * `motionlessInteractive` in the manifest is the list of groups that were still
  * genuinely silent when the rule landed. It may shrink, never grow, and a stale
  * entry fails too so a fixed surface cannot keep its exemption.
@@ -164,7 +164,7 @@ const motionless = motionlessInteractive(srcRoot);
 for (const path of motionless)
   if (!motionlessBaseline.has(path))
     failures.push(
-      `${path}: states a \`:hover\`/\`:active\` paint change and nothing on that element transitions it; compose \`transition.colors\` (or \`transition.control\`) from \`ads/recipes/transition\` at the call site`,
+      `${path}: states a \`:hover\`/\`:active\` paint change and nothing on that element transitions it; compose \`transition.colors\` (or \`transition.control\`) from \`aui/recipes/transition\` at the call site`,
     );
 for (const path of motionlessBaseline)
   if (!motionless.includes(path))
@@ -202,32 +202,32 @@ for (const dependency of [
   if (packageJson.dependencies?.[dependency] || packageJson.devDependencies?.[dependency])
     failures.push(`${dependency}: retired component engine returned`);
 }
-const adsSourceDependencies = new Set();
+const auiSourceDependencies = new Set();
 for (const file of [
-  ".ads-source.json",
-  ".ads-source-controls.json",
-  ".ads-source-lightbox.json",
-  ".ads-source-async.json",
-  ".ads-source-toolbar.json",
-  ".ads-source-version-compare.json",
-  ".ads-source-review.json",
-  ".ads-source-activity-feed.json",
-  ".ads-source-relative-time.json",
-  ".ads-source-selection.json",
+  ".aui-source.json",
+  ".aui-source-controls.json",
+  ".aui-source-lightbox.json",
+  ".aui-source-async.json",
+  ".aui-source-toolbar.json",
+  ".aui-source-version-compare.json",
+  ".aui-source-review.json",
+  ".aui-source-activity-feed.json",
+  ".aui-source-relative-time.json",
+  ".aui-source-selection.json",
 ]) {
   const source = JSON.parse(
-    readFileSync(new URL(`../src/components/ads/${file}`, import.meta.url), "utf8"),
+    readFileSync(new URL(`../src/components/aui/${file}`, import.meta.url), "utf8"),
   );
   for (const dependency of Object.keys(source.dependencies ?? {})) {
-    adsSourceDependencies.add(dependency);
+    auiSourceDependencies.add(dependency);
   }
 }
-for (const dependency of adsSourceDependencies) {
+for (const dependency of auiSourceDependencies) {
   if (
     !packageJson.dependencies?.[dependency] &&
     !packageJson.devDependencies?.[dependency]
   ) {
-    failures.push(`${dependency}: ADS source dependency is not declared`);
+    failures.push(`${dependency}: AUI source dependency is not declared`);
   }
 }
 if (!/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?animation-duration:\s*0\.01ms\s*!important/.test(css)) {
@@ -238,7 +238,7 @@ function collectTokenInventory(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = `${directory}/${entry.name}`;
     if (entry.isDirectory()) collectTokenInventory(path);
-    else if (/\.tsx?$/.test(path) && !path.includes("/ads/")) {
+    else if (/\.tsx?$/.test(path) && !path.includes("/aui/")) {
       const counts = tokenLiterals(readFileSync(path, "utf8"), path);
       if (Object.keys(counts).length) tokenInventory[path] = counts;
     }

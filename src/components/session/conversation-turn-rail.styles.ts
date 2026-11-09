@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 // The rail's own reveal easing — an expressive ease-out the ticks and preview
 // share so the whole affordance settles as one motion.
@@ -14,17 +14,17 @@ export const conversationTurnRailStyles = stylex.create({
     minHeight: "10rem",
     pointerEvents: "none",
     position: "absolute",
-    right: vars["--ads-space-8"],
+    right: vars["--aui-space-8"],
     top: "50%",
     transform: "translateY(-50%)",
     width: "3rem",
   },
   viewport: {
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
     height: "100%",
     overflowY: "auto",
     overscrollBehavior: "contain",
-    paddingBlock: vars["--ads-space-8"],
+    paddingBlock: vars["--aui-space-8"],
     scrollbarWidth: "none",
     transitionDuration: {
       default: "150ms",
@@ -35,7 +35,7 @@ export const conversationTurnRailStyles = stylex.create({
   },
   viewportVisible: {
     backdropFilter: "blur(12px)",
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 60%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-canvas"]} 60%, transparent)`,
   },
   viewportHidden: {
     backdropFilter: "none",
@@ -50,14 +50,14 @@ export const conversationTurnRailStyles = stylex.create({
   },
   trigger: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     display: "flex",
     flexShrink: 0,
     height: 24,
     justifyContent: "flex-end",
     pointerEvents: "auto",
     width: 32,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   tick: {
     backgroundColor: "currentColor",
@@ -77,25 +77,25 @@ export const conversationTurnRailStyles = stylex.create({
     width: 32,
   },
   tickDisplayed: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     opacity: 1,
   },
   tickActive: {
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
     opacity: 1,
   },
   // Bordered popover card, positioned to the left of the tick column. Composes
   // UI_ELEVATION_CLASS.floating at the call site for its shadow.
   preview: {
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    borderRadius: vars["--ads-radius-panel"],
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    backgroundColor: vars["--ads-color-surface-raised"],
-    color: vars["--ads-color-text"],
-    boxShadow: `0 0 0 1px color-mix(in oklch, ${vars["--ads-color-text"]} 10%, transparent)`,
-    marginRight: vars["--ads-space-8"],
-    padding: vars["--ads-space-12"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    backgroundColor: vars["--aui-color-surface-raised"],
+    color: vars["--aui-color-text"],
+    boxShadow: `0 0 0 1px color-mix(in oklch, ${vars["--aui-color-text"]} 10%, transparent)`,
+    marginRight: vars["--aui-space-8"],
+    padding: vars["--aui-space-12"],
     position: "absolute",
     right: "100%",
     transformOrigin: "right",
@@ -129,14 +129,14 @@ export const conversationTurnRailStyles = stylex.create({
   previewBody: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
   previewMeta: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
   },
   previewMetaIcon: {
     height: 14,
@@ -151,29 +151,29 @@ export const conversationTurnRailStyles = stylex.create({
   previewText: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   previewTitle: {
     display: "-webkit-box",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     lineHeight: "1.25rem",
     overflow: "hidden",
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 2,
   },
   previewResponse: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "-webkit-box",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "1.25rem",
     overflow: "hidden",
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 3,
   },
   previewHint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: "1rem",
   },
 });

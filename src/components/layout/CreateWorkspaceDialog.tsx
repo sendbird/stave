@@ -1,5 +1,5 @@
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { FolderSymlink, GitBranch, X } from "lucide-react";
 import {
   useEffect,
@@ -10,8 +10,8 @@ import {
 } from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
-import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { Badge, Button, Input, Textarea, toast } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { createWorkspaceStyles } from "./create-workspace-dialog.styles";
@@ -419,7 +419,7 @@ export function CreateWorkspaceDialog({
                   : createWorkspaceStyles.modeCardIdle,
               )}
             >
-              <AdsButton layout="host"
+              <AuiButton layout="host"
                 type="button"
                 xstyle={createWorkspaceStyles.modeTrigger}
                 onClick={() => setCreationMode("branch")}
@@ -431,7 +431,7 @@ export function CreateWorkspaceDialog({
                 <p className={sx(createWorkspaceStyles.modeDescription)}>
                   {t("createDialog.modes.branch.description")}
                 </p>
-              </AdsButton>
+              </AuiButton>
               <div className={sx(createWorkspaceStyles.subBlock)}>
                 <p className={sx(createWorkspaceStyles.subLabel)}>
                   {t("createDialog.modes.branch.baseBranch")}
@@ -466,7 +466,7 @@ export function CreateWorkspaceDialog({
                   : createWorkspaceStyles.modeCardIdle,
               )}
             >
-              <AdsButton layout="host"
+              <AuiButton layout="host"
                 type="button"
                 xstyle={createWorkspaceStyles.modeTrigger}
                 onClick={() => setCreationMode("clean")}
@@ -477,7 +477,7 @@ export function CreateWorkspaceDialog({
                 <p className={sx(createWorkspaceStyles.modeDescription)}>
                   {t("createDialog.modes.clean.description")}
                 </p>
-              </AdsButton>
+              </AuiButton>
             </div>
             <div
               role="radio"
@@ -489,7 +489,7 @@ export function CreateWorkspaceDialog({
                   : createWorkspaceStyles.modeCardIdle,
               )}
             >
-              <AdsButton layout="host"
+              <AuiButton layout="host"
                 type="button"
                 xstyle={createWorkspaceStyles.modeTrigger}
                 onClick={() => setCreationMode("link")}
@@ -503,7 +503,7 @@ export function CreateWorkspaceDialog({
                 <p className={sx(createWorkspaceStyles.modeDescription)}>
                   {t("createDialog.modes.link.description")}
                 </p>
-              </AdsButton>
+              </AuiButton>
               {creationMode === "link" ? (
                 <div className={sx(createWorkspaceStyles.subBlock)}>
                   <p className={sx(createWorkspaceStyles.subLabel)}>
@@ -562,7 +562,7 @@ export function CreateWorkspaceDialog({
                 <p className={sx(createWorkspaceStyles.fieldLabel)}>
                   {t("createDialog.dependencyReuse.label")}
                 </p>
-                <AdsButton layout="host"
+                <AuiButton layout="host"
                   type="button"
                   aria-pressed={useRootNodeModulesSymlink}
                   onClick={() =>
@@ -618,7 +618,7 @@ export function CreateWorkspaceDialog({
                       }}
                     />
                   </p>
-                </AdsButton>
+                </AuiButton>
               </div>
             </>
           ) : null}
