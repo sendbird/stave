@@ -44,6 +44,8 @@ export const SecondaryRunProviderInputSchema = z
     model: z.string().trim().min(1).max(200),
     prompt: z.string().min(1).max(100_000),
     cwd: z.string().trim().min(1).max(4096),
+    /** Restrict reasoning to the supplied context, with no file or MCP tools. */
+    toolsDisabled: z.literal(true).optional(),
     runtimeHints: SecondaryRunRuntimeHintsSchema.default({}),
   })
   .strict();
@@ -260,5 +262,6 @@ export function serializeSecondaryRunInput(value: SecondaryRunProviderInput) {
     prompt: input.prompt,
     cwd: input.cwd,
     runtimeHints: input.runtimeHints,
+    ...(input.toolsDisabled ? { toolsDisabled: true } : {}),
   });
 }

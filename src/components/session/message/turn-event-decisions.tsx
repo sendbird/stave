@@ -409,7 +409,7 @@ export function TraceClarification(args: {
         />
       ) : (
         <Clarification
-          busy={busy}
+          loading={busy}
           continueLabel={i18n.t("session:turnEventDecisions.continueLabel")}
           data-pending-interaction={open ? "true" : undefined}
           data-pending-interaction-request-id={

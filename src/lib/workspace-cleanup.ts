@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppState } from "@/store/app-store.types";
-import { normalizeComparablePath } from "@/lib/source-control-worktrees";
+import { findListedWorktree, normalizeComparablePath, type GitWorktreeEntry } from "@/lib/source-control-worktrees";
 import { isNotificationPendingAttention } from "@/lib/notifications/notification.types";
 
 export type CleanupState = Pick<AppState, "repositoryPath" | "workspaces" | "workspacePathById" | "workspaceDefaultById" | "activeWorkspaceId" | "activeTurnIdsByTask" | "taskWorkspaceIdById" | "notifications">;
@@ -21,8 +21,18 @@ export function parseWorkspaceDiskBytes(stdout: string): number | null {
   return Number.isSafeInteger(kb) && kb >= 0 && Number.isSafeInteger(kb * 1024) ? kb * 1024 : null;
 }
 
-export function worktreeListContainsPath(stdout: string, path: string): boolean {
-  return stdout.split("\0").some((field) => field === `worktree ${path}`);
+/**
+ * What happened to an archived workspace's checkout on disk. `listed` comes
+ * from `listRepositoryWorktrees` (registered path form, Git's form kept), so a
+ * worktree Git reports through a resolved symbolic link still counts as kept;
+ * null when Git could not list worktrees.
+ */
+export function cleanupWorktreeResultKey(args: { linked: boolean; listed: readonly GitWorktreeEntry[] | null; path: string }) {
+  if (args.linked) return "workspace:cleanupDialog.operations.results.externalKept" as const;
+  if (!args.listed) return "workspace:cleanupDialog.operations.results.unverified" as const;
+  return findListedWorktree(args.listed, args.path)
+    ? "workspace:cleanupDialog.operations.results.worktreeKept" as const
+    : "workspace:cleanupDialog.operations.results.worktreeRemoved" as const;
 }
 
 /** Recommendations never replace the live safety checks before cleanup. */

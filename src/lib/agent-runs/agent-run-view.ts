@@ -425,7 +425,13 @@ function describeTurnStart(args: {
   if (reason === "repair-checks") return i18n.t("agentRuns:agentRunView.describeTurnStart2", { value1: name });
   if (reason === "continue-after-user") return i18n.t("agentRuns:agentRunView.describeTurnStart3", { value1: name });
   if (reason === "reporting-restored") return i18n.t("agentRuns:agentRunView.describeTurnStart4", { value1: name });
-  if (reason === "resume-after-restart") return i18n.t("agentRuns:agentRunView.describeTurnStart5", { value1: name });
+  if (reason === "resume-after-restart") {
+    // The same continuation follows a turn a pause or takeover stopped.
+    const cut = args.events.slice(0, args.position).findLast((event) => event.kind === "turn-interrupted");
+    if (cut?.detail.reason === "taken-over") return i18n.t("agentRuns:agentRunView.describeTurnStartAfterTakeover", { value1: name });
+    if (cut?.detail.reason === "paused-by-user") return i18n.t("agentRuns:agentRunView.describeTurnStartAfterPause", { value1: name });
+    return i18n.t("agentRuns:agentRunView.describeTurnStart5", { value1: name });
+  }
   if (reason === "resume-after-account-switch") {
     for (let index = args.position - 1; index >= 0; index -= 1) {
       const change = toAgentRunAccountSwitch(args.events[index]!);

@@ -62,7 +62,7 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
           <p className={sx(styles.infoBody)}>{t("usage:usageQuota.latestObservedAccountLimitsIncludesUsage")}</p>
           <p className={sx(styles.infoBody)}>{t("usage:usageQuota.accountsAreListedSeparatelyWithThe")}</p>
         </UsageInfo></div>
-      <Button xstyle={styles.control} variant="outline" size="sm" disabled={!props.canRefresh || props.reading} onClick={props.onRefresh}>{props.reading ? t("usage:usageQuota.readingQuota") : t("usage:usageQuota.refreshQuota")}</Button>
+      <Button xstyle={styles.control} variant="outlined" size="sm" disabled={!props.canRefresh || props.reading} onClick={props.onRefresh}>{props.reading ? t("usage:usageQuota.readingQuota") : t("usage:usageQuota.refreshQuota")}</Button>
     </div>
     {feedbackText ? <p role="status" className={sx(styles.note)}>{feedbackText}</p> : null}
     {props.error ? <p role="alert" className={sx(styles.note)}>{props.error} {t("usage:usageQuota.savedObservationsBelowMayBeOlder")}</p> : null}
@@ -144,7 +144,7 @@ function QuotaMeter(props: { row: QuotaObservation; state: QuotaWindowState; lab
   const key = state.expired ? "usage:messages.quotaUsedExpired" : state.stale ? "usage:messages.quotaUsedStale" : "usage:messages.quotaUsed";
   const valueText = t(key, { percent: percent(row.usedPercent) });
   return <div className={sx(styles.meterFrame)} data-usage-quota-meter="">
-    <Meter label={props.label} hideLabel hideValue size="sm" tone={fillTone(row.usedPercent)}
+    <Meter label={props.label} showLabel={false} hideValue size="sm" tone={fillTone(row.usedPercent)}
       value={Math.max(0, Math.min(100, row.usedPercent))} getAriaValueText={() => valueText} />
     {state.elapsedRatio !== null ? <div aria-hidden="true" data-usage-quota-elapsed="" className={sx(styles.elapsedMarker)} style={{ insetInlineStart: `${state.elapsedRatio * 100}%` }} /> : null}
   </div>;

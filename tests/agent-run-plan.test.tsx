@@ -47,7 +47,8 @@ test("a run's plan draws on the design system's Plan: its count, its marks and t
   expect(live).toContain("1 / 3");
   expect(live).toContain("1 of 3 steps complete");
   expect(rows(live)).toEqual([
-    { current: false, text: "Inspect the contract, Done" },
+    // AUI F7: a plan step speaks the shared agent-state word ("Completed").
+    { current: false, text: "Inspect the contract, Completed" },
     { current: true, text: "Implement the fix, Running" },
     // The pending step's word is no longer blank.
     { current: false, text: "Open the pull request, Pending" },
@@ -66,7 +67,7 @@ test("the plan announces what moved after the first render, never the whole plan
   const before = new Map(flattenPlan(toPlanSteps(items, true)).map((step) => [step.id, step.status]));
   const next = items.map((item, index) => (index === 1 ? { ...item, status: "completed" as const } : index === 2 ? { ...item, status: "in_progress" as const } : item));
   const after = flattenPlan(toPlanSteps(next, true));
-  expect(describePlanDelta(before, after, 2, 3)).toBe("Implement the fix: done. Open the pull request: running. 2 of 3 complete.");
+  expect(describePlanDelta(before, after, 2, 3)).toBe("Implement the fix: completed. Open the pull request: running. 2 of 3 complete.");
   // Nothing moved: nothing is said.
   expect(describePlanDelta(before, flattenPlan(toPlanSteps(items, true)), 1, 3)).toBe("");
 });

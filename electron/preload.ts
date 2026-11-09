@@ -149,6 +149,12 @@ import type {
   AutomationUpsertInput,
 } from "../src/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
+import { TARS_IPC, CreateTarsResponsibilityInputSchema, TarsChangedEventSchema, TarsSnapshotSchema, UpdateTarsIdentityInputSchema,
+  type TarsBridgeApi, type TarsChangedEvent } from "../src/lib/tars/types";
+import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversationInputSchema, CancelTarsMessageInputSchema,
+  TarsMessageSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
+  TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
+import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
@@ -835,6 +841,32 @@ const wakeUpsApi: WakeUpsBridgeApi = {
     return () => {
       wakeUpChangedSubscribers.delete(listener);
     };
+  },
+};
+
+const tarsChangedSubscribers = new Set<(event: TarsChangedEvent) => void>();
+ipcRenderer.on(TARS_IPC.changed, (_event, payload: unknown) => {
+  const parsed = TarsChangedEventSchema.safeParse(payload);
+  if (!parsed.success) return;
+  for (const subscriber of tarsChangedSubscribers) subscriber(parsed.data);
+});
+
+const tarsApi: TarsBridgeApi = {
+  configureConversation: async (input) => TarsConversationSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureConversation, TarsConversationSettingsSchema.parse(input))),
+  sendMessage: async (input) => TarsMessageSchema.parse(await ipcRenderer.invoke(TARS_IPC.sendMessage, TarsMessageInputSchema.parse(input))),
+  getConversation: async (input = {}) => TarsConversationSchema.parse(await ipcRenderer.invoke(TARS_IPC.getConversation, GetTarsConversationInputSchema.parse(input))),
+  cancelMessage: async (input) => TarsMessageSchema.parse(await ipcRenderer.invoke(TARS_IPC.cancelMessage, CancelTarsMessageInputSchema.parse(input))),
+  get: async () => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.get)),
+  create: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.create, CreateTarsResponsibilityInputSchema.parse(input))),
+  act: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.act, TarsActInputSchema.parse(input))),
+  answer: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.answer, TarsAnswerInputSchema.parse(input))),
+  publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
+  previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
+  reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
+  updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
+  onChanged: (listener) => {
+    tarsChangedSubscribers.add(listener);
+    return () => { tarsChangedSubscribers.delete(listener); };
   },
 };
 
@@ -2309,6 +2341,7 @@ contextBridge.exposeInMainWorld("api", {
   },
   agentRuns: agentRunsApi,
   wakeUps: wakeUpsApi,
+  tars: tarsApi,
   agents: agentsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>

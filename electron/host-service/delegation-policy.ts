@@ -12,6 +12,7 @@ import { setTaskPermissionObserver } from "../providers/runtime";
 import { randomBytes } from "node:crypto";
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { resolveCallerGrant, setCallerGrantSecretSource, type CallerGrant } from "../providers/caller-grants";
+import { TARS_REVIEWER_AGENT_ID, tarsExecutionCheckoutOf, withTarsReviewerCheckCommands } from "./tars-check-commands";
 
 export function registerDelegationPolicyObserver() {
   setCallerGrantSecretSource(() =>
@@ -39,8 +40,11 @@ export function resolveHostDelegationPolicy(args: {
   access?: DelegationAccess;
   requestedProfile?: "inherit" | "auto" | "guided" | "manual";
   permissionCeiling?: import("../../src/lib/agents/schema").AgentPermission;
+  /** The saved agent the helper runs as, when the caller named one. */
+  agentConfigId?: string;
 }): DelegationPermissionPolicy {
-  const store = ensureHostServicePersistenceReady().delegationPolicies;
+  const persistence = ensureHostServicePersistenceReady();
+  const store = persistence.delegationPolicies;
   const parent = store.loadEffective(args.parentTaskId);
   // A delegated Agent's saved permission matters only when it is read only;
   // any other value is full access, so it no longer lowers the helper.
@@ -54,9 +58,13 @@ export function resolveHostDelegationPolicy(args: {
     settings: store.loadSettings()?.[args.providerId],
     recorded: store.loadTask(args.delegatedTaskId),
   }));
+  // A Tars run's read-only reviewer may run the repository's check commands (D6); nothing else changes.
+  const checked = withTarsReviewerCheckCommands(policy, { agentConfigId: args.agentConfigId,
+    checkout: args.agentConfigId === TARS_REVIEWER_AGENT_ID && policy.access === "read-only"
+      ? tarsExecutionCheckoutOf(args.parentTaskId, persistence.tars.snapshot().responsibilities, persistence.loadRepositoryRegistry()) : null });
   // The first admission pins this policy; later starts may only narrow it.
-  store.saveTask(args.delegatedTaskId, policy);
-  return policy;
+  store.saveTask(args.delegatedTaskId, checked);
+  return checked;
 }
 
 /**

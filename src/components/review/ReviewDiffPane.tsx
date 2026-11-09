@@ -130,7 +130,7 @@ export function ReviewDiffPane(props: {
           <FileChangeSummary path={file.path} kind={CHANGE_KIND[file.status]} directoryDepth={Infinity} {...(file.additions !== null ? { added: file.additions } : {})} {...(file.deletions !== null ? { removed: file.deletions } : {})} />
           {file.oldPath ? <span className={sx(styles.diffRenamed)} title={file.oldPath}>{i18n.t("review:diff.renamedFrom", { from: file.oldPath })}</span> : null}
         </div>
-        <Button size="xs" variant="outline" xstyle={styles.diffAction} disabled={content.state.status !== "ready"} onClick={() => void comment()}>
+        <Button size="xs" variant="outlined" xstyle={styles.diffAction} disabled={content.state.status !== "ready"} onClick={() => void comment()}>
           <MessageSquarePlus aria-hidden />
           {i18n.t("review:diff.comment")}
         </Button>

@@ -223,7 +223,7 @@ export function LensConsoleWorkbench(props: {
                     </span>
                     <Badge
                       tone={getConsoleLevelTone(entry.level)}
-                      variant="outline"
+                      variant="outlined"
                     >
                       {entry.level}
                     </Badge>

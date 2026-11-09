@@ -200,7 +200,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
                   : tI18n("issues:trackerIssueDetailPane.workspaceValue", { value1: link.workspaceId })}
               </span>
             </span>
-            <Badge variant="outline" tone={linkPresentation.tone}>
+            <Badge variant="outlined" tone={linkPresentation.tone}>
               {link.craneJobId ? tI18n("issues:trackerIssueDetailPane.reportedToCrane") : tI18n("issues:trackerIssueDetailPane.localOnly")}
             </Badge>
           </AuiButton>

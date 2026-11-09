@@ -4,11 +4,10 @@ import type { ComponentType, ReactNode } from "react";
 import type { Button as BaseButton } from "@base-ui/react/button";
 import { Button as AuiButton, type ButtonBaseProps } from "../aui/components/Button";
 import type { ButtonPress } from "../aui/components/Button.types";
-import { buttonVariantStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../aui/components/Button.config";
+import { buttonVariantStyles, buttonSizeGapStyles, buttonSizePadStyles, buttonHeightStyles, buttonSquareStyles } from "../aui/components/Button.config";
 import { styles } from "../aui/components/Button.styles";
 import { buttonToneVariantStyles } from "../aui/components/Button.tone-styles";
 import { vars } from "../aui/tokens/tokens.stylex";
-import { controlHeights, controlSquares } from "../aui/recipes/control-metrics";
 import { focusRing } from "../aui/recipes/focus-ring";
 import { transition } from "../aui/recipes/transition";
 import { sx, cx } from "../aui/utils/stylex";
@@ -19,8 +18,10 @@ const ForwardButton = AuiButton as ComponentType<ButtonBaseProps>;
 // elevation that every such control in this repository was otherwise
 // hand-rolling on top of `ghost`/`outline`. Exposed here so a host caller can
 // name the weight instead of re-deriving its paint.
-const variants = { default: "primary", outline: "outline", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link", floating: "floating" } as const;
-const sizes = { default: "md", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
+const variants = { default: "primary", outline: "outlined", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link", floating: "floating" } as const;
+// `2xs` is AUI's 24px in-surface secondary rung (Pause, Cancel, Log inside a
+// card or panel); decisions stay on `xs` and up.
+const sizes = { default: "md", "2xs": "2xs", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-2xs": "2xs", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
 type Options = {
   xstyle?: StyleXValue;
   /**
@@ -82,7 +83,7 @@ export function buttonVariants({ variant = "default", size = "default", iconOnly
   const weight = variants[variant ?? "default"];
   const scale = sizes[size ?? "default"];
   const square = iconOnly ?? size?.startsWith("icon");
-  return cx(sx(styles.root, transition.control, focusRing.ring, buttonVariantStyles[weight], variant === "destructive" && toneVariables.danger, variant === "destructive" && buttonToneVariantStyles[weight], square ? controlSquares[scale] : controlHeights[scale], square ? styles.iconPad : buttonSizePadStyles[scale], square ? styles.gapIcon : buttonSizeGapStyles[scale]), className);
+  return cx(sx(styles.root, transition.control, focusRing.ring, buttonVariantStyles[weight], variant === "destructive" && toneVariables.danger, variant === "destructive" && buttonToneVariantStyles[weight], square ? buttonSquareStyles[scale] : buttonHeightStyles[scale], square ? styles.iconPad : buttonSizePadStyles[scale], square ? styles.gapIcon : buttonSizeGapStyles[scale]), className);
 }
 
 /**
@@ -99,5 +100,5 @@ export function buttonVariants({ variant = "default", size = "default", iconOnly
 export function Button({ variant = "default", size = "default", iconOnly, className, ...props }: BaseButton.Props & Options) {
   const scale = sizes[size ?? "default"];
   const square = iconOnly ?? size?.startsWith("icon");
-  return <ForwardButton {...props} className={typeof className === "string" ? className : undefined} variant={variants[variant ?? "default"]} tone={variant === "destructive" ? "danger" : "default"} size={scale} iconOnly={Boolean(square)} data-slot="button" />;
+  return <ForwardButton {...props} className={typeof className === "string" ? className : undefined} variant={variants[variant ?? "default"]} tone={variant === "destructive" ? "danger" : "neutral"} size={scale} iconOnly={Boolean(square)} data-slot="button" />;
 }

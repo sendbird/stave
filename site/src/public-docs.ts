@@ -171,6 +171,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     title: "Agents and Runs",
     docs: [
       {
+        routePath: "tars",
+        sourcePath: "docs/features/tars.md",
+        title: "Tars",
+        description:
+          "Delegate responsibilities across workspaces, follow their reviewed results and recover supervision after restarting the desktop app.",
+      },
+      {
         routePath: "agents",
         sourcePath: "docs/features/agents.md",
         title: "Agents",

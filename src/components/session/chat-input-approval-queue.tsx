@@ -379,7 +379,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
               onClick={() => decide({ approved: false })}
               size="sm"
               tone="danger"
-              variant="outline"
+              variant="outlined"
             >
               {i18n.t("ui:approval.deny")}
             </AuiButton>

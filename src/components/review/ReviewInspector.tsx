@@ -119,7 +119,7 @@ function ReviewLensRecords(props: { taskId: string }) {
     <section className={sx(styles.section)} aria-label={i18n.t("review:lens.title")}>
       <h3 className={sx(styles.sectionTitle)}>{i18n.t("review:lens.title")}</h3>
       <AsyncBoundary state={records.state} onRetry={records.refresh} describeError={() => i18n.t("review:lens.readFailed")}
-        isEmpty={(list) => list.length === 0} empty={<p className={sx(styles.note)}>{i18n.t("review:lens.none")}</p>}>
+        isEmpty={(list) => list.length === 0} emptyState={<p className={sx(styles.note)}>{i18n.t("review:lens.none")}</p>}>
         {(list) => (
           <ul className={sx(styles.list)}>
             {list.map((record) => <ReviewLensRecord key={record.id} taskId={props.taskId} record={record} />)}

@@ -64,7 +64,7 @@ export function TurnRecordView(props: {
         onRetry={refresh}
         describeError={() => i18n.t("session:turnRecord.readFailed")}
         isEmpty={(record) => record === null}
-        empty={<p className={sx(styles.notice, styles.surface)}>{i18n.t("session:turnRecord.notFound")}</p>}
+        emptyState={<p className={sx(styles.notice, styles.surface)}>{i18n.t("session:turnRecord.notFound")}</p>}
       >
         {(record) => (record ? <TurnRecordBody record={record} taskId={taskId} view={props.view} /> : null)}
       </AsyncBoundary>

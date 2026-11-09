@@ -176,6 +176,12 @@ The ordinary interactive Claude and Codex paths keep their existing runtime
 options. Secondary restrictions are activated only by the internal execution
 policy.
 
+A secondary input may additionally set `toolsDisabled: true` for reasoning
+only over supplied context. Both adapters then disable their read tools as
+well as MCP, shell and agent tools. This restriction is part of the input hash:
+an execution cannot remove it after claim. It adds no execution authority and
+does not enable secrets, resumed sessions or interactive approvals.
+
 ## Compare Judge
 
 Compare Judge uses deterministic identities:

@@ -307,7 +307,7 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
             <span className={sx(taskLayoutStyles.boardCardTrailing)}>
               {linkPresentation ? (
                 <Badge
-                  variant="outline"
+                  variant="outlined"
                   tone={linkPresentation.tone}
                   dot={linkPresentation.live}
                 >

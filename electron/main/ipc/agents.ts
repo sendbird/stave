@@ -3,7 +3,9 @@ import { z } from "zod";
 import { AGENT_IPC, type AgentInvokeResult, type HostAgentAction } from "../../../src/lib/agents/api";
 import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { invokeHostService, onHostServiceEvent, onHostServiceReady } from "../host-service-client";
-import { getCustomAgents, getMyStandards, getRouteSettings, setCustomAgents, setMyStandards, setRouteSettings } from "../agents/agent-registry";
+import { areCustomAgentsSynced, setCustomAgents, setMyStandards, setRouteSettings } from "../agents/agent-registry";
+import { syncAgentsToHost } from "../agents/agent-host-sync";
+import { wakeTarsConversationService } from "../tars-conversation-instance";
 
 /**
  * Main-process bridge for agents. The host validates each request again;
@@ -14,6 +16,7 @@ const ListSchema = z
   .object({
     agentConfigId: z.string().trim().min(1).max(80).optional(),
     limit: z.number().int().min(1).max(500).optional(),
+    excludeTars: z.boolean().optional(),
   })
   .strict();
 
@@ -31,20 +34,14 @@ const SyncSchema = z
   .object({ customAgents: z.array(z.unknown()).max(200), myStandards: z.unknown().optional(), routeSettings: z.unknown().optional() })
   .strict();
 
-function syncHost() {
-  return invokeAgent("sync-agents", {
-    customAgents: getCustomAgents(),
-    myStandards: getMyStandards(),
-    routeSettings: getRouteSettings(),
-  });
-}
 
 export function registerAgentHandlers() {
   if (!bridgeRegistered) {
     bridgeRegistered = true;
-    // A respawned host starts with no custom agents; hand it the last copy.
+    // A respawned host starts with no custom agents; hand it the last copy, even
+    // an empty one, so the host knows the catalog instead of waiting for it.
     onHostServiceReady(() => {
-      if (getCustomAgents().length) void syncHost().catch(() => undefined);
+      if (areCustomAgentsSynced()) void syncAgentsToHost().then(wakeTarsConversationService).catch(() => undefined);
     });
     onHostServiceEvent("agent.changed", () => {
       for (const contents of webContents.getAllWebContents()) {
@@ -79,10 +76,13 @@ export function registerAgentHandlers() {
     setMyStandards(parsed.data.myStandards);
     setRouteSettings(parsed.data.routeSettings);
     try {
-      await syncHost();
+      await syncAgentsToHost();
     } catch (error) {
+      // Tars hands the copy over again when the host still lacks it.
       console.warn("[agents] could not hand custom agents to the host", error);
     }
+    // Tars work that waited for the saved agents can be judged now.
+    wakeTarsConversationService();
     return { ok: true };
   });
   ipcMain.handle(AGENT_IPC.listAssignments, async (_event, args: unknown) => {

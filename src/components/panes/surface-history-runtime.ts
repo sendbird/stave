@@ -145,6 +145,9 @@ function openAppSurface(surface: SurfaceHistoryAppSurface) {
     case "issues":
       state.openIssues();
       return;
+    case "tars":
+      state.openTars();
+      return;
     case "agents":
       state.openAgents();
       return;

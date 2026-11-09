@@ -68,6 +68,7 @@ import {
 } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
 import { isDefaultWorkspaceName } from "@/store/repository.utils";
+import { FleetTarsOwnerLabel } from "@/components/tars/fleet-tars-owner";
 import type { ChatMessage, Task } from "@/types/chat";
 
 const EMPTY_TASKS: Task[] = [];
@@ -649,6 +650,7 @@ export function FleetWorkspaceCard(args: {
                         {taskAgent.agentName}
                       </Badge>
                     ) : null}
+                    <FleetTarsOwnerLabel workspaceId={args.workspace.id} taskId={row.task.id} xstyle={styles.chip} />
                     {runLead ? null : (
                       <StateMark
                         state={state}

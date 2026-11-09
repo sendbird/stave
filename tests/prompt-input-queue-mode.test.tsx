@@ -84,6 +84,21 @@ const CLAUDE_MODEL_OPTION: ModelSelectorOption = {
 };
 
 describe("PromptInput queue mode", () => {
+  test("text-only composers hide Attach while existing task composers keep it", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"), import("@/components/ui"),
+    ]);
+    const render = (plainText?: boolean) => renderToStaticMarkup(createElement(TooltipProvider, null, createElement(PromptInput, {
+      minimal: true, value: "Follow up", selectedModel: MODEL_OPTION, modelOptions: [MODEL_OPTION], attachedFilePaths: [], plainText,
+      onValueChange() {}, onModelSelect() {}, onAttachFilesChange() {}, onOpenFileSelector() {}, onSubmit() {},
+    })));
+    expect(render()).toContain('aria-label="Attach files"');
+    expect(render()).toContain("Use / for commands");
+    expect(render(true)).not.toContain('aria-label="Attach files"');
+    expect(render(true)).not.toContain("Use / for commands");
+    expect(render(true)).toContain('type="submit"');
+  });
   test("does not render composer chrome over an empty draft", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([

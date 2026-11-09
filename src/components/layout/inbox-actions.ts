@@ -48,6 +48,11 @@ export async function openInboxEntry(
   if (!item) {
     return { status: "opened" };
   }
+  // A Tars decision is confirmed in Tars, and Tars work without a task lives there.
+  if (item.kind === "tars-decision" || (item.source === "tars" && !item.taskId)) {
+    state.openTars();
+    return { status: "opened" };
+  }
   if (item.taskId) {
     await state.focusTaskAttention({
       repositoryPath: item.repositoryPath,

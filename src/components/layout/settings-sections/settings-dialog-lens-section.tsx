@@ -175,7 +175,7 @@ export function LensSection() {
             {t("settings:lensSection.session.clearRepositoryData")}</Button>
           <Button
             type="button"
-            variant="outline"
+            variant="outlined"
             size="sm"
             disabled={!activeWorkspaceId || clearingScope !== null}
             onClick={() => {

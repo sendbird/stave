@@ -27,11 +27,14 @@ import { buildAgentRunTurnDividers, isOlderAgentRunDetail } from "@/lib/agent-ru
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/agent-runs/agent-run-status";
 import { registerAgentRunBridge } from "@/store/agent-run-send";
+import { reportTarsOwnedOutcome, routeTarsOwnedIntent } from "@/store/tars-owned-control";
+import { tarsTaskTarget } from "@/lib/tars/ownership";
 import { useAppStore } from "@/store/app.store";
 import { flushPendingSnapshotPersists, persistWorkspaceSnapshot } from "@/store/workspace-session-state";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import { resolveWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage } from "@/types/chat";
+import { isRecordedUserTurn } from "@/lib/tars/ownership";
 
 const NO_MESSAGES: ChatMessage[] = [];
 
@@ -249,6 +252,24 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
       if (!api) {
         return { ok: false, agentRun: null, code: "failed", message: i18n.t("agentRuns:agentRunsStore.message3") };
       }
+      // Every surface's Resume and Take over reach a run here. A run an active
+      // Tars responsibility holds goes through Tars instead, so Tars's record
+      // and the run never disagree about who holds it (Stop does the same in
+      // `agent-run-send.ts`). Extend stays the run's own: it grants turns, not authority.
+      if (command === "resume" || command === "takeOver") {
+        const detail = get().details[agentRunId];
+        if (detail) {
+          const outcome = await routeTarsOwnedIntent({
+            target: tarsTaskTarget(detail.agentRun.leadTaskId, detail.agentRun.workspaceId, detail),
+            intent: command === "resume" ? "resume" : "takeover",
+            source: "task",
+          });
+          if (reportTarsOwnedOutcome(outcome)) {
+            if (outcome.kind === "applied") void get().refreshAgentRun(agentRunId);
+            return { ok: outcome.kind === "applied", agentRun: null, code: outcome.kind === "applied" ? undefined : "failed" };
+          }
+        }
+      }
       set((state) => ({
         pendingByAgentRun: { ...state.pendingByAgentRun, [agentRunId]: command },
         failureByAgentRun: { ...state.failureByAgentRun, [agentRunId]: undefined },
@@ -298,11 +319,12 @@ registerAgentRunBridge({
     const id = state.agentRunIdByTask[agentRunTaskKey(workspaceId, taskId)];
     const agentRun = id ? state.details[id]?.agentRun : undefined;
     return agentRun && isActiveAgentRunState(agentRun.state) ? {
-      id: agentRun.id, agentOrigin: hasAgentOrigin(agentRun),
+      id: agentRun.id, agentOrigin: hasAgentOrigin(agentRun), workflowId: agentRun.workflow.id,
       providerId: hasAgentOrigin(agentRun) && (agentRun.state === "running" || agentRun.pauseReason === "wait-expired")
         ? agentRun.fingerprint.providerId : undefined,
     } : null;
   },
+  isUserTurn: (agentRunId, turnId) => isRecordedUserTurn(useAgentRunsStore.getState().details[agentRunId]?.events, turnId),
   ensureWorkspaceLoaded: async (workspaceId) => {
     const store = useAgentRunsStore.getState();
     if (store.loadedWorkspaceId === workspaceId) return;

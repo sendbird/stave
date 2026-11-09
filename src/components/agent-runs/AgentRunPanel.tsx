@@ -176,16 +176,16 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
               <Tooltip>
                 <DropdownMenu
                   placement="bottom-end"
-                  triggerAsChild
-                  trigger={
-                    <TooltipTrigger
-                      render={
-                        <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")}>
-                          <Ellipsis aria-hidden />
-                        </Button>
-                      }
-                    />
-                  }
+                  trigger={<Ellipsis aria-hidden />}
+                  triggerProps={{
+                    render: (
+                      <TooltipTrigger
+                        render={
+                          <Button variant="quiet" size="sm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")} />
+                        }
+                      />
+                    ),
+                  }}
                   groups={[
                     {
                       items: [

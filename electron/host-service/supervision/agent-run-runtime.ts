@@ -96,6 +96,7 @@ import {
   resumeAgentRun,
   extendAgentRun,
   retryStage,
+  restartStageAndResume,
   signOffStage,
   skipStage,
 } from "../../../src/lib/agent-runs/commands";
@@ -411,7 +412,7 @@ export interface AgentRunRuntime {
    * or replaced. True when a run ended. A legacy run is left alone.
    */
   endAgentRunForTask: (args: { taskId: string; delegatedOnly?: boolean }) => Promise<boolean>;
-  startAgentRun: (input: AgentRunStartInput) => Promise<AgentRunDetail>;
+  startAgentRun: (input: AgentRunStartInput, guard?: () => void) => Promise<AgentRunDetail>;
   prepareDelegatedAgentRun: (args: { agentRunId: string; model: string; input: AgentRunStartInput; authority: DelegatedAgentRunAuthority; resourceLink?: ResourceLink }) => Promise<AgentRunDetail>;
   isDelegatedExecutionCurrent: (agentRunId: string, taskId: string, authority: DelegatedAgentRunAuthority) => boolean;
   activateDelegatedAgentRun: (args: { agentRunId: string; executionId: string }) => Promise<AgentRunDetail>;
@@ -427,13 +428,15 @@ export interface AgentRunRuntime {
   reply: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
   skipStage: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
   retryStage: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
-  pause: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
-  resume: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
+  pause: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
+  resume: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   extend: (args: AgentRunExtendArgs) => Promise<AgentRunDetail>;
-  takeOver: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
+  takeOver: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
+  /** Hands a taken-over run back: a fresh attempt of its started current stage, then resume, in one transition. */
+  restartStageAndResume: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   acceptRuntime: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   noteUserTurn: (args: AgentRunNoteUserTurnArgs) => Promise<AgentRunDetail>;
-  cancel: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
+  cancel: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   /** Adds the ended agent run's report to its pull request body. */
   addReportToPullRequest: (args: AgentRunIdArgs) => Promise<{ prUrl: string }>;
   /** Posts the ended agent run's report to a Slack thread through a turn on its lead task. */
@@ -898,6 +901,31 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
   }
 
+  /**
+   * A pause the user chose, or a takeover, may stop the run's own turn: Tars's
+   * controls do, after holding the run. That stop interrupted the turn; it did
+   * not end the run (`agentRunEndCause`). Any such hold while the turn ran
+   * counts: the abort does not wait for the turn, so a resume may land before
+   * it ends. Recorded like a restart's interruption, with the hold's reason,
+   * so the stage later resumes without its reminder.
+   */
+  function recordPauseInterruption(agentRun: AgentRun, row: AgentRunTurnRow, interrupted: Set<string>) {
+    if (!row.completedAt || turnEnding(row.id) !== "stopped") return;
+    const [startedAt, endedAt] = [Date.parse(row.createdAt), Date.parse(row.completedAt)];
+    const held = store.listEventsByKind(agentRun.id, ["paused"]).filter((event) =>
+      (event.detail.reason === "paused-by-user" || event.detail.reason === "taken-over") &&
+      Date.parse(event.createdAt) >= startedAt && Date.parse(event.createdAt) <= endedAt).at(-1);
+    if (!held) return;
+    const linked = store.listEventsByKind(agentRun.id, ["turn-linked"]).find((event) => event.detail.turnId === row.id);
+    if (!linked?.idempotencyKey) return;
+    recordEvent(agentRun, {
+      kind: "turn-interrupted",
+      idempotencyKey: buildAgentRunTurnOutcomeKey(linked.idempotencyKey.replace(/:linked$/, ""), "interrupted"),
+      detail: { stageId: linked.detail.stageId, attempt: linked.detail.attempt, turnId: row.id, reason: held.detail.reason },
+    });
+    interrupted.add(row.id);
+  }
+
   async function observe(aggregate: AgentRunAggregate, signal: AbortSignal): Promise<{
     observation: AgentRunObservation;
     turns: AgentRunTurnRow[];
@@ -960,6 +988,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         : turns.find(
             (row) => row.completedAt && Date.parse(row.createdAt) >= attemptStartedAt,
           );
+    if (endedRow && ours.has(endedRow.id) && !interrupted.has(endedRow.id)) recordPauseInterruption(agentRun, endedRow, interrupted);
     const stop = endedRow ? readUsageLimitStop(endedRow) : null;
     const usageLimited = stop && endedRow ? { ...stop, ...usageLimitedTurnRuntime({ aggregate,
       events: store.listEventsByKind(agentRun.id, ["turn-started", "turn-linked"]), turnId: endedRow.id,
@@ -2241,8 +2270,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(agentRunId);
       }),
-    startAgentRun: (rawInput) =>
+    startAgentRun: (rawInput, guard) =>
       enqueue(async () => {
+        guard?.();
         const input = AgentRunStartInputSchema.parse(rawInput);
         // Binding reads only the workspace's script configuration; no git snapshot here.
         const check = admitWorkspaceCheck({ workflow: input.workflow,
@@ -2291,6 +2321,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, routingIntent: input.routingIntent } }));
         const policy = freezeTeamLimits(change.agentRun, input);
         if (policy) change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
+        guard?.();
         const created = store.create(change, now());
         if (!created.ok) refuse(created.message);
         emit(change.agentRun);
@@ -2423,22 +2454,38 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       command(args.agentRunId, (aggregate) =>
         retryStage({ aggregate, expected: stageIdentity(args), now: now() }),
       ),
-    pause: ({ agentRunId }) => {
+    pause: ({ agentRunId }, guard) => {
+      guard?.(requireAggregate(agentRunId).agentRun);
       const releaseInterruption = interruptRun(agentRunId);
-      return command(agentRunId, (aggregate) => pauseAgentRun({ aggregate, reason: "paused-by-user", now: now() })).finally(releaseInterruption);
+      return command(agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return pauseAgentRun({ aggregate, reason: "paused-by-user", now: now() });
+      }).finally(releaseInterruption);
     },
-    resume: ({ agentRunId }) =>
+    resume: ({ agentRunId }, guard) =>
       command(agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
         if (delegatedAuthority(aggregate.agentRun) && !delegatedRunActivated(aggregate.agentRun))
           refuse("Delegation admission did not finish. Stop or retry it from the parent task.");
         return resumeAgentRun({ aggregate, now: now() });
       }),
     extend: ({ agentRunId, additionalTurns }) =>
       command(agentRunId, (aggregate) => extendAgentRun({ aggregate, additionalTurns, now: now() })),
-    takeOver: ({ agentRunId }) => {
+    takeOver: ({ agentRunId }, guard) => {
+      guard?.(requireAggregate(agentRunId).agentRun);
       const releaseInterruption = interruptRun(agentRunId);
-      return command(agentRunId, (aggregate) => pauseAgentRun({ aggregate, reason: "taken-over", now: now() })).finally(releaseInterruption);
+      return command(agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return pauseAgentRun({ aggregate, reason: "taken-over", now: now() });
+      }).finally(releaseInterruption);
     },
+    restartStageAndResume: ({ agentRunId }, guard) =>
+      command(agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        if (delegatedAuthority(aggregate.agentRun) && !delegatedRunActivated(aggregate.agentRun))
+          refuse("Delegation admission did not finish. Stop or retry it from the parent task.");
+        return restartStageAndResume({ aggregate, now: now() });
+      }),
     acceptRuntime: ({ agentRunId }) =>
       command(agentRunId, async (aggregate) => {
         if (delegatedAuthority(aggregate.agentRun)) refuse("This delegated run keeps its admitted provider and model. Retry explicitly to change them.");
@@ -2471,9 +2518,13 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return { agentRun: aggregate.agentRun, upserts: [], events: [] };
       }).finally(releaseInterruption);
     },
-    cancel: ({ agentRunId }) => {
+    cancel: ({ agentRunId }, guard) => {
+      guard?.(requireAggregate(agentRunId).agentRun);
       const releaseInterruption = interruptRun(agentRunId);
-      return command(agentRunId, (aggregate) => cancelAgentRun({ aggregate, now: now() })).finally(releaseInterruption);
+      return command(agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return cancelAgentRun({ aggregate, now: now() });
+      }).finally(releaseInterruption);
     },
     getForGrant: ({ agentRunKey }) =>
       enqueue(() => {

@@ -128,7 +128,7 @@ function ContextMenuItem({
       data-slot="context-menu-item"
       data-inset={inset}
       data-variant={variant}
-      tone={variant === "destructive" ? "danger" : "default"}
+      tone={variant === "destructive" ? "danger" : "neutral"}
       className={className}
       onClick={(event) => {
         onClick?.(event);

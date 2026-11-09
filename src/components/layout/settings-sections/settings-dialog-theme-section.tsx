@@ -99,7 +99,7 @@ export function ThemeSection() {
         <div className={sx(styles.appearanceGridButtons)}>
           <Button
             xstyle={styles.modeButton}
-            variant={themeMode === "light" ? "primary" : "outline"}
+            variant={themeMode === "light" ? "primary" : "outlined"}
             onClick={() =>
               updateSettings({
                 patch: { themeMode: "light", customThemeId: null },
@@ -110,7 +110,7 @@ export function ThemeSection() {
             {t("settings:themeSection.appearance.light")}</Button>
           <Button
             xstyle={styles.modeButton}
-            variant={themeMode === "dark" ? "primary" : "outline"}
+            variant={themeMode === "dark" ? "primary" : "outlined"}
             onClick={() =>
               updateSettings({
                 patch: { themeMode: "dark", customThemeId: null },
@@ -121,7 +121,7 @@ export function ThemeSection() {
             {t("settings:themeSection.appearance.dark")}</Button>
           <Button
             xstyle={styles.modeButton}
-            variant={themeMode === "system" ? "primary" : "outline"}
+            variant={themeMode === "system" ? "primary" : "outlined"}
             onClick={() =>
               updateSettings({
                 patch: { themeMode: "system", customThemeId: null },
@@ -229,20 +229,20 @@ export function ThemeSection() {
             <div className={sx(styles.rowCenter)}>
               <Button
                 size="sm"
-                variant={themeEditorMode === "light" ? "primary" : "outline"}
+                variant={themeEditorMode === "light" ? "primary" : "outlined"}
                 onClick={() => setThemeEditorMode("light")}
               >
                 {t("settings:themeSection.designTokens.lightTokens")}</Button>
               <Button
                 size="sm"
-                variant={themeEditorMode === "dark" ? "primary" : "outline"}
+                variant={themeEditorMode === "dark" ? "primary" : "outlined"}
                 onClick={() => setThemeEditorMode("dark")}
               >
                 {t("settings:themeSection.designTokens.darkTokens")}</Button>
             </div>
             <Button
               size="sm"
-              variant="outline"
+              variant="outlined"
               onClick={() => {
                 const themeOverrides =
                   useAppStore.getState().settings.themeOverrides;
@@ -436,7 +436,7 @@ function ThemeImportButton(args: {
         uploads={rejected ? [{ id: "rejected", file: rejected.file, status: "failed", error: rejected.reason }] : NO_UPLOADS}
         removeLabel={(name) => t("settings:themeSection.importTheme.dismiss", { name })}
         onRemove={() => setRejected(null)}
-        onChange={(files) => void importFile(files[0])}
+        onValueChange={(files) => void importFile(files[0])}
         data-theme-import=""
       />
       <p className={sx(styles.importHelp)}><Trans t={t} i18nKey="settings:whole.themeImport" components={{ file: <code className={sx(styles.code)} />, id: <code className={sx(styles.code)} />, name: <code className={sx(styles.code)} />, mode: <code className={sx(styles.code)} />, tokens: <code className={sx(styles.code)} /> }} /></p>

@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { ThemeProvider } from "../aui/components/ThemeProvider";
 import { AtelierMotionProvider } from "../aui/motion";
-import { auiDarkHighContrastVariables, auiThemeVariables } from "./aui-theme";
+import { auiDarkHighContrastVariables, auiLightHighContrastVariables, auiThemeVariables } from "./aui-theme";
 
 /*
  * The document carries the appearance the store applied: `.dark`, the active
@@ -29,7 +29,7 @@ export function StaveDesignProvider({ children }: { children: ReactNode }) {
   // Light high contrast is AUI's own high-contrast theme; dark high contrast
   // stays on AUI dark with Stave's emphasis layer (see `aui-theme.ts`).
   const auiTheme = dark ? "dark" : highContrast ? "high-contrast" : "light";
-  const variables = dark && highContrast ? auiDarkHighContrastVariables : auiThemeVariables;
+  const variables = !highContrast ? auiThemeVariables : dark ? auiDarkHighContrastVariables : auiLightHighContrastVariables;
   // Re-applied on every resolved-mode, contrast or density change, and
   // deliberately depending on them. The AUI `ThemeProvider` below writes its theme's variables as
   // INLINE custom properties on `<html>` (so portaled menus/dialogs resolve

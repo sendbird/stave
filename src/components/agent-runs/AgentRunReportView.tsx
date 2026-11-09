@@ -272,7 +272,6 @@ export function AgentRunReportView({
         {actions.saveDecisions || actions.shareToSlack ? (
           <DropdownMenu
             placement="bottom-start"
-            triggerAsChild
             trigger={
               <Button size="xs" variant="quiet" aria-label={i18n.t("agentRuns:agentRunReportView.ariaLabel3")} disabled={running !== null}>
                 <Ellipsis aria-hidden />

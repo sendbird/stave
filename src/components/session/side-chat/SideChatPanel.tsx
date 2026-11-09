@@ -179,7 +179,7 @@ function SideChatEmpty(props: { taskId: string }) {
           return (
             <AuiButton
               key={key}
-              variant="outline"
+              variant="outlined"
               size="sm"
               xstyle={styles.suggestion}
               data-testid="side-chat-suggestion"
@@ -249,7 +249,7 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
             exchange.reason === "error" ? (
               <AuiButton
                 size="sm"
-                variant="outline"
+                variant="outlined"
                 onClick={() => void useSideChatStore.getState().retry(taskId, exchange.id)}
               >
                 {i18n.t("common:actions.retry")}

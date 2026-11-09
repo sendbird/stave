@@ -74,7 +74,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
       </span>
       {!props.compact && identity.effortLabel ? (
         <Badge
-          variant="outline"
+          variant="outlined"
           tone="neutral"
           xstyle={styles.identityChip}
         >

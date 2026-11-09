@@ -143,7 +143,7 @@ export function SkillsSection() {
           </div>
           <Button
             size="sm"
-            variant="outline"
+            variant="outlined"
             onClick={() => void refreshSkillCatalog({ workspacePath })}
           >
             {t("common:actions.refresh")}</Button>

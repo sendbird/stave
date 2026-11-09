@@ -7,6 +7,7 @@ import { Plan } from "@/components/aui/components/Plan";
 import { sx } from "@/components/aui/utils/stylex";
 import { toPlanSteps } from "@/components/agent-runs/AgentRunPlan";
 import type { StagePlan } from "@/lib/agent-runs/domain";
+import { TranscriptEntranceScope } from "../transcript-entrance-scope";
 
 /**
  * The plan in the shelf's open details, on the design system's `Plan`. The
@@ -26,25 +27,28 @@ export function ShelfPlan({ items, live }: { items: StagePlan["items"]; live: bo
   const shown = foldable && !showDone ? steps.filter((step) => step.status !== "done") : steps;
   return (
     <div className={sx(styles.root)} data-testid="shelf-plan">
-      <Plan
-        steps={shown}
-        title={i18n.t("ui:plan.plan")}
-        count={false}
-        announce={false}
-        actions={foldable ? (
-          <Button
-            variant="quiet"
-            size="xs"
-            aria-expanded={showDone}
-            onClick={() => setShowDone(!showDone)}
-            xstyle={styles.toggle}
-          >
-            {showDone
-              ? i18n.t("composer:shelfPlan.hideDone")
-              : i18n.t("composer:shelfPlan.showDone", { count: done })}
-          </Button>
-        ) : null}
-      />
+      {/* Remounts on task switches and re-lists steps on the done toggle. */}
+      <TranscriptEntranceScope>
+        <Plan
+          steps={shown}
+          title={i18n.t("ui:plan.plan")}
+          count={false}
+          announce={false}
+          actions={foldable ? (
+            <Button
+              variant="quiet"
+              size="xs"
+              aria-expanded={showDone}
+              onClick={() => setShowDone(!showDone)}
+              xstyle={styles.toggle}
+            >
+              {showDone
+                ? i18n.t("composer:shelfPlan.hideDone")
+                : i18n.t("composer:shelfPlan.showDone", { count: done })}
+            </Button>
+          ) : null}
+        />
+      </TranscriptEntranceScope>
     </div>
   );
 }

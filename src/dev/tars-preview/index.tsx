@@ -1,0 +1,283 @@
+import { useLayoutEffect, useState } from "react";
+import { applyAppLocale } from "@/i18n";
+import { TarsView } from "@/components/tars/TarsView";
+import type { TarsBridgeApi, TarsSnapshot } from "@/lib/tars/types";
+import { useAppStore } from "@/store/app.store";
+import { applyThemeClass } from "@/lib/themes/apply";
+import type { TarsActInput, TarsAnswerResult, TarsConversation, TarsDecision, TarsDecisionAnswer, TarsReprioritizeInput } from "@/lib/tars/conversation";
+import { planTarsQueueMove, tarsQueueOf } from "@/lib/tars/queue-order";
+import { parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
+import { collectFleetTarsAttentionItems, type FleetAttentionItem, type FleetAttentionKind } from "@/lib/fleet/attention-projection";
+import { collectTarsAttention } from "@/lib/tars/attention";
+import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { useFleetFocusStore } from "@/store/fleet-focus-store";
+import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
+import { buildTarsTrayFixtures } from "./tars-fixtures";
+import { TARS_LAST_VISIBLE_KEY } from "@/components/tars/use-tars-away";
+import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
+import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
+import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
+
+/** UI-only fixture: session storage simulates reload, never real provider or host execution. */
+export function TarsPreview() {
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    applyAppLocale(params.get("lang") === "ko" ? "ko" : "en");
+    applyThemeClass({ enabled: params.get("theme") === "dark" });
+    document.documentElement.dataset.uiDensity = params.get("density") === "compact" ? "compact" : "regular";
+    const now = "2026-11-05T00:00:00.000Z";
+    // `tray=true`: work in every tray lane, Fleet rows and agent runs for it, and a delegated flow in the conversation.
+    const fixtures = params.get("tray") === "true" ? buildTarsTrayFixtures(new Date(now)) : null;
+    // The run monitor's clock is live: the running stage started a few minutes before this page opened, not on the fixed fixture day.
+    if (fixtures) for (const run of Object.values(fixtures.runs)) for (const stage of run.stages) {
+      if (stage.status === "running" && !stage.endedAt) stage.startedAt = new Date(Date.now() - 4 * 60_000).toISOString();
+    }
+    // `recap=true`: the view was last visible an hour before the fixtures changed, and one more piece of work ended unfinished.
+    if (fixtures && params.get("recap") === "true") {
+      window.localStorage.setItem(TARS_LAST_VISIBLE_KEY, new Date(Date.parse(now) - 60 * 60_000).toISOString());
+      fixtures.responsibilities.push({ ...fixtures.responsibilities[3]!, id: "export-queue", requestId: "request-export-queue", title: "Migrate the export queue to the new worker",
+        state: "cancelled", detail: "The worker image was not available.", taskId: null, agentRunId: null, executionWorkspaceId: null });
+    }
+    // `queued=true`: one more piece of work waits for the single active slot, so its card says what it waits behind.
+    if (fixtures && params.get("queued") === "true") fixtures.responsibilities.push({ ...fixtures.responsibilities[1]!, id: "search-index", requestId: "request-search-index",
+      title: "Speed up the search index rebuild", state: "queued", priority: 40, branchName: undefined, taskId: null, agentRunId: null, executionWorkspaceId: null });
+    // `queue=true`: three more pieces of work wait in the queue, so Do first, Do later and dragging have something to reorder.
+    if (fixtures && params.get("queue") === "true") {
+      const queued = (id: string, title: string, priority: number, minutes: number) => ({ ...fixtures.responsibilities[1]!, id, requestId: `request-${id}`, title,
+        state: "queued" as const, priority, branchName: undefined, agentId: null, taskId: null, agentRunId: null, executionWorkspaceId: null,
+        createdAt: new Date(Date.parse(now) + minutes * 60_000).toISOString(), updatedAt: new Date(Date.parse(now) + minutes * 60_000).toISOString() });
+      fixtures.responsibilities.push(queued("queue-auth", "Rotate the staging auth keys", 60, 2), queued("queue-search", "Add retries to the webhook sender", 50, 3),
+        queued("queue-docs", "Refresh the API reference examples with the new pagination parameters", 50, 4));
+    }
+    // `workingChanges=true`: the running fix started from the user's working changes; queued work asked for them but there were none.
+    if (fixtures && params.get("workingChanges") === "true") for (const row of fixtures.responsibilities) {
+      if (row.id === "billing") row.workingChanges = { kind: "snapshot", commit: "3fa9c1d2e4b5a6978877665544332211aabbccdd", ref: "refs/stave/tars/message-delegate/0f1e2d3c4b5a6978" };
+      if (row.id === "search-index") row.workingChanges = { kind: "clean" };
+    }
+    // `outputs=true`: ended work with a frozen report, a review, changes and a link, plus work blocked on unmet criteria (the side view).
+    // `publish=true|failed` builds on the same ended work: the completed checkout work is what Tars publishes.
+    const publishMode = params.get("publish");
+    const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" ? buildTarsSideViewFixtures(new Date(now)) : null;
+    // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
+    const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
+    let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem("stave-preview-identity") ?? "null") ?? {
+      runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: now }, pendingDecisions: fixtures?.pendingDecisions ?? [],
+      followUps: followUp?.followUps ?? [],
+      responsibilities: followUp?.responsibilities ?? side?.responsibilities ?? fixtures?.responsibilities ?? [{ id: "preview-responsibility", requestId: "preview-request", title: "Verify the release candidate across two repositories", instruction: "Inspect the actual result.", acceptanceCriteria: ["The required checks pass on the reviewed revision."], repositoryPath: "/tmp/preview", workspaceId: "preview-workspace", executionWorkspaceId: null, providerId: "codex", model: null, agentId: null, priority: 50, maxTurns: 30, revision: 1, state: "running", detail: "Waiting for the independent review result.", taskId: null, agentRunId: null, reverifyAfter: null, createdAt: now, updatedAt: now }],
+    };
+    // `decision=unverified`: the run reported success Stave could not verify, so Stave's own decision waits.
+    if (params.get("decision") === "unverified" && !sessionStorage.getItem("stave-preview-identity")) {
+      snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.id !== "preview-responsibility" ? row
+        : { ...row, state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", taskId: "preview-task" }),
+      pendingDecisions: [...(snapshot.pendingDecisions ?? []), { kind: "unverifiedCompletion", responsibilityId: "preview-responsibility", messageId: null,
+        actionIndex: null, operation: null, expectedRevision: 1, proposedAt: now, optionCount: 3 }] };
+    }
+    let sendFailed = false;
+    const conversationKey = "stave-preview-conversation";
+    const conversation: TarsConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (followUp
+      ? { settings: null, messages: [followUp.message], receipts: [], activity: [], records: [], events: followUp.events }
+      : side
+      ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
+      : fixtures ? { settings: null, messages: [fixtures.message], receipts: [fixtures.receipt], activity: fixtures.activity, records: [] }
+        : { settings: null, messages: [], receipts: [], activity: [], records: [] });
+    // Fleet's projection is not mounted here: publish its rows as the producer would. Tars rows come from the snapshot
+    // through Fleet's own projection, so the tray's "needs you" follows every decision kind; other fixture rows are copied.
+    const publishAttention = () => useFleetAttentionStore.setState({ snapshot: { ...EMPTY_FLEET_ATTENTION, queueStatus: "next",
+      items: [...(fixtures?.attentionItems ?? []).filter((item) => !item.kind.startsWith("tars-")).map((item): FleetAttentionItem => ({
+        id: item.id, kind: item.kind as string as FleetAttentionKind, priority: 0, repositoryPath: "/tmp/preview", repositoryName: "preview",
+        workspaceId: "exec-release", workspaceName: "Release check", taskId: item.taskId, createdAt: now, source: "live" })),
+      ...collectFleetTarsAttentionItems(collectTarsAttention(snapshot))] } });
+    publishAttention();
+    if (fixtures || side) {
+      useFleetAgentRunsStore.setState({ details: { ...fixtures?.runs, ...side?.runs }, loaded: true });
+    }
+    conversation.answers ??= [];
+    conversation.publications ??= [];
+    if (side && (publishMode === "true" || publishMode === "failed") && !conversation.messages.some((message) => message.id === "message-publish")) {
+      const checkout = snapshot.responsibilities.find((row) => row.id === side.ids.checkout)!;
+      const fixture = buildTarsPublishFixtures(new Date(now), { responsibilityId: checkout.id, revision: checkout.revision, korean: params.get("lang") === "ko" });
+      conversation.messages.push(fixture.message);
+      conversation.receipts.push(fixture.receipt);
+      conversation.settings ??= { providerId: "codex", model: "gpt-5.5", maxTurns: 30 };
+    }
+    if (params.get("decision") === "unverified" && !conversation.activity.some((event) => event.detailCode === "unverifiedCompletion")) conversation.activity.push(
+      { id: "activity-unverified", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate across two repositories",
+        state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", createdAt: now });
+    const saveConversation = () => sessionStorage.setItem(conversationKey, JSON.stringify(conversation));
+    // Live progress stays out of the transcript; only the block that needs the user reads as a notice.
+    if (params.get("activity") === "true" && !conversation.activity.length) conversation.activity.push(
+      { id: "activity-initial", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate", state: "running", detail: null, createdAt: now },
+      { id: "activity-blocked", responsibilityId: "preview-responsibility", revision: 2, title: "Verify the release candidate", state: "blocked", detail: "Waiting for independent review.", createdAt: now });
+    let reads = 0;
+    async function act({ requestId, responsibilityId, expectedRevision, operation, source }: TarsActInput) {
+      const existing = conversation.records.find((record) => record.requestId === requestId);
+      if (existing) return { record: structuredClone(existing), snapshot: structuredClone(snapshot) };
+      const row = snapshot.responsibilities.find((candidate) => candidate.id === responsibilityId);
+      const takenOver = row?.state === "takenOver";
+      const reason = !row ? "notOwned" as const : row.revision !== expectedRevision ? "stale" as const
+        : operation === "handBack" && !takenOver ? "notTakenOver" as const : operation === "takeover" && takenOver ? "alreadyTakenOver" as const
+          : (operation === "pause" || operation === "resume") && takenOver ? "takenOver" as const : null;
+      const error = reason ? "Preview control is not admissible." : null;
+      const state = operation === "pause" ? "paused" : operation === "cancel" ? "cancelled" : operation === "takeover" ? "takenOver"
+        : operation === "acceptCompletion" ? "completed" : "queued";
+      if (!error) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => candidate.id !== responsibilityId ? candidate
+        : { ...candidate, revision: expectedRevision + 1, state, reverifyAfter: operation === "handBack" ? now : candidate.reverifyAfter }),
+        // A control moves the revision past any proposal waiting on it, so Fleet's decision row ends with it.
+        pendingDecisions: (snapshot.pendingDecisions ?? []).filter((decision) => decision.responsibilityId !== responsibilityId) };
+      if (!error) publishAttention();
+      const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+      const record = { requestId, source, requestHash: "b".repeat(64), action: { kind: "control" as const, responsibilityId, expectedRevision, operation },
+        status: error ? "rejected" as const : "applied" as const, error, reason, revision: 2, createdAt, updatedAt: createdAt };
+      conversation.records.push(record);
+      // A confirming click settles the proposal it confirms, as the host does in one transaction.
+      const proposal = conversation.receipts.find((receipt) => `confirm:${receipt.messageId}:${receipt.actionIndex}` === requestId);
+      if (proposal?.status === "proposed") Object.assign(proposal, error ? { status: "rejected", error, reason } : { status: "applied", responsibilityId }, { revision: proposal.revision + 1 });
+      saveConversation();
+      return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
+    }
+    const publishing = side ? createPreviewPublishBridge({ getSnapshot: () => snapshot, conversation, runs: side.runs, failOnce: publishMode === "failed", save: () => saveConversation(),
+      setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(snapshot)); } }) : null;
+    /** The host's queue move, against the preview snapshot: same order rules, same record line. */
+    async function reprioritize({ requestId, responsibilityId, expectedRevision, move, source }: TarsReprioritizeInput) {
+      const existing = conversation.records.find((record) => record.requestId === requestId);
+      if (existing) return { record: structuredClone(existing), snapshot: structuredClone(snapshot) };
+      const row = snapshot.responsibilities.find((candidate) => candidate.id === responsibilityId);
+      const plan = row && row.revision === expectedRevision && row.state === "queued" ? planTarsQueueMove(tarsQueueOf(snapshot.responsibilities), responsibilityId, move) : null;
+      const reason = !row ? "notOwned" as const : row.revision !== expectedRevision ? "stale" as const : row.state !== "queued" ? "notQueued" as const
+        : !plan?.ok ? (plan?.reason === "queueEdge" ? "queueEdge" as const : "stale" as const) : null;
+      const changes = plan?.ok ? new Map(plan.changes.map((change) => [change.id, change.priority])) : new Map<string, number>();
+      if (!reason) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => changes.has(candidate.id)
+        ? { ...candidate, priority: changes.get(candidate.id)!, revision: candidate.revision + 1 } : candidate)
+        .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)) };
+      const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+      const record = { requestId, source, requestHash: "d".repeat(64), action: { kind: "move" as const, responsibilityId, expectedRevision, move },
+        status: reason ? "rejected" as const : "applied" as const, error: reason ? "Preview move is not admissible." : null, reason,
+        ...(reason ? {} : { priority: changes.get(responsibilityId)! }), revision: 2, createdAt, updatedAt: createdAt };
+      conversation.records.push(record);
+      saveConversation();
+      return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
+    }
+    const bridge: TarsBridgeApi = {
+      ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
+      reprioritize: async (input) => reprioritize(input),
+      get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return structuredClone(snapshot); },
+      updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem("stave-preview-identity", JSON.stringify(snapshot)); return structuredClone(snapshot); },
+      create: async () => { throw new Error("Use the global conversation."); },
+      act: async (input) => act(input),
+      answer: async ({ decisionId, optionIndex, source }): Promise<TarsAnswerResult> => {
+        const existing = conversation.answers!.find((answer) => answer.decisionId === decisionId);
+        if (existing) return existing.optionIndex === optionIndex ? { answer: structuredClone(existing), refusal: null } : { answer: structuredClone(existing), refusal: "alreadyAnswered" };
+        const parsed = parseTarsDecisionId(decisionId);
+        const receipt = parsed && parsed.kind !== "unverifiedCompletion"
+          ? conversation.receipts.find((entry) => entry.messageId === parsed.messageId && entry.actionIndex === parsed.actionIndex) : undefined;
+        const row = snapshot.responsibilities.find((candidate) => candidate.id === "preview-responsibility");
+        const effect = parsed?.kind === "unverifiedCompletion" ? [{ kind: "control" as const, responsibilityId: parsed.responsibilityId, expectedRevision: parsed.revision, operation: "acceptCompletion" as const },
+          { kind: "control" as const, responsibilityId: parsed.responsibilityId, expectedRevision: parsed.revision, operation: "cancel" as const }][optionIndex]
+          : receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]?.effect
+            : receipt?.action.kind === "control" && optionIndex === 0 ? receipt.action : undefined;
+        if (!effect) return { answer: null, refusal: "invalidOption" };
+        if (parsed?.kind === "unverifiedCompletion" && tarsUnverifiedDecisionId("preview-responsibility", row?.revision ?? 0) !== decisionId) return { answer: null, refusal: "notWaiting" };
+        const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+        const label = receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]!.label : null;
+        const answer: TarsDecisionAnswer = { decisionId, optionIndex, source, effect, label, status: "pending", reason: null, error: null,
+          actRequestId: effect.kind === "control" ? tarsAnswerActRequestId(decisionId) : null, messageId: null, revision: 1, createdAt, updatedAt: createdAt };
+        conversation.answers!.push(answer);
+        if (effect.kind === "control") {
+          const { record } = await act({ requestId: answer.actRequestId!, responsibilityId: effect.responsibilityId, expectedRevision: effect.expectedRevision, operation: effect.operation, source });
+          Object.assign(answer, record.status === "rejected" ? { status: "rejected", reason: record.reason, error: record.error } : { status: "applied" }, { revision: 2 });
+        } else {
+          // The chosen option goes back to Tars as the user's answer; the preview answers it at once.
+          const reply = "Understood. I will keep the plan and report back when the check finishes.";
+          const message = { requestId: `answer:${decisionId}`, text: label!, ...conversation.settings!, id: `answer-${decisionId.replace(/[^A-Za-z0-9-]/g, "-")}`, state: "answered" as const,
+            revision: 2, decision: { reply, actions: [] }, reply, error: null, origin: { kind: "answer" as const, decisionId, optionIndex, source,
+              question: receipt?.action.kind === "ask" ? receipt.action.question : "", rationale: receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]!.rationale : "" },
+            createdAt, updatedAt: createdAt };
+          conversation.messages.push(message);
+          Object.assign(answer, { status: "applied", messageId: message.id, revision: 2 });
+        }
+        snapshot = { ...snapshot, pendingDecisions: (snapshot.pendingDecisions ?? []).filter((decision) => !(decision.messageId === receipt?.messageId && decision.actionIndex === receipt?.actionIndex)
+          && !(decision.kind === "unverifiedCompletion" && parsed?.kind === "unverifiedCompletion")) };
+        publishTarsSnapshot(structuredClone(snapshot));
+        publishAttention();
+        saveConversation();
+        return { answer: structuredClone(answer), refusal: null };
+      },
+      getConversation: async () => structuredClone(conversation),
+      configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
+      sendMessage: async (input) => {
+        if (!["requestId,text", "includeWorkingChanges,requestId,text"].includes(Object.keys(input).sort().join()))
+          throw new Error("Global messages accept only requestId, text and the working-changes choice.");
+        if (!conversation.settings) throw new Error("Missing global settings.");
+        let message = conversation.messages.find((item) => item.requestId === input.requestId);
+        if (!message) {
+          const decision: TarsDecision = { reply: "The saved conversation continues across restarts.\n\n**Next:** check the review and keep the current plan.", actions: [] };
+          if (params.get("fileLinks") === "true") decision.reply = "[Source](src/example.ts) and `src/example.ts`. [Documentation](https://example.com/docs).";
+          // With side-view fixtures, asking for the report opens it: a view-only show action the host admitted.
+          if (side && /report|보고서/i.test(input.text)) {
+            decision.reply = params.get("lang") === "ko" ? "결제 화면 작업의 결과 보고서를 옆에 열었습니다." : "I opened the checkout work's result report beside the conversation.";
+            decision.actions.push({ kind: "show", responsibilityId: side.ids.checkout, view: "report" });
+          }
+          if (params.get("receipt")) decision.actions.push({ kind: "delegate", workspaceId: "preview-workspace", title: "Check the review", instruction: "Review the current work.", acceptanceCriteria: ["The review is complete."], priority: 50 });
+          const proposal = params.get("proposal");
+          if (proposal === "resume" || proposal === "cancel" || proposal === "handBack")
+            decision.actions.push({ kind: "control", responsibilityId: "preview-responsibility", expectedRevision: 1, operation: proposal });
+          // `decision=ask`: Tars asks a question whose options pause the work or answer back, in the app's language.
+          if (params.get("decision") === "ask") {
+            const korean = params.get("lang") === "ko";
+            const revision = snapshot.responsibilities.find((row) => row.id === "preview-responsibility")?.revision ?? 1;
+            decision.reply = korean ? "릴리스 확인이 아직 실행 중입니다. 어떻게 할지 골라 주세요." : "The release check is still running. Choose how to continue.";
+            decision.actions.push({ kind: "ask", recommended: 1,
+              question: korean ? "스테이징 배포가 끝날 때까지 릴리스 확인을 멈출까요?" : "Should I pause the release check until the staging deploy finishes?",
+              options: [
+                { label: korean ? "지금 멈추기" : "Pause it now", rationale: korean ? "스테이징이 끝난 뒤 이어서 확인합니다." : "The check resumes after staging finishes.",
+                  effect: { kind: "control", responsibilityId: "preview-responsibility", expectedRevision: revision, operation: "pause" } },
+                { label: korean ? "계속 실행" : "Keep it running", rationale: korean ? "이 확인은 스테이징과 관계없습니다." : "This check does not depend on staging.", effect: { kind: "reply" } },
+                { label: korean ? "무엇을 기다리는지 설명" : "Explain what it waits for", rationale: korean ? "결정하기 전에 Tars가 설명합니다." : "Tars explains before you decide.", effect: { kind: "reply" } },
+              ] });
+          }
+          const pending = params.get("conversationPending") === "true";
+          const createdAt = new Date(Date.parse(now) + (conversation.messages.length + 1) * 1000).toISOString();
+          message = { ...input, ...conversation.settings, id: input.requestId, state: pending ? (conversation.messages.length ? "queued" : "reasoning") : "answered", revision: 1, decision: pending ? null : decision, reply: pending ? null : decision.reply, error: null, createdAt, updatedAt: createdAt };
+          conversation.messages.push(message);
+          const proposed = decision.actions[0];
+          if (proposed) conversation.receipts.push(proposed.kind === "control" || proposed.kind === "ask"
+            // Model-proposed authority-granting or terminal controls wait for a confirming click; a question waits for its answer.
+            ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null, revision: 1, createdAt, updatedAt: createdAt }
+            : { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "applied",
+              responsibilityId: proposed.kind === "show" ? proposed.responsibilityId : "preview-responsibility", error: null, reason: null, revision: 2, createdAt, updatedAt: createdAt });
+          if (proposed?.kind === "control" || proposed?.kind === "ask") {
+            // The host lists a waiting decision in the snapshot and announces the change; publish it as that notification would.
+            const target = proposed.kind === "control" ? proposed : proposed.options.flatMap((option) => option.effect.kind === "control" ? [option.effect] : [])[0]!;
+            snapshot = { ...snapshot, pendingDecisions: [...(snapshot.pendingDecisions ?? []), proposed.kind === "control"
+              ? { responsibilityId: proposed.responsibilityId, messageId: message.id, actionIndex: 0, operation: proposed.operation, expectedRevision: proposed.expectedRevision, proposedAt: createdAt }
+              : { kind: "ask", responsibilityId: target.responsibilityId, messageId: message.id, actionIndex: 0, operation: null, expectedRevision: target.expectedRevision,
+                proposedAt: createdAt, question: proposed.question, optionCount: proposed.options.length }] };
+            publishTarsSnapshot(structuredClone(snapshot));
+            publishAttention();
+          }
+          saveConversation();
+        }
+        if (params.get("sendFailure") === "once" && !sendFailed) { sendFailed = true; throw new Error("Preview message transport failed after admission."); }
+        return structuredClone(message);
+      },
+      cancelMessage: async ({ messageId, expectedRevision }) => {
+        const message = conversation.messages.find((item) => item.id === messageId);
+        if (!message || message.revision !== expectedRevision) throw new Error("Preview stale message revision.");
+        if (message.state !== "queued" && message.state !== "reasoning") throw new Error("Preview message is already settled.");
+        Object.assign(message, { state: "cancelled", revision: message.revision + 1 }); saveConversation(); return structuredClone(message);
+      },
+    };
+    window.api = { ...window.api, tars: bridge, ...(side ? { sourceControl: { ...window.api?.sourceControl,
+      getReviewDiff: async () => structuredClone(side.diff), getReviewFileDiff: async ({ path }: { path: string }) => side.fileDiff(path) } } : {}) } as typeof window.api;
+    // "Show in Fleet" leaves this preview's only surface; record where it would land.
+    useFleetFocusStore.subscribe(({ request }) => { if (request) document.documentElement.dataset.previewFleetFocus = `${request.workspaceId}/${request.taskId}`; });
+    const empty = params.get("noRepositories") === "true";
+    useAppStore.setState({ providerAvailability: { ...useAppStore.getState().providerAvailability, codex: true, "claude-code": true }, repositoryPath: empty ? null : "/tmp/preview", activeWorkspaceId: params.get("workspace") ?? "preview-workspace",
+      // Named so a confirmation card can say where the work runs.
+      workspaces: empty ? [] : [{ id: "preview-workspace", name: "Release check", updatedAt: now }], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
+    setReady(true);
+  }, []);
+  return ready ? <TarsView /> : null;
+}

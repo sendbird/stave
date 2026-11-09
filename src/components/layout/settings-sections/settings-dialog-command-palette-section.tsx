@@ -255,7 +255,7 @@ export function CommandPaletteSection() {
         />
         <div className={sx(styles.rowWrapGap2)}>
           <Button
-            variant="outline"
+            variant="outlined"
             onClick={() =>
               updateSettings({
                 patch: { commandPaletteRecentCommandIds: [] },
@@ -265,7 +265,7 @@ export function CommandPaletteSection() {
           >
             {t("settings:commandPaletteSection.behavior.clearRecent")}</Button>
           <Button
-            variant="outline"
+            variant="outlined"
             onClick={() =>
               updateSettings({
                 patch: {
@@ -296,7 +296,7 @@ export function CommandPaletteSection() {
       >
         <div className={sx(styles.rowWrapGap2)}>
           <Button
-            variant="outline"
+            variant="outlined"
             onClick={() =>
               updateSettings({
                 patch: {
@@ -312,7 +312,7 @@ export function CommandPaletteSection() {
           >
             {t("settings:commandPaletteSection.shellChords.resetDefaults")}</Button>
           <Button
-            variant="outline"
+            variant="outlined"
             onClick={() =>
               updateSettings({
                 patch: {
@@ -510,7 +510,7 @@ export function CommandPaletteSection() {
       >
         <div className={sx(styles.rowWrapGap2)}>
           <Button
-            variant="outline"
+            variant="outlined"
             onClick={() =>
               updateSettings({
                 patch: {
@@ -532,7 +532,7 @@ export function CommandPaletteSection() {
           >
             {t("settings:commandPaletteSection.modelShortcuts.resetDefaults")}</Button>
           <Button
-            variant="outline"
+            variant="outlined"
             onClick={() =>
               updateSettings({
                 patch: {
@@ -738,14 +738,14 @@ export function CommandPaletteSection() {
                   </div>
                   <div className={sx(styles.commandActions)}>
                     <Button
-                      variant={isPinned ? "primary" : "outline"}
+                      variant={isPinned ? "primary" : "outlined"}
                       size="sm"
                       onClick={() => togglePinnedCommand(command.id)}
                     >
                       {isPinned ? i18n.t("settings:commandPaletteSection.visibility.unpin") : i18n.t("settings:commandPaletteSection.visibility.pin")}
                     </Button>
                     <Button
-                      variant={isHidden ? "primary" : "outline"}
+                      variant={isHidden ? "primary" : "outlined"}
                       size="sm"
                       onClick={() => toggleHiddenCommand(command.id)}
                     >

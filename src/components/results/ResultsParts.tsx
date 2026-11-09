@@ -92,7 +92,7 @@ export function Reasons({ summary }: { summary: ResultsSummary }) {
           <li key={reason} className={sx(styles.reason)}>
             <span className={sx(styles.reasonLabel)} aria-hidden><span>{RUN_END_REASON_LABELS[reason]}</span><span>{formatNumber(count)}</span></span>
             {/* The row's words are drawn above; the meter carries the same name and count for assistive technology. */}
-            <Meter label={RUN_END_REASON_LABELS[reason]} hideLabel hideValue size="sm" min={0} max={Math.max(1, total)} value={count}
+            <Meter label={RUN_END_REASON_LABELS[reason]} showLabel={false} hideValue size="sm" min={0} max={Math.max(1, total)} value={count}
               getAriaValueText={() => t("compare:agentPerformance.reasonShare", { count, total: formatNumber(total), percent: formatPercent(total > 0 ? count / total : 0) })} />
           </li>
         ))}

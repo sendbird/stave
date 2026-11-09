@@ -301,7 +301,7 @@ export function ResourceManagerOverview({
                         <Meter
                           xstyle={styles.shareMeter}
                           label={tI18n("workspace:resourceManagerOverview.shareOfMeasured", { name })}
-                          hideLabel
+                          showLabel={false}
                           hideValue
                           size="sm"
                           value={share * 100}

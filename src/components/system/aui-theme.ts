@@ -41,9 +41,20 @@ const roles = {
     "color-mix(in oklab, var(--background) 23%, var(--muted-foreground))",
   "--aui-color-text-placeholder":
     "color-mix(in oklab, var(--background) 5%, var(--muted-foreground))",
+  // Fourth ink (AUI #809, R0 S7): the step past subtle, below 3:1 by design,
+  // for marks that carry no meaning a reader needs (a separator dot, a
+  // decorative count). AUI spaces muted -> subtle -> faint evenly (light
+  // 0.505 / 0.62 / 0.735), so the mix doubles subtle's 23% toward the page.
+  "--aui-color-text-faint":
+    "color-mix(in oklab, var(--background) 46%, var(--muted-foreground))",
   "--aui-color-text-inverted": "var(--background)",
   "--aui-color-border": "var(--border)",
   "--aui-color-border-subtle": "color-mix(in oklab, var(--border) 60%, transparent)",
+  // Resting ring of a raised surface (AUI #809 R0 §1.5, raised to 18% by #810
+  // F3): 18% of the theme's ink over whatever it sits on, so it darkens in
+  // light themes and lifts in dark ones without a per-theme value, as AUI's
+  // own 18% ink / 18% lift pair.
+  "--aui-color-ring": "color-mix(in oklab, var(--foreground) 18%, transparent)",
   "--aui-color-border-strong": "var(--muted-foreground)",
   "--aui-color-border-focus": "var(--ring)",
   "--aui-color-accent": "var(--primary)",
@@ -211,14 +222,31 @@ const darkHighContrastEmphasis = {
   "--aui-color-border-subtle": "var(--border)",
   "--aui-color-media-edge": "var(--border)",
   "--aui-focus-ring-width": "3px",
+  // A raised surface's resting ring is opaque under high contrast (AUI's own
+  // high-contrast theme draws it solid), not the 12% translucent hairline.
+  "--aui-color-ring": "var(--border)",
 } as const satisfies Partial<Record<Extract<keyof typeof vars, `--aui-${string}`>, string>>;
 
-export const auiDarkHighContrastVariables = {
-  ...auiThemeVariables,
-  ...Object.fromEntries(
-    Object.entries(darkHighContrastEmphasis).map(([token, value]) => [
-      vars[token as keyof typeof darkHighContrastEmphasis].slice(4, -1),
-      value,
-    ]),
-  ),
-} as CSSProperties & Record<string, string>;
+/*
+ * Light high contrast keeps AUI's own high-contrast theme underneath, but the
+ * role mapping above writes over it, so the opaque ring is restored here.
+ */
+const lightHighContrastEmphasis = {
+  "--aui-color-ring": "var(--border)",
+} as const satisfies Partial<Record<Extract<keyof typeof vars, `--aui-${string}`>, string>>;
+
+type AuiToken = Extract<keyof typeof vars, `--aui-${string}`>;
+function withEmphasis(emphasis: Partial<Record<AuiToken, string>>) {
+  return {
+    ...auiThemeVariables,
+    ...Object.fromEntries(
+      (Object.entries(emphasis) as Array<[AuiToken, string]>).map(([token, value]) => [
+        (vars[token] as string).slice(4, -1),
+        value,
+      ]),
+    ),
+  } as CSSProperties & Record<string, string>;
+}
+
+export const auiDarkHighContrastVariables = withEmphasis(darkHighContrastEmphasis);
+export const auiLightHighContrastVariables = withEmphasis(lightHighContrastEmphasis);

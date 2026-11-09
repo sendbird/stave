@@ -148,7 +148,6 @@ export function StageList<T extends StageListValue>(props: {
       ) : null}
       <div className={sx(styles.addRow)}>
         <DropdownMenu
-          triggerAsChild
           trigger={
             <Button variant="secondary" size="sm" disabled={full}>
               <Plus aria-hidden />

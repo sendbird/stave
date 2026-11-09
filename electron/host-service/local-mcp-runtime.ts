@@ -1466,6 +1466,7 @@ export async function createWorkspace(args: {
   mode: "branch" | "clean";
   fromBranch?: string;
   fromBranchKind?: "local" | "remote";
+  fromCommit?: string; // Starts the branch at this commit instead of `fromBranch`, resolving no remote.
   initCommand?: string;
   useRootNodeModulesSymlink?: boolean;
 }) {
@@ -1511,11 +1512,10 @@ export async function createWorkspace(args: {
     repositoryPath,
     worktreePath: workspacePath,
   });
+  const fromCommit = args.mode === "branch" ? args.fromCommit?.trim() : undefined;
   let baseBranch =
-    args.fromBranch?.trim() ||
-    repository.defaultBranch ||
-    ensured.defaultBranch ||
-    "main";
+    fromCommit || args.fromBranch?.trim() ||
+    repository.defaultBranch || ensured.defaultBranch || "main";
   const initCommand = normalizeWorkspaceInitCommand({
     value:
       args.initCommand ??
@@ -1536,7 +1536,7 @@ export async function createWorkspace(args: {
   const notices: Array<{ level: "success" | "warning"; message: string }> = [];
 
   const remoteTarget =
-    args.mode === "branch"
+    args.mode === "branch" && !fromCommit
       ? await resolveWorkspaceRemoteBaseBranchTarget({
           baseBranch,
           fromBranchKind: args.fromBranchKind,
@@ -2366,7 +2366,7 @@ export async function getTaskSupervisionSnapshot(args: {
  * so a repeated failure of the same kind collapses into one row.
  */
 /** Adds an idle task; only the existing supervisor starts its turns. */
-export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null; taskId?: string; parentTaskId?: string }) {
+export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null; autoRouting?: boolean; taskId?: string; parentTaskId?: string }) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
   if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);

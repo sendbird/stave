@@ -49,6 +49,8 @@ async function mountTable(page: Page, options: { locale: "en" | "ko"; mode: "lig
 }
 
 const titles = (page: Page) => page.locator("[data-fleet-task-table-row] button").allInnerTexts();
+/** Task, Owner, Workspace, State, Needs, Waiting, Activity: every header sorts. */
+const COLUMNS = ["task", "owner", "workspace", "state", "needs", "waiting", "activity"];
 
 for (const locale of ["en", "ko"] as const) {
   for (const mode of ["light", "dark"] as const) {
@@ -56,9 +58,10 @@ for (const locale of ["en", "ko"] as const) {
       test(`sortable headers keep label and arrow on one centre line: ${locale}/${mode}/${density}`, async ({ page }) => {
         await mountTable(page, { locale, mode, density });
         const heads = page.locator("th[data-fleet-task-column]");
-        await expect(heads).toHaveCount(6);
-        for (const index of [0, 1, 2, 3, 4, 5]) {
+        await expect(heads).toHaveCount(COLUMNS.length);
+        for (const [index, column] of COLUMNS.entries()) {
           const head = heads.nth(index);
+          await expect(head).toHaveAttribute("data-fleet-task-column", column);
           await expect(head).toHaveAttribute("aria-sort", "none");
           const geometry = await head.evaluate((cell) => {
             const button = cell.querySelector("button")!;
@@ -99,7 +102,7 @@ test("a header cycles ascending, descending and the table's own order, and state
   await expect(waiting).toHaveAttribute("aria-sort", "descending");
   expect(await titles(page)).toEqual(["Tighten settings sidebar spacing", "Shared combobox", "Sort the Fleet table", "Fix the login redirect"]);
   // Only the sorted column claims an order.
-  await expect(page.locator('th[aria-sort="none"]')).toHaveCount(5);
+  await expect(page.locator('th[aria-sort="none"]')).toHaveCount(COLUMNS.length - 1);
   await button.press("Enter");
   await expect(waiting).toHaveAttribute("aria-sort", "none");
   expect(await titles(page)).toEqual(own);

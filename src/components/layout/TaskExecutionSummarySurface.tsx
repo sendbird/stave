@@ -143,7 +143,7 @@ function StatMeterBar(args: { meter: StatMeter }) {
     <Meter
       xstyle={styles.meter}
       label={args.meter.label}
-      hideLabel
+      showLabel={false}
       hideValue
       size="sm"
       tone={args.meter.tone}

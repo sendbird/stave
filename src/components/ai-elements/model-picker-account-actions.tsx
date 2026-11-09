@@ -72,7 +72,7 @@ export function ModelPickerAccountFooterView(props: {
           <span className={sx(styles.noticeText)} title={describeProviderAccountBlocker(blocker)}>
             {describeProviderAccountBlocker(blocker)}
           </span>
-          <Button size="xs" variant="outline" onClick={() => go(blocker.focus)}>
+          <Button size="xs" variant="outlined" onClick={() => go(blocker.focus)}>
             {providerAccountBlockerActionLabel(blocker)}
           </Button>
         </div>

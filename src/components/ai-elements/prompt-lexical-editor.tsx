@@ -97,9 +97,13 @@ interface PromptLexicalEditorProps {
    */
   syncNonce?: number;
   disabled?: boolean;
+  plainText?: boolean;
   minimal?: boolean;
   placeholder?: string;
   className?: string;
+  /** The draft breaks a host rule; `errorMessageId` names the message that says which. */
+  invalid?: boolean;
+  errorMessageId?: string;
   commandPaletteItems?: readonly CommandPaletteItem[];
   skillPaletteItems?: readonly SkillCatalogEntry[];
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
@@ -242,9 +246,15 @@ function appendPlainTextNodes(parent: ElementNode, text: string) {
   }
 }
 
+type EditorTokenParseOptions = PromptTokenParseOptions & { plainText?: boolean };
+
+function editorSegments(value: string, options: EditorTokenParseOptions) {
+  return options.plainText ? [{ type: "text" as const, text: value }] : parsePromptTokenSegments(value, options);
+}
+
 function writePromptTextToEditor(
   value: string,
-  options: PromptTokenParseOptions,
+  options: EditorTokenParseOptions,
 ) {
   const root = $getRoot();
   root.clear();
@@ -252,7 +262,7 @@ function writePromptTextToEditor(
   const paragraph = $createParagraphNode();
   root.append(paragraph);
 
-  for (const segment of parsePromptTokenSegments(value, options)) {
+  for (const segment of editorSegments(value, options)) {
     if (segment.type === "text") {
       appendPlainTextNodes(paragraph, segment.text);
       continue;
@@ -263,10 +273,10 @@ function writePromptTextToEditor(
 
 function getPromptTokenSignatureForText(
   value: string,
-  options: PromptTokenParseOptions,
+  options: EditorTokenParseOptions,
 ) {
   return getPromptTokenSegmentSignature(
-    parsePromptTokenSegments(value, options),
+    editorSegments(value, options),
   );
 }
 
@@ -644,7 +654,7 @@ function PromptLexicalExternalSyncPlugin(args: {
   value: string;
   selectionRange?: PromptLexicalEditorSelectionRange;
   syncNonce?: number;
-  tokenOptions: PromptTokenParseOptions;
+  tokenOptions: EditorTokenParseOptions;
 }) {
   useTranslation();
   const [editor] = useLexicalComposerContext();
@@ -694,7 +704,7 @@ function PromptLexicalExternalSyncPlugin(args: {
 
 function PromptLexicalChangePlugin(args: {
   value: string;
-  tokenOptions: PromptTokenParseOptions;
+  tokenOptions: EditorTokenParseOptions;
   onChange: (value: string) => void;
   onSelectionChange?: (range: PromptLexicalEditorSelectionRange) => void;
 }) {
@@ -758,8 +768,9 @@ export const PromptLexicalEditor = forwardRef<
   PromptLexicalEditorProps
 >(function PromptLexicalEditor(props, ref) {
   useTranslation();
-  const tokenOptions = useMemo<PromptTokenParseOptions>(
+  const tokenOptions = useMemo<EditorTokenParseOptions>(
     () => ({
+      plainText: props.plainText,
       commandPaletteItems: props.commandPaletteItems,
       skillPaletteItems: props.skillPaletteItems,
       workspaceInformationReferenceOptions:
@@ -768,6 +779,7 @@ export const PromptLexicalEditor = forwardRef<
       allowGenericSkillTokens: false,
     }),
     [
+      props.plainText,
       props.commandPaletteItems,
       props.skillPaletteItems,
       props.workspaceInformationReferenceOptions,
@@ -804,6 +816,8 @@ export const PromptLexicalEditor = forwardRef<
               aria-label={i18n.t("composer:promptLexicalEditor.ariaLabel")}
               aria-multiline="true"
               aria-disabled={props.disabled}
+              aria-invalid={props.invalid || undefined}
+              aria-describedby={props.errorMessageId}
               className={cx(sx(lexicalEditorStyles.editable), props.className)}
               data-prompt-lexical-editor="true"
               onBlur={props.onBlur}

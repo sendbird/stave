@@ -153,16 +153,18 @@ export function createProviderInteractionActions(args: {
       }
       set({ providerTurnActivityByTask });
     },
-    abortTaskTurn: ({ taskId }) => {
+    abortTaskTurn: ({ taskId, keepAgentRun }) => {
       if (cancelPendingAutoRouting(taskId)) return;
       const stateBefore = get();
       // Stop ends the task's agent run too, before the turn, so the run never picks up after it.
+      // A run Tars holds is paused through Tars instead (`cancelAgentRunBeforeStop`).
       const runWorkspaceId = stateBefore.taskWorkspaceIdById[taskId] ?? stateBefore.activeWorkspaceId;
-      if (cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId, stopTurn: () => get().abortTaskTurn({ taskId }) })) return;
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,
         taskId,
       });
+      if (!keepAgentRun && cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
+        turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null, stopTurn: () => get().abortTaskTurn({ taskId }) })) return;
       const activeTurnId =
         runtimeTarget?.session.activeTurnIdsByTask[taskId];
       const workspaceId =

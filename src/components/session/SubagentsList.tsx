@@ -126,7 +126,7 @@ function SubagentsTray(props: {
           density="compact"
           data-testid="subagents-filter"
           value={[props.filter]}
-          items={[
+          options={[
             { value: "all", label: <FilterLabel label={i18n.t("session:subagentsSection.filter.all")} count={props.items.length} /> },
             ...present.map((filter) => ({
               value: filter,

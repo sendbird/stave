@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/aui/components/Table";
-import { LoadingSurface } from "@/components/aui/components/LoadingSurface";
+import { Skeleton } from "@/components/aui/components/Skeleton";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { transition } from "@/components/aui/recipes/transition";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
@@ -49,6 +49,17 @@ import {
 } from "@/lib/fleet/task-table-sort";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
+import { TarsOwnerBadge } from "@/components/tars/TarsOwnerBadge";
+import { FleetTaskControlPanel } from "@/components/layout/FleetTaskControlPanel";
+import {
+  FLEET_TASK_OWNER_LABEL,
+  matchesFleetOwnerFilter,
+  resolveFleetTaskOwner,
+  type FleetOwnerFilter,
+  type FleetTaskOwner,
+} from "@/lib/fleet/task-owner";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { tarsBridge, useTarsResponsibilities, useTarsSnapshotStore } from "@/store/tars-snapshot-store";
 import {
   retryFleetWorkspaceShells,
   useFleetWorkspaceShells,
@@ -106,6 +117,29 @@ type FleetTaskTableState = Pick<
 >;
 
 const EMPTY_ROWS: FleetTaskRow[] = [];
+
+/** Each row's owner by row key; null while a deciding source has not answered. */
+export type FleetTaskOwnerByKey = ReadonlyMap<string, FleetTaskOwner | null>;
+
+/**
+ * Who owns each row, from the Tars snapshot and Fleet's run mirror. Derived
+ * outside the selectors from their stable references, so a streamed chunk
+ * that keeps the rows keeps this map.
+ */
+export function useFleetTaskOwners(rows: readonly FleetTaskRow[]): FleetTaskOwnerByKey {
+  const responsibilities = useTarsResponsibilities();
+  const tarsRead = useTarsSnapshotStore((state) => state.snapshot !== null);
+  const runs = useFleetAgentRunsStore((state) => state.details);
+  const runsLoaded = useFleetAgentRunsStore((state) => state.loaded);
+  const tarsKnown = tarsRead || !tarsBridge();
+  return useMemo(
+    () => new Map(rows.map((row) => [row.key, resolveFleetTaskOwner(
+      { workspaceId: row.workspaceId, taskId: row.task.id },
+      { responsibilities, tarsKnown, runs, runsLoaded },
+    )])),
+    [responsibilities, rows, runs, runsLoaded, tarsKnown],
+  );
+}
 
 /** Workspaces of `repositories` that have no live session in this window. */
 function listColdWorkspaceIds(
@@ -202,6 +236,8 @@ export function createFleetTaskRowsSelector(args: {
 export function useFleetTaskRows(args: {
   repositories: readonly FleetTaskTableRepository[];
   filter: FleetTaskTableFilter;
+  /** Narrows the rows to one owner; every owner by default. */
+  owner?: FleetOwnerFilter;
   searchQuery: string;
   nowMs: number;
 }) {
@@ -248,19 +284,22 @@ export function useFleetTaskRows(args: {
     [attentionItems, attentionItemsByWorkspaceId, args.nowMs, args.repositories, shells],
   );
   const rows = useAppStore(selectRows);
+  const ownerByKey = useFleetTaskOwners(rows);
 
   const query = normalizeFleetSearchQuery(args.searchQuery);
+  const owner = args.owner ?? "all";
   const shownRows = useMemo(
     () =>
       rows.filter(
         (row) =>
           matchesFleetTaskTableFilter(row, args.filter) &&
+          matchesFleetOwnerFilter(ownerByKey.get(row.key), owner) &&
           fleetSearchMatches(fleetTaskRowSearchText(row), query),
       ),
-    [args.filter, query, rows],
+    [args.filter, owner, ownerByKey, query, rows],
   );
   const retry = () => retryFleetWorkspaceShells(load.failedWorkspaceIds);
-  return { rows, shownRows, load, retry };
+  return { rows, shownRows, load, retry, ownerByKey };
 }
 
 /** Reports the header's counts for the shown rows, as the cards count them. */
@@ -289,8 +328,12 @@ export function useFleetTaskRowsSummary(
 export function FleetTaskTable(props: {
   repositories: readonly FleetTaskTableRepository[];
   filter: FleetTaskTableFilter;
+  owner?: FleetOwnerFilter;
   searchQuery: string;
   nowMs: number;
+  /** The row whose control panel is open under it (`getFleetTaskRowKey`). */
+  expandedTaskKey?: string | null;
+  onCloseTaskControl?: () => void;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
   onSummaryChange?: (summary: FleetTaskTableSummary) => void;
 }) {
@@ -304,6 +347,8 @@ export function FleetTaskTable(props: {
       load={load}
       onRetry={retry}
       nowMs={props.nowMs}
+      expandedTaskKey={props.expandedTaskKey}
+      onCloseTaskControl={props.onCloseTaskControl}
       onOpenTask={props.onOpenTask}
     />
   );
@@ -323,6 +368,8 @@ export function FleetTaskTableView(props: {
   load?: FleetTaskTableLoad;
   onRetry?: () => void;
   nowMs: number;
+  expandedTaskKey?: string | null;
+  onCloseTaskControl?: () => void;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
   /**
    * Draws the shown rows in place of the table: another layout over the same
@@ -354,7 +401,7 @@ export function FleetTaskTableView(props: {
     return (
       <AsyncBoundary
         state={{ status: "pending" }}
-        pending={<LoadingSurface label={t("fleet:taskTable.readingTasks")} size="sm" />}
+        pending={<Skeleton.Surface label={t("fleet:taskTable.readingTasks")} size="sm" />}
       >
         {() => null}
       </AsyncBoundary>
@@ -374,7 +421,13 @@ export function FleetTaskTableView(props: {
     ) : props.renderRows ? (
       props.renderRows(props.rows)
     ) : (
-      <FleetTaskRowsTable rows={props.rows} nowMs={props.nowMs} onOpenTask={props.onOpenTask} />
+      <FleetTaskRowsTable
+        rows={props.rows}
+        nowMs={props.nowMs}
+        expandedTaskKey={props.expandedTaskKey ?? null}
+        onCloseTaskControl={props.onCloseTaskControl}
+        onOpenTask={props.onOpenTask}
+      />
     );
   if (!failure) {
     return (
@@ -405,6 +458,7 @@ export function FleetTaskTableView(props: {
 /** The table's columns, in order, each a sort key. */
 const FLEET_TASK_COLUMNS = [
   { key: "task", label: "fleet:taskTable.task" },
+  { key: "owner", label: "fleet:taskTable.owner" },
   { key: "workspace", label: "fleet:taskTable.workspace" },
   { key: "state", label: "fleet:taskTable.state" },
   { key: "needs", label: "fleet:taskTable.needs" },
@@ -415,15 +469,19 @@ const FLEET_TASK_COLUMNS = [
 function FleetTaskRowsTable(props: {
   rows: readonly FleetTaskRow[];
   nowMs: number;
+  expandedTaskKey: string | null;
+  onCloseTaskControl?: () => void;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
   // Unsorted is the rows' own order (the Work queue's lanes); a header press cycles ascending, descending, unsorted.
   const [sort, setSort] = useState<FleetTaskSort>(null);
   const untitled = t("fleet:fleetWorkspaceCard.untitledTask");
+  // The same rule as the owner filter, so the column and the filter agree.
+  const ownerByKey = useFleetTaskOwners(props.rows);
   const rows = useMemo(
-    () => sortFleetTaskRows(props.rows, sort, { nowMs: props.nowMs, untitled }),
-    [props.rows, sort, props.nowMs, untitled],
+    () => sortFleetTaskRows(props.rows, sort, { nowMs: props.nowMs, untitled, ownerOf: (row) => ownerByKey.get(row.key) }),
+    [props.rows, sort, props.nowMs, untitled, ownerByKey],
   );
   return (
     <Table
@@ -449,15 +507,51 @@ function FleetTaskRowsTable(props: {
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
-          <FleetTaskTableRow
-            key={row.key}
-            nowMs={props.nowMs}
-            onOpenTask={props.onOpenTask}
-            row={row}
-          />
+          <Fragment key={row.key}>
+            <FleetTaskTableRow
+              nowMs={props.nowMs}
+              onOpenTask={props.onOpenTask}
+              owner={ownerByKey.get(row.key) ?? null}
+              row={row}
+            />
+            {row.key === props.expandedTaskKey ? (
+              <TableRow data-fleet-task-table-controls={row.key}>
+                <TableCell colSpan={FLEET_TASK_COLUMNS.length} xstyle={styles.controlsCell}>
+                  <FleetTaskControlPanel
+                    target={{
+                      repositoryPath: row.repositoryPath,
+                      workspaceId: row.workspaceId,
+                      taskId: row.task.id,
+                      taskTitle: row.task.title || untitled,
+                      turnId: row.activeTurnId,
+                    }}
+                    returnFocusElementId={fleetTaskTableOpenId(row.key)}
+                    onOpenTask={props.onOpenTask}
+                    onClose={() => props.onCloseTaskControl?.()}
+                  />
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </Fragment>
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+/** The id of a row's task button, where focus returns when its panel closes. */
+function fleetTaskTableOpenId(rowKey: string) {
+  return `fleet-task-table-open-${rowKey}`;
+}
+
+/** The owner cell: Tars wears its mark, the others say who drives the task. */
+function FleetTaskOwnerCell(props: { owner: FleetTaskOwner | null }) {
+  const { t } = useTranslation(["fleet"]);
+  if (props.owner === "tars") return <TarsOwnerBadge xstyle={styles.owner} />;
+  return (
+    <span className={sx(styles.secondary, !props.owner && styles.muted)} data-fleet-task-owner={props.owner ?? "unknown"}>
+      {props.owner ? FLEET_TASK_OWNER_LABEL[props.owner] : t("fleet:owner.unknown")}
+    </span>
   );
 }
 
@@ -465,6 +559,7 @@ function FleetTaskRowsTable(props: {
 const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
   row: FleetTaskRow;
   nowMs: number;
+  owner: FleetTaskOwner | null;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
@@ -496,6 +591,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
           <FleetProviderIcon provider={row.task.provider} />
           <AuiButton
             layout="host"
+            id={fleetTaskTableOpenId(row.key)}
             type="button"
             xstyle={[styles.taskButton, focusRing.ring, transition.colors]}
             aria-label={t("fleet:taskTable.openTask", { title, workspace: row.workspaceName })}
@@ -510,6 +606,9 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
             {title}
           </AuiButton>
         </span>
+      </TableCell>
+      <TableCell>
+        <FleetTaskOwnerCell owner={props.owner} />
       </TableCell>
       <TableCell>
         <span className={sx(styles.secondary)}>
@@ -568,6 +667,9 @@ const styles = stylex.create({
     gap: vars["--aui-space-8"],
     minWidth: 0,
   },
+  owner: {
+    flexShrink: 0,
+  },
   taskButton: {
     borderRadius: vars["--aui-radius-mark"],
     color: {
@@ -596,5 +698,9 @@ const styles = stylex.create({
   activityCell: {
     maxWidth: "26rem",
     minWidth: "12rem",
+  },
+  // The panel spans the row under its task, at the table's own inset.
+  controlsCell: {
+    whiteSpace: "normal",
   },
 });

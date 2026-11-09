@@ -54,7 +54,7 @@ export function InformationListSearchField(
       placeholder={placeholder}
       autoComplete="off"
       spellCheck={false}
-      actions={
+      trailingActions={
         query ? (
           <InputGroupAction type="button" aria-label={clearLabel} onClick={clear}>
             <X aria-hidden />

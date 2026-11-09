@@ -171,7 +171,7 @@ function GaugeMeter({ gauge }: { gauge: ResourceGauge }) {
       <Meter
         xstyle={styles.meter}
         label={`${gauge.label}: ${LEVEL_WORD[gauge.level].text}`}
-        hideLabel
+        showLabel={false}
         hideValue
         size="sm"
         tone={LEVEL_METER_TONE[gauge.level]}

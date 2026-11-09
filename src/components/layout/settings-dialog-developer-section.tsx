@@ -1494,7 +1494,7 @@ export function LocalMcpRequestLogCard() {
             {t("settings:developerSection.requestLog.detail.loading")}</p>
         }
         isEmpty={(logs) => logs.length === 0}
-        empty={
+        emptyState={
           <p className={sx(developerStyles.logEmpty)}>
             {t("settings:developerSection.requestLog.empty")}</p>
         }

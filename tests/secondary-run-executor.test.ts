@@ -41,6 +41,19 @@ function createRequest(providerId: "claude-code" | "codex" = "codex") {
 }
 
 describe("SecondaryRunExecutor provider policy", () => {
+  for (const providerId of ["claude-code", "codex"] as const) {
+    test(`context-only ${providerId} turns retain secondary policy and disable tools`, async () => {
+      const request = createRequest(providerId);
+      let actual: StreamTurnArgs | undefined;
+      await executeSecondaryProviderRun({ ...request, input: { ...request.input, toolsDisabled: true } }, {
+        streamTurn: async (args) => { actual = args; return [{ type: "text", text: "{}" }, { type: "done", stop_reason: "end_turn" }]; },
+        cleanupTask: () => ({ ok: true, message: "cleaned" }),
+      });
+      expect(actual).toMatchObject({ executionPolicy: "secondary-read-only", providerId, runtimeOptions: { toolsDisabled: true } });
+      expect(actual?.conversation).toBeUndefined();
+      expect(actual?.runtimeOptions?.boundSecretIds).toBeUndefined();
+    });
+  }
   test("forces fresh, sandboxed Claude execution and denies network tools", async () => {
     let providerArgs: StreamTurnArgs | null = null;
     const cleanedTaskIds: string[] = [];

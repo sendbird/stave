@@ -94,7 +94,7 @@ function ConnectionRow(props: {
         <Button size="sm" variant="quiet" onClick={() => setEditing(false)}>{t("common:actions.cancel")}</Button>
       </> : <>
         <Tooltip>
-          <TooltipTrigger render={<Button size="sm" variant="outline" disabled={props.busy} onClick={() => props.run(async () => {
+          <TooltipTrigger render={<Button size="sm" variant="outlined" disabled={props.busy} onClick={() => props.run(async () => {
             setCheck(null);
             setCheck(await window.api!.apiConnections!.check({ id: connection.id }));
           })} />}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</TooltipTrigger>
@@ -160,7 +160,7 @@ export function ApiConnectionNextStep(props: { connection: ApiConnection; busy: 
     <span className={sx(accountStyles.subheading)}>{t("settingsConnections:apiConnectionsSettings.nextStep.title", { value1: connection.label })}</span>
     <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.nextStep.body", { value1: RUNTIME_NAME[runtime] })}</p>
     <div className={sx(accountStyles.row)}>
-      <Button size="sm" variant="outline" disabled={props.busy || checking} onClick={runCheck}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</Button>
+      <Button size="sm" variant="outlined" disabled={props.busy || checking} onClick={runCheck}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</Button>
       <Button size="sm" disabled={!workspaceOpen} onClick={use}>{t("settingsConnections:apiConnectionsSettings.nextStep.use", { value1: RUNTIME_NAME[runtime] })}</Button>
       <Button size="sm" variant="quiet" onClick={props.onDismiss}>{t("settingsConnections:apiConnectionsSettings.nextStep.done")}</Button>
     </div>

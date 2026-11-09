@@ -58,7 +58,7 @@ function CustomFieldDatePicker(props: {
       <PopoverContent xstyle={styles.datePickerPopover} align="start">
         <Calendar
           value={isValid ? props.value : undefined}
-          onDateSelect={(date) => props.onChange(date === props.value ? "" : date)}
+          onValueChange={(date) => props.onChange(date === props.value ? "" : date)}
         />
       </PopoverContent>
     </Popover>

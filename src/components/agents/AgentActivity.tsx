@@ -8,6 +8,7 @@ import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { transition } from "@/components/aui/recipes/transition";
 import { Button } from "@/components/aui/components/Button";
 import { Select } from "@/components/aui/components/Select";
+import { Switch } from "@/components/aui/components/Switch";
 import { sx } from "@/components/aui/utils/stylex";
 import { ASSIGNMENT_STATE_LABELS, type AgentAssignment } from "@/lib/agents/assign";
 import {
@@ -26,6 +27,8 @@ import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { useTarsSnapshotStore } from "@/store/tars-snapshot-store";
+import { TARS_EXECUTION_AGENT_ID } from "@/lib/tars/agents";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { agentRunDecisionOf, describeAgentRunProgress, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
@@ -137,13 +140,32 @@ function ActivitySummary(props: { summary: AgentActivitySummary }) {
   );
 }
 
+/** Whether the Work list shows what Tars delegated, and the switch that changes it. */
+export interface TarsWorkToggle {
+  shown: boolean;
+  onShownChange: (shown: boolean) => void;
+}
+
+/**
+ * Tars runs its responsibilities as the Supervisor agent, so they would crowd
+ * the Supervisor's Work list. They stay out by default; the switch appears
+ * once Tars has had work, and shows them again.
+ */
+export function useTarsWorkFilter(agentConfigId: string): { excludeTars: boolean; toggle: TarsWorkToggle | undefined } {
+  const applies = agentConfigId === TARS_EXECUTION_AGENT_ID;
+  const tarsUsed = useTarsSnapshotStore((state) => Boolean(state.snapshot?.responsibilities.length));
+  const [shown, setShown] = useState(false);
+  const toggle = useMemo(() => (applies && tarsUsed ? { shown, onShownChange: setShown } : undefined), [applies, tarsUsed, shown]);
+  return { excludeTars: applies && !shown, toggle };
+}
+
 /**
  * Activity, shown on the agent page above Settings and History: a short summary from the assignment rows joined with live
  * Fleet status (running and needs you when non-zero, then totals and last
  * used as one quiet line), and the Work list with a state filter. Counts are derived in pure `summarizeAgentActivity`
  * so they are tested once; the live status map avoids an unstable selector.
  */
-export function AgentActivity(props: { assignments: readonly AgentAssignment[] }) {
+export function AgentActivity(props: { assignments: readonly AgentAssignment[]; tarsWork?: TarsWorkToggle }) {
   useTranslation();
   const [filter, setFilter] = useState<AgentActivityFilter>("all");
   const tasks = useMemo(
@@ -172,7 +194,8 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
   );
 
   // An agent that was never assigned has no activity to show; the page starts at its settings.
-  if (props.assignments.length === 0) return null;
+  // With Tars's work hidden the switch stays, so that work can be shown again.
+  if (props.assignments.length === 0 && !props.tarsWork) return null;
   return (
     <section aria-label={i18n.t("agents:agentActivity.ariaLabel")} className={sx(agentStyles.activity)}>
       <ActivitySummary summary={summary} />
@@ -190,8 +213,18 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
             options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
             onValueChange={(value) => setFilter(String(value) as AgentActivityFilter)}
           />
+          {props.tarsWork ? (
+            <Switch
+              size="xs"
+              label={i18n.t("agents:agentActivity.showTarsWork")}
+              checked={props.tarsWork.shown}
+              onCheckedChange={(checked) => props.tarsWork?.onShownChange(checked)}
+            />
+          ) : null}
         </div>
-        {filtered.length === 0 ? (
+        {props.assignments.length === 0 ? (
+          <p className={sx(styles.hint)}>{i18n.t("agents:agentActivity.noOwnWork")}</p>
+        ) : filtered.length === 0 ? (
           <p className={sx(styles.hint)}>{i18n.t("agents:agentActivity.agentActivity2")}</p>
         ) : (
           <ul className={sx(agentStyles.workList)}>

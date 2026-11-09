@@ -8,7 +8,7 @@ function Toaster() {
       <ToastHost toastManager={toastManager} position="top-center" />
       <ToastHost
         toastManager={workspaceToastManager}
-        position="bottom-right"
+        position="bottom-end"
         avoid="[data-toast-avoid]"
       />
     </>

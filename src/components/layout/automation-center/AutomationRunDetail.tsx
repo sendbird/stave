@@ -51,7 +51,7 @@ export function AutomationRunRow(props: {
           {props.automationName ?? tI18n("automation:automationRunDetail.removedAutomation")}
         </span>
         <Badge
-          variant="outline"
+          variant="outlined"
           tone={presentation.tone}
           xstyle={automationStyles.statusBadge}
         >
@@ -109,7 +109,7 @@ export function AutomationRunDetail(props: {
           <div className={sx(runDetailStyles.headerMain)}>
             <div className={sx(runDetailStyles.headerTitleRow)}>
               <Badge
-                variant="outline"
+                variant="outlined"
                 tone={presentation.tone}
                 xstyle={automationStyles.statusBadge}
               >

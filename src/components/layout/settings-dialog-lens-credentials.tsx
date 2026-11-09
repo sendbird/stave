@@ -352,7 +352,7 @@ export function LensCredentialsSettingsCard() {
               {t("settingsConnections:settingsDialogLensCredentials.loadingSavedAccounts")}</div>
           }
           isEmpty={(list) => list.length === 0}
-          empty={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>}
+          emptyState={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>}
         >
           {() => (
             <div className={sx(styles.list)}>

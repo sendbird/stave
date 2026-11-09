@@ -102,6 +102,10 @@ if (preview === "question-reply") {
       </StrictMode>,
     );
   });
+} else if (preview === "tars") {
+  void import("@/dev/tars-preview").then(({ TarsPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><TarsPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "agents") {
   void import("@/dev/agents-preview").then(({ AgentsPreview }) => {
     root.render(

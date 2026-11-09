@@ -28,6 +28,7 @@ import {
 } from "@/components/ui";
 import { ServiceLinkBadge } from "@/components/ui/service-link-badge";
 import { useAppStore } from "@/store/app.store";
+import { normalizeExternalUrl } from "@/lib/external-links";
 import { useShallow } from "zustand/react/shallow";
 import {
   CodeBlock,
@@ -149,11 +150,14 @@ export function MessageContent({
 interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   isStreaming?: boolean;
   tokenizePromptTokens?: boolean;
+  /** Global conversations have no owning workspace; local paths remain text. */
+  fileLinkContext?: "active-workspace" | "none";
 }
 
 export function MessageResponse({
   isStreaming,
   tokenizePromptTokens,
+  fileLinkContext = "active-workspace",
   children,
   className,
   style,
@@ -172,7 +176,7 @@ export function MessageResponse({
           state.openFileFromTree,
           state.settings.messageFontSize,
           state.settings.messageCodeFontSize,
-          state.workspacePathById[state.activeWorkspaceId] ??
+          fileLinkContext === "none" ? "" : state.workspacePathById[state.activeWorkspaceId] ??
             state.repositoryPath ??
             "",
         ] as const,
@@ -206,6 +210,7 @@ export function MessageResponse({
     href?: string;
     allowUnknownPath?: boolean;
   }) {
+    if (fileLinkContext === "none") return null;
     return resolveWorkspaceFileLink({
       href: args.href,
       workspaceCwd,
@@ -234,6 +239,11 @@ export function MessageResponse({
     resolvedFileLink?: ResolvedWorkspaceFileLink | null;
     code?: string;
   }) {
+    // A cached streaming block can still carry its previous resolved path.
+    if (fileLinkContext === "none") {
+      if (!normalizeExternalUrl(args.href)) args.event.preventDefault();
+      return;
+    }
     const resolved =
       args.resolvedFileLink ?? resolveFileLink({ href: args.href });
     if (!resolved) {
@@ -292,6 +302,7 @@ export function MessageResponse({
   return (
     <MarkdownMessage
       content={content}
+      disableLocalLinks={fileLinkContext === "none"}
       isStreaming={isStreaming}
       messageFontSize={messageFontSize}
       messageCodeFontSize={messageCodeFontSize}

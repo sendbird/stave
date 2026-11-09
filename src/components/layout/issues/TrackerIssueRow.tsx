@@ -214,7 +214,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
             }}
           >
             <Badge
-              variant="outline"
+              variant="outlined"
               tone={linkPresentation.tone}
               dot={linkPresentation.live}
             >
@@ -227,7 +227,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
         ) : null}
 
         <Badge
-          variant="outline"
+          variant="outlined"
           tone={status.tone}
           {...stylex.props(styles.status)}
         >

@@ -7,6 +7,7 @@ import {
   stepFindPosition,
 } from "./conversation-find-matching";
 import { TranscriptDelegationsProvider } from "./message/transcript-delegations-context";
+import { TranscriptEntranceScope } from "./transcript-entrance-scope";
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
 import { EmptyState } from "@/components/aui/components/EmptyState";
 import {
@@ -1666,6 +1667,8 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   const taskId = useScopedTaskId();
   return (
     <TranscriptDelegationsProvider key={taskId} taskId={taskId}>
+    {/* Virtualized rows remount on scroll: no AUI entrance replays here. */}
+    <TranscriptEntranceScope>
     <Conversation data-chat-panel={findScopeId} className={sx(conversationFindMarker)}>
       <div className={sx(styles.panelColumn)}>
         <MemoizedChatPanelMessageList
@@ -1675,6 +1678,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
       </div>
       <ChatScrollToBottomButton taskId={taskId} />
     </Conversation>
+    </TranscriptEntranceScope>
     </TranscriptDelegationsProvider>
   );
 }

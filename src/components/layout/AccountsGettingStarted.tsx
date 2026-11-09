@@ -139,7 +139,7 @@ function StepDetail({ step, checklist }: { step: AccountsOnboardingStep; checkli
 function SignInButton({ providerId, primary }: { providerId: AccountsOnboardingProviderId; primary: boolean }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const cli = isCliManagedProvider(providerId);
-  return <Button size="sm" variant={primary ? "primary" : "outline"} onClick={() => requestSettingsFocus(providerSignInFocus(providerId, "start"))}>
+  return <Button size="sm" variant={primary ? "primary" : "outlined"} onClick={() => requestSettingsFocus(providerSignInFocus(providerId, "start"))}>
     {cli
       ? t("settingsConnections:accountsOnboarding.actions.signInCli", { value1: providerName(providerId) })
       : t("settingsConnections:accountsOnboarding.actions.signIn", { value1: providerName(providerId) })}
@@ -155,7 +155,7 @@ function StepActions({ step, checklist, onSkip }: {
   switch (step.id) {
     case "install":
       return step.status === "todo" ? <>
-        {PROVIDERS.map((providerId) => <Button key={providerId} size="sm" variant="outline" onClick={() => copyInstallCommand(providerId)}>
+        {PROVIDERS.map((providerId) => <Button key={providerId} size="sm" variant="outlined" onClick={() => copyInstallCommand(providerId)}>
           <Copy aria-hidden />{t("settingsConnections:accountsOnboarding.actions.copyInstall", { value1: providerName(providerId) })}
         </Button>)}
         <Button size="sm" variant="quiet" onClick={openToolingSettings}>{t("settingsConnections:accountsOnboarding.actions.openTooling")}</Button>
@@ -163,7 +163,7 @@ function StepActions({ step, checklist, onSkip }: {
     case "signIn":
       if (step.status !== "todo" && !(step.status === "done" && checklist.signInProviderId)) return null;
       if (checklist.signInNeedsWorkspace) {
-        return <Button size="sm" variant="outline" onClick={() => void useAppStore.getState().createRepository({})}>{t("settingsConnections:accountsOnboarding.actions.openRepository")}</Button>;
+        return <Button size="sm" variant="outlined" onClick={() => void useAppStore.getState().createRepository({})}>{t("settingsConnections:accountsOnboarding.actions.openRepository")}</Button>;
       }
       return <>
         {checklist.signInProviderId ? <SignInButton providerId={checklist.signInProviderId} primary={step.status === "todo"} /> : null}
@@ -174,7 +174,7 @@ function StepActions({ step, checklist, onSkip }: {
       if (step.status === "done") return null;
       const skipped = step.status === "skipped";
       return <>
-        {!skipped ? <Button size="sm" variant="outline" onClick={() => requestSettingsFocus(step.id === "accounts" ? `${checklist.addAccountProviderId}-add` : "api-connection-new")}>
+        {!skipped ? <Button size="sm" variant="outlined" onClick={() => requestSettingsFocus(step.id === "accounts" ? `${checklist.addAccountProviderId}-add` : "api-connection-new")}>
           {t(`settingsConnections:accountsOnboarding.actions.${step.id === "accounts" ? "addAccount" : "addConnection"}`)}
         </Button> : null}
         <Button size="sm" variant="quiet" onClick={() => onSkip(step.id as "accounts" | "gateway", !skipped)}>
@@ -184,7 +184,7 @@ function StepActions({ step, checklist, onSkip }: {
     }
     case "model":
       // The selector lives in a task's composer; with none mounted the button would only close Settings.
-      return <Button size="sm" variant="outline" disabled={!checklist.ready || checklist.modelNeeds !== null} onClick={() => openComposerModelSelector()}>
+      return <Button size="sm" variant="outlined" disabled={!checklist.ready || checklist.modelNeeds !== null} onClick={() => openComposerModelSelector()}>
         {t("settingsConnections:accountsOnboarding.actions.openModelSelector")}
       </Button>;
   }
@@ -279,7 +279,7 @@ export function AccountsGettingStartedWelcomeView({ checklist, fallback }: { che
   return <section className={sx(styles.welcome)} aria-labelledby="welcome-getting-started" data-testid="welcome-getting-started">
     <div className={sx(styles.welcomeHeader)}>
       <h2 id="welcome-getting-started" className={sx(styles.welcomeTitle)}>{t("settingsConnections:accountsOnboarding.welcome.title")}</h2>
-      <Button size="sm" variant="outline" onClick={() => openAccountsSettings("getting-started")}>{t("settingsConnections:accountsOnboarding.actions.openAccounts")}</Button>
+      <Button size="sm" variant="outlined" onClick={() => openAccountsSettings("getting-started")}>{t("settingsConnections:accountsOnboarding.actions.openAccounts")}</Button>
     </div>
     <p className={sx(styles.rowDetail)}>{t("settingsConnections:accountsOnboarding.welcome.description")}</p>
     <ol className={sx(styles.welcomeSteps)}>

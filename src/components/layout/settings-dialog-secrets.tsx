@@ -367,7 +367,7 @@ export function SecretsSettingsCard() {
               {t("settingsConnections:settingsDialogSecrets.loadingSecrets")}</div>
           }
           isEmpty={(list) => list.length === 0}
-          empty={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>}
+          emptyState={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>}
         >
           {() => (
             <div className={sx(styles.list)}>

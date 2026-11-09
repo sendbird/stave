@@ -83,7 +83,7 @@ export function AgentSuggestions(props: {
   const empty = props.suggestions.length === 0;
   const learningSwitch = (
     <Switch
-      density="compact"
+      size="xs"
       label={i18n.t("agents:agentSuggestions.label")}
       checked={props.learning}
       onCheckedChange={(checked) => props.onLearningChange(checked)}

@@ -9,7 +9,6 @@ import { parseDateKey } from "@/components/aui/components/date-range";
 import { controlChrome } from "@/components/aui/recipes/control-chrome";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { styles as selectStyles, triggerHeightsBySize, triggerStylesBySize } from "@/components/aui/recipes/select-styles";
-import { transition } from "@/components/aui/recipes/transition";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,9 +74,10 @@ export function UsageDateRangeField(props: {
             selectStyles.trigger,
             triggerStylesBySize.sm,
             controlChrome.trigger,
-            controlChrome.triggerFocusBorder,
             controlChrome.field,
-            transition.colors,
+            // Same ladder as the AUI Select trigger: keyboard-only focus border
+            // and halo, and it owns the transition (no `transition.colors`).
+            controlChrome.fieldTriggerBorder,
             focusRing.borderOnly,
             triggerHeightsBySize.sm,
             state.open && controlChrome.triggerOpen,
@@ -105,7 +105,7 @@ export function UsageDateRangeField(props: {
               months={2}
               maxDate={today}
               rangeValue={draft}
-              onDateSelect={(day) => setDraft((current) => pickUsageRangeDay(current, day))}
+              onValueChange={(day) => setDraft((current) => pickUsageRangeDay(current, day))}
               xstyle={styles.calendar}
             />
           </div>

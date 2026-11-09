@@ -101,6 +101,8 @@ export function StageCard(props: {
   onSkip?: () => void;
   onShowTool?: (toolCallId: string) => void;
   busy?: boolean;
+  /** Opens the card on mount, for a surface that was asked to show this stage. Defaults to the current stage. */
+  defaultExpanded?: boolean;
 }) {
   useTranslation();
   const { row } = props;
@@ -111,7 +113,7 @@ export function StageCard(props: {
   const meta = describeStageMeta(row);
   const troubled = row.status === "blocked" || row.status === "stuck";
   const recoverable = row.current && troubled;
-  const [expanded, setExpanded] = useState(row.current);
+  const [expanded, setExpanded] = useState(props.defaultExpanded ?? row.current);
   // Opens when the stage becomes current or needs recovering, so Retry and
   // Skip are never folded away; the user can still close it again.
   const [opener, setOpener] = useState({ current: row.current, recoverable });

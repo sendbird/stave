@@ -289,6 +289,13 @@ export const promptInputStyles = stylex.create({
     padding: 0,
     paddingTop: vars["--aui-space-12"],
   },
+  /** `chrome="tray"`: the form is the raised input (`composerTray.field`); no top hairline. */
+  formTray: {
+    borderTopWidth: vars["--aui-border-width-hairline"],
+    gap: vars["--aui-space-4"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
+  },
   formDefault: {
     borderRadius: vars["--aui-radius-panel"],
     borderWidth: 0,
@@ -326,6 +333,8 @@ export const promptInputStyles = stylex.create({
     paddingInline: vars["--aui-space-12"],
     paddingBlock: 10,
   },
+  /** Inside the tray's raised input the editor box draws no second edge. */
+  minimalBoxTray: { borderWidth: 0, backgroundColor: "transparent", paddingInline: 0, paddingBlock: vars["--aui-space-4"] },
   minimalRow: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-12"] },
   promptCaretGlyph: {
     userSelect: "none",

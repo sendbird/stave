@@ -25,7 +25,7 @@ export function SettingsSectionLink(args: {
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="outlined"
           xstyle={styles.titleAccessoryButton}
           onClick={() => navigate(args.target)}
         >

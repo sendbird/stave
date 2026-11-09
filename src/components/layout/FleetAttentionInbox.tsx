@@ -26,6 +26,7 @@ import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
 import type { FleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import { FleetAttentionBulkMenu, FleetReviewClearMenu } from "./FleetAttentionBulkMenu";
+import { FleetOpenInTarsButton, FleetTarsDecisionConfirm } from "./FleetTarsRowActions";
 import { sx } from "@/components/aui/utils/stylex";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import {
@@ -220,7 +221,12 @@ function FleetNeedRow(args: {
       onKeyDown={handleRowKeyDown}
       actions={
         <>
-          {controlTarget ? (
+          {item.kind === "tars-decision" ? (
+            <FleetTarsDecisionConfirm item={item} disabled={busy} />
+          ) : null}
+          {item.source === "tars" ? <FleetOpenInTarsButton item={item} disabled={busy} /> : null}
+          {/* A Tars decision is settled in Tars; its row offers Confirm and Tars instead. */}
+          {controlTarget && item.kind !== "tars-decision" ? (
             <Button
               type="button"
               size="sm"
@@ -279,7 +285,8 @@ function FleetNeedRow(args: {
             only way to set aside a row whose underlying state Fleet does not
             own — a pull request status, a request nobody can settle yet — and it
             is time-bounded, so unlike Dismiss it cannot lose the item. The
-            snoozed count in the footer keeps what is hidden accountable.
+            snoozed count in the footer keeps what is hidden accountable. Its
+            name lowercases the kind, except Tars's, which starts with a name.
           */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -290,7 +297,7 @@ function FleetNeedRow(args: {
                   variant="ghost"
                   xstyle={rowStyles.rowAction}
                   disabled={busy}
-                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
+                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: item.source === "tars" ? FLEET_ATTENTION_KIND_LABEL[item.kind] : FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
                   title={tI18n("fleet:fleetAttentionInbox.snooze")}
                 />
               }

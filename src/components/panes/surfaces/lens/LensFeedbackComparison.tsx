@@ -112,7 +112,7 @@ export function LensFeedbackComparison({ taskId, workspaceId, lensSessionId, ann
         <p className={sx(styles.hint)} role="status">{i18n.t("lens:lensFeedbackComparison.confirmThisIsTheSameTargetAnd")}</p>
         <div className={sx(styles.actions)}>
           <Button size="xs" variant="primary" disabled={busy !== null} onClick={() => void decide("confirmed")}>{i18n.t("lens:lensReviewRecord.confirm")}</Button>
-          <Button size="xs" variant="outline" disabled={busy !== null} onClick={() => void decide("needs-recheck")}>{i18n.t("lens:lensReviewRecord.needsRecheck")}</Button>
+          <Button size="xs" variant="outlined" disabled={busy !== null} onClick={() => void decide("needs-recheck")}>{i18n.t("lens:lensReviewRecord.needsRecheck")}</Button>
         </div>
       </section>
     ) : (

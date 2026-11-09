@@ -565,7 +565,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
               state={inboxState}
               onRetry={() => void hydrateNotifications()}
               isEmpty={(rows) => rows.length === 0 && !hasEntries}
-              empty={
+              emptyState={
                 <div className={sx(notificationsStyles.emptyState)}>
                   <p className={sx(notificationsStyles.emptyTitle)}>
                     {i18n.t("shell:topBarNotifications.noNotificationsYet")}

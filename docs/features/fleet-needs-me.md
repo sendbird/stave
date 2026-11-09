@@ -4,8 +4,8 @@
 
 Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` band
 combines pending questions and approvals, [agent runs](agent-runs.md) that wait for
-a sign-off or need a decision, and current failed turns in one urgency-ordered
-list. Completed results, quiet turns, and pull request states stay in the folded
+a sign-off or need a decision, [Tars](tars.md) work that waits on you, and
+current failed turns in one urgency-ordered list. Completed results, quiet turns, and pull request states stay in the folded
 `In review` group. Historical failures do not compete with a newer turn or with
 recovery managed by an agent run.
 
@@ -65,6 +65,8 @@ Fleet item, and the task records the answer the same way.
   subagents, workspace cards, or one table of tasks (the `Tree`, `Cards` and
   `Table` switch, kept between sessions), with activity filters (`Active`,
   `Running`, `Action required`, and `All`) rather than a task timeline.
+  `Tree` and `Table` also filter by who owns the work (`All owners`, `Tars`,
+  `Agent runs`, `You`); switching to `Cards` returns it to `All owners`.
   Each switch is one control: Tab reaches it once and the arrow keys move the
   choice. While a filter other than `Active` or a search narrows the board,
   the applied filters show as chips under the toolbar, each removable on its
@@ -98,8 +100,11 @@ Fleet item, and the task records the answer the same way.
   the open tree, `Esc` there returns to its card, and `Esc` closes the steps
   window back to the subagent that opened it.
 - `Table` lists every open task of every workspace in one place, one row per
-  task: the task, its workspace, its state, what it needs from you, how long it
-  has waited, and what its running turn last did. Rows follow the Work queue
+  task: the task, who owns it (`Tars`, `Agent run` or `You`), its workspace,
+  its state, what it needs from you, how long it has waited, and what its
+  running turn last did. An owner Fleet has not read yet (before the run list
+  or the Tars snapshot arrives) reads `Unknown`, never `You`, and a narrowed
+  owner filter leaves it out. Rows follow the Work queue
   lanes, and inside a lane the longest wait comes first, so the oldest approval
   and the quiet turns are on top without expanding a card. Every column
   header sorts the rows: select it once for ascending order, again for
@@ -184,6 +189,36 @@ Fleet item, and the task records the answer the same way.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.
+- Work [Tars](tars.md) holds shows a compact `Tars` owner label on its Tree
+  card (beside the model) and the open tree's header, its Cards task row, its
+  Table `Owner` cell and its control panel. In that panel, `Pause` (in place of
+  `Stop`) and `Take over` go through Tars: the responsibility follows, the
+  run is never cancelled, and the Tars conversation records each one as
+  "Paused · Fleet" or "Taken over · Fleet". An applied pause also stops the
+  in-flight turn; a refused one leaves the run's automatic turn running. Once
+  Tars has the work paused, `Stop` ends only your own turn and keeps the run.
+  A run you started yourself on a task Tars lost is never shown as Tars's. Ownership is read again before either acts; a refusal shows
+  its reason in the panel. Rows Tars does not hold, ended work and work you
+  took over keep the direct `Stop`. Answers, approvals, steering and queued
+  replies are unchanged.
+- Tars work that waits on you is a row in `Action required`, read from the
+  same rule as the Tars tray, so both count the same rows:
+  - `Tars decision`: a control the Tars conversation proposed (for example
+    resuming or cancelling the work) waits for your Confirm. The row names it
+    (`Confirm resume`) and sends it through Tars with the proposal's own
+    request, recorded in the conversation as Fleet's. The proposal is read
+    again first; one another surface settled or a newer revision replaced is
+    not sent, and a refusal shows its reason in the row. `Open in Tars` opens
+    the conversation; opening the row from the bell does the same.
+  - `Tars blocked`: Tars stopped the work, for example because its run ended
+    without meeting its acceptance criteria. The row stays until Tars settles
+    it, offering `Open in Tars` and the task's `Open`. When another
+    `Action required` row already speaks for the same task (its failed run,
+    a question, a Tars decision), that row stands for it, and still does
+    while snoozed. A result or a quiet turn on the task never does: the
+    blocked row stays beside it, also after the result is snoozed.
+  Both can be snoozed like any row. Work Tars holds without a task yet opens
+  in Tars.
 - `Mark read`: records that you read that specific result in durable result
   history. It does not mark the task or original ticket complete. Use `Outputs`
   in the task to inspect history or select `Mark unread`.
@@ -221,6 +256,15 @@ Fleet item, and the task records the answer the same way.
   A newer run retires the previous expiry even after its details leave the cache;
   obsolete blocker notifications are reconciled regardless of hydration order.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
+- Another surface, such as Tars, can open Fleet on a task row. Fleet shows the
+  row, resetting only what hid it (a status filter goes back to `Active`, or
+  `All` for a dormant workspace; an owner filter to `All owners`; a search
+  that misses the task is cleared; a folded repository opens), scrolls to it
+  and opens its control panel (in `Tree`, its agent). The current layout is
+  kept. When the task is no longer open, Fleet opens as it was. When its
+  workspace has not loaded yet (a workspace Tars just prepared), Fleet waits
+  a few seconds for it and otherwise says it cannot show the task yet. A
+  newer request replaces an older one that is still waiting.
 
 ### Items That Clear Themselves
 
@@ -262,9 +306,11 @@ Fleet item, and the task records the answer the same way.
 - Fleet does not create a separate task ledger or execution database.
 - The top bar, the sidebar Work queue and Fleet read one attention projection,
   computed once for the app, so they always list the same items. Fleet says
-  `All clear` only after notifications, durable results and snoozes have all
-  been read; while one is loading it says `Checking…`, and after a failed read
-  it says `Not fully checked`.
+  `All clear` only after notifications, durable results, snoozes and the Tars
+  snapshot have all been read; while one is loading it says `Checking…`, and
+  after a failed read it says `Not fully checked`. A Tars read that has not
+  answered within 10 seconds also reads `Not fully checked` until a snapshot
+  arrives.
 - Each item records when its wait began from the source that saw it start:
   the request's turn, its notification, the result, or the agent run event
   that stopped the stage. Pull request items have no such start, so they show

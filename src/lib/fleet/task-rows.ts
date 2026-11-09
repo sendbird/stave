@@ -273,9 +273,10 @@ const ANSWER_KINDS: ReadonlySet<FleetAttentionKind> = new Set([
   "approval",
   "user-input",
   "agent-run-sign-off",
+  "tars-decision",
 ]);
 
-/** The need is a request waiting for the user's answer (an approval, a question, a sign-off). */
+/** The need is a request waiting for the user's answer (an approval, a question, a sign-off, a Tars decision). */
 export function isFleetAnswerNeed(need: Pick<FleetAttentionItem, "kind"> | null | undefined) {
   return Boolean(need && ANSWER_KINDS.has(need.kind));
 }

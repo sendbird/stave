@@ -210,7 +210,9 @@
       "agentRunSignOff": "Sign-off",
       "agentRunBlocked": "Run blocked",
       "agentRunStuck": "Run stuck",
-      "turnStalled": "No updates"
+      "turnStalled": "No updates",
+      "tarsDecision": "Tars decision",
+      "tarsBlocked": "Tars blocked"
     },
     "primaryAction": {
       "openQuestion": "Open question",
@@ -221,7 +223,9 @@
       "openMergeControls": "Open merge controls",
       "reviewSignOff": "Review sign-off",
       "openRun": "Open run",
-      "openTurn": "Open the quiet turn"
+      "openTurn": "Open the quiet turn",
+      "reviewTarsDecision": "Review Tars decision",
+      "openTarsBlocked": "Open blocked Tars work"
     },
     "actionRequiredCount_one": "{{count}} action required",
     "actionRequiredCount_other": "{{count}} actions required",
@@ -309,7 +313,8 @@
     "incompleteNotice": "Their tasks are missing here; every other row is current.",
     "readingTasks": "Reading tasks…",
     "readingMore_one": "Reading the tasks of {{count}} more workspace…",
-    "readingMore_other": "Reading the tasks of {{count}} more workspaces…"
+    "readingMore_other": "Reading the tasks of {{count}} more workspaces…",
+    "owner": "Owner"
   },
   "bulkAttention": {
     "reviewResults_one": "Mark {{count}} result reviewed",
@@ -371,5 +376,46 @@
     "answer": "Answer",
     "open": "Open",
     "openTask": "Open task"
+  },
+  "tarsAttention": {
+    "proposal": {
+      "pause": "Tars proposes to pause this work.",
+      "resume": "Tars proposes to resume this work.",
+      "cancel": "Tars proposes to cancel this work.",
+      "takeover": "Tars proposes that you take over this work.",
+      "handBack": "Tars proposes to take this work back.",
+      "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check."
+    },
+    "blockedDetail": "Tars stopped this work and waits for your decision.",
+    "confirm": {
+      "pause": "Confirm pause",
+      "resume": "Confirm resume",
+      "cancel": "Confirm cancel",
+      "takeover": "Confirm take over",
+      "handBack": "Confirm hand back",
+      "acceptCompletion": "Confirm accept as done"
+    },
+    "confirmLabel": "{{action}} for {{title}}",
+    "openInTars": "Open in Tars",
+    "openInTarsLabel": "Open {{title}} in Tars",
+    "ask": "Tars asks: {{question}}",
+    "unverifiedCompletion": "Stave could not verify that this work is done. Choose what to do in Tars."
+  },
+  "owner": {
+    "tars": "Tars",
+    "agentRun": "Agent run",
+    "you": "You",
+    "unknown": "Unknown"
+  },
+  "ownerFilter": {
+    "label": "Owner",
+    "all": "All owners",
+    "tars": "Tars",
+    "agentRuns": "Agent runs",
+    "you": "You",
+    "labelWithValue": "Owner: {{value}}"
+  },
+  "focus": {
+    "workspaceNotLoaded": "Fleet can’t show this task yet because its workspace hasn’t loaded. Try again in a moment."
   }
 }

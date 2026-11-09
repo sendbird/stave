@@ -39,7 +39,7 @@ export function AutomationLatestRun(props: {
       <div className={sx(latestRunStyles.header)}>
         <h3 className={sx(automationStyles.eyebrow)}>{tI18n("automation:automationLatestRun.latestRun")}</h3>
         <Badge
-          variant="outline"
+          variant="outlined"
           tone={presentation.tone}
           role="status"
           aria-live="polite"

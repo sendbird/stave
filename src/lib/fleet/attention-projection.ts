@@ -26,6 +26,8 @@ import {
   userInputInteractionId,
 } from "@/lib/work-graph/work-graph-reducer";
 import type { ChatMessage, Task } from "@/types/chat";
+import type { TarsControlOperation } from "@/lib/tars/types";
+import type { TarsAttentionSignal } from "@/lib/tars/attention";
 import { classifyTaskStatus } from "./task-status";
 
 export type FleetAttentionKind =
@@ -41,9 +43,11 @@ export type FleetAttentionKind =
   | "pr-ready-to-merge"
   | "agent-run-sign-off"
   | "agent-run-blocked"
-  | "agent-run-stuck";
+  | "agent-run-stuck"
+  | "tars-decision"
+  | "tars-blocked";
 
-export type FleetAttentionSource = "live" | "notification" | "result" | "pr" | "agentRun";
+export type FleetAttentionSource = "live" | "notification" | "result" | "pr" | "agentRun" | "tars";
 
 /**
  * `blocking` items hold work up until the user acts. `review` items are worth
@@ -70,6 +74,9 @@ export const FLEET_ATTENTION_TIER: Record<
   "agent-run-sign-off": "blocking",
   "agent-run-blocked": "blocking",
   "agent-run-stuck": "blocking",
+  // Tars cannot go on with the work until the user confirms or decides.
+  "tars-decision": "blocking",
+  "tars-blocked": "blocking",
 };
 
 export function getFleetAttentionTier(kind: FleetAttentionKind) {
@@ -112,6 +119,10 @@ export interface FleetAttentionItem {
   prUrl?: string;
   /** The stage attempt an agent run row acts on; stale once the agent run moves. */
   agentRunStage?: { agentRunId: string; stageId: string; attempt: number };
+  /** The Tars responsibility a `tars-*` row speaks for. */
+  tarsResponsibilityId?: string;
+  /** The proposed control a `tars-decision` row confirms, at the revision it was proposed for. */
+  tarsDecision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
 }
 
 export interface FleetLiveWorkspaceInput {
@@ -160,6 +171,9 @@ export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
   "agent-run-sign-off": 1,
   "agent-run-blocked": 1,
   "agent-run-stuck": 2,
+  // A proposal waiting for Confirm and blocked Tars work are requests too.
+  "tars-decision": 1,
+  "tars-blocked": 1,
   "run-failed": 2,
   "turn-stalled": 2,
   "pr-changes-requested": 3,
@@ -173,6 +187,7 @@ export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
 const SOURCE_PRIORITY: Record<FleetAttentionSource, number> = {
   live: 0,
   agentRun: 0,
+  tars: 0,
   notification: 1,
   result: 1,
   pr: 2,
@@ -729,6 +744,76 @@ export function collectFleetAgentRunAttentionItems(
   });
 }
 
+/** Names a Tars row shows for where its work runs, when the app knows them. */
+export type FleetWorkspaceNamesById = ReadonlyMap<string, { repositoryName: string; workspaceName: string }>;
+
+const TARS_DECISION_DETAIL_KEY = {
+  pause: "fleet:tarsAttention.proposal.pause",
+  resume: "fleet:tarsAttention.proposal.resume",
+  cancel: "fleet:tarsAttention.proposal.cancel",
+  takeover: "fleet:tarsAttention.proposal.takeover",
+  handBack: "fleet:tarsAttention.proposal.handBack",
+  acceptCompletion: "fleet:tarsAttention.proposal.acceptCompletion",
+} as const satisfies Record<TarsControlOperation, string>;
+
+function repositoryNameOf(repositoryPath: string) {
+  return repositoryPath.split(/[\\/]/).filter(Boolean).at(-1) ?? i18n.t("fleet:attentionProjection.repository");
+}
+
+/**
+ * Tars-owned work that waits on the user, as Fleet rows. The rule for what
+ * waits is `collectTarsAttention`; this only gives each signal a row's shape.
+ * The host's own detail text is never shown, so the row says what the user
+ * decides in Fleet's words.
+ */
+export function collectFleetTarsAttentionItems(
+  signals: readonly TarsAttentionSignal[],
+  namesByWorkspaceId?: FleetWorkspaceNamesById,
+): FleetAttentionItem[] {
+  return signals.map((signal): FleetAttentionItem => {
+    const names = namesByWorkspaceId?.get(signal.workspaceId);
+    return {
+      id: signal.id,
+      kind: signal.kind,
+      priority: FLEET_ATTENTION_PRIORITY[signal.kind],
+      source: "tars",
+      repositoryPath: signal.repositoryPath,
+      repositoryName: names?.repositoryName ?? repositoryNameOf(signal.repositoryPath),
+      workspaceId: signal.workspaceId,
+      workspaceName: names?.workspaceName ?? i18n.t("fleet:attentionProjection.workspace"),
+      ...(signal.taskId ? { taskId: signal.taskId } : {}),
+      taskTitle: signal.title,
+      createdAt: normalizeTimestamp(signal.since),
+      waitingSince: normalizeOptionalTimestamp(signal.since),
+      detail: signal.decision
+        ? i18n.t(TARS_DECISION_DETAIL_KEY[signal.decision.operation])
+        : signal.prompt?.kind === "ask"
+          // The question is Tars's own words, shown as written inside Fleet's sentence.
+          ? i18n.t("fleet:tarsAttention.ask", { question: signal.prompt.question })
+          : signal.prompt?.kind === "unverifiedCompletion"
+            ? i18n.t("fleet:tarsAttention.unverifiedCompletion")
+            : i18n.t("fleet:tarsAttention.blockedDetail"),
+      tarsResponsibilityId: signal.responsibilityId,
+      ...(signal.decision ? { tarsDecision: { ...signal.decision } } : {}),
+    };
+  });
+}
+
+/**
+ * One fact, one row: a blocked responsibility whose task already has a
+ * blocking row (its failed run, a question, a Tars decision) is said by that
+ * row. A review row (a result, a quiet turn) never speaks for it: nothing in
+ * review says the work is stopped. A decision always stays, since only it
+ * carries the Confirm.
+ */
+function dropRepeatedTarsBlocked(items: readonly FleetAttentionItem[]) {
+  const spoken = new Set(items.filter((item) => item.kind !== "tars-blocked" && item.taskId &&
+    FLEET_ATTENTION_TIER[item.kind] === "blocking")
+    .map((item) => getFleetAttentionTaskKey(item.workspaceId, item.taskId!)));
+  return items.filter((item) => item.kind !== "tars-blocked" || !item.taskId ||
+    !spoken.has(getFleetAttentionTaskKey(item.workspaceId, item.taskId)));
+}
+
 /** Urgency first; inside one urgency, whatever has waited longest. */
 export function compareFleetAttentionItems(
   left: FleetAttentionItem,
@@ -845,6 +930,14 @@ export function buildFleetAttentionProjection(args: {
   /** Agent runs across workspaces; running ones that wait on the user become rows. */
   agentRuns?: readonly FleetAgentRunInput[];
   /**
+   * Tars-owned work that waits on the user (`collectTarsAttention`). These
+   * rows come from Tars's own state, so the workspace and closed-task guards
+   * above do not apply: Tars stays stopped until the user decides.
+   */
+  tarsAttention?: readonly TarsAttentionSignal[];
+  /** Repository and workspace names for Tars rows, by workspace id. */
+  workspaceNamesById?: FleetWorkspaceNamesById;
+  /**
    * Attention ids with an unexpired snooze. Filtering happens after the merge so
    * one snooze covers an item no matter which source wins for it on this pass.
    */
@@ -947,6 +1040,7 @@ export function buildFleetAttentionProjection(args: {
             managedOutcomeTaskKeys.has(getFleetAttentionTaskKey(input.workspaceId, input.detail.agentRun.leadTaskId)))),
       ),
     ),
+    ...collectFleetTarsAttentionItems(args.tarsAttention ?? [], args.workspaceNamesById),
   ];
 
   const isCurrentTerminalAttention = currentTerminalAttentionFilter(args);
@@ -958,7 +1052,10 @@ export function buildFleetAttentionProjection(args: {
     );
   }
 
-  const merged = Array.from(byId.values()).sort(compareFleetAttentionItems);
+  // Before snoozes: a snoozed blocking row is the same stopped fact the user
+  // chose to hide, so it still speaks for its task and the fact does not come
+  // back as a Tars row. A snoozed review row never suppressed it anyway.
+  const merged = dropRepeatedTarsBlocked(Array.from(byId.values())).sort(compareFleetAttentionItems);
   const snoozedAttentionIds = args.snoozedAttentionIds;
   const items = snoozedAttentionIds
     ? merged.filter((item) => !snoozedAttentionIds.has(item.id))
