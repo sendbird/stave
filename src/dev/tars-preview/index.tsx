@@ -293,11 +293,15 @@ export function TarsPreview() {
           if (proposal === "resume" || proposal === "cancel" || proposal === "handBack")
             decision.actions.push({ kind: "control", responsibilityId: "preview-responsibility", expectedRevision: 1, operation: proposal });
           // `proposal=approve` / `proposal=message`: a task operation whose card shows the request it answers or the words it sends.
+          // `approval=cut`: the request was too long for the card, so the host cut it and marked it (`truncated`).
           if (proposal === "approve" || proposal === "message") {
             const row = snapshot.responsibilities.find((candidate) => candidate.id === "preview-responsibility");
+            const cut = params.get("approval") === "cut";
+            const summary = cut ? `Run the release script — set -euo pipefail\n${Array.from({ length: 12 }, (_, index) => `bun run build:package-${index} --out dist/${index}`).join(" && ")}`.slice(0, 499) + "…"
+              : "Run the search tests — bun test tests/search.test.ts";
             if (row && proposal === "approve") snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => candidate !== row ? candidate
               : { ...candidate, pendingRequests: [{ kind: "approval", ref: "preview-approval-ref", requestId: "preview-approval", messageId: "preview-message", taskId: "preview-task", workspaceId: "preview-workspace",
-                toolName: "Bash", summary: "Run the search tests — bun test tests/search.test.ts" }] }) };
+                toolName: "Bash", summary, ...(cut ? { truncated: true as const } : {}) }] }) };
             decision.actions.push({ kind: "control", responsibilityId: "preview-responsibility", expectedRevision: row?.revision ?? 1, operation: proposal,
               input: proposal === "approve" ? { requestRef: "preview-approval-ref" } : { text: "Use the existing search index instead of building a new one." } });
           }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { Settings, X } from "lucide-react";
+import { ListTodo, Settings, X } from "lucide-react";
 import { TarsGuideButton } from "./TarsGuide";
 import { TarsMark } from "./TarsMark";
 import { useTranslation } from "@/i18n";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { sx } from "@/components/aui/utils/stylex";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
+import { panelBarStyles } from "@/components/layout/panel-bar.constants";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
@@ -181,14 +182,21 @@ export function TarsView() {
   const decisions = useMemo(() => conversation.conversation && snapshot ? projectTarsDecisions({ messages: conversation.conversation.messages,
     receipts: conversation.conversation.receipts, records: conversation.conversation.records, answers: conversation.conversation.answers ?? [],
     activity: conversation.conversation.activity, responsibilities }) : [], [conversation.conversation, responsibilities, snapshot]);
-  async function open(row: TarsResponsibility) {
-    if (!row.taskId) return;
+  /** Opens a task of the work: its own, or the one a request waits in (a helper's), in the work's repository. */
+  async function openTask(row: TarsResponsibility, taskId: string, workspaceId: string) {
     try {
-      await focusTaskAttention({ taskId: row.taskId, workspaceId: row.executionWorkspaceId ?? row.workspaceId, repositoryPath: row.repositoryPath, refreshFromPersistence: true });
-      if (!useAppStore.getState().tasks.some((task) => task.id === row.taskId)) throw new Error();
+      await focusTaskAttention({ taskId, workspaceId, repositoryPath: row.repositoryPath, refreshFromPersistence: true });
+      if (!useAppStore.getState().tasks.some((task) => task.id === taskId)) throw new Error();
       exitToWorkspace("tars");
     } catch { setOpenError(true); }
   }
+  async function open(row: TarsResponsibility) {
+    if (row.taskId) await openTask(row, row.taskId, row.executionWorkspaceId ?? row.workspaceId);
+  }
+  const openRequestTask = (target: { responsibilityId: string; taskId: string; workspaceId: string }) => {
+    const row = rowOf(target.responsibilityId);
+    if (row) void openTask(row, target.taskId, target.workspaceId);
+  };
   async function submit(input: Omit<TarsActInput, "source">) {
     const done = await command(async (bridge) => {
       try { return (await bridge.act({ ...input, source: "click" })).snapshot; }
@@ -301,14 +309,15 @@ export function TarsView() {
     {error || openError ? <div role="alert" className={sx(styles.errorBar)}><p>{error ?? t("shell:tars.openFailed")}</p><Button variant="secondary" size="xs" onClick={() => { setOpenError(false); void refresh(); }}>{t("shell:tars.retry")}</Button></div> : null}
     <div className={sx(styles.workspace)}>
       <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
-        titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} agentNameOf={(id) => agentNames.get(id)} flows={flows}
+        titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api}
         composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} />
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
       {pinned && pinnedTrayOpen ? <aside id={trayId} hidden={Boolean(sideView)} className={sx(trayStyles.panel, Boolean(sideView) && trayStyles.panelFolded)} aria-labelledby={`${trayId}-title`} data-tars-tray-panel="">
-        <div className={sx(trayStyles.panelHeader)}><h2 id={`${trayId}-title`} className={sx(trayStyles.panelTitle)}>{t("shell:tars.tray.title")}</h2></div>
+        <div className={sx(trayStyles.panelHeader, panelBarStyles.bar)}><h2 id={`${trayId}-title`} className={sx(panelBarStyles.headerTitle, trayStyles.panelTitle)}>
+          <ListTodo aria-hidden className={sx(panelBarStyles.headerIcon)} />{t("shell:tars.tray.title")}</h2></div>
         <div className={sx(trayStyles.panelBody)}>{trayBody}</div>
       </aside> : null}
     </div>

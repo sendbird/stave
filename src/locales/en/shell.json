@@ -1114,7 +1114,7 @@
     "identity": "Name and standing instructions",
     "name": "Name",
     "instructions": "Standing instructions",
-    "instructionsHint": "Applies to new work; does not grant permissions.",
+    "instructionsHint": "Instructions never grant permissions.",
     "save": "Save",
     "delegate": "Delegate a responsibility",
     "outcome": "Outcome",
@@ -1127,7 +1127,7 @@
     "provider": "Provider",
     "searchProviders": "Search providers",
     "noProviders": "No matching providers",
-    "maxTurns": "Turn limit per work unit",
+    "maxTurns": "Turn limit per work unit, including helpers",
     "priority": "Priority (0–100, higher first)",
     "priorityValue": "Priority {{priority}}",
     "scope": "Tars may create isolated worktrees, execute, repair and review work within this goal. Publishing and external messages require a separate request.",
@@ -1166,7 +1166,6 @@
       "taskBusy": "A turn is running in the task. Say it in the task, or ask again when the turn ends."
     },
     "close": "Close Tars",
-    "availability": "Work continues while Stave is running and recovers after restart. It does not run while Stave is closed or this computer is asleep.",
     "unavailable": "Tars requires the desktop app and its host connection.",
     "failed": "The request failed. Your saved responsibilities remain available.",
     "openFailed": "This responsibility’s task could not be opened.",
@@ -1193,8 +1192,7 @@
       "activityHint": "Owned work and its current state.",
       "noWork": "No work is running on your behalf yet. Describe an outcome in the conversation to get started.",
       "settings": "Conversation settings",
-      "settingsDescription": "Preferences for this conversation.",
-      "settingsHint": "Changes apply to new messages and work. The turn limit includes helpers.",
+      "settingsDescription": "Changes apply to new messages and work.",
       "accountLabel": "Account",
       "searchAccounts": "Search accounts",
       "noAccounts": "No matching accounts",
@@ -1582,16 +1580,15 @@
       "model": "Execution model",
       "auto": "Automatic",
       "autoDescription": "Stave Auto picks the model for each step of delegated work.",
-      "autoHint": "Stave chooses a model for each step. Reviews may use another provider.",
-      "pinnedHint": "All work and helpers use this model. Choose Automatic to allow routing.",
+      "autoHint": "Stave picks a model for each step; reviews may use another provider.",
+      "pinnedHint": "All work and helpers use this model.",
       "systemAccount": "This model runs with the {{provider}} System default account.",
-      "unsupported": "Delegated work uses Claude or Codex.",
       "concurrency": "Concurrent responsibilities",
       "concurrencyHint": "0 starts all eligible independent work. Set a limit to bound resource use; waiting work yields its slot."
     },
     "agents": {
       "title": "Agents Tars may use",
-      "hint": "Built-in agents are always available. Allow a saved agent here before Tars can hand it work.",
+      "hint": "Built-in agents are always available.",
       "search": "Search saved agents",
       "empty": "You have no saved agents. Create one in Agents to make it available here.",
       "noMatch": "No saved agents match your search.",
@@ -1622,7 +1619,7 @@
       "takeControlHint": "Tars owns this run. Take control pauses it for you without ending it. Tars continues only after you hand it back.",
       "turnOnly": "Your turn stopped. Tars keeps this work paused, and its run is not cancelled.",
       "agentLocked": "Tars owns this task's agent",
-      "agentLockedHint": "Changing or clearing the agent would end Tars's run. Take the work over first (Take control here, or Take over in Fleet or Tars), then change it."
+      "agentLockedHint": "Take the work over first: changing the agent would end Tars's run."
     },
     "tray": {
       "title": "Work",
@@ -1890,7 +1887,7 @@
         "acceptanceUnmet": "The run stopped with a required criterion unmet.",
         "expired": "The run stopped because it took too long."
       },
-      "unverifiedCompletion": "The run reported its criteria as met, but Stave has no verified check or passed review for it. Accept it as done, or ask Tars for new work to verify it.",
+      "unverifiedCompletion": "The run reported its criteria met, but no check or review confirmed it.",
       "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check.",
       "workingChangesUnavailable": "The snapshot of your working changes is no longer in the repository, so Tars could not create this work's workspace. Cancel it and ask again."
     },
@@ -1998,6 +1995,7 @@
           "answers": "Answers",
           "words": "Words sent"
         },
+        "truncated": "Only the start is shown; open its task to read the whole request.",
         "revision": "r{{revision}}",
         "effect": {
           "pause": "Tars pauses the run. You can resume it later.",
@@ -2051,11 +2049,11 @@
         "request": "Your message",
         "sentAt": "Sent {{time}}",
         "answered": "Sent {{time}} · your choice on Tars's question: {{question}}",
-        "requestMissing": "The original message was not saved for this work: it was delegated before Stave kept the message with its work.",
+        "requestMissing": "This older work did not save your original message.",
         "instruction": "Tars's instruction",
         "instructionHint": "What Tars wrote for this work. The run receives it together with your message.",
         "assignment": "Instruction as saved",
-        "assignmentHint": "This work was delegated before your message and Tars's instruction were saved apart, so they cannot be shown separately. This is the full instruction the run received.",
+        "assignmentHint": "The full instruction the run received; older work did not save your message separately.",
         "context": "Attached in full",
         "contextHint": "Too long for the run's instruction, so the run's lead receives it whole as context on every turn.",
         "criteria_one": "{{count}} completion criterion",
@@ -2072,7 +2070,7 @@
       "report": {
         "frozenAt": "As of {{time}}, when the run ended",
         "finalRevision": "final revision {{revision}}",
-        "pending": "The run has not ended, so there is no report yet. The delegated criteria are listed as not reported.",
+        "pending": "The run has not ended, so there is no report yet.",
         "unavailable": "The run's details are not loaded, so its report cannot be shown.",
         "outcome": {
           "completed": "Run completed",
@@ -2179,7 +2177,7 @@
       "examplesTitle": "Try asking",
       "canDo1": "Answers questions about your work from what Stave observed, even before you add a repository.",
       "canDo2": "Turns an explicit request into bounded work in a registered workspace, with acceptance criteria.",
-      "canDo3": "Runs it in a new workspace of that repository, on a branch named by the repository's naming rule, with an agent team, an independent review and a verification.",
+      "canDo3": "Runs it with an agent team in a new workspace and branch, then reviews and verifies it.",
       "canDo4": "Asks you to decide with a card you answer by click, number key or a short word.",
       "canDo5": "Follows up by itself when work blocks, asks you or cannot be verified.",
       "canDo6": "Shows each result's report, changes, timeline and review beside the conversation.",

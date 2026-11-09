@@ -1,22 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 
-/**
- * Structural sizes of the side view. StyleX resolves these at build time, so
- * they restate `TARS_SIDE_VIEW_MIN_WIDTH` and `TARS_CONVERSATION_MIN_WIDTH`
- * (`src/lib/tars/side-view.ts`, `tray-model.ts`); the side-view test keeps them equal.
- */
-const MIN_WIDTH = "26rem";
-const CONVERSATION_FLOOR = "440px";
-
 export const tarsSideViewStyles = stylex.create({
-  /** Wide: the tray's column, half the view, never pushing the conversation under its floor. */
-  column: {
-    display: "flex", flexDirection: "column", flexShrink: 0, minWidth: 0, minHeight: 0,
-    width: `clamp(${MIN_WIDTH}, 50%, calc(100% - ${CONVERSATION_FLOOR}))`,
-    borderInlineStartWidth: vars["--aui-border-width-hairline"], borderInlineStartStyle: "solid", borderInlineStartColor: vars["--aui-color-border-subtle"],
-    backgroundColor: vars["--aui-color-canvas"],
-  },
+  /** Wide: the tray's own column (`tarsTrayStyles.panel` sets its width), on the view's canvas. */
+  column: { backgroundColor: vars["--aui-color-canvas"] },
   /** Narrow: between the conversation and the composer; its cap comes from the measured view height. */
   inline: {
     display: "flex", flexDirection: "column", flexShrink: 0, minWidth: 0, minHeight: 0,
@@ -24,20 +11,35 @@ export const tarsSideViewStyles = stylex.create({
     backgroundColor: vars["--aui-color-canvas"],
   },
   inlineCap: (height: number) => ({ maxBlockSize: `${height}px` }),
+  /**
+   * The view's title bar, then what it is about: the panel bar names the view
+   * (its icon and kind, as the tray's bar names Work), the line under it the
+   * work and the switcher between the work's views.
+   */
   header: {
-    display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], flexShrink: 0, minWidth: 0,
-    paddingInline: vars["--aui-space-16"], paddingBlock: vars["--aui-space-8"],
+    display: "flex", flexDirection: "column", flexShrink: 0, minWidth: 0,
     borderBlockEndWidth: vars["--aui-border-width-hairline"], borderBlockEndStyle: "solid", borderBlockEndColor: vars["--aui-color-border-subtle"],
   },
-  heading: { display: "flex", flexDirection: "column", flex: "1 1 12rem", minWidth: 0, margin: 0 },
-  eyebrow: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], fontWeight: vars["--aui-font-weight-regular"] },
-  title: {
-    color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-semibold"], lineHeight: vars["--aui-line-height-normal"],
-    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+  bar: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, paddingInline: vars["--aui-space-16"] },
+  heading: { flex: 1, minWidth: 0, margin: 0 },
+  headingText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: vars["--aui-line-height-normal"] },
+  /** The work's title beside the switcher; narrower than both, the switcher wraps under it. */
+  context: {
+    display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--aui-space-12"], rowGap: vars["--aui-space-8"], minWidth: 0,
+    paddingInline: vars["--aui-space-16"], paddingBlockEnd: vars["--aui-space-12"],
   },
-  headerControls: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flexShrink: 0, marginInlineStart: "auto" },
+  subject: {
+    flex: "1 1 12rem", minWidth: 0, margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"],
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  },
+  switcher: { flexShrink: 0, maxWidth: "100%" },
+  /**
+   * The scrolling body. Positioned, so an absolutely placed descendant (a
+   * visually hidden label in a stage row) scrolls and clips with it instead of
+   * stretching the page under a narrow, height-capped view.
+   */
   body: {
-    display: "flex", flexDirection: "column", gap: vars["--aui-space-16"], flex: 1, minHeight: 0, minWidth: 0, overflowY: "auto",
+    position: "relative", display: "flex", flexDirection: "column", gap: vars["--aui-space-16"], flex: 1, minHeight: 0, minWidth: 0, overflowY: "auto",
     paddingInline: vars["--aui-space-16"], paddingBlock: vars["--aui-space-12"],
   },
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },

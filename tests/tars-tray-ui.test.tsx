@@ -12,7 +12,7 @@ import { TarsFlowBlock, TarsFlowNodes, TarsFlowStageNode } from "../src/componen
 import { TarsConversation, TarsConversationMessage, type TarsFlowContext } from "../src/components/tars/TarsConversation";
 import type { TarsConversationState } from "../src/components/tars/use-tars-conversation";
 import { buildTarsFlow } from "../src/lib/tars/flow-model";
-import { buildTarsTray, TARS_CONVERSATION_MIN_WIDTH, type TarsTrayDecision, type TarsTrayModel } from "../src/lib/tars/tray-model";
+import { buildTarsTray, TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_WIDTH, type TarsTrayDecision, type TarsTrayModel } from "../src/lib/tars/tray-model";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import { projectTarsDecisions } from "../src/lib/tars/decisions";
 import type { FleetFocusTarget } from "../src/store/fleet-focus-store";
@@ -162,9 +162,10 @@ describe("Tars tray UI", () => {
     expect(fleet).toEqual([{ workspaceId: "exec-release", taskId: "task-release" }]);
   });
 
-  test("the pinned layout restates the conversation floor the model defines", () => {
+  test("the pinned layout restates the tray width and the conversation floor the model defines", () => {
     const source = readFileSync(path.join(import.meta.dir, "../src/components/tars/tars-tray.styles.ts"), "utf8");
     expect(source).toContain(`const CONVERSATION_FLOOR = "${TARS_CONVERSATION_MIN_WIDTH}px";`);
+    expect(source).toContain(`const TRAY_WIDTH = "${TARS_TRAY_WIDTH / 16}rem";`);
   });
 });
 
