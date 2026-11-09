@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   BellOff,
   ChevronDown,
@@ -8,7 +8,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
@@ -26,8 +26,9 @@ import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
 import type { FleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import { FleetAttentionBulkMenu, FleetReviewClearMenu } from "./FleetAttentionBulkMenu";
-import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { FleetOpenInTarsButton, FleetTarsDecisionConfirm } from "./FleetTarsRowActions";
+import { sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import {
   Button,
   DropdownMenu,
@@ -220,7 +221,12 @@ function FleetNeedRow(args: {
       onKeyDown={handleRowKeyDown}
       actions={
         <>
-          {controlTarget ? (
+          {item.kind === "tars-decision" ? (
+            <FleetTarsDecisionConfirm item={item} disabled={busy} />
+          ) : null}
+          {item.source === "tars" ? <FleetOpenInTarsButton item={item} disabled={busy} /> : null}
+          {/* A Tars decision is settled in Tars; its row offers Confirm and Tars instead. */}
+          {controlTarget && item.kind !== "tars-decision" ? (
             <Button
               type="button"
               size="sm"
@@ -279,7 +285,8 @@ function FleetNeedRow(args: {
             only way to set aside a row whose underlying state Fleet does not
             own — a pull request status, a request nobody can settle yet — and it
             is time-bounded, so unlike Dismiss it cannot lose the item. The
-            snoozed count in the footer keeps what is hidden accountable.
+            snoozed count in the footer keeps what is hidden accountable. Its
+            name lowercases the kind, except Tars's, which starts with a name.
           */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -290,7 +297,7 @@ function FleetNeedRow(args: {
                   variant="ghost"
                   xstyle={rowStyles.rowAction}
                   disabled={busy}
-                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
+                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: item.source === "tars" ? FLEET_ATTENTION_KIND_LABEL[item.kind] : FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
                   title={tI18n("fleet:fleetAttentionInbox.snooze")}
                 />
               }
@@ -580,7 +587,7 @@ export function FleetAttentionInbox(args: {
         {review.length > 0 ? (
           <div className={sx(styles.reviewGroup)}>
             <div className={sx(styles.reviewHeader)}>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={[styles.reviewToggle, focusRing.ringInset]}
@@ -600,7 +607,7 @@ export function FleetAttentionInbox(args: {
                 )}
                 <span className={sx(styles.groupHeading)}>{FLEET_TIER_LABEL.review}</span>
                 <span className={sx(styles.reviewCount)}>{review.length}</span>
-              </AdsButton>
+              </AuiButton>
               {/*
                 Bulk clear is scoped to this group on purpose. Nothing here is
                 stalled, so acknowledging it in one gesture is safe; doing the

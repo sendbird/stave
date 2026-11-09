@@ -20,7 +20,9 @@
     "sentence10": "최근 사용 {{value1}}",
     "assignments_other": "배정 {{count}}개",
     "extraCopy23": "{{value1}}개 시작하지 못함",
-    "stalled": "업데이트 없음"
+    "stalled": "업데이트 없음",
+    "showTarsWork": "Tars 작업 표시",
+    "noOwnWork": "Tars가 맡긴 작업 외에는 없습니다."
   },
   "agentCanCallField": {
     "ariaLabel": "호출 가능",

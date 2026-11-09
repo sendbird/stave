@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ads/components/Badge";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import type { AutomationRun } from "@/lib/automations";
 import { automationStyles } from "./automation-center.styles";
@@ -39,7 +39,7 @@ export function AutomationLatestRun(props: {
       <div className={sx(latestRunStyles.header)}>
         <h3 className={sx(automationStyles.eyebrow)}>{tI18n("automation:automationLatestRun.latestRun")}</h3>
         <Badge
-          variant="outline"
+          variant="outlined"
           tone={presentation.tone}
           role="status"
           aria-live="polite"

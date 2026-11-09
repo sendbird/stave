@@ -90,8 +90,8 @@ import {
 import { WORKSPACE_INFORMATION_SECTION_LABELS } from "@/lib/workspace-information-sections";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { sanitizeBranchName } from "@/store/repository.utils";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import { useAppStore, type AppSettings } from "@/store/app.store";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";

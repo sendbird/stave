@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { useAsync } from "@/components/ads/utils/async";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { useAsync } from "@/components/aui/utils/async";
+import { sx } from "@/components/aui/utils/stylex";
 import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { listTaskTurnHistory } from "@/lib/db/turn-history.db";
@@ -84,9 +84,9 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
               <p role="alert" className={sx(styles.notice)}>
                 {i18n.t("session:turnHistory.readFailed")}
               </p>
-              <AdsButton variant="quiet" size="xs" onClick={refresh}>
+              <AuiButton variant="quiet" size="xs" onClick={refresh}>
                 {i18n.t("common:actions.retry")}
-              </AdsButton>
+              </AuiButton>
             </>
           ) : (
             <SearchablePicker

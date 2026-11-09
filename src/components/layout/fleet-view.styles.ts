@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /** The inbox becomes a real column here; below it is a compact top rail. */
 const COLUMN = "@media (min-width: 40rem)";
@@ -9,7 +9,7 @@ const ROOMY = "@media (min-width: 64rem)";
 
 export const fleetStyles = stylex.create({
   root: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -21,22 +21,22 @@ export const fleetStyles = stylex.create({
     alignItems: "center",
     // Flat, like the other global view headers: the hairline below
     // separates the chrome from the board.
-    backgroundColor: vars["--ads-color-canvas"],
-    borderBottomColor: vars["--ads-color-border"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     justifyContent: "space-between",
     minHeight: 56,
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
   },
   headerIdentity: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minWidth: 0,
   },
   headerIcon: {
@@ -46,24 +46,24 @@ export const fleetStyles = stylex.create({
      * neither, and painting it accent put the loudest colour in the surface on
      * the one element in it that does nothing.
      */
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
     height: 16,
     width: 16,
   },
   headerTitle: {
-    color: vars["--ads-color-text"],
-    fontFamily: vars["--ads-font-sans"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontFamily: vars["--aui-font-sans"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "-0.01em",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   headerSummary: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -72,7 +72,7 @@ export const fleetStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   headerAction: {
     height: 28,
@@ -92,24 +92,24 @@ export const fleetStyles = stylex.create({
   },
   notice: {
     alignItems: "center",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-16"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
   },
   noticeMuted: {
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-16"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
   },
   /*
    * Decisions on top, the board below. The inbox of waiting decisions is a
@@ -124,9 +124,9 @@ export const fleetStyles = stylex.create({
     minHeight: 0,
   },
   inbox: {
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
     flexShrink: 0,
@@ -154,27 +154,27 @@ export const fleetStyles = stylex.create({
   },
   toolbar: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-canvas"],
-    borderBottomColor: vars["--ads-color-border"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-16"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
   },
   // The applied-filter chips sit under the toolbar on the same canvas and
   // hairline, and appear only while a filter narrows the board.
   appliedFilters: {
-    backgroundColor: vars["--ads-color-canvas"],
-    borderBottomColor: vars["--ads-color-border"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     flexShrink: 0,
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-16"],
   },
   searchField: {
     marginInlineStart: "auto",
@@ -187,7 +187,7 @@ export const fleetStyles = stylex.create({
     },
   },
   searchIcon: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     height: 14,
     insetInlineStart: 10,
     pointerEvents: "none",
@@ -197,7 +197,7 @@ export const fleetStyles = stylex.create({
     width: 14,
   },
   /*
-   * Chrome comes from the ADS field: raised fill, hairline at rest, border
+   * Chrome comes from the AUI field: raised fill, hairline at rest, border
    * strengthening on hover and taking the focus colour on `:focus-within`. This
    * key used to replace all of that with a flat `colorCanvasSubtle` box whose
    * border was transparent until hovered — a field that only looked like a
@@ -207,17 +207,17 @@ export const fleetStyles = stylex.create({
    * and the trailing clear button need.
    */
   searchInput: {
-    fontSize: vars["--ads-font-size-body"],
-    height: vars["--ads-control-height-sm"],
-    paddingInlineEnd: vars["--ads-space-32"],
-    paddingInlineStart: vars["--ads-space-32"],
+    fontSize: vars["--aui-font-size-body"],
+    height: vars["--aui-control-height-sm"],
+    paddingInlineEnd: vars["--aui-space-32"],
+    paddingInlineStart: vars["--aui-space-32"],
   },
   searchClear: {
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
-    insetInlineEnd: vars["--ads-space-4"],
+    insetInlineEnd: vars["--aui-space-4"],
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
@@ -230,57 +230,57 @@ export const fleetStyles = stylex.create({
   },
   boardEmpty: {
     paddingBlock: 48,
-    paddingInline: vars["--ads-space-16"],
+    paddingInline: vars["--aui-space-16"],
     textAlign: "center",
   },
   boardEmptyTitle: {
-    color: vars["--ads-color-text"],
-    // Empty-state titles sit at Lead across the app (the ADS `EmptyState`
+    color: vars["--aui-color-text"],
+    // Empty-state titles sit at Lead across the app (the AUI `EmptyState`
     // title step), so the board's own empty state does not read as a row.
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    lineHeight: vars["--ads-line-height-lead"],
+    fontSize: vars["--aui-font-size-lead"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    lineHeight: vars["--aui-line-height-lead"],
   },
   boardEmptyHint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginTop: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginTop: vars["--aui-space-4"],
   },
   boardEmptyAction: {
-    borderRadius: vars["--ads-radius-mark"],
-    marginTop: vars["--ads-space-12"],
+    borderRadius: vars["--aui-radius-mark"],
+    marginTop: vars["--aui-space-12"],
   },
   repositorySection: {
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
     borderBottomWidth: {
-      default: vars["--ads-border-width-hairline"],
+      default: vars["--aui-border-width-hairline"],
       ":last-child": 0,
     },
   },
   repositoryHeader: {
     alignItems: "center",
     backdropFilter: "blur(8px)",
-    backgroundColor: vars["--ads-color-canvas"],
-    borderBottomColor: vars["--ads-color-border"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     gap: 6,
     minHeight: 36,
     paddingBlock: 6,
-    paddingInline: vars["--ads-space-16"],
+    paddingInline: vars["--aui-space-16"],
     position: "sticky",
     textAlign: "left",
     top: 0,
     width: "100%",
     zIndex: {
-      default: vars["--ads-z-index-panel"],
-      ":focus-visible": vars["--ads-z-index-app-chrome"],
+      default: vars["--aui-z-index-panel"],
+      ":focus-visible": vars["--aui-z-index-app-chrome"],
     },
   },
   repositoryChevron: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
     height: 14,
     width: 14,
@@ -288,56 +288,56 @@ export const fleetStyles = stylex.create({
   // Names the group of cards under it, so it is a section header rather than
   // a row label sharing the step of the counts beside it.
   repositoryName: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   repositoryCount: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   /**
-   * The chip itself is an ADS `Badge` (tone/radius/type all come from the
+   * The chip itself is an AUI `Badge` (tone/radius/type all come from the
    * component); this only reserves it against the header's flex squeeze and
    * spaces it from the count.
    */
   repositoryCurrent: {
     flexShrink: 0,
-    marginInlineStart: vars["--ads-space-4"],
+    marginInlineStart: vars["--aui-space-4"],
   },
   // Cards in a row share one height (their footers line up) and sit on the
   // 12px spacing step.
   cardGrid: {
     alignItems: "stretch",
     display: "grid",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     gridTemplateColumns:
       "repeat(auto-fill, minmax(min(100%, max(17rem, calc((100% - 2 * 0.75rem) / 3))), 1fr))",
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
   },
   footnote: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
   },
   footnoteIcon: {
     height: 14,
     width: 14,
   },
   footnoteAction: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     height: 24,
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
 });

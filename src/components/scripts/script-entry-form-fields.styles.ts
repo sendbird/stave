@@ -1,37 +1,37 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const entryFormStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
   field: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   fieldLabel: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text"],
   },
   hint: {
     display: "block",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   fieldError: {
     display: "block",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-danger-text"],
   },
   commands: {
     minHeight: "7rem",
   },
   invalidControl: {
-    borderColor: vars["--ads-color-danger-border"],
+    borderColor: vars["--aui-color-danger-border"],
   },
   triggerFull: {
     width: "100%",
@@ -39,30 +39,30 @@ export const entryFormStyles = stylex.create({
   switchRow: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   switchLabel: {
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text"],
   },
   advancedToggle: {
     height: 32,
-    paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
+    paddingInline: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   advanced: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-12"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border"],
-    paddingTop: vars["--ads-space-12"],
+    borderTopColor: vars["--aui-color-border"],
+    paddingTop: vars["--aui-space-12"],
   },
   idDisplayRow: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   idDisplay: {
     minWidth: 0,
@@ -70,21 +70,21 @@ export const entryFormStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   idDisplaySet: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   idDisplayEmpty: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   idEditButton: {
     height: 32,
   },
   grid: {
     display: "grid",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     gridTemplateColumns: {
       default: "1fr",
       "@media (min-width: 40rem)": "1fr 1fr",
@@ -94,13 +94,13 @@ export const entryFormStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: vars["--ads-space-16"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-16"],
+    borderRadius: vars["--aui-radius-panel"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    paddingInline: vars["--ads-space-12"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface-tint"],
+    paddingInline: vars["--aui-space-12"],
     paddingBlock: 10,
   },
 });

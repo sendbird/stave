@@ -1,17 +1,17 @@
 import { i18n, useTranslation } from "@/i18n";
-import type { StyleXValue } from "../ads/utils/stylex";
-import { VisuallyHidden } from "../ads/components/VisuallyHidden";
+import type { StyleXValue } from "../aui/utils/stylex";
+import { VisuallyHidden } from "../aui/components/VisuallyHidden";
 import { overlayLayout } from "./overlay-layout.styles";
 
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { Dialog as AdsDialog } from "../ads/components/Dialog";
-import { overlaySurface } from "../ads/recipes/overlay-surface";
-import { sx } from "../ads/utils/stylex";
-import { cx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
+import { Dialog as AuiDialog } from "../aui/components/Dialog";
+import { overlaySurface } from "../aui/recipes/overlay-surface";
+import { sx } from "../aui/utils/stylex";
+import { cx } from "../aui/utils/stylex";
+import { mergeClassName } from "../aui/components/merge-class-name";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 
@@ -21,22 +21,22 @@ type DialogProps = Omit<DialogPrimitive.Root.Props, "children"> & {
 
 function Dialog({ ...props }: DialogProps) {
   useTranslation();
-  return <AdsDialog.Root data-slot="dialog" {...props} />;
+  return <AuiDialog.Root data-slot="dialog" {...props} />;
 }
 
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
   useTranslation();
-  return <AdsDialog.Trigger data-slot="dialog-trigger" {...props} />;
+  return <AuiDialog.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   useTranslation();
-  return <AdsDialog.Portal data-slot="dialog-portal" {...props} />;
+  return <AuiDialog.Portal data-slot="dialog-portal" {...props} />;
 }
 
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   useTranslation();
-  return <AdsDialog.Close data-slot="dialog-close" {...props} />;
+  return <AuiDialog.Close data-slot="dialog-close" {...props} />;
 }
 
 function DialogOverlay({
@@ -45,7 +45,7 @@ function DialogOverlay({
 }: DialogPrimitive.Backdrop.Props) {
   useTranslation();
   return (
-    <AdsDialog.Backdrop
+    <AuiDialog.Backdrop
       data-slot="dialog-overlay"
       className={mergeClassName(() => UI_LAYER_CLASS.dialog, className)}
       xstyle={overlayLayout.positioner}
@@ -88,7 +88,7 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <AdsDialog.Close
+          <AuiDialog.Close
             data-slot="dialog-close"
             render={
               <Button
@@ -100,7 +100,7 @@ function DialogContent({
           >
             <XIcon />
             <VisuallyHidden>{i18n.t("ui:dialog.close")}</VisuallyHidden>
-          </AdsDialog.Close>
+          </AuiDialog.Close>
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>
@@ -138,8 +138,8 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <AdsDialog.Close render={<Button variant="outline" />}>
-          {i18n.t("ui:dialog.close")}</AdsDialog.Close>
+        <AuiDialog.Close render={<Button variant="outline" />}>
+          {i18n.t("ui:dialog.close")}</AuiDialog.Close>
       )}
     </div>
   );
@@ -148,7 +148,7 @@ function DialogFooter({
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   useTranslation();
   return (
-    <AdsDialog.Title
+    <AuiDialog.Title
       data-slot="dialog-title"
       className={className}
       {...props}
@@ -162,7 +162,7 @@ function DialogDescription({
 }: DialogPrimitive.Description.Props) {
   useTranslation();
   return (
-    <AdsDialog.Description
+    <AuiDialog.Description
       data-slot="dialog-description"
       className={className}
       xstyle={overlayLayout.description}

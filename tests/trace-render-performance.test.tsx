@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ToolRun } from "@/components/ads/components/ToolRun";
-import { Thinking } from "@/components/ads/components/Thinking";
+import { ToolRun } from "@/components/aui/components/ToolRun";
+import { Thinking } from "@/components/aui/components/Thinking";
 import { sameAssistantTraceEntry } from "@/components/session/message/assistant-trace-entry-equality";
 import { advanceTurnTrace, buildTurnTrace } from "@/components/session/turn-trace.utils";
 import type { AssistantTraceEntry } from "@/components/session/message/assistant-trace-builder";

@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useRef } from "react";
 import { Check } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import type { I18nKey } from "@/i18n";
 import type { ReviewFile, ReviewFileOrigin, ReviewFileStatus } from "@/lib/review/review-scope";
 import { reviewStyles as styles } from "./review.styles";

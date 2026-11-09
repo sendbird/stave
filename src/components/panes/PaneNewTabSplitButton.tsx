@@ -2,12 +2,12 @@ import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronDown, Globe, Plus, Settings2, SquareTerminal } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { ModelIcon } from "@/components/ai-elements";
 import {
@@ -146,7 +146,7 @@ export function PaneNewTabSplitButton(props: { groupId: string }) {
         content={primaryLabel}
         shortcut={primaryPreset ? formatPresetSlotShortcut(0) ?? undefined : undefined}
       >
-        <AdsButton
+        <AuiButton
           layout="host"
           type="button"
           xstyle={[styles.half, styles.primary, transition.colors, focusRing.ring]}
@@ -159,14 +159,14 @@ export function PaneNewTabSplitButton(props: { groupId: string }) {
           }
         >
           <Plus className={sx(styles.chevronIcon)} aria-hidden />
-        </AdsButton>
+        </AuiButton>
       </Tooltip>
       <DropdownMenu>
         <Tooltip content={i18n.t("panes:paneHeaderActions.createNewPaneTab")}>
           <span className={sx(layoutShellStyles.inlineFlex)}>
             <DropdownMenuTrigger
               render={
-                <AdsButton
+                <AuiButton
                   layout="host"
                   type="button"
                   xstyle={[styles.half, styles.chevron, transition.colors, focusRing.ring]}
@@ -293,31 +293,31 @@ export function PaneNewTabSplitButton(props: { groupId: string }) {
 const styles = stylex.create({
   split: {
     alignItems: "stretch",
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "inline-flex",
     flexShrink: 0,
-    height: vars["--ads-control-height-xs"],
+    height: vars["--aui-control-height-xs"],
     overflow: "hidden",
   },
   half: {
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-      ":is([data-popup-open])": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
+      ":is([data-popup-open])": vars["--aui-color-overlay-hover"],
     },
     borderWidth: 0,
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     cursor: "pointer",
     display: "inline-flex",
-    fontFamily: vars["--ads-font-sans"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-4"],
-    lineHeight: vars["--ads-line-height-control"],
+    fontFamily: vars["--aui-font-sans"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    gap: vars["--aui-space-4"],
+    lineHeight: vars["--aui-line-height-control"],
     margin: 0,
   },
   // Icon-only so the strip keeps its room for tabs and the task's own
@@ -325,55 +325,55 @@ const styles = stylex.create({
   primary: {
     justifyContent: "center",
     paddingInline: 0,
-    width: vars["--ads-control-height-xs"],
+    width: vars["--aui-control-height-xs"],
   },
   chevron: {
-    borderInlineStartColor: vars["--ads-color-border-subtle"],
+    borderInlineStartColor: vars["--aui-color-border-subtle"],
     borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars["--ads-border-width-hairline"],
+    borderInlineStartWidth: vars["--aui-border-width-hairline"],
     justifyContent: "center",
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
   icon: {
     flexShrink: 0,
-    height: vars["--ads-control-icon-size-sm"],
-    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
   },
   chevronIcon: {
     flexShrink: 0,
-    height: vars["--ads-control-icon-size-md"],
-    width: vars["--ads-control-icon-size-md"],
+    height: vars["--aui-control-icon-size-md"],
+    width: vars["--aui-control-icon-size-md"],
   },
   itemLabel: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   presetDetails: { overflowWrap: "anywhere" },
   menu: { width: 256 },
   submenu: { width: 256 },
   item: { alignItems: "flex-start" },
-  choice: { alignItems: "flex-start", display: "flex", gap: vars["--ads-space-8"], minWidth: 0 },
+  choice: { alignItems: "flex-start", display: "flex", gap: vars["--aui-space-8"], minWidth: 0 },
   providerIcon: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    height: vars["--ads-control-icon-size-md"],
-    marginBlockStart: vars["--ads-space-2"],
-    width: vars["--ads-control-icon-size-md"],
+    height: vars["--aui-control-icon-size-md"],
+    marginBlockStart: vars["--aui-space-2"],
+    width: vars["--aui-control-icon-size-md"],
   },
   content: { minWidth: 0 },
   label: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   description: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginBlockStart: vars["--ads-space-2"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginBlockStart: vars["--aui-space-2"],
   },
   taskHint: {
-    color: vars["--ads-color-text-subtle"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginBlockStart: vars["--ads-space-2"],
+    color: vars["--aui-color-text-subtle"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginBlockStart: vars["--aui-space-2"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

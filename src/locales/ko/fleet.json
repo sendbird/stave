@@ -204,7 +204,9 @@
       "agentRunSignOff": "단계 승인",
       "agentRunBlocked": "실행 차단됨",
       "agentRunStuck": "실행 멈춤",
-      "turnStalled": "업데이트 없음"
+      "turnStalled": "업데이트 없음",
+      "tarsDecision": "Tars 결정",
+      "tarsBlocked": "Tars 진행 불가"
     },
     "primaryAction": {
       "openQuestion": "질문 열기",
@@ -215,7 +217,9 @@
       "openMergeControls": "병합 제어 열기",
       "reviewSignOff": "단계 승인 리뷰",
       "openRun": "실행 열기",
-      "openTurn": "멈춘 턴 열기"
+      "openTurn": "멈춘 턴 열기",
+      "reviewTarsDecision": "Tars 결정 검토",
+      "openTarsBlocked": "진행이 멈춘 Tars 작업 열기"
     },
     "actionRequiredCount_other": "조치 필요 {{count}}개",
     "inReviewCount_other": "리뷰 대기 {{count}}개",
@@ -290,7 +294,8 @@
     "failedRead_other": "워크스페이스 {{count}}개의 작업을 읽지 못했습니다: {{names}}.",
     "incompleteNotice": "해당 작업은 여기에 빠져 있으며, 나머지 행은 최신입니다.",
     "readingTasks": "작업을 읽는 중…",
-    "readingMore_other": "워크스페이스 {{count}}개의 작업을 더 읽는 중…"
+    "readingMore_other": "워크스페이스 {{count}}개의 작업을 더 읽는 중…",
+    "owner": "담당"
   },
   "bulkAttention": {
     "reviewResults_other": "결과 {{count}}개 검토 완료 처리",
@@ -339,5 +344,46 @@
     "answer": "답변",
     "open": "열기",
     "openTask": "작업 열기"
+  },
+  "tarsAttention": {
+    "proposal": {
+      "pause": "Tars가 이 작업을 일시 정지하자고 제안합니다.",
+      "resume": "Tars가 이 작업을 재개하자고 제안합니다.",
+      "cancel": "Tars가 이 작업을 취소하자고 제안합니다.",
+      "takeover": "Tars가 이 작업을 직접 맡으시라고 제안합니다.",
+      "handBack": "Tars가 이 작업을 다시 맡겠다고 제안합니다.",
+      "acceptCompletion": "Tars가 Stave 확인 없이 이 작업을 완료로 인정하자고 제안합니다."
+    },
+    "blockedDetail": "Tars가 이 작업을 멈추고 결정을 기다립니다.",
+    "confirm": {
+      "pause": "일시 정지 확인",
+      "resume": "재개 확인",
+      "cancel": "취소 확인",
+      "takeover": "직접 맡기 확인",
+      "handBack": "다시 맡기기 확인",
+      "acceptCompletion": "완료 인정 확인"
+    },
+    "confirmLabel": "{{title}} 작업의 {{action}}",
+    "openInTars": "Tars에서 열기",
+    "openInTarsLabel": "Tars에서 {{title}} 열기",
+    "ask": "Tars의 질문: {{question}}",
+    "unverifiedCompletion": "Stave가 이 작업의 완료를 확인하지 못했습니다. Tars에서 어떻게 할지 고르세요."
+  },
+  "owner": {
+    "tars": "Tars",
+    "agentRun": "에이전트 실행",
+    "you": "나",
+    "unknown": "알 수 없음"
+  },
+  "ownerFilter": {
+    "label": "담당",
+    "all": "모든 담당",
+    "tars": "Tars",
+    "agentRuns": "에이전트 실행",
+    "you": "나",
+    "labelWithValue": "담당: {{value}}"
+  },
+  "focus": {
+    "workspaceNotLoaded": "작업의 워크스페이스를 아직 불러오지 않아 Fleet에서 표시할 수 없습니다. 잠시 후 다시 시도하세요."
   }
 }

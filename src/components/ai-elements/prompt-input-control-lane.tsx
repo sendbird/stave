@@ -13,7 +13,7 @@ import type {
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { ModelEffortSelector } from "./model-effort-selector";
 import { COMPOSER_CONTROL_LANE } from "./composer-control-density";

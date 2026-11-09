@@ -39,6 +39,7 @@ function getPaletteItemSelector(index: number) {
  * selection.
  */
 export function usePromptInputPaletteState(args: {
+  enabled?: boolean;
   value: string;
   caretIndex: number;
   selectedModel: ModelSelectorOption;
@@ -53,6 +54,7 @@ export function usePromptInputPaletteState(args: {
   documentMentionOptions?: readonly DocumentMentionOption[];
 }) {
   const {
+    enabled = true,
     value,
     caretIndex,
     selectedModel,
@@ -97,32 +99,32 @@ export function usePromptInputPaletteState(args: {
   const commandListRef = useRef<HTMLDivElement | null>(null);
   const activeCommandToken = useMemo(
     () =>
-      getActiveSlashCommandTokenMatch({
+      enabled ? getActiveSlashCommandTokenMatch({
         value,
         caretIndex,
-      }),
-    [caretIndex, value],
+      }) : null,
+    [caretIndex, enabled, value],
   );
   const deferredCommandQuery = useDeferredValue(
     activeCommandToken?.query ?? "",
   );
   const activeSkillToken = useMemo(
     () =>
-      skillsEnabled
+      enabled && skillsEnabled
         ? getActiveSkillTokenMatch({
             value,
             caretIndex,
           })
         : null,
-    [caretIndex, skillsEnabled, value],
+    [caretIndex, enabled, skillsEnabled, value],
   );
   const activeWorkspaceInformationToken = useMemo(
     () =>
-      getActiveWorkspaceInformationTokenMatch({
+      enabled ? getActiveWorkspaceInformationTokenMatch({
         text: value,
         caretIndex,
-      }),
-    [caretIndex, value],
+      }) : null,
+    [caretIndex, enabled, value],
   );
   const deferredWorkspaceInformationQuery = useDeferredValue(
     activeWorkspaceInformationToken?.query ?? "",
@@ -146,11 +148,11 @@ export function usePromptInputPaletteState(args: {
   );
   const activeMacroToken = useMemo(
     () =>
-      getActiveMacroTokenMatch({
+      enabled ? getActiveMacroTokenMatch({
         value,
         caretIndex,
-      }),
-    [caretIndex, value],
+      }) : null,
+    [caretIndex, enabled, value],
   );
   const paletteMacros = useMemo(() => [...(macros ?? []), ASSIGN_PALETTE_ENTRY], [macros]);
   const filteredMacroItems = useMemo(

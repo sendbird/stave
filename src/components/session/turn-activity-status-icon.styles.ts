@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const turnActivityStatusIconStyles = stylex.create({
   // Fixed 16px slot every status glyph centres inside, so a 14px running icon
@@ -22,18 +22,18 @@ export const turnActivityStatusIconStyles = stylex.create({
     width: 14,
   },
   success: {
-    color: vars["--ads-color-success"],
+    color: vars["--aui-color-success"],
   },
   danger: {
-    color: vars["--ads-color-danger"],
+    color: vars["--aui-color-danger"],
   },
   warning: {
-    color: vars["--ads-color-warning"],
+    color: vars["--aui-color-warning"],
   },
   pending: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   running: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
 });

@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { ReviewVersionCompare } from "@/components/system/ReviewVersionCompare";
 import type { LensAnnotation } from "@/lib/lens/lens.types";
@@ -112,7 +112,7 @@ export function LensFeedbackComparison({ taskId, workspaceId, lensSessionId, ann
         <p className={sx(styles.hint)} role="status">{i18n.t("lens:lensFeedbackComparison.confirmThisIsTheSameTargetAnd")}</p>
         <div className={sx(styles.actions)}>
           <Button size="xs" variant="primary" disabled={busy !== null} onClick={() => void decide("confirmed")}>{i18n.t("lens:lensReviewRecord.confirm")}</Button>
-          <Button size="xs" variant="outline" disabled={busy !== null} onClick={() => void decide("needs-recheck")}>{i18n.t("lens:lensReviewRecord.needsRecheck")}</Button>
+          <Button size="xs" variant="outlined" disabled={busy !== null} onClick={() => void decide("needs-recheck")}>{i18n.t("lens:lensReviewRecord.needsRecheck")}</Button>
         </div>
       </section>
     ) : (

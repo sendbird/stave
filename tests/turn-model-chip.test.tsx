@@ -2,8 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "bun:test";
 
 import { TurnModelChip } from "@/components/ai-elements/turn-model-chip";
-import { agentSurface } from "@/components/ads/recipes/agent-surface";
-import { sx } from "@/components/ads/utils/stylex";
+import { agentSurface } from "@/components/aui/recipes/agent-surface";
+import { sx } from "@/components/aui/utils/stylex";
 import { turnModelChipStyles } from "@/components/ai-elements/turn-model-chip.styles";
 
 describe("TurnModelChip", () => {

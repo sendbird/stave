@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { MessageSquarePlus, Trash2, X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { editorReviewPanelStyles as styles } from "@/components/layout/editor-review-panel.styles";
 import { Button, Kbd, Textarea } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 import type { SentReviewCommentState, SentReviewCommentView } from "@/lib/sent-review-comments";
 import type { I18nKey } from "@/i18n";

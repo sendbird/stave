@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const failedOutgoingMessagesStyles = stylex.create({
   // The outgoing bubble hugs its content at the same 88% cap as a normal user
@@ -9,7 +9,7 @@ export const failedOutgoingMessagesStyles = stylex.create({
     alignItems: "stretch",
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     maxWidth: "88%",
     minWidth: 0,
     width: "fit-content",
@@ -21,26 +21,26 @@ export const failedOutgoingMessagesStyles = stylex.create({
   // through the contract instead of by stylesheet order. The danger tokens are
   // theme-aware, so this reads correctly in light and dark.
   content: {
-    "--message-bubble-bg": vars["--ads-color-danger-soft"],
+    "--message-bubble-bg": vars["--aui-color-danger-soft"],
     "--message-bubble-border-style": "solid",
-    "--message-bubble-border-width": vars["--ads-border-width-hairline"],
-    "--message-bubble-border-color": vars["--ads-color-danger-border"],
-    "--message-bubble-gap": vars["--ads-space-8"],
+    "--message-bubble-border-width": vars["--aui-border-width-hairline"],
+    "--message-bubble-border-color": vars["--aui-color-danger-border"],
+    "--message-bubble-gap": vars["--aui-space-8"],
     overflowWrap: "break-word",
     whiteSpace: "pre-wrap",
   },
   attachmentSummary: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   statusRow: {
     alignItems: "center",
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     gap: 6,
     justifyContent: "flex-end",
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
   statusIcon: {
     flexShrink: 0,
@@ -58,13 +58,13 @@ export const failedOutgoingMessagesStyles = stylex.create({
   actions: {
     alignSelf: "flex-end",
     marginLeft: 0,
-    marginTop: vars["--ads-space-4"],
+    marginTop: vars["--aui-space-4"],
   },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
-    paddingTop: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
+    paddingTop: vars["--aui-space-16"],
     width: "100%",
   },
 });

@@ -1,8 +1,8 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { LensReviewRecordView } from "@/components/panes/surfaces/lens/LensReviewRecordView";
 import type { LensReviewRecord } from "@/lib/lens/lens-review-record";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
@@ -79,7 +79,7 @@ export function LensReviewPreview() {
 }
 
 const styles = stylex.create({
-  page: { display: "grid", gap: vars["--ads-space-16"], padding: vars["--ads-space-24"], maxWidth: 560, backgroundColor: vars["--ads-color-canvas"], minHeight: "100vh" },
-  case: { padding: vars["--ads-space-12"], borderRadius: vars["--ads-radius-panel"], borderWidth: vars["--ads-border-width-hairline"], borderStyle: "solid", borderColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-canvas"] },
-  caption: { margin: 0, marginBottom: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  page: { display: "grid", gap: vars["--aui-space-16"], padding: vars["--aui-space-24"], maxWidth: 560, backgroundColor: vars["--aui-color-canvas"], minHeight: "100vh" },
+  case: { padding: vars["--aui-space-12"], borderRadius: vars["--aui-radius-panel"], borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border"], backgroundColor: vars["--aui-color-canvas"] },
+  caption: { margin: 0, marginBottom: vars["--aui-space-8"], fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-subtle"] },
 });

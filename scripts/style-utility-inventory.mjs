@@ -74,7 +74,7 @@ export function utilitySites(source, path) {
 export function inventory(root = "src") {
   const result = {};
   for (const relative of readdirSync(root, { recursive: true }).sort()) {
-    if (!/\.[jt]sx?$/.test(relative) || relative.startsWith("components/ads/")) continue;
+    if (!/\.[jt]sx?$/.test(relative) || relative.startsWith("components/aui/")) continue;
     const path = `${root}/${relative}`;
     const sites = utilitySites(readFileSync(path, "utf8"), path);
     if (sites.length) result[path] = sites.reduce((total, site) => total + site.utilities.length, 0);

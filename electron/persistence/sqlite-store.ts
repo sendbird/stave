@@ -1,4 +1,7 @@
 import { DelegationPolicyStore } from "./delegation-policy-store";
+import { keepUnseenWorkspaces } from "./repository-registry-merge";
+import { TarsStore } from "./tars-store";
+import { TarsConversationStore } from "./tars-conversation-store";
 import {
   insertTurnEventWithReceipt,
   finalizeTurnReceipt,
@@ -200,6 +203,8 @@ export class SqliteStore {
   readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
+  readonly tars: TarsStore;
+  readonly tarsConversations: TarsConversationStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -257,6 +262,8 @@ export class SqliteStore {
     this.agentRuns = new AgentRunStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
     this.agentAssignments = new AgentAssignmentStore(this.db);
+    this.tars = new TarsStore(this.db);
+    this.tarsConversations = new TarsConversationStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
@@ -1663,18 +1670,22 @@ export class SqliteStore {
     return typeof value === "string" ? value : null;
   }
 
-  saveRepositoryRegistry(args: { repositories: PersistenceRepositoryRegistryEntry[]; activeRepositoryPath?: string | null }) {
+  /** The renderer saves a whole copy; it keeps host-added workspaces (see `repository-registry-merge.ts`). */
+  saveRepositoryRegistry(args: { repositories: PersistenceRepositoryRegistryEntry[]; activeRepositoryPath?: string | null; keepUnseenWorkspaces?: boolean }) {
     const now = new Date().toISOString();
     const write = this.db.prepare(
       `INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
     );
+    const exists = this.db.prepare("SELECT 1 FROM workspaces WHERE id = ?");
     this.db.transaction(() => {
-      write.run("project_registry", JSON.stringify(args.repositories), now);
+      const repositories = !args.keepUnseenWorkspaces ? args.repositories : keepUnseenWorkspaces({ incoming: args.repositories,
+        persisted: (() => { try { return this.loadRepositoryRegistry(); } catch { return []; } })(), workspaceExists: (id) => Boolean(exists.get(id)) });
+      write.run("project_registry", JSON.stringify(repositories), now);
       if (args.activeRepositoryPath !== undefined) {
         write.run("active_project_path", JSON.stringify(args.activeRepositoryPath), now);
       }
-    })();
+    }).immediate();
   }
 
   loadAutomationState(): AutomationState {

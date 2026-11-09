@@ -11,7 +11,7 @@ import {
   parseProviderErrorNotice,
 } from "@/lib/providers/provider-error-recovery";
 import { useAppStore } from "@/store/app.store";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { providerErrorRecoveryStyles as styles } from "./provider-error-recovery.styles";
 import { ProviderErrorAccountAction } from "./ProviderErrorAccountAction";
 

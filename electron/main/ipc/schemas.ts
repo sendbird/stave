@@ -7,6 +7,8 @@ export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/works
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
 import { APP_NOTIFICATION_KINDS } from "../../../src/lib/notifications/notification.types";
 import { z } from "zod";
+export { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversationInputSchema, CancelTarsMessageInputSchema,
+  ApplyTarsDecisionInputSchema, TarsActInputSchema } from "../../../src/lib/tars/conversation";
 import {
   MAX_PROVIDER_TIMEOUT_MS,
   ProviderIdSchema,

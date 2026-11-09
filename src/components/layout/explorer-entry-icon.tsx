@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import { FileIcon, type FileIconProps } from "react-file-icon";
 import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { cx, sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import {
   explorerIconStyles,
   folderHueStyles,
@@ -114,16 +114,16 @@ type FileVisual = {
 };
 
 const familyInk: Record<FileFamily, string> = {
-  typescript: vars["--ads-chart-1"],
-  javascript: vars["--ads-chart-5"],
-  styles: vars["--ads-chart-4"],
-  markup: vars["--ads-chart-2"],
-  data: vars["--ads-chart-7"],
-  language: vars["--ads-chart-3"],
-  media: vars["--ads-chart-6"],
-  shell: vars["--ads-color-text"],
-  settings: vars["--ads-color-text-muted"],
-  plain: vars["--ads-color-text-muted"],
+  typescript: vars["--aui-chart-1"],
+  javascript: vars["--aui-chart-5"],
+  styles: vars["--aui-chart-4"],
+  markup: vars["--aui-chart-2"],
+  data: vars["--aui-chart-7"],
+  language: vars["--aui-chart-3"],
+  media: vars["--aui-chart-6"],
+  shell: vars["--aui-color-text"],
+  settings: vars["--aui-color-text-muted"],
+  plain: vars["--aui-color-text-muted"],
 };
 
 const neutralFamilies = new Set<FileFamily>(["shell", "settings", "plain"]);
@@ -144,10 +144,10 @@ function familyPaint(family: FileFamily): Pick<
     // pair keeps its contrast in both modes.
     return {
       color: ink,
-      foldColor: `color-mix(in oklch, ${ink} 80%, ${vars["--ads-color-surface"]})`,
+      foldColor: `color-mix(in oklch, ${ink} 80%, ${vars["--aui-color-surface"]})`,
       labelColor: ink,
-      labelTextColor: vars["--ads-color-surface"],
-      glyphColor: `color-mix(in oklch, ${ink} 55%, ${vars["--ads-color-surface"]})`,
+      labelTextColor: vars["--aui-color-surface"],
+      glyphColor: `color-mix(in oklch, ${ink} 55%, ${vars["--aui-color-surface"]})`,
     };
   }
   // Chart hues sit at mid lightness in both modes, so the darker steps keep

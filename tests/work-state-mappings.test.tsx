@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { agentStateWorkState, type AgentStepState } from "@/components/ads/components/agent-state";
-import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
+import { agentStateWorkState, type AgentStepState } from "@/components/aui/components/agent-state";
+import { WORK_STATE, type WorkState } from "@/components/aui/components/state-vocabulary";
 import { DelegationsBlock } from "@/components/delegation/DelegationsBlock";
 import { ExchangeRow } from "@/components/delegation/ExchangeRow";
 import { applyRuntimeLocale } from "@/i18n/runtime";

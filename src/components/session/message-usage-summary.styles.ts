@@ -1,39 +1,39 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 // The tooltip surface is dark (`colorText` fill, `colorTextInverted` copy), so
 // its secondary text and dividers are the inverted ink at reduced alpha rather
 // than a muted-on-light token.
-const invertedMuted = `color-mix(in oklch, ${vars["--ads-color-text-inverted"]} 70%, transparent)`;
-const invertedFaint = `color-mix(in oklch, ${vars["--ads-color-text-inverted"]} 20%, transparent)`;
-const triggerMuted = vars["--ads-color-text-muted"];
+const invertedMuted = `color-mix(in oklch, ${vars["--aui-color-text-inverted"]} 70%, transparent)`;
+const invertedFaint = `color-mix(in oklch, ${vars["--aui-color-text-inverted"]} 20%, transparent)`;
+const triggerMuted = vars["--aui-color-text-muted"];
 
 export const messageUsageSummaryStyles = stylex.create({
   delegatedSection: {
-    marginTop: vars["--ads-space-8"],
+    marginTop: vars["--aui-space-8"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
     borderTopColor: invertedFaint,
-    paddingTop: vars["--ads-space-8"],
+    paddingTop: vars["--aui-space-8"],
   },
-  sectionTitle: { fontWeight: vars["--ads-font-weight-medium"] },
+  sectionTitle: { fontWeight: vars["--aui-font-weight-medium"] },
   mutedLine: { color: invertedMuted },
   entry: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   entryHeader: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
-  entryLabel: { fontWeight: vars["--ads-font-weight-medium"] },
+  entryLabel: { fontWeight: vars["--aui-font-weight-medium"] },
   entryMeta: {
     minWidth: 0,
     overflowWrap: "anywhere",
@@ -43,35 +43,35 @@ export const messageUsageSummaryStyles = stylex.create({
   metricsGrid: {
     display: "grid",
     gridTemplateColumns: "auto 1fr",
-    columnGap: vars["--ads-space-12"],
+    columnGap: vars["--aui-space-12"],
     rowGap: "0.125rem",
   },
   metricLabel: { color: invertedMuted },
   metricValue: {
     textAlign: "right",
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
   },
   turnTotal: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   turnTotalHeader: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
   },
-  turnTotalTitle: { fontWeight: vars["--ads-font-weight-medium"] },
+  turnTotalTitle: { fontWeight: vars["--aui-font-weight-medium"] },
   trigger: {
     display: "flex",
     cursor: "default",
     alignItems: "center",
     gap: "0.375rem",
-    borderRadius: vars["--ads-radius-mark"],
-    paddingLeft: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    borderRadius: vars["--aui-radius-mark"],
+    paddingLeft: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-micro"],
     lineHeight: 1,
     color: triggerMuted,
   },

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /** The dialog widens once there is room for the label row to sit on one line. */
 const WIDE = "@media (min-width: 40rem)";
@@ -18,35 +18,35 @@ export const workspaceSettingsDialogStyles = stylex.create({
   header: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   headerTitle: {
     // Matches the reset heading it replaces: the size comes from the dialog.
-    fontFamily: vars["--ads-font-sans"],
+    fontFamily: vars["--aui-font-sans"],
     fontSize: "inherit",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     lineHeight: 1,
   },
   headerMeta: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
-    paddingTop: vars["--ads-space-4"],
+    gap: vars["--aui-space-8"],
+    paddingTop: vars["--aui-space-4"],
   },
   headerName: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   headerPath: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    paddingTop: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    paddingTop: vars["--aui-space-4"],
     wordBreak: "break-all",
   },
   /**
-   * A section, not a box. The ADS Dialog surface already supplies the one
+   * A section, not a box. The AUI Dialog surface already supplies the one
    * content gutter (`space24`), so a bordered card here added a second inset
    * on top of it and the Label field sat 13px inside the header it should be
    * flush with. Sections are separated by the surface's own grid gap.
@@ -54,7 +54,7 @@ export const workspaceSettingsDialogStyles = stylex.create({
   labelForm: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   labelRow: {
     alignItems: {
@@ -66,27 +66,27 @@ export const workspaceSettingsDialogStyles = stylex.create({
       default: "column",
       [WIDE]: "row",
     },
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   labelField: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexBasis: 0,
     flexGrow: 1,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     minWidth: 0,
   },
   labelInput: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     height: 32,
-    marginTop: vars["--ads-space-4"],
+    marginTop: vars["--aui-space-4"],
   },
   labelSubmit: {
     height: 32,
   },
   labelHint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   /**
    * No block inset of its own: the surface grid gap already separates the tab
@@ -95,11 +95,11 @@ export const workspaceSettingsDialogStyles = stylex.create({
    * started 8px apart.
    */
   tabs: {
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
     width: "100%",
   },
   /**
-   * One left inset, not two. The ADS pill track pads itself by `space4` and
+   * One left inset, not two. The AUI pill track pads itself by `space4` and
    * each tab pads by `space12`, so a rail label sat 16px inside the rail box
    * while every other row in the dialog sat on the gutter. Dropping the
    * track's inline padding leaves the tab's own `space12` as the single inset
@@ -109,7 +109,7 @@ export const workspaceSettingsDialogStyles = stylex.create({
   tabsList: {
     flexShrink: 0,
     minWidth: 144,
-    paddingInline: vars["--ads-space-0"],
+    paddingInline: vars["--aui-space-0"],
   },
   tabPanel: {
     maxHeight: "60vh",

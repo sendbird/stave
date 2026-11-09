@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AgentFleet, hasAgentFleetNumbers, sizeAgentFleetCard } from "@/components/ads/components/AgentFleet";
+import { AgentFleet, hasAgentFleetNumbers, sizeAgentFleetCard } from "@/components/aui/components/AgentFleet";
 import { applyAppLocale } from "@/i18n";
 import {
   computeSharedFiles,

@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Pause, Play } from "lucide-react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import {
   SCHEDULE_STATE_LABEL,
@@ -53,7 +53,7 @@ export function ScheduleRows(props: {
         const busy = row.id === props.busyId;
         return (
           <li key={row.key} className={sx(styles.row, active && styles.rowActive)}>
-            <AdsButton
+            <AuiButton
               layout="host"
               type="button"
               onClick={() => props.onSelect(row)}
@@ -87,7 +87,7 @@ export function ScheduleRows(props: {
                 </span>
                 {nextText(row) ? <span className={sx(styles.metaText)}>{nextText(row)}</span> : null}
               </span>
-            </AdsButton>
+            </AuiButton>
             <span className={sx(styles.actions)}>
             {row.canRunNow ? (
               <Button

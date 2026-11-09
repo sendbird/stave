@@ -2,11 +2,11 @@ import { useTranslation } from "@/i18n";
 import { formatNumber } from "@/i18n/format";
 import { useId, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { Select } from "@/components/ads/components/Select";
+import { Button } from "@/components/aui/components/Button";
+import { Select } from "@/components/aui/components/Select";
 import { ReviewSkillSelector, type ReviewSkillOption } from "@/components/ai-elements/review-skill-selector";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Textarea } from "@/components/ui";
 import {
   REVIEW_CUSTOM_PROMPT_MAX_CHARS,
@@ -19,10 +19,10 @@ import {
 } from "@/lib/reviews/review-prompts";
 
 const styles = stylex.create({
-  stack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"], minWidth: 0 },
-  field: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
-  label: { fontSize: vars["--ads-font-size-body"], fontWeight: 500, color: vars["--ads-color-text"] },
-  help: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"], margin: 0 },
+  stack: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0 },
+  field: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"] },
+  label: { fontSize: vars["--aui-font-size-body"], fontWeight: 500, color: vars["--aui-color-text"] },
+  help: { fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"], margin: 0 },
   prompt: { minHeight: 144, resize: "vertical" },
   preview: { height: 240, resize: "vertical" },
   previewButton: { alignSelf: "flex-start" },

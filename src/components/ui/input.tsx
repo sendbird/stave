@@ -1,6 +1,6 @@
-import type { StyleXValue } from "../ads/utils/stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 import type { ComponentProps } from "react";
-import { TextField } from "../ads/components/TextField";
+import { TextField } from "../aui/components/TextField";
 
 /** Stable entry point for product forms and incoming workspace changes. */
 export function Input({ size: _nativeSize, ...props }: ComponentProps<"input"> & { xstyle?: StyleXValue }) {

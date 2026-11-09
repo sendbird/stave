@@ -1,7 +1,7 @@
-import { Tabs } from "../ads/components/Tabs";
+import { Tabs } from "../aui/components/Tabs";
 import type { ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export function SectionTabs({
   items,
@@ -23,7 +23,7 @@ export function SectionTabs({
   onValueChange: (id: string) => void;
   fillHeight?: boolean;
   /**
-   * ADS control rung for the strip. Left unset it takes the ADS default
+   * AUI control rung for the strip. Left unset it takes the AUI default
    * (`sm`); a rail panel around 300px wide should pass `xs`, which is the rung
    * that steps the label to Caption so counted labels stay on one line.
    */
@@ -31,7 +31,7 @@ export function SectionTabs({
   wrap?: boolean;
 }) {
   return (
-    // The ADS root is a grid (strip, then panels). `fillHeight` keeps that
+    // The AUI root is a grid (strip, then panels). `fillHeight` keeps that
     // grid and just pins the panel row to the leftover space, instead of
     // switching the root to flex through an inline `style` — an override that
     // also silently dropped the root's `gap`.
@@ -81,6 +81,6 @@ const styles = stylex.create({
    * in a set.
    */
   wrapList: { flexWrap: "wrap", overflowX: "visible", flexShrink: 0 },
-  panel: { paddingBlockStart: vars["--ads-space-16"], minInlineSize: 0, outline: "none" },
+  panel: { paddingBlockStart: vars["--aui-space-16"], minInlineSize: 0, outline: "none" },
   fillPanel: { minBlockSize: 0, overflowY: "auto", paddingBlockStart: 0 },
 });

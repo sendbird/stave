@@ -2,8 +2,8 @@ import { getAgentDisplayName } from "@/lib/agents/display";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
 import { listAgents } from "@/lib/agents/library";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
@@ -198,8 +198,8 @@ function whoLabel(
 const styles = stylex.create({
   muted: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
   },
 });

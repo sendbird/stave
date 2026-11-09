@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   ROUTE_COMPLEXITY_LABELS,
   STANCE_LABELS,

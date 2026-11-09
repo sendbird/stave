@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Badge } from "@/components/ads/components/Badge";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { sx } from "@/components/aui/utils/stylex";
 import { ProviderMark } from "@/components/system/ProviderMark";
 import { providerInkStyles } from "@/components/system/provider-ink.styles";
 import { describeAgentIdentity } from "@/lib/delegation/format";
@@ -74,7 +74,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
       </span>
       {!props.compact && identity.effortLabel ? (
         <Badge
-          variant="outline"
+          variant="outlined"
           tone="neutral"
           xstyle={styles.identityChip}
         >

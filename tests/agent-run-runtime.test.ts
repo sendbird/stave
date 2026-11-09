@@ -48,6 +48,7 @@ import { AgentRouteSettingsSchema, routeAgentRunTurn } from "../src/lib/routing/
 import type { PromptDraftRuntimeOverrides } from "../src/types/chat";
 import type { AgentRunRouteSelection } from "../src/lib/agent-runs/route-observation";
 import { buildAgentRunTurnDividers } from "../src/lib/agent-runs/agent-run-view";
+import { countRunEvents } from "../src/lib/agent-runs/insights";
 import type { WorkspaceRevision } from "../src/lib/agent-runs/verification-contract";
 import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
 import { describeDoneWhen } from "../src/lib/agent-runs/agent-run-status";
@@ -1450,6 +1451,58 @@ describe("run runtime: agent runs", () => {
     expect(harness.current(agentRunId)).toMatchObject({ status: "cancelled", detail: "You stopped the run." });
     expect(harness.store.listEventsByKind(agentRunId, ["agent-run-ended"])[0]?.detail).toMatchObject({ endedBy: "stopped" });
   });
+
+  // Tars's takeover and pause stop the run's in-flight turn after holding the run.
+  for (const [control, reason] of [["takeOver", "taken-over"], ["pause", "paused-by-user"]] as const) {
+    test(`a ${control} that then stops the run's turn holds the run instead of ending it`, async () => {
+      const harness = agentRunHarness();
+      const agentRunId = await startedAgentRun(harness, runInput());
+      await harness.runtime[control]({ agentRunId });
+      harness.stopTurn("turn-1");
+      await harness.tick();
+      expect(harness.aggregate(agentRunId).agentRun).toMatchObject({ state: "paused", pauseReason: reason });
+      expect(harness.store.listEventsByKind(agentRunId, ["agent-run-ended"])).toEqual([]);
+      expect(harness.store.listEventsByKind(agentRunId, ["turn-interrupted"]).map((event) => event.detail.turnId)).toEqual(["turn-1"]);
+      await harness.tick();
+      expect(harness.aggregate(agentRunId).agentRun).toMatchObject({ state: "paused", pauseReason: reason });
+      expect(harness.runCalls).toHaveLength(1);
+    });
+
+    test(`a resume right after a ${control} stopped the run's turn continues the stage`, async () => {
+      const harness = agentRunHarness();
+      const agentRunId = await startedAgentRun(harness, runInput());
+      await harness.runtime[control]({ agentRunId });
+      harness.stopTurn("turn-1");
+      // Resumed before any tick saw the stopped turn.
+      await harness.runtime.resume({ agentRunId });
+      await harness.tick();
+      expect(harness.aggregate(agentRunId).agentRun).toMatchObject({ state: "running", pauseReason: null });
+      expect(harness.store.listEventsByKind(agentRunId, ["agent-run-ended"])).toEqual([]);
+      expect(harness.runCalls).toHaveLength(2);
+      expect(harness.store.listEventsByKind(agentRunId, ["turn-started"]).at(-1)?.detail).toMatchObject({ reason: "resume-after-restart" });
+    });
+
+    // The abort does not wait for the turn, so a quick resume can be recorded before it ends.
+    test(`a ${control} whose stopped turn ends only after a resume still continues the stage`, async () => {
+      const harness = agentRunHarness();
+      const agentRunId = await startedAgentRun(harness, runInput());
+      await harness.runtime[control]({ agentRunId });
+      harness.advance();
+      await harness.runtime.resume({ agentRunId });
+      harness.stopTurn("turn-1");
+      await harness.tick();
+      expect(harness.aggregate(agentRunId).agentRun).toMatchObject({ state: "running", pauseReason: null });
+      expect(harness.store.listEventsByKind(agentRunId, ["agent-run-ended"])).toEqual([]);
+      expect(harness.store.listEventsByKind(agentRunId, ["turn-interrupted"]).map((event) => event.detail))
+        .toEqual([expect.objectContaining({ turnId: "turn-1", reason: reason })]);
+      expect(harness.runCalls).toHaveLength(2);
+      // The continuation says why it continued, not that Stave restarted.
+      const divider = buildAgentRunTurnDividers(await harness.runtime.get({ agentRunId }), (iso) => iso).get("turn-2");
+      expect(divider).toContain(control === "takeOver" ? "continued after you handed it back" : "continued after the pause");
+      // A run that ends after it was held reads as stopped, not as a failed turn.
+      expect(countRunEvents(harness.store.listEventsByKind(agentRunId, ["turn-interrupted"])).turnFailures).toBe(0);
+    });
+  }
 
   test("moving the task to a model (Chat) cancels the run", async () => {
     const harness = agentRunHarness();
@@ -3235,5 +3288,92 @@ describe("run runtime: active time", () => {
     const detail = await restarted.runtime.get({ agentRunId: id });
     expect(detail.activeTime).toEqual({ activeMs: Date.parse(lastSeen) - started, activeSince: back.createdAt });
     restarted.runtime.stop();
+  });
+});
+
+describe("automatic controller ownership guards", () => {
+  for (const action of ["pause", "resume", "cancel"] as const) {
+    test(`${action} rechecks ownership after a queued human takeover`, async () => {
+      const h = createHarness();
+      const detail = await h.runtime.startAgentRun(startInput());
+      await h.runtime.whenIdle();
+      const id = detail.agentRun.id;
+      if (action === "resume") await h.runtime.pause({ agentRunId: id });
+      const takeover = h.runtime.takeOver({ agentRunId: id });
+      // Takeover has not committed yet: checking only before enqueue would pass.
+      const control = h.runtime[action]({ agentRunId: id }, (run) => {
+        if (run.pauseReason === "taken-over") throw new Error("Human owns this task");
+      });
+      await takeover;
+      await expect(control).rejects.toThrow("Human owns this task");
+      expect((await h.runtime.get({ agentRunId: id })).agentRun).toMatchObject({
+        state: "paused", pauseReason: "taken-over",
+      });
+      h.runtime.stop();
+    });
+  }
+});
+
+test("automatic start rechecks ownership after reporting admission waits", async () => {
+  let release!: () => void;
+  let began!: () => void;
+  const ready = new Promise<void>((resolve) => { began = resolve; });
+  let owned = true;
+  const h = createHarness({ extra: { isReportingAvailable: async () => {
+    began(); await new Promise<void>((resolve) => { release = resolve; }); return true;
+  } } });
+  const start = h.runtime.startAgentRun(startInput(), () => {
+    if (!owned) throw new Error("Assignment was released");
+  });
+  await ready;
+  owned = false; release();
+  await expect(start).rejects.toThrow("Assignment was released");
+  expect((await h.runtime.list()).agentRuns).toEqual([]);
+  h.runtime.stop();
+});
+
+describe("run runtime: hand-back restarts the started current stage", () => {
+  async function atFinalStage() {
+    const h = createHarness();
+    const id = await startedAgentRun(h);
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.current(id)).toMatchObject({ stageId: "polish", attempt: 1, status: "running" });
+    return { h, id };
+  }
+
+  test("after restart and resume the tick starts a new turn on the fresh pending attempt of the final stage", async () => {
+    const { h, id } = await atFinalStage();
+    const earlier = h.current(id).startedAt!;
+    await h.runtime.takeOver({ agentRunId: id });
+    h.endTurn("turn-2");
+    await h.runtime.restartStageAndResume({ agentRunId: id });
+    const records = h.aggregate(id).stages.filter((stage) => stage.stageId === "polish");
+    expect(records.map(({ attempt, status }) => [attempt, status]).sort()).toEqual([[1, "cancelled"], [2, "pending"]]);
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "running", pauseReason: null });
+    await h.tick();
+    expect(h.runCalls).toHaveLength(3);
+    expect(h.runCalls[2]!.agentRunStage).toMatchObject({ stageId: "polish", attempt: 2 });
+    expect(h.current(id)).toMatchObject({ stageId: "polish", attempt: 2, status: "running" });
+    expect(Date.parse(h.current(id).startedAt!)).toBeGreaterThan(Date.parse(earlier));
+    h.runtime.stop();
+  });
+
+  test("ordinary runs are unaffected, and a refused restart changes nothing", async () => {
+    const { h, id } = await atFinalStage();
+    // A plain takeover and Resume keep the same stage attempt.
+    await h.runtime.takeOver({ agentRunId: id });
+    h.endTurn("turn-2");
+    await h.runtime.resume({ agentRunId: id });
+    await h.tick();
+    expect(h.current(id)).toMatchObject({ stageId: "polish", attempt: 1 });
+    expect(h.store.listEventsByKind(id, ["stage-retried"])).toEqual([]);
+    // Restart applies only to a taken-over run; resume and restart are one transition.
+    await expect(h.runtime.restartStageAndResume({ agentRunId: id })).rejects.toThrow();
+    await h.runtime.takeOver({ agentRunId: id });
+    const before = h.aggregate(id);
+    await expect(h.runtime.restartStageAndResume({ agentRunId: id }, () => { throw new Error("Ownership changed"); })).rejects.toThrow("Ownership changed");
+    expect(h.aggregate(id)).toEqual(before);
+    h.runtime.stop();
   });
 });

@@ -12,8 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   WORKSPACE_INFORMATION_SECTION_IDS,
   WORKSPACE_INFORMATION_SECTION_LABELS,

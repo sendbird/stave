@@ -1,19 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const turnEventDecisionStyles = stylex.create({
   /**
    * A multi-select question's own group box. `fieldset` is the semantic host
    * for a set of checkboxes that answer one question — it is what gives the
    * group an accessible name through its `legend` — and it draws no chrome
-   * here: ADS's reset already zeroes the UA border and padding, and the
+   * here: AUI's reset already zeroes the UA border and padding, and the
    * `Clarification` frame around it is the only containment this needs.
    */
   fieldset: {
     border: "none",
     display: "grid",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     margin: 0,
     minInlineSize: 0,
     padding: 0,
@@ -24,10 +24,10 @@ export const turnEventDecisionStyles = stylex.create({
    * in the same form would read as two kinds of question.
    */
   legend: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
     padding: 0,
   },
 
@@ -41,7 +41,7 @@ export const turnEventDecisionStyles = stylex.create({
    */
   notice: {
     alignItems: "center",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
     minInlineSize: 0,
   },
@@ -50,18 +50,18 @@ export const turnEventDecisionStyles = stylex.create({
    * call site: a notice line is the same row label as a `ToolRun` title.
    */
   noticeTitle: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
   /** The one semantic word, tone from `agentStatusWord`. No dot, no chip. */
   noticeStatus: {
     flex: "0 0 auto",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
     whiteSpace: "nowrap",
   },
   noticeBody: {

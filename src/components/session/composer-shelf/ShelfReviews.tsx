@@ -8,10 +8,10 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
 import { Loader, toast } from "@/components/ui";

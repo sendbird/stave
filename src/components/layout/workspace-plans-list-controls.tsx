@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import { InformationListSearchField } from "./information-list-search-field";
 import type { PlansListRows } from "./workspace-plans-list-state";

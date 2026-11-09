@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { sx } from "@/components/ads/utils/stylex";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { formatResourceBytes } from "@/lib/performance/resource-manager";
 import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";

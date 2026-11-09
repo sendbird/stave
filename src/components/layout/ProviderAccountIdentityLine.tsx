@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { describeProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import {

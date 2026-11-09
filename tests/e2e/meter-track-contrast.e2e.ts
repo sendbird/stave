@@ -68,7 +68,7 @@ test("meter tracks read on their card and panel surfaces in every built-in theme
       applyThemeClass({ enabled: theme?.baseMode === "dark" });
       applyCustomTheme({ theme: theme && "tokens" in theme ? theme : null });
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-      for (const track of document.querySelectorAll('[role="meter"] [data-ads-slot="track"]')) {
+      for (const track of document.querySelectorAll('[role="meter"] [data-aui-slot="track"]')) {
         const surface = surfaceLayers(track);
         const trackColor = getComputedStyle(track).backgroundColor;
         const under = luminance(surface);

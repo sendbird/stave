@@ -1,8 +1,8 @@
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile, type ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
@@ -41,13 +41,13 @@ function AccountRow({ profile, name, run, login, busy, signingIn }: {
       })}>{t("settingsConnections:providerAccountsSettings.saveName")}</Button>}
       {profile.gateway
         ? <WithTooltip tip={t("settingsConnections:providerAccountsSettings.asksTheGatewayForItsModel")}>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => run(async () => {
+          <Button size="sm" variant="outlined" disabled={busy} onClick={() => run(async () => {
             const result = await window.api!.providerAccounts!.checkGateway({ providerId: profile.providerId, id: profile.id });
             setCheckMessage(result.message);
           })}>{t("settingsConnections:providerAccountsSettings.checkModelList")}</Button>
         </WithTooltip>
         : <WithTooltip tip={t("settingsConnections:providerAccountsSettings.opensForThisAccountInA", { value1: LOGIN_COMMAND[profile.providerId] })}>
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => login(profile))}>{t("settingsProviders:mcpSection.provider.signIn")}</Button>
+          <Button size="sm" variant="outlined" disabled={busy} onClick={() => run(() => login(profile))}>{t("settingsProviders:mcpSection.provider.signIn")}</Button>
         </WithTooltip>}
       {profile.kind !== "system" && <WithTooltip tip={t("settingsConnections:providerAccountsSettings.forgetsThisAccountInStaveIts")}>
         <Button size="sm" variant="quiet" disabled={busy} onClick={() => run(async () => {

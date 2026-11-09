@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
 import { toolStyles } from "./workspace-tools.styles";
-import { sx } from "../ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { sx } from "../aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { WorkspaceToolQuickAdd } from "./WorkspaceToolQuickAdd";
 import { SectionTabs } from "@/components/system/SectionTabs";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -113,7 +113,7 @@ function OrbitUrlBadge(props: {
 }) {
   const { t: tI18n } = useTranslation(["scripts"]);
   return (
-    <AdsButton layout="host"
+    <AuiButton layout="host"
       type="button"
       xstyle={toolStyles.url}
       onClick={() => void props.onOpenInLens(props.url)}
@@ -133,7 +133,7 @@ function OrbitUrlBadge(props: {
       ) : (
         <ExternalLink className={sx(toolStyles.externalIcon)} />
       )}
-    </AdsButton>
+    </AuiButton>
   );
 }
 
@@ -262,7 +262,7 @@ export function ScriptEntryRow(props: {
       <div className={sx(toolStyles.entryHeader)}>
         <div className={sx(toolStyles.entryBody)}>
           <div className={sx(toolStyles.entryTitleRow)}>
-            <AdsButton layout="host" type="button" onClick={props.onInspect} aria-pressed={props.selected} xstyle={toolStyles.inspect}>{props.label}</AdsButton>
+            <AuiButton layout="host" type="button" onClick={props.onInspect} aria-pressed={props.selected} xstyle={toolStyles.inspect}>{props.label}</AuiButton>
             <span className={sx(toolStyles.hint)}>
               {props.targetLabel}
               {props.origin ? (
@@ -877,10 +877,10 @@ export function WorkspaceScriptsPanel(props: {
             {runningCount > 0 ? <StatusBadge tone="accent">{tI18n("scripts:workspaceScriptsPanel.runningCount", { count: runningCount })}</StatusBadge> : null}
             {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title={tI18n("scripts:workspaceScriptsPanel.stopAllRunningProcesses")}><Square />{tI18n("scripts:workspaceScriptsPanel.stopAll")}</ActionButton> : null}
             <Tooltip content={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}>
-              <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
+              <AuiButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AuiButton>
             </Tooltip>
             <Tooltip content={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}>
-              <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}><Settings2 /></AdsButton>
+              <AuiButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}><Settings2 /></AuiButton>
             </Tooltip>
           </div>
         </div>

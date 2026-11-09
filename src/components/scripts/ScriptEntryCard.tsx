@@ -7,9 +7,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { ScriptEntryFormFields } from "./ScriptEntryFormFields";
 import { targetLabel } from "./scripts-manager-state";
 import type {
@@ -63,7 +63,7 @@ export function ScriptEntryCard(props: {
       )}
     >
       <div className={sx(entryCardStyles.header)}>
-        <AdsButton
+        <AuiButton
           type="button"
           layout="host"
           xstyle={entryCardStyles.summaryButton}
@@ -119,7 +119,7 @@ export function ScriptEntryCard(props: {
               </div>
             ) : null}
           </div>
-        </AdsButton>
+        </AuiButton>
 
         <div className={sx(entryCardStyles.actions)}>
           <Button

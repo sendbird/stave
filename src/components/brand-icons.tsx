@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 const GHOSTTY_ICON_URL = `${import.meta.env.BASE_URL}ghostty-icon.png`;
 const VSCODE_ICON_URL = `${import.meta.env.BASE_URL}vscode.svg`;
 const AMPLIFY_ICON_URL = `${import.meta.env.BASE_URL}amplify-logo.svg`;

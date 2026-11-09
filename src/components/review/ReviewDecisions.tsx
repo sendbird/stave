@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
-import { ApprovalBar } from "@/components/ads/components/ReviewStatus";
-import { Button } from "@/components/ads/components/Button";
-import { Kbd } from "@/components/ads/components/Kbd";
-import { sx } from "@/components/ads/utils/stylex";
+import { ApprovalBar } from "@/components/aui/components/ReviewStatus";
+import { Button } from "@/components/aui/components/Button";
+import { Kbd } from "@/components/aui/components/Kbd";
+import { sx } from "@/components/aui/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { toast } from "@/components/ui";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,7 +134,7 @@ function StageDecisions(props: DecisionProps & { scope: Extract<ReviewScope, { k
         state={state}
         stateLabel={stateLabel}
         summary={readSummary(props) ?? undefined}
-        busy={busy}
+        loading={busy}
         approveLabel={next ? next.label : i18n.t("review:decisions.stage.signOff")}
         requestChangesLabel={i18n.t("review:decisions.stage.askForChanges")}
         onApprove={decision.status === "waiting" ? () => runCommand("signOff", decision.signOff).then((result) => {

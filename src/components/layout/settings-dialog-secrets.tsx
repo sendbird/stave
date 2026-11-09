@@ -13,8 +13,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button, Input, Loader, Textarea, toast } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { secretsStyles as styles } from "./settings-dialog-secrets.styles";
@@ -367,7 +367,7 @@ export function SecretsSettingsCard() {
               {t("settingsConnections:settingsDialogSecrets.loadingSecrets")}</div>
           }
           isEmpty={(list) => list.length === 0}
-          empty={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>}
+          emptyState={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>}
         >
           {() => (
             <div className={sx(styles.list)}>

@@ -2,11 +2,11 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { TextField } from "@/components/ads/components/TextField";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { TextField } from "@/components/aui/components/TextField";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
 import { agentInitials } from "@/lib/agents/agent-appearance";
 import { agentIconLabel, getAgentIcon, matchAgentIcons } from "@/lib/agents/agent-icons";
@@ -125,19 +125,19 @@ const COLUMNS = 8;
 const GAP = 4;
 
 const styles = stylex.create({
-  trigger: { gap: vars["--ads-space-8"], paddingInlineStart: vars["--ads-space-4"] },
-  chevron: { width: 16, height: 16, flexShrink: 0, color: vars["--ads-color-text-muted"] },
+  trigger: { gap: vars["--aui-space-8"], paddingInlineStart: vars["--aui-space-4"] },
+  chevron: { width: 16, height: 16, flexShrink: 0, color: vars["--aui-color-text-muted"] },
   // Sized by the grid: eight cells across, and the search field takes that width.
-  popup: { inlineSize: "max-content", maxInlineSize: "var(--available-width)", gap: vars["--ads-space-12"] },
+  popup: { inlineSize: "max-content", maxInlineSize: "var(--available-width)", gap: vars["--aui-space-12"] },
   grid: {
     display: "grid",
     gridTemplateColumns: `repeat(${COLUMNS}, ${CELL}px)`,
     gap: GAP,
   },
-  cell: { width: CELL, height: CELL, color: vars["--ads-color-text"] },
+  cell: { width: CELL, height: CELL, color: vars["--aui-color-text"] },
   initialsCell: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     textTransform: "uppercase",
   },
   /**
@@ -148,12 +148,12 @@ const styles = stylex.create({
    * in every built-in theme (`tests/agent-appearance.test.tsx`).
    */
   cellSelected: {
-    backgroundColor: vars["--ads-color-accent-soft"],
-    boxShadow: `inset 0 0 0 ${vars["--ads-ring-width-sm"]} ${vars["--ads-color-border-strong"]}`,
+    backgroundColor: vars["--aui-color-accent-soft"],
+    boxShadow: `inset 0 0 0 ${vars["--aui-ring-width-sm"]} ${vars["--aui-color-border-strong"]}`,
   },
   empty: {
     margin: 0,
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
 });

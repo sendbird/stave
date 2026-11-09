@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import {
   formatTaskTabCount,
   resolveActivityTabMark,

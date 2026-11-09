@@ -14,8 +14,9 @@ let pendingCreation: Promise<void> | undefined;
 
 type RegistrySave = { repositories: Array<{ workspaces?: Array<{ id: string }>; workspacePathById?: Record<string, string> }> };
 
-function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean; toplevel?: string } = {}) {
+function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean; toplevel?: string; worktreeList?: string; resolvedRepository?: string } = {}) {
   const operations: string[] = [];
+  const commands: string[] = [];
   const registrySaves: RegistrySave[] = [];
   let releaseRegistrySave: (() => void) | undefined;
   let registrySavePending = false;
@@ -24,6 +25,9 @@ function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean;
     api: {
       terminal: {
         runCommand: async ({ command }: { command: string }) => {
+          commands.push(command);
+          if (command.startsWith("git worktree list") && args.worktreeList !== undefined) return { ok: true, code: 0, stdout: args.worktreeList, stderr: "" };
+          if (command === "pwd -P" && args.resolvedRepository) return { ok: true, code: 0, stdout: `${args.resolvedRepository}\n`, stderr: "" };
           if (command.includes("--show-toplevel")) return { ok: true, code: 0, stdout: `${args.toplevel ?? ""}\n`, stderr: "" };
           if (command.includes("--abbrev-ref HEAD")) return { ok: true, code: 0, stdout: "feature/linked\n", stderr: "" };
           return { ok: true, code: 0, stdout: "", stderr: "" };
@@ -51,6 +55,7 @@ function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean;
   releaseHeldSave = () => releaseRegistrySave?.();
   return {
     operations,
+    commands,
     registrySaves,
     isRegistrySavePending: () => registrySavePending,
     releaseRegistrySave: () => releaseRegistrySave?.(),
@@ -156,5 +161,55 @@ describe("a created workspace is registered before creation resolves", () => {
     const workspaceId = store.getState().activeWorkspaceId;
     expect(harness.operations).toEqual(["snapshot", "registry"]);
     expect(registryHas(harness.registrySaves[0], workspaceId)).toBe(true);
+  });
+});
+
+describe("importWorkspaceFromWorktree judges a worktree against the repository's own list", () => {
+  const listing = (root: string) => `worktree ${root}\nHEAD a\nbranch refs/heads/main\n\nworktree ${root}/.stave/workspaces/feature-linked\nHEAD b\nbranch refs/heads/feature/linked\n\n`;
+  const linkedPaths = (store: AppStore) => store.getState().recentRepositories.find((entry) => entry.repositoryPath === "/tmp/stave-project")?.linkedWorkspacePaths ?? [];
+
+  test("a worktree Git reports through a resolved symbolic link is this repository's own, not external", async () => {
+    const harness = install({ toplevel: "/private/tmp/stave-project/.stave/workspaces/feature-linked", worktreeList: listing("/private/tmp/stave-project"), resolvedRepository: "/private/tmp/stave-project" });
+    const store = await seedRepository();
+    const result = await store.getState().importWorkspaceFromWorktree({ worktreePath: "/tmp/stave-project/.stave/workspaces/feature-linked" });
+    expect(result).toMatchObject({ ok: true });
+    const workspaceId = store.getState().activeWorkspaceId;
+    expect(store.getState().workspacePathById[workspaceId]).toBe("/tmp/stave-project/.stave/workspaces/feature-linked");
+    expect(linkedPaths(store)).toEqual([]);
+    expect(harness.commands.some((command) => command.startsWith("ln -sfn"))).toBe(false);
+  });
+
+  test("matching paths keep the plain comparison, and an unlisted checkout stays external", async () => {
+    install({ toplevel: "/tmp/stave-project/.stave/workspaces/feature-linked", worktreeList: listing("/tmp/stave-project") });
+    let store = await seedRepository();
+    await store.getState().importWorkspaceFromWorktree({ worktreePath: "/tmp/stave-project/.stave/workspaces/feature-linked" });
+    expect(store.getState().workspacePathById[store.getState().activeWorkspaceId]).toBe("/tmp/stave-project/.stave/workspaces/feature-linked");
+    expect(linkedPaths(store)).toEqual([]);
+
+    install({ toplevel: "/elsewhere/checkout", worktreeList: listing("/tmp/stave-project") });
+    store = await seedRepository();
+    await store.getState().importWorkspaceFromWorktree({ worktreePath: "/elsewhere/checkout" });
+    expect(store.getState().workspacePathById[store.getState().activeWorkspaceId]).toBe("/elsewhere/checkout");
+    expect(linkedPaths(store)).toEqual(["/elsewhere/checkout"]);
+  });
+
+  test("a workspace saved under Git's resolved path is reused, not registered again", async () => {
+    install({ toplevel: "/private/tmp/stave-project/.stave/workspaces/feature-linked", worktreeList: listing("/private/tmp/stave-project"), resolvedRepository: "/private/tmp/stave-project" });
+    const store = await seedRepository();
+    const saved = "/private/tmp/stave-project/.stave/workspaces/feature-linked";
+    store.setState({ workspaces: [{ id: "existing", name: "feature-linked", updatedAt: "2026-10-01T00:00:00.000Z" }] as never,
+      workspacePathById: { existing: saved }, workspaceBranchById: { existing: "feature/linked" } });
+    const result = await store.getState().importWorkspaceFromWorktree({ worktreePath: "/tmp/stave-project/.stave/workspaces/feature-linked" });
+    expect(result).toMatchObject({ ok: true });
+    expect(store.getState().workspaces.map((workspace) => workspace.id)).toEqual(["existing"]);
+    expect(store.getState().activeWorkspaceId).toBe("existing");
+    expect(store.getState().workspacePathById).toEqual({ existing: saved });
+  });
+
+  test("the repository root reached through its resolved path is refused", async () => {
+    install({ toplevel: "/private/tmp/stave-project", worktreeList: listing("/private/tmp/stave-project"), resolvedRepository: "/private/tmp/stave-project" });
+    const store = await seedRepository();
+    const result = await store.getState().importWorkspaceFromWorktree({ worktreePath: "/private/tmp/stave-project" });
+    expect(result.ok).toBe(false);
   });
 });

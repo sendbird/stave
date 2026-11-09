@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { AlertCircle } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { apiConnectionFocus, type AccountsSettingsFocus } from "@/lib/providers/accounts-guide";
 import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
 import {
@@ -72,7 +72,7 @@ export function ModelPickerAccountFooterView(props: {
           <span className={sx(styles.noticeText)} title={describeProviderAccountBlocker(blocker)}>
             {describeProviderAccountBlocker(blocker)}
           </span>
-          <Button size="xs" variant="outline" onClick={() => go(blocker.focus)}>
+          <Button size="xs" variant="outlined" onClick={() => go(blocker.focus)}>
             {providerAccountBlockerActionLabel(blocker)}
           </Button>
         </div>

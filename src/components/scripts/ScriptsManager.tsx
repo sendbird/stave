@@ -75,8 +75,8 @@ import type {
   ScriptTrigger,
   ResolvedWorkspaceScriptsConfig,
 } from "@/lib/workspace-scripts/types";
-import { sx } from "@/components/ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { managerStyles } from "./scripts-manager.styles";
 
 export interface ScriptsManagerRuntimeProps {
@@ -972,7 +972,7 @@ export function ScriptsManager(props: {
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <AdsButton
+                    <AuiButton
                       type="button"
                       layout="host"
                       xstyle={managerStyles.helpTrigger}

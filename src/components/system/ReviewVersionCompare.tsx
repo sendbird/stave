@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import { VersionCompare, type VersionCompareProps } from "@/components/ads/components/VersionCompare";
+import { VersionCompare, type VersionCompareProps } from "@/components/aui/components/VersionCompare";
 
 /**
- * ADS `VersionCompare` with Stave's words in English and Korean: a before and
+ * AUI `VersionCompare` with Stave's words in English and Korean: a before and
  * after pair of review evidence (side by side, slider, onion skin or
  * difference). The version labels default to Before and After.
  */

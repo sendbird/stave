@@ -1,9 +1,9 @@
 import { useId, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Textarea } from "@/components/ui/textarea";
 import { AGENT_RUN_LIMITS, currentStageRecord } from "@/lib/agent-runs/domain";
 import { useAppStore } from "@/store/app.store";
@@ -43,9 +43,9 @@ export function DelegatedAgentReplyCard(props: { busy: boolean; failure?: string
 }
 
 const styles = stylex.create({
-  form: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--ads-space-8"],
-    padding: vars["--ads-space-12"], marginBottom: vars["--ads-space-12"], borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid", borderColor: vars["--ads-color-border"], borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-canvas"], color: vars["--ads-color-text"], fontSize: vars["--ads-font-size-body"] },
-  hint: { margin: 0, color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  form: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--aui-space-8"],
+    padding: vars["--aui-space-12"], marginBottom: vars["--aui-space-12"], borderWidth: vars["--aui-border-width-hairline"],
+    borderStyle: "solid", borderColor: vars["--aui-color-border"], borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-canvas"], color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-body"] },
+  hint: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
 });

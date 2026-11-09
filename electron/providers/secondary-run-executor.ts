@@ -136,6 +136,7 @@ export function buildSecondaryProviderRuntimeOptions(args: {
   model: string;
   policy: RunPolicy;
   runtimeHints?: SecondaryRunRuntimeHints;
+  toolsDisabled?: true;
 }): ProviderRuntimeOptions {
   const hints = args.runtimeHints ?? {};
   const common: ProviderRuntimeOptions = {
@@ -150,6 +151,7 @@ export function buildSecondaryProviderRuntimeOptions(args: {
     claudeResumeSessionId: undefined,
     claudeResumeSessionAt: undefined,
     codexResumeThreadId: undefined,
+    ...(args.toolsDisabled ? { toolsDisabled: true } : {}),
   };
   if (args.providerId === "claude-code") {
     return {
@@ -230,6 +232,7 @@ export async function executeSecondaryProviderRun(
           model: request.input.model,
           policy: request.policy,
           runtimeHints: request.input.runtimeHints,
+          toolsDisabled: request.input.toolsDisabled,
         }),
       };
       events = await runtime.streamTurn(providerArgs);

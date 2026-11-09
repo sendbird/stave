@@ -4,7 +4,7 @@ import { useAppStore } from "@/store/app.store";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { selectedProviderAccount, shouldShowProviderAccountPicker } from "@/lib/providers/provider-account-selection";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 /**

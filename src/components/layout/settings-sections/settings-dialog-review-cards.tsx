@@ -1,11 +1,11 @@
 import { formatNumber } from "@/i18n/format";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useMemo } from "react";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { ReviewPromptPicker } from "@/components/ai-elements/review-prompt-picker";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { LOCAL_CHANGE_REVIEW_FOCUS_OPTIONS } from "@/lib/local-change-review";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";

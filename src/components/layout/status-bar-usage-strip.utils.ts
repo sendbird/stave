@@ -1,5 +1,5 @@
 import { i18n, getIntlLocale } from "@/i18n";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 import { usageThresholdTone } from "@/lib/usage/usage-thresholds";
 import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { providerReportsQuota } from "@/lib/providers/account-usage-block";

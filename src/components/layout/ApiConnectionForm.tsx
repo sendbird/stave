@@ -1,8 +1,8 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useId, useRef, useState } from "react";
 import { CheckCircle2, Circle } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { Input } from "@/components/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { API_CONNECTION_NEW_FIELD_ID } from "@/lib/providers/accounts-guide";
@@ -120,7 +120,7 @@ export function ApiConnectionKeySelect(props: {
         </SelectTrigger>
         <SelectContent>{props.secrets.map((secret) => <SelectItem key={secret.id} value={secret.id}>{secret.name}</SelectItem>)}</SelectContent>
       </Select>
-      <Button size="sm" variant="outline" aria-expanded={pasting} onClick={() => setPasting((open) => !open)}>{t("settingsConnections:apiConnectionForm.newKey.open")}</Button>
+      <Button size="sm" variant="outlined" aria-expanded={pasting} onClick={() => setPasting((open) => !open)}>{t("settingsConnections:apiConnectionForm.newKey.open")}</Button>
       <Button size="sm" variant="quiet" onClick={() => window.dispatchEvent(new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, { detail: { section: "secrets" } }))}>{t("settingsConnections:apiConnectionForm.openSecrets")}</Button>
       <Button size="sm" variant="quiet" onClick={() => void props.onRefresh()}>{t("settingsConnections:apiConnectionForm.refreshKeys")}</Button>
     </div>

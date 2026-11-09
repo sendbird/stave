@@ -1,7 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppSettings } from "@/store/app.store";
 import type { ClaudeGuardrailId, ProviderId } from "@/lib/providers/provider.types";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export type ProviderModePresetId = "manual" | "guided" | "auto";
 export type ProviderModeDisplayId = ProviderModePresetId | "custom";

@@ -41,6 +41,15 @@ function parse(row: unknown, mandatory = false): AgentAssignment | null {
   }
 }
 
+
+const HEX = "[0-9a-fA-F]";
+/**
+ * The strict request id Tars records a responsibility's assignment under,
+ * `tars-<responsibility uuid>` (`electron/host-service/tars-host.ts`), the
+ * same shape as its run marker (`isTarsWorkflowId`).
+ */
+const TARS_REQUEST_ID_GLOB = `tars-${HEX.repeat(8)}-${HEX.repeat(4)}-${HEX.repeat(4)}-${HEX.repeat(4)}-${HEX.repeat(12)}`;
+
 export class AgentAssignmentStore {
   private readonly db: AssignmentDatabase;
 
@@ -107,13 +116,18 @@ export class AgentAssignmentStore {
     );
   }
 
-  list(args: { agentConfigId?: string; limit?: number } = {}): AgentAssignment[] {
+  /** `excludeTars` leaves out the assignments Tars recorded for its responsibilities. */
+  list(args: { agentConfigId?: string; limit?: number; excludeTars?: boolean } = {}): AgentAssignment[] {
     const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
-    const rows = args.agentConfigId
-      ? this.db
-          .prepare(`SELECT body_json FROM agent_assignments WHERE agent_config_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?`)
-          .all(args.agentConfigId, limit)
-      : this.db.prepare(`SELECT body_json FROM agent_assignments ORDER BY created_at DESC, rowid DESC LIMIT ?`).all(limit);
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (args.agentConfigId) { conditions.push("agent_config_id = ?"); params.push(args.agentConfigId); }
+    // Filtered before LIMIT, so a busy Tars never pushes the user's own work out of the window.
+    if (args.excludeTars) { conditions.push("request_id NOT GLOB ?"); params.push(TARS_REQUEST_ID_GLOB); }
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")} ` : "";
+    const rows = this.db
+      .prepare(`SELECT body_json FROM agent_assignments ${where}ORDER BY created_at DESC, rowid DESC LIMIT ?`)
+      .all(...params, limit);
     return rows.flatMap((row) => {
       const parsed = parse(row);
       return parsed ? [parsed] : [];

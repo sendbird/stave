@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { Search } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   SidebarGroup,
   SidebarGroupContent,

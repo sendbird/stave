@@ -196,6 +196,8 @@ export interface PersistenceRepositoryRegistryEntry {
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
   repositoryBasePrompt?: string;
+  /** Free-text branch naming rule saved in repository settings; kickoff and Tars follow it. */
+  kickoffBranchNamingRule?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
   archivedWorkspacePaths?: string[];

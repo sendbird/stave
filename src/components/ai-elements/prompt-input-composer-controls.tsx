@@ -15,7 +15,7 @@ import {
   PopoverTitle,
 } from "@/components/ui";
 import type { ComposerControlId } from "@/lib/composer-controls";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { PromptInputRunAccountPoolControl } from "./prompt-input-run-account-pool";
 import { PromptInputProviderModePill } from "./prompt-input-provider-mode";

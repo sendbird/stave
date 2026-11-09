@@ -1,4 +1,4 @@
-import { useAsync, type AsyncState } from "@/components/ads/utils/async";
+import { useAsync, type AsyncState } from "@/components/aui/utils/async";
 import { useAppStore } from "@/store/app.store";
 
 export interface WorkspaceScriptOption {

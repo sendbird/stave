@@ -1,15 +1,15 @@
 import {
-  Loader as AdsLoader,
-  type LoaderProps as AdsLoaderProps,
-} from "../ads/components/Loader";
-import { cx } from "../ads/utils/stylex";
+  Loader as AuiLoader,
+  type LoaderProps as AuiLoaderProps,
+} from "../aui/components/Loader";
+import { cx } from "../aui/utils/stylex";
 import "./loader.css";
 export type {
   LoaderSize,
   LoaderVariant,
   LoaderTone,
-} from "../ads/components/Loader";
-export type LoaderProps = AdsLoaderProps & {
+} from "../aui/components/Loader";
+export type LoaderProps = AuiLoaderProps & {
   cadence?: "full" | "reduced";
   paused?: boolean;
 };
@@ -20,11 +20,11 @@ export function Loader({
   ...props
 }: LoaderProps) {
   return (
-    <AdsLoader
+    <AuiLoader
       {...props}
       // `.stave-loader` is the product loader's identity hook: consumers and
       // tests target it to find "the app's loader" independently of the
-      // canonical ADS class names. It carries no animation of its own — cadence
+      // canonical AUI class names. It carries no animation of its own — cadence
       // and pause are driven by the data attributes below — so restoring it is
       // purely an identity marker.
       className={cx("stave-loader", className)}

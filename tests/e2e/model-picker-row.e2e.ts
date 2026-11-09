@@ -88,7 +88,7 @@ for (const locale of ["en", "ko"] as const) {
   });
 }
 
-test("the chosen model reads as chosen, like every other ADS picker", async ({ page }) => {
+test("the chosen model reads as chosen, like every other AUI picker", async ({ page }) => {
   await page.goto("/tests/e2e/fixtures/task-presets.html?theme=dark");
   const { listbox } = await openPresetModelPicker(page, "en", "Planning");
   const chosen = listbox.getByRole("option", { selected: true });
@@ -98,7 +98,7 @@ test("the chosen model reads as chosen, like every other ADS picker", async ({ p
   const ink = (row: Locator) => row.locator("[data-option-label]").evaluate((element) => getComputedStyle(element).color);
   const accent = await page.evaluate(() => {
     const probe = document.createElement("span");
-    probe.style.color = "var(--ads-color-accent, var(--primary))";
+    probe.style.color = "var(--aui-color-accent, var(--primary))";
     document.querySelector("[role=listbox]")!.append(probe);
     const color = getComputedStyle(probe).color;
     probe.remove();
@@ -134,7 +134,7 @@ test("the list opens below a picker that has room and never covers its own field
 
 test("the dialog model selector keeps the name's line and moves the price to the id line", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   await page.getByRole("button", { name: "Claude Opus 5", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("option").first()).toBeVisible();

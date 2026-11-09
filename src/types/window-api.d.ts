@@ -157,6 +157,7 @@ import type {
 } from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import type { AgentRunsBridgeApi } from "@/lib/agent-runs/api";
+import type { TarsBridgeApi } from "@/lib/tars/types";
 import type { WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
 import type { AgentsBridgeApi } from "@/lib/agents/api";
 import type { PromptDraft } from "@/types/chat";
@@ -3099,6 +3100,13 @@ interface WindowApi {
   automations?: WindowAutomationsApi;
   agentRuns?: AgentRunsBridgeApi;
   wakeUps?: WakeUpsBridgeApi;
+  /**
+   * Desktop-owned durable conversation and local responsibility admission.
+   * `answer` (`tars:answer`) answers a decision card option; controls it
+   * applies take `act`'s host path. `onChanged` pushes `tars:changed`
+   * (`{ scope: "snapshot" | "conversation" }`).
+   */
+  tars?: TarsBridgeApi;
   agents?: AgentsBridgeApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;

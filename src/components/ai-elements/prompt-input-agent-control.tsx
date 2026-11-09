@@ -29,7 +29,7 @@ import {
 } from "@/lib/agents/selector-choice";
 import { useAgentAssignmentsStore, useAgentAssignmentsSync, type TaskAgent } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { agentControlStyles as styles } from "./prompt-input-agent-control.styles";
 
 /** The model option a fixed-model agent asks for, when the composer offers it. */

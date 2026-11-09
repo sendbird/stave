@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const confirmDialogStyles = stylex.create({
   backdrop: {
@@ -9,33 +9,33 @@ export const confirmDialogStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: vars["--ads-space-16"],
-    backgroundColor: vars["--ads-color-overlay"],
+    padding: vars["--aui-space-16"],
+    backgroundColor: vars["--aui-color-overlay"],
   },
   panel: {
     width: "100%",
     maxWidth: "28rem",
-    padding: vars["--ads-space-16"],
+    padding: vars["--aui-space-16"],
   },
   title: {
     margin: 0,
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-lead"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    color: vars["--aui-color-text"],
   },
   description: {
     marginBlock: 0,
-    marginBlockStart: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text-muted"],
+    marginBlockStart: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text-muted"],
   },
   extra: {
-    marginBlockStart: vars["--ads-space-12"],
+    marginBlockStart: vars["--aui-space-12"],
   },
   actions: {
     display: "flex",
     justifyContent: "flex-end",
-    gap: vars["--ads-space-8"],
-    marginBlockStart: vars["--ads-space-16"],
+    gap: vars["--aui-space-8"],
+    marginBlockStart: vars["--aui-space-16"],
   },
 });

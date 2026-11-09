@@ -34,10 +34,10 @@ for (const locale of ["en", "ko"] as const) {
           });
           expect(overflow).toBeLessThanOrEqual(1);
           const geometry = await row.evaluate(async (element) => {
-            const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+            const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
             const button = element.querySelector("button")!;
             const probe = document.createElement("div");
-            probe.style.padding = vars["--ads-space-8"];
+            probe.style.padding = vars["--aui-space-8"];
             button.append(probe);
             const expected = parseFloat(getComputedStyle(probe).paddingLeft);
             probe.remove();

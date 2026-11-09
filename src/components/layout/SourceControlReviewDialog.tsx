@@ -1,11 +1,11 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Check, MessageSquare, RotateCcw } from "lucide-react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button, Textarea } from "@/components/ui";
 import {
   Dialog,
@@ -103,7 +103,7 @@ export function SourceControlReviewDialog(props: {
       <DialogTrigger
         data-source-control-review-trigger=""
         disabled={props.detail.isDraft || !props.detail.headRefOid}
-        render={<AdsButton fullWidth type="button" />}
+        render={<AuiButton fullWidth type="button" />}
       >
         {i18n.t("sourceControl:sourceControlReviewDialog.reviewChanges")}
       </DialogTrigger>

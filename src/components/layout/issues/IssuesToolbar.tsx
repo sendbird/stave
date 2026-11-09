@@ -2,8 +2,8 @@ import { i18n, useTranslation } from "@/i18n";
 import type { RefObject } from "react";
 import { LayoutGrid, LayoutList, ListFilter, Search } from "lucide-react";
 
-import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
-import { Button } from "@/components/ads/components/Button";
+import { AppliedFilters } from "@/components/aui/components/AppliedFilters";
+import { Button } from "@/components/aui/components/Button";
 import {
   Input,
   Select,
@@ -31,7 +31,7 @@ import {
   TRACKER_ISSUE_SORTS,
   type TrackerIssueSort,
 } from "@/lib/tracker-issues/sort";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { CountBadge } from "@/components/system/CountBadge";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { SearchableMultiPicker } from "@/components/layout/settings-searchable-picker";
@@ -156,7 +156,7 @@ export function IssuesToolbar(props: IssuesToolbarProps) {
 
       <div className={sx(taskLayoutStyles.toolbarRow)}>
         <SearchableMultiPicker
-          trigger={<Button size="sm" variant={selectedValues.length > 0 ? "secondary" : "outline"} />}
+          trigger={<Button size="sm" variant={selectedValues.length > 0 ? "secondary" : "outlined"} />}
           triggerContent={
             <>
               <ListFilter aria-hidden />

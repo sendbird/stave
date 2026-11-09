@@ -308,7 +308,7 @@ test("settings sliders respond to keyboard input and persist scalar values", asy
       }),
     )
     .toBe(0.55);
-  await settingsDialog.screenshot({ path: testInfo.outputPath("ads-settings.png") });
+  await settingsDialog.screenshot({ path: testInfo.outputPath("aui-settings.png") });
 });
 
 
@@ -338,7 +338,7 @@ test("workspace date selection supports keyboard changes and clearing", async ({
   await expect(next).toBeFocused();
   await next.press("Enter");
   await expect(next).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("group", { name: "September 2026", exact: true }).screenshot({ path: testInfo.outputPath("ads-calendar.png") });
+  await page.getByRole("group", { name: "September 2026", exact: true }).screenshot({ path: testInfo.outputPath("aui-calendar.png") });
   await next.press("Enter");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Pick a date", exact: true })).toBeVisible();

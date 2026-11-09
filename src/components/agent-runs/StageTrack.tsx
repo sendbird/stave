@@ -3,9 +3,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Check, CircleAlert, Hand, type LucideIcon } from "lucide-react";
-import { Progress, type ProgressTone } from "@/components/ads/components/Progress";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { Progress, type ProgressTone } from "@/components/aui/components/Progress";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow, type StageState } from "@/lib/agent-runs/agent-run-view";
 import { projectStageProgress } from "@/lib/agent-runs/stage-progress";
 import { agentRunStyles } from "./agent-runs.styles";
@@ -91,23 +91,23 @@ export function StageTrack(props: {
 }
 
 const styles = stylex.create({
-  container: { position: "relative", display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0 },
+  container: { position: "relative", display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   /** The stage in progress and its count; it gives way before the bar does. */
   head: {
     display: "inline-flex",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     flex: "0 1 auto",
     minWidth: 0,
     maxWidth: "60%",
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     whiteSpace: "nowrap",
   },
-  headMd: { fontSize: vars["--ads-font-size-body"] },
-  label: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", fontWeight: vars["--ads-font-weight-medium"] },
-  count: { flex: "0 0 auto", color: vars["--ads-color-text-muted"], fontVariantNumeric: "tabular-nums" },
+  headMd: { fontSize: vars["--aui-font-size-body"] },
+  label: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", fontWeight: vars["--aui-font-weight-medium"] },
+  count: { flex: "0 0 auto", color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums" },
   mark: { flex: "0 0 auto", width: 12, height: 12 },
   markMd: { width: 14, height: 14 },
   // The bar takes what the stage name leaves: its own 100% width would otherwise squeeze the name first.
@@ -117,17 +117,17 @@ const styles = stylex.create({
     // "100%" is the widest value; the bar does not shift as the number grows.
     minWidth: "4ch",
     textAlign: "end",
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: 1,
     fontVariantNumeric: "tabular-nums",
   },
 });
 
 const MARK_TONES = stylex.create({
-  waiting: { color: vars["--ads-color-warning-text"] },
-  attention: { color: vars["--ads-color-danger-text"] },
-  done: { color: vars["--ads-color-success-text"] },
+  waiting: { color: vars["--aui-color-warning-text"] },
+  attention: { color: vars["--aui-color-danger-text"] },
+  done: { color: vars["--aui-color-success-text"] },
 });
 
 /** The head's mark: the tone is never carried by color alone. */

@@ -3,11 +3,11 @@ import { formatTokenCount } from "@/i18n/format";
 import { ChevronRight } from "lucide-react";
 import { useId, useState } from "react";
 
-import { Button } from "@/components/ads/components/Button";
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
-import { Loader } from "@/components/ads/components/Loader";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { Loader } from "@/components/aui/components/Loader";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildClaudeContextBreakdown,
   type ContextBreakdownRow,

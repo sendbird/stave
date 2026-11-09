@@ -1,9 +1,9 @@
 import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { UsageView } from "@/components/usage/UsageView";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
@@ -48,7 +48,7 @@ export function UsagePreview() {
   </div>;
 }
 const styles = stylex.create({
-  page: { blockSize: "100vh", display: "flex", flexDirection: "column", color: vars["--ads-color-text"], backgroundColor: vars["--ads-color-canvas"] },
-  toolbar: { display: "flex", gap: vars["--ads-space-8"], flexWrap: "wrap", alignItems: "center", padding: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"] },
+  page: { blockSize: "100vh", display: "flex", flexDirection: "column", color: vars["--aui-color-text"], backgroundColor: vars["--aui-color-canvas"] },
+  toolbar: { display: "flex", gap: vars["--aui-space-8"], flexWrap: "wrap", alignItems: "center", padding: vars["--aui-space-8"], fontSize: vars["--aui-font-size-caption"] },
   frame: { flex: "1 1 auto", minBlockSize: 0, inlineSize: "100%", display: "flex", flexDirection: "column" },
 });

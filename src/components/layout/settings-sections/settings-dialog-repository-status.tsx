@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { Badge } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 
@@ -69,7 +69,7 @@ export function RepositoryRemoteList(args: { state: AsyncState<GitRemoteState[]>
       onRetry={args.onRetry}
       pending={<p className={sx(styles.mutedBody)}>{t("settings:repositoriesSection.metadata.refreshing")}</p>}
       isEmpty={(remotes) => remotes.length === 0}
-      empty={<p className={sx(styles.mutedBody)}>{t("settings:repositoriesSection.settings.remoteStatus.noRemotes")}</p>}
+      emptyState={<p className={sx(styles.mutedBody)}>{t("settings:repositoriesSection.settings.remoteStatus.noRemotes")}</p>}
     >
       {(remotes) => (
         <div className={sx(styles.spaceY2)}>

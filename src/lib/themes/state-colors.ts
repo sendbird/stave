@@ -117,7 +117,7 @@ export interface StateColorProblem {
 /**
  * What keeps a theme's state colors from reading apart: pairs from
  * `DISTINCT_STATE_COLOR_PAIRS` closer than `STATE_COLOR_MIN_DISTANCE`, glyphs
- * under 3:1 on the card, and state text (the same foreground mix ADS uses for
+ * under 3:1 on the card, and state text (the same foreground mix AUI uses for
  * semantic text) under 4.5:1. Values that do not parse are skipped.
  */
 export function checkStateColors(tokens: TokenMap): StateColorProblem[] {

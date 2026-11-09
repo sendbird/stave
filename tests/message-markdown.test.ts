@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MarkdownMessage } from "@/components/ai-elements/message-markdown";
 import { markdownStyles } from "@/components/ai-elements/message-markdown.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { hardenSetextHeadings } from "@/components/ai-elements/message-markdown.setext";
 import {
   formatFileLinkLocation,
@@ -27,7 +27,7 @@ function render(content: string): string {
  * `---` is a CommonMark *setext* heading, so the sentence became an `<h2>`
  * where the model meant a divider; and `MarkdownMessage` had no h1–h6
  * component overrides at all, so that `<h2>` fell through to the user-agent
- * sheet at 1.5em bold — with the ADS reset having just removed the UA
+ * sheet at 1.5em bold — with the AUI reset having just removed the UA
  * `margin-block` that used to separate it from the prose, leaving an outsized
  * bold line jammed into the paragraph flow.
  */

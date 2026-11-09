@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button, Loader, toast } from "@/components/ui";
 import {
   Dialog,

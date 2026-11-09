@@ -1,6 +1,6 @@
 import { BookOpen } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { openExternalUrl } from "@/lib/external-links";
 import { accountStyles as styles } from "./provider-accounts.styles";
 

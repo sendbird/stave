@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo, useMemo } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { TextShimmer } from "@/components/ads/components/TextShimmer";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { TextShimmer } from "@/components/aui/components/TextShimmer";
+import { sx } from "@/components/aui/utils/stylex";
 import { usePrefersReducedMotion } from "@/components/agent-runs/useAgentRun";
 import {
   TurnRestMark,

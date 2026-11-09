@@ -2,9 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import type { LucideIcon } from "lucide-react";
 import { X } from "lucide-react";
 import type { ComponentProps, ComponentPropsWithoutRef, ReactNode } from "react";
-import { transition } from "../ads/recipes/transition";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { cx, sx, type StyleXValue } from "../ads/utils/stylex";
+import { transition } from "../aui/recipes/transition";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { cx, sx, type StyleXValue } from "../aui/utils/stylex";
 import { Button } from "./button";
 
 /**
@@ -74,17 +74,17 @@ export const contextChipStyles = stylex.create({
   },
   /** The label as a ghost button that opens the attached source. */
   openButton: {
-    height: vars["--ads-line-height-control"],
-    paddingInline: vars["--ads-space-2"],
-    marginInline: `calc(-1 * ${vars["--ads-space-2"]})`,
+    height: vars["--aui-line-height-control"],
+    paddingInline: vars["--aui-space-2"],
+    marginInline: `calc(-1 * ${vars["--aui-space-2"]})`,
     justifyContent: "flex-start",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     fontSize: "inherit",
     fontWeight: "inherit",
     textDecorationLine: { default: "none", ":hover": "underline" },
   },
-  prefix: { fontWeight: vars["--ads-font-weight-medium"] },
-  muted: { color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },
+  prefix: { fontWeight: vars["--aui-font-weight-medium"] },
+  muted: { color: vars["--aui-color-text-muted"], whiteSpace: "nowrap" },
 });
 
 const styles = stylex.create({
@@ -92,31 +92,31 @@ const styles = stylex.create({
     display: "inline-flex",
     maxWidth: "100%",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
-    borderRadius: vars["--ads-radius-mark"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-4"],
+    borderRadius: vars["--aui-radius-mark"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-accent-soft"],
-    paddingInline: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-accent-soft"],
+    paddingInline: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text"],
   },
   compact: {
-    paddingInline: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-2"],
-    fontSize: vars["--ads-font-size-caption"],
+    paddingInline: vars["--aui-space-4"],
+    paddingBlock: vars["--aui-space-2"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   icon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
   },
   remove: {
-    marginInlineEnd: `calc(-1 * ${vars["--ads-space-4"]})`,
-    marginBlock: `calc((${vars["--ads-line-height-control"]} - ${vars["--ads-control-height-xs"]}) / 2)`,
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    marginInlineEnd: `calc(-1 * ${vars["--aui-space-4"]})`,
+    marginBlock: `calc((${vars["--aui-line-height-control"]} - ${vars["--aui-control-height-xs"]}) / 2)`,
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
   // One step under the xs glyph: the mark reads as "dismiss", not as an action.
   removeIcon: { width: 12, height: 12 },

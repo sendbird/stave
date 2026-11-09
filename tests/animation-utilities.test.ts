@@ -119,9 +119,9 @@ describe("globals.css is plain CSS", () => {
     expect(fromHtml).toBeTruthy();
     expect(code.match(layerOrder)?.[0]).toBe(fromHtml!);
 
-    // StyleX emits one layer per ORIGIN now (`@layer ads.priority1`,
+    // StyleX emits one layer per ORIGIN now (`@layer aui.priority1`,
     // `@layer product.priority1`), not one flat `priority*` band, and
-    // `ads-theme` is the seam between them. Assert the three by name: the
+    // `aui-theme` is the seam between them. Assert the three by name: the
     // agreement check above is satisfied by any pair of identical strings,
     // including one that has silently lost the seam.
     const names = fromHtml!
@@ -129,9 +129,9 @@ describe("globals.css is plain CSS", () => {
       .replace(/;$/, "")
       .split(",")
       .map((name) => name.trim());
-    expect(names.filter((n) => ["ads", "ads-theme", "product"].includes(n))).toEqual([
-      "ads",
-      "ads-theme",
+    expect(names.filter((n) => ["aui", "aui-theme", "product"].includes(n))).toEqual([
+      "aui",
+      "aui-theme",
       "product",
     ]);
     expect(names).not.toContain("priority1");

@@ -1,14 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const turnEventRowStyles = stylex.create({
   output: {
     display: "grid",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     gridTemplateColumns: "minmax(0, 1fr) auto",
     alignItems: "start",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   /**
@@ -19,18 +19,18 @@ export const turnEventRowStyles = stylex.create({
   outputText: {
     gridColumn: 1,
     gridRow: 1,
-    color: vars["--ads-color-text"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantLigatures: "none",
-    lineHeight: vars["--ads-line-height-normal"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
     minInlineSize: 0,
     overflowWrap: "anywhere",
     whiteSpace: "pre-wrap",
   },
   outputProse: {
-    fontFamily: vars["--ads-font-sans"],
+    fontFamily: vars["--aui-font-sans"],
   },
   /* The capped box takes the section's width, so the cut and its fade run
      edge to edge whatever the longest line measures. */
@@ -43,10 +43,10 @@ export const turnEventRowStyles = stylex.create({
   lineNote: {
     gridColumn: 1,
     margin: 0,
-    color: vars["--ads-color-text-muted"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
   },
   copy: {
     gridColumn: 2,
@@ -55,7 +55,7 @@ export const turnEventRowStyles = stylex.create({
   },
   /** The reasoning body: prose, secondary ink, relaxed leading. */
   reasoningBody: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     margin: 0,
     minInlineSize: 0,
     overflowWrap: "anywhere",
@@ -63,20 +63,20 @@ export const turnEventRowStyles = stylex.create({
   },
   progressList: {
     display: "grid",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     listStyle: "none",
     margin: 0,
     padding: 0,
   },
   progressItem: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
   /** The answer's sources sit one block below it, like the other end-of-turn blocks. */
   turnSources: {
-    marginTop: vars["--ads-space-12"],
+    marginTop: vars["--aui-space-12"],
   },
 });

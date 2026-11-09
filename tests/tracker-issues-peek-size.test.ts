@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  ADS_PEEK_SPLIT_DEFAULT_PX,
+  AUI_PEEK_SPLIT_DEFAULT_PX,
   clampTrackerIssuesPeekWidth,
   parseTrackerIssuesPeekWidth,
   TRACKER_ISSUES_PEEK_DEFAULT_PX,
@@ -10,9 +10,9 @@ import {
 } from "@/lib/tracker-issues/peek-size";
 
 describe("tracker issues peek size", () => {
-  it("opens wider than the ADS split default", () => {
+  it("opens wider than the AUI split default", () => {
     expect(TRACKER_ISSUES_PEEK_DEFAULT_PX).toBeGreaterThan(
-      ADS_PEEK_SPLIT_DEFAULT_PX,
+      AUI_PEEK_SPLIT_DEFAULT_PX,
     );
   });
 

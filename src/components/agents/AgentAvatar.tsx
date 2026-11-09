@@ -2,8 +2,8 @@ import { getAgentDisplayName } from "@/lib/agents/display";
 import { useTranslation } from "@/i18n";
 import type * as React from "react";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { cx, sx, type XstyleProp } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { cx, sx, type XstyleProp } from "../aui/utils/stylex";
 import { agentAvatarTone, agentColor, agentInitials } from "@/lib/agents/agent-appearance";
 import { getAgentIcon } from "@/lib/agents/agent-icons";
 import type { AgentConfig } from "@/lib/agents/schema";
@@ -13,7 +13,7 @@ import { useAgentAvatarPalette } from "./use-agent-avatar-palette";
 
 /**
  * An agent's avatar: a rounded square with a soft tint of the agent's hue (a
- * named colour mapped to an existing `--ads-chart-*` token, or a stable colour
+ * named colour mapped to an existing `--aui-chart-*` token, or a stable colour
  * derived from the id) and ink mixed from the same hue, measured against the
  * fill in the active theme and darkened (or lightened) to 4.5:1 where the
  * theme's own ink falls short. People and models stay round; only agents are
@@ -105,7 +105,7 @@ const styles = stylex.create({
     justifyContent: "center",
     backgroundColor: "var(--agent-avatar-fill)",
     color: "var(--agent-avatar-ink)",
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     lineHeight: 1,
     userSelect: "none",
     textTransform: "uppercase",
@@ -116,10 +116,10 @@ const styles = stylex.create({
     position: "absolute",
     right: 0,
     bottom: 0,
-    borderRadius: vars["--ads-radius-full"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-full"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-surface"],
+    borderColor: vars["--aui-color-surface"],
   },
   provider: {
     position: "absolute",
@@ -128,19 +128,19 @@ const styles = stylex.create({
     width: 10,
     height: 10,
     overflow: "hidden",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-surface"],
-    boxShadow: `0 0 0 1px ${vars["--ads-color-surface"]}`,
+    borderRadius: vars["--aui-radius-full"],
+    backgroundColor: vars["--aui-color-surface"],
+    boxShadow: `0 0 0 1px ${vars["--aui-color-surface"]}`,
   },
-  statusRunning: { backgroundColor: vars["--ads-color-success"] },
-  statusNeedsYou: { backgroundColor: vars["--ads-color-warning"] },
+  statusRunning: { backgroundColor: vars["--aui-color-success"] },
+  statusNeedsYou: { backgroundColor: vars["--aui-color-warning"] },
 });
 
 const sizeStyles = stylex.create({
-  xs: { width: 20, height: 20, borderRadius: 6, fontSize: vars["--ads-font-size-micro"] },
-  sm: { width: 28, height: 28, borderRadius: 8, fontSize: vars["--ads-font-size-caption"] },
-  md: { width: 40, height: 40, borderRadius: 11, fontSize: vars["--ads-font-size-body"] },
-  lg: { width: 56, height: 56, borderRadius: 15, fontSize: vars["--ads-font-size-lead"] },
+  xs: { width: 20, height: 20, borderRadius: 6, fontSize: vars["--aui-font-size-micro"] },
+  sm: { width: 28, height: 28, borderRadius: 8, fontSize: vars["--aui-font-size-caption"] },
+  md: { width: 40, height: 40, borderRadius: 11, fontSize: vars["--aui-font-size-body"] },
+  lg: { width: 56, height: 56, borderRadius: 15, fontSize: vars["--aui-font-size-lead"] },
 });
 
 /**

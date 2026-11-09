@@ -1,8 +1,8 @@
 import { i18n } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import type { SearchablePickerOption } from "@/components/layout/searchable-picker-option";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { formatModelPrice, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { ModelIcon } from "./model-icon";
@@ -45,15 +45,15 @@ export function ModelPrice(props: { model: string; xstyle?: StyleXValue }) {
 
 const styles = stylex.create({
   price: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-regular"],
+    fontWeight: vars["--aui-font-weight-regular"],
     whiteSpace: "nowrap",
   },
   icon: {
-    blockSize: vars["--ads-control-icon-size-md"],
-    inlineSize: vars["--ads-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
+    inlineSize: vars["--aui-control-icon-size-md"],
   },
 });

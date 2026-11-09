@@ -1,10 +1,10 @@
 import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { buildTerminalSessionSlotKey } from "@/lib/terminal/types";
 import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";
-import { workspaceCleanupRecommendation, workspaceCleanupBlocker, parseWorkspaceDiskBytes, worktreeListContainsPath } from "@/lib/workspace-cleanup";
+import { workspaceCleanupRecommendation, workspaceCleanupBlocker, parseWorkspaceDiskBytes, cleanupWorktreeResultKey } from "@/lib/workspace-cleanup";
 import { useAppStore } from "@/store/app.store";
 import { getLinkedWorktreePathSetForRepository, waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
-import { normalizeComparablePath } from "@/lib/source-control-worktrees";
+import { listRepositoryWorktrees, normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { i18n } from "@/i18n";
 
 export interface CleanupWorkspaceRow {
@@ -112,15 +112,7 @@ export async function cleanWorkspace(repositoryPath: string, row: CleanupWorkspa
   await waitForPendingWorkspaceArchiveCleanups();
   const archived = !useAppStore.getState().workspaces.some((w) => w.id === row.id);
   if (!archived) return { ...current, blocker: i18n.t("workspace:cleanupDialog.operations.notArchived") };
-  const listed = await window.api?.terminal?.runCommand?.({ cwd: repositoryPath, command: "git worktree list --porcelain -z" });
-  const result = i18n.t(
-    row.linked
-      ? "workspace:cleanupDialog.operations.results.externalKept"
-      : !listed?.ok
-        ? "workspace:cleanupDialog.operations.results.unverified"
-        : worktreeListContainsPath(listed.stdout, row.path)
-          ? "workspace:cleanupDialog.operations.results.worktreeKept"
-          : "workspace:cleanupDialog.operations.results.worktreeRemoved",
-  );
-  return { ...current, result };
+  const runner = window.api?.terminal?.runCommand;
+  const listed = runner && !row.linked ? await listRepositoryWorktrees({ repositoryPath, run: runner, nulSeparated: true }) : null;
+  return { ...current, result: i18n.t(cleanupWorktreeResultKey({ linked: row.linked, listed, path: row.path })) };
 }

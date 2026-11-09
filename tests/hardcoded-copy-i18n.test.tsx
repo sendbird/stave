@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
 import { describeStageMeta } from "@/components/agent-runs/StageCard";
-import { Thinking } from "@/components/ads/components/Thinking";
+import { Thinking } from "@/components/aui/components/Thinking";
 import type { AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
 import { describeProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
 import { workspaceCleanupBlocker, workspaceCleanupRecommendation } from "@/lib/workspace-cleanup";

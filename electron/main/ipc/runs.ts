@@ -22,8 +22,7 @@ import {
   getDelegatedTaskCoordinator,
   reconcileDelegatedTasks,
 } from "../runs/delegated-task-coordinator-instance";
-import { createSecondaryRunCoordinator } from "../runs/secondary-run-coordinator";
-import { ensurePersistenceReady } from "../state";
+import { secondaryRunCoordinator as coordinator } from "../runs/secondary-run-coordinator-instance";
 import {
   SecondaryRunCancelArgsSchema,
   SecondaryRunClaimArgsSchema,
@@ -33,13 +32,6 @@ import {
   SecondaryRunLookupArgsSchema,
   SecondaryRunReceiptListArgsSchema,
 } from "./schemas";
-
-const coordinator = createSecondaryRunCoordinator({
-  getLedger: ensurePersistenceReady,
-  executeHost: (request) =>
-    invokeHostService("runs.execute-secondary", request),
-  cancelHost: (request) => invokeHostService("runs.cancel-secondary", request),
-});
 
 function invalidTransitionResponse() {
   return SecondaryRunTransitionResponseSchema.parse({

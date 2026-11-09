@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useId, useMemo } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { RecentRepositoryState } from "@/store/repository.utils";
 import {
   SearchablePicker,

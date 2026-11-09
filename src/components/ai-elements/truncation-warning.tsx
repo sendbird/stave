@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { AlertTriangle } from "lucide-react";
 import type { HTMLAttributes } from "react";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import type { TruncationNotice } from "@/lib/truncation-visibility";
 import { truncationWarningStyles as styles } from "./truncation-warning.styles";
 

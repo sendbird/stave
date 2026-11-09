@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { normalizeExternalUrl } from "@/lib/external-links";
 import { parseMarkdownFrontmatter } from "@/lib/markdown-frontmatter";
-import { cx, sx, type XstyleProp } from "@/components/ads/utils/stylex";
+import { cx, sx, type XstyleProp } from "@/components/aui/utils/stylex";
 import { editorMarkdownPreviewStyles as styles } from "@/components/layout/editor-markdown-preview.styles";
 
 interface EditorMarkdownPreviewProps

@@ -14,8 +14,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
-import { sx } from "@/components/ads/utils/stylex";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
+import { sx } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { formatCost, formatDuration, formatTokenCount } from "@/i18n/format";
 import { COMPARE_VARIANT_WORK_STATE, describeCompareVariantProgress } from "@/lib/compare-run-progress";
@@ -34,7 +34,7 @@ import {
   Loader,
   toast,
 } from "@/components/ui";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { StateMark } from "@/components/aui/components/StateMark";
 import {
   getProviderLabel,
   toHumanModelName,

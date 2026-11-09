@@ -6,7 +6,7 @@ import {
 } from "@/components/ai-elements/composer-control-density";
 import { Button } from "@/components/ui";
 import { sessionCoreStyles } from "./session-core.styles";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
 
 /**

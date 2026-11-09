@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   forwardRef,
   useCallback,
@@ -13,8 +13,8 @@ import {
 } from "react";
 import { ModelIcon } from "@/components/ai-elements";
 import { UI_ELEVATION_CLASS, UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { ConversationTurnActions } from "./ConversationTurnActions";
 import { conversationTurnRailStyles as styles } from "./conversation-turn-rail.styles";
 import {
@@ -316,7 +316,7 @@ export const ConversationTurnRail = forwardRef<
               ? i18n.t("session:conversationTurnRail.positionLabel", { value1: index + 1, value2: props.items.length })
               : i18n.t("session:conversationTurnRail.positionLabel2", { value1: index + 1, value2: props.items.length });
             return (
-              <AdsButton
+              <AuiButton
                 layout="host"
                 key={item.messageId}
                 ref={(node) => {
@@ -371,7 +371,7 @@ export const ConversationTurnRail = forwardRef<
                   )}
                   style={{ transform: `scaleX(${scale})` }}
                 />
-              </AdsButton>
+              </AuiButton>
             );
           })}
         </div>

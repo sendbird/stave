@@ -8,8 +8,8 @@ import "dockview-react/dist/styles/dockview.css";
 import { useLensFullView } from "@/components/panes/surfaces/lens/useLensFullView";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { TooltipProvider } from "@/components/ui";
 import {
   LensChrome,
@@ -191,12 +191,12 @@ export function LensChromePreview() {
 }
 
 const styles = stylex.create({
-  root: { display: "grid", gap: vars["--ads-space-16"], padding: vars["--ads-space-24"], backgroundColor: vars["--ads-color-canvas"], minHeight: "100vh", alignContent: "start" },
-  case: { display: "grid", gap: vars["--ads-space-8"] },
-  caption: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
-  frame: { display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: vars["--ads-radius-panel"], borderWidth: vars["--ads-border-width-hairline"], borderStyle: "solid", borderColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-canvas-subtle"] },
+  root: { display: "grid", gap: vars["--aui-space-16"], padding: vars["--aui-space-24"], backgroundColor: vars["--aui-color-canvas"], minHeight: "100vh", alignContent: "start" },
+  case: { display: "grid", gap: vars["--aui-space-8"] },
+  caption: { margin: 0, fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-subtle"] },
+  frame: { display: "flex", flexDirection: "column", overflow: "hidden", borderRadius: vars["--aui-radius-panel"], borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border"], backgroundColor: vars["--aui-color-canvas-subtle"] },
   frameFill: { height: "100%", borderRadius: 0, borderWidth: 0 },
-  page: { height: 96, backgroundColor: vars["--ads-color-canvas"] },
-  dock: { height: 260, width: 1120, borderWidth: vars["--ads-border-width-hairline"], borderStyle: "solid", borderColor: vars["--ads-color-border"] },
-  dockPanel: { height: "100%", overflow: "hidden", padding: vars["--ads-space-8"], boxSizing: "border-box" },
+  page: { height: 96, backgroundColor: vars["--aui-color-canvas"] },
+  dock: { height: 260, width: 1120, borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border"] },
+  dockPanel: { height: "100%", overflow: "hidden", padding: vars["--aui-space-8"], boxSizing: "border-box" },
 });

@@ -4,8 +4,10 @@ import type { StoreApi } from "zustand";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { workspaceFsAdapter } from "@/lib/fs";
 import {
+  findListedWorktree,
+  listRepositoryWorktrees,
   normalizeComparablePath,
-  parseGitWorktrees,
+  worktreeComparablePaths,
 } from "@/lib/source-control-worktrees";
 import {
   buildWorkspaceContinueSummaryFilePath,
@@ -493,15 +495,27 @@ export function createWorkspaceCreateActions(args: {
           }),
         };
       }
-      const worktreeRoot = toplevelResult.stdout.trim();
-      if (!worktreeRoot) {
+      const gitWorktreeRoot = toplevelResult.stdout.trim();
+      if (!gitWorktreeRoot) {
         return {
           ok: false,
           message: i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotResolveTheWorktreeRootFor"),
         };
       }
+      // Git reports the toplevel with symbolic links resolved; the listed
+      // entry carries the repository's registered form of the same path.
+      // Worktrees registered in this checkout survive stale cleanup via
+      // `git worktree list`; external ones need the linked-path exemption.
+      const listedWorktree = findListedWorktree(
+        (await listRepositoryWorktrees({ repositoryPath, run: runner })) ?? [],
+        gitWorktreeRoot,
+      );
+      const isExternalWorktree = !listedWorktree;
+      const worktreeRoot = listedWorktree?.path ?? gitWorktreeRoot;
       const comparableWorktreeRoot = normalizeComparablePath(worktreeRoot);
-      if (comparableWorktreeRoot === normalizeComparablePath(repositoryPath)) {
+      // Both forms of the path: a workspace saved under Git's resolved form is the same checkout.
+      const comparableWorktreePaths = listedWorktree ? worktreeComparablePaths(listedWorktree) : [comparableWorktreeRoot];
+      if (comparableWorktreePaths.includes(normalizeComparablePath(repositoryPath))) {
         return {
           ok: false,
           message:
@@ -512,7 +526,7 @@ export function createWorkspaceCreateActions(args: {
         current.workspacePathById,
       ).find(
         ([workspaceId, registeredPath]) =>
-          normalizeComparablePath(registeredPath) === comparableWorktreeRoot &&
+          comparableWorktreePaths.includes(normalizeComparablePath(registeredPath)) &&
           current.workspaces.some((workspace) => workspace.id === workspaceId),
       )?.[0];
       if (existingWorkspaceId) {
@@ -552,22 +566,6 @@ export function createWorkspaceCreateActions(args: {
         level: "success" | "warning";
         message: string;
       }> = [];
-
-      // Worktrees registered in this checkout survive stale cleanup via
-      // `git worktree list`; external ones need the linked-path exemption.
-      let isExternalWorktree = true;
-      const listResult = await runner({
-        cwd: repositoryPath,
-        command: "git worktree list --porcelain",
-      });
-      if (listResult.ok) {
-        isExternalWorktree = !parseGitWorktrees({
-          stdout: listResult.stdout,
-        }).some(
-          (worktree) =>
-            normalizeComparablePath(worktree.path) === comparableWorktreeRoot,
-        );
-      }
 
       const comparableWorkspacesDir = normalizeComparablePath(
         `${repositoryPath}/.stave/workspaces`,
@@ -609,8 +607,8 @@ export function createWorkspaceCreateActions(args: {
 
       // The user explicitly re-linked this worktree; drop any archive
       // tombstone so discovery and registration stop skipping it.
-      if (comparableWorktreeRoot) {
-        archivedWorktreePaths.delete(comparableWorktreeRoot);
+      for (const path of comparableWorktreePaths) {
+        if (path) archivedWorktreePaths.delete(path);
       }
 
       const empty = createEmptyWorkspaceState();
@@ -726,7 +724,7 @@ export function createWorkspaceCreateActions(args: {
             workspacePathById: nextPathById,
             workspaceDefaultById: nextDefaultById,
             workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
-            archivedWorkspacePathsToRemove: [worktreeRoot],
+            archivedWorkspacePathsToRemove: [worktreeRoot, ...(listedWorktree?.gitPath ? [listedWorktree.gitPath] : [])],
             ...(isExternalWorktree
               ? { linkedWorkspacePathsToAdd: [worktreeRoot] }
               : {}),

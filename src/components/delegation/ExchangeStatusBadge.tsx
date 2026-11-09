@@ -1,12 +1,12 @@
 import { useTranslation } from "@/i18n";
-import { Badge } from "@/components/ads/components/Badge";
+import { Badge } from "@/components/aui/components/Badge";
 import {
   describeExchangeStatus,
   type ExchangeStatus,
 } from "@/lib/delegation/format";
 
 /**
- * The single status chip for every delegation. Tone rides the ADS Badge tone
+ * The single status chip for every delegation. Tone rides the AUI Badge tone
  * axis so `Returned` here is the same green as `Returned` anywhere else.
  */
 export function ExchangeStatusBadge(props: {

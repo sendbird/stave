@@ -1,4 +1,4 @@
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 
 /**
@@ -15,4 +15,6 @@ export const FLEET_ATTENTION_WORK_STATE: Partial<Record<FleetAttentionKind, Work
   "agent-run-sign-off": "needs-you",
   "agent-run-blocked": "halted",
   "agent-run-stuck": "halted",
+  "tars-decision": "needs-you",
+  "tars-blocked": "halted",
 };

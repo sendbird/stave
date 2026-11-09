@@ -222,6 +222,52 @@ export function retryStage(args: {
   };
 }
 
+/**
+ * Hands a taken-over run back in one transition: a started attempt of the
+ * current stage is replaced by a fresh one, then the run resumes. Work handed
+ * back may have changed, so a check made before the hand-back no longer counts.
+ * Either both apply or neither does.
+ */
+export function restartStageAndResume(args: {
+  aggregate: AgentRunAggregate;
+  now: Date;
+}): AgentRunChange {
+  const restart = restartStageAfterTakeover(args);
+  const stages = restart.upserts.reduce(replaceStageRecord, args.aggregate.stages);
+  const resumed = resumeAgentRun({ aggregate: { agentRun: restart.agentRun, stages }, now: args.now });
+  return { agentRun: resumed.agentRun, upserts: [...restart.upserts, ...resumed.upserts], events: [...restart.events, ...resumed.events] };
+}
+
+function restartStageAfterTakeover(args: {
+  aggregate: AgentRunAggregate;
+  now: Date;
+}): AgentRunChange {
+  requireActive(args.aggregate);
+  const { aggregate, now } = args;
+  if (aggregate.agentRun.state !== "paused" || aggregate.agentRun.pauseReason !== "taken-over") {
+    throw new AgentRunCommandError("invalid-state", i18n.t("agentRuns:commands.restartNeedsTakeover"));
+  }
+  const record = currentStageRecord(aggregate);
+  if (!record.startedAt || isTerminalStageStatus(record.status)) return { agentRun: aggregate.agentRun, upserts: [], events: [] };
+  const ended: AgentRunStageRecord = {
+    ...record,
+    status: "cancelled",
+    blockReason: null,
+    detail: i18n.t("agentRuns:commands.restartedAfterHandBack"),
+    endedAt: now.toISOString(),
+  };
+  const restarted = enterStage({
+    aggregate: { agentRun: aggregate.agentRun, stages: replaceStageRecord(aggregate.stages, ended) },
+    index: aggregate.agentRun.currentStageIndex,
+  });
+  return {
+    agentRun: touch(aggregate.agentRun, {}, now),
+    upserts: [ended, restarted],
+    events: [{ kind: "stage-retried", idempotencyKey: null,
+      detail: { stageId: record.stageId, attempt: restarted.attempt, reason: "handed-back" } }],
+  };
+}
+
 /** Pauses a running agent run until Resume. */
 export function pauseAgentRun(args: {
   aggregate: AgentRunAggregate;

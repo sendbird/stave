@@ -3,9 +3,9 @@ import { useCallback, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Input, toast } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { normalizeLensHostEntry } from "@/lib/lens/lens-security";
 import { useAppStore } from "@/store/app.store";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
@@ -93,7 +93,7 @@ export function LensDeveloperModeCard() {
             />
             <Button
               type="button"
-              variant="outline"
+              variant="outlined"
               size="sm"
               xstyle={styles.cdpAddButton}
               onClick={addCdpApprovedHost}

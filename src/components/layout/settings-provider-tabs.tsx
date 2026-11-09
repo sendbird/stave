@@ -1,6 +1,6 @@
 import { TabsList, TabsTrigger } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { settingsProviderTabsStyles as styles } from "./settings-provider-tabs.styles";

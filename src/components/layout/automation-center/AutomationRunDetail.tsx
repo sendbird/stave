@@ -1,9 +1,9 @@
 import { formatAutomationTrustPolicy } from "@/lib/automation-presentation";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
-import { Badge } from "@/components/ads/components/Badge";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "@/components/aui/components/Badge";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import {
@@ -21,7 +21,7 @@ import {
   getRunStatusPresentation,
 } from "./automation-center.utils";
 import { runDetailStyles } from "./automation-run-detail.styles";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { describeAutomationRunError } from "./automation-location";
 
 export function AutomationRunRow(props: {
@@ -33,7 +33,7 @@ export function AutomationRunRow(props: {
   const { t: tI18n } = useTranslation(["automation"]);
   const presentation = getRunStatusPresentation(props.run.status);
   return (
-    <AdsButton layout="host"
+    <AuiButton layout="host"
       type="button"
       onClick={() => props.onSelect(props.run)}
       aria-current={props.active}
@@ -51,7 +51,7 @@ export function AutomationRunRow(props: {
           {props.automationName ?? tI18n("automation:automationRunDetail.removedAutomation")}
         </span>
         <Badge
-          variant="outline"
+          variant="outlined"
           tone={presentation.tone}
           xstyle={automationStyles.statusBadge}
         >
@@ -65,7 +65,7 @@ export function AutomationRunRow(props: {
           {formatRunDuration(props.run)}
         </span>
       </div>
-    </AdsButton>
+    </AuiButton>
   );
 }
 
@@ -109,7 +109,7 @@ export function AutomationRunDetail(props: {
           <div className={sx(runDetailStyles.headerMain)}>
             <div className={sx(runDetailStyles.headerTitleRow)}>
               <Badge
-                variant="outline"
+                variant="outlined"
                 tone={presentation.tone}
                 xstyle={automationStyles.statusBadge}
               >

@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { MessageCircleQuestion } from "lucide-react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { openTaskSideQuestion } from "@/components/panes/task-surface-entry";
 import { isSideChatProvider } from "@/lib/side-chat/side-chat";
 import { useAppStore } from "@/store/app.store";
@@ -14,7 +14,7 @@ export function SideChatActivityButton(props: { taskId: string }) {
   if (!supported) return null;
   const label = i18n.t("session:sideChat.activityButton");
   return (
-    <AdsButton
+    <AuiButton
       variant="quiet"
       size="xs"
       iconOnly
@@ -24,6 +24,6 @@ export function SideChatActivityButton(props: { taskId: string }) {
       onClick={() => openTaskSideQuestion(props.taskId)}
     >
       <MessageCircleQuestion aria-hidden />
-    </AdsButton>
+    </AuiButton>
   );
 }

@@ -1,11 +1,11 @@
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/ads/headless/collapsible";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/aui/headless/collapsible";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { Input } from "@/components/ui";
 import type { ProviderAccountProfile, ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
 import { describeProviderAccountSetup } from "@/lib/providers/provider-account-setup";

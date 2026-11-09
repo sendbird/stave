@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
 import type { ResultEvidence } from "@/lib/reviews/result-evidence";
 import type { CodeDiffPart } from "@/types/chat";

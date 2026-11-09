@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /** Matches the `animate-in fade-in-0 zoom-in-95` entrance the menu had. */
 const enter = stylex.keyframes({
@@ -13,18 +13,18 @@ export const diffReviewHoverMenuStyles = stylex.create({
     alignItems: "center",
     animationDuration: "100ms",
     animationName: { default: enter, "@media (prefers-reduced-motion: reduce)": "none" },
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
+    animationTimingFunction: vars["--aui-motion-ease-standard"],
     backgroundColor: {
-      default: vars["--ads-color-accent"],
-      ":hover": vars["--ads-color-accent-hover"],
+      default: vars["--aui-color-accent"],
+      ":hover": vars["--aui-color-accent-hover"],
     },
     blockSize: 28,
-    borderColor: vars["--ads-color-accent"],
-    borderRadius: vars["--ads-radius-control"],
+    borderColor: vars["--aui-color-accent"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    boxShadow: vars["--ads-elevation-lift"],
-    color: vars["--ads-color-accent-text"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    boxShadow: vars["--aui-elevation-lift"],
+    color: vars["--aui-color-accent-text"],
     display: "flex",
     inlineSize: 28,
     justifyContent: "center",

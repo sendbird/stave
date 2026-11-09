@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * The one provider tab strip used across Settings (Providers, Worker mode,
@@ -13,14 +13,14 @@ export const settingsProviderTabsStyles = stylex.create({
     inlineSize: "100%",
     justifyContent: "flex-start",
   },
-  // The ADS tab is `inline-flex` with no gap, so an icon + label pair needs
+  // The AUI tab is `inline-flex` with no gap, so an icon + label pair needs
   // its spacing stated here rather than relying on whitespace.
   trigger: {
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   icon: {
-    blockSize: vars["--ads-control-icon-size-sm"],
+    blockSize: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
-    inlineSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--aui-control-icon-size-sm"],
   },
 });

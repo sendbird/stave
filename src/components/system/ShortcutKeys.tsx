@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Fragment, useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { i18n, useTranslation } from "@/i18n";
-import { Kbd } from "@/components/ads/components/Kbd";
+import { Kbd } from "@/components/aui/components/Kbd";
 import { KbdGroup, KbdSeparator } from "@/components/ui/kbd";
 import { resolveKeybindingPlatform } from "@/lib/keybindings/key-chord";
 import type { KeybindingId } from "@/lib/keybindings/keybinding-registry";
@@ -12,7 +12,7 @@ import {
 } from "@/lib/keybindings/keybinding-settings";
 import { useAppStore } from "@/store/app.store";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export type ShortcutKeysPlacement = "list" | "tooltip";
 
@@ -105,19 +105,19 @@ export function useShortcutHint(id: KeybindingId | null): ReactNode {
 const styles = stylex.create({
   keys: {
     alignItems: "center",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
     flexWrap: "wrap",
     minInlineSize: 0,
     rowGap: 6,
   },
   keysInTooltip: {
-    columnGap: vars["--ads-space-4"],
+    columnGap: vars["--aui-space-4"],
     flexWrap: "nowrap",
   },
   joiner: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   joinerInTooltip: { color: "inherit" },
 });

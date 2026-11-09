@@ -34,7 +34,7 @@ import {
   SelectField,
   SwitchField,
 } from "./settings-dialog.shared";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { macroEditorStyles as styles } from "./macro-editor.styles";
 import { SearchablePicker } from "./settings-searchable-picker";
 import { modelPickerOptions } from "@/components/ai-elements/model-picker-options";

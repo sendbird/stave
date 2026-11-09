@@ -2,7 +2,7 @@ import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cable, ExternalLink, ShieldCheck } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   Accordion,
   AccordionContent,

@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { COMPOSER_CONTROL_BUTTON } from "@/components/ai-elements/composer-control-density";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { promptInputStyles } from "@/components/ai-elements/prompt-input.styles";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 
@@ -84,6 +84,21 @@ const CLAUDE_MODEL_OPTION: ModelSelectorOption = {
 };
 
 describe("PromptInput queue mode", () => {
+  test("text-only composers hide Attach while existing task composers keep it", async () => {
+    setWindowContext();
+    const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
+      import("@/components/ai-elements/prompt-input"), import("@/components/ui"),
+    ]);
+    const render = (plainText?: boolean) => renderToStaticMarkup(createElement(TooltipProvider, null, createElement(PromptInput, {
+      minimal: true, value: "Follow up", selectedModel: MODEL_OPTION, modelOptions: [MODEL_OPTION], attachedFilePaths: [], plainText,
+      onValueChange() {}, onModelSelect() {}, onAttachFilesChange() {}, onOpenFileSelector() {}, onSubmit() {},
+    })));
+    expect(render()).toContain('aria-label="Attach files"');
+    expect(render()).toContain("Use / for commands");
+    expect(render(true)).not.toContain('aria-label="Attach files"');
+    expect(render(true)).not.toContain("Use / for commands");
+    expect(render(true)).toContain('type="submit"');
+  });
   test("does not render composer chrome over an empty draft", async () => {
     setWindowContext();
     const [{ PromptInput }, { TooltipProvider }] = await Promise.all([
@@ -175,7 +190,7 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain('aria-label="Request an AI review of local changes"');
     expect(buttonMarkup).toContain(">Request AI review</span>");
     expect(buttonMarkup).toBeTruthy();
-    // ADS `Button` owns `data-variant` and publishes its own spelling of the
+    // AUI `Button` owns `data-variant` and publishes its own spelling of the
     // understated weight, so the product's `ghost` reads as `quiet` here.
     expect(buttonMarkup).toContain('data-variant="quiet"');
     // The review CTA wears the shared composer-control pill rather than a
@@ -263,7 +278,7 @@ describe("PromptInput queue mode", () => {
     const buttonMarkup = getLocalReviewButtonMarkup(html);
 
     expect(buttonMarkup).toBeTruthy();
-    // ADS `Button` owns `data-variant` and publishes its own spelling of the
+    // AUI `Button` owns `data-variant` and publishes its own spelling of the
     // understated weight, so the product's `ghost` reads as `quiet` here.
     expect(buttonMarkup).toContain('data-variant="quiet"');
     expect(buttonMarkup).not.toContain("bg-background/60");

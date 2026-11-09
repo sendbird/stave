@@ -10,7 +10,7 @@ import {
   findLatestPendingUserInput,
 } from "@/store/provider-message.utils";
 import type { ChatMessage, Task } from "@/types/chat";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 
 /**
  * `stalled` is a running turn that has reported nothing for the stall

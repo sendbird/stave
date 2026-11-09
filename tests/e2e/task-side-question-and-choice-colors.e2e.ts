@@ -157,7 +157,7 @@ test("selected choice descriptions and neutral icon plates use their surface for
       if (!paragraphs.every((p) => getComputedStyle(p).color === expected)) failures.push({ theme: theme?.id ?? "light", expected, actual: paragraphs.map((p) => getComputedStyle(p).color) });
       const icon = document.querySelector('#ux-controls [aria-label="Icon choices"] svg')!;
       const probe = document.createElement("span");
-      probe.style.color = "var(--ads-color-text)";
+      probe.style.color = "var(--aui-color-text)";
       document.body.append(probe);
       if (getComputedStyle(icon).color !== getComputedStyle(probe).color) failures.push({ theme: theme?.id ?? "light", icon: getComputedStyle(icon).color });
       probe.remove();
@@ -170,7 +170,7 @@ test("selected choice descriptions and neutral icon plates use their surface for
   await expect(page.getByRole("radio", { name: /^Only with @web/ })).toBeChecked();
   await expect.poll(() => page.getByRole("radio", { name: /^Always/ }).evaluate((el) => {
     const probe = document.createElement("span");
-    probe.style.color = "var(--ads-color-text-muted)";
+    probe.style.color = "var(--aui-color-text-muted)";
     document.body.append(probe);
     const matches = getComputedStyle(el.querySelectorAll("p")[1]!).color === getComputedStyle(probe).color;
     probe.remove();

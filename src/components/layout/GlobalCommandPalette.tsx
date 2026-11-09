@@ -8,10 +8,10 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { ArrowUpDown, CornerDownLeft, Pin, PinOff } from "lucide-react";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import {
   Badge,
   Button,

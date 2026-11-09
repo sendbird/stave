@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import type { LensAnnotation } from "@/lib/lens/lens.types";
 import { feedbackStyles as styles } from "./lens-feedback.styles";
 

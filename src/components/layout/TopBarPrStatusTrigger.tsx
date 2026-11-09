@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import type { CSSProperties } from "react";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { DropdownMenuTrigger, Loader } from "@/components/ui";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import {
@@ -68,7 +68,7 @@ export function TopBarPrStatusTrigger(props: {
       <span {...stylex.props(layoutShellStyles.inlineFlex)}>
         <DropdownMenuTrigger
           render={
-            <AdsButton
+            <AuiButton
               layout="host"
               size="sm"
               type="button"
@@ -125,16 +125,16 @@ const styles = stylex.create({
   checksCount: {
     borderInlineStartColor: "color-mix(in srgb, currentColor 35%, transparent)",
     borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars["--ads-border-width-hairline"],
+    borderInlineStartWidth: vars["--aui-border-width-hairline"],
     // On a very narrow bar the count folds away first; the tooltip still
     // carries it.
     display: { default: "none", [TOP_BAR_CHECKS_COUNT]: "inline" },
     fontVariantNumeric: "tabular-nums",
-    paddingInlineStart: vars["--ads-space-8"],
+    paddingInlineStart: vars["--aui-space-8"],
   },
   tooltipLines: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
 });

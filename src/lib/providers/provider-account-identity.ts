@@ -4,7 +4,7 @@ import {
   ProviderAccountProfileIdSchema,
   ProviderAccountProviderIdSchema,
 } from "./provider-accounts";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 /**
  * Who an account is signed in as. Only an email and a plan label cross the

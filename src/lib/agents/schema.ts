@@ -109,7 +109,7 @@ export type AgentReportSection = (typeof AGENT_REPORT_SECTIONS)[number];
 
 /**
  * The named hues an agent's avatar can take. Each maps to an existing
- * `--ads-chart-*` token, so a theme moves the avatar colours with the rest of
+ * `--aui-chart-*` token, so a theme moves the avatar colours with the rest of
  * its palette and no new colour token is added. The mapping and the derived
  * default live in `agent-appearance.ts`.
  */

@@ -30,7 +30,7 @@ describe("app font setting", () => {
     expect(stack.indexOf("Pretendard,")).toBeGreaterThan(pretendard);
   });
 
-  test("names the variable JetBrains build the ADS fonts.css actually loads", () => {
+  test("names the variable JetBrains build the AUI fonts.css actually loads", () => {
     const mono = globals.slice(globals.indexOf("--font-mono:"));
     expect(mono.indexOf('"JetBrains Mono Variable"')).toBeGreaterThanOrEqual(0);
   });
@@ -41,25 +41,25 @@ describe("app font setting", () => {
     expect(globals).toContain("./components/ui/content-integration.css");
   });
 
-  test("the installed ADS copy names the same sans stack", () => {    // ADS components wear `vars["--ads-font-sans"]`, host CSS wears `--font-sans`. If the
-    // two disagree, an ADS control and the shell around it render in different
+  test("the installed AUI copy names the same sans stack", () => {    // AUI components wear `vars["--aui-font-sans"]`, host CSS wears `--font-sans`. If the
+    // two disagree, an AUI control and the shell around it render in different
     // typefaces on the same row.
-    const tokens = read("src/components/ads/tokens/tokens.stylex.ts");
-    const adsStack = tokens.slice(tokens.indexOf('"--ads-font-sans":'));
-    const geist = adsStack.indexOf('"Geist Variable"');
+    const tokens = read("src/components/aui/tokens/tokens.stylex.ts");
+    const auiStack = tokens.slice(tokens.indexOf('"--aui-font-sans":'));
+    const geist = auiStack.indexOf('"Geist Variable"');
     expect(geist).toBeGreaterThanOrEqual(0);
-    expect(adsStack.indexOf('"Pretendard Variable"')).toBeGreaterThan(geist);
+    expect(auiStack.indexOf('"Pretendard Variable"')).toBeGreaterThan(geist);
 
     // `styles.css` repeats the stack verbatim on `:root` because StyleX hashes
     // the var name, so the repeat has to lead with Geist as well.
-    const adsStyles = read("src/components/ads/styles.css");
-    const rootCopy = adsStyles.slice(adsStyles.indexOf("font-family:\n"));
+    const auiStyles = read("src/components/aui/styles.css");
+    const rootCopy = auiStyles.slice(auiStyles.indexOf("font-family:\n"));
     expect(rootCopy.indexOf('"Geist Variable"')).toBeLessThan(
       rootCopy.indexOf("Pretendard,"),
     );
 
     // And the faces it names have to be the ones `fonts.css` actually loads.
-    const fonts = read("src/components/ads/fonts.css");
+    const fonts = read("src/components/aui/fonts.css");
     expect(fonts).toContain("@fontsource-variable/geist");
     expect(fonts).toContain(
       "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css",
@@ -117,7 +117,7 @@ describe("prompt editor box", () => {
     );
     // `promptEditorTypography.default` is what the placeholder wears too, so a
     // family stated here is a family both of them agree on.
-    expect(block).toContain('fontFamily: vars["--ads-font-sans"]');
+    expect(block).toContain('fontFamily: vars["--aui-font-sans"]');
   });
 
   test("zeroes the Lexical paragraph so the caret starts on the placeholder line", () => {
@@ -150,10 +150,10 @@ describe("composer wing icons", () => {
     }
   });
 
-  test("sizes glyphs off the ADS control ramp", () => {
+  test("sizes glyphs off the AUI control ramp", () => {
     const styles = read("src/components/ai-elements/prompt-input.styles.ts");
-    expect(styles).toContain('icon4: { width: vars["--ads-control-icon-size-md"]');
-    expect(styles).toContain('icon35: { width: vars["--ads-control-icon-size-sm"]');
+    expect(styles).toContain('icon4: { width: vars["--aui-control-icon-size-md"]');
+    expect(styles).toContain('icon35: { width: vars["--aui-control-icon-size-sm"]');
   });
 
   test("hides a wing whose controls all declined to render", () => {

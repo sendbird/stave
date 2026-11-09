@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
-import { Meter, type MeterTone } from "@/components/ads/components/Meter";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
+import { Meter, type MeterTone } from "@/components/aui/components/Meter";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   formatKB,
   formatSignedKB,
@@ -171,7 +171,7 @@ function GaugeMeter({ gauge }: { gauge: ResourceGauge }) {
       <Meter
         xstyle={styles.meter}
         label={`${gauge.label}: ${LEVEL_WORD[gauge.level].text}`}
-        hideLabel
+        showLabel={false}
         hideValue
         size="sm"
         tone={LEVEL_METER_TONE[gauge.level]}

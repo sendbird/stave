@@ -2,9 +2,9 @@ import { useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { Check, PencilLine } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { Kbd } from "@/components/ads/components/Kbd";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { Kbd } from "@/components/aui/components/Kbd";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
 import { questionOptionRowStyles as styles } from "./question-option-row.styles";
 import type { QuestionOptionRowModel } from "./question-option-rows";
 

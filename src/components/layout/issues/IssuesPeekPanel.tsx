@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { trackerVisualStyles } from "./tracker-visual.styles";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
 import {
   useId,
@@ -19,9 +19,9 @@ import {
   TRACKER_ISSUES_PEEK_MAX_PX,
   TRACKER_ISSUES_PEEK_MIN_PX,
 } from "@/lib/tracker-issues/peek-size";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { taskLayoutStyles } from "./issues-layout.stylex";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 
 export type IssuesPeekDock = "split" | "parent";
 
@@ -43,12 +43,12 @@ export interface IssuesPeekPanelProps {
 }
 
 /**
- * Ticket peek following the ADS PeekPanel contract, painted with Stave tokens.
+ * Ticket peek following the AUI PeekPanel contract, painted with Stave tokens.
  *
- * StyleX ADS source is not installed in this host. The behavior is the
+ * StyleX AUI source is not installed in this host. The behavior is the
  * documented one: no focus trap, Escape-in-panel close, prev/next, and
  * `dock="split"` taking an in-flow track so the list stays readable. The first
- * open is wider than ADS's 420px split default; the leading rail persists the
+ * open is wider than AUI's 420px split default; the leading rail persists the
  * reader's width.
  */
 export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
@@ -168,7 +168,7 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
       )}
     >
       {props.open ? (
-        <AdsButton
+        <AuiButton
           layout="host"
           type="button"
           aria-label={tI18n("issues:issuesPeekPanel.resizeTicketPeek")}

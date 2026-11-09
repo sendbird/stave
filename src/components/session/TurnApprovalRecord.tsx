@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ApprovalRecordView, describeApprovalCounts } from "@/components/approvals/ApprovalRecord";
 import { collectApprovalRecord, summarizeApprovalRecord } from "@/lib/approvals/approval-record";
 import { useAppStore } from "@/store/app.store";
@@ -66,22 +66,22 @@ export function TurnApprovalRecord(props: { turnId?: string } = {}) {
 const styles = stylex.create({
   record: {
     flexShrink: 0,
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border-subtle"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    borderTopColor: vars["--aui-color-border-subtle"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   summary: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "baseline",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     cursor: "pointer",
-    borderRadius: vars["--ads-radius-mark"],
-    fontSize: vars["--ads-font-size-caption"],
+    borderRadius: vars["--aui-radius-mark"],
+    fontSize: vars["--aui-font-size-caption"],
   },
-  title: { color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
-  counts: { color: vars["--ads-color-text-muted"], minWidth: 0, overflowWrap: "anywhere" },
-  body: { maxHeight: "40vh", overflowY: "auto", overscrollBehavior: "contain", paddingTop: vars["--ads-space-8"] },
+  title: { color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
+  counts: { color: vars["--aui-color-text-muted"], minWidth: 0, overflowWrap: "anywhere" },
+  body: { maxHeight: "40vh", overflowY: "auto", overscrollBehavior: "contain", paddingTop: vars["--aui-space-8"] },
 });

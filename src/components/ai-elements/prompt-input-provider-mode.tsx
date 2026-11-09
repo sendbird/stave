@@ -24,14 +24,14 @@ import {
   COMPOSER_OPTION_MENU_CONTENT,
   ComposerOptionRadioCard,
 } from "@/components/ai-elements/composer-option-menu";
-import { RadioGroupRoot } from "@/components/ads/headless/radio-group";
+import { RadioGroupRoot } from "@/components/aui/headless/radio-group";
 import {
   COMPOSER_CONTROL_BUTTON,
   ComposerControlLabel,
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
-import { cx, sx } from "../ads/utils/stylex";
-import { transition } from "../ads/recipes/transition";
+import { cx, sx } from "../aui/utils/stylex";
+import { transition } from "../aui/recipes/transition";
 import { providerModeStyles } from "./prompt-input-provider-mode.styles";
 
 export type PromptInputProviderModeStatus = ProviderModePresentation & {
@@ -142,7 +142,7 @@ export function PromptInputProviderModePill(args: {
             size="sm"
             // The composer lane owns this control's box (height, gutters, and one
             // glyph size for every control in the row), so the glyph rule has to be a
-            // default rather than a mandate: `layout="control"` applies ADS's own
+            // default rather than a mandate: `layout="control"` applies AUI's own
             // unlayered `> svg` size and pinned this trigger to the `sm` ramp's 14px
             // while its `layout="host"` neighbours in the same wing rendered 16.
             layout="host"

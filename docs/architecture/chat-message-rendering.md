@@ -97,7 +97,7 @@ mirror the Codex investigation:
 The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as possible:
 
 - **Root**: No outer border or background — just `not-prose w-full`.
-- **Trigger**: The ADS `inlineDisclosure` trigger, no card — `[glyph/chevron] title · duration`, always on one line:
+- **Trigger**: The AUI `inlineDisclosure` trigger, no card — `[glyph/chevron] title · duration`, always on one line:
   the title ellipsizes while the measured reasoning duration keeps its width.
   The chevron is in the LEADING slot (`InlineDisclosureIcon`) and replaces the glyph on hover
   and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box

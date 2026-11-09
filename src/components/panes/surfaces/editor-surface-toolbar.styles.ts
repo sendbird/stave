@@ -1,32 +1,32 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * Styles for the editor surface toolbar row rendered above a single editor
- * pane. Icon-button geometry (`iconButton`) intentionally overrides the ADS
+ * pane. Icon-button geometry (`iconButton`) intentionally overrides the AUI
  * control size so the toolbar keeps its compact 28px square affordances; it is
  * passed through the button `xstyle` prop.
  */
 export const editorSurfaceToolbarStyles = stylex.create({
   bar: {
     alignItems: "center",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    gap: vars["--aui-space-8"],
     justifyContent: "space-between",
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   pathTrigger: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
   pathText: {
@@ -35,8 +35,8 @@ export const editorSurfaceToolbarStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   dirtyDot: {
-    backgroundColor: vars["--ads-color-success"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-success"],
+    borderRadius: vars["--aui-radius-full"],
     flexShrink: 0,
     height: 6,
     width: 6,
@@ -48,28 +48,28 @@ export const editorSurfaceToolbarStyles = stylex.create({
   actions: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   inlineFlex: {
     display: "inline-flex",
   },
   iconButton: {
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
+    borderRadius: vars["--aui-radius-mark"],
+    color: vars["--aui-color-text-muted"],
     height: 28,
     padding: 0,
     width: 28,
   },
   iconButtonActive: {
-    backgroundColor: vars["--ads-color-accent-soft"],
-    borderColor: vars["--ads-color-accent"],
+    backgroundColor: vars["--aui-color-accent-soft"],
+    borderColor: vars["--aui-color-accent"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-accent"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    color: vars["--aui-color-accent"],
   },
   reviewButton: {
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
+    borderRadius: vars["--aui-radius-mark"],
+    color: vars["--aui-color-text-muted"],
     height: 28,
     padding: 0,
     position: "relative",

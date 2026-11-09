@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import {
   ComposerOptionCard,
   ComposerOptionModelRow,

@@ -1,6 +1,6 @@
 import type { IDockviewPanelProps } from "dockview-react";
 import { useEffect, useRef, useState } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { reviewStyles } from "@/components/review/review.styles";
 import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
 import { ChatArea } from "@/components/session/ChatArea";

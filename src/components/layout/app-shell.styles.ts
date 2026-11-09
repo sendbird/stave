@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 const LG = "@media (min-width: 64rem)";
 const SM = "@media (min-width: 40rem)";
@@ -17,17 +17,17 @@ const SASH_WIDTH = "--staveResizerSashWidth";
 export const appShellStyles = stylex.create({
   overlayFallback: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-overlay"],
+    backgroundColor: vars["--aui-color-overlay"],
     display: "flex",
     inset: 0,
     justifyContent: "center",
-    padding: vars["--ads-space-16"],
+    padding: vars["--aui-space-16"],
     position: "fixed",
   },
 
   root: {
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -42,17 +42,17 @@ export const appShellStyles = stylex.create({
     transform: "translateX(-50%)",
   },
   zoomHudPill: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    boxShadow: vars["--ads-elevation-overlay"],
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-12"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    boxShadow: vars["--aui-elevation-overlay"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-12"],
   },
 
   shellRow: { display: "flex", flex: 1, minHeight: 0, minWidth: 0 },
@@ -62,9 +62,9 @@ export const appShellStyles = stylex.create({
   // (`col-resize`, a "double-click to reset" title) before it is dragged.
   resizer: {
     [SASH_COLOR]: {
-      default: vars["--ads-color-border-subtle"],
-      ":hover": vars["--ads-color-accent"],
-      ":active": vars["--ads-color-accent"],
+      default: vars["--aui-color-border-subtle"],
+      ":hover": vars["--aui-color-accent"],
+      ":active": vars["--aui-color-accent"],
     },
     [SASH_WIDTH]: { default: "1px", ":hover": "3px", ":active": "3px" },
     cursor: "col-resize",
@@ -85,7 +85,7 @@ export const appShellStyles = stylex.create({
   },
 
   appSurface: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     display: "flex",
     flex: 1,
     flexDirection: "column",
@@ -123,17 +123,17 @@ export const appShellStyles = stylex.create({
   paneHostInert: { height: "100%" },
 
   panelFallback: {
-    backgroundColor: vars["--ads-color-surface"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    padding: vars["--ads-space-12"],
+    backgroundColor: vars["--aui-color-surface"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
+    padding: vars["--aui-space-12"],
   },
   panelFallbackFull: {
-    backgroundColor: vars["--ads-color-surface"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
+    backgroundColor: vars["--aui-color-surface"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
     height: "100%",
-    padding: vars["--ads-space-12"],
+    padding: vars["--aui-space-12"],
   },
   desktopPanel: {
     display: { default: "none", [LG]: "block" },
@@ -141,9 +141,9 @@ export const appShellStyles = stylex.create({
     minWidth: 0,
   },
   overlayPanel: {
-    borderInlineStartColor: vars["--ads-color-border-subtle"],
+    borderInlineStartColor: vars["--aui-color-border-subtle"],
     borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars["--ads-border-width-hairline"],
+    borderInlineStartWidth: vars["--aui-border-width-hairline"],
     maxWidth: "22rem",
     minHeight: 0,
     minWidth: 0,

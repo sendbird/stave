@@ -1,8 +1,8 @@
 import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { ResultsView } from "@/components/results/ResultsView";
 import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
@@ -110,16 +110,16 @@ const styles = stylex.create({
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
   bar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingInline: vars["--ads-space-16"],
-    paddingBlock: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-body"],
+    paddingInline: vars["--aui-space-16"],
+    paddingBlock: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-body"],
   },
   frame: { flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column", inlineSize: "100%" },
 });

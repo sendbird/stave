@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { KickoffWhoPicker } from "./KickoffWhoPicker";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { ReactNode } from "react";

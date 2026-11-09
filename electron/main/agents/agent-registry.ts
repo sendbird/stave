@@ -12,6 +12,8 @@ import { currentAgentId } from "../../../src/lib/agents/starters";
 import { DEFAULT_MY_STANDARDS, normalizeMyStandards, type MyStandards } from "../../../src/lib/agents/standards";
 
 let customAgents: AgentConfig[] = [];
+/** False until the renderer's first sync; until then saved agents are unknown, not absent. */
+let customAgentsSynced = false;
 let myStandards: MyStandards = DEFAULT_MY_STANDARDS;
 /** The renderer's Stave Auto settings for agent runs; the host validates them. */
 let routeSettings: unknown;
@@ -35,7 +37,12 @@ export function getMyStandards(): MyStandards {
 /** Keeps the readable custom agents; unreadable ones are left out, never guessed. */
 export function setCustomAgents(input: unknown): AgentConfig[] {
   customAgents = normalizeCustomAgents(input).agents;
+  customAgentsSynced = true;
   return customAgents;
+}
+
+export function areCustomAgentsSynced(): boolean {
+  return customAgentsSynced;
 }
 
 export function getCustomAgents(): readonly AgentConfig[] {

@@ -40,7 +40,7 @@ import type {
   PromptDraftQueuedNextTurn,
   PromptDraftQueuedTurn,
 } from "@/types/chat";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 // ── Rows ─────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { panelBarStyles } from "@/components/layout/panel-bar.constants";
 import { rightRailPanelShellStyles } from "@/components/layout/right-rail-panel-shell.styles";
 import { RIGHT_RAIL_PANEL_ICONS, RIGHT_RAIL_PANEL_TITLES, type RightRailPanelId } from "@/lib/right-rail-panels";

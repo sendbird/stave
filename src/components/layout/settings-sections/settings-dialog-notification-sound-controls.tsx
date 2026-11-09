@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { FileAudio, X } from "lucide-react";
 import { Badge, Slider } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { FileUpload, type FileUploadItem } from "@/components/ads/components/FileUpload";
+import { Button } from "@/components/aui/components/Button";
+import { FileUpload, type FileUploadItem } from "@/components/aui/components/FileUpload";
 import { acceptAttribute } from "@/lib/files/file-drop";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useTranslation, type I18nKey } from "@/i18n";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
@@ -183,7 +183,7 @@ export function NotificationSoundControls({
                     </div>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="outlined"
                       onClick={handleRemoveCustomAudio}
                     >
                       <X className={sx(styles.buttonIconLeading)} />
@@ -201,7 +201,7 @@ export function NotificationSoundControls({
                   uploads={rejected ? [{ id: "rejected", file: rejected.file, status: "failed", error: rejected.reason }] : NO_UPLOADS}
                   removeLabel={(name) => t("general.soundControls.dismiss", { name })}
                   onRemove={() => setRejected(null)}
-                  onChange={(files) => void handleCustomAudioUpload(files[0])}
+                  onValueChange={(files) => void handleCustomAudioUpload(files[0])}
                   data-notification-sound-import=""
                 />
               </div>
@@ -238,7 +238,7 @@ export function NotificationSoundControls({
           >
             <Button
               size="sm"
-              variant="outline"
+              variant="outlined"
               onClick={handleTestSound}
               disabled={value.mode === "custom" && !value.customAudioData}
             >

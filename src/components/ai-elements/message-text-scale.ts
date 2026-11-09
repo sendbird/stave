@@ -9,9 +9,9 @@ import { createContext, useContext } from "react";
  */
 export type MessageTextScale = "conversation" | "panel";
 
-/** `--ads-font-size-body`, in px. */
+/** `--aui-font-size-body`, in px. */
 export const PANEL_MESSAGE_FONT_SIZE_MAX = 14;
-/** `--ads-font-size-caption`, in px. */
+/** `--aui-font-size-caption`, in px. */
 export const PANEL_MESSAGE_CODE_FONT_SIZE_MAX = 12;
 
 export const MessageTextScaleContext =

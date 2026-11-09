@@ -1,7 +1,7 @@
 import { formatTime, formatDuration, formatCost } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Fragment, type ReactNode } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui/button";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import {

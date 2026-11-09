@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { MarkdownFrontmatterEntry } from "@/lib/markdown-frontmatter";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { frontmatterStyles } from "./markdown-frontmatter-card.styles";
 
 interface MarkdownFrontmatterCardProps {

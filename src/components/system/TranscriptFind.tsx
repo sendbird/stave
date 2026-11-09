@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useTranslation } from "@/i18n";
 import { Button, Input } from "@/components/ui";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 export function TranscriptFind(props: {
   query: string; onQuery: (value: string) => void;
@@ -27,6 +27,6 @@ export function TranscriptFind(props: {
   </div>;
 }
 const styles = stylex.create({
-  row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: vars["--ads-space-4"], padding: vars["--ads-space-8"], flexShrink: 0 },
-  result: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], whiteSpace: "nowrap" },
+  row: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: vars["--aui-space-4"], padding: vars["--aui-space-8"], flexShrink: 0 },
+  result: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], whiteSpace: "nowrap" },
 });

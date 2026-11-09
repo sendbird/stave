@@ -2,10 +2,10 @@ import { TaskTurnPlan } from "./TaskTurnPlan";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
-import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "../ads/utils/stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
+import { sx } from "../aui/utils/stylex";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { StateMark } from "@/components/aui/components/StateMark";
 import { RightRailPanelHeader } from "@/components/layout/RightRailPanelShell";
 import { formatWorkQueueWorkspaceLabel } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { FlowPanel } from "@/components/agents/FlowPanel";
@@ -339,9 +339,9 @@ function Mark(props: { mark: TaskTabMark | null }) {
 const styles = stylex.create({
   notice: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
   },
   // The root has exactly two children, the bar and the body that fills the
   // rest (the rows the Tabs shim states too). The body stacks the caption
@@ -360,25 +360,25 @@ const styles = stylex.create({
     alignItems: "baseline",
     display: "flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
+    lineHeight: vars["--aui-line-height-tight"],
     margin: 0,
     minWidth: 0,
-    paddingBlockStart: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlockStart: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
     whiteSpace: "nowrap",
   },
   captionTitle: {
-    color: vars["--ads-color-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontWeight: vars["--aui-font-weight-medium"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
-  captionSeparator: { color: vars["--ads-color-text-muted"], flexShrink: 0 },
+  captionSeparator: { color: vars["--aui-color-text-muted"], flexShrink: 0 },
   captionWorkspace: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 4,
     minWidth: "6ch",
     overflow: "hidden",
@@ -404,15 +404,15 @@ const styles = stylex.create({
   tabList: {
     borderRadius: 0,
     boxShadow: "none",
-    gap: vars["--ads-space-16"],
-    marginBlockEnd: `calc(-1 * ${vars["--ads-border-width-hairline"]})`,
+    gap: vars["--aui-space-16"],
+    marginBlockEnd: `calc(-1 * ${vars["--aui-border-width-hairline"]})`,
     minWidth: 0,
     overflowX: "auto",
     overflowY: "hidden",
     padding: 0,
     scrollbarWidth: "none",
   },
-  tab: { flex: "none", gap: vars["--ads-space-4"], paddingInline: 0 },
+  tab: { flex: "none", gap: vars["--aui-space-4"], paddingInline: 0 },
   // A mark is a flex item of the tab, right after the label and centered on
   // it. A tab without a mark drops the slot, so the tab's gap adds no
   // trailing space and the active underline stays the label's width.
@@ -429,23 +429,23 @@ const styles = stylex.create({
   panelFill: { display: "flex", flexDirection: "column", overflow: "hidden" },
   panelScroll: {
     overflowY: "auto",
-    paddingBlock: vars["--ads-space-16"],
-    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-16"],
+    paddingInline: vars["--aui-space-12"],
   },
-  progress: { display: "flex", flexDirection: "column", gap: vars["--ads-space-20"] },
+  progress: { display: "flex", flexDirection: "column", gap: vars["--aui-space-20"] },
   // A count is a figure, not a pill: in the accent ink, at the micro step,
   // with tabular digits, so it reads as the tab's number and fits the gap.
   count: {
-    color: vars["--ads-color-accent"],
-    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--aui-color-accent"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     lineHeight: 1,
     whiteSpace: "nowrap",
   },
   // An ask in the needs-answer state's word color (as StateMark mixes it), so
   // it reads apart from a plain count and keeps 4.5:1 on the panel.
   countAttention: {
-    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-needs-answer))`,
+    color: `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--state-needs-answer))`,
   },
 });

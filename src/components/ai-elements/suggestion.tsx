@@ -3,7 +3,7 @@ import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 import { useCallback } from "react";
 import { Button } from "@/components/ui";
 import { coreStyles } from "./ai-element-core.styles";
-import { cx, sx } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
 
 type SuggestionsProps = HTMLAttributes<HTMLDivElement>;
 

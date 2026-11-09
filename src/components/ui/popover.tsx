@@ -1,10 +1,10 @@
-import type { StyleXValue } from "../ads/utils/stylex";
+import type { StyleXValue } from "../aui/utils/stylex";
 import { overlayLayout } from "./overlay-layout.styles";
-import { sx } from "../ads/utils/stylex";
-import { cx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
-import { popoverStyles } from "../ads/components/Popover";
-import { overlaySurface } from "../ads/recipes/overlay-surface";
+import { sx } from "../aui/utils/stylex";
+import { cx } from "../aui/utils/stylex";
+import { mergeClassName } from "../aui/components/merge-class-name";
+import { popoverStyles } from "../aui/components/Popover";
+import { overlaySurface } from "../aui/recipes/overlay-surface";
 import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
@@ -71,7 +71,7 @@ function PopoverAnchor({ render, ...props }: useRender.ComponentProps<"div">) {
 }
 
 /**
- * Anchored-surface density, same vocabulary as the ADS `Popover` `density`
+ * Anchored-surface density, same vocabulary as the AUI `Popover` `density`
  * prop. `flush` is the legitimate way to ask for an edge-to-edge popover: it
  * removes the surface's own padding and gap so the content can draw rules and
  * rows that reach the border, and it hands the inner gutter to that content

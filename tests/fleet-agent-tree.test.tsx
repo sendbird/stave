@@ -12,7 +12,7 @@ import {
   splitAgentFleetTools,
   summarizeAgentFleet,
   type AgentFleetAgent,
-} from "@/components/ads/components/AgentFleet";
+} from "@/components/aui/components/AgentFleet";
 import { applyAppLocale } from "@/i18n";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import {

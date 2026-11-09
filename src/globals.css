@@ -5,12 +5,12 @@
  * its own. It must stay byte-identical to the `#stave-style-layers` block in
  * `index.html` (`scripts/check-design-system-migration.mjs` compares them).
  *
- * `ads` and `product` replace the flat `priority1 … priority10` StyleX used to
- * emit. `scripts/vite-ads-stylex.mjs` compiles ADS and product modules under
+ * `aui` and `product` replace the flat `priority1 … priority10` StyleX used to
+ * emit. `scripts/vite-aui-stylex.mjs` compiles AUI and product modules under
  * different StyleX class name prefixes and nests each origin's priority
- * buckets inside its own layer (`@layer ads.priority1`, `@layer
+ * buckets inside its own layer (`@layer aui.priority1`, `@layer
  * product.priority1`), so the two origins hold distinct cascade positions
- * instead of sharing one. That is what makes `ads-theme` expressible: a brand
+ * instead of sharing one. That is what makes `aui-theme` expressible: a brand
  * recipe placed there outranks a component's own declaration and still loses
  * to a style the product wrote at the call site. It ships empty today.
  *
@@ -18,14 +18,14 @@
  * `priority*` before, so host CSS that has to reach rich-text and third-party
  * descendants keeps winning.
  */
-@layer reset, theme, base, ads, ads-theme, product, components, utilities;
+@layer reset, theme, base, aui, aui-theme, product, components, utilities;
 
 /*
  * Every face is self-hosted from node_modules. The two remote sheets that used
  * to sit here (Google Fonts for JetBrains Mono + Nunito, jsdelivr for
  * Pretendard Variable) blocked first paint on the network and shipped Nunito,
  * which nothing in this repository asks for. JetBrains Mono now comes from
- * `@fontsource-variable/jetbrains-mono` (imported by the ADS `fonts.css`), so
+ * `@fontsource-variable/jetbrains-mono` (imported by the AUI `fonts.css`), so
  * `--font-mono` has to name the VARIABLE family first.
  *
  * Pretendard is loaded as the variable dynamic subset: ~92 unicode-range faces
@@ -472,8 +472,8 @@
  *
  * This block used to carry Tailwind-era `--color-*` aliases of the role tokens
  * and a `--radius-*` scale. Nothing read them once styles moved to StyleX and
- * ADS tokens, so they are gone: read the role tokens above (`var(--terminal)`,
- * `var(--primary)`) or the ADS radius tokens instead. Keep this block to
+ * AUI tokens, so they are gone: read the role tokens above (`var(--terminal)`,
+ * `var(--primary)`) or the AUI radius tokens instead. Keep this block to
  * properties something reads (`tests/globals-token-layer.test.ts`).
  */
 :root {
@@ -482,7 +482,7 @@
    * directly behind it and picks up every Korean glyph — including a Korean
    * word inside an English sentence, which is why the fallback has to be a
    * face we actually ship rather than whatever the reader's OS supplies.
-   * `Pretendard` (static, from the ADS `fonts.css`) backs up the variable
+   * `Pretendard` (static, from the AUI `fonts.css`) backs up the variable
    * build for the same reason.
    */
   --font-sans:

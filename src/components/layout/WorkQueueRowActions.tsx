@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { MoreVertical } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui";
-import { transition } from "@/components/ads/recipes/transition";
+import { transition } from "@/components/aui/recipes/transition";
 import {
   resolveWorkspaceSnoozeUntil,
   WORKSPACE_SNOOZE_PRESETS,

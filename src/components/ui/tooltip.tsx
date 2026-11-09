@@ -1,11 +1,11 @@
 import { overlayLayout } from "./overlay-layout.styles";
-import { sx } from "../ads/utils/stylex";
-import { tooltipStyles } from "../ads/components/Tooltip";
+import { sx } from "../aui/utils/stylex";
+import { tooltipStyles } from "../aui/components/Tooltip";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
+import { cx } from "../aui/utils/stylex";
+import { mergeClassName } from "../aui/components/merge-class-name";
 
 function TooltipProvider({
   delay = 0,

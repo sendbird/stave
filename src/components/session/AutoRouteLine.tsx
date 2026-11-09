@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Route, TriangleAlert } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { skipPendingAutoRoutingClassifier } from "@/store/auto-routing-dispatch";
 import {

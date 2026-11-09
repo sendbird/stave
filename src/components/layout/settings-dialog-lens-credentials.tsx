@@ -3,8 +3,8 @@ import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import {
   SettingsCard,
@@ -352,7 +352,7 @@ export function LensCredentialsSettingsCard() {
               {t("settingsConnections:settingsDialogLensCredentials.loadingSavedAccounts")}</div>
           }
           isEmpty={(list) => list.length === 0}
-          empty={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>}
+          emptyState={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>}
         >
           {() => (
             <div className={sx(styles.list)}>

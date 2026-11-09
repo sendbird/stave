@@ -8,9 +8,9 @@ import { terminalSurfaceStyles } from "@/components/layout/terminal-surface-styl
 import { TERMINAL_WRITE_ERROR_THRESHOLD } from "@/components/layout/useTerminalInstance";
 import { useTerminalSessionManager } from "@/components/layout/useTerminalSessionManager";
 import { useTerminalTabManager } from "@/components/layout/useTerminalTabManager";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button, Loader } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { terminalSurfacePanelStyles } from "./terminal-surface-panel.styles";
 import { parsePanePanelId } from "@/lib/panes/types";
 import {

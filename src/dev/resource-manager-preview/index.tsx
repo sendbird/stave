@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   MemoryUsagePopover,
   type AppMetrics,

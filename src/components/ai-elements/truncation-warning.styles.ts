@@ -1,51 +1,51 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const truncationWarningStyles = stylex.create({
   banner: {
     display: "flex",
     alignItems: "flex-start",
-    gap: vars["--ads-space-8"],
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-warning-border"],
-    backgroundColor: vars["--ads-color-warning-soft"],
-    color: vars["--ads-color-warning-text"],
+    borderColor: vars["--aui-color-warning-border"],
+    backgroundColor: vars["--aui-color-warning-soft"],
+    color: vars["--aui-color-warning-text"],
   },
   bannerCompact: {
-    paddingInline: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-8"],
     paddingBlock: 6,
-    fontSize: `max(0.75em, ${vars["--ads-font-size-caption"]})`,
+    fontSize: `max(0.75em, ${vars["--aui-font-size-caption"]})`,
   },
   bannerRegular: {
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-8"],
     fontSize: "0.875em",
   },
   icon: {
-    marginTop: vars["--ads-space-2"],
+    marginTop: vars["--aui-space-2"],
     flexShrink: 0,
-    width: vars["--ads-control-icon-size-md"],
-    height: vars["--ads-control-icon-size-md"],
+    width: vars["--aui-control-icon-size-md"],
+    height: vars["--aui-control-icon-size-md"],
   },
   iconCompact: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
   },
   body: {
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
   },
   title: {
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
-    color: vars["--ads-color-text"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
+    color: vars["--aui-color-text"],
   },
   description: {
-    lineHeight: vars["--ads-line-height-tight"],
-    color: vars["--ads-color-text-muted"],
+    lineHeight: vars["--aui-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
   },
 });

@@ -780,7 +780,12 @@ export interface AppState
     workspaceId: string;
     scriptId?: string;
   }) => Promise<SendUserMessageResult>;
-  abortTaskTurn: (args: { taskId: string }) => void;
+  /**
+   * Stops the task's turn. An active agent run is cancelled first, or paused
+   * through Tars when Tars holds it. `keepAgentRun` stops only the turn, for a
+   * caller that already settled the run (a Fleet control Tars answered).
+   */
+  abortTaskTurn: (args: { taskId: string; keepAgentRun?: boolean }) => void;
   /**
    * Publish a parent's delegated-task listing into its active turn's work graph.
    *

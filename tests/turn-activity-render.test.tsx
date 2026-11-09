@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { TurnActivitySurface } from "@/components/session/TurnActivity";
 import { turnActivityStyles } from "@/components/session/turn-activity.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { buildAutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import { routeTraceEntryFromRecord } from "@/components/auto-routing";

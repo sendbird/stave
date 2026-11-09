@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
+import { Button } from "@/components/aui/components/Button";
 import { openTaskReview } from "@/components/panes/task-surface-entry";
 import { isTaskArchived } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";

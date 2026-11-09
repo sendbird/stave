@@ -1,8 +1,8 @@
 import { getAgentDisplayName } from "@/lib/agents/display";
 import { i18n, useTranslation } from "@/i18n";
-import { Dialog } from "@/components/ads/components/Dialog";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Dialog } from "@/components/aui/components/Dialog";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   agentIsDeletable,
   type AgentReference,

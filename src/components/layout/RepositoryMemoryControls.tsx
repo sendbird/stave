@@ -6,7 +6,7 @@ import {
   DEFAULT_REPOSITORY_MEMORY_SETTINGS,
   type RepositoryMemorySettings,
 } from "@/lib/repository-memory-settings";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { repositoryMemoryControlsStyles as styles } from "./RepositoryMemoryControls.styles";
 import { failureMessage } from "./workspace-information/failure-message";

@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import type { SteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { LocalChangeReviewDialog } from "./local-change-review-dialog";
 import {
@@ -34,6 +34,7 @@ export function PromptInputActions(args: {
   sideQuestionControl: ReactNode;
   contextMeter: ReactNode;
   minimal: boolean;
+  attachmentsEnabled: boolean;
   hasReviewControl: boolean;
   workspaceCwd: PromptInputProps["workspaceCwd"];
   reviewModelOptions: PromptInputProps["reviewModelOptions"];
@@ -99,7 +100,7 @@ export function PromptInputActions(args: {
       {args.sideQuestionControl ? (
         <ComposerToolbarSlot id={COMPOSER_SIDE_QUESTION_SLOT}>{args.sideQuestionControl}</ComposerToolbarSlot>
       ) : null}
-      <Tooltip>
+      {args.attachmentsEnabled ? <Tooltip>
         <TooltipTrigger
           type="button"
           disabled={interactionsDisabled || !onOpenFileSelector}
@@ -120,7 +121,7 @@ export function PromptInputActions(args: {
           <Paperclip className={sx(promptInputStyles.icon35)} />
         </TooltipTrigger>
         <TooltipContent side="top">{i18n.t("composer:promptInput.composerCard26")}</TooltipContent>
-      </Tooltip>
+      </Tooltip> : null}
       {isTurnActive && !hasDraftPayload ? (
         <Tooltip>
           <TooltipTrigger

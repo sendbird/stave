@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
 import { statusTrayStyles } from "./composer-status-tray.styles";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import {
   Button,
   Popover,

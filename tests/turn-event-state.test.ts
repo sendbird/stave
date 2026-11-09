@@ -12,7 +12,7 @@ import {
 describe("toAgentStepState", () => {
   test("maps both input phases onto one running state", () => {
     // The difference between "arguments still arriving" and "call is out" is
-    // not something a reader can act on, and ADS `running` already carries the
+    // not something a reader can act on, and AUI `running` already carries the
     // live clock and the open payload both need.
     expect(toAgentStepState("input-streaming")).toBe("running");
     expect(toAgentStepState("input-available")).toBe("running");

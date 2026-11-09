@@ -16,8 +16,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { getMessageTimeEntries } from "./conversation-time";
 
 export function MessageTimeDetails(props: {
@@ -109,22 +109,22 @@ const styles = stylex.create({
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     margin: 0,
   },
   entry: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   label: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   invertedLabel: { color: "inherit" },
   value: {
     margin: 0,
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
     fontVariantNumeric: "tabular-nums",
     overflowWrap: "anywhere",
   },

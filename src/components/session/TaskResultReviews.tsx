@@ -1,8 +1,8 @@
 import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
-import { focusRing } from "../ads/recipes/focus-ring";
+import { focusRing } from "../aui/recipes/focus-ring";
 import { useEffect, useState } from "react";
 import { ChevronRight, CircleAlert, CircleCheck } from "lucide-react";
 import {

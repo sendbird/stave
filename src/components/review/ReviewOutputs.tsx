@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunStageRecord } from "@/lib/agent-runs/domain";
@@ -16,7 +16,7 @@ export function TurnOutput(props: { workspaceId: string; taskId: string; turnId:
   return (
     <section className={sx(styles.section)} aria-label={i18n.t("review:outputs.title")}>
       <h3 className={sx(styles.sectionTitle)}>{i18n.t("review:outputs.title")}</h3>
-      <AsyncBoundary state={state} onRetry={reviews.refresh} isEmpty={(value) => value === null} empty={<p className={sx(styles.note)}>{i18n.t("review:outputs.noResult")}</p>}>
+      <AsyncBoundary state={state} onRetry={reviews.refresh} isEmpty={(value) => value === null} emptyState={<p className={sx(styles.note)}>{i18n.t("review:outputs.noResult")}</p>}>
         {(value) => value ? <TurnOutputResult result={value} /> : null}
       </AsyncBoundary>
     </section>

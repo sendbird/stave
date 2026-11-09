@@ -43,8 +43,13 @@ export function createHostAssignRuntime(args: {
 
 /** The host's copy of the renderer's custom agents, for agent runs and agent runs. */
 let hostCustomAgents: AgentConfig[] = [];
+/** False until main hands over the renderer's copy; built-ins are known before that. */
+let hostCustomAgentsSynced = false;
 export function hostAgents(): AgentConfig[] {
   return listAgents({ custom: hostCustomAgents, activeOnly: true });
+}
+export function hostAgentCatalogSynced(): boolean {
+  return hostCustomAgentsSynced;
 }
 
 export async function invokeAgentAction(
@@ -77,12 +82,13 @@ export async function invokeAgentAction(
         return { ok: true, value: runtime.releaseTaskAgent(value.taskId) };
       }
       case "list-assignments": {
-        const value = (args ?? {}) as { agentConfigId?: string; limit?: number };
+        const value = (args ?? {}) as { agentConfigId?: string; limit?: number; excludeTars?: boolean };
         return { ok: true, value: runtime.list(value) };
       }
       case "sync-agents": {
         const payload = (args ?? {}) as { customAgents?: unknown; myStandards?: unknown; routeSettings?: unknown };
         hostCustomAgents = normalizeCustomAgents(payload.customAgents).agents;
+        hostCustomAgentsSynced = true;
         // Agent runs route the turns the host starts with the user's Stave Auto settings.
         const routeSettings = AgentRouteSettingsSchema.safeParse(payload.routeSettings);
         if (routeSettings.success) {

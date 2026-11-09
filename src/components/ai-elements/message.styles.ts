@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const messageStyles = stylex.create({
   // `Message` keeps the `group` + `is-user`/`is-assistant` class-name contract
@@ -10,7 +10,7 @@ export const messageStyles = stylex.create({
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   articleUser: { alignItems: "flex-end" },
   articleAssistant: { alignItems: "flex-start" },
@@ -28,8 +28,8 @@ export const messageStyles = stylex.create({
     maxWidth: "100%",
     width: "100%",
     flexDirection: "column",
-    gap: `var(--message-bubble-gap, ${vars["--ads-space-12"]})`,
-    color: vars["--ads-color-text"],
+    gap: `var(--message-bubble-gap, ${vars["--aui-space-12"]})`,
+    color: vars["--aui-color-text"],
     borderRadius: "var(--message-bubble-radius, 0)",
     backgroundColor: "var(--message-bubble-bg, transparent)",
     borderStyle: "var(--message-bubble-border-style, none)",
@@ -42,9 +42,9 @@ export const messageStyles = stylex.create({
   toolbar: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text-muted"],
+    gap: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text-muted"],
   },
   // No margin here: every caller of `MessageActions` positions the row itself
   // (ChatPanel's user/assistant variants, the failed-send surface). Declaring
@@ -53,34 +53,34 @@ export const messageStyles = stylex.create({
   actions: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   action: {
     height: 28,
-    borderRadius: vars["--ads-radius-mark"],
-    paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-body"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    borderRadius: vars["--aui-radius-mark"],
+    paddingInline: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
 
   attachments: {
-    marginBottom: vars["--ads-space-8"],
+    marginBottom: vars["--aui-space-8"],
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   // The remove button reveals on hover of the attachment tile. StyleX has no
   // `group-hover:`, so the tile publishes a display value under its own
   // `:hover` and the button reads it.
   attachment: {
     position: "relative",
-    borderRadius: vars["--ads-radius-mark"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-mark"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-surface"]} 60%, transparent)`,
-    padding: vars["--ads-space-8"],
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-surface"]} 60%, transparent)`,
+    padding: vars["--aui-space-8"],
     "--attachment-remove-display": {
       default: "none",
       ":hover": "inline-flex",
@@ -89,15 +89,15 @@ export const messageStyles = stylex.create({
   attachmentImage: {
     height: 96,
     width: 96,
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     objectFit: "cover",
   },
   attachmentFile: {
     display: "inline-flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text-muted"],
+    gap: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text-muted"],
   },
   attachmentFileIcon: { width: 14, height: 14 },
   attachmentFileName: {
@@ -111,18 +111,18 @@ export const messageStyles = stylex.create({
     right: -8,
     top: -8,
     display: "var(--attachment-remove-display, none)",
-    borderRadius: vars["--ads-radius-full"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-full"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 80%, transparent)`,
-    backgroundColor: vars["--ads-color-canvas"],
-    padding: vars["--ads-space-2"],
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 80%, transparent)`,
+    backgroundColor: vars["--aui-color-canvas"],
+    padding: vars["--aui-space-2"],
     // The painted disc stays small over the thumbnail corner; the pseudo
     // element bleeds past it to a 24px pointer target.
     "::after": {
       content: '""',
-      insetBlock: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
-      insetInline: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      insetBlock: `min(0px, calc((100% - ${vars["--aui-space-24"]}) / 2))`,
+      insetInline: `min(0px, calc((100% - ${vars["--aui-space-24"]}) / 2))`,
       position: "absolute",
     },
   },
@@ -136,11 +136,11 @@ export const messageStyles = stylex.create({
     overflowWrap: "anywhere",
     wordBreak: "break-word",
   },
-  tokenMargin: { marginInline: vars["--ads-space-2"] },
+  tokenMargin: { marginInline: vars["--aui-space-2"] },
 
   codeTitle: {
     minWidth: 0,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   codeLanguage: { flexShrink: 0 },
 });

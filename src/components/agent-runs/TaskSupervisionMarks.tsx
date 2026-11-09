@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { AlarmClock, AlarmClockOff, Target } from "lucide-react";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { sx } from "@/components/ads/utils/stylex";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
   describeAgentRunStatus,

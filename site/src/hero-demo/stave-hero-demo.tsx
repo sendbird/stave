@@ -13,7 +13,7 @@ import {
   TerminalSquare,
 } from "lucide-react";
 
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 import { Bar, Window } from "../vendor/stageshow/kit/window";
 import { Collapse } from "../vendor/stageshow/kit/motion/Collapse";

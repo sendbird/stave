@@ -3,7 +3,7 @@ import { Workflow } from "lucide-react";
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Button } from "@/components/ui";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { layoutShellStyles } from "./layout-shell.styles";

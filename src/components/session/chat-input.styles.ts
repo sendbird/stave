@@ -1,19 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { transcriptMeasure } from "@/components/ai-elements/transcript-measure.stylex";
 
 export const chatInputStyles = stylex.create({
   root: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     paddingBlock: "0.625rem",
     paddingInline: {
-      default: vars["--ads-space-12"],
-      "@media (min-width: 640px)": vars["--ads-space-16"],
+      default: vars["--aui-space-12"],
+      "@media (min-width: 640px)": vars["--aui-space-16"],
     },
   },
   rootEmpty: {
-    paddingBottom: vars["--ads-space-24"],
+    paddingBottom: vars["--aui-space-24"],
   },
   // The transcript's column: the composer's card shares its width and centre
   // with the replies and user bubbles above it.
@@ -31,28 +31,28 @@ export const chatInputStyles = stylex.create({
   // wing tracks so they line up with the card, not with the wings.
   attachedRowsFramed: {
     // 3.125rem: the wing track width in `composer-frame.styles.ts`.
-    paddingInline: `calc(${vars["--ads-space-48"]} + ${vars["--ads-space-2"]})`,
+    paddingInline: `calc(${vars["--aui-space-48"]} + ${vars["--aui-space-2"]})`,
   },
   menuLabelRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   menuLabelRecent: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
     letterSpacing: "0.05em",
     textTransform: "uppercase",
   },
   menuItemStart: {
     alignItems: "flex-start",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   menuItemGap: {
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   itemText: {
     flexGrow: 1,
@@ -60,7 +60,7 @@ export const chatInputStyles = stylex.create({
   },
   itemTitle: {
     display: "block",
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
   },
   itemTitleTruncate: {
     display: "block",
@@ -70,22 +70,22 @@ export const chatInputStyles = stylex.create({
     width: "100%",
   },
   itemDescription: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "block",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   itemDescriptionCapitalize: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "block",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     textTransform: "capitalize",
   },
   runDot: {
-    backgroundColor: vars["--ads-color-accent"],
-    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--aui-color-accent"],
+    borderRadius: vars["--aui-radius-full"],
     flexShrink: 0,
     height: 6,
-    marginTop: vars["--ads-space-4"],
+    marginTop: vars["--aui-space-4"],
     width: 6,
   },
   // Geometry lives on the composer lane's group recipe
@@ -93,7 +93,7 @@ export const chatInputStyles = stylex.create({
   // full-width, and it is the marker that tells the two halves to stop each
   // claiming the whole row. Nothing product-specific is left here.
   compareControlMenuTrigger: {
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
   },
   tooltipContent: {
     maxWidth: 288,

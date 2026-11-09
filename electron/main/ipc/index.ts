@@ -15,6 +15,7 @@ import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
 import { registerAgentRunHandlers } from "./agent-runs";
 import { registerWakeUpHandlers } from "./wake-ups";
+import { registerTarsHandlers } from "./tars";
 import { registerAgentHandlers } from "./agents";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
@@ -55,6 +56,7 @@ export function registerHandlers() {
   registerAutomationHandlers();
   registerAgentRunHandlers();
   registerWakeUpHandlers();
+  registerTarsHandlers();
   registerAgentHandlers();
   registerPersistenceHandlers();
   registerUsageStatisticsHandlers();

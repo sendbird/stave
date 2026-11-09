@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { splitSearchHighlight } from "@/lib/search-highlight";
 
 /**
@@ -27,8 +27,8 @@ export function SearchHighlight(props: { text: string; query: string }) {
 
 const styles = stylex.create({
   match: {
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-warning"]} 30%, transparent)`,
-    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-warning"]} 30%, transparent)`,
+    borderRadius: vars["--aui-radius-mark"],
     color: "inherit",
   },
 });

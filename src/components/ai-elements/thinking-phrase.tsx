@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
 import { memo, useEffect, useRef, useState } from "react";
 import { coreStyles } from "./ai-element-core.styles";
-import { cx, sx } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { useRotatingThinkingPhrase } from "@/lib/thinking-phrases";
 import { ReasoningText, type ReasoningTextVariant } from "./reasoning-text";

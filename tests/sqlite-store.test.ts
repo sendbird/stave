@@ -1726,6 +1726,55 @@ describe("SqliteStore", () => {
     } finally { reopened.close(); }
   });
 
+  // Main (renderer saves) and the host service hold separate connections to one file.
+  nativeSqliteTest("a renderer registry save keeps a workspace the host added after the renderer's copy", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const main = new SqliteStore({ dbPath });
+    const host = new SqliteStore({ dbPath });
+    const repository = (workspaces: string[], extra: Record<string, unknown> = {}) => ({
+      repositoryPath: "/repo", repositoryName: "repo", lastOpenedAt: "2026-11-05T00:00:00.000Z", defaultBranch: "main",
+      workspaces: workspaces.map((id) => ({ id, name: id, updatedAt: "2026-11-05T00:00:00.000Z" })), activeWorkspaceId: "default",
+      workspaceBranchById: Object.fromEntries(workspaces.map((id) => [id, id === "default" ? "main" : `tars/${id}`])),
+      workspacePathById: Object.fromEntries(workspaces.map((id) => [id, id === "default" ? "/repo" : `/repo/.stave/workspaces/${id}`])),
+      workspaceDefaultById: Object.fromEntries(workspaces.map((id) => [id, id === "default"])), ...extra,
+    });
+    try {
+      main.saveRepositoryRegistry({ repositories: [repository(["default"])], keepUnseenWorkspaces: true });
+      host.upsertWorkspace({ id: "tars-ws", name: "tars-ws", snapshot: createSnapshot() });
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      // The renderer still holds its copy from before the host's workspace.
+      main.saveRepositoryRegistry({ repositories: [repository(["default"])], activeRepositoryPath: "/repo", keepUnseenWorkspaces: true });
+      expect(host.loadRepositoryRegistry()[0]).toMatchObject({ workspaces: [{ id: "default" }, { id: "tars-ws" }],
+        workspacePathById: { "tars-ws": "/repo/.stave/workspaces/tars-ws" }, workspaceBranchById: { "tars-ws": "tars/tars-ws" },
+        workspaceDefaultById: { "tars-ws": false } });
+      // Archiving records the path: the renderer's removal wins.
+      main.saveRepositoryRegistry({ repositories: [repository(["default"], { archivedWorkspacePaths: ["/repo/.stave/workspaces/tars-ws/"] })], keepUnseenWorkspaces: true });
+      expect(host.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default"]);
+      // A closed workspace row stays removed too.
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      main.closeWorkspace({ workspaceId: "tars-ws" });
+      main.saveRepositoryRegistry({ repositories: [repository(["default"])], keepUnseenWorkspaces: true });
+      expect(host.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default"]);
+      // The host's own saves replace the value as before.
+      host.upsertWorkspace({ id: "tars-ws", name: "tars-ws", snapshot: createSnapshot() });
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      host.saveRepositoryRegistry({ repositories: [repository(["default"])] });
+      expect(main.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default"]);
+      // A same-path duplicate the renderer dropped (its row stays open) stays dropped.
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      const keeper = repository(["default", "keeper"], { workspacePathById: { default: "/repo", keeper: "/repo/.stave/workspaces/tars-ws" } });
+      main.saveRepositoryRegistry({ repositories: [keeper], keepUnseenWorkspaces: true });
+      expect(host.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default", "keeper"]);
+      // A repository the renderer removed stays removed.
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      main.saveRepositoryRegistry({ repositories: [], keepUnseenWorkspaces: true });
+      expect(host.loadRepositoryRegistry()).toEqual([]);
+    } finally {
+      main.close();
+      host.close();
+    }
+  });
+
   nativeSqliteTest(
     "persistTaskTurnDelta declines a legacy inline-message payload",
     async () => {

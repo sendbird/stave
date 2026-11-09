@@ -6,7 +6,7 @@ import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary
 import { useAppStore } from "@/store/app.store";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import type { CodexPluginSummarySnapshot } from "@/lib/providers/provider.types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SettingsCard, StatusBadge } from "./settings-dialog.shared";
 import { codexPluginsStyles as styles } from "./settings-dialog-codex-plugins-card.styles";
 
@@ -201,7 +201,7 @@ export function CodexPluginsCard() {
           onRetry={() => void loadPlugins()}
           pending={<p className={sx(styles.empty)}>{t("settingsProviders:codexPlugins.checking")}</p>}
           isEmpty={(list) => list.length === 0}
-          empty={<p className={sx(styles.empty)}>{t("settingsProviders:codexPlugins.empty")}</p>}
+          emptyState={<p className={sx(styles.empty)}>{t("settingsProviders:codexPlugins.empty")}</p>}
         >
           {(list) => (
             <ul className={sx(styles.list)}>

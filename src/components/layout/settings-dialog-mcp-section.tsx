@@ -3,7 +3,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildConnectedToolOverviews,
   buildMcpServerOverviews,
@@ -854,7 +854,7 @@ function McpServerConnectionsCard() {
         onRetry={() => void refresh()}
         pending={<p className={sx(styles.mutedText)}>{t("settingsProviders:mcpSection.loading")}</p>}
         isEmpty={(list) => list.length === 0}
-        empty={<p className={sx(styles.emptyBox)}>{t("settingsProviders:mcpSection.empty")}</p>}
+        emptyState={<p className={sx(styles.emptyBox)}>{t("settingsProviders:mcpSection.empty")}</p>}
       >
         {(list) => (
           <div

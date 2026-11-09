@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { EmptyState } from "@/components/ads/components/EmptyState";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { EmptyState } from "@/components/aui/components/EmptyState";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -30,8 +30,8 @@ import {
   refreshWorkspaceDocumentActivity,
   useWorkspaceDocumentsStore,
 } from "@/store/workspace-documents-store";
-import { sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import { informationRow } from "./information-row.styles";
 import { planStyles } from "./workspace-plans.styles";
@@ -356,7 +356,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
             />
             {tI18n("workspace:workspacePlansSection.loadingPlans")}</div>
         ) : listView === "empty" ? (
-          // ADS `EmptyState`, composed: centered medallion over the copy
+          // AUI `EmptyState`, composed: centered medallion over the copy
           // block over the actions. The hand-rolled version top-aligned the
           // medallion beside the text and indented the action row below it,
           // which read as three unrelated fragments.
@@ -430,20 +430,20 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 />
                 <div className={sx(informationRow.body)}>
                   <div className={sx(informationRow.titleLine)}>
-                    <AdsButton
+                    <AuiButton
                       layout="host"
                       type="button"
                       onClick={() =>
                         void onOpenFile({ filePath: entry.filePath })
                       }
-                      /* The row owns the wash; `inertChrome` stops ADS's
+                      /* The row owns the wash; `inertChrome` stops AUI's
                          host-layout trigger recipe painting a second, square
                          one inside it. */
                       xstyle={[informationRow.title, hostSurface.inertChrome]}
                       title={entry.filePath}
                     >
                       {entry.label}
-                    </AdsButton>
+                    </AuiButton>
                     {entry.source === "legacy" ? (
                       <Badge variant="outline">{tI18n("workspace:workspacePlansSection.legacy")}</Badge>
                     ) : null}
@@ -467,7 +467,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 <div className={sx(informationRow.trail)}>
                   {summary && summary.latestRevision > 1 ? (
                     <Tooltip content={tI18n("workspace:workspacePlansSection.compareWithPreviousRevision")}>
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         onClick={() => void compareWithPreviousRevision(summary)}
@@ -478,12 +478,12 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                           className={sx(planStyles.rowActionIcon)}
                           aria-hidden="true"
                         />
-                      </AdsButton>
+                      </AuiButton>
                     </Tooltip>
                   ) : null}
                   {onImportTodos ? (
                     <Tooltip content={tI18n("workspace:workspacePlansSection.importChecklistItemsAsTodos")}>
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         onClick={() =>
@@ -496,11 +496,11 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                           className={sx(planStyles.rowActionIcon)}
                           aria-hidden="true"
                         />
-                      </AdsButton>
+                      </AuiButton>
                     </Tooltip>
                   ) : null}
                   <Tooltip content={tI18n("workspace:workspacePlansSection.deleteSavedPlan")}>
-                    <AdsButton
+                    <AuiButton
                       layout="host"
                       type="button"
                       onClick={() => setDeleteTarget(entry)}
@@ -511,7 +511,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                         className={sx(planStyles.rowActionIcon)}
                         aria-hidden="true"
                       />
-                    </AdsButton>
+                    </AuiButton>
                   </Tooltip>
                 </div>
               </div>

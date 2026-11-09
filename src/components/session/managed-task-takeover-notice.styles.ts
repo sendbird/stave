@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const managedTaskTakeoverNoticeStyles = stylex.create({
   // Same 0.75rem inset as the docked turn-activity shelf. Framed mode with
@@ -9,24 +9,24 @@ export const managedTaskTakeoverNoticeStyles = stylex.create({
   // margin here rather than on the composer measure parent.
   root: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-12"],
-    marginBottom: vars["--ads-space-8"],
-    marginInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
+    marginBottom: vars["--aui-space-8"],
+    marginInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   iconBadge: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderRadius: vars["--aui-radius-mark"],
+    color: vars["--aui-color-text"],
     display: "flex",
     flexShrink: 0,
     height: 32,
@@ -41,26 +41,26 @@ export const managedTaskTakeoverNoticeStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   ownerLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   managedBadge: {
-    borderRadius: vars["--ads-radius-mark"],
-    fontSize: vars["--ads-font-size-micro"],
+    borderRadius: vars["--aui-radius-mark"],
+    fontSize: vars["--aui-font-size-micro"],
     letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   detail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginTop: vars["--ads-space-2"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginTop: vars["--aui-space-2"],
   },
   badgeIcon: {
-    height: vars["--ads-control-icon-size-sm"],
-    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
   },
 });

@@ -39,6 +39,11 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   "wake-up.invoke": null,
   // Queued behind agent run ticks, which may be starting a turn.
   "agent-run.invoke": null,
+  // Responsibility mutations and controls can wait for workspace creation and run admission.
+  // Decisions carry controls too: a deadline would fence an outcome the host may still apply.
+  "tars.invoke": null,
+  "tars.act": null,
+  "tars.apply-decision": null,
   "workspace-scripts.run-entry": null,
   "workspace-scripts.run-hook": null,
 };

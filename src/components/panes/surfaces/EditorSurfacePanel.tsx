@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import MonacoEditor, { DiffEditor } from "@monaco-editor/react";
 import { useBundledMonaco, type Monaco } from "@/lib/monaco/bundled-monaco";
 import type {
@@ -1187,7 +1187,7 @@ function EditorTabSurface({
           ) : tabIsImage ? (
             <div className={sx(styles.imageHost)}>
               {tab.content ? (
-                <AdsButton
+                <AuiButton
                   layout="host"
                   nativeButton={false}
                   render={<img src={tab.content} alt={imageName} />}
@@ -1453,17 +1453,17 @@ function EditorTabSurface({
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",minHeight:0,minWidth:0,width:"100%",flexDirection:"column",backgroundColor:vars["--ads-color-surface"]},
-body: {display:"flex",minHeight:0,minWidth:0,flex:1,flexDirection:"column",overflow:"hidden",backgroundColor:vars["--ads-color-surface"],color:"var(--editor-foreground)"},
+root: {display:"flex",height:"100%",minHeight:0,minWidth:0,width:"100%",flexDirection:"column",backgroundColor:vars["--aui-color-surface"]},
+body: {display:"flex",minHeight:0,minWidth:0,flex:1,flexDirection:"column",overflow:"hidden",backgroundColor:vars["--aui-color-surface"],color:"var(--editor-foreground)"},
 viewport: {minHeight:0,flex:1,overflow:"hidden"},
 emptyHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",backgroundColor:"var(--editor)",padding:24},
 empty: {borderWidth:0,backgroundColor:"transparent",padding:0},
 emptyHeader: {gap:12},
-emptyText: {display:"flex",flexDirection:"column",gap:vars["--ads-space-4"]},
-title: {fontSize:vars["--ads-font-size-heading"],lineHeight:vars["--ads-line-height-heading"],fontWeight:vars["--ads-font-weight-semibold"]},
-// `maxInlineSize`, again matching the logical box ADS's description owns.
-description: {maxInlineSize:448,fontSize:vars["--ads-font-size-body"]},
+emptyText: {display:"flex",flexDirection:"column",gap:vars["--aui-space-4"]},
+title: {fontSize:vars["--aui-font-size-heading"],lineHeight:vars["--aui-line-height-heading"],fontWeight:vars["--aui-font-weight-semibold"]},
+// `maxInlineSize`, again matching the logical box AUI's description owns.
+description: {maxInlineSize:448,fontSize:vars["--aui-font-size-body"]},
 imageHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",overflow:"auto",backgroundColor:"var(--editor)",padding:16},
 image: {maxHeight:"100%",maxWidth:"100%",cursor:"zoom-in",objectFit:"contain",backgroundColor:"transparent",borderRadius:0},
-note: {fontSize:vars["--ads-font-size-body"],color:vars["--ads-color-text-muted"]}
+note: {fontSize:vars["--aui-font-size-body"],color:vars["--aui-color-text-muted"]}
 });

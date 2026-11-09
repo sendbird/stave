@@ -43,6 +43,8 @@ export const FLEET_ATTENTION_KIND_LABEL: Record<FleetAttentionKind, string> = {
   get "agent-run-sign-off"() { return i18n.t("fleet:vocabulary.kind.agentRunSignOff"); },
   get "agent-run-blocked"() { return i18n.t("fleet:vocabulary.kind.agentRunBlocked"); },
   get "agent-run-stuck"() { return i18n.t("fleet:vocabulary.kind.agentRunStuck"); },
+  get "tars-decision"() { return i18n.t("fleet:vocabulary.kind.tarsDecision"); },
+  get "tars-blocked"() { return i18n.t("fleet:vocabulary.kind.tarsBlocked"); },
 };
 
 /** How long a snooze hides a row, as the row menu and the bulk menu say it. */
@@ -109,5 +111,9 @@ export function describeFleetAttentionPrimaryAction(kind: FleetAttentionKind) {
     case "agent-run-blocked":
     case "agent-run-stuck":
       return i18n.t("fleet:vocabulary.primaryAction.openRun");
+    case "tars-decision":
+      return i18n.t("fleet:vocabulary.primaryAction.reviewTarsDecision");
+    case "tars-blocked":
+      return i18n.t("fleet:vocabulary.primaryAction.openTarsBlocked");
   }
 }

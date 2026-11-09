@@ -9,9 +9,9 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Badge, Button, Input, Loader, toast } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import type { BadgeTone } from "@/components/ads/components/Badge";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import type { BadgeTone } from "@/components/aui/components/Badge";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   type AtelierConnectorPublicStatus,
   type AtelierConnectorScope,

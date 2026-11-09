@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, toast } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
 import type {
@@ -211,7 +211,7 @@ function ToolCard(args: {
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="outlined"
               onClick={() =>
                 void args.onCopyRepairCommand(repairCommand, args.tool.label)
               }
@@ -236,7 +236,7 @@ function ToolCard(args: {
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="outlined"
             disabled={!args.canOpenTerminal}
             onClick={() => void args.onOpenTerminal()}
           >
@@ -414,7 +414,7 @@ export function ToolingSection() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="outlined"
               disabled={viewState.loading}
               onClick={() => setRefreshNonce((value) => value + 1)}
             >

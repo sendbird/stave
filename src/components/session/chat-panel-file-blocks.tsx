@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { DiffViewer } from "@/components/ads/components/DiffViewer";
-import { FileChangeSummary } from "@/components/ads/components/FileChangeSummary";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { DiffViewer } from "@/components/aui/components/DiffViewer";
+import { FileChangeSummary } from "@/components/aui/components/FileChangeSummary";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, GitCompareArrows } from "lucide-react";
 import { Badge, Button, Card, ImageLightbox } from "@/components/ui";
@@ -25,7 +25,7 @@ import {
   resolveWorkspaceRelativeFilePath,
 } from "@/lib/workspace-file-path";
 import { toBaseName } from "@/lib/message-file-links";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { chatPanelFileBlocksStyles as styles } from "./chat-panel-file-blocks.styles";
 import { useDiffLineHighlighter } from "./message/diff-highlighter";
 import {
@@ -281,14 +281,14 @@ export function ChangedFilesBlock(args: {
                 index === 0 && styles.rowWrapperFirst,
               )}
             >
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={styles.rowButton}
                 onClick={() => toggleRow(index)}
               >
                 {/*
-                 * ADS `FileChangeSummary` is the header `DiffViewer` does not
+                 * AUI `FileChangeSummary` is the header `DiffViewer` does not
                  * draw: path in the machine register truncating at the
                  * directory, `+N` / `−M` in semantic ink, and the shared
                  * one-word state. It replaces the local path span, the two
@@ -306,7 +306,7 @@ export function ChangedFilesBlock(args: {
                 ) : (
                   <ChevronRight className={sx(styles.chevron)} />
                 )}
-              </AdsButton>
+              </AuiButton>
               {isOpen ? (
                 <div className={sx(styles.expandedBody)}>
                   <div className={sx(styles.diffScroll)}>
@@ -554,7 +554,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
                 index === 0 && styles.rowWrapperFirst,
               )}
             >
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={styles.rowButton}
@@ -569,7 +569,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
                 ) : (
                   <ChevronRight className={sx(styles.chevron)} />
                 )}
-              </AdsButton>
+              </AuiButton>
               {isOpen ? (
                 <div className={sx(styles.expandedBody)}>
                   <CodeBlock
@@ -623,7 +623,7 @@ export function ImageAttachmentBlock(args: { parts: ImageContextPart[] }) {
       <div className={sx(styles.imageGrid)}>
         {args.parts.map((part, index) => (
           <div key={index} className={sx(styles.imageCard)}>
-            <AdsButton
+            <AuiButton
               layout="host"
               nativeButton={false}
               render={<img src={part.dataUrl} alt={part.label} />}

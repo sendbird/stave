@@ -1,4 +1,4 @@
-import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
+import { thresholdTone, type Tone, type ToneThreshold } from "@/components/aui/utils/tone";
 
 /**
  * The one place usage readings get their warning and danger points. Every

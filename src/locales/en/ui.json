@@ -129,7 +129,9 @@
     "trusted": "Trusted: <entry/>",
     "removeTrusted": "Remove",
     "removeTrustedLabel": "Remove {{entry}} from trusted approvals",
-    "trustedRemoved": "Removed from trusted approvals"
+    "trustedRemoved": "Removed from trusted approvals",
+    "allow": "Allow",
+    "scope": "Scope"
   },
   "commandParts": {
     "navigate": "navigate",
@@ -139,7 +141,9 @@
   "plan": {
     "plan": "Plan",
     "noStepsYetThePlanAppearsOnceTheAgentCommitsToOne": "No steps yet. The plan appears once the agent commits to one.",
-    "progress": "{{done}} of {{total}} steps complete"
+    "progress": "{{done}} of {{total}} steps complete",
+    "appliedNote": "Applied your note",
+    "applied": "Applied"
   },
   "selectArray": {
     "clearSelection": "Clear selection",
@@ -155,7 +159,8 @@
   "checkpoint": {
     "restore": "Restore",
     "restoring": "Restoring",
-    "checkpointSaved": "Checkpoint saved"
+    "checkpointSaved": "Checkpoint saved",
+    "branch": "Branch from here"
   },
   "thinking": {
     "reasoningTrace": "Reasoning trace",
@@ -452,5 +457,20 @@
       "uploading": "Uploading",
       "uploaded": "Uploaded"
     }
+  },
+  "runMonitor": {
+    "pause": "Pause",
+    "pauseRun": "Pause run",
+    "cancel": "Cancel",
+    "stop": "Stop run",
+    "log": "Log",
+    "allowOnce": "Allow once",
+    "deny": "Deny",
+    "doneOf": "{{completed}} of {{total}} done",
+    "stepOf": "Step {{step}} of {{total}}"
+  },
+  "runRecap": {
+    "reviewed": "reviewed",
+    "unreviewed": "not yet reviewed"
   }
 }

@@ -85,8 +85,8 @@ import {
   type ComposerLayoutMode,
   type TurnActivityPlacement,
 } from "@/store/app-settings";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { composerFramePreviewStyles as f } from "./composer-frame-preview.styles";
 import {
   PREVIEW_CHILD_APPROVAL,

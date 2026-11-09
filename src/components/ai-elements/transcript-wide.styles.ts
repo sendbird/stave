@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 import { transcriptMeasure } from "./transcript-measure.stylex";
 
 const WIDE = transcriptMeasure["--stave-transcript-wide"];
@@ -14,7 +14,7 @@ export const transcriptWideStyles = stylex.create({
    * block below the column.
    */
   breakout: {
-    marginInline: `calc((100% - max(100%, min(${WIDE}, 100cqi - 2 * ${vars["--ads-space-20"]}))) / 2)`,
+    marginInline: `calc((100% - max(100%, min(${WIDE}, 100cqi - 2 * ${vars["--aui-space-20"]}))) / 2)`,
     minWidth: 0,
   },
 });

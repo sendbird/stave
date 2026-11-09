@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { commitContextMenuStyles as styles } from "./commit-context-menu.styles";
 
 // ---------------------------------------------------------------------------

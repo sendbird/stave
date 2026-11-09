@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const continueWorkspaceStyles = stylex.create({
   surface: {
@@ -11,21 +11,21 @@ export const continueWorkspaceStyles = stylex.create({
   },
   form: {
     display: "grid",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
   },
   body: {
     display: "grid",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
   },
   summaryGrid: {
     display: "grid",
-    gap: vars["--ads-space-12"],
-    borderRadius: vars["--ads-radius-frame"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-12"],
+    borderRadius: vars["--aui-radius-frame"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    padding: vars["--ads-space-16"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface-tint"],
+    padding: vars["--aui-space-16"],
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       "@media (min-width: 40rem)": "repeat(2, minmax(0, 1fr))",
@@ -38,15 +38,15 @@ export const continueWorkspaceStyles = stylex.create({
   },
   eyebrow: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     textTransform: "uppercase",
     letterSpacing: "0.08em",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   stack: {
     display: "grid",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyItems: "start",
   },
   badge: {
@@ -55,7 +55,7 @@ export const continueWorkspaceStyles = stylex.create({
   branchIcon: {
     width: 14,
     height: 14,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   truncated: {
     overflow: "hidden",
@@ -64,57 +64,57 @@ export const continueWorkspaceStyles = stylex.create({
   },
   caption: {
     margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   cellHeader: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   changeButton: {
     height: 24,
-    paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    paddingInline: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
-      ":active": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
+      ":active": vars["--aui-color-text"],
     },
   },
   pickerPanel: {
     display: "grid",
-    gap: vars["--ads-space-8"],
-    borderRadius: vars["--ads-radius-frame"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderRadius: vars["--aui-radius-frame"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    padding: vars["--ads-space-12"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface-tint"],
+    padding: vars["--aui-space-12"],
   },
   fieldBlock: {
     display: "grid",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   fieldLabel: {
     margin: 0,
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   nameInput: {
     height: 40,
-    borderRadius: vars["--ads-radius-control"],
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-canvas"],
+    borderRadius: vars["--aui-radius-control"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-canvas"],
   },
   error: {
     margin: 0,
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-danger-text"],
   },
   submitLoader: {
-    marginInlineEnd: vars["--ads-space-8"],
+    marginInlineEnd: vars["--aui-space-8"],
   },
 });

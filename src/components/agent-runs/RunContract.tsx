@@ -2,9 +2,9 @@ import { i18n, useTranslation } from "@/i18n";
 import { memo, useId, useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Flag, MapPin, PencilLine, Undo2, type LucideIcon } from "lucide-react";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
 import { readyWorkspaceScripts, useWorkspaceScriptActions } from "@/components/workflows/useWorkspaceScriptActions";
@@ -292,19 +292,19 @@ const DROP_TURNS = "@container (max-width: 535px)";
 const DROP_CHECK_INS = "@container (max-width: 400px)";
 
 const styles = stylex.create({
-  contract: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0 },
-  title: { margin: 0, fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text"] },
-  list: { margin: 0, display: "grid", gridTemplateColumns: "max-content minmax(0, 1fr)", columnGap: vars["--ads-space-12"], rowGap: vars["--ads-space-4"] },
+  contract: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0 },
+  title: { margin: 0, fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-medium"], color: vars["--aui-color-text"] },
+  list: { margin: 0, display: "grid", gridTemplateColumns: "max-content minmax(0, 1fr)", columnGap: vars["--aui-space-12"], rowGap: vars["--aui-space-4"] },
   row: { display: "contents" },
-  label: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"], color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },
+  label: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-4"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-normal"], color: vars["--aui-color-text-muted"], whiteSpace: "nowrap" },
   icon: { width: 13, height: 13, flexShrink: 0, marginTop: 2 },
-  value: { margin: 0, minWidth: 0, fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"], color: vars["--ads-color-text"], overflowWrap: "anywhere" },
-  subline: { display: "block", color: vars["--ads-color-text-muted"] },
+  value: { margin: 0, minWidth: 0, fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-normal"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  subline: { display: "block", color: vars["--aui-color-text-muted"] },
   /** Under the line, aligned with its words: row padding + the 20px mark + the gap. */
   details: {
-    paddingBlockEnd: vars["--ads-space-8"],
-    paddingInlineEnd: vars["--ads-space-12"],
-    paddingInlineStart: `calc(${vars["--ads-space-12"]} + 20px + ${vars["--ads-space-8"]})`,
+    paddingBlockEnd: vars["--aui-space-8"],
+    paddingInlineEnd: vars["--aui-space-12"],
+    paddingInlineStart: `calc(${vars["--aui-space-12"]} + 20px + ${vars["--aui-space-8"]})`,
   },
   turns: { display: { default: "inline", [DROP_TURNS]: "none" } },
   checkIns: { display: { default: "inline", [DROP_CHECK_INS]: "none" } },

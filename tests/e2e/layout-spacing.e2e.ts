@@ -28,10 +28,10 @@ for (const locale of ["en", "ko"] as const) {
             element.style.cssText = `flex:0 0 ${width}px;min-width:0;width:${width}px`;
           }, width);
           await expect.poll(async () => row.evaluate(async (element) => {
-            const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+            const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
             const probe = document.createElement("div");
-            probe.style.padding = vars["--ads-space-12"];
-            probe.style.columnGap = vars["--ads-space-8"];
+            probe.style.padding = vars["--aui-space-12"];
+            probe.style.columnGap = vars["--aui-space-8"];
             element.append(probe);
             const padding = Number.parseFloat(getComputedStyle(probe).paddingLeft);
             const gap = Number.parseFloat(getComputedStyle(probe).columnGap);

@@ -13,7 +13,7 @@ import { useTranslation } from "@/i18n";
 export const WORKSPACE_SAVE_TOAST_ID = "workspace-save-failure";
 
 /**
- * Surfaces the acknowledged-write-queue failure flag on the shared ADS toast
+ * Surfaces the acknowledged-write-queue failure flag on the shared AUI toast
  * stack (bottom-right, `toastManager` / `ToastHost`) instead of the
  * hand-drawn bottom-left box that used to overlap the sidebar and the composer.
  *

@@ -1,7 +1,7 @@
 import { AgentRunPlan } from "./AgentRunPlan";
 import { useAgentRunProgress } from "./useAgentRunProgress";
 import { formatTime, formatDuration } from "@/i18n/format";
-import { StateMark } from "@/components/ads/components/StateMark";
+import { StateMark } from "@/components/aui/components/StateMark";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo } from "react";
 import {
@@ -16,13 +16,13 @@ import {
   Play,
   Target,
 } from "lucide-react";
-import { Badge } from "@/components/ads/components/Badge";
-import { Button } from "@/components/ads/components/Button";
+import { Badge } from "@/components/aui/components/Badge";
+import { Button } from "@/components/aui/components/Button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
-import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
-import { StepRail } from "@/components/ads/components/StepRail";
-import { sx } from "@/components/ads/utils/stylex";
+import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
+import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
+import { StepRail } from "@/components/aui/components/StepRail";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord, isActiveAgentRunState, latestStageRecord } from "@/lib/agent-runs/domain";
 import { collectAcceptanceCriteria } from "@/lib/agent-runs/briefing";
@@ -176,16 +176,16 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
               <Tooltip>
                 <DropdownMenu
                   placement="bottom-end"
-                  triggerAsChild
-                  trigger={
-                    <TooltipTrigger
-                      render={
-                        <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")}>
-                          <Ellipsis aria-hidden />
-                        </Button>
-                      }
-                    />
-                  }
+                  trigger={<Ellipsis aria-hidden />}
+                  triggerProps={{
+                    render: (
+                      <TooltipTrigger
+                        render={
+                          <Button variant="quiet" size="sm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")} />
+                        }
+                      />
+                    ),
+                  }}
                   groups={[
                     {
                       items: [

@@ -1,4 +1,4 @@
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import type { DelegationExchange } from "./exchange";
 import { isExchangeStatusLive } from "./format";
 import { subagentWorkState } from "./subagent-summary";

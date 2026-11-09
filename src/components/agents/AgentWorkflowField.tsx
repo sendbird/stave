@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { Select } from "@/components/ads/components/Select";
-import { sx } from "@/components/ads/utils/stylex";
+import { Select } from "@/components/aui/components/Select";
+import { sx } from "@/components/aui/utils/stylex";
 import { AGENT_CHECK_IN_LABELS, DEFAULT_AGENT_CHECK_INS, REVIEW_BEFORE_DONE, type AgentConfig, type ReviewBeforeDone } from "@/lib/agents/schema";
 import { offersReviewBeforeDone, resolveReviewBeforeDone } from "@/lib/agents/review-before-done";
 import { applyCheckIns } from "@/lib/workflows/library";

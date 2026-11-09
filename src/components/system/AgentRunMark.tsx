@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { Loader } from "@/components/ui";
 import type { LoaderVariant } from "@/components/ui/loader.types";
@@ -46,7 +46,7 @@ const ACTIVITY_LOADER: Record<AgentRunActivityKind | "working", LoaderVariant> =
  *   moves, because nothing has been reported.
  * - `busy`: the gray spinner, kept for Stave's own system work.
  *
- * Every loader holds still under reduced motion (the ADS loader contract), so
+ * Every loader holds still under reduced motion (the AUI loader contract), so
  * the words beside the mark carry the meaning.
  */
 export function AgentRunMark(props: {
@@ -133,8 +133,8 @@ const styles = stylex.create({
     flexShrink: 0,
     justifyContent: "center",
   },
-  busy: { color: vars["--ads-color-text-muted"] },
-  waiting: { color: vars["--ads-color-text-subtle"] },
+  busy: { color: vars["--aui-color-text-muted"] },
+  waiting: { color: vars["--aui-color-text-subtle"] },
 });
 
 const slotSize = stylex.create({

@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui";
 
 /**
  * Expert or rarely changed fields sit in a collapsed Advanced disclosure in
- * their card. ADS mounts accordion panels eagerly, so a folded field stays in
+ * their card. AUI mounts accordion panels eagerly, so a folded field stays in
  * the DOM (its saved value still applies) inside a `hidden` region.
  */
 

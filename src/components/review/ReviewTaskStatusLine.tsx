@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { StatusDot } from "@/components/ads/components/StatusDot";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { StatusDot } from "@/components/aui/components/StatusDot";
+import { sx } from "@/components/aui/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { useAppStore } from "@/store/app.store";
 import { reviewStyles as styles } from "./review.styles";
@@ -50,7 +50,7 @@ export function ReviewTaskStatusLine(props: { taskId: string }) {
           <Button variant="quiet" size="xs" onClick={() => showTaskConversation(taskId)}>
             {i18n.t("review:taskStatus.watch")}
           </Button>
-          <Button variant="outline" size="xs" data-testid="review-stop-turn" onClick={() => useAppStore.getState().abortTaskTurn({ taskId })}>
+          <Button variant="outlined" size="xs" data-testid="review-stop-turn" onClick={() => useAppStore.getState().abortTaskTurn({ taskId })}>
             {i18n.t("common:actions.stop")}
           </Button>
         </>

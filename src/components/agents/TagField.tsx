@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { X } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { TextField } from "@/components/ads/components/TextField";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { TextField } from "@/components/aui/components/TextField";
+import { sx } from "@/components/aui/utils/stylex";
 import { agentStyles } from "./agents.styles";
 
 /**

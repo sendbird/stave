@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
 
 /**
  * `--editor*` are the Monaco theme surfaces the commit graph sits on, so the
- * canvas keeps them as its ground rather than an ADS canvas token. Everything
- * else (borders, muted text, focus ring, elevation) resolves to ADS tokens.
+ * canvas keeps them as its ground rather than an AUI canvas token. Everything
+ * else (borders, muted text, focus ring, elevation) resolves to AUI tokens.
  */
 export const gitGraphCanvasStyles = stylex.create({
   svg: {
@@ -29,9 +29,9 @@ export const gitGraphCanvasStyles = stylex.create({
     height: 32,
     flexShrink: 0,
     overflow: "hidden",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 65%, transparent)`,
+    borderBottomColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 65%, transparent)`,
     backgroundColor:
       "color-mix(in oklch, var(--editor-muted) 45%, transparent)",
   },
@@ -39,35 +39,35 @@ export const gitGraphCanvasStyles = stylex.create({
     display: "grid",
     height: "100%",
     alignItems: "center",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     textTransform: "uppercase",
     letterSpacing: "0.05em",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   headerCellLead: {
-    paddingInline: vars["--ads-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   headerCell: {
     position: "relative",
     height: "100%",
-    borderLeftWidth: vars["--ads-border-width-hairline"],
+    borderLeftWidth: vars["--aui-border-width-hairline"],
     borderLeftStyle: "solid",
-    borderLeftColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 40%, transparent)`,
+    borderLeftColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 40%, transparent)`,
     paddingInline: 10,
-    paddingBlock: vars["--ads-space-8"],
+    paddingBlock: vars["--aui-space-8"],
   },
   resizeHandle: {
     position: "absolute",
     left: -4,
     top: 0,
     height: "100%",
-    width: vars["--ads-space-8"],
+    width: vars["--aui-space-8"],
     cursor: "col-resize",
     touchAction: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-accent"]} 30%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--aui-color-accent"]} 30%, transparent)`,
     },
   },
   scroller: {
@@ -87,22 +87,22 @@ export const gitGraphCanvasStyles = stylex.create({
   },
   loadingMore: {
     position: "sticky",
-    bottom: vars["--ads-space-8"],
+    bottom: vars["--aui-space-8"],
     marginLeft: "auto",
-    marginRight: vars["--ads-space-8"],
+    marginRight: vars["--aui-space-8"],
     display: "flex",
     width: "max-content",
     alignItems: "center",
     gap: 6,
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-surface-raised"]} 95%, transparent)`,
-    paddingInline: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
-    boxShadow: vars["--ads-elevation-raised"],
+    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-surface-raised"]} 95%, transparent)`,
+    paddingInline: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    boxShadow: vars["--aui-elevation-raised"],
   },
 });

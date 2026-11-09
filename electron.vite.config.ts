@@ -1,4 +1,4 @@
-import { adsStylex } from "./scripts/vite-ads-stylex.mjs";
+import { auiStylex } from "./scripts/vite-aui-stylex.mjs";
 import { createWorkspaceWatchIgnore } from "./config/workspace-watch";
 import { defineConfig } from "electron-vite";
 import react from "@vitejs/plugin-react";
@@ -76,12 +76,12 @@ export default defineConfig({
   renderer: {
     root: ".",
     plugins: [
-      adsStylex({
-        // Every directory whose modules are ADS. Anything not listed compiles as
+      auiStylex({
+        // Every directory whose modules are AUI. Anything not listed compiles as
         // product, which is the safe default: the product layer is topmost, so a
         // misfiled module loses the ability to be re-themed rather than gaining
         // the ability to outrank a theme.
-        adsRoots: [path.resolve(__dirname, "src", "components", "ads")],
+        auiRoots: [path.resolve(__dirname, "src", "components", "aui")],
         enableMediaQueryOrder: false,
         unstable_moduleResolution: { type: "commonJS", rootDir: __dirname },
         aliases: { "@/*": [path.resolve(__dirname, "src", "*")] },

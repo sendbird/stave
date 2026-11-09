@@ -76,6 +76,7 @@ const ERROR_KINDS: ReadonlySet<FleetAttentionKind> = new Set([
   "pr-merge-conflict",
   "agent-run-blocked",
   "agent-run-stuck",
+  "tars-blocked",
 ]);
 
 export function getNotificationEntryKind(kind: AppNotificationKind) {
@@ -153,6 +154,9 @@ export function notificationBelongsToItem(
     case "pr-merge-conflict":
     case "pr-behind-base":
     case "pr-ready-to-merge":
+    // Tars rows come from Tars's own state; no notification speaks for them.
+    case "tars-decision":
+    case "tars-blocked":
       return false;
   }
 }
@@ -330,7 +334,7 @@ export function countHiddenFleetAttention(args: {
 
 /**
  * Requests an agent is blocked on until someone answers — approvals,
- * questions and sign-offs — the count a workspace row shows.
+ * questions, sign-offs and Tars decisions — the count a workspace row shows.
  */
 export function countUnansweredInteractions(
   items: readonly Pick<FleetAttentionItem, "kind">[] | undefined,
@@ -339,7 +343,8 @@ export function countUnansweredInteractions(
     (item) =>
       item.kind === "approval" ||
       item.kind === "user-input" ||
-      item.kind === "agent-run-sign-off",
+      item.kind === "agent-run-sign-off" ||
+      item.kind === "tars-decision",
   ).length;
 }
 

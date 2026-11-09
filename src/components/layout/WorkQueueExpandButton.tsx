@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { Maximize2 } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";

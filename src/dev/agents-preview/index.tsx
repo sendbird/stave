@@ -6,8 +6,8 @@ import { AgentsView } from "@/components/agents/AgentsView";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { AGENT_COLORS } from "@/lib/agents/schema";
 import { DeleteAgentDialog } from "@/components/agents/DeleteAgentDialog";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import { duplicateAgent } from "@/lib/agents/library";
 import { revisionContentHash } from "@/lib/agents/revisions";
@@ -259,8 +259,8 @@ const styles = stylex.create({
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
   frame: { flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" },
   sheet: {
@@ -269,20 +269,20 @@ const styles = stylex.create({
     flex: "1 1 auto",
     minHeight: 0,
     overflowY: "auto",
-    gap: vars["--ads-space-12"],
-    padding: vars["--ads-space-24"],
+    gap: vars["--aui-space-12"],
+    padding: vars["--aui-space-24"],
   },
-  sheetRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-16"] },
-  sheetLabel: { width: 104, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  sheetRow: { display: "flex", alignItems: "center", gap: vars["--aui-space-16"] },
+  sheetLabel: { width: 104, fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
   person: {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     width: 28,
     height: 28,
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
+    borderRadius: vars["--aui-radius-full"],
+    backgroundColor: vars["--aui-color-surface-tint"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
   },
 });

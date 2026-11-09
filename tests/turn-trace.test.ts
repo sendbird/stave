@@ -3,7 +3,7 @@ import {
   layoutTraceBar,
   resolveTraceAxis,
   resolveTraceTicks,
-} from "@/components/ads/components/TraceWaterfall";
+} from "@/components/aui/components/TraceWaterfall";
 import {
   buildTurnTrace,
   spanDurationMs,

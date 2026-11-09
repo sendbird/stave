@@ -2,15 +2,15 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
 import { ChatPanel } from "@/components/session/ChatPanel";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
 
 const styles = stylex.create({
-  page: { height: "100vh", display: "flex", justifyContent: "center", backgroundColor: vars["--ads-color-canvas"] },
+  page: { height: "100vh", display: "flex", justifyContent: "center", backgroundColor: vars["--aui-color-canvas"] },
   column: { display: "flex", height: "100%", maxWidth: "100%", minWidth: 0 },
 });
 

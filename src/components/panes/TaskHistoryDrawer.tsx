@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { useEffect, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
@@ -245,16 +245,16 @@ export function TaskHistoryDrawer(args: {
 
 const styles = stylex.create({
 drawer: {width:"min(28rem, 92vw)",maxWidth:448},
-header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars["--ads-color-border"],padding:20,textAlign:"left"},
-search: {marginTop:12,height:36,borderRadius:vars["--ads-radius-control"],borderColor:vars["--ads-color-border"]},
+header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars["--aui-color-border"],padding:20,textAlign:"left"},
+search: {marginTop:12,height:36,borderRadius:vars["--aui-radius-control"],borderColor:vars["--aui-color-border"]},
 body: {minHeight:0,flex:1,overflowY:"auto",paddingInline:20,paddingBlock:16},
-empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars["--ads-color-border"],paddingInline:12,paddingBlock:16,fontSize: vars["--ads-font-size-body"],color:vars["--ads-color-text-muted"]},
+empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars["--aui-color-border"],paddingInline:12,paddingBlock:16,fontSize: vars["--aui-font-size-body"],color:vars["--aui-color-text-muted"]},
 list: {display:"flex",flexDirection:"column",gap:8},
-row: {display:"flex",alignItems:"center",gap:12,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],backgroundColor:vars["--ads-color-canvas"],padding:12},
-icon: {width:16,height:16,flexShrink:0,color:vars["--ads-color-text-muted"]},
-details: {minWidth:0,flex:1,display:"flex",flexDirection:"column",gap:vars["--ads-space-4"]},
-title: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-body"],fontWeight:500},
-badge: {flexShrink:0,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],paddingInline:6,paddingBlock:2,fontSize: vars["--ads-font-size-micro"],color:vars["--ads-color-text-muted"]},
+row: {display:"flex",alignItems:"center",gap:12,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--aui-color-border"],backgroundColor:vars["--aui-color-canvas"],padding:12},
+icon: {width:16,height:16,flexShrink:0,color:vars["--aui-color-text-muted"]},
+details: {minWidth:0,flex:1,display:"flex",flexDirection:"column",gap:vars["--aui-space-4"]},
+title: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--aui-font-size-body"],fontWeight:500},
+badge: {flexShrink:0,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--aui-color-border"],paddingInline:6,paddingBlock:2,fontSize: vars["--aui-font-size-micro"],color:vars["--aui-color-text-muted"]},
 action: {height:32,flexShrink:0},
-footer: {borderTopWidth:1,borderTopStyle:"solid",borderTopColor:vars["--ads-color-border"],paddingInline:20,paddingBlock:16}
+footer: {borderTopWidth:1,borderTopStyle:"solid",borderTopColor:vars["--aui-color-border"],paddingInline:20,paddingBlock:16}
 });

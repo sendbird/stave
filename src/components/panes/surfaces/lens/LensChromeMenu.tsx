@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
-import { sx } from "../../../ads/utils/stylex";
+import { sx } from "../../../aui/utils/stylex";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import {
   Camera,

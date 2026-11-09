@@ -3,7 +3,7 @@ import { Info, Link, Sparkles, Terminal } from "lucide-react";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import type { PromptTokenDescriptor } from "@/lib/prompt-token-chips";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { tokenChipStyles } from "./prompt-token-chip.styles";
 
 export function PromptTokenChip(args: {

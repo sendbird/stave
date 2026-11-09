@@ -46,6 +46,14 @@ export function delegateCeiling(permission: AgentPermission): Profile {
   return permission === "read-only" ? "manual" : permission;
 }
 
+/**
+ * Whether a delegated profile would run with more permission than a task
+ * running as an agent with `parentPermission` may hand out.
+ */
+export function exceedsDelegateCeiling(profile: Profile, parentPermission: AgentPermission): boolean {
+  return PROFILE_RANK[profile] > PROFILE_RANK[delegateCeiling(parentPermission)];
+}
+
 function narrower(a: Profile, b: Profile): Profile {
   return PROFILE_RANK[a] <= PROFILE_RANK[b] ? a : b;
 }
@@ -122,8 +130,7 @@ export function applyAgentToDelegation(input: {
   if (
     input.parentCanCall === undefined &&
     input.parentPermission &&
-    PROFILE_RANK[profile] >
-      PROFILE_RANK[delegateCeiling(input.parentPermission)]
+    exceedsDelegateCeiling(profile, input.parentPermission)
   ) {
     return {
       ok: false,

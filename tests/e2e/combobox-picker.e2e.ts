@@ -2,11 +2,11 @@ import { expect, test, type Page } from "@playwright/test";
 
 /**
  * Mounts the real SearchablePicker (single) and SearchableMultiPicker on an
- * otherwise empty preview page, both stateful, so the ADS Combobox they are
+ * otherwise empty preview page, both stateful, so the AUI Combobox they are
  * built on is exercised with a keyboard and a pointer.
  */
 async function mountPickers(page: Page) {
-  await page.goto("/?stavePreview=ads-regressions");
+  await page.goto("/?stavePreview=aui-regressions");
   await expect(page.locator("main svg").first()).toBeVisible();
   await page.evaluate(async () => {
     const resources = performance.getEntriesByType("resource");
@@ -14,7 +14,7 @@ async function mountPickers(page: Page) {
     const React = (await import(moduleUrl("react"))).default;
     const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
     const { SearchablePicker, SearchableMultiPicker } = await import("/src/components/layout/settings-searchable-picker.tsx");
-    const { Button } = await import("/src/components/ads/components/Button.tsx");
+    const { Button } = await import("/src/components/aui/components/Button.tsx");
     const { StaveDesignProvider } = await import("/src/components/system/StaveDesignProvider.tsx");
     document.getElementById("root")!.style.display = "none";
     const host = document.createElement("div");
@@ -142,10 +142,10 @@ test("multiple picker: stays open while checking, searches, and clears to none",
 test("chip field: chips in the field, search in its input, remove, Backspace and clear", async ({ page }) => {
   await mountPickers(page);
   const input = page.getByRole("combobox", { name: "Labels" });
-  const field = page.locator('[data-ads-slot="chips"]').filter({ has: input });
+  const field = page.locator('[data-aui-slot="chips"]').filter({ has: input });
   // Both chosen values are chips inside the field, the one no option lists
   // included, beside the input.
-  const chips = field.locator('[data-ads-slot="chip"]');
+  const chips = field.locator('[data-aui-slot="chip"]');
   await expect(chips).toHaveText(["design-system", "retired (gone)"]);
   const fieldBox = (await field.boundingBox())!;
   for (const index of [0, 1]) {

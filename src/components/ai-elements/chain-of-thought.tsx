@@ -1,16 +1,16 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
-import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
-import { StepRail } from "@/components/ads/components/StepRail";
-import { agentSurface } from "@/components/ads/recipes/agent-surface";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { InlineDisclosureIcon } from "@/components/aui/components/inline-disclosure-icon";
+import { StepRail } from "@/components/aui/components/StepRail";
+import { agentSurface } from "@/components/aui/recipes/agent-surface";
 import {
   controlHeights,
   controlIconSizes,
-} from "@/components/ads/recipes/control-metrics";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { inlineDisclosure } from "@/components/ads/recipes/inline-disclosure";
+} from "@/components/aui/recipes/control-metrics";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { inlineDisclosure } from "@/components/aui/recipes/inline-disclosure";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import {
   cloneElement,
@@ -24,7 +24,7 @@ import {
 } from "react";
 import { Brain, Check, ChevronDown, Circle } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { TranscriptWideScope } from "./transcript-wide";
 import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
@@ -337,7 +337,7 @@ export function ChainOfThoughtTrigger(
   );
 
   return (
-    <AdsButton
+    <AuiButton
       layout="host"
       type="button"
       /* The trigger owns a disclosure, so it reports its own expanded state:
@@ -395,7 +395,7 @@ export function ChainOfThoughtTrigger(
           ))}
         </span>
       ) : null}
-    </AdsButton>
+    </AuiButton>
   );
 }
 
@@ -459,10 +459,10 @@ export function ChainOfThoughtContent({
    * every step header pinned and only glides the prose that is actually long.
    */
   /*
-   * The container is ADS `StepRail`: the step gutter and the connector rule are
-   * one primitive shared with every ADS-backed row in the trace, so a
+   * The container is AUI `StepRail`: the step gutter and the connector rule are
+   * one primitive shared with every AUI-backed row in the trace, so a
    * `Thinking` row and a host `ChainOfThoughtStep` cannot disagree about where
-   * the rail sits. Host motion arrives through `xstyle`, which ADS merges last,
+   * the rail sits. Host motion arrives through `xstyle`, which AUI merges last,
    * so the reveal wins over the rail's own grid without depending on bundler
    * emission order.
    */
@@ -506,7 +506,7 @@ export function ChainOfThoughtContent({
 /* ─── Streaming thought viewport ──────────────────────────────────── */
 
 /**
- * The capped viewport for a single streaming thought, now ADS
+ * The capped viewport for a single streaming thought, now AUI
  * `CappedViewport`.
  *
  * The three things this surface has to get right — the cap belongs to the
@@ -534,7 +534,7 @@ export function StreamingThoughtViewport({
 }
 
 /**
- * The cap, in px because ADS sizes its bounded payloads in px and the mask band
+ * The cap, in px because AUI sizes its bounded payloads in px and the mask band
  * is measured against this exact number. It is the same ~14 lines of body copy
  * the em-based cap resolved to at the default message size.
  */
@@ -588,9 +588,9 @@ export function ChainOfThoughtStep({
   const resolvedTitle = titleContent ?? title;
 
   /*
-   * The step's rail is ADS `StepRail.Step`, and the status mark moves inline
+   * The step's rail is AUI `StepRail.Step`, and the status mark moves inline
    * into the title row. One leading mark per row is the anatomy every
-   * ADS-backed row in this trace already has — glyph, label, meta, chevron —
+   * AUI-backed row in this trace already has — glyph, label, meta, chevron —
    * and a second mark out in the gutter restated the status the row's own
    * spinner and ink already carry.
    */
@@ -613,7 +613,7 @@ export function ChainOfThoughtStep({
     >
       <div className={sx(s.contentColumn)}>
         {hasContent ? (
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             xstyle={s.disclosure}
@@ -626,7 +626,7 @@ export function ChainOfThoughtStep({
             <ChevronDown
               className={sx(s.disclosureChevron, open && s.disclosureChevronOpen)}
             />
-          </AdsButton>
+          </AuiButton>
         ) : (
           <div className={sx(s.staticRow)}>
             {statusIcon}

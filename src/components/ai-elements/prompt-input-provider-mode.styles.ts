@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const providerModeStyles = stylex.create({
   iconManual: { color: "var(--prompt-mode-manual)" },
@@ -52,19 +52,19 @@ export const providerModeStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontWeight: vars["--aui-font-weight-medium"],
     lineHeight: 1,
   },
   popover: { width: "22rem" },
   optionList: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   // The selected preset's action list, on the option rows' text inset so it
   // reads as part of that option rather than a new section.
   presetActions: {
-    paddingBlockEnd: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-8"],
+    paddingBlockEnd: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-8"],
   },
 });

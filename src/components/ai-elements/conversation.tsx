@@ -18,7 +18,7 @@ import {
 } from "react";
 import { ArrowDown, Download } from "lucide-react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { conversationStyles as styles } from "./conversation.styles";
 import {
   correctAnchorScrollTop,
@@ -1269,7 +1269,7 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
       size="sm"
       iconOnly={!labeled}
       variant="floating"
-      // `xstyle`, not `className`: placement composes into ADS's own
+      // `xstyle`, not `className`: placement composes into AUI's own
       // `stylex.props` call, so the square/radius/elevation the `floating`
       // weight resolves cannot be beaten by emission order.
       xstyle={styles.floatingButton}

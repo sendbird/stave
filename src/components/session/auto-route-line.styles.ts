@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * The single metadata line Auto leaves above a turn: muted caption text that
@@ -11,16 +11,16 @@ export const autoRouteLineStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
   line: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
+    lineHeight: vars["--aui-line-height-tight"],
     minHeight: 24,
     minWidth: 0,
   },
@@ -41,14 +41,14 @@ export const autoRouteLineStyles = stylex.create({
     width: 12,
   },
   iconWarn: {
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   lead: {
     flexShrink: 0,
   },
   model: {
-    color: vars["--ads-color-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontWeight: vars["--aui-font-weight-medium"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -59,25 +59,25 @@ export const autoRouteLineStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   metaWarn: {
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   separator: {
     flexShrink: 0,
   },
   toggle: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-2"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-2"],
   },
   detail: {
-    paddingInlineStart: vars["--ads-space-16"],
+    paddingInlineStart: vars["--aui-space-16"],
   },
   // Pending: the words share one live region; the clock sits outside it.
   pendingStatus: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minWidth: 0,
   },
   elapsed: {
@@ -90,14 +90,14 @@ export const autoRouteLineStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     // The list's in-turn row gap, so the reply sits where the real one will.
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     // After the list, the last row carries the list's 24px tail; a real row
     // would sit only the 8px row gap below it, so pull up by the difference
     // and the real row lands where this one was.
-    marginTop: `calc(${vars["--ads-space-8"]} - ${vars["--ads-space-24"]})`,
+    marginTop: `calc(${vars["--aui-space-8"]} - ${vars["--aui-space-24"]})`,
     // The same room below as the list's last row, so the composer does not
     // crowd the pending line.
-    paddingBottom: vars["--ads-space-24"],
+    paddingBottom: vars["--aui-space-24"],
     width: "100%",
   },
   // The empty transcript's layout already pads 12px above it; the rest is the
@@ -107,7 +107,7 @@ export const autoRouteLineStyles = stylex.create({
     marginTop: 0,
     paddingTop: {
       default: 0,
-      "@media (min-width: 40rem)": vars["--ads-space-4"],
+      "@media (min-width: 40rem)": vars["--aui-space-4"],
     },
   },
 });

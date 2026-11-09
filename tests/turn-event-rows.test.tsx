@@ -11,7 +11,7 @@ import {
 import { TraceToolRun } from "@/components/session/message/turn-event-tool-runs";
 
 /**
- * The transcript's ADS-backed rows. These pin the two claims the adoption is
+ * The transcript's AUI-backed rows. These pin the two claims the adoption is
  * for: reasoning reports only measured time, and a command result shows an
  * error tone without inventing an exit code the provider never sent.
  */
@@ -31,10 +31,10 @@ describe("ReasoningRow", () => {
   test("defers the busy thought region while its disclosure is closed", () => {
     const markup = renderToStaticMarkup(<ReasoningRow isStreaming text="Reading the changelog" />);
     expect(markup).not.toContain('aria-busy="true"');
-    expect(markup).not.toContain("--ads-capped-viewport-cap:220px");
+    expect(markup).not.toContain("--aui-capped-viewport-cap:220px");
     expect(markup).not.toContain("Reading the changelog");
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain('data-ads-loader-anatomy="think"');
+    expect(markup).toContain('data-aui-loader-anatomy="think"');
   });
 
   test("an empty reasoning pass is one quiet line, not an empty disclosure", () => {
@@ -76,7 +76,7 @@ describe("CommandResult", () => {
 });
 
 describe("TraceCitations", () => {
-  test("turns URLs in provider output into an ADS source list", () => {
+  test("turns URLs in provider output into an AUI source list", () => {
     const markup = renderToStaticMarkup(
       <TraceCitations output="Found https://stave.dev/install and https://example.com/a" />,
     );
@@ -102,7 +102,7 @@ describe("Tool call card values", () => {
     expect(markup).toContain('data-trace-output-capped="true"');
     expect(markup).toContain('role="log"');
     expect(markup).toContain('aria-label="Output"');
-    expect(markup).toContain("--ads-capped-viewport-cap:220px");
+    expect(markup).toContain("--aui-capped-viewport-cap:220px");
     expect(markup).toContain("src/file-499.ts:1: match");
     expect(markup).toContain('aria-label="Copy"');
     // The line count is measured in the browser once the box overflows.

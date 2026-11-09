@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { Loader } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import { usageStripStyles } from "@/components/layout/status-bar-usage-strip.styles";
 import { describeApiConnectionBalance, describeApiConnectionCredits } from "@/components/layout/status-bar-usage-strip.utils";

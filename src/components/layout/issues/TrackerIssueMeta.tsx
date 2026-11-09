@@ -4,9 +4,9 @@ import {
   priorityToneStyles,
   labelColorStyles,
 } from "./tracker-visual.styles";
-import { Badge } from "../../ads/components/Badge";
-import { PriorityIcon } from "@/components/ads/components/WorkflowIcon";
-import { sx } from "@/components/ads/utils/stylex";
+import { Badge } from "../../aui/components/Badge";
+import { PriorityIcon } from "@/components/aui/components/WorkflowIcon";
+import { sx } from "@/components/aui/utils/stylex";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import {
   TRACKER_PRIORITY_PRESENTATION,
@@ -41,7 +41,7 @@ export function TrackerIssueMeta(props: { task: TrackerIssue; now: Date }) {
     <div className={sx(taskLayoutStyles.meta)}>
       <dl className={sx(taskLayoutStyles.metaGrid)}>
         <MetaField label={tI18n("issues:trackerIssueMeta.status")}>
-          <Badge variant="outline" tone={status.tone}>
+          <Badge variant="outlined" tone={status.tone}>
             {/* The raw status is what the tracker actually shows, so it wins
                 over the normalized label the list groups by. */}
             {task.status.raw || status.label}

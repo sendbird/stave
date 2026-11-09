@@ -3,15 +3,15 @@ import type { ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ads/components/Button";
-import { CappedViewport } from "@/components/ads/components/CappedViewport";
-import { Citation } from "@/components/ads/components/Citation";
-import type { CitationSource } from "@/components/ads/components/Citation.parts";
-import { Thinking } from "@/components/ads/components/Thinking";
+import { Button } from "@/components/aui/components/Button";
+import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { Citation } from "@/components/aui/components/Citation";
+import type { CitationSource } from "@/components/aui/components/Citation.parts";
+import { Thinking } from "@/components/aui/components/Thinking";
 import { StreamingThoughtViewport } from "@/components/ai-elements/chain-of-thought";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { LinkifiedText } from "@/components/ui/linkified-text";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 import { extractOutputUrls, toUrlSource } from "./turn-event-state";
 import { turnEventRowStyles as styles } from "./turn-event-rows.styles";
@@ -52,7 +52,7 @@ function useOverflowing(enabled: boolean) {
 /**
  * Tool output for one of `ToolRun`'s labelled sections.
  *
- * ADS puts plain values in `input`/`output` and reserves `children` for a
+ * AUI puts plain values in `input`/`output` and reserves `children` for a
  * primitive that draws its own recessed surface, so this is deliberately not a
  * surface: it is the value, in the machine register, plus the one secondary
  * affordance §9 names for it. `ToolRun` has no copy slot of its own — the copy
@@ -65,7 +65,7 @@ export function TraceOutput(args: {
   prose?: boolean;
   text: string;
   /**
-   * Hold the value to the shared 220px cap (ADS `CappedViewport`): a long
+   * Hold the value to the shared 220px cap (AUI `CappedViewport`): a long
    * result scrolls inside its section, with a fade at the cut and a line count
    * under it, instead of pushing the conversation down.
    */
@@ -136,7 +136,7 @@ export function TraceOutput(args: {
 /**
  * The sources a web search or fetch grounded the turn in.
  *
- * `Citation.List` is the ADS surface for provenance, and it reads the same
+ * `Citation.List` is the AUI surface for provenance, and it reads the same
  * `CitationSource` shape as the inline mark, so a source row and a mark cannot
  * disagree about what `[2]` means. The host's only job is to turn provider
  * output into that shape: the URL is the destination, its host is the
@@ -186,7 +186,7 @@ export function TurnSources(args: { urls: readonly string[] }) {
 }
 
 /**
- * The turn's reasoning, rendered through ADS `Thinking`.
+ * The turn's reasoning, rendered through AUI `Thinking`.
  *
  * Three behaviours move out of the host and into the component, which is the
  * whole point of the adoption: the phase label shimmers through the shared

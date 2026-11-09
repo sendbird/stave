@@ -2,8 +2,8 @@ import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import type { SkillCatalogState } from "@/store/app-store.types";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 

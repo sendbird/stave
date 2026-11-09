@@ -1,8 +1,8 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { Accordion, type AccordionEntry } from "@/components/ads/components/Accordion";
+import { Accordion, type AccordionEntry } from "@/components/aui/components/Accordion";
 import { Badge } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { changelogSectionStyles as styles } from "./settings-dialog-changelog-section.styles";

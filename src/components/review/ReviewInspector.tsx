@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { useAsync } from "@/components/ads/utils/async";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { useAsync } from "@/components/aui/utils/async";
+import { sx } from "@/components/aui/utils/stylex";
 import { AgentRunDoneWhen } from "@/components/agent-runs/AgentRunDoneWhen";
 import { ApprovalRecordView } from "@/components/approvals/ApprovalRecord";
 import { describeLensReviewVerdict, LensReviewRecordView } from "@/components/panes/surfaces/lens/LensReviewRecordView";
@@ -13,7 +13,7 @@ import type { LensReviewRecord } from "@/lib/lens/lens-review-record";
 import type { ReviewScope } from "@/lib/review/review-scope";
 import { findStageRecord } from "@/lib/review/review-stage";
 import type { AgentRunStageRecord } from "@/lib/agent-runs/domain";
-import type { AsyncState } from "@/components/ads/utils/async";
+import type { AsyncState } from "@/components/aui/utils/async";
 import { useTaskApprovals, useTurnApprovals, useWindowApprovals, type ReviewApprovals as ReviewApprovalsData } from "./useReviewApprovals";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
@@ -119,7 +119,7 @@ function ReviewLensRecords(props: { taskId: string }) {
     <section className={sx(styles.section)} aria-label={i18n.t("review:lens.title")}>
       <h3 className={sx(styles.sectionTitle)}>{i18n.t("review:lens.title")}</h3>
       <AsyncBoundary state={records.state} onRetry={records.refresh} describeError={() => i18n.t("review:lens.readFailed")}
-        isEmpty={(list) => list.length === 0} empty={<p className={sx(styles.note)}>{i18n.t("review:lens.none")}</p>}>
+        isEmpty={(list) => list.length === 0} emptyState={<p className={sx(styles.note)}>{i18n.t("review:lens.none")}</p>}>
         {(list) => (
           <ul className={sx(styles.list)}>
             {list.map((record) => <ReviewLensRecord key={record.id} taskId={props.taskId} record={record} />)}

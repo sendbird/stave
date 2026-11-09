@@ -3,7 +3,7 @@ import { formatTime } from "@/i18n/format";
 import { useId, useState } from "react";
 import { KeyRound } from "lucide-react";
 import { Button, Input } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { MAX_BOUND_SECRETS } from "@/lib/secrets/secrets";
 import type { PendingSecretRequest } from "@/lib/secrets/secret-request";
 import { secretRequestCardStyles as styles } from "./secret-request-card.styles";

@@ -17,6 +17,7 @@ import { TaskStatusAnnouncer } from "@/components/layout/TaskStatusAnnouncer";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
+import { TarsView } from "@/components/tars/TarsView";
 import { AgentsView } from "@/components/agents/AgentsView";
 import { UsageView } from "@/components/usage/UsageView";
 import {
@@ -38,7 +39,7 @@ import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-pa
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import { Toaster, toast } from "@/components/ui";
-import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
+import { Skeleton } from "@/components/aui/components/Skeleton";
 import { OverlayLoadingFallback } from "@/components/layout/OverlayLoadingFallback";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { QuitConfirmationDialog } from "@/components/layout/QuitConfirmationDialog";
@@ -46,7 +47,7 @@ import { requestComparePreparation } from "@/components/compare/compare-prepare-
 import { listLatestWorkspaceTurns } from "@/lib/db/turns.db";
 import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
 import { layers } from "@/lib/ui-layers.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";
@@ -1165,6 +1166,8 @@ export function AppShell() {
                     <FleetView />
                   ) : showAutomationCenter ? (
                     <AutomationCenterView />
+                  ) : activeAppSurface.kind === "tars" ? (
+                    <TarsView />
                   ) : showAgents ? (
                     <AgentsView />
                   ) : activeAppSurface.kind === "usage" ? (
@@ -1173,8 +1176,8 @@ export function AppShell() {
                   ) : showIssues ? (
                     <Suspense
                       fallback={
-                        <LoadingSurface
-                          size="fill"
+                        <Skeleton.Surface
+                          layout="fill"
                           label={i18n.t("shell:appShell.loadingIssues")}
                         />
                       }

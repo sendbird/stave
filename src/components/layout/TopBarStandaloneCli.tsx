@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { CSSProperties } from "react";
 import { Terminal } from "lucide-react";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Button, Popover, PopoverTrigger } from "@/components/ui";
 import { StandaloneCliPopoverContent } from "@/components/layout/standalone-cli/StandaloneCliPopover";
 import * as stylex from "@stylexjs/stylex";

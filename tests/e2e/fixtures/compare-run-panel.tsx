@@ -7,7 +7,7 @@ import type { CompareRun } from "@/lib/compare-runs";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
 import { useAppStore } from "@/store/app.store";
-import "@/components/ads/styles.css";
+import "@/components/aui/styles.css";
 import "@/globals.css";
 
 /**

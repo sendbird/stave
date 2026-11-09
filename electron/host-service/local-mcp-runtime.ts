@@ -2366,7 +2366,7 @@ export async function getTaskSupervisionSnapshot(args: {
  * so a repeated failure of the same kind collapses into one row.
  */
 /** Adds an idle task; only the existing supervisor starts its turns. */
-export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null; taskId?: string; parentTaskId?: string }) {
+export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null; autoRouting?: boolean; taskId?: string; parentTaskId?: string }) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
   if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);

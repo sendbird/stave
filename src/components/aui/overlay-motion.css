@@ -1,0 +1,458 @@
+/*
+ * Overlay & surface motion: every Base UI overlay's enter/exit arms, the toast
+ * stack and, last, the Reduce Motion and `data-instant` overrides that must
+ * out-specify them. Imported from `styles.css`, unlayered.
+ *
+ * Timing, enter / exit (design-direction §3.3); an exit is always shorter.
+ * Enter AND exit ride `--atelier-motion-ease-out` (an `ease-in-out` exit hesitated
+ * a frame). Nothing here bounces: the bounce is the sidebar signature. Docked
+ * sheets enter on `…-spring-snappy` (~2%, sub-pixel at 32px). No blur.
+ *   hover, colour, halo    150 / 150ms  CSS `ease` (`recipes/transition.ts`)
+ *   menu, popover, select  220 / 80ms   .97 → 1 from the trigger (ink 150ms)
+ *   tooltip                100 / 0ms    opacity; grouped neighbours instant
+ *   dialog                 220 / 120ms  .96 → 1, exit .99
+ *   full-screen            220 / 120ms  opacity only
+ *   ⌘K palette             120 / 80ms   opacity only; from the keyboard, none
+ *   drawer, PeekPanel      340 / 150ms  32px in, 8px out, swipes exit their way
+ *   toast                  220 / 120ms  8px travel; the stack moves apart
+ *   disclosure panel       220 / 120ms  rise 4px; the sidebar's is the signature
+ */
+
+.atelier-motion-backdrop {
+  opacity: 1;
+  transition: opacity var(--atelier-motion-duration-normal)
+    var(--atelier-motion-ease-out);
+}
+
+.atelier-motion-backdrop[data-starting-style],
+.atelier-motion-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.atelier-motion-backdrop[data-ending-style] {
+  transition-duration: var(--atelier-motion-duration-fast);
+}
+
+.atelier-motion-modal {
+  --atelier-surface-translate: translate(-50%, -50%);
+
+  opacity: 1;
+  transform: var(--atelier-surface-translate) scale(1);
+  transform-origin: center;
+  transition:
+    transform var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-out),
+    opacity var(--atelier-motion-duration-normal) var(--atelier-motion-ease-out);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-modal[data-starting-style] {
+  opacity: 0;
+  transform: var(--atelier-surface-translate)
+    scale(var(--atelier-motion-modal-scale));
+}
+
+.atelier-motion-modal[data-ending-style] {
+  opacity: 0;
+  transform: var(--atelier-surface-translate)
+    scale(var(--atelier-motion-modal-close-scale));
+  transition-duration: var(--atelier-motion-duration-fast);
+}
+
+/*
+ * Top-anchored modal (the ⌘K palette): translated on X only, and opacity-only
+ * at the colour pair (120 / 80ms) — a grow on every ⌘K read as lag; from the
+ * keyboard it lands at once (`data-instant`, last arm). DOUBLED class (0,2,0)
+ * to beat `.atelier-motion-modal` and the popup's StyleX fallback transform;
+ * the exit arm is (0,3,0) to beat the modal's exit arm.
+ */
+.atelier-motion-modal.atelier-motion-modal-top {
+  --atelier-surface-translate: translateX(-50%);
+
+  transform-origin: top center;
+  transition-duration: var(--atelier-motion-duration-fast);
+}
+
+.atelier-motion-modal.atelier-motion-modal-top:is(
+    [data-starting-style],
+    [data-ending-style]
+  ) {
+  transform: var(--atelier-surface-translate);
+}
+
+.atelier-motion-modal.atelier-motion-modal-top[data-ending-style] {
+  transition-duration: var(--atelier-motion-duration-micro);
+}
+
+/* A full-screen surface already fills the view; scaling it reads as a zoom. */
+.atelier-motion-fullscreen {
+  opacity: 1;
+  transition: opacity var(--atelier-motion-duration-normal)
+    var(--atelier-motion-ease-out);
+}
+
+.atelier-motion-fullscreen[data-starting-style],
+.atelier-motion-fullscreen[data-ending-style] {
+  opacity: 0;
+}
+
+.atelier-motion-fullscreen[data-ending-style] {
+  transition-duration: var(--atelier-motion-duration-fast);
+}
+
+/*
+ * Anchored popups (menus, selects, comboboxes, popovers, preview cards, the
+ * navigation menu) grow from the trigger edge Base UI publishes as
+ * `--transform-origin`. Opened dozens of times a minute: small travel (.97),
+ * ink at the quick beat, micro exit, all on the ease-out (no overshoot).
+ */
+.atelier-motion-dropdown {
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: var(--transform-origin, top center);
+  transition:
+    transform var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-out),
+    opacity var(--atelier-motion-duration-quick) var(--atelier-motion-ease-out);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-dropdown[data-starting-style] {
+  opacity: 0;
+  transform: scale(var(--atelier-motion-dropdown-scale));
+}
+
+.atelier-motion-dropdown[data-ending-style] {
+  opacity: 0;
+  transform: scale(var(--atelier-motion-dropdown-close-scale));
+  transition-duration: var(--atelier-motion-duration-micro);
+}
+
+/*
+ * `--atelier-drawer-axis-*` are unit multipliers for the docked edge (Drawer
+ * and the mobile sidebar set them). A drawer the user swiped away leaves the
+ * way the finger was going: Base UI keeps `--drawer-swipe-movement-*` at the
+ * release offset and marks the popup `data-swipe-dismiss`, so the exit starts
+ * from where the drag let go instead of travelling back toward the open
+ * position first.
+ */
+.atelier-motion-drawer {
+  opacity: 1;
+  transform: translate(0, 0);
+  transition:
+    transform var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-spring-snappy),
+    opacity var(--atelier-motion-duration-panel) var(--atelier-motion-ease-out);
+  will-change: transform, opacity;
+}
+
+.atelier-motion-drawer[data-starting-style] {
+  opacity: 0;
+  transform: translate(
+    calc(
+      var(--atelier-drawer-axis-x, 1) * var(--atelier-motion-drawer-distance)
+    ),
+    calc(
+      var(--atelier-drawer-axis-y, 0) * var(--atelier-motion-drawer-distance)
+    )
+  );
+}
+
+.atelier-motion-drawer[data-ending-style] {
+  opacity: 0;
+  transform: translate(
+    calc(
+      var(--drawer-swipe-movement-x, 0px) + var(--atelier-drawer-axis-x, 1) *
+        var(--atelier-motion-drawer-close-distance)
+    ),
+    calc(
+      var(--drawer-swipe-movement-y, 0px) + var(--atelier-drawer-axis-y, 0) *
+        var(--atelier-motion-drawer-close-distance)
+    )
+  );
+  transition-duration: var(--atelier-motion-duration-quick);
+  transition-timing-function: var(--atelier-motion-ease-out);
+}
+
+/*
+ * Host: upstream's NavigationMenu arms (`.atelier-motion-nav-positioner`,
+ * `-nav-viewport`, `-nav-content`) are not carried — NavigationMenu is not
+ * installed here, and `tests/aui-motion-layer.test.ts` fails a motion class
+ * with no caller. Restore them with the component.
+ */
+
+.atelier-motion-collapse {
+  block-size: var(--accordion-panel-height, var(--collapsible-panel-height));
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  overflow: hidden;
+  /* The curve explains expansion without overshooting the measured height. */
+  transition: block-size var(--atelier-motion-duration-normal)
+    var(--atelier-motion-ease-out);
+}
+
+/*
+ * A closed `keepMounted` panel carries `hidden`, whose UA rule loses to any
+ * author `display`: a panel rendered as the caller's own list (`render={<ul />}`
+ * with `display: grid`) stayed full height and hit-testable while closed. The
+ * class + attribute selector wins that fight for every caller.
+ */
+.atelier-motion-collapse[hidden] {
+  display: none;
+}
+
+.atelier-motion-collapse[data-ending-style] {
+  transition-duration: var(--atelier-motion-duration-fast);
+}
+
+.atelier-motion-collapse[data-starting-style],
+.atelier-motion-collapse[data-ending-style] {
+  block-size: 0;
+}
+
+/*
+ * The content rises UPWARD from 4px above, like the sidebar disclosure: a
+ * downward start is scrollable overflow, which Base UI measures as the open
+ * starts, so every disclosure panel grew too tall and snapped back. The same
+ * reason keeps a spring (an overshoot) off this travel and the height.
+ */
+.atelier-motion-panel-inner {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    transform var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-out),
+    opacity var(--atelier-motion-duration-normal) var(--atelier-motion-ease-out);
+}
+
+.atelier-motion-collapse[data-starting-style] .atelier-motion-panel-inner,
+.atelier-motion-collapse[data-ending-style] .atelier-motion-panel-inner {
+  opacity: 0;
+  transform: translateY(calc(var(--atelier-motion-distance-small) * -1));
+}
+
+.atelier-motion-collapse[data-ending-style] .atelier-motion-panel-inner {
+  transition-duration: var(--atelier-motion-duration-fast);
+}
+
+/*
+ * No transition-delay and no scale. The hint's dwell is a JS rest timer on the
+ * trigger (`Tooltip.group.tsx`); the popup itself only has to put ink down, so
+ * it fades in over 100ms and is gone the frame the pointer leaves. A neighbour
+ * inside the group's skip-delay window opens `data-instant` — instantly.
+ */
+.atelier-motion-tooltip {
+  opacity: 1;
+  transition: opacity var(--atelier-motion-duration-tooltip)
+    var(--atelier-motion-ease-out);
+}
+
+.atelier-motion-tooltip[data-starting-style] {
+  opacity: 0;
+}
+
+.atelier-motion-tooltip[data-ending-style] {
+  opacity: 0;
+  transition-duration: 0ms;
+}
+
+/*
+ * Toast stack (Base UI: `--toast-index`, `--toast-offset-y`, swipe-movement
+ * vars, `data-expanded`, `data-swipe-direction`). Collapsed, older toasts peek
+ * and shrink BEHIND the newest — `z-index` falls with the index; DOM order
+ * used to paint the oldest on top. Two properties, two jobs: `transform` is the
+ * stack (depth, fan-out, live swipe offset) on its own emphasis beat;
+ * `translate` is the toast's 8px enter/exit travel, so an exit keeps the
+ * offset the finger left it at and continues the swipe's way.
+ */
+.atelier-toast-stack {
+  --atelier-toast-peek: 12px;
+  --atelier-toast-scale-step: 0.05;
+  --atelier-toast-scale-floor: 0.86;
+  --atelier-toast-travel: var(--atelier-motion-distance-medium);
+
+  opacity: 1;
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(
+      calc(
+        var(--toast-swipe-movement-y) -
+          (var(--toast-index) * var(--atelier-toast-peek))
+      )
+    )
+    scale(
+      max(
+        var(--atelier-toast-scale-floor),
+        1 - (var(--toast-index) * var(--atelier-toast-scale-step))
+      )
+    );
+  transition:
+    transform var(--atelier-motion-duration-emphasis)
+      var(--atelier-motion-ease-out),
+    translate var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-out),
+    opacity var(--atelier-motion-duration-normal) var(--atelier-motion-ease-out),
+    block-size var(--atelier-motion-duration-normal)
+      var(--atelier-motion-ease-out);
+  translate: 0 0;
+  z-index: calc(1000 - var(--toast-index));
+}
+
+.atelier-toast-stack[data-expanded] {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) - var(--toast-offset-y)))
+    scale(1);
+}
+
+.atelier-toast-stack[data-starting-style],
+.atelier-toast-stack[data-ending-style] {
+  opacity: 0;
+  translate: 0 var(--atelier-toast-travel);
+}
+
+.atelier-toast-stack[data-ending-style] {
+  transition-duration:
+    var(--atelier-motion-duration-emphasis),
+    var(--atelier-motion-duration-fast), var(--atelier-motion-duration-fast),
+    var(--atelier-motion-duration-fast);
+}
+
+.atelier-toast-stack[data-ending-style][data-swipe-direction="up"] {
+  translate: 0 calc(var(--atelier-toast-travel) * -1);
+}
+
+.atelier-toast-stack[data-ending-style][data-swipe-direction="down"] {
+  translate: 0 var(--atelier-toast-travel);
+}
+
+.atelier-toast-stack[data-ending-style][data-swipe-direction="left"] {
+  translate: calc(var(--atelier-toast-travel) * -1) 0;
+}
+
+.atelier-toast-stack[data-ending-style][data-swipe-direction="right"] {
+  translate: var(--atelier-toast-travel) 0;
+}
+
+.atelier-toast-stack[data-swiping] {
+  transition: none;
+}
+
+/* Top-anchored positions: stack downward and enter from above. */
+.atelier-toast-stack-top {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(
+      calc(
+        var(--toast-swipe-movement-y) +
+          (var(--toast-index) * var(--atelier-toast-peek))
+      )
+    )
+    scale(
+      max(
+        var(--atelier-toast-scale-floor),
+        1 - (var(--toast-index) * var(--atelier-toast-scale-step))
+      )
+    );
+}
+
+.atelier-toast-stack-top[data-expanded] {
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(calc(var(--toast-swipe-movement-y) + var(--toast-offset-y)))
+    scale(1);
+}
+
+.atelier-toast-stack-top:is([data-starting-style], [data-ending-style]):not(
+    [data-swipe-direction]
+  ) {
+  translate: 0 calc(var(--atelier-toast-travel) * -1);
+}
+
+/* Host: upstream's `.atelier-toast-stack-tight` (ToastHost `mode="stack"`) is
+ * not carried; that ToastHost mode is not installed here. */
+
+/*
+ * Reduce Motion: spatial changes are immediate, opacity stays a quick fade.
+ *
+ * Every spatial primitive collapses to identity (the `html:root` block — it has
+ * to out-specify the `:root` that declares them in `styles.css`, which is
+ * parsed after this import), so an arm that reads them no longer moves; the
+ * remaining spatial properties get a zero duration and `opacity` keeps
+ * `--atelier-motion-duration-micro` (80ms). A fade is not a vestibular trigger,
+ * and dropping it to 0ms made every overlay a hard cut for exactly the users
+ * who asked for calmer motion.
+ *
+ * Specificity: the enter/exit arms above are `.atelier-motion-x[data-…]`
+ * (0,2,0) and several re-declare `transition-duration`. A media query adds no
+ * specificity and `styles.css` declares only `@layer reset, base`, so both rule
+ * sets are unlayered and compete directly; a bare `.atelier-motion-x` (0,1,0)
+ * override LOSES to every exit arm. Each class is therefore repeated with
+ * `:is([data-starting-style], [data-ending-style])` — `:is()` takes its most
+ * specific argument, so the selector lands at (0,2,0) and source order (this
+ * block is last before the instant arm) decides. Do NOT "simplify" these back
+ * into a bare list, and do not swap `:is()` for `:where()`.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html:root {
+    --atelier-motion-dropdown-scale: 1;
+    --atelier-motion-dropdown-close-scale: 1;
+    --atelier-motion-modal-scale: 1;
+    --atelier-motion-modal-close-scale: 1;
+    --atelier-motion-drawer-distance: 0px;
+    --atelier-motion-drawer-close-distance: 0px;
+    --atelier-motion-distance-small: 0px;
+    --atelier-motion-distance-medium: 0px;
+  }
+
+  .atelier-motion-backdrop,
+  .atelier-motion-fullscreen,
+  .atelier-motion-tooltip,
+  .atelier-motion-modal.atelier-motion-modal-top,
+  .atelier-motion-backdrop:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-fullscreen:is([data-starting-style], [data-ending-style]) {
+    transition-delay: 0ms;
+    transition-duration: var(--atelier-motion-duration-micro);
+  }
+
+  /* `transform, opacity`. */
+  .atelier-motion-modal,
+  .atelier-motion-dropdown,
+  .atelier-motion-drawer,
+  .atelier-motion-panel-inner,
+  .atelier-motion-modal:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-dropdown:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-drawer:is([data-starting-style], [data-ending-style]),
+  .atelier-motion-collapse:is([data-starting-style], [data-ending-style])
+    .atelier-motion-panel-inner {
+    transition-delay: 0ms;
+    transition-duration: 0ms, var(--atelier-motion-duration-micro);
+  }
+
+  .atelier-motion-collapse,
+  .atelier-motion-collapse:is([data-starting-style], [data-ending-style]) {
+    transition-delay: 0ms;
+    transition-duration: 0ms;
+  }
+
+  /* `transform, translate, opacity, block-size`. Host: the `-top` arm is
+     listed too, so the reduced-motion guard test sees every enter/exit arm. */
+  .atelier-toast-stack,
+  .atelier-toast-stack:is([data-starting-style], [data-ending-style]),
+  .atelier-toast-stack-top:is([data-starting-style], [data-ending-style]) {
+    transition-delay: 0ms;
+    transition-duration: 0ms, 0ms, var(--atelier-motion-duration-micro), 0ms;
+  }
+}
+
+/*
+ * Keyboard-frequency opens are instant. Base UI marks a popup `data-instant`
+ * when it opens as a neighbour of one already open — a menubar arrowed or
+ * hovered across, a tooltip inside its group's skip-delay window — or from a
+ * keyboard click, or closes on Escape; `CommandDialog` does the same for ⌘K.
+ * Replaying a fade on each of those is a stutter, not an explanation. Last in
+ * the file so it wins every arm above, Reduce Motion included.
+ */
+.atelier-motion-dropdown[data-instant],
+.atelier-motion-tooltip[data-instant],
+.atelier-motion-backdrop[data-instant],
+.atelier-motion-modal.atelier-motion-modal-top[data-instant] {
+  transition-duration: 0ms;
+}

@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { AlarmClock, Gauge, Play, X } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import type { TaskUsageLimitPause } from "@/store/task-work-pause";
 import { describeUsageLimitLine } from "./composer-shelf.utils";

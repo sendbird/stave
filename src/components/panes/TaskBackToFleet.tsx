@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   navigateSurfaceHistory,
   useBackAppSurfaceKind,

@@ -19,6 +19,13 @@ function createProviderInput() {
 }
 
 describe("secondary run transport contract", () => {
+  test("a context-only claim cannot execute with its tools restriction removed", () => {
+    const ordinary = createProviderInput();
+    const restricted = { ...ordinary, toolsDisabled: true as const };
+    expect(SecondaryRunProviderInputSchema.parse(restricted).toolsDisabled).toBe(true);
+    expect(serializeSecondaryRunInput(restricted)).not.toBe(serializeSecondaryRunInput(ordinary));
+    expect(SecondaryRunProviderInputSchema.safeParse({ ...ordinary, toolsDisabled: false }).success).toBe(false);
+  });
   test("accepts one bounded provider input and stable run claim", () => {
     const input = createProviderInput();
     expect(SecondaryRunProviderInputSchema.parse(input)).toEqual(input);

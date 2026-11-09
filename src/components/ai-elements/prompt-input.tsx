@@ -19,7 +19,8 @@ import {
   resolveComposerControlLayout,
   type ComposerControlId,
 } from "@/lib/composer-controls";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx, cx } from "../aui/utils/stylex";
+import { composerTray } from "../aui/recipes/composer-tray";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
   isShortcutEchoInsertion,
@@ -77,6 +78,9 @@ export function PromptInput(args: PromptInputProps) {
   const {
     disabled,
     minimal = false,
+    chrome = "terminal",
+    invalid = false,
+    errorMessageId,
     isTurnActive,
     submitMode = "send",
     promptBatch = [],
@@ -90,8 +94,9 @@ export function PromptInput(args: PromptInputProps) {
     onRefreshModelCatalogs,
     modelShortcutKeys,
     modelShortcutEfforts,
-    windowShortcutsEnabled = true,
+    windowShortcutsEnabled: requestedWindowShortcutsEnabled = true,
     attachedFilePaths,
+    plainText = false,
     attachments,
     promptHistoryEntries,
     promptSuggestions,
@@ -130,7 +135,7 @@ export function PromptInput(args: PromptInputProps) {
     onModelSelect,
     onAttachFilesChange,
     onOpenAttachedFile,
-    onOpenFileSelector,
+    onOpenFileSelector: requestedOpenFileSelector,
     onAttachmentsChange,
     onPasteFiles,
     onProviderModeSelect,
@@ -162,11 +167,15 @@ export function PromptInput(args: PromptInputProps) {
     onAbort,
     onEmptyEditorKey,
   } = args;
+  const attachmentsEnabled = !plainText;
+  const windowShortcutsEnabled = !plainText && requestedWindowShortcutsEnabled;
+  const onOpenFileSelector = attachmentsEnabled ? requestedOpenFileSelector : undefined;
   const isMobile = useIsMobile();
   const useComposerFrame = Boolean(framed && !minimal);
+  const trayChrome = minimal && chrome === "tray";
   const useComposerWings = useComposerFrame && !isMobile;
   /**
-   * ADS `size` for an icon-only composer control, picked to land on the same
+   * AUI `size` for an icon-only composer control, picked to land on the same
    * rung of the control ramp as the lane it will stand in: `md` (36) in the
    * classic in-card toolbar, `sm` (32) on the framed bottom shelf, in a wing,
    * and in either overflow menu. Passing the size (rather than overriding the
@@ -184,8 +193,8 @@ export function PromptInput(args: PromptInputProps) {
   const { clipboardReadQueue, handlePaste, attachTransfer, acceptsFiles } = usePromptInputClipboardPaste({
     attachmentScopeId: args.attachmentScopeId,
     workspaceCwd: args.workspaceCwd,
-    onAttachmentsChange,
-    onPasteFiles,
+    onAttachmentsChange: attachmentsEnabled ? onAttachmentsChange : undefined,
+    onPasteFiles: attachmentsEnabled ? onPasteFiles : undefined,
   });
 
   const {
@@ -222,7 +231,7 @@ export function PromptInput(args: PromptInputProps) {
   );
   const composerTextStyle = useComposerTextSize(minimal);
   const interactionsDisabled = Boolean(disabled);
-  const drop = usePromptInputDrop({ onAttachTask, acceptsFiles: acceptsFiles && !interactionsDisabled, attachTransfer });
+  const drop = usePromptInputDrop({ onAttachTask: plainText ? undefined : onAttachTask, acceptsFiles: acceptsFiles && !interactionsDisabled, attachTransfer });
   const promptEnhancementBusy =
     promptEnhancementPending || promptEnhancementRevealing;
   const promptEnhancementState = promptEnhancementPending
@@ -317,6 +326,7 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   const palette = usePromptInputPaletteState({
+    enabled: !plainText,
     value,
     caretIndex,
     selectedModel,
@@ -537,6 +547,9 @@ export function PromptInput(args: PromptInputProps) {
           className={sx(
             promptInputStyles.formBase,
             minimal ? promptInputStyles.formMinimal : promptInputStyles.formDefault,
+            trayChrome && promptInputStyles.formTray,
+            trayChrome && composerTray.field,
+            trayChrome && invalid && composerTray.fieldError,
             (drop.taskDropActive || drop.fileDropActive) && promptInputStyles.formTaskDrop,
           )}
         >
@@ -600,7 +613,7 @@ export function PromptInput(args: PromptInputProps) {
             >
               <div
                 className={
-                  minimal ? sx(promptInputStyles.minimalBox) : undefined
+                  minimal ? sx(promptInputStyles.minimalBox, trayChrome && promptInputStyles.minimalBoxTray) : undefined
                 }
               >
                 <div
@@ -609,7 +622,7 @@ export function PromptInput(args: PromptInputProps) {
                   )}
                   style={composerTextStyle}
                 >
-                  {minimal ? (
+                  {minimal && !trayChrome ? (
                     <span className={sx(promptInputStyles.promptCaretGlyph)}>
                       {i18n.t("composer:promptInput.composerCard")}</span>
                   ) : null}
@@ -632,10 +645,12 @@ export function PromptInput(args: PromptInputProps) {
                     ) : null}
                     <PromptLexicalEditor
                       ref={promptEditorRef}
+                      plainText={plainText}
+                      invalid={invalid} errorMessageId={invalid ? errorMessageId : undefined}
                       value={value}
                       selectionRange={promptEditorSelectionRange}
                       disabled={interactionsDisabled || promptEnhancementBusy}
-                      minimal={minimal}
+                      minimal={minimal && !trayChrome}
                       commandPaletteItems={commandPaletteItems}
                       skillPaletteItems={skillPaletteItems}
                       workspaceInformationReferenceOptions={
@@ -673,7 +688,7 @@ export function PromptInput(args: PromptInputProps) {
                         handlePromptEditorKeyDown(event, {
                           palette,
                           selection: paletteSelection,
-                          handleModelShortcut,
+                          handleModelShortcut: plainText ? () => false : handleModelShortcut,
                           applyPromptHistoryNavigation,
                           submitCurrentMessage,
                           isTurnActive,
@@ -681,12 +696,12 @@ export function PromptInput(args: PromptInputProps) {
                           steerQueueEnterAction,
                           promptCommentShortcut,
                           onAbort,
-                          onStagePromptBatch,
+                          onStagePromptBatch: plainText ? undefined : onStagePromptBatch,
                           onEmptyEditorKey: hasDraftPayload ? undefined : onEmptyEditorKey,
                         })
                       }
                       placeholder={
-                        placeholder.kind === "none"
+                        plainText ? i18n.t("composer:promptInput.plainTextPlaceholder") : placeholder.kind === "none"
                           ? ""
                           : placeholder.kind === "steer-queue"
                             ? formatSteerQueueEnterActionLabel(
@@ -702,7 +717,7 @@ export function PromptInput(args: PromptInputProps) {
                         minimal
                           ? promptInputStyles.editorSizeMinimal
                           : promptInputStyles.editorSizeDefault,
-                        minimal
+                        minimal && !trayChrome
                           ? PROMPT_EDITOR_TYPOGRAPHY_MINIMAL
                           : PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
                         shouldShowPromptEnhancement &&
@@ -725,7 +740,7 @@ export function PromptInput(args: PromptInputProps) {
                         segments={promptEnhancementReveal.segments}
                         stepMs={promptEnhancementReveal.stepMs}
                         className={sx(
-                          minimal
+                          minimal && !trayChrome
                             ? PROMPT_EDITOR_TYPOGRAPHY_MINIMAL
                             : PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
                           shouldShowPromptEnhancement &&
@@ -733,7 +748,7 @@ export function PromptInput(args: PromptInputProps) {
                         )}
                       />
                     ) : null}
-                    {minimal && isPromptInputFocused && value.length === 0 ? (
+                    {minimal && !trayChrome && isPromptInputFocused && value.length === 0 ? (
                       <span
                         aria-hidden="true"
                         className={sx(promptInputStyles.terminalCaret)}
@@ -832,6 +847,7 @@ export function PromptInput(args: PromptInputProps) {
               />
             ) : null}
             <PromptInputActions
+              attachmentsEnabled={attachmentsEnabled}
               sideQuestionControl={toolbarFit.sideQuestion}
               contextMeter={contextMeter}
               minimal={minimal}

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { modelEffortSelectorStyles } from "@/components/ai-elements/model-effort-selector.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 const originalWindow = globalThis.window;
 

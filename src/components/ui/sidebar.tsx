@@ -23,4 +23,4 @@ export {
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
-} from "../ads/components/AppShell";
+} from "../aui/components/AppShell";

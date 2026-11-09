@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { Sparkles } from "lucide-react";
 import { ComposerOptionCard, ComposerOptionMenuCallout } from "@/components/ai-elements/composer-option-menu";
 import type { AgentModelRoute } from "@/lib/agents/selector-choice";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
 
 /**

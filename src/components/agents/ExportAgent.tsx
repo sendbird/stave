@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { Select } from "@/components/ads/components/Select";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Select } from "@/components/aui/components/Select";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   AGENT_EXPORT_FORMAT_LABELS,
   AGENT_EXPORT_FORMATS,

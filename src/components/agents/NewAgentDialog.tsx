@@ -1,11 +1,11 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { Dialog } from "@/components/ads/components/Dialog";
-import { Button } from "@/components/ads/components/Button";
-import { TextField } from "@/components/ads/components/TextField";
-import { Textarea } from "@/components/ads/components/Textarea";
-import { sx } from "@/components/ads/utils/stylex";
+import { Dialog } from "@/components/aui/components/Dialog";
+import { Button } from "@/components/aui/components/Button";
+import { TextField } from "@/components/aui/components/TextField";
+import { Textarea } from "@/components/aui/components/Textarea";
+import { sx } from "@/components/aui/utils/stylex";
 import { MAX_AGENT_DESCRIPTION_CHARS, type AgentDraftResult } from "@/lib/agents/draft-with-ai";
 import { blankCustomAgent, duplicateAgent } from "@/lib/agents/library";
 import type { AgentConfig } from "@/lib/agents/schema";

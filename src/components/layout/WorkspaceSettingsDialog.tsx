@@ -12,8 +12,8 @@ import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
 import { ScriptsManager } from "@/components/scripts";
 import { WorkspaceSyncStatusCard } from "./WorkspaceSyncStatusCard";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx } from "@/components/aui/utils/stylex";
 import { workspaceSettingsDialogStyles as styles } from "./workspace-settings-dialog.styles";
 import { useTranslation } from "@/i18n";
 

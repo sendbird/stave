@@ -9,9 +9,9 @@ import {
 } from "@/lib/tracker-issues/presentation";
 import type { TrackerSourceSummary } from "@/lib/tracker-issues/source-status";
 import type { TrackerSourceSyncStatus } from "@/lib/tracker-issues/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { taskLayoutStyles } from "./issues-layout.stylex";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 
 export interface IssuesSurfaceHeaderProps {
   summaries: readonly TrackerSourceSummary[];

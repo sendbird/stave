@@ -1,4 +1,4 @@
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 /**
  * How long a wait may run before its age stops reading as routine: one table

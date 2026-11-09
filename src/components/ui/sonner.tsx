@@ -1,4 +1,4 @@
-import { ToastHost } from "../ads/components/ToastHost";
+import { ToastHost } from "../aui/components/ToastHost";
 import { toastManager, workspaceToastManager } from "@/lib/notifications/toast";
 
 /** General notifications stay above the task; workspace status clears its controls. */
@@ -8,7 +8,7 @@ function Toaster() {
       <ToastHost toastManager={toastManager} position="top-center" />
       <ToastHost
         toastManager={workspaceToastManager}
-        position="bottom-right"
+        position="bottom-end"
         avoid="[data-toast-avoid]"
       />
     </>

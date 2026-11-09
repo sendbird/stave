@@ -1,10 +1,10 @@
 import { useTranslation } from "@/i18n";
-import { focusRing } from "../ads/recipes/focus-ring";
-import { transition } from "../ads/recipes/transition";
+import { focusRing } from "../aui/recipes/focus-ring";
+import { transition } from "../aui/recipes/transition";
 import { Tabs } from "@base-ui/react/tabs";
 import * as stylex from "@stylexjs/stylex";
 import { Fragment, type ReactNode } from "react";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /** Vertical category navigation inside an existing Base UI tabs root. */
 export function SelectionRail({
@@ -71,26 +71,26 @@ const styles = stylex.create({
     gap: 4,
     borderRightWidth: 1,
     borderRightStyle: "solid",
-    borderRightColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-canvas"],
+    borderRightColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-canvas"],
   },
   heading: {
     display: { default: "block", "@media (max-width: 479px)": "none" },
     flexShrink: 0,
     paddingInline: 8,
     paddingBlockStart: 4,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontWeight: 550,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   divider: {
     flexShrink: 0,
-    height: vars["--ads-border-width-hairline"],
+    height: vars["--aui-border-width-hairline"],
     marginInline: 8,
     marginBlock: 2,
-    backgroundColor: vars["--ads-color-border"],
+    backgroundColor: vars["--aui-color-border"],
   },
   tab: {
     display: "flex",
@@ -101,20 +101,20 @@ const styles = stylex.create({
     width: "100%",
     flexShrink: 0,
     paddingInline: 8,
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     borderWidth: 1,
     borderStyle: "solid",
     borderColor: "transparent",
-    color: vars["--ads-color-text-muted"],
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-surface-tint"] },
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    backgroundColor: { default: "transparent", ":hover": vars["--aui-color-surface-tint"] },
+    fontSize: vars["--aui-font-size-caption"],
     fontWeight: 550,
     cursor: "pointer",
   },
   selected: {
-    color: vars["--ads-color-text"],
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface-tint"],
+    color: vars["--aui-color-text"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface-tint"],
   },
   label: {
     display: { default: "block", "@media (max-width: 479px)": "none" },
@@ -127,7 +127,7 @@ const styles = stylex.create({
   },
   count: {
     display: { default: "block", "@media (max-width: 479px)": "none" },
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
 });

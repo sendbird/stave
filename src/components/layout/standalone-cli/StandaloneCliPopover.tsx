@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { X } from "lucide-react";
 import { Button, PopoverContent } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
 import { StandaloneCliTerminal } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
 import { useStandaloneCliInstalledTabIds } from "@/components/layout/standalone-cli/useStandaloneCliInstalledTabIds";

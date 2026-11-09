@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import { formatAgentRunBadge, type AgentRunStatus } from "@/lib/agent-runs/agent-run-status";
 
 /**

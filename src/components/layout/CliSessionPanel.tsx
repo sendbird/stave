@@ -50,7 +50,7 @@ import {
   TERMINAL_SURFACE_VIEWPORT_CLASS_NAME,
   terminalSurfaceStyles,
 } from "@/components/layout/terminal-surface-styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { cliSessionPanelStyles as styles } from "@/components/layout/cli-session-panel.styles";
 import { useAppStore } from "@/store/app.store";
 

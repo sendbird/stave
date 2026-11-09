@@ -101,8 +101,8 @@ test("Expand moves keyboard focus to the first line it revealed", async ({ page 
 /** Each diff row's line-number layout: 2 cells in a unified row, 1 per half in a split row. */
 const lineNumberCellsPerHolder = (diff: ReturnType<Page["locator"]>) =>
   diff.evaluate((root) => [...new Set(
-    [...root.querySelectorAll("div:has(> [data-ads-slot='line-number'])")]
-      .map((holder) => holder.querySelectorAll(":scope > [data-ads-slot='line-number']").length),
+    [...root.querySelectorAll("div:has(> [data-aui-slot='line-number'])")]
+      .map((holder) => holder.querySelectorAll(":scope > [data-aui-slot='line-number']").length),
   )]);
 
 test("Review draws the split layout from Settings, and unified when the pane is narrow", async ({ page }) => {

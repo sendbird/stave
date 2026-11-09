@@ -1,30 +1,30 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const managerStyles = stylex.create({
   /**
    * A body row's heading cell (the workspace or process it measures): the
-   * ADS table's head cell keeps its padding and rule, and reads as body text.
+   * AUI table's head cell keeps its padding and rule, and reads as body text.
    */
   rowHeading: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-regular"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-regular"],
+    lineHeight: vars["--aui-line-height-normal"],
     minWidth: "10rem",
     overflowWrap: "anywhere",
     verticalAlign: "top",
     whiteSpace: "normal",
   },
   numericCell: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
     width: "1%",
     verticalAlign: "top",
   },
-  shareMeter: { marginBlockStart: vars["--ads-space-4"] },
+  shareMeter: { marginBlockStart: vars["--aui-space-4"] },
   processTitle: {
     display: "flex",
     alignItems: "baseline",
@@ -42,8 +42,8 @@ export const managerStyles = stylex.create({
   },
   pageMeta: {
     gridColumn: "1 / -1",
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   groupHeading: {
     display: "flex",
@@ -77,8 +77,8 @@ export const managerStyles = stylex.create({
     flexWrap: "wrap",
   },
   muted: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   list: {
     overflowY: "auto",
@@ -86,7 +86,7 @@ export const managerStyles = stylex.create({
     maxHeight: "min(52vh, 32rem)",
     borderBlockWidth: 1,
     borderBlockStyle: "solid",
-    borderBlockColor: vars["--ads-color-border"],
+    borderBlockColor: vars["--aui-color-border"],
   },
   row: {
     display: "flex",
@@ -96,7 +96,7 @@ export const managerStyles = stylex.create({
     paddingInline: 4,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
   },
   identity: { flex: 1, minWidth: 0, display: "grid", gap: 4 },
   truncate: {
@@ -105,8 +105,8 @@ export const managerStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   value: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
     whiteSpace: "nowrap",
   },
   actions: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" },
@@ -127,7 +127,7 @@ export const managerStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   message: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     overflowWrap: "anywhere",
   },
   summary: { cursor: "pointer", paddingBlock: 10, fontWeight: 500 },
@@ -143,7 +143,7 @@ export const managerStyles = stylex.create({
     paddingBlock: 4,
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
   },
   detail: { display: "grid", gap: 8, paddingBlock: 8 },
   process: {
@@ -151,6 +151,6 @@ export const managerStyles = stylex.create({
     justifyContent: "space-between",
     alignItems: "center",
     gap: 10,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
 });

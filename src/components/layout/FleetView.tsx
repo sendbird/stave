@@ -2,9 +2,9 @@ import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { AppliedFilters } from "@/components/aui/components/AppliedFilters";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { fleetAppliedFilters } from "@/lib/fleet/fleet-applied-filters";
 import {
@@ -76,12 +76,18 @@ import { type WorkQueueLane } from "@/lib/fleet/work-attention-order";
 import { orderFleetBoardWorkspaces } from "@/lib/fleet/fleet-board-order";
 import { agentRunLanesByWorkspace } from "@/lib/agent-runs/lanes";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
 import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import { toast } from "@/lib/notifications/toast";
+import { useTarsSnapshotRefresh } from "@/store/tars-snapshot-store";
+import type { FleetOwnerFilter } from "@/lib/fleet/task-owner";
+import { FleetOwnerFilterMenu } from "@/components/layout/FleetOwnerFilterMenu";
+import type { FleetFocusView } from "@/lib/fleet/fleet-focus";
+import { useFleetFocusRequest } from "@/components/layout/FleetFocusRequest";
+import { useFleetViewStore } from "@/store/fleet-view-store";
 
 type FleetRepositoryView = {
   repositoryPath: string;
@@ -201,6 +207,8 @@ function useCoarseClock() {
 export function FleetView() {
   const { t: tI18n } = useTranslation(["fleet"]);
   useAgentAssignmentsSync();
+  // One read when Fleet opens, for its owner labels; controls read ownership again.
+  useTarsSnapshotRefresh();
   const repositories = useFleetRepositories();
   const [openPath, setOpenPath] = useState(false);
   const openRepositoryFromPath = useAppStore((state) => state.openRepositoryFromPath);
@@ -261,6 +269,8 @@ export function FleetView() {
     Record<string, boolean>
   >({});
   const [boardFilter, setBoardFilter] = useState<FleetTaskTableFilter>("active");
+  // Who owns the work; only the task-row layouts (Tree, Table) narrow by it.
+  const [ownerFilter, setOwnerFilter] = useState<FleetOwnerFilter>("all");
   // Agents with their subagents, cards, or one table of every open task,
   // kept as a UI setting.
   const boardLayout = useAppStore((state) => state.settings.fleetBoardLayout);
@@ -271,6 +281,7 @@ export function FleetView() {
       // The cards have no rows to answer for, so their filters stop at the board's.
       if (layout === "cards") {
         setBoardFilter((current) => (isTableOnlyFilter(current) ? "active" : current));
+        setOwnerFilter("all");
       }
       updateSettings({ patch: { fleetBoardLayout: layout } });
     },
@@ -394,6 +405,12 @@ export function FleetView() {
         setSelectedAttentionId((current) =>
           current === target.id ? null : target.id,
         );
+        return;
+      }
+      // Tars work without a task yet lives only in Tars.
+      if (target.source === "tars") {
+        setSelectedAttentionId(null);
+        useAppStore.getState().openTars();
         return;
       }
       markInboxEntryRead(inboxEntryByItemId.get(target.id));
@@ -576,8 +593,36 @@ export function FleetView() {
 
   const clearFilters = useCallback(() => {
     setBoardFilter("active");
+    setOwnerFilter("all");
     setSearchQuery("");
   }, []);
+
+  // "Open Fleet on this row": show the task with only what hid it reset,
+  // open its panel (the open agent in Tree), and scroll to it.
+  const focusView = useMemo<FleetFocusView>(
+    () => ({ filter: boardFilter, owner: ownerFilter, query: searchQuery, collapsedRepositories }),
+    [boardFilter, collapsedRepositories, ownerFilter, searchQuery],
+  );
+  const showFocusedTask = useCallback(
+    ({ taskKey, view }: { taskKey: string; view: FleetFocusView }) => {
+      setBoardFilter(view.filter);
+      setOwnerFilter(view.owner);
+      setSearchQuery(view.query);
+      setCollapsedRepositories(view.collapsedRepositories);
+      setSelectedAttentionId(null);
+      setExpandedTaskKey(taskKey);
+      if (boardLayout === "tree") useFleetViewStore.getState().setOpenAgentKey(taskKey);
+    },
+    [boardLayout],
+  );
+  useFleetFocusRequest({
+    repositories,
+    layout: boardLayout,
+    nowMs,
+    view: focusView,
+    attentionItemsByWorkspaceId,
+    onShow: showFocusedTask,
+  });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -635,7 +680,7 @@ export function FleetView() {
   const isFilterActive = isFleetBoardFilterActive({
     filter: cardFilter,
     query: searchQuery,
-  }) || isTableOnlyFilter(boardFilter);
+  }) || isTableOnlyFilter(boardFilter) || ownerFilter !== "all";
   const settled = allCardKeys.every(
     (cardKey) => cardKey in visibilityByCardKey,
   );
@@ -801,6 +846,7 @@ export function FleetView() {
                 title: option.hint,
               }))}
             />
+            {showsTaskRows ? <FleetOwnerFilterMenu value={ownerFilter} onChange={setOwnerFilter} /> : null}
             <div className={sx(styles.searchField)}>
               <Search className={sx(styles.searchIcon)} aria-hidden="true" />
               <Input
@@ -859,9 +905,10 @@ export function FleetView() {
               xstyle={styles.appliedFilters}
               label={tI18n("fleet:fleetView.appliedFilters")}
               clearAllLabel={tI18n("fleet:fleetView.clearAllFilters")}
-              filters={fleetAppliedFilters({ filter: boardFilter, query: searchQuery })}
+              filters={fleetAppliedFilters({ filter: boardFilter, owner: ownerFilter, query: searchQuery })}
               onRemove={(id) => {
                 if (id === "query") setSearchQuery("");
+                else if (id === "owner") setOwnerFilter("all");
                 else setBoardFilter("active");
               }}
               onClearAll={clearFilters}
@@ -887,6 +934,7 @@ export function FleetView() {
               <FleetAgentTree
                 repositories={repositories}
                 filter={boardFilter}
+                owner={ownerFilter}
                 searchQuery={searchQuery}
                 nowMs={nowMs}
                 onOpenTask={handleOpenTask}
@@ -896,8 +944,11 @@ export function FleetView() {
               <FleetTaskTable
                 repositories={repositories}
                 filter={boardFilter}
+                owner={ownerFilter}
                 searchQuery={searchQuery}
                 nowMs={nowMs}
+                expandedTaskKey={expandedTaskKey}
+                onCloseTaskControl={() => setExpandedTaskKey(null)}
                 onOpenTask={handleOpenTask}
                 onSummaryChange={setTableSummary}
               />
@@ -947,7 +998,7 @@ export function FleetView() {
                       className={sx(styles.repositorySection)}
                       hidden={hideRepository}
                     >
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         xstyle={[styles.repositoryHeader, focusRing.ringInset]}
@@ -977,7 +1028,7 @@ export function FleetView() {
                           {repositoryVisibleCount}
                         </span>
                         {repository.isCurrent ? (
-                          // A status chip, so it is the ADS `Badge` rather
+                          // A status chip, so it is the AUI `Badge` rather
                           // than a span wearing a hand-rolled hairline, a
                           // `radiusMark`, and an off-ramp font size.
                           <Badge
@@ -986,7 +1037,7 @@ export function FleetView() {
                           >
                             {tI18n("fleet:fleetView.current")}</Badge>
                         ) : null}
-                      </AdsButton>
+                      </AuiButton>
                       <div
                         hidden={isCollapsed}
                         // Width-driven rather than breakpoint-driven: the board

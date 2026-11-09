@@ -2,9 +2,9 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { SidebarEmptyState } from "@/components/layout/SidebarEmptyState";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
@@ -68,7 +68,7 @@ export function WorkQueueLaneList(props: {
             SIDEBAR_WORK_QUEUE_SECTIONS_COLLAPSED_BY_DEFAULT.has(group.section);
           return (
             <div key={group.section} className={sx(repositorySidebarStyles.laneStack)}>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 onClick={() =>
@@ -91,7 +91,7 @@ export function WorkQueueLaneList(props: {
                 />
                 <span className={sx(repositorySidebarStyles.laneLabel)}>{group.label}</span>
                 <span className={sx(repositorySidebarStyles.laneCount)}>{group.entries.length}</span>
-              </AdsButton>
+              </AuiButton>
               {collapsed
                 ? null
                 : group.entries.map((entry) => {

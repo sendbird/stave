@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, type ReactNode } from "react";
-import { Plan, type PlanProps, type PlanStepItem } from "@/components/ads/components/Plan";
+import { Plan, type PlanProps, type PlanStepItem } from "@/components/aui/components/Plan";
 import type { StagePlan } from "@/lib/agent-runs/domain";
 
 /**

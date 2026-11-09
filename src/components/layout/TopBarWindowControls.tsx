@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Minus, Square, X } from "lucide-react";
 import { memo, useEffect, useState, type CSSProperties } from "react";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Button } from "@/components/ui";
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";

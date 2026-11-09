@@ -253,6 +253,27 @@ describe("secondary run main coordinator", () => {
     database.close();
   });
 
+  test("a context-only claim rejects tool restoration before host dispatch", async () => {
+    const { database, port } = createLedgerPort();
+    let dispatched = 0;
+    const coordinator = createSecondaryRunCoordinator({
+      getLedger: () => port, now: () => NOW, createExecutionId: () => "context-only",
+      executeHost: async (request) => { dispatched += 1; return completedExecution(request); },
+      cancelHost: async () => ({ ok: true }),
+    });
+    const claim = createClaimArgs();
+    claim.input.toolsDisabled = true;
+    await coordinator.claim(claim);
+    const input = { ...claim.input }; delete input.toolsDisabled;
+    expect(await coordinator.execute({ ...toExecuteArgs(claim, "context-only"), input })).toMatchObject({
+      accepted: false, reason: "input-mismatch",
+    });
+    expect(dispatched).toBe(0);
+    expect(await coordinator.execute(toExecuteArgs(claim, "context-only"))).toMatchObject({ accepted: true });
+    expect(dispatched).toBe(1);
+    database.close();
+  });
+
   test("rejects an input change and a cwd outside the owning project", async () => {
     const { database, port } = createLedgerPort();
     const coordinator = createSecondaryRunCoordinator({

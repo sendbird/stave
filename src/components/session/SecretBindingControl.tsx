@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { MAX_BOUND_SECRETS, type SecretMetadata } from "@/lib/secrets/secrets";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { secretBindingControlStyles as styles } from "./secret-binding-control.styles";
 
 interface SecretBindingControlProps {

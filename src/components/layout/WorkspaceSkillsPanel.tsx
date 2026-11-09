@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -53,8 +53,8 @@ import {
 } from "@/components/ui/dialog";
 import { EditorMarkdownPreview } from "@/components/layout/editor-markdown-preview";
 import { copyTextWithToasts } from "@/hooks/use-clipboard-copy";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import { skillStyles } from "./workspace-skills.styles";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
@@ -278,7 +278,7 @@ function SkillRow(props: {
 
   return (
     <div className={sx(skillStyles.row)}>
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         xstyle={[skillStyles.rowOpen, hostSurface.inertChrome]}
@@ -313,7 +313,7 @@ function SkillRow(props: {
             </p>
           ) : null}
         </div>
-      </AdsButton>
+      </AuiButton>
       <div className={sx(skillStyles.rowActions)}>
         {props.skill.instructions ? (
           <TooltipProvider>
@@ -444,7 +444,7 @@ export function SkillDetail(props: {
     <div className={sx(skillStyles.detail)}>
       {/* Detail header */}
       <div className={sx(skillStyles.detailHeader)}>
-        <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.backToSkills")}>
+        <AuiTooltip content={tI18n("workspace:workspaceSkillsPanel.backToSkills")}>
           <Button
             size="icon"
             variant="ghost"
@@ -454,10 +454,10 @@ export function SkillDetail(props: {
           >
             <ArrowLeft className={sx(skillStyles.glyphSm)} />
           </Button>
-        </AdsTooltip>
+        </AuiTooltip>
         <span className={sx(skillStyles.detailTitle)}>{skill.name}</span>
         <DropdownMenu>
-          <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.moreSkillActions")}>
+          <AuiTooltip content={tI18n("workspace:workspaceSkillsPanel.moreSkillActions")}>
             <span className={sx(layoutShellStyles.inlineFlex)}>
               <DropdownMenuTrigger
                 render={
@@ -472,7 +472,7 @@ export function SkillDetail(props: {
                 <MoreHorizontal className={sx(skillStyles.glyphSm)} />
               </DropdownMenuTrigger>
             </span>
-          </AdsTooltip>
+          </AuiTooltip>
           <DropdownMenuContent align="end" xstyle={skillStyles.detailMenu}>
             <DropdownMenuItem onSelect={handleCopyInvocationToken}>
               <Copy className={sx(skillStyles.glyphMd)} />
@@ -814,7 +814,7 @@ export function WorkspaceSkillsPanel(props: {
           </div>
           <div className={sx(skillStyles.panelActions)}>
             {props.onOpenSettings ? (
-              <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.skillsSettings")}>
+              <AuiTooltip content={tI18n("workspace:workspaceSkillsPanel.skillsSettings")}>
                 <Button
                   type="button"
                   size="icon"
@@ -825,9 +825,9 @@ export function WorkspaceSkillsPanel(props: {
                 >
                   <Settings2 className={sx(skillStyles.glyphSm)} />
                 </Button>
-              </AdsTooltip>
+              </AuiTooltip>
             ) : null}
-            <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.refresh")}>
+            <AuiTooltip content={tI18n("workspace:workspaceSkillsPanel.refresh")}>
               <Button
                 type="button"
                 size="icon"
@@ -844,7 +844,7 @@ export function WorkspaceSkillsPanel(props: {
                   )}
                 />
               </Button>
-            </AdsTooltip>
+            </AuiTooltip>
           </div>
         </div>
 
@@ -860,8 +860,8 @@ export function WorkspaceSkillsPanel(props: {
               aria-label={tI18n("workspace:workspaceSkillsPanel.searchSkills")}
             />
             {searchQuery ? (
-              <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}>
-                <AdsButton
+              <AuiTooltip content={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}>
+                <AuiButton
                   layout="host"
                   type="button"
                   xstyle={skillStyles.searchClear}
@@ -869,8 +869,8 @@ export function WorkspaceSkillsPanel(props: {
                   aria-label={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}
                 >
                   <X className={sx(skillStyles.glyphSm)} />
-                </AdsButton>
-              </AdsTooltip>
+                </AuiButton>
+              </AuiTooltip>
             ) : null}
           </div>
         </div>

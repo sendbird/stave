@@ -39,15 +39,17 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Agent | A saved worker definition: instructions, skills, a model choice, tool limits, a default permission and a workspace. Built-in, Custom, or From repository. It grants no permissions and starts nothing. Code: `AgentConfig` in `src/lib/agents/`, referenced as `agentConfigId` — never `agentId`, which names a provider worker on normalized events, and never `AgentDefinition`, the Claude Agent SDK's subagent type. |
 | Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (an in-turn subagent), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
 | Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
+| Tars | The desktop-hosted personal representative. It persists responsibility ownership across repositories and commissions ordinary tasks and agent runs; it is not the saved Supervisor Agent or another provider executor. |
+| Responsibility | One outcome explicitly delegated to Tars, with required acceptance, source scope, priority, turn limit and stable execution references. It outlives its provider session. |
 | Assign | Handing work to an agent as a task's main agent. Kickoff creates the worktree (or, for an agent that works in the current workspace, a task there) and records the agent before the first turn, which is sent like any composer turn. Code: `AgentAssignment`, recorded by `assign-runtime.ts`. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
 
-## Three Layers
+## Four Layers
 
 Every concept belongs to exactly one layer, classified by scope (turn / task /
-fleet) and lifetime (ephemeral / durable).
+fleet / personal responsibility) and lifetime (ephemeral / durable).
 
 ### Layer 1 — Turn runtime: help the current turn
 
@@ -143,8 +145,9 @@ reason. Two axes:
 | Delegation — hand work off | In-turn subagent (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
 | Procedure — follow a workflow | — | Agent run (same task, the agent's ordered stages, check-ins) |
 
-Automation is the only concept that lives outside a task: it mints tasks.
-Everything else in this layer attaches to one existing task.
+Automation lives outside a task and mints tasks. The other concepts in this
+layer attach to one existing task. Tars's responsibility ownership is a
+separate layer below, using these execution contracts without changing them.
 
 A delegated task is a real Stave task created on a parent's behalf, recorded on the
 run ledger as a `delegated-task` run with a `task` origin (the parent's id) and one
@@ -202,6 +205,34 @@ automatic turns. While an agent run is running or paused, the task's wake-up
 pauses with `agent-run-active` and resumes on its own when the agent run ends, and
 a new wake-up on that task is refused.
 
+### Layer 4 — Responsibility: own work across tasks
+
+Tars's personal identity and responsibility queue are durable SQLite data.
+The host admits a responsibility only against a registered repository and
+source workspace. Each responsibility records its priority, required criteria,
+turn limit, isolated execution workspace, task and agent run. A saved identity
+or standing instruction grants no execution authority.
+
+The responsibility runtime selects queued work by explicit priority and then
+age. It reconciles task and run observations without asking a model on every
+unchanged tick. A waiting responsibility permits independent queued work to
+start; admitted runs may resume concurrently. A manual pause persists, and a
+failed observation stays visible as blocked. Terminal completion requires the
+owned run and its required acceptance report, not only an ended worker turn.
+
+Responsibility rows are ownership records, not another run ledger. Tars
+creates ordinary execution tasks, records their Agent assignment before their
+first turn, and starts an agent run through its existing admission path. The
+Agent run remains the one automatic turn owner of that task; it still advances
+only that task. Wake-ups still never create tasks, and the ledger still never
+executes. Stable task/run references and idempotent admission reconcile a lost
+acknowledgement instead of replaying work after a restart.
+
+This layer is active only while the desktop host runs. It neither provides a
+separate always-on host nor adopts unrelated user tasks. Its interactive IPC
+is not exposed as an ordinary task's Local MCP capability. See
+`docs/features/tars.md` and `electron/host-service/tars-runtime.ts`.
+
 ## Boundary Statements
 
 These are the statements that keep the layers from collapsing into each other.
@@ -228,8 +259,9 @@ whose name repeats it.
 12. A saved agent grants no permissions; every start records its own consent.
 13. Saving or editing an agent never creates a workspace, a task or a process.
 14. A run follows the snapshot taken at its start; later edits never reach it.
-15. Work for an agent starts only through Kickoff or a delegation, and is
-    recorded before its first turn; a delegation to an agent never runs wider
+15. Work for an agent starts through Kickoff, a delegation or an explicitly
+    admitted Tars responsibility, and is recorded before its first turn;
+    a delegation to an agent never runs wider
     than the delegating task's own agent, and work pinned to a commit never
     starts on another.
 16. An agent run keeps its frozen instructions and team limits, and with them

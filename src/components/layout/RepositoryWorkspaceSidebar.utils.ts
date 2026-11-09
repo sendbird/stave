@@ -97,6 +97,9 @@ const REPOSITORY_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   get "agent-run-sign-off"() { return i18n.t("workspace:repositoryWorkspaceSidebar.signOffNeeded"); },
   get "agent-run-blocked"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runBlocked"); },
   get "agent-run-stuck"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runStuck"); },
+  // Fleet's own kind words, so the sidebar and Fleet name Tars's needs alike.
+  get "tars-decision"() { return i18n.t("fleet:vocabulary.kind.tarsDecision"); },
+  get "tars-blocked"() { return i18n.t("fleet:vocabulary.kind.tarsBlocked"); },
 };
 
 function formatRepositoryAttentionAlertLabel(args: {

@@ -16,7 +16,7 @@ export function tokenLiterals(source, path = "component.tsx") {
       if (name === "letterSpacing" && !/vars\[/.test(value) && value !== "0") add("tracking");
       if (/Radius$/.test(name) && /^(?:[\d.]+|["'][\d.]+(?:px|rem)["'])$/.test(value) && value !== "0") add("radius");
       if (name === "color" && /color-mix/.test(value) && /text-muted/.test(value) && /transparent/.test(value)) add("faded-text");
-      if (/^(color|backgroundColor|borderColor)$/.test(name) && /color-mix/.test(value) && /--ads-color-(?:warning|danger|success|info)/.test(value)) add("status-mix");
+      if (/^(color|backgroundColor|borderColor)$/.test(name) && /color-mix/.test(value) && /--aui-color-(?:warning|danger|success|info)/.test(value)) add("status-mix");
       if (name === "outlineStyle" && value === '"none"' && !/focusRing|focus-ok/.test(source)) add("focus-reset");
     }
     if (ts.isJsxAttribute(node)) {
@@ -35,7 +35,7 @@ export function tokenRatchetFailures(actual, baseline) {
     for (const rule of new Set([...Object.keys(actual[path] ?? {}), ...Object.keys(baseline[path] ?? {})])) {
       const count = actual[path]?.[rule] ?? 0;
       const limit = baseline[path]?.[rule] ?? 0;
-      if (count > limit) failures.push(`${path}: ${rule} literals ${count} exceed ${limit}; use ADS tokens`);
+      if (count > limit) failures.push(`${path}: ${rule} literals ${count} exceed ${limit}; use AUI tokens`);
       if (count < limit) failures.push(`${path}: lower stale ${rule} allowance from ${limit} to ${count} in config/token-ratchet.json`);
     }
   }

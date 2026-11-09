@@ -14,7 +14,7 @@ import {
   SquareTerminal,
   type LucideIcon,
 } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 import {
   normalizeRepositoryAppearanceColor,

@@ -1,9 +1,9 @@
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { AlertTriangle, ChevronDown, FileText, X } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { taskSourceContextNoticeStyles as styles } from "./task-source-context-notice.styles";
 import {
   isPrContextSourceId,
@@ -93,14 +93,14 @@ export function TaskSourceContextNotice(props: {
             {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice")}</p>
         </div>
         {props.onClear ? (
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             aria-label={i18n.t("session:taskSourceContextNotice.ariaLabel")}
             xstyle={styles.clearButton}
             onClick={props.onClear}
           >
-            {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice2")}</AdsButton>
+            {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice2")}</AuiButton>
         ) : null}
       </div>
 
@@ -111,13 +111,13 @@ export function TaskSourceContextNotice(props: {
             <p>
               {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice3")}</p>
             {props.onRefreshPrContext ? (
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={styles.refreshButton}
                 onClick={props.onRefreshPrContext}
               >
-                {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice4")}</AdsButton>
+                {i18n.t("session:taskSourceContextNotice.taskSourceContextNotice4")}</AuiButton>
             ) : null}
           </div>
         </div>
@@ -146,7 +146,7 @@ export function TaskSourceContextNotice(props: {
                   </p>
                   {props.onRemove ? (
                     <Tooltip content={i18n.t("session:taskSourceContextNotice.ariaLabel2", { value1: part.title ?? part.sourceId })}>
-                      <AdsButton
+                      <AuiButton
                         layout="host"
                         type="button"
                         aria-label={i18n.t("session:taskSourceContextNotice.ariaLabel2", { value1: part.title ?? part.sourceId })}
@@ -154,7 +154,7 @@ export function TaskSourceContextNotice(props: {
                         onClick={() => props.onRemove?.(part.sourceId)}
                       >
                         <X className={sx(styles.removeIcon)} aria-hidden="true" />
-                      </AdsButton>
+                      </AuiButton>
                     </Tooltip>
                   ) : null}
                 </div>

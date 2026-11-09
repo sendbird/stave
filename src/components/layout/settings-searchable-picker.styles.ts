@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** A field-shaped trigger whose search box lives inside its own list. */
 export const searchablePickerStyles = stylex.create({
   value: {
     alignItems: "baseline",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
     flex: "1 1 0",
     minInlineSize: 0,
@@ -14,7 +14,7 @@ export const searchablePickerStyles = stylex.create({
     textAlign: "start",
   },
   valueLabel: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     flexShrink: 0,
     maxInlineSize: "100%",
     overflow: "hidden",
@@ -22,8 +22,8 @@ export const searchablePickerStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   valueDetail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -38,10 +38,10 @@ export const searchablePickerStyles = stylex.create({
   itemIcon: {
     alignItems: "center",
     alignSelf: "flex-start",
-    blockSize: `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-normal"]})`,
+    blockSize: `calc(${vars["--aui-font-size-body"]} * ${vars["--aui-line-height-normal"]})`,
   },
   placeholder: {
-    color: vars["--ads-color-text-placeholder"],
+    color: vars["--aui-color-text-placeholder"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -49,29 +49,29 @@ export const searchablePickerStyles = stylex.create({
   popup: {
     inlineSize: "var(--anchor-width)",
     minInlineSize: "16rem",
-    padding: vars["--ads-space-0"],
+    padding: vars["--aui-space-0"],
   },
   list: {
     maxBlockSize: "min(20rem, calc(var(--available-height) - 4rem))",
   },
   item: {
     alignItems: "start",
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-normal"],
   },
   // The row's first grid track: mark, then copy.
   itemMain: {
     alignItems: "flex-start",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
     minInlineSize: 0,
   },
   // A muted trailing value (a price, a count). It ends the line it sits on and
   // drops below that line's text instead of truncating it.
   itemMeta: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     marginInlineStart: "auto",
     whiteSpace: "nowrap",
@@ -84,14 +84,14 @@ export const searchablePickerStyles = stylex.create({
   },
   itemLabelRow: {
     alignItems: "center",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
     flexWrap: "wrap",
     minInlineSize: 0,
   },
   itemDetailRow: {
     alignItems: "baseline",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
     flexWrap: "wrap",
     minInlineSize: 0,
@@ -101,15 +101,15 @@ export const searchablePickerStyles = stylex.create({
     flexShrink: 0,
   },
   // No ink of its own: the row's colour is the list's, so a chosen row reads in
-  // the accent like every other ADS picker, beside its check.
+  // the accent like every other AUI picker, beside its check.
   itemLabel: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   itemDetail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -118,17 +118,17 @@ export const searchablePickerStyles = stylex.create({
   // "this no longer resolves" without hiding the value.
   chipMissing: {
     backgroundColor: "transparent",
-    borderColor: vars["--ads-color-warning-border"],
+    borderColor: vars["--aui-color-warning-border"],
     borderStyle: "dashed",
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   loading: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
-    columnGap: vars["--ads-space-8"],
+    color: vars["--aui-color-text-muted"],
+    columnGap: vars["--aui-space-8"],
     display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-12"],
+    fontSize: vars["--aui-font-size-body"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
 });

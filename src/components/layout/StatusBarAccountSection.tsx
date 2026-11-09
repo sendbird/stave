@@ -5,15 +5,15 @@ import {
   RadioGroupRoot,
   RadioIndicator,
   RadioRoot,
-} from "@/components/ads/headless/radio-group";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { menu } from "@/components/ads/recipes/menu";
-import { transition } from "@/components/ads/recipes/transition";
+} from "@/components/aui/headless/radio-group";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { menu } from "@/components/aui/recipes/menu";
+import { transition } from "@/components/aui/recipes/transition";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { describeProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { useProviderAccountIdentity } from "@/lib/providers/use-provider-account-identity";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { statusBarUsageStyles as styles } from "@/components/layout/status-bar-usage.styles";
 import type {
   StatusBarAccountProviderId,

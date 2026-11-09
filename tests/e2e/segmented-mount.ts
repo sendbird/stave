@@ -15,7 +15,7 @@ export async function mountSegmented(
     theme?: "light" | "dark";
   },
 ) {
-  await page.goto(`/?stavePreview=ads-regressions${args.theme ? `&theme=${args.theme}` : ""}`);
+  await page.goto(`/?stavePreview=aui-regressions${args.theme ? `&theme=${args.theme}` : ""}`);
   await expect(page.locator("main svg").first()).toBeVisible();
   await page.evaluate(async ({ density, count, icons, locale }) => {
     const { React, createRoot, LayoutGrid } = await import("/tests/e2e/segmented-runtime.ts");
@@ -57,10 +57,10 @@ export async function mountSegmented(
 /** Per segment: height, and how far label, count and icon sit from the shared centre line. */
 export async function segmentGeometry(page: Page) {
   return page.getByRole("radiogroup", { name: "Layout" }).evaluate(async (group) => {
-    const { vars } = await import("/src/components/ads/tokens/tokens.stylex.ts");
+    const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
     const probe = document.createElement("div");
-    probe.style.blockSize = vars["--ads-control-height-xs"];
-    probe.style.columnGap = vars["--ads-space-4"];
+    probe.style.blockSize = vars["--aui-control-height-xs"];
+    probe.style.columnGap = vars["--aui-space-4"];
     group.append(probe);
     const expectedHeight = probe.getBoundingClientRect().height;
     const expectedGap = Number.parseFloat(getComputedStyle(probe).columnGap);

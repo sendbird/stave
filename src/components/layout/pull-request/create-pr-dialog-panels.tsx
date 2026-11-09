@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Skeleton } from "@/components/ads/components/Skeleton";
-import { sx } from "@/components/ads/utils/stylex";
+import { Skeleton } from "@/components/aui/components/Skeleton";
+import { sx } from "@/components/aui/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import {
   ArrowRight,
@@ -13,7 +13,7 @@ import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspace
 import { Loader } from "@/components/ui";
 import type { PrePrReviewFinding } from "@/lib/source-control-review";
 import { openPrStyles } from "../top-bar-open-pr.styles";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export interface ScmStatusItem {
   path: string;

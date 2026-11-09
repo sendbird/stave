@@ -1,19 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const notificationsStyles = stylex.create({
   triggerWrap: { display: "inline-flex" },
   trigger: {
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     flexShrink: 0,
     position: "relative",
   },
   triggerIcon: { height: 16, width: 16 },
   panel: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-frame"],
+    backgroundColor: vars["--aui-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-frame"],
     overflow: "hidden",
     padding: 0,
     // Logical, and clamped against the viewport so the popup never renders
@@ -22,16 +22,16 @@ export const notificationsStyles = stylex.create({
     maxInlineSize: "calc(100vw - 1rem)",
   },
   header: {
-    borderBlockEndColor: vars["--ads-color-border"],
+    borderBlockEndColor: vars["--aui-color-border"],
     borderBlockEndStyle: "solid",
-    borderBlockEndWidth: vars["--ads-border-width-hairline"],
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    borderBlockEndWidth: vars["--aui-border-width-hairline"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
   },
   headerRow: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     justifyContent: "space-between",
   },
   /*
@@ -48,48 +48,48 @@ export const notificationsStyles = stylex.create({
     minInlineSize: 0,
   },
   headerTitle: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-semibold"],
   },
   headerSubtitle: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginTop: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginTop: vars["--aui-space-4"],
   },
   // The view switch spans the header under the title; its segments share the
   // width and their labels give before the counts do.
-  viewSwitch: { marginTop: vars["--ads-space-12"] },
+  viewSwitch: { marginTop: vars["--aui-space-12"] },
   headerActions: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
     flexWrap: "nowrap",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   destructiveAction: {
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-danger-text"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-danger-text"] },
   },
   quietAction: {
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
   },
   scroller: { maxHeight: "min(70vh, 40rem)", overflowY: "auto" },
   emptyState: {
-    paddingBlock: vars["--ads-space-32"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-32"],
+    paddingInline: vars["--aui-space-16"],
     textAlign: "center",
   },
   emptyTitle: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   emptyBody: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    marginTop: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    marginTop: vars["--aui-space-4"],
   },
-  emptyAction: { marginTop: vars["--ads-space-16"] },
+  emptyAction: { marginTop: vars["--aui-space-16"] },
   /** The entries, drawn by the shared inbox row. */
   list: {
     listStyle: "none",
@@ -98,13 +98,13 @@ export const notificationsStyles = stylex.create({
   },
   loadMore: {
     alignItems: "center",
-    borderBlockStartColor: vars["--ads-color-border"],
+    borderBlockStartColor: vars["--aui-color-border"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars["--ads-border-width-hairline"],
+    borderBlockStartWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     justifyContent: "center",
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
   },
   smallIcon: { height: 14, width: 14 },
   tinyIcon: { height: 12, width: 12 },

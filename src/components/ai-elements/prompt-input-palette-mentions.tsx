@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { FileText, Info, MessagesSquare } from "lucide-react";
 import { Badge, CommandGroup, CommandItem } from "@/components/ui";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { documentMentionKey } from "./prompt-input-mentions";
 import type { PromptInputPaletteState } from "./prompt-input-palette-state";

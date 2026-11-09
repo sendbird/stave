@@ -4,7 +4,7 @@ import { ArrowUpCircle, RefreshCcw } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
   Badge,
   Button,
@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import type { AppUpdateStatusSnapshot } from "@/lib/app-update";
 import { getRespondingTasks } from "@/lib/tasks";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { updateStyles } from "./top-bar-update.styles";

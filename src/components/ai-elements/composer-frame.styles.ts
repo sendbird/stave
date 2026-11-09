@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 import { localStack } from "../../lib/ui-layers.stylex";
 
 /**
@@ -29,10 +29,10 @@ export const frameStyles = stylex.create({
   leftInset: { position: "absolute", left: 0, right: "-0.75rem", insetBlock: "0.75rem", display: "flex", justifyContent: "flex-end" },
   rightInset: { position: "absolute", left: "-0.75rem", right: 0, insetBlock: "0.75rem", display: "flex", justifyContent: "flex-start" },
   card: { position: "relative", zIndex: localStack["--stave-stack-raised"], gridRowStart: 2, minWidth: 0 },
-  wing: { display: "flex", height: "100%", maxHeight: "100%", minHeight: 0, flexShrink: 0, flexDirection: "column", gap: vars["--ads-space-8"], overflowX: "hidden", overflowY: "auto", overscrollBehavior: "contain", paddingBlock: vars["--ads-space-8"], justifyContent: "safe center", scrollbarWidth: "none" },
-  leftWing: { alignItems: "flex-end", paddingLeft: vars["--ads-space-2"], paddingRight: "calc(0.75rem + 4px)" },
-  rightWing: { alignItems: "flex-start", paddingLeft: "calc(0.75rem + 4px)", paddingRight: vars["--ads-space-2"] },
-  status: { display: "flex", minHeight: 50, alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-8"], overflow: "hidden", borderBottomLeftRadius: vars["--ads-radius-panel"], borderBottomRightRadius: vars["--ads-radius-panel"], borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingInline: vars["--ads-space-12"], paddingBottom: vars["--ads-space-2"], paddingTop: "calc(0.75rem + 4px)", fontSize: "0.8125rem", lineHeight: "20px", color: vars["--ads-color-text-muted"] },
-  leading: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--ads-space-8"] },
-  trailing: { display: "flex", flexShrink: 0, alignItems: "center", gap: vars["--ads-space-4"] },
+  wing: { display: "flex", height: "100%", maxHeight: "100%", minHeight: 0, flexShrink: 0, flexDirection: "column", gap: vars["--aui-space-8"], overflowX: "hidden", overflowY: "auto", overscrollBehavior: "contain", paddingBlock: vars["--aui-space-8"], justifyContent: "safe center", scrollbarWidth: "none" },
+  leftWing: { alignItems: "flex-end", paddingLeft: vars["--aui-space-2"], paddingRight: "calc(0.75rem + 4px)" },
+  rightWing: { alignItems: "flex-start", paddingLeft: "calc(0.75rem + 4px)", paddingRight: vars["--aui-space-2"] },
+  status: { display: "flex", minHeight: 50, alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], overflow: "hidden", borderBottomLeftRadius: vars["--aui-radius-panel"], borderBottomRightRadius: vars["--aui-radius-panel"], borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingInline: vars["--aui-space-12"], paddingBottom: vars["--aui-space-2"], paddingTop: "calc(0.75rem + 4px)", fontSize: "0.8125rem", lineHeight: "20px", color: vars["--aui-color-text-muted"] },
+  leading: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--aui-space-8"] },
+  trailing: { display: "flex", flexShrink: 0, alignItems: "center", gap: vars["--aui-space-4"] },
 });

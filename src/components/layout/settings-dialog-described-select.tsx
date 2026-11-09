@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import type { ExplainedSelectOption } from "./settings-dialog-effort-help";
 import { providersStyles } from "./settings-dialog-providers-section.styles";
 

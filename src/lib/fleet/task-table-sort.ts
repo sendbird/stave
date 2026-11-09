@@ -2,9 +2,17 @@ import { getIntlLocale } from "@/i18n/runtime";
 import { FLEET_ATTENTION_KIND_LABEL } from "./fleet-vocabulary";
 import { FLEET_TASK_STATUS_PRIORITY } from "./task-status";
 import type { FleetTaskRow } from "./task-rows";
+import { FLEET_TASK_OWNER_LABEL, type FleetTaskOwner } from "./task-owner";
 
 /** The Fleet table's columns that order its rows. */
-export type FleetTaskSortKey = "task" | "workspace" | "state" | "needs" | "waiting" | "activity";
+export type FleetTaskSortKey = "task" | "owner" | "workspace" | "state" | "needs" | "waiting" | "activity";
+
+interface FleetTaskSortOptions {
+  nowMs: number;
+  untitled: string;
+  /** The row's owner; unknown owners sort last. */
+  ownerOf?: (row: FleetTaskRow) => FleetTaskOwner | null | undefined;
+}
 export type FleetTaskSortDirection = "ascending" | "descending";
 /** Null is the table's own order: the Work queue's lanes, longest wait first. */
 export type FleetTaskSort = { key: FleetTaskSortKey; direction: FleetTaskSortDirection } | null;
@@ -21,9 +29,14 @@ export function nextFleetTaskSort(current: FleetTaskSort, key: FleetTaskSortKey)
 type SortValue = string | number | null;
 
 /** What a column orders by. Null is a missing value: it sorts after every value in both directions. */
-function sortValue(row: FleetTaskRow, key: FleetTaskSortKey, nowMs: number, untitled: string): SortValue {
+function sortValue(row: FleetTaskRow, key: FleetTaskSortKey, options: FleetTaskSortOptions): SortValue {
+  const { nowMs, untitled } = options;
   switch (key) {
     case "task": return row.task.title || untitled;
+    case "owner": {
+      const owner = options.ownerOf?.(row);
+      return owner ? FLEET_TASK_OWNER_LABEL[owner] : null;
+    }
     case "workspace": return `${row.workspaceName}\u0000${row.repositoryName}`;
     case "state": return row.status === "unknown" ? null : FLEET_TASK_STATUS_PRIORITY[row.status];
     case "needs": return row.need ? FLEET_ATTENTION_KIND_LABEL[row.need.kind] : null;
@@ -43,12 +56,12 @@ function sortValue(row: FleetTaskRow, key: FleetTaskSortKey, nowMs: number, unti
  * between them, so sorting by State keeps each state's longest wait first.
  * Text compares in the display language, numbers by value.
  */
-export function sortFleetTaskRows(rows: readonly FleetTaskRow[], sort: FleetTaskSort, options: { nowMs: number; untitled: string }): readonly FleetTaskRow[] {
+export function sortFleetTaskRows(rows: readonly FleetTaskRow[], sort: FleetTaskSort, options: FleetTaskSortOptions): readonly FleetTaskRow[] {
   if (!sort) return rows;
   const collator = new Intl.Collator(getIntlLocale(), { numeric: true, sensitivity: "base" });
   const sign = sort.direction === "ascending" ? 1 : -1;
   return rows
-    .map((row, index) => ({ row, index, value: sortValue(row, sort.key, options.nowMs, options.untitled) }))
+    .map((row, index) => ({ row, index, value: sortValue(row, sort.key, options) }))
     .sort((left, right) => {
       if (left.value === null || right.value === null) {
         if (left.value === right.value) return left.index - right.index;

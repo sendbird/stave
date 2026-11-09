@@ -404,7 +404,7 @@ export function resolveProviderDisplayId(args: {
  * takes, an identity rather than a tone. A presentation value, not a color:
  * the consuming component maps it to the provider ink styles
  * (`providerInkStyles`), which paint the themed `--provider-*` token the
- * identity registry names, or the ADS accent token. `"accent"` is only for a
+ * identity registry names, or the AUI accent token. `"accent"` is only for a
  * presentation that is not a known provider (for example a user-authored row).
  */
 export type ProviderWaveHue = ProviderHue | "accent";

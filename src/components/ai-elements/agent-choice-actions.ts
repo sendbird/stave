@@ -14,6 +14,8 @@ import {
 } from "@/lib/agents/selector-choice";
 import type { ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
 import type { TaskAgent } from "@/store/agent-assignments-store";
+import { tarsTargetForTask } from "@/store/agent-run-send";
+import { tarsHoldsTask } from "@/store/tars-owned-control";
 
 export interface ModelSelectArgs {
   selection: ModelSelectorOption;
@@ -88,6 +90,18 @@ export function composerFixedModel(
 const UNAVAILABLE = "composer:agentChoiceActions.extraCopy43";
 
 /**
+ * Work an active Tars responsibility holds keeps its agent: recording another
+ * agent or releasing it would end Tars's run behind the responsibility. The
+ * user takes the work over first (Tars's takeover keeps the run), then
+ * changes the agent. True when the change was refused.
+ */
+async function refusedForTars(c: AgentChoiceContext) {
+  if (!(await tarsHoldsTask(tarsTargetForTask(c.workspaceId, c.taskId)))) return false;
+  toast.error(i18n.t("shell:tars.owner.agentLocked"), { description: i18n.t("shell:tars.owner.agentLockedHint") });
+  return true;
+}
+
+/**
  * What each choice in the selector does to the task's agent (a host call) and
  * to its draft. Every action reads the context again after it awaits the host,
  * so the draft is written from the newest render, not the click's.
@@ -120,6 +134,7 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
     }
     c.setBusy(true);
     try {
+      if (await refusedForTars(c)) return false;
       if (!c.repositoryPath) throw new Error(i18n.t("composer:agentChoiceActions.extraCopy44"));
       const fixedOption = fixedOptionFor(c, fixedModelOf(next));
       const { draft } = planSelectorChoice({
@@ -175,6 +190,7 @@ export function createAgentChoiceActions(read: () => AgentChoiceContext) {
       return false;
     }
     try {
+      if (await refusedForTars(c)) return false;
       const outcome = await c.api.releaseTask({ taskId: c.taskId });
       if (!outcome.ok) throw new Error(outcome.message);
       const latest = read();

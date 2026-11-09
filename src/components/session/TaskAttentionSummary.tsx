@@ -2,8 +2,8 @@ import { useId, useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
 import { i18n, useTranslation } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import { collectFleetLiveAttentionItems, type FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { isSupervisedTaskTurn } from "@/lib/fleet/agent-run-attention";
@@ -134,32 +134,32 @@ const styles = stylex.create({
     flexShrink: 0,
     maxHeight: "35%",
     overflowY: "auto",
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
   },
   summary: {
     cursor: "pointer",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   list: { listStyle: "none", margin: 0, padding: 0 },
   row: {
     display: "flex", alignItems: "start", flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-8"], paddingInline: vars["--ads-space-12"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"],
   },
   copy: { flex: "1 1 16rem", minWidth: 0, overflowWrap: "anywhere" },
   title: {
-    margin: 0, fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"],
+    margin: 0, fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"],
   },
   detail: {
-    margin: 0, marginTop: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"],
+    margin: 0, marginTop: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"],
   },
 });

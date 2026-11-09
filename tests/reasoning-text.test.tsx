@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReasoningText } from "@/components/ai-elements/reasoning-text";
 import { reasoningTextStyles } from "@/components/ai-elements/reasoning-text.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 /* These are `renderToStaticMarkup` substring assertions — there is no DOM
    runner in this repo, so only the initial (server) render is observable. */

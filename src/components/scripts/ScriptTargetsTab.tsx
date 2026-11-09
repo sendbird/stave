@@ -15,8 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import { ScriptEnvEditor } from "./ScriptEnvEditor";
 import {
   DEFAULT_SCRIPT_TARGET_IDS,

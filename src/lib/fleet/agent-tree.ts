@@ -2,8 +2,8 @@ import { i18n } from "@/i18n/runtime";
 import type {
   AgentFleetAgent,
   AgentFleetStep,
-} from "@/components/ads/components/AgentFleet.model";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+} from "@/components/aui/components/AgentFleet.model";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import {
   isDelegationExchangeLive,
   resolveExchangeElapsedMs,

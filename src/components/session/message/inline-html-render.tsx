@@ -11,11 +11,11 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { Check, Code2, Copy, Download, Maximize2, Minimize2, X } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { useConversationFrameHost } from "@/components/ai-elements/conversation";
 import { toast } from "@/components/ui";
 import {
@@ -432,7 +432,7 @@ export function InlineHtmlRenderList(props: {
 const listStyles = stylex.create({
   list: {
     display: "grid",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     minInlineSize: 0,
   },
 });

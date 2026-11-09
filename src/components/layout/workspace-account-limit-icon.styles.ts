@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const workspaceAccountLimitIconStyles = stylex.create({
   trigger: {
@@ -12,7 +12,7 @@ export const workspaceAccountLimitIconStyles = stylex.create({
     width: 16,
   },
   icon: {
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
     height: 14,
     width: 14,
   },

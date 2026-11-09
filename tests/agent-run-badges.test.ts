@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { applyRuntimeLocale } from "@/i18n/runtime";
 import { formatDateTime } from "@/i18n/format";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { classifyTaskStatus } from "@/lib/fleet/task-status";

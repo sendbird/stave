@@ -1,10 +1,10 @@
 import { sliderLayout } from "./slider-layout.styles";
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 
-import { sliderStyles } from "../ads/components/Slider";
-import { sx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
-import { focusRing } from "../ads/recipes/focus-ring";
+import { sliderStyles } from "../aui/components/Slider";
+import { sx } from "../aui/utils/stylex";
+import { mergeClassName } from "../aui/components/merge-class-name";
+import { focusRing } from "../aui/recipes/focus-ring";
 
 type SliderProps = SliderPrimitive.Root.Props<number> &
   Pick<

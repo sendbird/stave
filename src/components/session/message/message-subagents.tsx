@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { isDelegationExchangeLive, type DelegationExchange } from "@/lib/delegation/exchange";
@@ -71,6 +71,6 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
 }
 
 const styles = stylex.create({
-  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0, marginBlock: vars["--ads-space-12"] },
-  heading: { margin: 0, paddingInline: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text-muted"] },
+  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, marginBlock: vars["--aui-space-12"] },
+  heading: { margin: 0, paddingInline: vars["--aui-space-8"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-medium"], color: vars["--aui-color-text-muted"] },
 });

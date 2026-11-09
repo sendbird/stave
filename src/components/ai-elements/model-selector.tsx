@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { ChevronDown, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -29,7 +29,7 @@ import {
   getProviderLabel,
   listProviderIds,
 } from "@/lib/providers/model-catalog";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { modelSelectorStyles as styles } from "./model-selector.styles";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { ModelPrice } from "./model-picker-options";
@@ -216,7 +216,7 @@ export function ModelSelector(args: ModelSelectorProps) {
       <div className={cx(sx(styles.root), className)}>
         <DialogTrigger
           render={
-            <AdsButton
+            <AuiButton
               layout="host"
               type="button"
               className={triggerClassName}

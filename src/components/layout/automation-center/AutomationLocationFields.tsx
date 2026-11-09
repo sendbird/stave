@@ -1,8 +1,8 @@
 import { useTranslation } from "@/i18n";
 import { useId } from "react";
-import { Banner } from "@/components/ads/components/Banner";
+import { Banner } from "@/components/aui/components/Banner";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
 import { formatAutomationTrustPolicy } from "@/lib/automation-presentation";
 import type { AutomationUpsertInput } from "@/lib/automations";

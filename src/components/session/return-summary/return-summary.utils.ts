@@ -4,7 +4,7 @@ import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatToolDisplayName } from "@/lib/providers/subagent-identity";
 import { describeToolOperationLabel } from "@/lib/providers/tool-activity";
 import type { TaskPanelTab } from "@/lib/right-rail-panels";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import type {
   ReturnDecision,
   ReturnStop,

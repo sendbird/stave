@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * The Resource Manager's dashboard header.
@@ -26,8 +26,8 @@ export const dashboardStyles = stylex.create({
     minWidth: 0,
   },
   statusReason: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -51,18 +51,18 @@ export const dashboardStyles = stylex.create({
     alignContent: "start",
     minWidth: 0,
     padding: 10,
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    backgroundColor: vars["--ads-color-surface-tint"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
+    backgroundColor: vars["--aui-color-surface-tint"],
   },
   tileHead: {
     display: "flex",
     alignItems: "center",
     gap: 6,
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   tileIcon: { width: 13, height: 13, flexShrink: 0 },
   tileLabel: {
@@ -76,18 +76,18 @@ export const dashboardStyles = stylex.create({
    * mono/tabular treatment stays on the tables below, where it earns its keep.
    */
   tileValue: {
-    fontSize: vars["--ads-font-size-heading"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    lineHeight: vars["--ads-line-height-heading"],
+    fontSize: vars["--aui-font-size-heading"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    lineHeight: vars["--aui-line-height-heading"],
     letterSpacing: "-0.01em",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   tileCaption: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -96,16 +96,16 @@ export const dashboardStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: 4,
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
   },
   trendIcon: { width: 12, height: 12, flexShrink: 0 },
   spark: { display: "block", width: "100%", height: 26, overflow: "visible" },
-  sparkArea: { fill: vars["--ads-color-accent-soft"], stroke: "none" },
+  sparkArea: { fill: vars["--aui-color-accent-soft"], stroke: "none" },
   sparkLine: {
     fill: "none",
-    stroke: vars["--ads-color-accent"],
+    stroke: vars["--aui-color-accent"],
     strokeWidth: 1.5,
     strokeLinecap: "round",
     strokeLinejoin: "round",
@@ -116,14 +116,14 @@ export const dashboardStyles = stylex.create({
     gap: 8,
     flexWrap: "wrap",
     minWidth: 0,
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   legendItem: { display: "inline-flex", alignItems: "baseline", gap: 4 },
   legendCount: {
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   meters: {
     display: "grid",
@@ -145,8 +145,8 @@ export const dashboardStyles = stylex.create({
     alignItems: "center",
     gap: 5,
     minWidth: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text"],
   },
   meterLabelText: {
     overflow: "hidden",
@@ -155,24 +155,24 @@ export const dashboardStyles = stylex.create({
   },
   meterIcon: { width: 12, height: 12, flexShrink: 0 },
   meterDetail: {
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
     whiteSpace: "nowrap",
   },
-  /** The ADS meter spans the row under its label and reading. */
+  /** The AUI meter spans the row under its label and reading. */
   meter: { gridColumn: "1 / -1" },
   sectionLabel: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontWeight: 500,
   },
 });
 
 /** Status ink. Never applied without an adjacent icon and word. */
 export const levelTextStyles = stylex.create({
-  healthy: { color: vars["--ads-color-text-muted"] },
-  elevated: { color: vars["--ads-color-warning-text"] },
-  high: { color: vars["--ads-color-danger-text"] },
+  healthy: { color: vars["--aui-color-text-muted"] },
+  elevated: { color: vars["--aui-color-warning-text"] },
+  high: { color: vars["--aui-color-danger-text"] },
 });

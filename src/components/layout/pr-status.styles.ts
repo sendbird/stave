@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * `src/lib/pr-status.ts` publishes a semantic tone and nothing else. This module
@@ -11,19 +11,19 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * transform otherwise.
  */
 
-const gitOpenInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-open))`;
-const gitMergedInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-merged))`;
-const gitClosedInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-closed))`;
-const gitModifiedInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-modified))`;
-const gitOpenSoft = `color-mix(in oklab, var(--service-git-open) 12%, ${vars["--ads-color-surface"]})`;
-const gitMergedSoft = `color-mix(in oklab, var(--service-git-merged) 12%, ${vars["--ads-color-surface"]})`;
-const gitClosedSoft = `color-mix(in oklab, var(--service-git-closed) 12%, ${vars["--ads-color-surface"]})`;
-const gitModifiedSoft = `color-mix(in oklab, var(--service-git-modified) 12%, ${vars["--ads-color-surface"]})`;
-const gitOpenHover = `color-mix(in oklab, var(--service-git-open) 18%, ${vars["--ads-color-surface"]})`;
+const gitOpenInk = `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-open))`;
+const gitMergedInk = `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-merged))`;
+const gitClosedInk = `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-closed))`;
+const gitModifiedInk = `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--service-git-modified))`;
+const gitOpenSoft = `color-mix(in oklab, var(--service-git-open) 12%, ${vars["--aui-color-surface"]})`;
+const gitMergedSoft = `color-mix(in oklab, var(--service-git-merged) 12%, ${vars["--aui-color-surface"]})`;
+const gitClosedSoft = `color-mix(in oklab, var(--service-git-closed) 12%, ${vars["--aui-color-surface"]})`;
+const gitModifiedSoft = `color-mix(in oklab, var(--service-git-modified) 12%, ${vars["--aui-color-surface"]})`;
+const gitOpenHover = `color-mix(in oklab, var(--service-git-open) 18%, ${vars["--aui-color-surface"]})`;
 
 /** Foreground tint for a status glyph. */
 export const prToneIconStyles = stylex.create({
-  neutral: { color: vars["--ads-color-text-muted"] },
+  neutral: { color: vars["--aui-color-text-muted"] },
   open: { color: gitOpenInk },
   attention: { color: gitModifiedInk },
   danger: { color: gitClosedInk },
@@ -41,8 +41,8 @@ export const prStatusIconStyles = stylex.create({
  */
 export const prToneBadgeStyles = stylex.create({
   neutral: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    color: vars["--ads-color-text-muted"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    color: vars["--aui-color-text-muted"],
   },
   open: {
     backgroundColor: gitOpenSoft,
@@ -73,8 +73,8 @@ export const prCreateButtonStyles = stylex.create({
       default: gitOpenSoft,
       ":hover": gitOpenHover,
     },
-    borderColor: vars["--ads-color-border"],
-    boxShadow: vars["--ads-elevation-raised"],
+    borderColor: vars["--aui-color-border"],
+    boxShadow: vars["--aui-elevation-raised"],
     color: gitOpenInk,
   },
 });

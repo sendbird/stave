@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -10,9 +10,9 @@ import type {
 } from "react";
 import { useMemo } from "react";
 import { Paperclip, X } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import type { ButtonPress } from "@/components/ads/components/Button.types";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import type { ButtonPress } from "@/components/aui/components/Button.types";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { messageStyles as styles } from "./message.styles";
 import {
   getKnownFilePathSet,
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui";
 import { ServiceLinkBadge } from "@/components/ui/service-link-badge";
 import { useAppStore } from "@/store/app.store";
+import { normalizeExternalUrl } from "@/lib/external-links";
 import { useShallow } from "zustand/react/shallow";
 import {
   CodeBlock,
@@ -101,12 +102,12 @@ export function Message({ from, className, style, ...props }: MessageProps) {
   const bubbleVars =
     from === "user"
       ? ({
-          "--message-bubble-radius": vars["--ads-radius-panel"],
+          "--message-bubble-radius": vars["--aui-radius-panel"],
           // A neutral step off the conversation ground, so the bubble reads as
           // yours without tinting every prompt in the theme's accent.
-          "--message-bubble-bg": vars["--ads-color-surface-tint"],
-          "--message-bubble-pad-inline": vars["--ads-space-16"],
-          "--message-bubble-pad-block": vars["--ads-space-12"],
+          "--message-bubble-bg": vars["--aui-color-surface-tint"],
+          "--message-bubble-pad-inline": vars["--aui-space-16"],
+          "--message-bubble-pad-block": vars["--aui-space-12"],
         } as CSSProperties)
       : undefined;
   return (
@@ -149,11 +150,14 @@ export function MessageContent({
 interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   isStreaming?: boolean;
   tokenizePromptTokens?: boolean;
+  /** Global conversations have no owning workspace; local paths remain text. */
+  fileLinkContext?: "active-workspace" | "none";
 }
 
 export function MessageResponse({
   isStreaming,
   tokenizePromptTokens,
+  fileLinkContext = "active-workspace",
   children,
   className,
   style,
@@ -172,7 +176,7 @@ export function MessageResponse({
           state.openFileFromTree,
           state.settings.messageFontSize,
           state.settings.messageCodeFontSize,
-          state.workspacePathById[state.activeWorkspaceId] ??
+          fileLinkContext === "none" ? "" : state.workspacePathById[state.activeWorkspaceId] ??
             state.repositoryPath ??
             "",
         ] as const,
@@ -206,6 +210,7 @@ export function MessageResponse({
     href?: string;
     allowUnknownPath?: boolean;
   }) {
+    if (fileLinkContext === "none") return null;
     return resolveWorkspaceFileLink({
       href: args.href,
       workspaceCwd,
@@ -234,6 +239,11 @@ export function MessageResponse({
     resolvedFileLink?: ResolvedWorkspaceFileLink | null;
     code?: string;
   }) {
+    // A cached streaming block can still carry its previous resolved path.
+    if (fileLinkContext === "none") {
+      if (!normalizeExternalUrl(args.href)) args.event.preventDefault();
+      return;
+    }
     const resolved =
       args.resolvedFileLink ?? resolveFileLink({ href: args.href });
     if (!resolved) {
@@ -292,6 +302,7 @@ export function MessageResponse({
   return (
     <MarkdownMessage
       content={content}
+      disableLocalLinks={fileLinkContext === "none"}
       isStreaming={isStreaming}
       messageFontSize={messageFontSize}
       messageCodeFontSize={messageCodeFontSize}
@@ -455,8 +466,8 @@ export function MessageAttachment({
         </div>
       )}
       {onRemove ? (
-        <AdsTooltip content={i18n.t("composer:message.removeAttachment")}>
-          <AdsButton
+        <AuiTooltip content={i18n.t("composer:message.removeAttachment")}>
+          <AuiButton
             layout="host"
             type="button"
             xstyle={styles.attachmentRemove}
@@ -464,8 +475,8 @@ export function MessageAttachment({
             aria-label={i18n.t("composer:message.removeAttachment")}
           >
             <X className={sx(styles.attachmentRemoveIcon)} />
-          </AdsButton>
-        </AdsTooltip>
+          </AuiButton>
+        </AuiTooltip>
       ) : null}
     </div>
   );

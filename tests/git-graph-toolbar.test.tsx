@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement, createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   GIT_GRAPH_LANE_PALETTE,
   GitGraphCanvas,
@@ -169,11 +169,11 @@ describe("Commit graph toolbar", () => {
 
     expect(ROW_HEIGHT).toBe(24);
     expect(GIT_GRAPH_LANE_PALETTE).toHaveLength(14);
-    expect(GIT_GRAPH_LANE_PALETTE.every((color) => /^var\(--ads-chart-\d+\)$/.test(color))).toBe(true);
+    expect(GIT_GRAPH_LANE_PALETTE.every((color) => /^var\(--aui-chart-\d+\)$/.test(color))).toBe(true);
     expect(html).toContain(sx(gitGraphCanvasStyles.svg));
     expect(html).not.toContain("stroke-dasharray");
     expect(html.match(/<circle/g)).toHaveLength(3);
     expect(html).toContain('stroke="var(--muted-foreground)"');
-    expect(html.match(/<circle[^>]+fill="var\(--ads-chart-1\)"/g)).toHaveLength(2);
+    expect(html.match(/<circle[^>]+fill="var\(--aui-chart-1\)"/g)).toHaveLength(2);
   });
 });

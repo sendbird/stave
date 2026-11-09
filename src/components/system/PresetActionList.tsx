@@ -2,10 +2,10 @@ import * as stylex from "@stylexjs/stylex";
 import { Lock } from "lucide-react";
 import { useId } from "react";
 import { i18n, useTranslation } from "@/i18n";
-import { StateMark } from "@/components/ads/components/StateMark";
-import type { WorkState } from "@/components/ads/components/state-vocabulary";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { StateMark } from "@/components/aui/components/StateMark";
+import type { WorkState } from "@/components/aui/components/state-vocabulary";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   describePresetActions,
   describePresetLocks,
@@ -148,28 +148,28 @@ export function PresetActionList(props: {
 }
 
 /** A caption label's first line box. */
-const FIRST_LINE = `calc(${vars["--ads-font-size-caption"]} * ${vars["--ads-line-height-tight"]})`;
+const FIRST_LINE = `calc(${vars["--aui-font-size-caption"]} * ${vars["--aui-line-height-tight"]})`;
 
 const styles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   field: {
-    paddingBlockStart: vars["--ads-space-8"],
+    paddingBlockStart: vars["--aui-space-8"],
   },
   heading: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     margin: 0,
   },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     listStyle: "none",
     margin: 0,
     padding: 0,
@@ -178,7 +178,7 @@ const styles = stylex.create({
   row: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   // The label's first line box: the mark is centred in it, so it sits on the
@@ -196,25 +196,25 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   label: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     overflowWrap: "anywhere",
   },
   note: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     overflowWrap: "anywhere",
   },
   word: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-tight"],
     whiteSpace: "nowrap",
   },
   wordAsks: {
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
 });

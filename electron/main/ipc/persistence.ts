@@ -292,9 +292,11 @@ export function registerPersistenceHandlers() {
         return { ok: false };
       }
       const store = await ensurePersistenceReady();
+      // The renderer's copy may predate a workspace the host service created.
       store.saveRepositoryRegistry({
         repositories: parsedArgs.data.repositories as never[],
         activeRepositoryPath: parsedArgs.data.activeRepositoryPath,
+        keepUnseenWorkspaces: true,
       });
       return { ok: true };
     },

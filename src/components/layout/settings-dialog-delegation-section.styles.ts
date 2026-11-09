@@ -1,39 +1,39 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** Delegated tasks card: one status line per provider, then the fix when blocked. */
 export const delegationStyles = stylex.create({
   status: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "grid",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-4"],
+    lineHeight: vars["--aui-line-height-normal"],
   },
   list: {
     display: "grid",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     listStyle: "none",
     marginBlock: 0,
     paddingInlineStart: 0,
   },
   emphasis: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   blocked: {
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   blockedDetail: {
     marginBlock: 0,
   },
   openSettingsLink: {
     textAlign: "start",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     textUnderlineOffset: 2,
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
   },
 });

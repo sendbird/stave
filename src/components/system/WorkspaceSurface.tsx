@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
-import type { Tone } from "@/components/ads/utils/tone";
+import { vars } from "../aui/tokens/tokens.stylex";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export function WorkspaceSurface({
   title,
@@ -43,10 +43,10 @@ const styles = stylex.create({
     minWidth: 0,
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-surface"],
-    color: vars["--ads-color-text"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-surface"],
+    color: vars["--aui-color-text"],
     overflow: "clip",
   },
   header: {
@@ -54,21 +54,21 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: vars["--ads-space-12"],
-    padding: vars["--ads-space-16"],
+    gap: vars["--aui-space-12"],
+    padding: vars["--aui-space-16"],
     borderBottomWidth: 1,
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
   },
   heading: { minWidth: 0, flex: 1 },
-  title: { fontSize: vars["--ads-font-size-body"], fontWeight: 650, margin: 0 },
+  title: { fontSize: vars["--aui-font-size-body"], fontWeight: 650, margin: 0 },
   description: {
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
     marginTop: 4,
     lineHeight: 1.5,
   },
-  body: { padding: vars["--ads-space-16"], minWidth: 0 },
+  body: { padding: vars["--aui-space-16"], minWidth: 0 },
   badge: {
     display: "inline-flex",
     alignItems: "center",
@@ -77,14 +77,14 @@ const styles = stylex.create({
     borderRadius: 20,
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    fontSize: vars["--ads-font-size-caption"],
+    borderColor: vars["--aui-color-border"],
+    fontSize: vars["--aui-font-size-caption"],
     lineHeight: 1.5,
     whiteSpace: "nowrap",
   },
-  neutral: { color: vars["--ads-color-text-muted"] },
-  accent: { color: vars["--ads-color-accent"] },
-  warning: { color: vars["--ads-color-warning"] },
-  success: { color: vars["--ads-color-success"] },
-  danger: { color: vars["--ads-color-danger"] },
+  neutral: { color: vars["--aui-color-text-muted"] },
+  accent: { color: vars["--aui-color-accent"] },
+  warning: { color: vars["--aui-color-warning"] },
+  success: { color: vars["--aui-color-success"] },
+  danger: { color: vars["--aui-color-danger"] },
 });

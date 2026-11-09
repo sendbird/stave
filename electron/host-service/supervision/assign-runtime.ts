@@ -48,7 +48,7 @@ export interface AssignRuntime {
   prepareTurn: (turn: StreamTurnArgs) => TaskAgentTurn | null;
   /** Marks rows a previous run left preparing as interrupted. Call once at start. */
   recover: () => void;
-  list: (args?: { agentConfigId?: string; limit?: number }) => AgentAssignment[];
+  list: (args?: { agentConfigId?: string; limit?: number; excludeTars?: boolean }) => AgentAssignment[];
   /** The agent an assigned task runs as, for its later turns. */
   agentForTask: (taskId: string) => AgentAssignment["agent"] | null;
   assignmentForTask: (taskId: string) => AgentAssignment | null;

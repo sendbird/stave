@@ -1,15 +1,15 @@
 import { i18n, useTranslation } from "@/i18n";
 import { trackerVisualStyles } from "./tracker-visual.styles";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { useMemo } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { GroupedVirtuoso } from "react-virtuoso";
 
 import type { TrackerIssueGroup } from "@/lib/tracker-issues/group";
 import type { TrackerIssueListItem } from "@/lib/tracker-issues/types";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { TrackerIssueRow, type TrackerIssueRowProps } from "./TrackerIssueRow";
 import { taskLayoutStyles } from "./issues-layout.stylex";
 
@@ -45,7 +45,7 @@ function GroupHeader(props: {
   onToggle: () => void;
 }) {
   return (
-    <AdsButton
+    <AuiButton
       layout="host"
       type="button"
       onClick={props.onToggle}
@@ -61,7 +61,7 @@ function GroupHeader(props: {
       <span className={sx(taskLayoutStyles.listCount)}>
         {props.group.items.length}
       </span>
-    </AdsButton>
+    </AuiButton>
   );
 }
 

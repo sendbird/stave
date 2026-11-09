@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildClaudeProviderModeSettingsPatch,
   buildCodexProviderModeSettingsPatch,

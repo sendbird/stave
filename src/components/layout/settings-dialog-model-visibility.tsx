@@ -38,7 +38,7 @@ import {
   SettingsCard,
   SETTINGS_LIST_SWITCH_SIZE,
 } from "./settings-dialog.shared";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { modelVisibilityStyles as styles } from "./settings-dialog-model-visibility.styles";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
 import { useSettingsProviderTab } from "./settings-provider-visibility";

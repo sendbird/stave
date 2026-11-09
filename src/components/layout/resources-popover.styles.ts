@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
@@ -13,26 +13,26 @@ export const resourceStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   usageBarLabel: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   usageBarDetail: {
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   usageBarTrack: {
     height: 8,
     width: "100%",
     overflow: "hidden",
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-track"],
+    borderRadius: vars["--aui-radius-full"],
+    backgroundColor: vars["--aui-color-track"],
   },
   usageBarFill: {
     height: "100%",
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
     // `transition.bar` + `motionDurationEmphasis` at the call site; the fill is
     // absolutely sized inside a fixed track, so the width transition is not a
     // layout animation, but it is spatial and now goes instant under reduce.
@@ -42,14 +42,14 @@ export const resourceStyles = stylex.create({
   },
   trigger: {
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
-      ":active": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
+      ":active": vars["--aui-color-text"],
     },
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-      ":active": vars["--ads-color-overlay-pressed"],
+      ":hover": vars["--aui-color-overlay-hover"],
+      ":active": vars["--aui-color-overlay-pressed"],
     },
   },
   triggerBar: {
@@ -58,12 +58,12 @@ export const resourceStyles = stylex.create({
     minHeight: 24,
     gap: 6,
     // Hoverable target: the overlay wash needs the control radius.
-    borderRadius: vars["--ads-radius-control"],
-    paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
+    borderRadius: vars["--aui-radius-control"],
+    paddingInline: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   triggerRail: {
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     padding: 0,
   },
   triggerRailCollapsed: {
@@ -95,19 +95,19 @@ export const resourceStyles = stylex.create({
     maxInlineSize: "calc(100vw - 1rem)",
     gap: 0,
     overflow: "hidden",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    backgroundColor: vars["--aui-color-surface"],
     padding: 0,
   },
   header: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     paddingInline: 0,
     paddingBlockStart: 0,
     paddingBlockEnd: 8,
@@ -115,7 +115,7 @@ export const resourceStyles = stylex.create({
   headerTitleGroup: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     // Same header contract as the notifications popup: the title column
     // shrinks (`min-inline-size: 0` defeats the flex item's `auto` minimum),
     // the trailing action does not.
@@ -126,11 +126,11 @@ export const resourceStyles = stylex.create({
   headerIcon: {
     width: 14,
     height: 14,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   headerTitle: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -141,9 +141,9 @@ export const resourceStyles = stylex.create({
     height: 28,
     padding: 0,
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
-      ":active": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
+      ":active": vars["--aui-color-text"],
     },
   },
   refreshIcon: {
@@ -169,59 +169,59 @@ export const resourceStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-24"],
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-24"],
     textAlign: "center",
   },
   emptyIcon: {
     width: 32,
     height: 32,
-    color: vars["--ads-color-text-placeholder"],
+    color: vars["--aui-color-text-placeholder"],
   },
   emptyCopy: {
     marginBlock: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   stack: {
     display: "grid",
-    gap: vars["--ads-space-16"],
+    gap: vars["--aui-space-16"],
   },
   detailGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    columnGap: vars["--ads-space-12"],
-    rowGap: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-caption"],
+    columnGap: vars["--aui-space-12"],
+    rowGap: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   detailKey: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   detailValue: {
     textAlign: "right",
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   detailValueStrong: {
     textAlign: "right",
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   detailValuePlain: {
     textAlign: "right",
-    fontFamily: vars["--ads-font-mono"],
+    fontFamily: vars["--aui-font-mono"],
     fontVariantNumeric: "tabular-nums",
   },
   detailValueDanger: {
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   detailValueWarning: {
-    color: vars["--ads-color-warning-text"],
+    color: vars["--aui-color-warning-text"],
   },
   detailValueMuted: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   truncated: {
     overflow: "hidden",
@@ -229,46 +229,46 @@ export const resourceStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   group: {
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: vars["--ads-color-border-subtle"],
-    paddingBlockStart: vars["--ads-space-12"],
+    borderTopColor: vars["--aui-color-border-subtle"],
+    paddingBlockStart: vars["--aui-space-12"],
   },
   groupHead: {
-    marginBlockEnd: vars["--ads-space-8"],
+    marginBlockEnd: vars["--aui-space-8"],
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
   },
   groupTitle: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text-muted"],
   },
   groupMeta: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   groupTitleBlock: {
-    marginBlockEnd: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text-muted"],
+    marginBlockEnd: vars["--aui-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-text-muted"],
   },
   storageActions: {
     display: "flex",
-    gap: vars["--ads-space-8"],
-    marginBlockStart: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
+    marginBlockStart: vars["--aui-space-8"],
   },
   storageMessage: {
-    marginBlockStart: vars["--ads-space-8"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    marginBlockStart: vars["--aui-space-8"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   processHead: {
-    marginBlockEnd: vars["--ads-space-8"],
+    marginBlockEnd: vars["--aui-space-8"],
     display: "flex",
     alignItems: "center",
     gap: 6,
@@ -276,23 +276,23 @@ export const resourceStyles = stylex.create({
   processHeadIcon: {
     width: 12,
     height: 12,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   processList: {
     display: "grid",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   processRow: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-8"],
-    borderRadius: vars["--ads-radius-control"],
-    paddingInline: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
+    borderRadius: vars["--aui-radius-control"],
+    paddingInline: vars["--aui-space-8"],
     paddingBlock: 6,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
   },
   processDot: {
@@ -300,7 +300,7 @@ export const resourceStyles = stylex.create({
     width: 8,
     height: 8,
     flexShrink: 0,
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
   },
   processName: {
     minWidth: 0,
@@ -310,43 +310,43 @@ export const resourceStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
   },
   processMemory: {
-    fontFamily: vars["--ads-font-mono"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    color: vars["--aui-color-text-muted"],
   },
   processCpu: {
-    fontFamily: vars["--ads-font-mono"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    color: vars["--aui-color-text-muted"],
   },
   externalRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   externalRowSpaced: {
-    marginBlockStart: vars["--ads-space-4"],
+    marginBlockStart: vars["--aui-space-4"],
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   externalKey: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   externalValue: {
-    fontFamily: vars["--ads-font-mono"],
-    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--aui-font-mono"],
+    color: vars["--aui-color-text-muted"],
   },
 });
 
 /** Process-type pills; `other` covers Electron types with no assigned hue. */
 export const processTypeStyles = stylex.create({
-  Browser: { backgroundColor: vars["--ads-color-info"] },
-  Tab: { backgroundColor: vars["--ads-color-success"] },
-  GPU: { backgroundColor: vars["--ads-chart-4"] },
-  Utility: { backgroundColor: vars["--ads-color-warning"] },
-  other: { backgroundColor: vars["--ads-color-text-muted"] },
+  Browser: { backgroundColor: vars["--aui-color-info"] },
+  Tab: { backgroundColor: vars["--aui-color-success"] },
+  GPU: { backgroundColor: vars["--aui-chart-4"] },
+  Utility: { backgroundColor: vars["--aui-color-warning"] },
+  other: { backgroundColor: vars["--aui-color-text-muted"] },
 });

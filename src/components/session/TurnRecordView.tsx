@@ -12,8 +12,8 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useAsync } from "@/components/ads/utils/async";
-import { sx } from "@/components/ads/utils/stylex";
+import { useAsync } from "@/components/aui/utils/async";
+import { sx } from "@/components/aui/utils/stylex";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { usageAccountLabel } from "@/components/usage/usage-view.utils";
 import { readTaskTurnRecord } from "@/lib/db/turn-history.db";
@@ -64,7 +64,7 @@ export function TurnRecordView(props: {
         onRetry={refresh}
         describeError={() => i18n.t("session:turnRecord.readFailed")}
         isEmpty={(record) => record === null}
-        empty={<p className={sx(styles.notice, styles.surface)}>{i18n.t("session:turnRecord.notFound")}</p>}
+        emptyState={<p className={sx(styles.notice, styles.surface)}>{i18n.t("session:turnRecord.notFound")}</p>}
       >
         {(record) => (record ? <TurnRecordBody record={record} taskId={taskId} view={props.view} /> : null)}
       </AsyncBoundary>

@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { selectActivityMessages } from "@/components/session/activity-detail.utils";
 import { describeDelegateRoute, findDelegateRoutedModel } from "@/lib/delegation/delegate-route";
 import type { DelegationExchange } from "@/lib/delegation/exchange";

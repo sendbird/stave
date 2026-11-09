@@ -26,7 +26,7 @@ import {
   TRACKER_SOURCE_IDS,
   type TrackerSourceId,
 } from "@/lib/tracker-issues/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { IssuesBoard } from "./IssuesBoard";
 import { IssuesPeekPanel } from "./IssuesPeekPanel";

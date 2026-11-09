@@ -20,7 +20,7 @@ import type { CommandPaletteProviderNote } from "@/lib/commands";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import type { TaskMentionOption } from "@/lib/task-context/attached-task-context";
 import { isAssignPaletteEntry } from "@/components/session/assign-palette-entry";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import type { ModelSelectorOption } from "./model-selector";
 import type { PromptInputPaletteState } from "./prompt-input-palette-state";

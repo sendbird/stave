@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { contentLayout } from "./content-layout.styles";
-import { cx, sx } from "../ads/utils/stylex";
-import { focusRing } from "../ads/recipes/focus-ring";
-import { transition } from "../ads/recipes/transition";
+import { cx, sx } from "../aui/utils/stylex";
+import { focusRing } from "../aui/recipes/focus-ring";
+import { transition } from "../aui/recipes/transition";
 import type { MouseEvent } from "react";
 import { Cable, ExternalLink } from "lucide-react";
 import { ExternalAnchor } from "@/components/ui/external-anchor";

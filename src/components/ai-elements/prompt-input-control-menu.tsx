@@ -14,8 +14,8 @@ import {
   type ComposerControlPlacement,
   type ComposerControlPlacements,
 } from "@/lib/composer-controls";
-import { cx, sx } from "../ads/utils/stylex";
-import { focusRing } from "../ads/recipes/focus-ring";
+import { cx, sx } from "../aui/utils/stylex";
+import { focusRing } from "../aui/recipes/focus-ring";
 import { controlMenuStyles } from "./prompt-input-control-menu.styles";
 
 const PLACEMENT_LABELS: Record<ComposerControlPlacement, string> = {

@@ -1,14 +1,14 @@
 import type { ComponentProps } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Tabs as AdsTabs } from "../ads/components/Tabs";
-import { styles } from "../ads/components/Tabs.styles";
-import { sx, cx } from "../ads/utils/stylex";
+import { Tabs as AuiTabs } from "../aui/components/Tabs";
+import { styles } from "../aui/components/Tabs.styles";
+import { sx, cx } from "../aui/utils/stylex";
 
 type ListVariant = "default" | "line" | "soft";
 
 export const tabsShimStyles = stylex.create({
   /**
-   * The ADS root is `display: grid` with NO `gridTemplateRows`, so every row
+   * The AUI root is `display: grid` with NO `gridTemplateRows`, so every row
    * is an implicit `auto` track. That is fine while the root is content-sized,
    * but the moment a caller drops it into a stretched flex/grid parent (every
    * right-rail panel, the Skills dialog, the Source Control panes) the extra
@@ -25,9 +25,9 @@ export const tabsShimStyles = stylex.create({
    * (`styles.rootVertical`), and forcing two rows onto a rail would push a
    * third grid item (a second mounted panel) onto a new row beside it.
    *
-   * `alignContent: start` used to be stated here as well. ADS now declares it
+   * `alignContent: start` used to be stated here as well. AUI now declares it
    * on the root itself, for both orientations, so restating it would emit the
-   * same class the ADS root already carries — which is exactly what a vertical
+   * same class the AUI root already carries — which is exactly what a vertical
    * root must not inherit from this key.
    */
   fillRows: {
@@ -36,9 +36,9 @@ export const tabsShimStyles = stylex.create({
 });
 
 /**
- * `Tabs` IS the ADS root, so the scale axes belong here and only here:
+ * `Tabs` IS the AUI root, so the scale axes belong here and only here:
  * `variant` (`"pill" | "line"`) and `size` (`"sm" | "md"`) land on
- * `Tabs.Root`, which publishes them through the ADS config context so the
+ * `Tabs.Root`, which publishes them through the AUI config context so the
  * list, every tab, and the indicator agree on one value. The strip used to
  * take `variant` on `TabsList` instead, where it was dropped on the floor
  * (`_variant`) — the list could not tell the indicator to become an underline,
@@ -48,10 +48,10 @@ export function Tabs({
   className,
   orientation,
   ...props
-}: ComponentProps<typeof AdsTabs.Root>) {
+}: ComponentProps<typeof AuiTabs.Root>) {
   const rows = orientation === "vertical" ? undefined : sx(tabsShimStyles.fillRows);
   return (
-    <AdsTabs.Root
+    <AuiTabs.Root
       {...props}
       orientation={orientation}
       className={
@@ -74,7 +74,7 @@ export function tabsListVariants({ variant = "default", className }: { variant?:
 
 /**
  * The shim owns the indicator because none of its callers compose one; parts
- * assembled straight off ADS (`SectionTabs`) render `<Tabs.Indicator/>`
+ * assembled straight off AUI (`SectionTabs`) render `<Tabs.Indicator/>`
  * themselves. Exactly one indicator per list either way.
  */
 export function TabsList({
@@ -84,13 +84,13 @@ export function TabsList({
    * purely so the two remaining call sites keep compiling: `WorkspaceSkillsPanel`
    * already passes `variant="line"` to the root as well (so the prop is
    * redundant there), and `ScriptsManager` passes `"soft"`, which has never
-   * been an ADS variant and has never rendered anything.
+   * been an AUI variant and has never rendered anything.
    */
   variant: _variant,
   children,
   ...props
-}: ComponentProps<typeof AdsTabs.List> & { variant?: ListVariant | null }) {
-  return <AdsTabs.List {...props} data-slot="tabs-list">{children}<AdsTabs.Indicator /></AdsTabs.List>;
+}: ComponentProps<typeof AuiTabs.List> & { variant?: ListVariant | null }) {
+  return <AuiTabs.List {...props} data-slot="tabs-list">{children}<AuiTabs.Indicator /></AuiTabs.List>;
 }
-export const TabsTrigger = AdsTabs.Tab;
-export const TabsContent = AdsTabs.Panel;
+export const TabsTrigger = AuiTabs.Tab;
+export const TabsContent = AuiTabs.Panel;

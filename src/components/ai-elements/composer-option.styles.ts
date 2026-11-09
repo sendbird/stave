@@ -1,13 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 export const optionStyles = stylex.create({
-  menu: { gap: vars["--ads-space-8"], padding: vars["--ads-space-8"] },
-  list: { maxHeight: "13rem", display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], overflowY: "auto" },
-  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], borderTopWidth: vars["--ads-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--ads-color-border-subtle"], paddingTop: vars["--ads-space-8"] },
-  sectionTitle: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text-muted"] },
+  menu: { gap: vars["--aui-space-8"], padding: vars["--aui-space-8"] },
+  list: { maxHeight: "13rem", display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], overflowY: "auto" },
+  section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], borderTopWidth: vars["--aui-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--aui-color-border-subtle"], paddingTop: vars["--aui-space-8"] },
+  sectionTitle: { paddingInline: vars["--aui-space-4"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-semibold"], color: vars["--aui-color-text-muted"] },
   /*
-   * The row geometry these two option lists share is ADS's own two-line item
+   * The row geometry these two option lists share is AUI's own two-line item
    * recipe (`recipes/select-styles` `item` + `itemText`/`itemCopy`/
    * `itemLabelLine`/`itemDescription`/`itemIndicator`), not a local box. What
    * the local box got wrong is instructive: it declared `justify-content`,
@@ -15,7 +15,7 @@ export const optionStyles = stylex.create({
    * `Button layout="host"` hands geometry to the caller — so the row was a UA
    * `inline-block`, every flex property was inert, and the block-level label
    * stack pushed the trailing check onto a line of its own at the row's
-   * START edge. The ADS recipe is a 2-column grid whose second track exists
+   * START edge. The AUI recipe is a 2-column grid whose second track exists
    * for that mark, so the check is trailing-aligned and vertically centred by
    * construction rather than by a property that has to win.
    *
@@ -36,15 +36,15 @@ export const optionStyles = stylex.create({
     textAlign: "start",
   },
   /** 2. Title weight only; the line box and the ellipsis come from `itemLabel`. */
-  rowTitle: { fontWeight: vars["--ads-font-weight-medium"] },
-  selected: { backgroundColor: { default: vars["--ads-color-selection-fill"], ":hover": vars["--ads-color-selection-fill"] } },
+  rowTitle: { fontWeight: vars["--aui-font-weight-medium"] },
+  selected: { backgroundColor: { default: vars["--aui-color-selection-fill"], ":hover": vars["--aui-color-selection-fill"] } },
   // Glyph size only: `select-styles.itemIndicator` owns the mark's box,
   // placement and centring.
   check: { width: 14, height: 14, flexShrink: 0 },
-  selectedCheck: { color: vars["--ads-color-accent"] },
-  hint: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
-  callout: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-8"], paddingInline: 10, paddingBlock: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], lineHeight: "20px", color: vars["--ads-color-text-muted"] },
-  warning: { color: vars["--ads-color-warning-text"], backgroundColor: vars["--ads-color-warning-soft"], borderRadius: vars["--ads-radius-control"] },
-  calloutIcon: { marginTop: vars["--ads-space-2"], width: 14, height: 14, flexShrink: 0 },
+  selectedCheck: { color: vars["--aui-color-accent"] },
+  hint: { paddingInline: vars["--aui-space-4"], fontSize: vars["--aui-font-size-caption"], lineHeight: "16px", color: vars["--aui-color-text-muted"] },
+  callout: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-8"], paddingInline: 10, paddingBlock: vars["--aui-space-8"], fontSize: vars["--aui-font-size-caption"], lineHeight: "20px", color: vars["--aui-color-text-muted"] },
+  warning: { color: vars["--aui-color-warning-text"], backgroundColor: vars["--aui-color-warning-soft"], borderRadius: vars["--aui-radius-control"] },
+  calloutIcon: { marginTop: vars["--aui-space-2"], width: 14, height: 14, flexShrink: 0 },
   calloutBody: { minWidth: 0, flex: 1 },
 });

@@ -4,11 +4,11 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { drawerStyles } from "../ads/components/Drawer";
-import { overlaySurface } from "../ads/recipes/overlay-surface";
-import { sx } from "../ads/utils/stylex";
-import { cx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
+import { drawerStyles } from "../aui/components/Drawer";
+import { overlaySurface } from "../aui/recipes/overlay-surface";
+import { sx } from "../aui/utils/stylex";
+import { cx } from "../aui/utils/stylex";
+import { mergeClassName } from "../aui/components/merge-class-name";
 
 type DrawerContextProps = {
   hasSnapPoints: boolean;

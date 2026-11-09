@@ -1,4 +1,4 @@
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { WorkspaceInformationMartinCard } from "./WorkspaceInformationMartinCard";
 import { workspaceInformationPanelStyles as styles } from "./workspace-information-panel.styles";
 

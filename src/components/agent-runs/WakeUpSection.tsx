@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { AlarmClock, AlarmClockOff, Pause, Play } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   describeWakeUpHistory,
   describeWakeUpStatus,
@@ -66,7 +66,7 @@ export function WakeUpSectionView(props: {
           {confirmingRemove ? (
             <>
               <span className={sx(styles.notice)}>{i18n.t("agentRuns:wakeUpSection.wakeUpSectionView2")}</span>
-              <Button size="xs" variant="danger" disabled={busy} onClick={props.onRemove}>
+              <Button size="xs" variant="primary" tone="danger" disabled={busy} onClick={props.onRemove}>
                 {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView3")}</Button>
               <Button size="xs" variant="quiet" onClick={() => setConfirmingRemove(false)}>
                 {i18n.t("agentRuns:wakeUpSection.wakeUpSectionView4")}</Button>

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * Styles for the shared Settings primitives (`SettingsCard`, `LabeledField`,
@@ -12,7 +12,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  *
  * Every section reads from the single ramp below; nothing in
  * `settings-dialog-*.styles.ts` may re-derive a spacing, alignment or type
- * step for the same role. Values are ADS tokens on the 4px scale and the ADS
+ * step for the same role. Values are AUI tokens on the 4px scale and the AUI
  * type ramp (micro / caption / body / lead) only.
  *
  * | Role                              | Token                    |
@@ -47,23 +47,23 @@ export const settingsSharedStyles = stylex.create({
   infoRow: {
     alignItems: "start",
     display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-12"],
+    fontSize: vars["--aui-font-size-body"],
+    gap: vars["--aui-space-12"],
     justifyContent: "space-between",
   },
   infoRowLabel: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   infoRowValue: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     maxInlineSize: "70%",
     overflowWrap: "break-word",
     textAlign: "end",
     wordBreak: "break-all",
   },
   infoRowValueMono: {
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
   },
 
   sectionStack: {
@@ -72,11 +72,11 @@ export const settingsSharedStyles = stylex.create({
   },
 
   card: {
-    borderTopColor: vars["--ads-color-border"],
+    borderTopColor: vars["--aui-color-border"],
     borderTopStyle: "solid",
     borderTopWidth: {
-      default: vars["--ads-border-width-hairline"],
-      ":first-child": vars["--ads-space-0"],
+      default: vars["--aui-border-width-hairline"],
+      ":first-child": vars["--aui-space-0"],
     },
     borderBottomStyle: {
       default: null,
@@ -84,62 +84,62 @@ export const settingsSharedStyles = stylex.create({
     },
     borderBottomWidth: {
       default: null,
-      ":last-child": vars["--ads-border-width-hairline"],
+      ":last-child": vars["--aui-border-width-hairline"],
     },
     borderBottomColor: {
       default: null,
-      ":last-child": vars["--ads-color-border"],
+      ":last-child": vars["--aui-color-border"],
     },
     outline: "none",
-    paddingBlock: vars["--ads-space-24"],
+    paddingBlock: vars["--aui-space-24"],
     paddingBlockStart: {
-      default: vars["--ads-space-24"],
-      ":first-child": vars["--ads-space-0"],
+      default: vars["--aui-space-24"],
+      ":first-child": vars["--aui-space-0"],
     },
-    scrollMarginTop: vars["--ads-space-24"],
+    scrollMarginTop: vars["--aui-space-24"],
   },
   cardHeaderRow: {
     alignItems: "start",
     display: "flex",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     justifyContent: "space-between",
   },
   cardTitle: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-lead"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "-0.015em",
   },
   cardDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-relaxed"],
-    marginBlockStart: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-relaxed"],
+    marginBlockStart: vars["--aui-space-4"],
     // About 90 characters a line at body size; wider reads as a wall of text.
     maxInlineSize: "40rem",
   },
   cardBody: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-20"],
-    marginBlockStart: vars["--ads-space-20"],
+    gap: vars["--aui-space-20"],
+    marginBlockStart: vars["--aui-space-20"],
   },
 
   choiceMark: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
-    blockSize: vars["--ads-space-20"],
-    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
+    blockSize: vars["--aui-space-20"],
+    borderRadius: vars["--aui-radius-mark"],
     display: "flex",
     flexShrink: 0,
-    inlineSize: vars["--ads-space-20"],
+    inlineSize: vars["--aui-space-20"],
     justifyContent: "center",
   },
 
   radioGroupGrid: {
     display: "grid",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   radioGroupGridCols2: {
     gridTemplateColumns: {
@@ -154,42 +154,42 @@ export const settingsSharedStyles = stylex.create({
     },
   },
   radioGroupInline: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "inline-flex",
     flexWrap: "wrap",
     maxInlineSize: "100%",
-    padding: vars["--ads-space-2"],
+    padding: vars["--aui-space-2"],
   },
   radio: {
     alignItems: "center",
     backgroundClip: "padding-box",
     backgroundColor: {
       default: "transparent",
-      ":is([data-checked])": vars["--ads-color-accent"],
+      ":is([data-checked])": vars["--aui-color-accent"],
     },
     borderColor: "transparent",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     // This renders on a real radio control, so `null` would delete the
     // property and hand the label to the UA's `buttontext`.
     color: {
-      default: vars["--ads-color-text"],
-      ":is([data-checked])": vars["--ads-color-accent-text"],
+      default: vars["--aui-color-text"],
+      ":is([data-checked])": vars["--aui-color-accent-text"],
     },
     cursor: "default",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
     justifyContent: "center",
     opacity: {
       default: null,
-      ":is([data-disabled])": vars["--ads-opacity-disabled"],
+      ":is([data-disabled])": vars["--aui-opacity-disabled"],
     },
     outline: "none",
     pointerEvents: {
@@ -210,60 +210,60 @@ export const settingsSharedStyles = stylex.create({
     // The checked branch has to be restated in each override or the selected
     // state silently disappears.
     backgroundColor: {
-      default: vars["--ads-color-surface"],
-      ":is([data-checked])": vars["--ads-color-accent"],
-      ":is([data-unchecked]:hover)": vars["--ads-color-selection-fill"],
+      default: vars["--aui-color-surface"],
+      ":is([data-checked])": vars["--aui-color-accent"],
+      ":is([data-unchecked]:hover)": vars["--aui-color-selection-fill"],
     },
     borderColor: {
-      default: vars["--ads-color-border"],
-      ":is([data-checked])": vars["--ads-color-accent"],
-      ":is([data-unchecked]:hover)": vars["--ads-color-accent"],
+      default: vars["--aui-color-border"],
+      ":is([data-checked])": vars["--aui-color-accent"],
+      ":is([data-unchecked]:hover)": vars["--aui-color-accent"],
     },
     blockSize: "auto",
     justifyContent: "flex-start",
     minBlockSize: "3.5rem",
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
     textAlign: "start",
     whiteSpace: "normal",
   },
   radioSegment: {
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     // See `radioCard`: restating `:is([data-checked])` is mandatory, because
     // this object replaces `radio`'s `color`/`background-color` wholesale.
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":is([data-checked])": vars["--ads-color-accent-text"],
-      ":is([data-unchecked]:hover)": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":is([data-checked])": vars["--aui-color-accent-text"],
+      ":is([data-unchecked]:hover)": vars["--aui-color-text"],
     },
     backgroundColor: {
       default: "transparent",
-      ":is([data-checked])": vars["--ads-color-accent"],
-      ":is([data-unchecked]:hover)": vars["--ads-color-overlay-hover"],
+      ":is([data-checked])": vars["--aui-color-accent"],
+      ":is([data-unchecked]:hover)": vars["--aui-color-overlay-hover"],
     },
-    fontSize: vars["--ads-font-size-caption"],
-    minBlockSize: vars["--ads-control-height-sm"],
-    paddingInline: vars["--ads-space-12"],
+    fontSize: vars["--aui-font-size-caption"],
+    minBlockSize: vars["--aui-control-height-sm"],
+    paddingInline: vars["--aui-space-12"],
   },
   radioContent: {
     alignItems: "start",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   radioTextWrap: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   radioLabel: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   radioDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
   },
   radioDescriptionSelected: {
     color: "inherit",
@@ -271,42 +271,42 @@ export const settingsSharedStyles = stylex.create({
   radioInline: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
 
   toggleGroup: {
     display: "flex",
     flexWrap: "wrap",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   toggle: {
     backgroundColor: {
-      default: vars["--ads-color-surface"],
-      ':is([aria-pressed="true"])': vars["--ads-color-accent"],
+      default: vars["--aui-color-surface"],
+      ':is([aria-pressed="true"])': vars["--aui-color-accent"],
     },
     borderColor: {
-      default: vars["--ads-color-border"],
+      default: vars["--aui-color-border"],
       ':is([aria-pressed="true"])': "transparent",
     },
-    borderRadius: vars["--ads-radius-full"],
+    borderRadius: vars["--aui-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     color: {
-      default: vars["--ads-color-text"],
-      ':is([aria-pressed="true"])': vars["--ads-color-accent-text"],
+      default: vars["--aui-color-text"],
+      ':is([aria-pressed="true"])': vars["--aui-color-accent-text"],
     },
-    fontSize: vars["--ads-font-size-caption"],
-    minBlockSize: vars["--ads-control-height-xs"],
-    paddingInline: vars["--ads-space-12"],
+    fontSize: vars["--aui-font-size-caption"],
+    minBlockSize: vars["--aui-control-height-xs"],
+    paddingInline: vars["--aui-space-12"],
   },
   toggleWithMark: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
   },
   toggleCheck: {
-    blockSize: vars["--ads-space-12"],
-    inlineSize: vars["--ads-space-12"],
+    blockSize: vars["--aui-space-12"],
+    inlineSize: vars["--aui-space-12"],
   },
   toggleLabel: {
     maxInlineSize: "10rem",
@@ -315,19 +315,19 @@ export const settingsSharedStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   tooltipContent: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     maxInlineSize: "16rem",
   },
 
   fieldStacked: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   fieldGrid: {
     alignItems: "start",
     display: "grid",
-    gap: vars["--ads-space-20"],
+    gap: vars["--aui-space-20"],
     gridTemplateColumns: {
       default: null,
       "@media (min-width: 640px)":
@@ -337,7 +337,7 @@ export const settingsSharedStyles = stylex.create({
   fieldLabelBlock: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   /**
@@ -349,22 +349,22 @@ export const settingsSharedStyles = stylex.create({
   fieldLead: {
     paddingBlockStart: {
       default: null,
-      "@media (min-width: 640px)": vars["--ads-space-8"],
+      "@media (min-width: 640px)": vars["--aui-space-8"],
     },
   },
   fieldLabelRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   fieldTitle: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-body"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   fieldDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-relaxed"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
+    lineHeight: vars["--aui-line-height-relaxed"],
   },
   fieldControl: {
     minInlineSize: 0,
@@ -395,13 +395,13 @@ export const settingsSharedStyles = stylex.create({
    * shorter than one.
    */
   switchRow: {
-    minBlockSize: vars["--ads-control-height-lg"],
+    minBlockSize: vars["--aui-control-height-lg"],
   },
   switchLabelBlock: {
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
   },
   switchControl: {
@@ -416,26 +416,26 @@ export const settingsSharedStyles = stylex.create({
     },
     // Centre the switch on the label's first text line instead of nudging it
     // with an off-scale `marginTop: 2`.
-    minBlockSize: vars["--ads-line-height-control"],
+    minBlockSize: vars["--aui-line-height-control"],
   },
 
   selectTrigger: {
-    backgroundColor: vars["--ads-color-canvas"],
-    borderColor: vars["--ads-color-border"],
-    fontSize: vars["--ads-font-size-body"],
+    backgroundColor: vars["--aui-color-canvas"],
+    borderColor: vars["--aui-color-border"],
+    fontSize: vars["--aui-font-size-body"],
     inlineSize: "100%",
-    minBlockSize: vars["--ads-control-height-lg"],
+    minBlockSize: vars["--aui-control-height-lg"],
   },
 
   guideTriggerIcon: {
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
   },
   guideIcon: {
-    blockSize: vars["--ads-control-icon-size-sm"],
-    inlineSize: vars["--ads-control-icon-size-sm"],
+    blockSize: vars["--aui-control-icon-size-sm"],
+    inlineSize: vars["--aui-control-icon-size-sm"],
   },
   guideTriggerInline: {
     display: "inline-flex",
@@ -443,57 +443,57 @@ export const settingsSharedStyles = stylex.create({
   guidePopover: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     inlineSize: "24rem",
     maxInlineSize: "calc(100vw - 2rem)",
   },
   guideHeader: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-0"],
-    paddingInline: vars["--ads-space-0"],
+    gap: vars["--aui-space-4"],
+    paddingBlock: vars["--aui-space-0"],
+    paddingInline: vars["--aui-space-0"],
   },
   guideTitle: {
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
   },
   guideList: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   guideItem: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    gap: vars["--aui-space-4"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
   guideItemLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "0.02em",
     textTransform: "uppercase",
   },
   guideItemDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-control"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-control"],
   },
   guideExampleLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
   },
   guideNote: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-control"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-control"],
   },
 });

@@ -9,7 +9,7 @@ import {
   routeTraceEntryFromResolution,
 } from "@/components/auto-routing";
 import { routeTraceStyles } from "@/components/auto-routing/route-trace.styles";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   buildAutoRoutingDecisionRecord,
   type AutoRoutingDecision,

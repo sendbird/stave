@@ -1,8 +1,8 @@
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { i18n, useTranslation } from "@/i18n";
-import { Checkbox } from "@/components/ads/components/Checkbox";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import {
   ChevronRight,
@@ -25,9 +25,9 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { panelBarStyles } from "@/components/layout/panel-bar.constants";
 import { setWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { transition } from "@/components/ads/recipes/transition";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { transition } from "@/components/aui/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import {
   buildCollapsedWorkspaceEntries,
   buildRepositorySidebarAttentionAlert,
@@ -819,7 +819,7 @@ export function RepositoryWorkspaceSidebar(args: {
                         shortcutLabel={shortcutLabel}
                         side="right"
                       >
-                        <AdsButton
+                        <AuiButton
                           layout="host"
                           type="button"
                           xstyle={[
@@ -855,7 +855,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                 ?.kind
                             }
                           />
-                        </AdsButton>
+                        </AuiButton>
                       </WorkspaceHoverPreviewTooltip>
                     </div>
                   );
@@ -981,7 +981,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.searchWorkspaces")}
                 />
                 {workspaceSearchQuery.trim() ? (
-                  <AdsTooltip content={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.clearWorkspaceSearch")}>
+                  <AuiTooltip content={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.clearWorkspaceSearch")}>
                     <Button
                       type="button"
                       variant="ghost"
@@ -993,7 +993,7 @@ export function RepositoryWorkspaceSidebar(args: {
                     >
                       <X className={sx(repositorySidebarStyles.iconSm)} />
                     </Button>
-                  </AdsTooltip>
+                  </AuiTooltip>
                 ) : null}
               </div>
               {repositories.length === 0 ? (

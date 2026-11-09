@@ -15,10 +15,10 @@ import type {
   TaskExecutionMetricProvenance,
   TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
-import { Meter } from "@/components/ads/components/Meter";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import type { Tone } from "@/components/ads/utils/tone";
+import { Meter } from "@/components/aui/components/Meter";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { cx, sx, type StyleXValue } from "@/components/aui/utils/stylex";
+import type { Tone } from "@/components/aui/utils/tone";
 import { usageThresholdTone, type UsageThresholdKind } from "@/lib/usage/usage-thresholds";
 import { summaryStyles as styles } from "./task-execution-summary.styles";
 
@@ -143,7 +143,7 @@ function StatMeterBar(args: { meter: StatMeter }) {
     <Meter
       xstyle={styles.meter}
       label={args.meter.label}
-      hideLabel
+      showLabel={false}
       hideValue
       size="sm"
       tone={args.meter.tone}

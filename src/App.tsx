@@ -3,6 +3,7 @@ import { useAgentRunSync } from "@/store/agent-runs-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
 import { useUsageLimitAutoResume } from "@/store/use-usage-limit-auto-resume";
 import { useFleetAgentRunSync } from "@/store/fleet-agent-runs-store";
+import { useTarsChangeSubscription } from "@/store/tars-snapshot-store";
 import { useAgentSync } from "@/lib/agents/useAgentSync";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -57,6 +58,8 @@ export default function App() {
   useWakeUpSync();
   useUsageLimitAutoResume();
   useFleetAgentRunSync();
+  // One app-wide reader: Fleet, the tray and owner labels follow Tars pushes.
+  useTarsChangeSubscription();
   useAgentSync();
   useDelegationPermissionSync();
 

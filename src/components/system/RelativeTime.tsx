@@ -1,14 +1,14 @@
 import { getIntlLocale, i18n, useTranslation } from "@/i18n";
 import { formatRelativeTimeShort, formatTimeAgo } from "@/i18n/format";
 import {
-  RelativeTime as AdsRelativeTime,
+  RelativeTime as AuiRelativeTime,
   type RelativeTimeProps,
-} from "@/components/ads/components/RelativeTime";
+} from "@/components/aui/components/RelativeTime";
 
 type HostWords = "formatRelative" | "utcLabel" | "locale";
 
 /**
- * ADS `RelativeTime` in Stave's words: the short relative phrase ("2m ago",
+ * AUI `RelativeTime` in Stave's words: the short relative phrase ("2m ago",
  * "2분 전") from the shared formatter, and the card's absolute UTC and local
  * times in the display language's locale on hover or focus. It does not tick
  * on its own; a live surface passes `now` from the clock it already keeps.
@@ -22,7 +22,7 @@ export function RelativeTime({ past = false, ...props }: Omit<RelativeTimeProps,
 }) {
   useTranslation();
   return (
-    <AdsRelativeTime
+    <AuiRelativeTime
       {...props}
       locale={getIntlLocale()}
       formatRelative={past ? formatTimeAgo : formatRelativeTimeShort}

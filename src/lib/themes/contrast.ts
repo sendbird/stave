@@ -1,7 +1,7 @@
 /**
  * Contrast helpers for theme tokens.
  *
- * Built-in themes are editor palettes reused as product UI. After ADS mapping,
+ * Built-in themes are editor palettes reused as product UI. After AUI mapping,
  * `--muted-foreground` is secondary copy and must clear a WCAG AA floor on
  * every surface it actually sits on. These helpers stay notation-agnostic:
  * they parse the hex / oklch / color-mix values the theme files already use.
@@ -206,7 +206,7 @@ function round(value: number, digits = 3) {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
-/** ADS maps muted copy onto these surfaces. */
+/** AUI maps muted copy onto these surfaces. */
 export const MUTED_SURFACES = [
   "background",
   "card",
@@ -233,7 +233,7 @@ export function deriveAdsTextRamp(tokens: Record<string, string>) {
   };
 }
 
-/** Mirrors the 45% / 12% mixes in `ads-theme.ts`. */
+/** Mirrors the 45% / 12% mixes in `aui-theme.ts`. */
 export function deriveAdsSemanticRamp(args: {
   fill: Oklab;
   foreground: Oklab;
@@ -249,7 +249,7 @@ export const CONTROL_LABEL_FLOOR = 3;
 export const SEMANTIC_FILL_FLOOR = 3;
 export const SELECTION_DISTINGUISH_FLOOR = 1.2;
 
-/** Mirrors `--ads-color-track` in `ads-theme.ts`: the theme's ink at 24% alpha. */
+/** Mirrors `--aui-color-track` in `aui-theme.ts`: the theme's ink at 24% alpha. */
 export const TRACK_INK_ALPHA = 0.24;
 
 /** The meter/progress track as painted: ink at `TRACK_INK_ALPHA`, still to be composited. */

@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   Bird,
@@ -11,7 +11,7 @@ import {
   Unlink,
 } from "lucide-react";
 import { Badge, Button, Input, Loader, toast } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { MartinProjectSummary } from "@/lib/martin-sync/contract";
 import {
   isMartinConnectorPaired,
@@ -217,7 +217,7 @@ export function WorkspaceInformationMartinCard() {
 
       {project ? (
         <div className={sx(styles.linkedBody)}>
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             xstyle={styles.openProject}
@@ -225,7 +225,7 @@ export function WorkspaceInformationMartinCard() {
           >
             <span className={sx(styles.openProjectName)}>{project.name}</span>
             <ExternalLink className={sx(styles.openProjectIcon)} />
-          </AdsButton>
+          </AuiButton>
           <p className={sx(styles.meta)}>
             {project.lastPulledAt
               ? tI18n("workspace:workspaceInformationMartinCard.lastPulledValue", { value1: formatTimeAgo(project.lastPulledAt) })

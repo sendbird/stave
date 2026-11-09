@@ -2,9 +2,9 @@ import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Plus, Sparkles, Zap } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   createActionStage,
   createBlankAiStage,
@@ -148,7 +148,6 @@ export function StageList<T extends StageListValue>(props: {
       ) : null}
       <div className={sx(styles.addRow)}>
         <DropdownMenu
-          triggerAsChild
           trigger={
             <Button variant="secondary" size="sm" disabled={full}>
               <Plus aria-hidden />

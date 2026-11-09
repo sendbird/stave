@@ -7,7 +7,7 @@ import {
   resolveStandaloneCliActiveTabId,
   type StandaloneCliTabId,
 } from "@/lib/terminal/standalone-cli";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 

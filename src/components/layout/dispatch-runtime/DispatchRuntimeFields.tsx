@@ -1,9 +1,9 @@
 import { useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import { Accordion } from "@/components/ads/components/Accordion";
-import { Select } from "@/components/ads/components/Select";
-import { Switch } from "@/components/ads/components/Switch";
-import { sx } from "@/components/ads/utils/stylex";
+import { Accordion } from "@/components/aui/components/Accordion";
+import { Select } from "@/components/aui/components/Select";
+import { Switch } from "@/components/aui/components/Switch";
+import { sx } from "@/components/aui/utils/stylex";
 import { ModelEffortSelector } from "@/components/ai-elements/model-effort-selector";
 import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
 import type { CraneDispatchAccessState } from "@/lib/crane-connector/dispatch-runtime";

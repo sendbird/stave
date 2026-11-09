@@ -1,8 +1,8 @@
 import { useTranslation } from "@/i18n";
 import type { CSSProperties, ReactNode } from "react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import type { StyleXValue } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import type { StyleXValue } from "@/components/aui/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { Shimmer } from "./shimmer";
 import { reasoningTextStyles as styles } from "./reasoning-text.styles";

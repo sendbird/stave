@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../components/ads/tokens/tokens.stylex";
+import { vars } from "../components/aui/tokens/tokens.stylex";
 
 /** Host stacking bands also govern guest-page occlusion; keep their order. */
 export const layers = stylex.create({
@@ -30,8 +30,8 @@ export const localStack = stylex.defineVars({
   "--stave-stack-floating": "20",
 });
 export const elevations = stylex.create({
-  surface: { boxShadow: vars["--ads-elevation-raised"] },
-  raised: { boxShadow: vars["--ads-elevation-lift"] },
-  floating: { boxShadow: vars["--ads-elevation-overlay"] },
-  modal: { boxShadow: vars["--ads-elevation-modal"] },
+  surface: { boxShadow: vars["--aui-elevation-raised"] },
+  raised: { boxShadow: vars["--aui-elevation-lift"] },
+  floating: { boxShadow: vars["--aui-elevation-overlay"] },
+  modal: { boxShadow: vars["--aui-elevation-modal"] },
 });

@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "@/i18n";
-import { Select } from "@/components/ads/components/Select";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Select } from "@/components/aui/components/Select";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import type { ApiConnectionCatalogModel } from "@/lib/providers/api-connections";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import type { RoutingDecisionConfig } from "@/lib/providers/routing-decision";

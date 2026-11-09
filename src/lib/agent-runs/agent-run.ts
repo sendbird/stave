@@ -232,7 +232,8 @@ export function extractRunAssignment(prompt: string, assignment: string): string
  * Why an active agent run ends without a report, or null when it goes on:
  * the task no longer runs as an agent (the selector moved to a model), or the
  * user stopped the run's own turn that just ended. A turn Stave interrupted by
- * quitting is not a stop; the run resumes after a restart. The composer
+ * quitting is not a stop; the run resumes after a restart. Neither is a turn a
+ * pause or takeover stopped (`recordPauseInterruption`): the run stays held. The composer
  * cancels the run itself before it stops one of the user's turns
  * (`src/store/agent-run-stop.ts`), so only the run's turns are read here.
  */

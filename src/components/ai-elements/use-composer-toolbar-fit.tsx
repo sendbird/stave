@@ -18,7 +18,7 @@ import {
   COMPOSER_SIDE_QUESTION_SLOT,
   fitComposerToolbar,
 } from "@/lib/composer-toolbar-fit";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import type { ComposerControlMenuItem } from "./composer-control-menu";
 
 /** Used for a control that has never been on the row (it arrived folded). */

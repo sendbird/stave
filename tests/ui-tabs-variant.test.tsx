@@ -7,7 +7,7 @@ import {
   TabsTrigger,
   tabsShimStyles,
 } from "@/components/ui/tabs";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 
 function renderStrip(variant?: "line" | "pill") {
   return renderToStaticMarkup(
@@ -22,7 +22,7 @@ function renderStrip(variant?: "line" | "pill") {
 }
 
 describe("ui/tabs shim", () => {
-  test("the variant reaches the ADS root instead of being discarded", () => {
+  test("the variant reaches the AUI root instead of being discarded", () => {
     // The regression this pins: `variant` used to be accepted on `TabsList`
     // and dropped, so a caller asking for a line strip got the pill chrome
     // and hand-drew its own baseline rule on a wrapper.
@@ -30,7 +30,7 @@ describe("ui/tabs shim", () => {
   });
 
   test("the root pins the strip to the top of a stretched grid", () => {
-    // The ADS root is `display: grid` with only implicit `auto` rows, so a
+    // The AUI root is `display: grid` with only implicit `auto` rows, so a
     // stretched parent split its height evenly between the strip and the
     // panel — a 438px-tall tab strip floating mid-panel in the Source Control
     // rail. The shim states `auto minmax(0, 1fr)` once, for every consumer,

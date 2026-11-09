@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * The window's title bar row: the TopBar (`3rem`) that carries the native
@@ -34,7 +34,7 @@ export const inlineHtmlRenderStyles = stylex.create({
   figure: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     margin: 0,
     minInlineSize: 0,
   },
@@ -45,35 +45,35 @@ export const inlineHtmlRenderStyles = stylex.create({
    * surface is its own stacking context, and pane sashes inside it sit at 99.
    */
   figureExpanded: {
-    backgroundColor: vars["--ads-color-surface-raised"],
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: vars["--aui-color-surface-raised"],
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    boxShadow: vars["--ads-elevation-modal"],
-    gap: vars["--ads-space-8"],
-    insetBlockEnd: vars["--ads-space-24"],
-    insetBlockStart: `calc(${TITLE_BAR_CLEARANCE} + ${vars["--ads-space-12"]})`,
-    insetInline: vars["--ads-space-24"],
-    padding: vars["--ads-space-8"],
+    borderWidth: vars["--aui-border-width-hairline"],
+    boxShadow: vars["--aui-elevation-modal"],
+    gap: vars["--aui-space-8"],
+    insetBlockEnd: vars["--aui-space-24"],
+    insetBlockStart: `calc(${TITLE_BAR_CLEARANCE} + ${vars["--aui-space-12"]})`,
+    insetInline: vars["--aui-space-24"],
+    padding: vars["--aui-space-8"],
     position: "fixed",
   },
   header: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     minInlineSize: 0,
-    paddingInlineStart: vars["--ads-space-2"],
+    paddingInlineStart: vars["--aui-space-2"],
   },
   headerExpanded: {
-    paddingInlineStart: vars["--ads-space-8"],
+    paddingInlineStart: vars["--aui-space-8"],
   },
   title: {
-    color: vars["--ads-color-text"],
+    color: vars["--aui-color-text"],
     flex: "1 1 auto",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-normal"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -83,7 +83,7 @@ export const inlineHtmlRenderStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flex: "0 0 auto",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
   },
   /**
    * The page's area. Half a step between the conversation and the muted
@@ -91,11 +91,11 @@ export const inlineHtmlRenderStyles = stylex.create({
    * fills with `--muted`, and both stay distinct on it.
    */
   canvas: {
-    backgroundColor: `color-mix(in oklab, ${vars["--ads-color-canvas-subtle"]} 55%, ${vars["--ads-color-canvas"]})`,
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: `color-mix(in oklab, ${vars["--aui-color-canvas-subtle"]} 55%, ${vars["--aui-color-canvas"]})`,
+    borderColor: vars["--aui-color-border-subtle"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
     minInlineSize: 0,
@@ -117,26 +117,26 @@ export const inlineHtmlRenderStyles = stylex.create({
     minBlockSize: 0,
   },
   source: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderBlockStartColor: vars["--ads-color-border-subtle"],
+    backgroundColor: vars["--aui-color-surface"],
+    borderBlockStartColor: vars["--aui-color-border-subtle"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars["--ads-border-width-hairline"],
+    borderBlockStartWidth: vars["--aui-border-width-hairline"],
     display: "grid",
-    gap: vars["--ads-space-4"],
+    gap: vars["--aui-space-4"],
     justifyItems: "end",
-    padding: vars["--ads-space-8"],
+    padding: vars["--aui-space-8"],
   },
   sourceExpanded: {
     flex: "0 0 auto",
     maxBlockSize: "40%",
   },
   sourceText: {
-    color: vars["--ads-color-text"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantLigatures: "none",
     inlineSize: "100%",
-    lineHeight: vars["--ads-line-height-normal"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
     maxBlockSize: "24rem",
     overflow: "auto",
@@ -146,22 +146,22 @@ export const inlineHtmlRenderStyles = stylex.create({
   /** Where an unmounted frame was: its height, and an offer to show it again. */
   paused: {
     alignItems: "baseline",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
     justifyContent: "center",
-    lineHeight: vars["--ads-line-height-normal"],
-    paddingBlock: vars["--ads-space-24"],
-    paddingInline: vars["--ads-space-12"],
+    lineHeight: vars["--aui-line-height-normal"],
+    paddingBlock: vars["--aui-space-24"],
+    paddingInline: vars["--aui-space-12"],
   },
   notice: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
+    paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
   },
 });

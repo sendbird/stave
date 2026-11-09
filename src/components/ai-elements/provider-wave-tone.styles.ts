@@ -1,4 +1,4 @@
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { providerInkStyles } from "@/components/system/provider-ink.styles";
 import { getProviderWaveHue } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";

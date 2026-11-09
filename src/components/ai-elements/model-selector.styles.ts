@@ -1,31 +1,31 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
-const accent10 = `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`;
+const accent10 = `color-mix(in oklch, ${vars["--aui-color-accent"]} 10%, transparent)`;
 
 export const modelSelectorStyles = stylex.create({
   root: { position: "relative" },
   trigger: {
     display: "inline-flex",
-    height: vars["--ads-control-height"],
+    height: vars["--aui-control-height"],
     maxWidth: 240,
     alignItems: "center",
     justifyContent: "space-between",
     gap: "0.375rem",
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
     borderColor: "transparent",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--aui-color-overlay-hover"],
     },
     paddingInline: "0.625rem",
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text"],
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text"],
   },
   triggerOpen: {
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-overlay-hover"]} 100%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--aui-color-overlay-hover"]} 100%, transparent)`,
   },
   triggerLead: {
     display: "flex",
@@ -34,15 +34,15 @@ export const modelSelectorStyles = stylex.create({
     gap: "0.375rem",
   },
   triggerIcon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
   },
   triggerAccentIcon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
     flexShrink: 0,
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   triggerLabel: {
     overflow: "hidden",
@@ -50,9 +50,9 @@ export const modelSelectorStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   triggerChevron: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
-    color: vars["--ads-color-text-muted"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
+    color: vars["--aui-color-text-muted"],
   },
   /**
    * Flush surface. Passed as `xstyle` (never `className`) so `padding: 0`
@@ -68,7 +68,7 @@ export const modelSelectorStyles = stylex.create({
    */
   dialogContent: {
     overflow: "hidden",
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--aui-radius-panel"],
     // `gap` goes with `padding`: the shim's `space24` track gap sat between the
     // screen-reader-only header row and the command frame, so a flush surface
     // that only zeroed `padding` still opened with a 24px band above the search
@@ -87,22 +87,22 @@ export const modelSelectorStyles = stylex.create({
     maxHeight: "17.5rem",
   },
   // Row height and the icon/copy gap are this surface's (its rows carry a
-  // description line). The inline gutter is the ADS item's `space8`, so the
+  // description line). The inline gutter is the AUI item's `space8`, so the
   // row edge lines up with the group heading and the list padding.
   optionItem: {
     gap: "0.75rem",
-    borderRadius: vars["--ads-radius-control"],
+    borderRadius: vars["--aui-radius-control"],
     paddingBlock: "0.625rem",
   },
   optionAccentIcon: {
-    width: vars["--ads-control-icon-size-md"],
-    height: vars["--ads-control-icon-size-md"],
+    width: vars["--aui-control-icon-size-md"],
+    height: vars["--aui-control-icon-size-md"],
     flexShrink: 0,
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   optionIcon: {
-    width: vars["--ads-control-icon-size-md"],
-    height: vars["--ads-control-icon-size-md"],
+    width: vars["--aui-control-icon-size-md"],
+    height: vars["--aui-control-icon-size-md"],
     flexShrink: 0,
   },
   optionBody: {
@@ -119,7 +119,7 @@ export const modelSelectorStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  optionLabel: { fontWeight: vars["--ads-font-weight-medium"] },
+  optionLabel: { fontWeight: vars["--aui-font-weight-medium"] },
   // The published price ends the id line, muted, and drops below the id when
   // both do not fit; absent for unpriced models.
   optionPrice: { marginInlineStart: "auto" },
@@ -127,38 +127,38 @@ export const modelSelectorStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     alignItems: "baseline",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     minWidth: 0,
   },
   optionDefaultBadge: {
     flexShrink: 0,
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--aui-radius-mark"],
     backgroundColor: accent10,
-    paddingInline: vars["--ads-space-4"],
+    paddingInline: vars["--aui-space-4"],
     paddingBlock: "1px",
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
-    color: vars["--ads-color-accent"],
+    fontSize: vars["--aui-font-size-micro"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
+    color: vars["--aui-color-accent"],
   },
   /** A caution beside the label, such as a model that is experimental on this runtime. */
   optionNoticeBadge: {
     flexShrink: 0,
-    borderRadius: vars["--ads-radius-mark"],
-    backgroundColor: vars["--ads-color-warning-soft"],
-    paddingInline: vars["--ads-space-4"],
+    borderRadius: vars["--aui-radius-mark"],
+    backgroundColor: vars["--aui-color-warning-soft"],
+    paddingInline: vars["--aui-space-4"],
     paddingBlock: "1px",
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: vars["--ads-line-height-tight"],
-    color: vars["--ads-color-warning-text"],
+    fontSize: vars["--aui-font-size-micro"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    lineHeight: vars["--aui-line-height-tight"],
+    color: vars["--aui-color-warning-text"],
   },
   optionDescription: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   groupHeading: {
     display: "flex",
@@ -167,27 +167,27 @@ export const modelSelectorStyles = stylex.create({
   },
   /** The sub-group name beside the runtime, such as "Company gateway · API billing". */
   groupHeadingMeta: {
-    color: vars["--ads-color-text-muted"],
-    fontWeight: vars["--ads-font-weight-regular"],
+    color: vars["--aui-color-text-muted"],
+    fontWeight: vars["--aui-font-weight-regular"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   groupHeadingIcon: {
-    width: vars["--ads-control-icon-size-sm"],
-    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--aui-control-icon-size-sm"],
+    height: vars["--aui-control-icon-size-sm"],
   },
   effortRow: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    borderTopWidth: vars["--ads-border-width-hairline"],
+    gap: vars["--aui-space-8"],
+    borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-12"],
+    borderTopColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 70%, transparent)`,
+    paddingInline: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-12"],
   },
-  effortLabel: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  effortLabel: { fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
   srOnly: {
     position: "absolute",
     width: 1,

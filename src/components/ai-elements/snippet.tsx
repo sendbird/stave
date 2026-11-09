@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import type { HTMLAttributes } from "react";
 import { Check, Copy } from "lucide-react";
-import { cx, sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import { transition } from "@/components/aui/recipes/transition";
 import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
 import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import { snippetStyles as styles } from "./snippet.styles";
@@ -38,7 +38,7 @@ function SnippetCopyButton({ code }: { code: string }) {
   const { status, copied, copy } = useClipboardCopy(2000);
   return (
     <>
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         xstyle={[styles.copyButton, transition.colors]}
@@ -53,7 +53,7 @@ function SnippetCopyButton({ code }: { code: string }) {
         ) : (
           <Copy className={sx(styles.copyIcon)} />
         )}
-      </AdsButton>
+      </AuiButton>
       <ClipboardCopyAnnouncement status={status} />
     </>
   );

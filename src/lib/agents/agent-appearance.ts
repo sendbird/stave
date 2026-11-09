@@ -10,13 +10,13 @@ import { AGENT_COLORS, type AgentAppearance, type AgentColor, type AgentConfig }
  * (people and models stay round, so an agent reads as one at a glance).
  *
  * Colours are named hues (`AgentColor`); each maps to an existing
- * `--ads-chart-*` token in `AGENT_COLOR_CHART_INDEX`, so a theme moves avatar
+ * `--aui-chart-*` token in `AGENT_COLOR_CHART_INDEX`, so a theme moves avatar
  * hues with the rest of its palette and no new colour token is introduced.
  * An agent with no chosen colour gets a stable one derived from its id, so it
  * keeps the same hue on every load and two agents rarely share one.
  */
 
-/** The chart token slot (`--ads-chart-N`) each named hue paints with. */
+/** The chart token slot (`--aui-chart-N`) each named hue paints with. */
 export const AGENT_COLOR_CHART_INDEX: Readonly<Record<AgentColor, number>> = {
   blue: 1,
   orange: 2,
@@ -108,8 +108,8 @@ export interface AgentAvatarTone {
 export function agentAvatarTone(agent: Pick<AgentConfig, "id" | "appearance">): AgentAvatarTone {
   const hue = agentColorToken(agent);
   return {
-    fill: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_FILL_SHARE}%, var(--ads-color-surface))`,
-    ink: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_INK_SHARE}%, var(--ads-color-text))`,
+    fill: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_FILL_SHARE}%, var(--aui-color-surface))`,
+    ink: `color-mix(in oklab, ${hue} ${AGENT_AVATAR_INK_SHARE}%, var(--aui-color-text))`,
   };
 }
 
@@ -160,7 +160,7 @@ export function agentAvatarPalette(args: {
 
 /** The chart token that paints an agent's avatar. */
 export function agentColorToken(agent: Pick<AgentConfig, "id" | "appearance">): string {
-  return `var(--ads-chart-${AGENT_COLOR_CHART_INDEX[agentColor(agent)]})`;
+  return `var(--aui-chart-${AGENT_COLOR_CHART_INDEX[agentColor(agent)]})`;
 }
 
 /**

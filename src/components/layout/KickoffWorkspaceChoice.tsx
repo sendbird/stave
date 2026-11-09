@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { kickoffStyles } from "./kickoff-dialog.styles";
 
 export type KickoffWorkspaceMode = "new-worktree" | "same-workspace";

@@ -16,7 +16,7 @@ import {
   getClaudeThinkingModeHelp,
   type ClaudeThinkingMode,
 } from "@/lib/providers/claude-thinking-mode";
-import { cx, sx } from "../ads/utils/stylex";
+import { cx, sx } from "../aui/utils/stylex";
 import {
   COMPOSER_CONTROL_BUTTON,
   ComposerControlLabel,

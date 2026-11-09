@@ -1,8 +1,8 @@
 import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Loader } from "@/components/ui";
-import { Meter } from "@/components/ads/components/Meter";
-import { sx } from "@/components/ads/utils/stylex";
+import { Meter } from "@/components/aui/components/Meter";
+import { sx } from "@/components/aui/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import {
   buildUsageHeadlineWindows,
@@ -67,7 +67,7 @@ function UsageWindowRow({
       {/* A quota window is a measurement against a known limit, so it is a meter, not task progress. */}
       <Meter
         label={label}
-        hideLabel
+        showLabel={false}
         hideValue
         size="sm"
         tone={usageTone(normalizedPercent)}

@@ -1,7 +1,8 @@
 import { TranscriptFind } from "@/components/system/TranscriptFind";
 import { TranscriptDelegationsProvider } from "./message/transcript-delegations-context";
+import { TranscriptEntranceScope } from "./transcript-entrance-scope";
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
-import { EmptyState } from "@/components/ads/components/EmptyState";
+import { EmptyState } from "@/components/aui/components/EmptyState";
 import {
   clearTaskMessagesLoadFailure,
   useTaskMessageLoadFailures,
@@ -24,8 +25,8 @@ import {
 import type { VirtuosoHandle } from "react-virtuoso";
 import { Undo2 } from "lucide-react";
 import { Button, Loader, toast } from "@/components/ui";
-import { Separator } from "@/components/ads/components/Separator";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { Separator } from "@/components/aui/components/Separator";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import {
   Dialog,
   DialogContent,
@@ -79,7 +80,7 @@ import {
 } from "@/lib/providers/turn-account";
 import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { TurnModelTooltip } from "@/components/session/TurnModelTooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { chatPanelStyles as styles } from "./chat-panel.styles";
 import {
   buildModelChangeMarkers,
@@ -142,8 +143,8 @@ const EMPTY_PROVIDER_SESSION: TaskProviderSessionState = {};
  * meets the next tighten to the mark radius (top-left, top-right, bottom-right,
  * bottom-left).
  */
-const PANEL_RADIUS = vars["--ads-radius-panel"];
-const JOINED_RADIUS = vars["--ads-radius-mark"];
+const PANEL_RADIUS = vars["--aui-radius-panel"];
+const JOINED_RADIUS = vars["--aui-radius-mark"];
 const USER_GROUP_BUBBLE_RADIUS: Record<UserMessageGroupPosition, string> = {
   first: `${PANEL_RADIUS} ${PANEL_RADIUS} ${JOINED_RADIUS} ${PANEL_RADIUS}`,
   middle: `${PANEL_RADIUS} ${JOINED_RADIUS} ${JOINED_RADIUS} ${PANEL_RADIUS}`,
@@ -1625,6 +1626,8 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   const taskId = useScopedTaskId();
   return (
     <TranscriptDelegationsProvider key={taskId} taskId={taskId}>
+    {/* Virtualized rows remount on scroll: no AUI entrance replays here. */}
+    <TranscriptEntranceScope>
     <Conversation data-chat-panel={findScopeId}>
       <div className={sx(styles.panelColumn)}>
         <MemoizedChatPanelMessageList
@@ -1634,6 +1637,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
       </div>
       <ChatScrollToBottomButton taskId={taskId} />
     </Conversation>
+    </TranscriptEntranceScope>
     </TranscriptDelegationsProvider>
   );
 }

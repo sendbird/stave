@@ -1,9 +1,9 @@
 import { useTranslation } from "@/i18n";
 import { Bot, ChevronDown, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import type { WorkspaceTurnSummary as WorkspaceTurnSummaryValue } from "@/lib/workspace-information";
 import { workspaceTurnSummaryStyles as styles } from "./workspace-turn-summary.styles";

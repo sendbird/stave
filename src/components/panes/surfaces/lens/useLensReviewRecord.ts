@@ -1,4 +1,4 @@
-import { useAsync, type AsyncState } from "@/components/ads/utils/async";
+import { useAsync, type AsyncState } from "@/components/aui/utils/async";
 import type { LensReviewRecord } from "@/lib/lens/lens-review-record";
 
 export interface SavedLensReview {

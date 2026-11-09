@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState } from "react";
 import { BellRing, History, RotateCcw, Route, SlidersHorizontal, UserRoundCog, type LucideIcon } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { formatTime } from "@/i18n/format";
 import type { AgentRun, AgentRunEvent } from "@/lib/agent-runs/domain";
 import { projectAgentRunDecisionLog, type AgentRunDecisionKind } from "@/lib/agent-runs/decision-log";

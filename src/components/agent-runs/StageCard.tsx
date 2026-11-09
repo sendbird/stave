@@ -3,9 +3,9 @@ import { formatDuration } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import { ArrowUpRight, ChevronRight, RotateCcw, SkipForward } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { StepRail } from "@/components/ads/components/StepRail";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { StepRail } from "@/components/aui/components/StepRail";
+import { sx } from "@/components/aui/utils/stylex";
 import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
 import { STAVE_ACTION_LABELS } from "@/lib/workflows/schema";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
@@ -101,6 +101,8 @@ export function StageCard(props: {
   onSkip?: () => void;
   onShowTool?: (toolCallId: string) => void;
   busy?: boolean;
+  /** Opens the card on mount, for a surface that was asked to show this stage. Defaults to the current stage. */
+  defaultExpanded?: boolean;
 }) {
   useTranslation();
   const { row } = props;
@@ -111,7 +113,7 @@ export function StageCard(props: {
   const meta = describeStageMeta(row);
   const troubled = row.status === "blocked" || row.status === "stuck";
   const recoverable = row.current && troubled;
-  const [expanded, setExpanded] = useState(row.current);
+  const [expanded, setExpanded] = useState(props.defaultExpanded ?? row.current);
   // Opens when the stage becomes current or needs recovering, so Retry and
   // Skip are never folded away; the user can still close it again.
   const [opener, setOpener] = useState({ current: row.current, recoverable });

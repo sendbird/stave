@@ -10,6 +10,9 @@ import { useAppStore } from "@/store/app.store";
 import { useAgentRunsStore } from "@/store/agent-runs-store";
 import { snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import { resolveStartAccountPool } from "@/store/agent-run-send";
+import { useTarsOwner, useTarsSnapshotRefresh } from "@/store/tars-snapshot-store";
+import { reportTarsOwnedOutcome, routeTarsOwnedIntent } from "@/store/tars-owned-control";
+import { tarsTaskTarget } from "@/lib/tars/ownership";
 
 /** What the user can do to an agent run from the bar, the result card and the panel. */
 export interface AgentRunActions {
@@ -24,28 +27,40 @@ export interface AgentRunActions {
   /** Asks a stuck stage again, or starts a new run from the same assignment. */
   onRetry?: () => void;
   onOpenPullRequest?: (url: string) => void;
+  /** An active Tars responsibility holds this run: Stop pauses it and Take control is Tars's takeover. */
+  tarsOwned?: boolean;
 }
 
 /**
  * The actions of one agent run. Stop reuses the composer's Stop (it cancels
  * the run first, then the turn); Take control cancels the run and releases
  * the task's agent, so the conversation, its session and its model stay.
+ * A run an active Tars responsibility holds goes through Tars instead: Stop
+ * pauses the responsibility and Take control is Tars's takeover, which keeps
+ * the run paused for you rather than cancelling it.
  */
 export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRunActions {
   const agentRunId = detail?.agentRun.id ?? "";
   const busy = useAgentRunsStore((state) => Boolean(state.pendingByAgentRun[agentRunId]));
+  const target = detail ? tarsTaskTarget(detail.agentRun.leadTaskId, detail.agentRun.workspaceId, detail) : {};
+  const tarsOwned = useTarsOwner(target) !== null;
+  useTarsSnapshotRefresh(Boolean(detail));
   return useMemo(() => {
     if (!detail) return {};
     const { agentRun } = detail;
     const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
     const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
+    const owned = tarsTaskTarget(agentRun.leadTaskId, agentRun.workspaceId, detail);
     return {
       busy,
+      tarsOwned,
       onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
       onExtend: () => void useAgentRunsStore.getState().runCommand("extend", { agentRunId: agentRun.id }),
+      // The store's Stop pauses a run Tars holds through Tars instead of cancelling it.
       onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId }),
       onTakeControl: () => {
         void (async () => {
+          if (reportTarsOwnedOutcome(await routeTarsOwnedIntent({ target: owned, intent: "takeover", source: "task" }))) return;
           const cancelled = await useAgentRunsStore.getState().runCommand("cancel", { agentRunId: agentRun.id });
           if (!cancelled.ok && cancelled.code !== "not-active") return;
           const released = await window.api?.agents?.releaseTask({ taskId: agentRun.leadTaskId }).catch(() => null);
@@ -107,5 +122,5 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
       },
       onOpenPullRequest: (url) => void openExternalUrl({ url }),
     };
-  }, [busy, detail]);
+  }, [busy, detail, tarsOwned]);
 }

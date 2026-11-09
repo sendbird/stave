@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
@@ -144,41 +144,41 @@ export function TurnEventPreview() {
 }
 const styles = stylex.create({
   page: {
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
     minHeight: "100vh",
-    padding: vars["--ads-space-24"],
+    padding: vars["--aui-space-24"],
   },
   header: {
     display: "flex",
     alignItems: "center",
     flexWrap: "wrap",
-    gap: vars["--ads-space-12"],
+    gap: vars["--aui-space-12"],
     marginInline: "auto",
     maxWidth: "60rem",
-    marginBottom: vars["--ads-space-24"],
+    marginBottom: vars["--aui-space-24"],
   },
-  title: { fontSize: vars["--ads-font-size-lead"], fontWeight: vars["--ads-font-weight-semibold"] },
+  title: { fontSize: vars["--aui-font-size-lead"], fontWeight: vars["--aui-font-weight-semibold"] },
   note: {
     flexBasis: "100%",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-32"],
+    gap: vars["--aui-space-32"],
     maxWidth: "60rem",
     marginInline: "auto",
   },
-  section: { minWidth: 0, scrollMarginTop: vars["--ads-space-24"] },
+  section: { minWidth: 0, scrollMarginTop: vars["--aui-space-24"] },
   label: {
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    paddingBottom: vars["--ads-space-8"],
-    borderBottom: `1px solid ${vars["--ads-color-border-subtle"]}`,
-    marginBottom: vars["--ads-space-16"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    paddingBottom: vars["--aui-space-8"],
+    borderBottom: `1px solid ${vars["--aui-color-border-subtle"]}`,
+    marginBottom: vars["--aui-space-16"],
   },
-  body: { fontSize: vars["--ads-font-size-body"], minWidth: 0 },
+  body: { fontSize: vars["--aui-font-size-body"], minWidth: 0 },
 });

@@ -6,9 +6,9 @@ import {
   PanelRightOpen,
   PictureInPicture2,
 } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import type {
   ShelfRunState,
   ShelfSegment,
@@ -16,7 +16,7 @@ import type {
   ShelfTurnAlert,
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export type ShelfLabelTone = Extract<Tone, "neutral" | "warning" | "danger" | "accent">;
 

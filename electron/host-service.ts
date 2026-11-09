@@ -90,6 +90,9 @@ import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-fil
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
+import { createHostTarsRuntime } from "./host-service/tars-host";
+import { applyTarsDecision } from "./host-service/tars-decisions";
+import { actTars } from "./host-service/tars-control";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
@@ -99,6 +102,8 @@ import { withConstrainedRoutingCancellation } from "./providers/constrained-rout
 import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
   createHostAssignRuntime,
+  hostAgentCatalogSynced,
+  hostAgents,
   invokeAgentAction,
 } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
@@ -661,6 +666,11 @@ const wakeUpRuntime = createWakeUpRuntime({
   emitChanged: (event) => {
     emitEvent("wake-up.changed", event);
   },
+});
+const tarsRuntime = createHostTarsRuntime({
+  agentRuns: agentRunRuntime,
+  assignments: assignRuntime,
+  emitChanged: (event) => emitEvent("tars.changed", event),
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
@@ -1430,6 +1440,7 @@ async function shutdown() {
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
   wakeUpRuntime.stop();
+  tarsRuntime.stop();
   agentRunRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
@@ -2183,6 +2194,25 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "tars.invoke":
+      await respond(request.id, await (request.params.action === "get" ? tarsRuntime.get() : tarsRuntime[request.params.action](request.params.args)));
+      return;
+    case "tars.apply-decision": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await applyTarsDecision(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        readRegistry: () => persistence.loadRepositoryRegistry(),
+        agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
+        requestTick: () => tarsRuntime.requestTick(),
+        control: (action, ledger) => tarsRuntime.act(action, ledger),
+      }));
+      return;
+    }
+    case "tars.act":
+      await respond(request.id, await actTars(request.params, {
+        conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
+      }));
+      return;
     case "delegated-agent.prepare":
       await respond(request.id, await prepareDelegatedAgentRun({ start: request.params, runtime: agentRunRuntime,
         assignmentForTask: (taskId) => assignRuntime.assignmentForTask(taskId), createTask: localMcpRuntime.createIdleTask }));
@@ -2232,6 +2262,7 @@ async function main() {
   wakeUpRuntime.start();
   agentRunRuntime.start();
   assignRuntime.start();
+  tarsRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

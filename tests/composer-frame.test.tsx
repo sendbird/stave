@@ -1,4 +1,4 @@
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { frameStyles } from "@/components/ai-elements/composer-frame.styles";
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";

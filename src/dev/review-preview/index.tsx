@@ -1,8 +1,8 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
 import { Toaster } from "@/components/ui";
 import { compareFleetAttentionItems, FLEET_ATTENTION_PRIORITY, type FleetAttentionItem } from "@/lib/fleet/attention-projection";
@@ -217,5 +217,5 @@ function ReviewPreviewSurface() {
 }
 
 const styles = stylex.create({
-  page: { display: "flex", flexDirection: "column", height: "100vh", backgroundColor: vars["--ads-color-canvas"] },
+  page: { display: "flex", flexDirection: "column", height: "100vh", backgroundColor: vars["--aui-color-canvas"] },
 });

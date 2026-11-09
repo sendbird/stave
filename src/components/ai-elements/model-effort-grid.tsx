@@ -1,10 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Check, Minus } from "lucide-react";
 import { type CSSProperties, Fragment, type KeyboardEvent, type ReactNode, useMemo, useRef } from "react";
 import { providerInkColor } from "@/lib/providers/provider-identity";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { modelEffortGridStyles as styles } from "./model-effort-grid.styles";
 import { ModelIcon } from "./model-icon";
 import {
@@ -36,7 +36,7 @@ function getCellColor(args: {
 }) {
   const range = Math.max(args.count - 1, 1);
   const mix = Math.round(24 + (args.index / range) * 66);
-  // Mixed toward `transparent`, not toward the popover surface. The ADS
+  // Mixed toward `transparent`, not toward the popover surface. The AUI
   // neutrals are warm (oklch hue ~89) and most provider accents are not, so
   // mixing the two in oklch rotates the hue the long way round: Codex's ramp
   // left olive and arrived cyan. Alpha over the same surface keeps one hue for
@@ -243,7 +243,7 @@ export function ModelEffortGrid(args: {
                   effort.value === args.selectedEffort;
                 const cellKey = getCellKey(option, effort.value);
                 return (
-                  <AdsButton
+                  <AuiButton
                     layout="host"
                     key={cellKey}
                     ref={(element) => {
@@ -293,7 +293,7 @@ export function ModelEffortGrid(args: {
                         />
                       ) : null}
                     </span>
-                  </AdsButton>
+                  </AuiButton>
                 );
               })}
             </div>

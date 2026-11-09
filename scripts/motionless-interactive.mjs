@@ -4,7 +4,7 @@ import ts from "typescript";
 
 /**
  * Finds interactive surfaces that change paint on `:hover`/`:active` and have
- * no `transition` anywhere that could animate it — the regression the ADS
+ * no `transition` anywhere that could animate it — the regression the AUI
  * adoption left behind most often, because extracting a component's styles into
  * a sibling `*.styles.ts` moves the `:hover` arms out of the file that composed
  * `recipes/transition` and nothing complains.
@@ -22,7 +22,7 @@ import ts from "typescript";
  *    key and then swallows the next real key's `:hover` arm along with it.
  *
  * 3. A paint arm handed to a component that ALREADY transitions is not a
- *    finding. Every ADS control composes a `recipes/transition` key over the
+ *    finding. Every AUI control composes a `recipes/transition` key over the
  *    properties merged into it, so `xstyle={fooStyles.deleteButton}` — or the
  *    same thing through `className` — fades its hover ink on the house curve
  *    without the caller restating anything, and demanding a transition there
@@ -110,7 +110,7 @@ function resolveSpecifier(fromPath, specifier, sources) {
  * Follow re-export hops to the module that actually DEFINES `name`.
  *
  * `@/components/ui` is a barrel: it names `Button` but declares nothing, so
- * stopping at the first hop reports every ADS control imported through it as
+ * stopping at the first hop reports every AUI control imported through it as
  * untransitioned. `export { X } from "…"` is followed by name, `export * from`
  * is followed blind, and a module that mentions the name outside an export
  * clause is treated as the definition site.
@@ -220,7 +220,7 @@ function localBindings(consumer, module, sources) {
  *
  * The class channel of a composed control is a PROP, not a class:
  * `<ModelSelector triggerClassName={sx(styles.trigger)} />` and
- * `<SegmentedControl xstyle={…} />` hand their caller's paint arms to an ADS
+ * `<SegmentedControl xstyle={…} />` hand their caller's paint arms to an AUI
  * control one level down, so the caller's surface is animated even though
  * neither the caller nor `ModelSelector` itself says `transition` anywhere.
  * Without this hop those call sites are indistinguishable from a bare `<div>`,
@@ -287,9 +287,9 @@ export function motionlessInteractive(srcRoot) {
 
   const findings = [];
   for (const [path, source] of sources) {
-    // ADS recipes are composed by name at call sites this resolver cannot see,
-    // and every ADS component that uses one composes a transition beside it.
-    if (path.startsWith("components/ads/recipes/")) continue;
+    // AUI recipes are composed by name at call sites this resolver cannot see,
+    // and every AUI component that uses one composes a transition beside it.
+    if (path.startsWith("components/aui/recipes/")) continue;
     if (!PAINT_STATE.test(source)) continue;
     const consumers = [...(importers.get(path) ?? [])];
     const group = [source, ...consumers.map((c) => sources.get(c))];

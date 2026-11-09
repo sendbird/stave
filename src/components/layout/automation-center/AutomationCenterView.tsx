@@ -2,7 +2,7 @@ import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { formatAutomationSchedule, formatAutomationTrustPolicy, describeAutomationDraftIssue } from "@/lib/automation-presentation";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { i18n, useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   AlertCircle,
   Clock3,
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { ThinkingOrb } from "thinking-orbs";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
-import { AppliedFilters } from "@/components/ads/components/AppliedFilters";
+import { AppliedFilters } from "@/components/aui/components/AppliedFilters";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -89,7 +89,7 @@ import {
   type AutomationRunFilter,
 } from "./automation-center.utils";
 import { centerStyles } from "./automation-center-view.styles";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 
 const ALL_AUTOMATIONS = "all";
 
@@ -1232,7 +1232,7 @@ export function AutomationCenterView() {
               state={error && !snapshotLoaded ? { status: "error", error } : { status: "ready", data: visibleRuns }}
               onRetry={() => void loadSnapshot()}
               isEmpty={(runs) => runs.length === 0}
-              empty={
+              emptyState={
               <Empty xstyle={centerStyles.emptyPaneFull}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">

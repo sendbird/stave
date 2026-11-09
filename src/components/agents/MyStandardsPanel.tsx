@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { Switch } from "@/components/ads/components/Switch";
-import { Textarea } from "@/components/ads/components/Textarea";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Switch } from "@/components/aui/components/Switch";
+import { Textarea } from "@/components/aui/components/Textarea";
+import { sx } from "@/components/aui/utils/stylex";
 import { MY_STANDARDS_MAX_CHARS } from "@/lib/agents/standards";
 import { useAppStore } from "@/store/app.store";
 import { workflowStyles as styles } from "../workflows/workflows.styles";

@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useMemo, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { collapsibleResponseStyles as styles } from "./collapsible-response.styles";
 import { shouldCollapseResponse } from "./collapsible-response.utils";

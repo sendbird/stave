@@ -23,6 +23,8 @@
  *
  * `FAKE_CLAUDE_PROMPT_MARKERS` (comma-separated strings) records, per turn,
  * whether the turn's input contained each one: booleans only, never the text.
+ * `FAKE_CLAUDE_REPLY_FILE` supplies a fixture response for non-Agent turns.
+ * It is read when the turn starts, so later file changes cannot alter a held reply.
  *
  * The first turn whose prompt contains `[hold]` keeps running until a
  * `release` file appears in `FAKE_CLAUDE_DIR`, so a spec can act while a turn
@@ -141,7 +143,8 @@ function answerTurn(line) {
         elapsed_time_seconds: 1, session_id: sessionId, uuid: randomUUID() });
     }
   }
-  const text = turn ? `Run turn ${turn} ran after the usage reset.` : "Done.";
+  const text = turn ? `Run turn ${turn} ran after the usage reset.`
+    : process.env.FAKE_CLAUDE_REPLY_FILE ? fs.readFileSync(process.env.FAKE_CLAUDE_REPLY_FILE, "utf8") : "Done.";
   const reply = () => {
     write({ type: "assistant", session_id: sessionId, uuid: randomUUID(), parent_tool_use_id: null,
       message: { id: `msg_${turn}`, type: "message", role: "assistant", model: "claude-sonnet-fake",

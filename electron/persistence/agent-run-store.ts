@@ -511,6 +511,13 @@ export class AgentRunStore {
     return row ? parseAgentRunRow(row) : null;
   }
 
+  /** Includes terminal runs so a recovered starter cannot replay completed work. */
+  getLatestAgentRunForTask(leadTaskId: string): AgentRun | null {
+    const row = this.db.prepare("SELECT * FROM agent_runs WHERE lead_task_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
+      .get(leadTaskId) as AgentRunRow | undefined;
+    return row ? parseAgentRunRow(row) : null;
+  }
+
   listActiveAgentRuns(): AgentRun[] {
     const rows = this.db
       .prepare(`SELECT * FROM agent_runs WHERE state IN ${ACTIVE_STATES_SQL} ORDER BY created_at`)

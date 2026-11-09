@@ -2,9 +2,9 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Fragment, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
-import { Button } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { Button } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { formatRuleConditions, RouteFlow } from "@/components/auto-routing";
 import { formatEffortLabel } from "@/lib/delegation/format";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
@@ -75,7 +75,7 @@ import {
   summarizeRouterSignals,
 } from "@/lib/routing/auto-routing";
 import { useAppStore } from "@/store/app.store";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   ChoiceButtons,
   DraftInput,

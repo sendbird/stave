@@ -4,7 +4,7 @@ import {
   OPENCODE_PROVIDER_MODE_PRESETS,
   buildOpenCodeProviderModeSettingsPatch,
 } from "@/lib/providers/provider-mode-presets";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { PresetActionList } from "@/components/system/PresetActionList";
 import {

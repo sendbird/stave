@@ -1,8 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
+import { vars } from "../aui/tokens/tokens.stylex";
 
 /**
- * Host geometry; surface, focus and motion recipes belong to ADS.
+ * Host geometry; surface, focus and motion recipes belong to AUI.
  *
  * Every size on an overlay SURFACE is stated logically (`inlineSize`,
  * `maxInlineSize`). This is a precedence contract, not a writing-mode
@@ -25,37 +25,37 @@ export const overlayLayout = stylex.create({
     inlineSize: "calc(100% - 2rem)",
     maxInlineSize: "28rem",
     translate: "-50% -50%",
-    gap: vars["--ads-space-24"],
-    padding: vars["--ads-space-24"],
-    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--aui-space-24"],
+    padding: vars["--aui-space-24"],
+    fontSize: vars["--aui-font-size-body"],
     outlineStyle: "none",
   },
-  close: { position: "absolute", top: vars["--ads-space-16"], right: vars["--ads-space-16"] },
-  header: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
+  close: { position: "absolute", top: vars["--aui-space-16"], right: vars["--aui-space-16"] },
+  header: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"] },
   footer: {
     display: "flex",
     flexDirection: { default: "column-reverse", "@media (min-width: 640px)": "row" },
     justifyContent: { default: "normal", "@media (min-width: 640px)": "flex-end" },
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
-  description: { fontSize: vars["--ads-font-size-body"], color: vars["--ads-color-text-muted"] },
+  description: { fontSize: vars["--aui-font-size-body"], color: vars["--aui-color-text-muted"] },
   popover: {
     display: "flex",
     inlineSize: "18rem",
     transformOrigin: "var(--transform-origin)",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
-    padding: vars["--ads-space-16"],
-    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--aui-space-16"],
+    padding: vars["--aui-space-16"],
+    fontSize: vars["--aui-font-size-body"],
     outlineStyle: "none",
   },
   /**
    * The edge-to-edge popover surface, composed AFTER `popover` so it wins the
    * properties it names (one `stylex.props` call, last write wins).
    *
-   * Mirrors the ADS Popover `density="flush"` affordance: the surface drops its
+   * Mirrors the AUI Popover `density="flush"` affordance: the surface drops its
    * own padding and gap so content can draw section rules that reach the
-   * border, and whatever is inside owns ONE inner gutter (`space16`, the ADS
+   * border, and whatever is inside owns ONE inner gutter (`space16`, the AUI
    * popover scale) instead of adding a second inset on top of this one.
    *
    * `overflowY: auto` does double duty — it clips the flush content to the
@@ -72,17 +72,17 @@ export const overlayLayout = stylex.create({
     overflowY: "auto",
     padding: 0,
   },
-  popoverHeader: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], fontSize: vars["--ads-font-size-body"] },
-  muted: { color: vars["--ads-color-text-muted"] },
+  popoverHeader: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], fontSize: vars["--aui-font-size-body"] },
+  muted: { color: vars["--aui-color-text-muted"] },
   submenuArrow: { marginInlineStart: "auto" },
-  menuIndicator: { pointerEvents: "none", position: "absolute", right: vars["--ads-space-8"] },
+  menuIndicator: { pointerEvents: "none", position: "absolute", right: vars["--aui-space-8"] },
   menuLabel: { minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  selectArrow: { pointerEvents: "none", width: vars["--ads-space-16"], height: vars["--ads-space-16"], color: vars["--ads-color-text-muted"] },
-  selectList: { width: "100%", minWidth: 0, padding: vars["--ads-space-4"] },
-  selectLabel: { display: "flex", minWidth: 0, flex: 1, gap: vars["--ads-space-8"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  selectIndicator: { pointerEvents: "none", position: "absolute", right: vars["--ads-space-8"], display: "flex", width: vars["--ads-space-16"], height: vars["--ads-space-16"], alignItems: "center", justifyContent: "center" },
+  selectArrow: { pointerEvents: "none", width: vars["--aui-space-16"], height: vars["--aui-space-16"], color: vars["--aui-color-text-muted"] },
+  selectList: { width: "100%", minWidth: 0, padding: vars["--aui-space-4"] },
+  selectLabel: { display: "flex", minWidth: 0, flex: 1, gap: vars["--aui-space-8"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  selectIndicator: { pointerEvents: "none", position: "absolute", right: vars["--aui-space-8"], display: "flex", width: vars["--aui-space-16"], height: vars["--aui-space-16"], alignItems: "center", justifyContent: "center" },
   decorative: { pointerEvents: "none" },
-  tableViewport: { position: "relative", width: "100%", overflowX: "auto", "--atelier-table-cell-padding-block": vars["--ads-space-8"] },
+  tableViewport: { position: "relative", width: "100%", overflowX: "auto", "--atelier-table-cell-padding-block": vars["--aui-space-8"] },
   /**
    * A keycap group hugs its keys in every parent.
    *
@@ -94,9 +94,9 @@ export const overlayLayout = stylex.create({
    * these chips normally sit in (stretch only applies to an `auto` cross
    * size), so it fixes the stretch without moving the aligned cases.
    */
-  keyGroup: { display: "inline-flex", inlineSize: "fit-content", alignItems: "center", gap: vars["--ads-space-4"], whiteSpace: "nowrap" },
+  keyGroup: { display: "inline-flex", inlineSize: "fit-content", alignItems: "center", gap: vars["--aui-space-4"], whiteSpace: "nowrap" },
   /**
-   * The same hug for a single ADS `Kbd`. ADS's own root declares
+   * The same hug for a single AUI `Kbd`. AUI's own root declares
    * `minInlineSize` but no `inlineSize`, so it cannot resist a stretching
    * parent on its own; this is the host-side hug until the system owns it.
    */

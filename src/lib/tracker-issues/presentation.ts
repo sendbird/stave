@@ -8,7 +8,7 @@ import type {
   TrackerPriorityLevel,
   TrackerStatusCategory,
 } from "@/lib/tracker-issues/types";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 /**
  * Presentation mapping for the tracker list.

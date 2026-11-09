@@ -9,7 +9,7 @@ function render(state: AsyncState<string[]>, onRetry?: () => void) {
       state,
       onRetry,
       isEmpty: (rows) => rows.length === 0,
-      empty: createElement("p", null, "Nothing here yet"),
+      emptyState: createElement("p", null, "Nothing here yet"),
       children: (rows) => createElement("ul", null, rows.map((row) => createElement("li", { key: row }, row))),
     }),
   );

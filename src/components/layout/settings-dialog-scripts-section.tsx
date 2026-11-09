@@ -13,7 +13,7 @@ import { ScriptsManager } from "@/components/scripts";
 import { useAppStore } from "@/store/app.store";
 import type { RecentRepositoryState } from "@/store/repository.utils";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { scriptsSectionStyles } from "./settings-dialog-scripts-section.styles";
 
 /**

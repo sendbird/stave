@@ -5,8 +5,8 @@ import {
   TraceWaterfall,
   type TraceSpan,
   type TraceSpanTone,
-} from "@/components/ads/components/TraceWaterfall";
-import { cx, sx } from "@/components/ads/utils/stylex";
+} from "@/components/aui/components/TraceWaterfall";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
 import { useTurnClock } from "./TurnActivity";
@@ -22,7 +22,7 @@ import { turnTraceTimelineStyles as styles } from "./turn-trace-timeline.styles"
 
 /**
  * The Activity tab's Timeline view: one turn's spans on a shared time axis
- * (ADS `TraceWaterfall`), the steps whose time was not reported listed under
+ * (AUI `TraceWaterfall`), the steps whose time was not reported listed under
  * it rather than drawn, and the turn's own tokens and cost on the turn row —
  * the only level a provider reports them at.
  */

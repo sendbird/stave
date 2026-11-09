@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Gauge } from "lucide-react";
 import { memo, useMemo } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
 import type { ProviderId } from "@/lib/providers/provider.types";

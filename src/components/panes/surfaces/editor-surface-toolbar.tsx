@@ -30,9 +30,9 @@ import {
 } from "@/components/ui";
 import { CountBadge } from "@/components/system/CountBadge";
 import { ReviewEditorOriginButton } from "@/components/review/ReviewEditorOriginButton";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
-import { transition } from "@/components/ads/recipes/transition";
+import { transition } from "@/components/aui/recipes/transition";
 import { editorSurfaceToolbarStyles as s } from "./editor-surface-toolbar.styles";
 import type { EditorTab } from "@/types/chat";
 

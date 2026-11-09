@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import type { IDockviewPanelProps } from "dockview-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -385,6 +385,6 @@ function LensSessionSurface(args: {
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",minHeight:0,flexDirection:"column",overflow:"hidden",backgroundColor:vars["--ads-color-canvas-subtle"]},
-body: {position:"relative",minHeight:0,flex:1,overflow:"hidden",backgroundColor:vars["--ads-color-canvas"]}
+root: {display:"flex",height:"100%",minHeight:0,flexDirection:"column",overflow:"hidden",backgroundColor:vars["--aui-color-canvas-subtle"]},
+body: {position:"relative",minHeight:0,flex:1,overflow:"hidden",backgroundColor:vars["--aui-color-canvas"]}
 });

@@ -358,6 +358,7 @@
     "placeholder": "다음 턴 입력…",
     "placeholder3": "다음 턴 대기열에 추가… (↵)",
     "placeholder4": "명령은 /, 스킬은 $, 매크로는 !, 정보는 @ 사용",
+    "plainTextPlaceholder": "메시지를 입력하세요…",
     "approvalRedirectPlaceholderSteer": "보내면 대기 중인 승인 요청을 거절하고 에이전트의 방향을 조정합니다…",
     "approvalRedirectPlaceholderQueue": "보내면 대기 중인 승인 요청을 거절하고 이 메시지를 다음 턴 대기열에 추가합니다…",
     "approvalRedirectPlaceholderSteerShort": "거절하고 방향 조정…",

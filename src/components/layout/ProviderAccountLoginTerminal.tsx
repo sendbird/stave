@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import { useCliTerminalInstance } from "./useCliTerminalInstance";
 import { useAppStore } from "@/store/app.store";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 /** Login output is never persisted as a terminal transcript or copied into app state. */

@@ -2,13 +2,13 @@ import { i18n, useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { memo, useId, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { surfaceChrome } from "@/components/ads/recipes/surface-chrome";
-import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { surfaceChrome } from "@/components/aui/recipes/surface-chrome";
+import { transition } from "@/components/aui/recipes/transition";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   resolveExchangeElapsedMs,
   type DelegationActionId,
@@ -84,7 +84,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
       data-exchange-kind={exchange.kind}
       data-exchange-status={exchange.outcome.status}
     >
-      <AdsButton
+      <AuiButton
         layout="host"
         type="button"
         aria-expanded={props.onInspect ? undefined : expanded}
@@ -159,7 +159,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         ) : (
           <ChevronRight className={sx(styles.rowChevron)} aria-hidden="true" />
         )}
-      </AdsButton>
+      </AuiButton>
       {expanded ? (
         <div id={detailId} className={sx(styles.rowDetailHost)}>
           <ExchangeDetail

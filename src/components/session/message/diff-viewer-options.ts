@@ -1,5 +1,5 @@
 import { useLayoutEffect, useState } from "react";
-import type { DiffViewerMode } from "@/components/ads/components/DiffViewer";
+import type { DiffViewerMode } from "@/components/aui/components/DiffViewer";
 import type { AppSettings } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
 

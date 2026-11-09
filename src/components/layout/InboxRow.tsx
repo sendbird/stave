@@ -2,11 +2,11 @@ import { useTranslation } from "@/i18n";
 import { formatAgeCompact, formatTimeAgo } from "@/i18n/format";
 import { AlertTriangle, CheckCircle2, GitMerge } from "lucide-react";
 import type { FocusEvent, KeyboardEvent, ReactNode, Ref } from "react";
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { StateMark } from "@/components/aui/components/StateMark";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
@@ -32,6 +32,8 @@ export const INBOX_KIND_TONE: Record<FleetAttentionKind, BadgeTone> = {
   "agent-run-sign-off": "warning",
   "agent-run-blocked": "danger",
   "agent-run-stuck": "danger",
+  "tars-decision": "warning",
+  "tars-blocked": "danger",
 };
 
 export function InboxEntryIcon(props: {
@@ -47,6 +49,8 @@ export function InboxEntryIcon(props: {
     case "agent-run-sign-off":
     case "agent-run-blocked":
     case "agent-run-stuck":
+    case "tars-decision":
+    case "tars-blocked":
       return <StateMark state={FLEET_ATTENTION_WORK_STATE[props.kind]!} />;
     case "result-ready":
       return <CheckCircle2 className={sx(styles.needIcon)} aria-hidden="true" />;
@@ -199,7 +203,7 @@ export function InboxRow(props: {
         onFocus={props.onFocus}
         onKeyDown={props.onKeyDown}
       >
-        <AdsButton
+        <AuiButton
           layout="host"
           id={props.triggerId}
           type="button"
@@ -226,7 +230,7 @@ export function InboxRow(props: {
             <span className={sx(styles.rowSupplement, styles.compactSupplement)}>{props.supplement}</span>
           ) : null}
           <span className={sx(styles.rowTime, styles.compactTime, timeStyle)} data-wait-tone={waitTone}>{formatAgeCompact(entry.at)}</span>
-        </AdsButton>
+        </AuiButton>
         {props.body}
         {props.actions ? (
           <div className={sx(styles.rowActions, styles.rowActionsCompact)}>{props.actions}</div>
@@ -245,7 +249,7 @@ export function InboxRow(props: {
       onFocus={props.onFocus}
       onKeyDown={props.onKeyDown}
     >
-      <AdsButton
+      <AuiButton
         layout="host"
         id={props.triggerId}
         type="button"
@@ -262,7 +266,7 @@ export function InboxRow(props: {
       >
         <span className={sx(styles.rowTop)}>
           {entry.unread ? <span aria-hidden="true" className={sx(styles.unreadDot)} /> : null}
-          <Badge variant="outline" tone={INBOX_KIND_TONE[entry.kind]} xstyle={styles.needBadge}>
+          <Badge variant="outlined" tone={INBOX_KIND_TONE[entry.kind]} xstyle={styles.needBadge}>
             <InboxEntryIcon kind={entry.kind} prStatus={entry.item?.prStatus} />
             {FLEET_ATTENTION_KIND_LABEL[entry.kind]}
           </Badge>
@@ -287,7 +291,7 @@ export function InboxRow(props: {
         {props.supplement ? (
           <span className={sx(styles.rowSupplement)}>{props.supplement}</span>
         ) : null}
-      </AdsButton>
+      </AuiButton>
       {props.body}
       {props.actions ? <div className={sx(styles.rowActions)}>{props.actions}</div> : null}
       {props.children}

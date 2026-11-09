@@ -1,17 +1,17 @@
 import { i18n, useTranslation } from "@/i18n";
 import { sheetLayout } from "./sheet-layout.styles";
-import { transition } from "../ads/recipes/transition";
+import { transition } from "../aui/recipes/transition";
 import { overlayLayout } from "./overlay-layout.styles";
-import { VisuallyHidden } from "../ads/components/VisuallyHidden";
+import { VisuallyHidden } from "../aui/components/VisuallyHidden";
 import * as React from "react";
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { drawerStyles } from "../ads/components/Drawer";
-import { overlaySurface } from "../ads/recipes/overlay-surface";
-import { sx, type StyleXValue } from "../ads/utils/stylex";
-import { cx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
+import { drawerStyles } from "../aui/components/Drawer";
+import { overlaySurface } from "../aui/recipes/overlay-surface";
+import { sx, type StyleXValue } from "../aui/utils/stylex";
+import { cx } from "../aui/utils/stylex";
+import { mergeClassName } from "../aui/components/merge-class-name";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
 

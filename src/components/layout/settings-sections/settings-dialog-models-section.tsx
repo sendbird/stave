@@ -7,7 +7,7 @@ import {
   ModelSelector,
 } from "@/components/ai-elements/model-selector";
 import { SettingsModelVisibilitySection } from "@/components/layout/settings-dialog-model-visibility";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
   getDefaultModelForProvider,

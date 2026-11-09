@@ -14,7 +14,7 @@ import type {
   ClaudeSettingSource,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";

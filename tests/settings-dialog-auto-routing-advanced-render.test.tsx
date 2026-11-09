@@ -35,7 +35,7 @@ describe("Auto settings advanced disclosure", () => {
   test("the Advanced settings trigger renders a chevron affordance", async () => {
     const html = await renderSection();
     expect(html).toContain("Advanced settings");
-    // ADS's compound Accordion.Trigger renders only the children it is given,
+    // AUI's compound Accordion.Trigger renders only the children it is given,
     // so a bare string leaves the disclosure with no open/closed affordance.
     expect(html).toContain("atelier-accordion-trigger");
     expect(html).toContain("lucide-chevron-down");

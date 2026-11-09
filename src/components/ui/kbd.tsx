@@ -1,11 +1,11 @@
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { overlayLayout } from "./overlay-layout.styles";
-import { cx } from "../ads/utils/stylex";
+import { cx } from "../aui/utils/stylex";
 
-import { Kbd as AdsKbd } from "../ads/components/Kbd";
+import { Kbd as AuiKbd } from "../aui/components/Kbd";
 function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
-    <AdsKbd
+    <AuiKbd
       {...props}
       size="sm"
       data-slot="kbd"

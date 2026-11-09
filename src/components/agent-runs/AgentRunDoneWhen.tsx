@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { CircleCheck, CircleDashed, CircleX } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/agent-runs/agent-run-status";
 import { describeWorkspaceCheckProgress, type WorkspaceCheckProgress } from "@/lib/agent-runs/workspace-check";
 import { agentRunStyles as styles } from "./agent-runs.styles";

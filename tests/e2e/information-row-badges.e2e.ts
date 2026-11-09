@@ -33,7 +33,7 @@ for (const width of [300, 340, 420]) {
       }
 
       const longBadge = page.locator('[data-review-badges] [data-slot="badge"]').first();
-      const label = longBadge.locator('[data-ads-slot="label"]');
+      const label = longBadge.locator('[data-aui-slot="label"]');
       await expect(label).toHaveCSS("text-overflow", "ellipsis");
       expect(await longBadge.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
 
@@ -41,7 +41,7 @@ for (const width of [300, 340, 420]) {
         const style = getComputedStyle(element);
         return { background: style.backgroundColor, color: style.color };
       });
-      expect(await paint("[data-review-shim-solid]")).toEqual(await paint("[data-review-ads-solid]"));
+      expect(await paint("[data-review-shim-solid]")).toEqual(await paint("[data-review-aui-solid]"));
 
       const title = page.getByRole("button", { name: "Companion Rich UI — long component title" }).first();
       await title.focus();

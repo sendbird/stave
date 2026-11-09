@@ -2,10 +2,10 @@ import { formatDate } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { Check, Lightbulb, Pencil, X } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { Switch } from "@/components/ads/components/Switch";
-import { Textarea } from "@/components/ads/components/Textarea";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { Switch } from "@/components/aui/components/Switch";
+import { Textarea } from "@/components/aui/components/Textarea";
+import { sx } from "@/components/aui/utils/stylex";
 import type { AgentSuggestion } from "@/lib/agents/learned-suggestions";
 import { AGENT_CONFIG_LIMITS, type AgentConfig } from "@/lib/agents/schema";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
@@ -83,7 +83,7 @@ export function AgentSuggestions(props: {
   const empty = props.suggestions.length === 0;
   const learningSwitch = (
     <Switch
-      density="compact"
+      size="xs"
       label={i18n.t("agents:agentSuggestions.label")}
       checked={props.learning}
       onCheckedChange={(checked) => props.onLearningChange(checked)}

@@ -1,8 +1,8 @@
 import { resolveCliResumeInfoPolling } from "@/lib/terminal/cli-resume-info-poller";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { sx } from "@/components/ads/utils/stylex";
-import { controlHeights } from "@/components/ads/recipes/control-metrics";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { sx } from "@/components/aui/utils/stylex";
+import { controlHeights } from "@/components/aui/recipes/control-metrics";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { StandaloneCliAccountSelect } from "@/components/layout/standalone-cli/StandaloneCliAccountSelect";
 import {
@@ -440,7 +440,7 @@ export function StandaloneCliTerminal(props: {
             value={activeAccountProfileId}
             onValueChange={switchActiveTabAccount}
           />
-          <AdsButton
+          <AuiButton
             layout="host"
             type="button"
             aria-label={t("standaloneCli.terminal.restartSessionLabel")}
@@ -448,7 +448,7 @@ export function StandaloneCliTerminal(props: {
             onClick={restartActiveSession}
           >
             {t("standaloneCli.terminal.restart")}
-          </AdsButton>
+          </AuiButton>
         </div>
       </div>
       <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
@@ -456,14 +456,14 @@ export function StandaloneCliTerminal(props: {
           {status ? (
             <div role="alert" className={sx(styles.statusBanner)}>
               <span className={sx(styles.statusText)}>{status}</span>
-              <AdsButton
+              <AuiButton
                 layout="host"
                 type="button"
                 xstyle={styles.statusAction}
                 onClick={() => setRendererRestartToken((value) => value + 1)}
               >
                 {t("renderer.restart")}
-              </AdsButton>
+              </AuiButton>
             </div>
           ) : null}
           {sessionExited ? (

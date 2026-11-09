@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { QuotaRing } from "@/components/layout/QuotaRing";
 import { QuotaTimeLeftClock } from "@/components/layout/QuotaTimeLeftClock";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import type { WorkspaceExecutionState } from "@/lib/performance/workspace-execution";
 import { managerStyles as styles } from "./resource-manager.styles";

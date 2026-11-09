@@ -1,7 +1,7 @@
 import { useTranslation, i18n } from "@/i18n";
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   FOLLOW_LEVEL_TIER,
   getProfileRouteLevel,

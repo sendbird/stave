@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { AgentRunBubbleFrame, AgentRunPromptRow, AgentRunStageCard, agentRunPromptLayout, resolveAgentRunPromptRow } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCardView } from "@/components/agent-runs/AgentRunResultCard";
@@ -311,46 +311,46 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
 }
 
 const styles = stylex.create({
-  cases: { display: "flex", flexDirection: "column", gap: vars["--ads-space-32"], minWidth: 0 },
-  case: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
-  caption: { margin: 0, color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  cases: { display: "flex", flexDirection: "column", gap: vars["--aui-space-32"], minWidth: 0 },
+  case: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  caption: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
   stack: { display: "flex", flexDirection: "column" },
   // Mirrors the conversation's user shell (`chat-panel.styles.ts` `shell` + `shellUser`).
-  shellUser: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--ads-space-4"], minWidth: 0, maxWidth: "88%", width: "fit-content" },
+  shellUser: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--aui-space-4"], minWidth: 0, maxWidth: "88%", width: "fit-content" },
   composer: {
     position: "relative",
     zIndex: localStack["--stave-stack-raised"],
     minHeight: 72,
-    padding: vars["--ads-space-12"],
+    padding: vars["--aui-space-12"],
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
+    borderColor: vars["--aui-color-border"],
     borderRadius: "0.75rem",
-    backgroundColor: vars["--ads-color-surface-raised"],
-    color: vars["--ads-color-text-placeholder"],
-    fontSize: vars["--ads-font-size-body"],
-    boxShadow: vars["--ads-elevation-raised"],
+    backgroundColor: vars["--aui-color-surface-raised"],
+    color: vars["--aui-color-text-placeholder"],
+    fontSize: vars["--aui-font-size-body"],
+    boxShadow: vars["--aui-elevation-raised"],
   },
   rail: {
-    padding: vars["--ads-space-16"],
+    padding: vars["--aui-space-16"],
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-surface"],
   },
-  fleet: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(16rem, 1fr))", gap: vars["--ads-space-12"] },
+  fleet: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(16rem, 1fr))", gap: vars["--aui-space-12"] },
   fleetCard: {
     display: "flex",
     flexDirection: "column",
     borderWidth: 1,
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
+    backgroundColor: vars["--aui-color-surface"],
     overflow: "hidden",
   },
-  fleetHeader: { display: "flex", flexDirection: "column", gap: 2, padding: vars["--ads-space-12"], fontSize: vars["--ads-font-size-body"] },
+  fleetHeader: { display: "flex", flexDirection: "column", gap: 2, padding: vars["--aui-space-12"], fontSize: vars["--aui-font-size-body"] },
 });
 
 /**

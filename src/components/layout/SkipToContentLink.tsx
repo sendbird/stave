@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { shellStyles } from "@/components/ads/components/AppShell.shell.styles";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { shellStyles } from "@/components/aui/components/AppShell.shell.styles";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { sx } from "@/components/aui/utils/stylex";
 import { focusRegionById } from "@/components/layout/focus-regions";
 
 export const MAIN_CONTENT_ID = "stave-main-content";

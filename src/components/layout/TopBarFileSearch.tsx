@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { FileCode2, Search } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -21,9 +21,9 @@ import {
   CommandList,
   Loader,
 } from "@/components/ui";
-import { AutocompleteInput } from "@/components/ads/headless/autocomplete";
-import { transition } from "@/components/ads/recipes/transition";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { AutocompleteInput } from "@/components/aui/headless/autocomplete";
+import { transition } from "@/components/aui/recipes/transition";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
@@ -280,7 +280,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
         shortcut={quickOpenShortcut}
         side="bottom"
       >
-        <AdsButton
+        <AuiButton
           ref={compactTriggerRef}
           layout="host"
           size="sm"
@@ -297,7 +297,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           style={noDragStyle}
         >
           <Search />
-        </AdsButton>
+        </AuiButton>
       </Tooltip>
 
       <div

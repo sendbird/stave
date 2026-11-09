@@ -1,24 +1,24 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * Styles for the fullscreen Settings dialog shell.
  *
- * The left navigation is the ADS AppShell `Sidebar`, which owns its own
+ * The left navigation is the AUI AppShell `Sidebar`, which owns its own
  * palette; the reverted revision re-skinned it with product `--sidebar-*`
- * utility classes. Those color overrides were cosmetic drift over the ADS
+ * utility classes. Those color overrides were cosmetic drift over the AUI
  * default and are dropped here.
  */
 export const settingsDialogStyles = stylex.create({
   backdrop: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     inset: 0,
     outline: "none",
     position: "fixed",
   },
   popup: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     display: "flex",
     flexDirection: "column",
     blockSize: "100dvh",
@@ -28,7 +28,7 @@ export const settingsDialogStyles = stylex.create({
     inlineSize: "100%",
   },
   provider: {
-    // The ADS `SidebarProvider` wrapper is `display: contents` by default, so
+    // The AUI `SidebarProvider` wrapper is `display: contents` by default, so
     // its children collapse into the dialog `Popup`'s own column flow and the
     // sidebar stacks above the content instead of beside it. Re-establish the
     // provider as the sidebar↔content flex row this shell needs; the old
@@ -48,66 +48,66 @@ export const settingsDialogStyles = stylex.create({
     },
   },
   sidebarContent: {
-    paddingBlockStart: vars["--ads-space-8"],
+    paddingBlockStart: vars["--aui-space-8"],
   },
   sidebarSection: {
-    paddingBlockEnd: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-8"],
+    paddingBlockEnd: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-8"],
   },
   searchWrap: {
     position: "relative",
   },
   searchIcon: {
-    color: vars["--ads-color-text-muted"],
-    blockSize: vars["--ads-control-icon-size-sm"],
-    insetInlineStart: vars["--ads-space-8"],
+    color: vars["--aui-color-text-muted"],
+    blockSize: vars["--aui-control-icon-size-sm"],
+    insetInlineStart: vars["--aui-space-8"],
     pointerEvents: "none",
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    inlineSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--aui-control-icon-size-sm"],
   },
   searchInput: {
-    minBlockSize: vars["--ads-control-height-sm"],
-    paddingInlineEnd: vars["--ads-space-32"],
-    paddingInlineStart: vars["--ads-space-32"],
+    minBlockSize: vars["--aui-control-height-sm"],
+    paddingInlineEnd: vars["--aui-space-32"],
+    paddingInlineStart: vars["--aui-space-32"],
   },
   searchClear: {
-    color: vars["--ads-color-text-muted"],
-    insetInlineEnd: vars["--ads-space-8"],
+    color: vars["--aui-color-text-muted"],
+    insetInlineEnd: vars["--aui-space-8"],
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
   },
   groupLabel: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
     letterSpacing: "0.14em",
     lineHeight: "15px",
     textTransform: "uppercase",
   },
   menuButton: {
-    fontSize: vars["--ads-font-size-body"],
-    minBlockSize: vars["--ads-control-height-sm"],
+    fontSize: vars["--aui-font-size-body"],
+    minBlockSize: vars["--aui-control-height-sm"],
   },
   menuSectionLabel: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   emptyResults: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-control"],
-    paddingBlock: vars["--ads-space-24"],
-    paddingInline: vars["--ads-space-16"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-control"],
+    paddingBlock: vars["--aui-space-24"],
+    paddingInline: vars["--aui-space-16"],
   },
   backButton: {
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     justifyContent: "flex-start",
     inlineSize: "100%",
   },
   main: {
-    backgroundColor: vars["--ads-color-canvas"],
+    backgroundColor: vars["--aui-color-canvas"],
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
@@ -117,16 +117,16 @@ export const settingsDialogStyles = stylex.create({
   },
   header: {
     alignItems: "center",
-    borderBottomColor: vars["--ads-color-border"],
+    borderBottomColor: vars["--aui-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
     minBlockSize: "5rem",
-    paddingBlock: vars["--ads-space-12"],
+    paddingBlock: vars["--aui-space-12"],
     paddingInline: {
-      default: vars["--ads-space-16"],
-      "@media (min-width: 640px)": vars["--ads-space-32"],
+      default: vars["--aui-space-16"],
+      "@media (min-width: 640px)": vars["--aui-space-32"],
     },
   },
   // A page with tabs: the tab strip under the header draws the rule.
@@ -136,11 +136,11 @@ export const settingsDialogStyles = stylex.create({
   headerMacPad: {
     paddingBlockEnd: {
       default: null,
-      "@media (min-width: 640px)": vars["--ads-space-16"],
+      "@media (min-width: 640px)": vars["--aui-space-16"],
     },
     paddingBlockStart: {
-      default: vars["--ads-space-40"],
-      "@media (min-width: 640px)": vars["--ads-space-16"],
+      default: vars["--aui-space-40"],
+      "@media (min-width: 640px)": vars["--aui-space-16"],
     },
   },
   headerDesktop: {
@@ -153,33 +153,33 @@ export const settingsDialogStyles = stylex.create({
   breadcrumbRow: {
     alignItems: "baseline",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   eyebrow: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "0.1em",
     lineHeight: "16px",
     textTransform: "uppercase",
   },
   breadcrumbSep: {
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   headerTitle: {
-    color: vars["--ads-color-text"],
-    fontFamily: vars["--ads-font-sans"],
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--aui-color-text"],
+    fontFamily: vars["--aui-font-sans"],
+    fontSize: vars["--aui-font-size-lead"],
+    fontWeight: vars["--aui-font-weight-semibold"],
     letterSpacing: "-0.015em",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   headerDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    marginBlockStart: vars["--ads-space-4"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-body"],
+    marginBlockStart: vars["--aui-space-4"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -191,42 +191,42 @@ export const settingsDialogStyles = stylex.create({
     },
     flexDirection: "column",
     flexGrow: 1,
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   headerMobileRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
     minInlineSize: 0,
   },
   mobileBack: {
     flexShrink: 0,
-    blockSize: vars["--ads-control-height-md"],
-    inlineSize: vars["--ads-control-height-md"],
+    blockSize: vars["--aui-control-height-md"],
+    inlineSize: vars["--aui-control-height-md"],
   },
   mobileSelectTrigger: {
     flex: 1,
-    minBlockSize: vars["--ads-control-height-sm"],
+    minBlockSize: vars["--aui-control-height-sm"],
     minInlineSize: 0,
   },
   mobileSearchIcon: {
-    color: vars["--ads-color-text-muted"],
-    blockSize: vars["--ads-control-icon-size-sm"],
-    insetInlineStart: vars["--ads-space-8"],
+    color: vars["--aui-color-text-muted"],
+    blockSize: vars["--aui-control-icon-size-sm"],
+    insetInlineStart: vars["--aui-space-8"],
     pointerEvents: "none",
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    inlineSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--aui-control-icon-size-sm"],
   },
   mobileSearchInput: {
-    minBlockSize: vars["--ads-control-height-sm"],
-    paddingInlineEnd: vars["--ads-space-32"],
-    paddingInlineStart: vars["--ads-space-32"],
+    minBlockSize: vars["--aui-control-height-sm"],
+    paddingInlineEnd: vars["--aui-space-32"],
+    paddingInlineStart: vars["--aui-space-32"],
   },
   mobileSearchClear: {
-    insetInlineEnd: vars["--ads-space-8"],
+    insetInlineEnd: vars["--aui-space-8"],
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
@@ -242,10 +242,10 @@ export const settingsDialogStyles = stylex.create({
     flexGrow: 1,
     minBlockSize: 0,
     overflow: "auto",
-    paddingBlock: vars["--ads-space-20"],
+    paddingBlock: vars["--aui-space-20"],
     paddingInline: {
-      default: vars["--ads-space-16"],
-      "@media (min-width: 640px)": vars["--ads-space-32"],
+      default: vars["--aui-space-16"],
+      "@media (min-width: 640px)": vars["--aui-space-32"],
     },
   },
   bodyInner: {
@@ -253,7 +253,7 @@ export const settingsDialogStyles = stylex.create({
     maxInlineSize: "70rem",
   },
   icon: {
-    blockSize: vars["--ads-control-icon-size-md"],
-    inlineSize: vars["--ads-control-icon-size-md"],
+    blockSize: vars["--aui-control-icon-size-md"],
+    inlineSize: vars["--aui-control-icon-size-md"],
   },
 });

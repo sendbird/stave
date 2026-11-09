@@ -1,5 +1,5 @@
 import { layers, elevations } from "./ui-layers.stylex";
-import { sx } from "../components/ads/utils/stylex";
+import { sx } from "../components/aui/utils/stylex";
 
 export const UI_LAYER_VALUE = {
   /** The Lens guest page. A real DOM element, so everything above wins. */

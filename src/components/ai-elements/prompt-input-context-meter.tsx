@@ -11,8 +11,8 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "../ads/utils/stylex";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx } from "../aui/utils/stylex";
 import { contextTokenLabel } from "./context-token-label";
 import { contextMeterStyles } from "./prompt-input-context-meter.styles";
 import {

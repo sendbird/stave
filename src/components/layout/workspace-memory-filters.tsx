@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { Button } from "@/components/ui";
 import { useTranslation, type I18nKey } from "@/i18n";

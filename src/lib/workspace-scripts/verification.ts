@@ -9,7 +9,7 @@ import { i18n } from "@/i18n/runtime";
 // beyond tagging each failure with whether its hook entry was `blocking`.
 
 import type { WorkspaceScriptHookRunSummary } from "./types";
-import type { Tone } from "@/components/ads/utils/tone";
+import type { Tone } from "@/components/aui/utils/tone";
 
 export type TurnVerificationStatus = "pass" | "warn" | "fail";
 
@@ -72,14 +72,14 @@ export function buildTurnVerificationResult(args: {
 
 /**
  * Semantic tone for a verification status. The consuming component maps this
- * onto its own ADS Badge/StyleX styling; this module stays free of any
+ * onto its own AUI Badge/StyleX styling; this module stays free of any
  * presentation detail (no color classes, no token names).
  */
 export type VerificationTone = Extract<Tone, "success" | "warning" | "danger">;
 
 export interface VerificationStatusVisual {
   label: string;
-  /** Semantic tone the consumer maps to an ADS Badge/StyleX style. */
+  /** Semantic tone the consumer maps to an AUI Badge/StyleX style. */
   tone: VerificationTone;
 }
 

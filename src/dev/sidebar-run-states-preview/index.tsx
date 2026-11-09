@@ -1,8 +1,8 @@
 import { applyAppLocale, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useState } from "react";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { repositorySidebarStyles as s } from "@/components/layout/repository-workspace-sidebar.styles";
 import {
   InlineWorkspaceLabel,
@@ -223,21 +223,21 @@ export function SidebarRunStatesPreview() {
 
 const styles = stylex.create({
   page: {
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
     minHeight: "100vh",
-    padding: vars["--ads-space-24"],
+    padding: vars["--aui-space-24"],
   },
   sidebar: {
     backgroundColor: "var(--sidebar)",
     borderColor: "var(--sidebar-border)",
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+    borderWidth: vars["--aui-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    padding: vars["--ads-space-8"],
+    gap: vars["--aui-space-4"],
+    padding: vars["--aui-space-8"],
     width: 300,
   },
 });

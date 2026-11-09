@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { vars } from "../../../ads/tokens/tokens.stylex";
+import { vars } from "../../../aui/tokens/tokens.stylex";
 
 const spin = stylex.keyframes({
   from: { transform: "rotate(0deg)" },
@@ -12,20 +12,20 @@ export const chromeStyles = stylex.create({
     flexShrink: 0,
     flexWrap: "wrap",
     alignItems: "center",
-    columnGap: vars["--ads-space-8"],
-    rowGap: vars["--ads-space-4"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    columnGap: vars["--aui-space-8"],
+    rowGap: vars["--aui-space-4"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
-    paddingInline: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-4"],
+    borderBottomColor: vars["--aui-color-border-subtle"],
+    paddingInline: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-4"],
   },
   /** A run of controls that never splits across rows. */
   group: {
     display: "flex",
     flexShrink: 0,
     alignItems: "center",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
   },
   /**
    * The page tools. When they no longer fit beside the address bar they wrap
@@ -39,7 +39,7 @@ export const chromeStyles = stylex.create({
     flexWrap: "wrap",
     justifyContent: "flex-end",
     minWidth: 0,
-    rowGap: vars["--ads-space-4"],
+    rowGap: vars["--aui-space-4"],
   },
   /**
    * Grows into the row, and gives way to a second row before it drops below a
@@ -56,16 +56,16 @@ export const chromeStyles = stylex.create({
     minWidth: "min(14rem, 100%)",
   },
   address: {
-    height: vars["--ads-control-height-sm"],
+    height: vars["--aui-control-height-sm"],
     overflow: "hidden",
     backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 80%, transparent)`,
-      ":focus-within": vars["--ads-color-canvas"],
+      default: `color-mix(in oklch, ${vars["--aui-color-canvas"]} 80%, transparent)`,
+      ":focus-within": vars["--aui-color-canvas"],
     },
   },
   addressStart: {
-    paddingLeft: vars["--ads-space-8"],
-    color: vars["--ads-color-text-muted"],
+    paddingLeft: vars["--aui-space-8"],
+    color: vars["--aui-color-text-muted"],
   },
   addressSpinner: {
     animationName: spin,
@@ -76,10 +76,10 @@ export const chromeStyles = stylex.create({
   },
   addressInput: {
     backgroundColor: "transparent",
-    fontSize: vars["--ads-font-size-body"],
+    fontSize: vars["--aui-font-size-body"],
     textOverflow: "ellipsis",
   },
-  addressEnd: { paddingRight: vars["--ads-space-2"] },
+  addressEnd: { paddingRight: vars["--aui-space-2"] },
   compactIcon: { width: 14, height: 14 },
   /**
    * Preview / console / network. One control height tall, so it lines up with
@@ -89,31 +89,31 @@ export const chromeStyles = stylex.create({
     display: "flex",
     flexShrink: 0,
     alignItems: "center",
-    gap: vars["--ads-space-2"],
+    gap: vars["--aui-space-2"],
     boxSizing: "border-box",
-    height: vars["--ads-control-height-sm"],
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
+    height: vars["--aui-control-height-sm"],
+    borderRadius: vars["--aui-radius-control"],
+    borderWidth: vars["--aui-border-width-hairline"],
     borderStyle: "solid",
-    borderColor: vars["--ads-color-border-subtle"],
-    backgroundColor: vars["--ads-color-canvas"],
-    paddingInline: vars["--ads-space-2"],
+    borderColor: vars["--aui-color-border-subtle"],
+    backgroundColor: vars["--aui-color-canvas"],
+    paddingInline: vars["--aui-space-2"],
   },
   modeTab: {
-    height: `calc(${vars["--ads-control-height-sm"]} - ${vars["--ads-space-4"]} - 2 * ${vars["--ads-border-width-hairline"]})`,
-    gap: vars["--ads-space-4"],
+    height: `calc(${vars["--aui-control-height-sm"]} - ${vars["--aui-space-4"]} - 2 * ${vars["--aui-border-width-hairline"]})`,
+    gap: vars["--aui-space-4"],
   },
   modeTabActive: {
     backgroundColor: {
-      default: vars["--ads-color-accent-soft"],
-      ":hover": vars["--ads-color-accent-soft"],
+      default: vars["--aui-color-accent-soft"],
+      ":hover": vars["--aui-color-accent-soft"],
     },
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   modeCount: {
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   help: { maxWidth: "16rem", textWrap: "pretty" },
   downloadsMenu: { width: "18rem" },
@@ -126,25 +126,25 @@ export const chromeStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   downloadSize: {
-    marginLeft: vars["--ads-space-8"],
+    marginLeft: vars["--aui-space-8"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
   },
   toolActive: {
-    borderColor: vars["--ads-color-accent"],
+    borderColor: vars["--aui-color-accent"],
     backgroundColor: {
-      default: vars["--ads-color-accent-soft"],
-      ":hover": vars["--ads-color-accent-soft"],
+      default: vars["--aui-color-accent-soft"],
+      ":hover": vars["--aui-color-accent-soft"],
     },
-    color: vars["--ads-color-accent"],
-    boxShadow: vars["--ads-elevation-raised"],
+    color: vars["--aui-color-accent"],
+    boxShadow: vars["--aui-elevation-raised"],
   },
   toolInactive: {
     color: {
-      default: vars["--ads-color-text-muted"],
-      ":hover": vars["--ads-color-text"],
+      default: vars["--aui-color-text-muted"],
+      ":hover": vars["--aui-color-text"],
     },
   },
-  toolIcon: { width: vars["--ads-space-16"], height: vars["--ads-space-16"] },
+  toolIcon: { width: vars["--aui-space-16"], height: vars["--aui-space-16"] },
 });

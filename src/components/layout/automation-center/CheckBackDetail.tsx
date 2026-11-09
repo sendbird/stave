@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import { Pause, Pencil, Play, Trash2 } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { Button } from "@/components/ui";
 import { SCHEDULE_STATE_LABEL, type ScheduleRow } from "@/lib/schedule-rows";
 import {
@@ -11,7 +11,7 @@ import {
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { formatRelativeTime } from "./automation-center.utils";
 import { centerStyles } from "./automation-center-view.styles";
-import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 
 /** Detail for a "Check back on a task" schedule: what it says, when, and why it stopped. */
 export function CheckBackDetail(props: {

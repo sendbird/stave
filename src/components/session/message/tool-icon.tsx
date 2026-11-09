@@ -8,14 +8,14 @@ import {
   Wrench,
 } from "lucide-react";
 import { StaveIcon } from "@/components/brand-icons";
-import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
-import { sx } from "@/components/ads/utils/stylex";
+import { controlIconSizes } from "@/components/aui/recipes/control-metrics";
+import { sx } from "@/components/aui/utils/stylex";
 import { isStaveToolName } from "@/lib/tool-display-name";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { normalizeTraceToolName } from "./assistant-trace.utils";
 
 /**
- * The object glyph's box. `controlIconSizes.md` is what ADS `ToolRun` sizes its
+ * The object glyph's box. `controlIconSizes.md` is what AUI `ToolRun` sizes its
  * own glyph slot to, and passing it explicitly is what keeps a lucide icon from
  * falling back to its 24px default inside the row.
  */

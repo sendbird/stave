@@ -2,7 +2,7 @@
 /**
  * Style-channel guard.
  *
- * ADS has two ways to hand styles to a component, and only one of them works:
+ * AUI has two ways to hand styles to a component, and only one of them works:
  *
  *   <Button xstyle={styles.wide} />            ← merged, wins, deterministic
  *   <Button className={sx(styles.wide)} />     ← may apply, may not; see below
@@ -45,7 +45,7 @@
  * ## Why this is a guard and not a bundler fix
  *
  * The obvious fix — give the library and the product their own cascade layers,
- * `ads-base < product` — does not work, and the reason is worth writing down so
+ * `aui-base < product` — does not work, and the reason is worth writing down so
  * it is not attempted a third time.
  *
  * 1. **A layer split alone is unsound.** Atomic class names are a pure function
@@ -53,35 +53,35 @@
  *    and in an app file produce the SAME class. One class cannot hold two
  *    cascade positions. Emitting it into both layers makes the `product` copy
  *    beat unrelated product rules; emitting it into one makes an app override
- *    that happens to reuse an ADS value collide with the component's own rule.
+ *    that happens to reuse an AUI value collide with the component's own rule.
  *    Both directions leave a hole, and the hole moves rather than closes.
- * 2. **Per-origin `classNamePrefix` — the fix for (1) — breaks every ADS token,
- *    because of how ADS names them.** `classNamePrefix` feeds the `defineVars`
+ * 2. **Per-origin `classNamePrefix` — the fix for (1) — breaks every AUI token,
+ *    because of how AUI names them.** `classNamePrefix` feeds the `defineVars`
  *    name hash, and a consuming file re-hashes an imported variable with ITS
  *    OWN prefix. A key that spells its custom property out is not hashed at all
  *    (`key.startsWith('--')` — @stylexjs/babel-plugin@0.19.0 lib/index.js:5409).
- *    Both, measured in one run with the library on `ads` and the consumer on
+ *    Both, measured in one run with the library on `aui` and the consumer on
  *    `x`:
  *
  *      defineVars({space12: '12px'})            hashed, prefix-dependent
  *        tokens   :root{--ads1r4gjym:12px}
  *        consumer .x308fck{padding-inline:var(--x1r4gjym)}     ← undefined
  *
- *      defineVars({'--ads-space-16': '16px'})   named, prefix-independent
- *        tokens   :root{--ads-space-16:16px}
- *        consumer .x1kyng46{margin-inline:var(--ads-space-16)} ← resolves
+ *      defineVars({'--aui-space-16': '16px'})   named, prefix-independent
+ *        tokens   :root{--aui-space-16:16px}
+ *        consumer .x1kyng46{margin-inline:var(--aui-space-16)} ← resolves
  *
  *    facebook/astryx#5410 is on the second pair: its per-file prefix router
  *    (packages/build/src/babel.js) is this exact two-instance arrangement, and
  *    it holds because every Astryx token is declared `'--color-accent': …` and
  *    read as `colorVars['--color-accent']`.
  *
- * ADS used to be on the first pair, which is what made the split impossible:
+ * AUI used to be on the first pair, which is what made the split impossible:
  * 202 tokens declared as bare identifiers and read 13,084 times across 669
- * files. That was the blocker — ADS's token naming, not StyleX and not the
+ * files. That was the blocker — AUI's token naming, not StyleX and not the
  * wiring — and it is gone. As of `refactor(ads)!: declare tokens as explicit
- * CSS custom properties` (2026-09-09) every ADS token is declared
- * `"--ads-color-text": …` and read as `vars["--ads-color-text"]`, so the split
+ * CSS custom properties` (2026-09-09) every AUI token is declared
+ * `"--aui-color-text": …` and read as `vars["--aui-color-text"]`, so the split
  * is unblocked. It is not yet built; when it is, it will settle `className`
  * the way a caller expects — host layer above library layer.
  *
@@ -92,14 +92,14 @@
  *
  * ## What this flags
  *
- * A JSX element whose tag was imported from ADS, carrying StyleX styles through
+ * A JSX element whose tag was imported from AUI, carrying StyleX styles through
  * `className`. Everything else is left alone:
  *
  * - `className={sx(…)}` on a plain DOM element is correct and untouched — there
  *   is no component declaration to lose to.
- * - `className` on an ADS element with a hook, test id, or app class is the
+ * - `className` on an AUI element with a hook, test id, or app class is the
  *   documented use and is untouched.
- * - ADS's own components are not scanned: `cx(sx(own, xstyle), className)` is
+ * - AUI's own components are not scanned: `cx(sx(own, xstyle), className)` is
  *   the pattern this guard exists to protect.
  *
  * Usage: `node scripts/check-style-channel.mjs` (wired into `bun run check`).
@@ -118,24 +118,24 @@ const rootDir = path.resolve(
 );
 
 /*
- * Product source. The installed ADS copy is deliberately absent: inside a
+ * Product source. The installed AUI copy is deliberately absent: inside a
  * component, `className` IS the forwarding channel.
  */
-const ADS_DIR = "src/components/ads/";
+const AUI_DIR = "src/components/aui/";
 const SCANNED = (file) =>
-  file.startsWith("src/") && !file.startsWith(ADS_DIR) && file.endsWith(".tsx");
+  file.startsWith("src/") && !file.startsWith(AUI_DIR) && file.endsWith(".tsx");
 
 /*
- * `ads/headless` is deliberately NOT an ADS style origin. Every module under
+ * `aui/headless` is deliberately NOT an AUI style origin. Every module under
  * it is a bare re-export of a Base UI part, so a headless part declares
  * nothing for a host style to lose to and `className` is the only channel it
  * has. Flagging those would be telling callers to move to a prop that does not
  * exist.
  */
-const ADS_HEADLESS_DIR = `${ADS_DIR}headless/`;
+const AUI_HEADLESS_DIR = `${AUI_DIR}headless/`;
 
 /**
- * An import is "from ADS" when it resolves into the installed ADS directory.
+ * An import is "from AUI" when it resolves into the installed AUI directory.
  * This is a source install, so there is no package specifier to match on:
  * call sites reach it through the `@/` alias or a relative path, and the
  * importing file is what makes a relative one answerable.
@@ -151,8 +151,8 @@ function isAdsSpecifier(specifier, importer) {
   } else {
     return false;
   }
-  if (resolved.startsWith(ADS_HEADLESS_DIR)) return false;
-  return resolved.startsWith(ADS_DIR);
+  if (resolved.startsWith(AUI_HEADLESS_DIR)) return false;
+  return resolved.startsWith(AUI_DIR);
 }
 
 /*
@@ -178,7 +178,7 @@ function repositoryFiles() {
 }
 
 /**
- * `sx` is ADS's `stylex.props(...).className` helper. A call to it inside a
+ * `sx` is AUI's `stylex.props(...).className` helper. A call to it inside a
  * `className` expression is the signature this guard looks for — including
  * through `cx(...)`, which only concatenates, and through a local `const`, so
  * hoisting the call one line up does not hide it.
@@ -190,7 +190,7 @@ function containsSxCall(node, localSxNames, namespaces = new Set()) {
     if (ts.isCallExpression(current)) {
       const callee = current.expression;
       const direct = ts.isIdentifier(callee) && localSxNames.has(callee.text);
-      // `import * as ads from "@delightai/ads"` → `ads.sx(...)`.
+      // `import * as aui from "@delightai/aui"` → `aui.sx(...)`.
       const qualified =
         ts.isPropertyAccessExpression(callee) &&
         ts.isIdentifier(callee.expression) &&
@@ -232,8 +232,8 @@ function collectAdsBindings(sourceFile) {
       }
     }
     /*
-     * `import * as ads from "@delightai/ads"` reaches both halves through one
-     * binding: `<ads.Button>` is an ADS element and `ads.sx(...)` is the helper.
+     * `import * as aui from "@delightai/aui"` reaches both halves through one
+     * binding: `<aui.Button>` is an AUI element and `aui.sx(...)` is the helper.
      * No file spells it this way today; it is here so that spelling it is not a
      * way past the guard.
      */
@@ -288,7 +288,7 @@ function tagRootName(tagName) {
  * A reason is required, and every use is printed on success, so an exemption
  * cannot accumulate unread the way a silent skip list does.
  */
-const ALLOW = /ads-style-channel-allow:\s*(\S[^*]*?)\s*(?:\*\/|\}|$)/;
+const ALLOW = /aui-style-channel-allow:\s*(\S[^*]*?)\s*(?:\*\/|\}|$)/;
 
 function allowanceFor(sourceFile, source, node) {
   const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
@@ -368,7 +368,7 @@ for (const file of repositoryFiles()) {
 
 if (violations.length > 0) {
   console.error(
-    `Style-channel check failed: ${violations.length} StyleX style(s) passed to an ADS component through \`className\`.\n`,
+    `Style-channel check failed: ${violations.length} StyleX style(s) passed to an AUI component through \`className\`.\n`,
   );
   for (const violation of violations) {
     console.error(
@@ -376,7 +376,7 @@ if (violations.length > 0) {
     );
   }
   console.error(
-    "\n`className` is a hook/test-id channel on an ADS component, not a styling one.\n" +
+    "\n`className` is a hook/test-id channel on an AUI component, not a styling one.\n" +
       "StyleX passed this way is settled by sheet emission order, which is fixed\n" +
       "globally per declaration — so it is decided per property, and two\n" +
       "properties in the same object can go opposite ways. Some of these apply,\n" +
@@ -397,7 +397,7 @@ if (violations.length > 0) {
 }
 
 console.log(
-  "Style-channel check passed: no StyleX styles reach an ADS component through `className`.",
+  "Style-channel check passed: no StyleX styles reach an AUI component through `className`.",
 );
 for (const entry of allowed) {
   console.log(`  allowed  ${entry.file}:${entry.line} — ${entry.reason}`);

@@ -3,8 +3,8 @@ import * as stylex from "@stylexjs/stylex";
 import { ChatArea } from "@/components/session/ChatArea";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { TooltipProvider } from "@/components/ui";
-import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { applyAppLocale } from "@/i18n";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
@@ -82,8 +82,8 @@ const styles = stylex.create({
     height: "100vh",
     display: "flex",
     flexDirection: "column",
-    backgroundColor: vars["--ads-color-canvas"],
-    color: vars["--ads-color-text"],
+    backgroundColor: vars["--aui-color-canvas"],
+    color: vars["--aui-color-text"],
   },
 });
 

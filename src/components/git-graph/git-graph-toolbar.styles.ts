@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
@@ -8,7 +8,7 @@ const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
  * The toolbar reflows against its OWN width, so it declares a named container
  * (`gitGraphToolbar`) and every responsive rule is a `@container` value
  * condition rather than a viewport media query. It rests on the Monaco editor
- * surface (`--editor`); every other color resolves to an ADS token.
+ * surface (`--editor`); every other color resolves to an AUI token.
  */
 const CONTAINER_30 = "@container gitGraphToolbar (min-width: 30rem)";
 const CONTAINER_48 = "@container gitGraphToolbar (min-width: 48rem)";
@@ -25,11 +25,11 @@ export const gitGraphToolbarStyles = stylex.create({
       [CONTAINER_30]: "minmax(0,auto) minmax(7rem,1fr) auto",
     },
     alignItems: "center",
-    columnGap: vars["--ads-space-8"],
+    columnGap: vars["--aui-space-8"],
     rowGap: 6,
-    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomWidth: vars["--aui-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 75%, transparent)`,
+    borderBottomColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 75%, transparent)`,
     backgroundColor: "var(--editor)",
     paddingInline: 10,
     paddingBlock: 6,
@@ -38,10 +38,10 @@ export const gitGraphToolbarStyles = stylex.create({
     display: "flex",
     minWidth: 0,
     alignItems: "center",
-    gap: vars["--ads-space-8"],
+    gap: vars["--aui-space-8"],
   },
   branchTrigger: {
-    height: vars["--ads-control-height-sm"],
+    height: vars["--aui-control-height-sm"],
     width: {
       default: "100%",
       [CONTAINER_30]: "auto",
@@ -51,12 +51,12 @@ export const gitGraphToolbarStyles = stylex.create({
     justifyContent: "flex-start",
     gap: 6,
     paddingInline: 10,
-    fontSize: vars["--ads-font-size-caption"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   branchIcon: {
     width: 14,
     height: 14,
-    color: vars["--ads-color-accent"],
+    color: vars["--aui-color-accent"],
   },
   branchLabel: {
     minWidth: 0,
@@ -68,15 +68,15 @@ export const gitGraphToolbarStyles = stylex.create({
   chevronMuted: {
     width: 12,
     height: 12,
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   branchMenu: {
     width: "18rem",
   },
   limitLabel: {
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-regular"],
-    color: vars["--ads-color-warning-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-regular"],
+    color: vars["--aui-color-warning-text"],
   },
   truncate: {
     overflow: "hidden",
@@ -85,16 +85,16 @@ export const gitGraphToolbarStyles = stylex.create({
   },
   headBadge: {
     marginLeft: "auto",
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-accent"],
+    fontSize: vars["--aui-font-size-micro"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    color: vars["--aui-color-accent"],
   },
   statusUnavailable: {
     display: "flex",
     alignItems: "center",
-    gap: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-warning-text"],
+    gap: vars["--aui-space-4"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-warning-text"],
   },
   statusIcon: {
     width: 14,
@@ -111,8 +111,8 @@ export const gitGraphToolbarStyles = stylex.create({
       default: "none",
       [CONTAINER_62]: "inline",
     },
-    fontSize: vars["--ads-font-size-micro"],
-    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--aui-font-size-micro"],
+    color: vars["--aui-color-text-muted"],
   },
   statusEntries: {
     display: {
@@ -125,12 +125,12 @@ export const gitGraphToolbarStyles = stylex.create({
   // One ink for bookkeeping counts; the danger tone is reserved for the
   // entry that needs a hand (conflicts).
   statusEntry: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   statusEntryConflicts: {
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
   },
   searchWrap: {
     position: "relative",
@@ -152,23 +152,23 @@ export const gitGraphToolbarStyles = stylex.create({
     width: 14,
     height: 14,
     transform: "translateY(-50%)",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   searchInput: {
-    height: vars["--ads-control-height-sm"],
-    borderRadius: vars["--ads-radius-control"],
-    paddingLeft: vars["--ads-space-32"],
-    fontSize: vars["--ads-font-size-caption"],
+    height: vars["--aui-control-height-sm"],
+    borderRadius: vars["--aui-radius-control"],
+    paddingLeft: vars["--aui-space-32"],
+    fontSize: vars["--aui-font-size-caption"],
   },
   searchInputWithMatches: {
     paddingRight: "9rem",
   },
   searchInputNoMatches: {
-    paddingRight: vars["--ads-space-64"],
+    paddingRight: vars["--aui-space-64"],
   },
   searchControls: {
     position: "absolute",
-    right: vars["--ads-space-4"],
+    right: vars["--aui-space-4"],
     top: "50%",
     display: "flex",
     transform: "translateY(-50%)",
@@ -177,13 +177,13 @@ export const gitGraphToolbarStyles = stylex.create({
   },
   matchCount: {
     marginRight: 2,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   iconButtonSm: {
-    width: vars["--ads-control-height-xs"],
-    height: vars["--ads-control-height-xs"],
+    width: vars["--aui-control-height-xs"],
+    height: vars["--aui-control-height-xs"],
   },
   iconGlyphSm: {
     width: 12,
@@ -200,18 +200,18 @@ export const gitGraphToolbarStyles = stylex.create({
     gap: 2,
   },
   commitCount: {
-    marginRight: vars["--ads-space-4"],
+    marginRight: vars["--aui-space-4"],
     display: {
       default: "none",
       [CONTAINER_48]: "inline",
     },
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--aui-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text-muted"],
+    color: vars["--aui-color-text-muted"],
   },
   iconButtonMd: {
-    width: vars["--ads-control-height-sm"],
-    height: vars["--ads-control-height-sm"],
+    width: vars["--aui-control-height-sm"],
+    height: vars["--aui-control-height-sm"],
   },
   iconGlyphMd: {
     width: 14,

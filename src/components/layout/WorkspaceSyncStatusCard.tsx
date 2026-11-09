@@ -14,7 +14,7 @@ import type {
   ToolingStatusSnapshot,
   WorkspaceSyncStatus,
 } from "@/lib/tooling-status";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { InfoRow, SettingsCard, StatusBadge } from "./settings-dialog.shared";
 import { workspaceSyncStatusCardStyles as styles } from "./workspace-sync-status-card.styles";
 

@@ -1,9 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/ads/components/Button";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { toast } from "@/components/ui";
 import {
   getWorkspaceDocumentTitle,
@@ -96,11 +96,11 @@ export function ReviewDocumentPicker(args: {
 const styles = stylex.create({
   failed: {
     alignItems: "center",
-    color: vars["--ads-color-danger-text"],
+    color: vars["--aui-color-danger-text"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-8"],
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
     margin: 0,
   },
 });

@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useScopedTaskId } from "./task-scope-context";
 import { TaskRunOverview } from "./TaskRunOverview";

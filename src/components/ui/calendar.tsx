@@ -1,2 +1,2 @@
-export { Calendar } from "../ads/components/Calendar";
-export type { CalendarProps } from "../ads/components/Calendar";
+export { Calendar } from "../aui/components/Calendar";
+export type { CalendarProps } from "../aui/components/Calendar";

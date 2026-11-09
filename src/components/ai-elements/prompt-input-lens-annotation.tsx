@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { Pencil, SlidersHorizontal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -25,7 +25,7 @@ import {
   LENS_FEEDBACK_PRIORITIES,
 } from "@/lib/lens/lens.types";
 import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
-import { sx } from "../ads/utils/stylex";
+import { sx } from "../aui/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
@@ -89,7 +89,7 @@ export function LensAnnotationStylePopover(args: {
 
   return (
     <Popover>
-      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}>
+      <AuiTooltip content={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}>
         <PopoverTrigger
           render={
             <Button
@@ -103,7 +103,7 @@ export function LensAnnotationStylePopover(args: {
         >
           <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
         </PopoverTrigger>
-      </AdsTooltip>
+      </AuiTooltip>
       <PopoverContent align="end" xstyle={promptInputStyles.lensPopover72}>
         <div>
           <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationStylePopover")}</PopoverTitle>
@@ -170,7 +170,7 @@ export function LensAnnotationFeedbackPopover(args: {
 
   return (
     <Popover>
-      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}>
+      <AuiTooltip content={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}>
         <PopoverTrigger
           render={
             <Button
@@ -184,7 +184,7 @@ export function LensAnnotationFeedbackPopover(args: {
         >
           <Pencil className={sx(promptInputStyles.icon3)} />
         </PopoverTrigger>
-      </AdsTooltip>
+      </AuiTooltip>
       <PopoverContent align="end" xstyle={promptInputStyles.lensPopover64}>
         <div>
           <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover")}</PopoverTitle>

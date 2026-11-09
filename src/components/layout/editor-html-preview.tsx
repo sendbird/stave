@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type { HTMLAttributes } from "react";
 import { useEffect, useMemo, useRef } from "react";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import {
   HTML_FILE_PREVIEW_FRAME_SANDBOX,
   buildHtmlFilePreviewDocument,

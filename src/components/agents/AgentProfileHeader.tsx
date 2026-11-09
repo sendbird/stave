@@ -1,7 +1,7 @@
 import { getAgentDisplayName, getAgentDisplayDescription } from "@/lib/agents/display";
 import { i18n } from "@/i18n";
 import { useTranslation } from "@/i18n";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   AGENT_PERMISSION_LABELS,
   preferredProviderInlineLabel,

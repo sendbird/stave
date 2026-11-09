@@ -9,7 +9,7 @@ import {
   EmptyTitle,
 } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { sessionLoadingStateStyles as styles } from "./session-loading-state.styles";
 
 interface SessionLoadingStateProps {

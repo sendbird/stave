@@ -15,8 +15,8 @@ import {
   Textarea,
   toast,
 } from "@/components/ui";
-import { Tooltip } from "@/components/ads/components/Tooltip";
-import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { sx } from "@/components/aui/utils/stylex";
 import {
   DEFAULT_JIRA_JQL,
   MAX_JIRA_MAX_RESULTS,

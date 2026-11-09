@@ -1,6 +1,6 @@
 import { useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { delegationStyles as styles } from "./delegation.styles";
 
 export interface KeyValueItem {

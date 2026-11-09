@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Info } from "lucide-react";
-import { Button } from "@/components/ads/components/Button";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/aui/components/Button";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { sx } from "@/components/aui/utils/stylex";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui";
 import { i18n } from "@/i18n";
 import { usageStyles as styles } from "./usage.styles";
