@@ -3,24 +3,25 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { TarsDecisionActionSchema, TarsDecisionSchema, TarsActionReceiptSchema, type TarsActionReceipt } from "../src/lib/tars/conversation";
 import { quoteTarsDiffLines, tarsDiffQuoteRange, TARS_DIFF_QUOTE_MAX_LINES, type TarsDiffLine } from "../src/lib/tars/diff-quote";
-import { isTarsSideViewEscape, selectNewTarsShowRequests, settleTarsShowRequest, tarsSideViewPlacement, TARS_SHOW_PENDING_MS, TARS_SIDE_VIEW_MIN_WIDTH, TARS_SIDE_VIEW_NARROW_HEIGHT_SHARE } from "../src/lib/tars/side-view";
-import { TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_PINNED_MIN_WIDTH } from "../src/lib/tars/tray-model";
+import { isTarsSideViewEscape, selectNewTarsShowRequests, settleTarsShowRequest, tarsSideViewPlacement, TARS_SHOW_PENDING_MS, TARS_SIDE_VIEW_NARROW_HEIGHT_SHARE } from "../src/lib/tars/side-view";
+import { TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_PINNED_MIN_WIDTH, TARS_TRAY_WIDTH } from "../src/lib/tars/tray-model";
 
 const NOW = "2026-11-05T00:00:00.000Z";
 
 describe("side view placement", () => {
-  test.each([1088, 1280, 1440, 2560])("at %ipx it takes a column and the conversation keeps at least 440px", (width) => {
+  test.each([1088, 1280, 1440, 2560])("at %ipx it takes the tray's column at the tray's width and the conversation keeps what the tray left it", (width) => {
     const placement = tarsSideViewPlacement({ width, height: 900 });
     if (placement.placement !== "column") throw new Error("expected a column");
     expect(placement.conversationWidth).toBeGreaterThanOrEqual(TARS_CONVERSATION_MIN_WIDTH);
-    expect(placement.width).toBeGreaterThanOrEqual(TARS_SIDE_VIEW_MIN_WIDTH);
+    // Opening a view in the tray's place never moves the conversation: same column, same width.
+    expect(placement.width).toBe(TARS_TRAY_WIDTH);
     expect(placement.width + placement.conversationWidth).toBe(width);
   });
 
-  test("half the view when there is room, the floor's remainder when there is not", () => {
-    expect(tarsSideViewPlacement({ width: 1280, height: 900 })).toEqual({ placement: "column", width: 640, conversationWidth: 640 });
-    // 1100 - 440 = 660 > 550: half still fits.
-    expect(tarsSideViewPlacement({ width: 1100, height: 900 })).toMatchObject({ width: 550 });
+  test("one width at every pinned size, never half the view", () => {
+    expect(tarsSideViewPlacement({ width: 1280, height: 900 })).toEqual({ placement: "column", width: 416, conversationWidth: 864 });
+    expect(tarsSideViewPlacement({ width: 1440, height: 900 })).toEqual({ placement: "column", width: 416, conversationWidth: 1024 });
+    expect(tarsSideViewPlacement({ width: 2560, height: 900 })).toMatchObject({ width: 416 });
   });
 
   test.each([[420, 900, 360], [1087, 700, 280], [390, 844, 337]])("below the pinned width (%ipx) it sits inline, capped at 40%% of %ipx", (width, height, cap) => {
@@ -29,11 +30,12 @@ describe("side view placement", () => {
     expect(cap).toBeLessThanOrEqual(height * TARS_SIDE_VIEW_NARROW_HEIGHT_SHARE);
   });
 
-  test("the StyleX column restates the shared floor and minimum width", () => {
-    const source = readFileSync(path.join(import.meta.dir, "../src/components/tars/tars-side-view.styles.ts"), "utf8");
-    expect(source).toContain(`const CONVERSATION_FLOOR = "${TARS_CONVERSATION_MIN_WIDTH}px";`);
-    expect(source).toContain(`const MIN_WIDTH = "${TARS_SIDE_VIEW_MIN_WIDTH / 16}rem";`);
-    expect(source).toContain("clamp(${MIN_WIDTH}, 50%, calc(100% - ${CONVERSATION_FLOOR}))");
+  test("the side view's wide frame is the tray's own StyleX column, not a width of its own", () => {
+    const view = readFileSync(path.join(import.meta.dir, "../src/components/tars/TarsSideView.tsx"), "utf8");
+    expect(view).toContain("stylex.props(tarsTrayStyles.panel, styles.column)");
+    const styles = readFileSync(path.join(import.meta.dir, "../src/components/tars/tars-side-view.styles.ts"), "utf8");
+    expect(styles).not.toMatch(/\bwidth:/);
+    expect(styles).not.toContain("clamp(");
   });
 });
 

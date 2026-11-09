@@ -532,10 +532,12 @@ The tray's fourth section, **Outputs**, lists what work produced: the
 pull request (which opens in the browser). The header adds the outputs count,
 such as "1 done · 4 outputs", only when there are some. An output, or
 **Request** at the bottom of any work card, opens the side view beside the
-conversation; on a wide window it takes the tray's place
-and the tray folds to its header until you close it, and the conversation always
-keeps at least 440 px. On a narrow window it opens between the conversation and
-the message box, at most 40% of the height, and scrolls. Switch between
+conversation; on a wide window it takes the tray's place at the tray's width, so
+the conversation does not move, and the tray folds to its header until you close
+it. Each panel names itself in its title bar: the tray's **Work**, and the side
+view's kind, such as **Run timeline**, with the work's title under it. On a
+narrow window it opens between the conversation and the message box, at most 40%
+of the height, and scrolls. Switch between
 **Request**, **Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
 close button closes it and returns focus to what opened it. You can also ask,
 such as "show me the report" or "보고서 보여줘"; Tars only opens the view and

@@ -303,7 +303,7 @@ observes, so you can answer them in the conversation:
 
 | Ask | Effect in the task |
 |---|---|
-| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request. |
+| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
 | "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
 | "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. While a turn runs there, Stave keeps them and says them once that turn ends (see below). |
 | "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |
@@ -711,9 +711,13 @@ least one; **Needs you** keeps counting Fleet's rows.
 
 An output or a card's **Request** opens the side view: one panel about one
 responsibility, with a switch between **Request**, **Report**, **Changes**,
-**Timeline** and **Review** at its top. In a wide Tars view (1,088 px or more) it takes the tray's column and the
-tray folds to its header indicator until the side view closes; the
-conversation never gets narrower than 440 px. In a narrower view it opens
+**Timeline** and **Review** at its top. In a wide Tars view (1,088 px or more) it takes the tray's column at the
+tray's width (26rem), so opening, switching or closing it never moves the
+conversation, and the tray folds to its header indicator until the side view
+closes; the conversation never gets narrower than 440 px. Both panels open with
+the same title bar: the tray's names it **Work**; the side view's names its kind
+(such as **Run timeline**), with the work's title and the switch under it.
+Content wider than the column, such as a long diff line, scrolls inside it. In a narrower view it opens
 between the conversation and the message box, at most 40% of the view's
 height, and scrolls. Esc or the close button closes it and returns focus to
 what opened it. Opening, switching and closing it are view-only and never

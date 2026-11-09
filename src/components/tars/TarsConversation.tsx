@@ -207,10 +207,11 @@ function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pres
   </>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
+  onOpenTask?: TarsDecisionCardProps["onOpenTask"];
   agentNameOf?: (agentId: string) => string | undefined;
   flows?: TarsFlowContext;
   /** Keeps the conversation at its minimum width while the tray is pinned beside it. */
@@ -298,7 +299,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   };
   const cardHandler = onAnswer ? answer : undefined;
   // Esc on a waiting card leaves it waiting and hands focus back to the message box.
-  const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer };
+  const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer, onOpenTask };
   const insertDraft = (quote: string) => {
     appendTarsDraft(quote);
     focusComposer();

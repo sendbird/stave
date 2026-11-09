@@ -103,7 +103,7 @@ describe("the request view", () => {
     const row = { ...queued("queue-docs"), mandate: "The complete attached text.\nSecond line." };
     const html = renderToStaticMarkup(createElement(TarsBriefPanel, { row, state: ready(buildTarsBrief(row)), onRetry() {} }));
     expect(html).toContain('data-tars-brief-missing="request"');
-    expect(html).toContain("The original message was not saved for this work");
+    expect(html).toContain("This older work did not save your original message.");
     expect(html).toContain("Instruction as saved");
     expect(html).toContain(`data-tars-brief-text="instruction-assignment">${escaped(row.instruction)}</div>`);
     expect(html).toContain("Attached in full");
