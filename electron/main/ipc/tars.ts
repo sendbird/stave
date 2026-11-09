@@ -13,6 +13,7 @@ import {
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
+import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -28,6 +29,14 @@ export function registerTarsHandlers() {
   ipcMain.handle(TARS_IPC.getConversation, async (_event, rawInput: unknown) => {
     const input = GetTarsConversationInputSchema.parse(rawInput === undefined ? {} : rawInput);
     return (await getTarsConversationService()).getConversation(input);
+  });
+  ipcMain.handle(TARS_IPC.getDraft, async (_event, rawInput: unknown) => {
+    z.undefined().parse(rawInput);
+    return (await getTarsConversationService()).getDraft();
+  });
+  ipcMain.handle(TARS_IPC.saveDraft, async (_event, rawInput: unknown) => {
+    const input = SaveTarsComposerDraftInputSchema.parse(rawInput);
+    (await getTarsConversationService()).saveDraft(input);
   });
   ipcMain.handle(TARS_IPC.cancelMessage, async (_event, rawInput: unknown) => {
     const input = CancelTarsMessageInputSchema.parse(rawInput);

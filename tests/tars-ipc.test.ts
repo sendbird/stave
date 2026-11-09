@@ -333,3 +333,59 @@ test("actual preload validates a brief request and rejects a malformed brief", (
   expect(JSON.parse(result.stdout.toString())).toEqual({ text: "Fix it.\n\n```ts\nconst a = 1;\n```", denied: 5,
     channels: ["tars:get-brief", "tars:get-brief", "tars:get-brief", "tars:get-brief", "tars:get-brief"] });
 });
+
+test("draft IPC validates the draft before it reaches the conversation service, and preload refuses a malformed saved draft", () => {
+  const source = `
+    import { mock } from "bun:test";
+    const handlers = new Map(); const calls = [];
+    mock.module("electron", () => ({ webContents: { getAllWebContents: () => [] }, ipcMain: { handle: (key, callback) => handlers.set(key, callback) } }));
+    mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: async () => { throw new Error("Drafts must use the main service"); } }));
+    mock.module("./electron/main/tars-conversation-instance", () => ({ getTarsConversationService: async () => ({
+      getDraft: () => { calls.push(["get"]); return { text: "Saved", includeWorkingChanges: false, requestId: null }; },
+      saveDraft: (input) => { calls.push(["save", input]); },
+    }) }));
+    const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
+    const draft = { text: "Unsent words", includeWorkingChanges: true, requestId: "request-a" };
+    const read = await handlers.get("tars:get-draft")(null, undefined);
+    await handlers.get("tars:save-draft")(null, { draft });
+    await handlers.get("tars:save-draft")(null, { draft: null });
+    let denied = 0;
+    for (const [channel, value] of [
+      ["tars:get-draft", { workspaceId: "other" }],
+      ["tars:save-draft", { draft: { ...draft, workspaceId: "other" } }],
+      ["tars:save-draft", { draft: { ...draft, text: "x".repeat(128001) } }],
+      ["tars:save-draft", { draft: { ...draft, requestId: "" } }],
+      ["tars:save-draft", draft],
+    ]) { try { await handlers.get(channel)(null, value); } catch { denied++; } }
+    console.log(JSON.stringify({ read, calls, denied }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({
+    read: { text: "Saved", includeWorkingChanges: false, requestId: null },
+    calls: [["get"], ["save", { draft: { text: "Unsent words", includeWorkingChanges: true, requestId: "request-a" } }], ["save", { draft: null }]],
+    denied: 5,
+  });
+
+  const preload = `
+    import { mock } from "bun:test";
+    let api; const calls = []; let reply;
+    mock.module("electron", () => ({
+      contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
+      ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webUtils: { getPathForFile: () => "" },
+    }));
+    await import("./electron/preload");
+    reply = null; const empty = await api.tars.getDraft();
+    reply = { text: "Saved", includeWorkingChanges: false, requestId: null }; const saved = await api.tars.getDraft();
+    reply = undefined; await api.tars.saveDraft({ draft: saved });
+    let denied = 0;
+    reply = { text: "Saved", includeWorkingChanges: false }; try { await api.tars.getDraft(); } catch { denied++; }
+    try { await api.tars.saveDraft({ draft: { ...saved, extra: true } }); } catch { denied++; }
+    console.log(JSON.stringify({ empty, saved, denied, channels: calls.map(([channel]) => channel) }));
+  `;
+  const exposed = Bun.spawnSync({ cmd: [process.execPath, "--eval", preload], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(exposed.exitCode, exposed.stderr.toString()).toBe(0);
+  expect(JSON.parse(exposed.stdout.toString())).toEqual({ empty: null, saved: { text: "Saved", includeWorkingChanges: false, requestId: null }, denied: 2,
+    channels: ["tars:get-draft", "tars:get-draft", "tars:save-draft", "tars:get-draft"] });
+});
