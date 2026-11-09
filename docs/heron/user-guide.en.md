@@ -4,12 +4,12 @@ title: Stave User Guide
 product: Stave
 brandSub: Guide
 versionLabel: v1
-status: Current · Stave 0.29.2
+status: Current · Stave 0.32.0
 statusTone: current
-captured: 2026-11-02
-updated: 2026-11-05
+captured: 2026-11-09
+updated: 2026-11-09
 recorder: jacob.kim
-footer: Stave User Guide v1 · Stave 0.29.2 (main 6e7a65a7) · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
+footer: Stave User Guide v1 · Stave 0.32.0 (main df0f0f0b) · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
 
 @page start | Getting started | Stave at a glance | guide
@@ -17,7 +17,7 @@ footer: Stave User Guide v1 · Stave 0.29.2 (main 6e7a65a7) · Source in the rep
 
 ```meta
 Audience | Developers new to Stave | From installing to handing a goal to an agent
-Version | Stave 0.29.2 | main `6e7a65a7`. No app code changed after the 0.29.2 release
+Version | Stave 0.32.0 | main `df0f0f0b`, the 0.32.0 release commit
 Screens | Captures with synthetic data | English UI, in the repository's `docs/screenshots/guide/en`
 UI language | English (default) and Korean | Change it in Settings > General > Language
 ```
@@ -813,7 +813,7 @@ Screenshot links point at the `main` branch on GitHub. Once re-captured screensh
 
 ## What this edition checked and did not check
 
-- Labels and behavior were checked against the Stave 0.29.2 source and its Korean and English copy files.
+- Labels and behavior were checked against the source and the Korean and English copy files in each change that altered a feature. 0.32.0 as a whole was not re-checked in one pass.
 - Screenshots were captured from development screens with synthetic data. Behavior with a real signed-in provider was not re-run for this edition.
 - The Lens screenshot comes from the browser build, so only the toolbar is shown.
 
