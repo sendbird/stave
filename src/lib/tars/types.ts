@@ -123,7 +123,8 @@ export function tarsControlInputProblem(operation: TarsControlOperation, input: 
  * answering. `ref` identifies it by workspace, task, message and provider
  * request id together, since a provider may reuse a request id; a task
  * operation names it by `ref`. `summary` is the tool's own description
- * (untrusted text).
+ * (untrusted text); `truncated` marks one cut to fit (it ends in "…"), whose
+ * task shows it whole.
  */
 export const TarsPendingRequestSchema = z.object({
   kind: z.enum(["approval", "question"]),
@@ -134,6 +135,7 @@ export const TarsPendingRequestSchema = z.object({
   workspaceId: IdSchema,
   toolName: z.string().max(120),
   summary: z.string().max(500),
+  truncated: z.literal(true).optional(),
   questions: z.array(z.object({
     key: z.string().min(1).max(TARS_QUESTION_KEY_MAX_CHARS),
     question: z.string().max(300),

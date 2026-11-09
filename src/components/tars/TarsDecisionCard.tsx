@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
@@ -18,6 +18,8 @@ import { tarsStyles } from "./tars.styles";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 
 type TitleOf = (responsibilityId: string) => string | undefined;
+/** One row of a confirmation's details: label, value and, for a request cut to fit, the note under it. */
+type DetailRow = { key: string; label: string; value: string; title?: string; note?: ReactNode };
 
 function titleFor(decision: TarsDecisionView, titleOf?: TitleOf) {
   const id = decision.targets[0]?.responsibilityId ?? "";
@@ -104,6 +106,8 @@ export interface TarsDecisionCardContext {
   workspaceNameOf?: (workspaceId: string) => string | undefined;
   /** "Not now" and Esc: the decision keeps waiting and focus goes here. Absent: no dismiss, Esc reaches what is around the card. */
   onDismiss?: () => void;
+  /** Opens the task a request waits in, where a request cut to fit shows whole. Absent: the card only says it was cut. */
+  onOpenTask?: (target: { responsibilityId: string; taskId: string; workspaceId: string }) => void;
 }
 
 export interface TarsDecisionCardProps extends TarsDecisionCardContext {
@@ -121,7 +125,7 @@ export interface TarsDecisionCardProps extends TarsDecisionCardContext {
  * key hints (1–4, Enter for the recommended one) and answers by click or key;
  * answered, invalid or retired, it folds to its one-line record.
  */
-export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss }: TarsDecisionCardProps) {
+export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss, onOpenTask }: TarsDecisionCardProps) {
   const { t } = useTranslation(["shell"]);
   const questionId = useId();
   const subtitleId = useId();
@@ -228,13 +232,22 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const effect = operation ? t(`shell:tars.decision.card.effect.${operation}`) : t("shell:tars.decision.card.unverifiedEffect");
   // A task operation shows exactly what it answers or sends before anyone confirms it.
   const payload = option?.kind === "control" ? describeTarsControlInput(option.control, target ? rowOf?.(option.control.responsibilityId) : undefined) : null;
-  const rows = [
+  // A request cut to fit says so under its text and opens the task that shows it whole: part of a command never reads as all of it.
+  const source = payload?.key === "request" && payload.truncated ? payload.source : null;
+  const responsibilityId = option?.kind === "control" ? option.control.responsibilityId : null;
+  const truncation = payload?.key === "request" && payload.truncated ? <span className={sx(styles.truncation)} data-tars-decision-truncated="">
+    <span>{t("shell:tars.decision.card.truncated")}</span>
+    {source && responsibilityId && onOpenTask ? <Button type="button" size="2xs" variant="outline" data-tars-decision-open-task=""
+      onClick={() => onOpenTask({ responsibilityId, ...source })}>{t("shell:tars.openTask")}</Button> : null}
+  </span> : null;
+  const candidates: Array<DetailRow | null> = [
     target.repository ? { key: "repository", label: t("shell:tars.decision.card.rows.repository"), value: target.repository, title: target.repositoryPath ?? undefined } : null,
     target.workspace ? { key: "workspace", label: t("shell:tars.decision.card.rows.workspace"), value: target.workspace } : null,
     target.revision !== null ? { key: "revision", label: t("shell:tars.decision.card.rows.revision"), value: t("shell:tars.decision.card.revision", { revision: target.revision }) } : null,
-    payload ? { key: payload.key, label: t(`shell:tars.decision.card.rows.${payload.key}`), value: payload.value } : null,
+    payload ? { key: payload.key, label: t(`shell:tars.decision.card.rows.${payload.key}`), value: payload.value, note: truncation ?? undefined } : null,
     { key: "effect", label: t("shell:tars.decision.card.rows.effect"), value: effect },
-  ].filter((row): row is { key: string; label: string; value: string; title?: string } => Boolean(row));
+  ];
+  const rows = candidates.filter((row): row is DetailRow => row !== null);
   return <section ref={cardRef} {...common} role="group" tabIndex={0} aria-labelledby={`${questionId} ${subtitleId}`} aria-describedby={hintId}
     className={sx(styles.card, focusRing.ring)} onKeyDown={onKeyDown} data-tars-decision-risk={irreversible ? "irreversible" : undefined}>
     <div className={sx(styles.confirmHeader)}>
@@ -251,7 +264,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.decision.card.details")} data-tars-decision-rows={rows.map((row) => row.key).join(",")}>
       {rows.map((row) => <div key={row.key} className={sx(styles.row)} data-tars-decision-row={row.key}>
         <dt className={sx(styles.rowLabel)}>{row.label}</dt>
-        <dd className={sx(styles.rowValue)} title={row.title}>{row.value}</dd>
+        <dd className={sx(styles.rowValue, row.key === "request" && styles.rowValueLines)} title={row.title}>{row.value}{row.note}</dd>
       </div>)}
     </dl>
     {decision.kind === "unverifiedCompletion" ? <ul className={sx(styles.options)}>{decision.options.map((value, index) => optionItem(value, index, true))}</ul> : null}

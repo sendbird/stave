@@ -182,14 +182,21 @@ export function TarsView() {
   const decisions = useMemo(() => conversation.conversation && snapshot ? projectTarsDecisions({ messages: conversation.conversation.messages,
     receipts: conversation.conversation.receipts, records: conversation.conversation.records, answers: conversation.conversation.answers ?? [],
     activity: conversation.conversation.activity, responsibilities }) : [], [conversation.conversation, responsibilities, snapshot]);
-  async function open(row: TarsResponsibility) {
-    if (!row.taskId) return;
+  /** Opens a task of the work: its own, or the one a request waits in (a helper's), in the work's repository. */
+  async function openTask(row: TarsResponsibility, taskId: string, workspaceId: string) {
     try {
-      await focusTaskAttention({ taskId: row.taskId, workspaceId: row.executionWorkspaceId ?? row.workspaceId, repositoryPath: row.repositoryPath, refreshFromPersistence: true });
-      if (!useAppStore.getState().tasks.some((task) => task.id === row.taskId)) throw new Error();
+      await focusTaskAttention({ taskId, workspaceId, repositoryPath: row.repositoryPath, refreshFromPersistence: true });
+      if (!useAppStore.getState().tasks.some((task) => task.id === taskId)) throw new Error();
       exitToWorkspace("tars");
     } catch { setOpenError(true); }
   }
+  async function open(row: TarsResponsibility) {
+    if (row.taskId) await openTask(row, row.taskId, row.executionWorkspaceId ?? row.workspaceId);
+  }
+  const openRequestTask = (target: { responsibilityId: string; taskId: string; workspaceId: string }) => {
+    const row = rowOf(target.responsibilityId);
+    if (row) void openTask(row, target.taskId, target.workspaceId);
+  };
   async function submit(input: Omit<TarsActInput, "source">) {
     const done = await command(async (bridge) => {
       try { return (await bridge.act({ ...input, source: "click" })).snapshot; }
@@ -302,7 +309,7 @@ export function TarsView() {
     {error || openError ? <div role="alert" className={sx(styles.errorBar)}><p>{error ?? t("shell:tars.openFailed")}</p><Button variant="secondary" size="xs" onClick={() => { setOpenError(false); void refresh(); }}>{t("shell:tars.retry")}</Button></div> : null}
     <div className={sx(styles.workspace)}>
       <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
-        titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} agentNameOf={(id) => agentNames.get(id)} flows={flows}
+        titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined}
         composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} />

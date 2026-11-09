@@ -281,7 +281,7 @@ observes, so you can answer them in the conversation:
 
 | Ask | Effect in the task |
 |---|---|
-| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request. |
+| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
 | "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
 | "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. Refused while a turn runs there. |
 | "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |

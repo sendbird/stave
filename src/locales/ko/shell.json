@@ -1974,6 +1974,7 @@
           "answers": "답변",
           "words": "보낼 내용"
         },
+        "truncated": "앞부분만 보이므로 전체 요청은 작업에서 확인하세요.",
         "revision": "r{{revision}}",
         "effect": {
           "pause": "Tars가 실행을 멈춥니다. 나중에 재개할 수 있습니다.",

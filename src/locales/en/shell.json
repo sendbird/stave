@@ -1992,6 +1992,7 @@
           "answers": "Answers",
           "words": "Words sent"
         },
+        "truncated": "Only the start is shown; open its task to read the whole request.",
         "revision": "r{{revision}}",
         "effect": {
           "pause": "Tars pauses the run. You can resume it later.",

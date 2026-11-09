@@ -4,7 +4,7 @@ import {
 import type {
   TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAnswer, TarsMessage, TarsMessageOrigin,
 } from "./conversation";
-import type { TarsActivity, TarsDecisionKind, TarsResponsibility } from "./types";
+import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
 
 /**
  * One decision shape for three sources: a control the model proposed that
@@ -53,10 +53,13 @@ type ControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevi
 /**
  * What a task operation's card shows before the user confirms it: the
  * request it answers (tool and summary, as the task last showed them) or the
- * exact words it sends. Null for controls without input.
+ * exact words it sends. Null for controls without input. A request the host
+ * cut to fit is `truncated`, with the task that shows it whole (`source`),
+ * so the card never presents part of a command as the whole of it.
  */
 export function describeTarsControlInput(control: ControlRequest, row: Pick<TarsResponsibility, "pendingRequests"> | undefined):
-  { key: "request" | "answers" | "words"; value: string } | null {
+  | { key: "request"; value: string; truncated: boolean; source: Pick<TarsPendingRequest, "taskId" | "workspaceId"> | null }
+  | { key: "answers" | "words"; value: string } | null {
   const input = control.input;
   if (!input) return null;
   if (input.text !== undefined) return { key: "words", value: input.text };
@@ -65,7 +68,8 @@ export function describeTarsControlInput(control: ControlRequest, row: Pick<Tars
     const questionOf = (key: string) => request?.questions?.find((question) => question.key === key)?.question || key;
     return { key: "answers", value: Object.entries(input.answers).map(([key, answer]) => `${questionOf(key)} → ${answer}`).join("\n") };
   }
-  return { key: "request", value: request ? [request.toolName, request.summary].filter(Boolean).join(": ") : input.requestRef ?? "" };
+  return { key: "request", value: request ? [request.toolName, request.summary].filter(Boolean).join(": ") : input.requestRef ?? "",
+    truncated: request?.truncated === true, source: request ? { taskId: request.taskId, workspaceId: request.workspaceId } : null };
 }
 
 /**

@@ -381,6 +381,31 @@ for (const lang of ["en", "ko"]) for (const width of [1280, 420]) {
   });
 }
 
+test("an approval cut to fit says so under its request and offers its task, in both languages", async ({ page }) => {
+  for (const [lang, note] of [["en", "Only the start is shown; open its task to read the whole request."], ["ko", "앞부분만 보이므로 전체 요청은 작업에서 확인하세요."]] as const) {
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/?stavePreview=tars&proposal=approve&approval=cut&lang=${lang}`);
+      const view = page.getByTestId("tars-view");
+      await send(page, "Approve the release script");
+      const request = view.locator('[data-tars-decision-row="request"]');
+      await expect(request).toBeVisible();
+      // The text ends in the mark and keeps its line break; the note and the task sit under it, inside the card.
+      await expect(request.locator("dd")).toContainText("set -euo pipefail");
+      await expect(request.locator("[data-tars-decision-truncated]")).toContainText(note);
+      await expect(request.locator("[data-tars-decision-open-task]")).toBeVisible();
+      const geometry = await request.evaluate((row) => {
+        const value = row.querySelector("dd")!;
+        const text = [...value.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("");
+        const card = row.closest("[data-tars-decision]")!.getBoundingClientRect();
+        const note = row.querySelector("[data-tars-decision-truncated]")!.getBoundingClientRect();
+        return { endsWithMark: text.endsWith("…"), lines: getComputedStyle(value).whiteSpace, inside: note.left >= card.left && note.right <= card.right + 0.5 };
+      });
+      expect(geometry).toEqual({ endsWithMark: true, lines: "pre-wrap", inside: true });
+    }
+  }
+});
+
 const sideView = (page: Page) => page.getByTestId("tars-view").locator("[data-tars-side-view]");
 
 test("an output in the tray opens the frozen report beside the conversation; Esc closes it and returns focus", async ({ page }) => {
