@@ -2,6 +2,10 @@
  * `richReply=true`: a reply with every shape that has to stay readable in the
  * Tars transcript — a long paragraph, an unbroken token, nested lists, a code
  * block with a line wider than the column, and a table wider than the column.
+ * The code fence is plain on purpose: a highlighted fence loads its grammars
+ * in a worker the dev server optimizes on first use, which reloads every open
+ * page and breaks whatever else the e2e suite is running at that moment. Both
+ * kinds of block share the same horizontal overflow.
  */
 export const TARS_PREVIEW_RICH_REPLY = [
   "I checked the export pipeline end to end. The nightly job reads every billing account, groups invoices by currency and writes one CSV per account, but the retry path re-reads the whole account list after any failure, so a single slow account makes the job restart from the top and the export finishes hours late on the first business day of the month.",
@@ -16,7 +20,7 @@ export const TARS_PREVIEW_RICH_REPLY = [
   "2. Cap each account at five minutes and move a slow account to the end of the queue.",
   "3. Report the accounts that were skipped in the job summary.",
   "",
-  "```ts",
+  "```",
   "export async function exportAccount(account: BillingAccount, cursor: ExportCursor | null, { signal, writer, logger }: ExportContext): Promise<ExportResult> {",
   "  const invoices = await listInvoices(account.id, { after: cursor?.lastInvoiceId, signal });",
   "  return writer.append(account.id, invoices);",
