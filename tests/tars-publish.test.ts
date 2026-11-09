@@ -28,6 +28,7 @@ function fakeRepository() {
     branch: HEAD, dirty: [" M src/checkout/cards.ts", "?? src/checkout/cards.test.ts"], ahead: 0, remote: true as boolean,
     gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number } | null,
     fail: { commit: 0, push: 0, create: 0 }, sha: "1111111111111111111111111111111111111111",
+    commits: new Set<string>(["1111111111111111111111111111111111111111"]),
   };
   const calls: Array<[string, string[]]> = [];
   const ok = (stdout = ""): TarsCommandResult => ({ ok: true, code: 0, stdout, stderr: "" });
@@ -57,10 +58,14 @@ function fakeRepository() {
     if (line === "add -A") return ok();
     if (args[0] === "commit") {
       if (state.fail.commit > 0) { state.fail.commit--; return no("pre-commit hook failed"); }
-      state.dirty = []; state.ahead += 1; state.sha = SHA;
+      state.dirty = []; state.ahead += 1; state.sha = SHA; state.commits.add(SHA);
       return ok("[feat/checkout 1234567] feat: commit");
     }
     if (line === "rev-parse HEAD") return ok(`${state.sha}\n`);
+    if (line.startsWith("rev-parse --verify --quiet --end-of-options ")) {
+      const rev = args.at(-1)!.replace(/\^\{commit\}$/, "");
+      return state.commits.has(rev) ? ok(`${rev}\n`) : no("");
+    }
     if (args[0] === "push") {
       if (state.fail.push > 0) { state.fail.push--; return no("fatal: unable to access remote"); }
       return ok();
@@ -99,6 +104,39 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
       commitMessage: patch.commitMessage ?? "feat: show the saved card first at checkout", title: patch.title ?? "feat: show the saved card first at checkout", source: "click" });
   return { database, responsibilities, conversations, repo, publisher, completed, confirm, ports, now };
 }
+
+describe("Tars publish pins what it confirmed", () => {
+  test("a retried push sends the commit the first attempt made, even when the branch moved since", async () => {
+    const f = fixture(); const row = f.completed();
+    f.repo.state.fail.push = 1;
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected" });
+    expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ state: "failed", failedStep: "push", commit: SHA });
+    // Someone commits on the work's branch before the retry.
+    const moved = "2222222222222222222222222222222222222222";
+    f.repo.state.sha = moved; f.repo.state.commits.add(moved);
+    const retried = f.responsibilities.get(row.id)!;
+    expect((await f.confirm(retried)).record).toMatchObject({ status: "applied" });
+    const pushes = f.repo.commands("push").map(([, args]) => args);
+    expect(pushes.at(-1)).toEqual(["push", "origin", `${SHA}:refs/heads/${HEAD}`]);
+    expect(pushes.flat().join(" ")).not.toContain(moved);
+  });
+
+  test("a retry whose saved commit is gone refuses instead of pushing something else", async () => {
+    const f = fixture(); const row = f.completed();
+    f.repo.state.fail.push = 1;
+    await f.confirm(row);
+    f.repo.state.commits.delete(SHA);
+    expect((await f.confirm(f.responsibilities.get(row.id)!)).record).toMatchObject({ status: "rejected", reason: "publishFailed" });
+    expect(f.repo.commands("push")).toHaveLength(1);
+  });
+
+  test("work whose rule-following branch fell back to tars/<id> still publishes, from that branch", async () => {
+    const f = fixture(); const row = f.completed();
+    f.repo.state.branch = `tars/${row.id}`;
+    expect((await f.confirm(row)).record).toMatchObject({ status: "applied" });
+    expect(f.repo.commands("push").map(([, args]) => args)).toEqual([["push", "origin", `${SHA}:refs/heads/tars/${row.id}`]]);
+  });
+});
 
 describe("Tars publish admission", () => {
   test("refuses work that has not completed, that Stave did not verify, or that changed since the card, without running a command", async () => {
@@ -160,7 +198,7 @@ describe("Tars publish steps", () => {
     expect(result.record).toMatchObject({ status: "applied", url: URL, number: 12, reason: null });
     expect(f.repo.commands("commit").map(([, args]) => args)).toEqual([tarsPublishCommands.commit("feat: show the saved card first at checkout")]);
     const push = f.repo.commands("push").map(([, args]) => args);
-    expect(push).toEqual([["push", "-u", "origin", `refs/heads/${HEAD}:refs/heads/${HEAD}`]]);
+    expect(push).toEqual([["push", "origin", `${SHA}:refs/heads/${HEAD}`]]);
     expect(push.flat().some((arg) => /^(--force|-f|--force-with-lease|\+)/.test(arg) || arg.includes(":refs/heads/main"))).toBe(false);
     const create = f.repo.commands("pr create").map(([, args]) => args)[0]!;
     expect(create.slice(0, 6)).toEqual(["pr", "create", "--draft", "--base=main", `--head=${HEAD}`, "--title=feat: show the saved card first at checkout"]);
@@ -238,7 +276,7 @@ describe("Tars publish steps", () => {
     // Its commit was saved before a lock wait failed the request; nothing is running now.
     f.responsibilities.patch(row.id, row.revision, { publication: { state: "committed", failedStep: null, commit: SHA, branch: HEAD, base: "main",
       commitMessage: "feat: x", title: "feat: x", url: null, number: null, error: null, reason: null, updatedAt: "2026-11-05T00:00:05.000Z" } }, NOW);
-    Object.assign(f.repo.state, { dirty: [], ahead: 1, sha: SHA });
+    Object.assign(f.repo.state, { dirty: [], ahead: 1, sha: SHA }); f.repo.state.commits.add(SHA);
     expect((await f.publisher.publish(input)).record).toMatchObject({ status: "applied", url: URL });
     expect([f.repo.commands("commit").length, f.repo.commands("push").length]).toEqual([0, 1]);
     // A different, newer request at the old revision is still stale.

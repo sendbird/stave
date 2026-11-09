@@ -62,6 +62,18 @@ describe("Tars reviewer check commands (D6)", () => {
     expect(withTarsReviewerCheckCommands(codex, { agentConfigId: "reviewer", checkout: "/tmp/checkout", readRules: rules })).toBe(codex);
   });
 
+  test("a later start keeps only rules the first admission pinned: a check added since is not granted", () => {
+    const policy = readOnly("claude-code");
+    const first = withTarsReviewerCheckCommands(policy, { agentConfigId: "reviewer", checkout: "/c", readRules: () => ["Bash(bun run test)"] });
+    const later = withTarsReviewerCheckCommands(policy, { agentConfigId: "reviewer", checkout: "/c",
+      readRules: () => ["Bash(bun run test)", "Bash(bun run check:new)"], pinned: first.options.claudeAllowedTools });
+    expect(later.options.claudeAllowedTools).toContain("Bash(bun run test)");
+    expect(later.options.claudeAllowedTools).not.toContain("Bash(bun run check:new)");
+    // A delegation first admitted without any rule gains none later.
+    const none = withTarsReviewerCheckCommands(policy, { agentConfigId: "reviewer", checkout: "/c", readRules: () => ["Bash(bun run test)"], pinned: policy.options.claudeAllowedTools });
+    expect(none.options.claudeAllowedTools).not.toContain("Bash(bun run test)");
+  });
+
   test("the checkout is found only for a Tars lead task with an execution workspace", () => {
     const row = { taskId: "lead", executionWorkspaceId: "exec", repositoryPath: "/repo" } as TarsResponsibility;
     const registry = [{ repositoryPath: "/repo", workspacePathById: { exec: "/repo/.stave/workspaces/exec" } }] as unknown as PersistenceRepositoryRegistryEntry[];

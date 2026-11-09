@@ -16,7 +16,8 @@ import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsDetailError, T
 import { createTarsPublisher, type TarsPublishRunner } from "./tars-publish";
 import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
-import { hasTarsSnapshotCommit } from "./tars-working-changes";
+import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef } from "./tars-working-changes";
+import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -40,6 +41,18 @@ export function createHostTarsRuntime(args: {
     if (!repository?.workspaces.some((workspace) => workspace.id === row.workspaceId))
       throw new TarsDetailError("scopeUnregistered", "The source workspace does not belong to this registered repository.");
   }
+  /**
+   * A message's snapshot ref is only needed until every unit that shares it
+   * has its workspace (whose branch then keeps the commit) and the message's
+   * admission has settled, so a retried admission still finds it.
+   */
+  async function releaseSnapshotWhenUnused(row: TarsResponsibility, ref: string) {
+    const messageId = /^tars-message:(.+):\d+$/.exec(row.requestId)?.[1];
+    if (!messageId || persistence.tarsConversations.listReceipts(messageId).some((receipt) => receipt.status === "pending")) return;
+    const waiting = persistence.tars.snapshot().responsibilities.some((other) => other.id !== row.id && !other.executionWorkspaceId
+      && other.workingChanges?.kind === "snapshot" && other.workingChanges.ref === ref && !isTarsResponsibilityTerminal(other));
+    if (!waiting) await releaseTarsWorkingChangesRef(row.repositoryPath, ref).catch(() => undefined);
+  }
   return createTarsRuntime({
     store: persistence.tars,
     validateScope,
@@ -57,13 +70,18 @@ export function createHostTarsRuntime(args: {
       const create = (name: string) => tasks.createWorkspace({ repositoryPath: row.repositoryPath, name, label: row.title,
         mode: "branch", ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
       const fallback = `tars/${row.id}`;
-      if (!row.branchName) return (await create(fallback)).workspaceId;
-      try { return (await create(row.branchName)).workspaceId; }
-      catch (error) {
-        // git can still refuse a rule-following name, for example `ABC-123/x` when a branch `ABC-123` exists.
-        // The name is deterministic, so retrying it would fail forever; `tars/<id>` is unique and equally stable.
-        try { return (await create(fallback)).workspaceId; } catch { throw error; }
+      let workspaceId: string;
+      if (!row.branchName) workspaceId = (await create(fallback)).workspaceId;
+      else {
+        try { workspaceId = (await create(row.branchName)).workspaceId; }
+        catch (error) {
+          // git can still refuse a rule-following name, for example `ABC-123/x` when a branch `ABC-123` exists.
+          // The name is deterministic, so retrying it would fail forever; `tars/<id>` is unique and equally stable.
+          try { workspaceId = (await create(fallback)).workspaceId; } catch { throw error; }
+        }
       }
+      if (row.workingChanges?.kind === "snapshot") await releaseSnapshotWhenUnused(row, row.workingChanges.ref);
+      return workspaceId;
     },
     async prepareTask(row) {
       const workspaceId = row.executionWorkspaceId!;

@@ -48,6 +48,22 @@ export function tarsWorkingChangesRef(messageId: string, workspaceId: string): s
   return `refs/stave/tars/${message}/${workspace}`;
 }
 
+/** Marks that a message's snapshot of a workspace found nothing to include. */
+export function tarsCleanMarkerRef(ref: string): string {
+  return `${ref}-clean`;
+}
+
+/**
+ * Drops a message's snapshot ref and clean marker once no work needs them:
+ * a workspace created from the snapshot keeps the commit reachable through
+ * its own branch. Missing refs are fine.
+ */
+export async function releaseTarsWorkingChangesRef(repositoryPath: string, ref: string): Promise<void> {
+  for (const name of [ref, tarsCleanMarkerRef(ref)]) {
+    if (await resolveCommit(repositoryPath, name)) await git(repositoryPath, ["update-ref", "-d", name]);
+  }
+}
+
 /** The checkout a registered workspace lives in: its worktree, or the repository itself for the default workspace. */
 export function tarsWorkspacePath(workspaceId: string, repositories: readonly PersistenceRepositoryRegistryEntry[]): string {
   const repository = repositories.find((entry) => entry.workspaces.some((workspace) => workspace.id === workspaceId));
@@ -94,6 +110,8 @@ export async function snapshotTarsWorkingChanges(args: {
   const cwd = args.workspacePath;
   const existing = await resolveCommit(cwd, args.ref);
   if (existing) return { kind: "snapshot", commit: existing, ref: args.ref };
+  // A clean result is pinned too, so a retried admission does not pick up changes made since.
+  if (await resolveCommit(cwd, tarsCleanMarkerRef(args.ref))) return { kind: "clean" };
   const head = await resolveCommit(cwd, "HEAD");
   const directory = await mkdtemp(path.join(os.tmpdir(), "stave-tars-index-"));
   try {
@@ -109,11 +127,17 @@ export async function snapshotTarsWorkingChanges(args: {
       await rm(index, { force: true });
       await git(cwd, ADD_ALL, env);
     }
+    // The seeded copy may already hold `.stave` entries the user staged; the exclude pathspec does not remove them.
+    await git(cwd, ["rm", "-r", "--cached", "--quiet", "--ignore-unmatch", "--", ":(top).stave"], env);
     const tree = (await git(cwd, ["write-tree"], env)).trim();
     const unchanged = head
       ? tree === (await git(cwd, ["rev-parse", "--verify", "--end-of-options", `${head}^{tree}`])).trim()
       : !(await git(cwd, ["ls-files", "-z"], env));
-    if (unchanged) return { kind: "clean" };
+    if (unchanged) {
+      // Create-only, like the snapshot ref; an unborn HEAD has nothing to point at and stays unpinned.
+      if (head) await git(cwd, ["update-ref", "-m", "stave: Tars working changes (clean)", tarsCleanMarkerRef(args.ref), head, ""]).catch(() => undefined);
+      return { kind: "clean" };
+    }
     // Unsigned: a signing prompt would hang a background admission, and the commit is Stave's own record.
     const commitArgs = ["commit-tree", "--no-gpg-sign", tree, ...(head ? ["-p", head] : []), "-m", args.message];
     const dates = { GIT_AUTHOR_DATE: gitDate(args.date), GIT_COMMITTER_DATE: gitDate(args.date) };

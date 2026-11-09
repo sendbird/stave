@@ -183,9 +183,10 @@ test("a message that includes working changes starts its work from the uncommitt
     expect((await readFile(indexPath)).equals(before.index)).toBe(true);
     expect(status()).toBe(before.status);
     expect(git("rev-parse", "HEAD")).toBe(head);
-    // The snapshot commit sits on HEAD and stays reachable through its ref.
+    // The snapshot commit sits on HEAD. Once the only unit sharing it has its workspace, the ref is released
+    // and the workspace's own branch keeps the commit reachable.
     expect(git("rev-parse", `${snapshot!.commit}^`)).toBe(head);
-    expect(git("rev-parse", snapshot!.ref)).toBe(snapshot!.commit);
+    expect(() => git("rev-parse", "--verify", "--quiet", snapshot!.ref)).toThrow();
     // The execution workspace's branch starts at the snapshot, so it has the uncommitted change and the new file, never the ignored one.
     const worktrees = git("worktree", "list", "--porcelain").split("\n\n");
     const entry = worktrees.find((block) => block.includes(`branch refs/heads/${row.branchName}`));
