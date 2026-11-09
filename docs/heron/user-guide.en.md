@@ -591,7 +591,9 @@ Uncommitted source changes are not copied unless you turn on **Working
 changes** next to **Send** for that message: Stave then snapshots the
 workspace's uncommitted changes (ignored files stay out) without touching your
 files, starts the work from that snapshot and says so on its tray card with the
-short commit. The toggle turns off after each send. **Pause**, **Resume**, **Take
+short commit. The toggle turns off after each send. What you type stays as a
+draft, with that choice, when you leave Tars and after a restart; a sent
+message clears it and a failed send keeps it. **Pause**, **Resume**, **Take
 over**, **Hand back** and **Cancel responsibility** control owned work. You can
 also ask in words, such as "stop it" or "I'll take it from here"; both go
 through the same check, and each click leaves a one-line record in the

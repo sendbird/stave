@@ -1,4 +1,4 @@
-import { useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { FileDiff } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
@@ -38,6 +38,10 @@ import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsPublishRecordLine } from "./TarsPublishRecordLine";
 import type { TarsPublishContext } from "./use-tars-publish";
 import { TarsPublishReasonSchema } from "@/lib/tars/publication";
+import type { TarsBridgeApi } from "@/lib/tars/types";
+import {
+  appendTarsDraft, beginTarsDraftSend, flushTarsDraft, hydrateTarsDraft, setTarsDraftText, setTarsDraftWorkingChanges, settleTarsDraftSend, useTarsDraftStore,
+} from "@/store/tars-draft-store";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -199,7 +203,7 @@ function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pres
   </>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -218,14 +222,21 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   publish?: TarsPublishContext;
   /** The work running now, in the composer band above the message field; absent while nothing runs. */
   composerStatus?: ReactNode;
+  /** Where the draft is saved across restarts; absent, it lasts for this window. */
+  draftBridge?: Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
 }) {
   const { t } = useTranslation(["shell"]);
-  const [text, setText] = useState("");
+  // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again.
+  const text = useTarsDraftStore((draft) => draft.text);
   // Per message and off by default: the next send carries it, then it resets.
-  const [includeWorkingChanges, setIncludeWorkingChanges] = useState(false);
+  const includeWorkingChanges = useTarsDraftStore((draft) => draft.includeWorkingChanges);
+  const draftReady = useTarsDraftStore((draft) => draft.ready);
+  useEffect(() => {
+    void hydrateTarsDraft(draftBridge);
+    return () => { void flushTarsDraft(); };
+  }, [draftBridge]);
   const [answerErrors, setAnswerErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [answering, setAnswering] = useState(false);
-  const request = useRef<{ text: string; includeWorkingChanges: boolean; id: string } | null>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const composerErrorId = useId();
   const settings = state.conversation?.settings ?? initialSettings;
@@ -251,33 +262,39 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
     + (publish?.open ? `|open:${publish.open.id}` : "");
   const tooLong = text.length > TARS_MESSAGE_LIMIT;
-  const composerDisabled = !state.available || !state.conversation || state.busy;
+  const composerDisabled = !state.available || !state.conversation || state.busy || !draftReady;
   const focusComposer = () => composerRef.current?.querySelector<HTMLElement>("[contenteditable='true'], textarea")?.focus();
-  /** Click, key and words take this one path; only Stave's "ask for new verification work" stays in the composer. */
-  const answer: TarsDecisionAnswerHandler = (decision, optionIndex, source) => {
+  const verifyRequest = (responsibilityId: string) => t("shell:tars.decision.verifyRequest", { title: titleOf?.(responsibilityId) ?? responsibilityId });
+  /**
+   * Click, key and words take this one path; only Stave's "ask for new
+   * verification work" stays in the composer, added after the draft so nothing
+   * the user wrote is lost. Resolves whether the answer was taken.
+   */
+  const answer = (decision: TarsDecisionView, optionIndex: number, source: TarsAnswerSource): Promise<boolean> => {
     const option = decision.options[optionIndex];
-    if (!option) return;
+    if (!option) return Promise.resolve(false);
     if (option.kind === "verify") {
-      setText(t("shell:tars.decision.verifyRequest", { title: titleOf?.(option.responsibilityId) ?? option.responsibilityId }));
+      appendTarsDraft(verifyRequest(option.responsibilityId));
       focusComposer();
-      return;
+      return Promise.resolve(false);
     }
-    if (!onAnswer || answering) return;
+    if (!onAnswer || answering) return Promise.resolve(false);
     setAnswering(true);
-    void onAnswer({ decisionId: decision.id, optionIndex, source }).then((result) => {
+    return onAnswer({ decisionId: decision.id, optionIndex, source }).catch(() => null).then((result) => {
       const message = !result ? t("shell:tars.decision.refusal.failed") : result.refusal ? t(`shell:tars.decision.refusal.${result.refusal}`) : null;
       setAnswerErrors((current) => {
         const next = new Map(current);
         if (message) next.set(decision.id, message); else next.delete(decision.id);
         return next;
       });
+      return !message;
     }).finally(() => setAnswering(false));
   };
   const cardHandler = onAnswer ? answer : undefined;
   // Esc on a waiting card leaves it waiting and hands focus back to the message box.
   const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer };
   const insertDraft = (quote: string) => {
-    setText((current) => current.trim() ? `${current.trimEnd()}\n\n${quote}` : quote);
+    appendTarsDraft(quote);
     focusComposer();
   };
   useImperativeHandle(controller, () => ({
@@ -324,8 +341,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     <div ref={composerRef} className={sx(styles.composer)} data-tars-composer="">
       <div className={sx(composerTray.tray)}>
       {composerStatus}
-      <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setText} disabled={composerDisabled}
-        sendAccessory={<TarsWorkingChangesToggle pressed={includeWorkingChanges} disabled={composerDisabled} onPressedChange={setIncludeWorkingChanges} />}
+      <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setTarsDraftText} disabled={composerDisabled}
+        sendAccessory={<TarsWorkingChangesToggle pressed={includeWorkingChanges} disabled={composerDisabled} onPressedChange={setTarsDraftWorkingChanges} />}
         selectedModel={buildModelSelectorValue({ providerId: settings.providerId, model: settings.model })} modelOptions={[]} onModelSelect={() => undefined}
         attachedFilePaths={[]} plainText onAttachFilesChange={() => undefined} windowShortcutsEnabled={false}
         onSubmit={async ({ text: submitted }) => {
@@ -333,16 +350,19 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           // A short answer binds to the one waiting decision; anything else is a message to Tars.
           const bound = onAnswer ? bindTarsShortAnswer(submitted, selectAnswerableTarsDecisions(decisions)) : null;
           if (bound) {
-            if (bound.decision.options[bound.optionIndex]?.kind !== "verify") setText("");
-            answer(bound.decision, bound.optionIndex, "words");
+            const option = bound.decision.options[bound.optionIndex];
+            // The words were only the answer, so the verification request takes their place.
+            if (option?.kind === "verify") { setTarsDraftText(verifyRequest(option.responsibilityId)); focusComposer(); return; }
+            // The answer clears the draft only once it was taken, and only if it still holds those words; a refused or failed answer leaves them.
+            const words = useTarsDraftStore.getState().text;
+            if (await answer(bound.decision, bound.optionIndex, "words") && useTarsDraftStore.getState().text === words) setTarsDraftText("");
             return;
           }
-          // An unchanged draft and choice retries the same request; changing either is a new message.
-          if (request.current?.text !== submitted || request.current.includeWorkingChanges !== includeWorkingChanges)
-            request.current = { text: submitted, includeWorkingChanges, id: crypto.randomUUID() };
-          const message = await state.send({ requestId: request.current.id, text: submitted, ...(includeWorkingChanges ? { includeWorkingChanges: true } : {}) },
-            initialSettings);
-          if (message) { request.current = null; if (message.state !== "failed") { setText(""); setIncludeWorkingChanges(false); } }
+          // An unchanged draft and choice retries the same request (a lost acknowledgement cannot send twice); any edit is a new message.
+          const withWorkingChanges = useTarsDraftStore.getState().includeWorkingChanges;
+          const sending = await beginTarsDraftSend();
+          const message = await state.send({ requestId: sending.requestId, text: submitted, ...(withWorkingChanges ? { includeWorkingChanges: true } : {}) }, initialSettings);
+          settleTarsDraftSend({ ...sending, outcome: !message ? "unsent" : message.state === "failed" ? "failed" : "sent" });
         }} />
       {tooLong ? <p id={composerErrorId} className={sx(composerTray.footnote, composerTray.footnoteError)} role="alert" data-tars-composer-error="tooLong">{t("shell:tars.conversation.tooLong")}</p> : null}
       </div>

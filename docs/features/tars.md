@@ -206,8 +206,8 @@ Name the workspace and say what "done" means; Tars turns that into acceptance
 criteria. If something is unclear it asks first. The first send saves the
 conversation settings (see [Settings and models](#settings-and-models)).
 
-An empty conversation offers a few example requests; pressing one puts its
-full text in the message box without sending it. **How Tars works** below the
+An empty conversation offers a few example requests; pressing one adds its
+full text to the message box without sending it. **How Tars works** below the
 examples, and the help button in the Tars header at any time, show what Tars
 can do and its limits in short form.
 
@@ -389,6 +389,14 @@ same conversation.
   task.
 - **Cancel message** stops queued or running reasoning. It does not undo
   already admitted responsibilities; use their own controls.
+
+**Your draft is kept.** What you type in the message box, with its
+**Working changes** choice, stays when you leave Tars for a workspace and
+after Stave restarts. A message Tars saved clears it. A send that fails keeps
+it, so you can retry or edit it; a retry of the unchanged draft is the same
+request, so a send whose response was lost cannot become a second message.
+Answering a decision with a short word clears the word only once the answer
+is taken.
 
 **Reading the conversation.** Your messages sit on the right in a bubble only
 as wide as their words, with their time and state under them. Tars's replies

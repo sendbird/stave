@@ -215,3 +215,60 @@ test("a message that includes working changes starts its work from the uncommitt
     await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 });
+
+// The composer draft is saved in the desktop store: it comes back after a real restart, and a sent message does not.
+test("a Tars draft survives an app restart and a sent message clears it for good", async ({ playwright: _playwright }) => {
+  test.setTimeout(240_000);
+  const directory = await mkdtemp(path.join(tmpdir(), "stave-tars-draft-e2e-"));
+  const profileDir = path.join(directory, "profile");
+  const fakeDir = path.join(directory, "provider");
+  let stave: Awaited<ReturnType<typeof launchStave>> | null = null;
+  try {
+    await Promise.all([mkdir(profileDir), mkdir(fakeDir)]);
+    const replyFile = path.join(fakeDir, "reply.json");
+    await writeFile(path.join(fakeDir, "turns.jsonl"), "");
+    await writeFile(replyFile, JSON.stringify({ reply: "Noted.", actions: [] }));
+    const fakeCli = path.join(import.meta.dirname, "harness", "fake-claude-cli.cjs");
+    const wrapper = path.join(fakeDir, "claude");
+    const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
+    await chmod(wrapper, 0o755);
+    const env = { STAVE_CLAUDE_CLI_PATH: wrapper };
+    const openTars = async () => {
+      await stave!.page.getByRole("button", { name: /^(Tars|Tars)$/ }).click();
+      const view = stave!.page.getByTestId("tars-view");
+      return { view, editor: view.locator("[data-tars-composer]").getByRole("textbox"),
+        toggle: view.getByRole("button", { name: /^(Include my working changes|작업 중인 변경 포함)$/ }) };
+    };
+    const savedDraft = () => stave!.page.evaluate(() => window.api!.tars!.getDraft!());
+
+    stave = await launchStave({ userDataDir: profileDir, env });
+    await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input),
+      { providerId: "claude-code" as const, model: "sonnet", maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } });
+    let tars = await openTars();
+    await tars.editor.fill("Draft written before a restart.");
+    await tars.toggle.click();
+    await expect.poll(savedDraft).toEqual({ text: "Draft written before a restart.", includeWorkingChanges: true, requestId: null });
+    await stave.close(); stave = null;
+
+    stave = await launchStave({ userDataDir: profileDir, env });
+    tars = await openTars();
+    await expect(tars.editor).toHaveText("Draft written before a restart.");
+    await expect(tars.toggle).toHaveAttribute("aria-pressed", "true");
+    await tars.toggle.click();
+    await tars.editor.press("Enter");
+    await expect.poll(() => stave!.page.evaluate(async () => (await window.api!.tars!.getConversation!()).messages.length)).toBe(1);
+    await expect(tars.editor).toHaveText("");
+    await expect.poll(savedDraft).toBeNull();
+    await stave.close(); stave = null;
+
+    stave = await launchStave({ userDataDir: profileDir, env });
+    tars = await openTars();
+    await expect(tars.view.locator("[data-tars-message]")).toHaveCount(1);
+    await expect(tars.editor).toHaveText("");
+    expect(await savedDraft()).toBeNull();
+  } finally {
+    await stave?.close();
+    await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
+});

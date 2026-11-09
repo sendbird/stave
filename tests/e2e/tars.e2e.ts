@@ -209,6 +209,82 @@ test("include my working changes is off by default, travels with one message and
   expect(saved.messages[1]).not.toHaveProperty("includeWorkingChanges");
 });
 
+const savedDraft = (page: Page) => page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-draft") ?? "null"));
+
+test("a draft and its working-changes choice survive leaving Tars and a restart, and a successful send clears them", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  const toggle = composer(page).getByRole("button", { name: "Include my working changes", exact: true });
+  await editor(page).fill("Draft that must survive");
+  await toggle.click();
+  // Leaving Tars unmounts the view; coming back shows the same draft at once.
+  await page.getByRole("button", { name: "Close Tars", exact: true }).click();
+  await expect(page.getByTestId("tars-view")).toHaveCount(0);
+  await page.locator("[data-preview-reopen-tars]").click();
+  await expect(editor(page)).toHaveText("Draft that must survive");
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  // A restart reads the saved draft back.
+  await expect.poll(() => savedDraft(page)).toEqual({ text: "Draft that must survive", includeWorkingChanges: true, requestId: null });
+  await page.reload();
+  await expect(editor(page)).toHaveText("Draft that must survive");
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await editor(page).press("Enter");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(page.locator("[data-tars-message-working-changes]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect.poll(() => savedDraft(page)).toBeNull();
+  // The sent message is not restored as a draft after a restart.
+  await page.reload();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+});
+
+test("a message with surrounding spaces is cleared after it is sent (the composer sends it trimmed), and stays cleared after a restart", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  await editor(page).click();
+  await page.keyboard.type("   Padded words   ");
+  await expect.poll(() => savedDraft(page).then((draft) => draft?.text)).toBe("   Padded words   ");
+  await editor(page).press("Enter");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+  await expect.poll(() => savedDraft(page)).toBeNull();
+  await page.reload();
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+});
+
+test("a send refused before it was saved keeps the draft through a restart, and the retry sends it once with the same request", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&sendFailure=before");
+  await send(page, "Keep this if sending fails");
+  await expect(page.getByRole("alert")).toContainText("refused before it was saved");
+  await expect(editor(page)).toHaveText("Keep this if sending fails");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(0);
+  const kept = await savedDraft(page);
+  expect(kept).toMatchObject({ text: "Keep this if sending fails", includeWorkingChanges: false });
+  expect(kept.requestId).toBeTruthy();
+  await page.goto("/?stavePreview=tars");
+  await expect(editor(page)).toHaveText("Keep this if sending fails");
+  await editor(page).press("Enter");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+  const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
+  expect(saved.messages).toHaveLength(1);
+  expect(saved.messages[0].requestId).toBe(kept.requestId);
+  await expect.poll(() => savedDraft(page)).toBeNull();
+});
+
+test("a send saved by the host but not acknowledged is not restored as a draft after a restart", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&sendFailure=once");
+  await send(page, "Saved but not acknowledged");
+  await expect(page.getByRole("alert")).toContainText("Preview message transport failed");
+  // The words stay in this window, so the user sees what did not come back.
+  await expect(editor(page)).toHaveText("Saved but not acknowledged");
+  await expect.poll(() => savedDraft(page)).toBeNull();
+  await page.goto("/?stavePreview=tars");
+  await expect(page.locator("[data-tars-message]")).toHaveCount(1);
+  await expect(editor(page)).toHaveText("");
+});
+
 for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
   test(`your messages and Tars's replies read apart, and long replies stay readable at ${width}px (${lang})`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });

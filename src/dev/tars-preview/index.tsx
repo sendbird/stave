@@ -21,6 +21,7 @@ import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
 import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
+import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -109,6 +110,7 @@ export function TarsPreview() {
     }
     let sendFailed = false;
     const conversationKey = "stave-preview-conversation";
+    const draftKey = "stave-preview-draft";
     const conversation: TarsConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (followUp
       ? { settings: null, messages: [followUp.message], receipts: [], activity: [], records: [], events: followUp.events }
       : side
@@ -248,13 +250,28 @@ export function TarsPreview() {
         saveConversation();
         return { answer: structuredClone(answer), refusal: null };
       },
+      // The draft is saved like the host saves it, and dropped in the same step that saves the message carrying its request ID.
+      getDraft: async () => {
+        if (params.get("draftReadFailure") === "true") throw new Error("Preview draft read failed.");
+        const saved = JSON.parse(sessionStorage.getItem(draftKey) ?? "null") as TarsComposerDraft | null;
+        return saved && conversation.messages.some((message) => message.requestId === saved.requestId) ? null : saved;
+      },
+      saveDraft: async ({ draft }) => {
+        // As the host: a draft whose request is already a message was sent and is not saved again.
+        if (draft && !conversation.messages.some((message) => message.requestId === draft.requestId)) sessionStorage.setItem(draftKey, JSON.stringify(draft));
+        else sessionStorage.removeItem(draftKey);
+      },
       getConversation: async () => structuredClone(conversation),
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
         if (!["requestId,text", "includeWorkingChanges,requestId,text"].includes(Object.keys(input).sort().join()))
           throw new Error("Global messages accept only requestId, text and the working-changes choice.");
         if (!conversation.settings) throw new Error("Missing global settings.");
+        // `sendFailure=before`: the host refuses the message before saving it, so nothing exists and the draft stays.
+        if (params.get("sendFailure") === "before" && !sendFailed) { sendFailed = true; throw new Error("Preview message was refused before it was saved."); }
         let message = conversation.messages.find((item) => item.requestId === input.requestId);
+        const savedDraft = JSON.parse(sessionStorage.getItem(draftKey) ?? "null") as { requestId?: string | null } | null;
+        if (savedDraft?.requestId === input.requestId) sessionStorage.removeItem(draftKey);
         if (!message) {
           const decision: TarsDecision = { reply: "The saved conversation continues across restarts.\n\n**Next:** check the review and keep the current plan.", actions: [] };
           if (params.get("fileLinks") === "true") decision.reply = "[Source](src/example.ts) and `src/example.ts`. [Documentation](https://example.com/docs).";
@@ -328,10 +345,15 @@ export function TarsPreview() {
     // "Show in Fleet" leaves this preview's only surface; record where it would land.
     useFleetFocusStore.subscribe(({ request }) => { if (request) document.documentElement.dataset.previewFleetFocus = `${request.workspaceId}/${request.taskId}`; });
     const empty = params.get("noRepositories") === "true";
+    // The view mounts on Tars; Close leaves it (the view unmounts) and the reopen button below brings it back, as returning from a workspace would.
+    useAppStore.getState().openTars();
     useAppStore.setState({ providerAvailability: { ...useAppStore.getState().providerAvailability, codex: true, "claude-code": true }, repositoryPath: empty ? null : "/tmp/preview", activeWorkspaceId: params.get("workspace") ?? "preview-workspace",
       // Named so a confirmation card can say where the work runs.
       workspaces: empty ? [] : [{ id: "preview-workspace", name: "Release check", updatedAt: now }], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
     setReady(true);
   }, []);
-  return ready ? <TarsView /> : null;
+  // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.
+  const closed = useAppStore((state) => state.activeAppSurface.kind === "workspace");
+  if (!ready) return null;
+  return closed ? <button type="button" data-preview-reopen-tars="" onClick={() => useAppStore.getState().openTars()}>Open Tars</button> : <TarsView />;
 }
