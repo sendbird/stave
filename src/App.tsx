@@ -18,6 +18,7 @@ import { useLensSessionPresentationRequests } from "@/components/panes/useLensSe
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
+import { flushTarsDraftForQuit } from "@/store/tars-draft-store";
 import {
   flushAppStorePersistence,
   flushPersistenceForQuit,
@@ -445,11 +446,16 @@ export default function App() {
         try {
           success = await flushPersistenceForQuit({
             flushStores: async () => {
+              const tarsDraft = flushTarsDraftForQuit();
               await Promise.all([
                 useAppStore.getState().flushActiveWorkspaceSnapshot(),
                 useAppStore.getState().flushRepositoryRegistry(),
+                // Awaited with the other stores; its failure is reported after them, so it never cuts their writes short.
+                tarsDraft.catch(() => {}),
               ]);
               await flushPendingSnapshotPersists();
+              // A Tars draft that could not be saved fails the flush like any other store: main offers Retry or Quit without saving.
+              await tarsDraft;
             },
           });
         } catch (error) {

@@ -1574,7 +1574,9 @@
         "select": "Select files",
         "sent": "Attached files",
         "failed": "Could not attach files. Use up to 8 text files (32 KB total) or PNG, JPEG, GIF or WebP images (4 MB each, 6 MB total)."
-      }
+      },
+      "you": "Your message",
+      "replyFrom": "Reply from {{name}}"
     },
     "execution": {
       "model": "Execution model",

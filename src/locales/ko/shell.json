@@ -1568,7 +1568,9 @@
         "select": "파일 선택",
         "sent": "첨부 파일",
         "failed": "파일을 첨부하지 못했습니다. 최대 8개까지, 텍스트는 합계 32KB, PNG·JPEG·GIF·WebP 이미지는 개당 4MB, 합계 6MB로 첨부하세요."
-      }
+      },
+      "you": "내 메시지",
+      "replyFrom": "{{name}}의 답변"
     },
     "execution": {
       "model": "실행 모델",

@@ -9,6 +9,7 @@ import {
 } from "../../src/lib/tars/decisions";
 import { admitTarsFollowUps, claimTarsMessage, releaseTarsFollowUpStart, supersedeStaleTarsFollowUp, tarsAutomaticStartDeferral } from "./tars-follow-up";
 import type { TarsStore } from "../persistence/tars-store";
+import { SaveTarsComposerDraftInputSchema } from "../../src/lib/tars/composer-draft";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { createSecondaryRunCoordinator } from "./runs/secondary-run-coordinator";
 import { processTarsMessage, tarsMessageRunIdentity, type TarsPlannerContext } from "./tars-planner";
@@ -299,6 +300,13 @@ export function createTarsConversationService(ports: ConversationPorts) {
         receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)),
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
         events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit) });
+    },
+    /** The composer draft is the user's words, not reasoning work: it stays readable and writable while the service is stopped. */
+    getDraft() {
+      return ports.conversations.getDraft();
+    },
+    saveDraft(rawInput: unknown) {
+      ports.conversations.saveDraft(SaveTarsComposerDraftInputSchema.parse(rawInput).draft);
     },
     /**
      * Answers one option of a waiting decision. The option is read from saved

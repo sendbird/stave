@@ -36,8 +36,8 @@ across workspaces, tasks and restarts.
    `fix/billing-export-empty-3fa9c1`, so the new workspace never reuses a
    branch or workspace you already have. Uncommitted changes in your
    workspace are not part of it unless you turn on **Include my working
-   changes** next to **Send** for that message: then, when the work is
-   admitted, Stave snapshots the target workspace's working tree (modified,
+   changes**, the icon button next to **Send**, for that message: then, when
+   the work is admitted, Stave snapshots the target workspace's working tree (modified,
    staged and new files, and deletions; files your `.gitignore` ignores stay
    out) as a commit on top of its current commit, without changing your files
    or staging, and the new workspace starts from that commit. A tree without
@@ -166,7 +166,7 @@ instruction with them. The host refuses delegation from an attachment-only messa
   not read merely because they are available.
 - **Uncommitted changes only when you include them.** The Tars workspace
   starts from the branch, not from your working copy, unless the message had
-  **Include my working changes** on. Then it starts from a snapshot taken when
+  **Working changes** on. Then it starts from a snapshot taken when
   the work was admitted, not when you sent the message; later edits are not
   part of it. Ignored files, Stave's own `.stave` folder and changes inside
   submodules are never included.
@@ -223,8 +223,8 @@ Name the workspace and say what "done" means; Tars turns that into acceptance
 criteria. If something is unclear it asks first. The first send saves the
 conversation settings (see [Settings and models](#settings-and-models)).
 
-An empty conversation offers a few example requests; pressing one puts its
-full text in the message box without sending it. **How Tars works** below the
+An empty conversation offers a few example requests; pressing one adds its
+full text to the message box without sending it. **How Tars works** below the
 examples, and the help button in the Tars header at any time, show what Tars
 can do and its limits in short form.
 
@@ -303,7 +303,7 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Conversation**: a flow block for each delegated unit, with the state's mark
   and the work's observation line visible while folded, one-line status and
   control records, and **Automatic follow-up** turns. A message sent with
-  **Include my working changes** carries that tag; a reply Tars is still
+  **Working changes** on carries that tag; a reply Tars is still
   writing reads **Thinking** with the moving mark.
 - **Composer**: while work runs, the band above the message box names each
   running piece of work (two at most, then a count), its stage and what Stave
@@ -335,8 +335,8 @@ provider or model than a pinned execution model, or needs more permission than
 delegated work allows.
 
 **My uncommitted changes are missing from Tars's work.** Tars starts from the
-target workspace's branch unless you turn on **Include my working changes**
-next to **Send** for that message; the switch turns off after each send. With
+target workspace's branch unless you turn on **Working changes** next to
+**Send** for that message; the toggle turns off after each send. With
 it on, the tray card says **From your working changes** with the snapshot's
 short commit, or **No working changes to include** when the workspace had
 none. Files your `.gitignore` ignores are never included. If Stave could not
@@ -406,6 +406,33 @@ same conversation.
   task.
 - **Cancel message** stops queued or running reasoning. It does not undo
   already admitted responsibilities; use their own controls.
+
+**Your draft is kept.** What you type in the message box, with its
+**Include my working changes** choice, stays when you leave Tars for a
+workspace and after Stave restarts. Attached files stay with it while Stave is
+open, but are not saved across a restart: attach them again after one. Files
+still being read hold **Send** until they are attached, even if you leave Tars
+and come back. A
+message Tars saved clears the draft. A send that fails keeps it, so you can
+retry or edit it; a retry of the unchanged draft, with the same files, is the
+same request, so a send whose response was lost cannot become a second
+message. Editing the words, the choice or the attached files makes it a new
+message. If the draft cannot be saved when you press **Send**, nothing is
+sent: the send shows as failed and the draft stays, so a restart cannot send
+the same words twice. If it cannot be saved when Stave quits, Stave says it
+could not save your latest workspace changes or Tars draft and offers **Keep
+Stave open**, **Retry saving** or **Quit without saving**.
+Answering a decision with a short word clears the word only once the answer
+is taken.
+
+**Reading the conversation.** Your messages sit on the right in a bubble only
+as wide as their words, with their time and state under them. Tars's replies
+start on the left under its name and mark. Prose keeps a readable line length;
+code blocks and tables may use a wider measure when the window has room, and a
+long code line scrolls sideways inside its block instead of widening the view.
+**Include my working changes** is an icon button at every width, like
+**Attach files** and **Send**; hover or focus it to see its name and what it
+does. It looks pressed while it is on.
 
 Messages, answers and action outcomes survive restart. If sending loses its
 response, retry the unchanged draft to recover the same message. An

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
+import type { SaveTarsComposerDraftInput, TarsComposerDraft } from "./composer-draft";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
@@ -35,6 +36,10 @@ export const TARS_IPC = Object.freeze({
   reprioritize: "tars:reprioritize",
   /** Reads one responsibility's saved message and Tars's instruction (`TarsBrief`); changes nothing. */
   getBrief: "tars:get-brief",
+  /** Reads the saved composer draft; `null` when there is none. */
+  getDraft: "tars:get-draft",
+  /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
+  saveDraft: "tars:save-draft",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -470,6 +475,9 @@ export interface TarsBridgeApi {
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
   getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
+  /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */
+  getDraft?(): Promise<TarsComposerDraft | null>;
+  saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;
