@@ -45,9 +45,6 @@ import {
   normalizeAuxInferenceDefault,
   normalizeAuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
-// temporary-migration: fleet-tree-default
-import { migrateFleetTreeDefault } from "@/lib/fleet/fleet-tree-default-migration";
-// end temporary-migration: fleet-tree-default
 import {
   isAutoModelId,
   upgradeSettingsScopedClaudeModel,
@@ -281,11 +278,6 @@ export function createAppStorePersistenceOptions() {
           appShellMode?: unknown;
         }
       ).appShellMode;
-      // temporary-migration: fleet-tree-default
-      // On the merged copy (never the shared defaults), before the layout is
-      // normalized below: a saved `cards` moves to the Tree layout once.
-      migrateFleetTreeDefault(state.settings as unknown as Record<string, unknown>);
-      // end temporary-migration: fleet-tree-default
       // Migrate legacy fastModeVisible → per-provider fields.
       const raw = state.settings as any;
       state.settings.craneConnector = normalizeCraneConnectorSettings(

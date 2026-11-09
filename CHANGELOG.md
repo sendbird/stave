@@ -1,3 +1,30 @@
+## [0.32.0](https://github.com/sendbird/stave/compare/v0.31.0...v0.32.0) (2026-11-09)
+
+This minor release includes all eleven merged changes since 0.31.0.
+
+### ⚠ BREAKING CHANGES
+
+- **aui:** the vendored design system is renamed from ADS to Atelier UI: `src/components/ads` moves to `src/components/aui` and `--ads-*` tokens become `--aui-*` (#903). Code that imports the old paths or tokens must use the new names.
+
+### Changes
+
+- Tars, a persistent personal representative, accepts responsibilities in conversation and delegates each one to a run in a repository workspace. Tars keeps owning the work across restarts and shows it in its tray and in Fleet with the same attention rows. You can pause, resume, take over and hand back the work by click. Tars can start from the uncommitted changes in your workspace and reorder its queue. It publishes a draft pull request only after you confirm a publish card. When the work waits on you, including a blocked helper, Tars asks you once (#906, #907).
+- Running subagents show as compact live monitors in the calling message, and returned answers as expandable result cards with execution details (#901).
+- Inline HTML previews accept up to 5,120,000 characters, and workspace `.html`/`.htm` files preview up to 10 MiB (#902).
+- Intra-line diff highlights keep changed text readable when the app's theme setting and the rendered theme disagree (#904).
+- Conversation find floats in the transcript's upper-right corner without shifting messages. Collapsed traces again show a completion summary and the tool-call count (#899, #900).
+- General notifications return to the top center and wrap long text inside the toast. Closed task tabs no longer reopen from delayed pane focus (#897, #898).
+- `zod` 4.6.6 and `playwright-core` 1.65.0 address dependency vulnerability findings (#905).
+
+### Upgrade Notes
+
+- The Fleet default-layout migration is removed in 0.32.0. A profile that skipped the releases carrying it and still has the old saved `cards` layout keeps Cards; choose Tree in Fleet View's Board layout to switch.
+- The AUI rename spacing-baseline migration remains until 0.33.0.
+
+### References
+
+- [PR #897](https://github.com/sendbird/stave/pull/897), [PR #898](https://github.com/sendbird/stave/pull/898), [PR #899](https://github.com/sendbird/stave/pull/899), [PR #900](https://github.com/sendbird/stave/pull/900), [PR #901](https://github.com/sendbird/stave/pull/901), [PR #902](https://github.com/sendbird/stave/pull/902), [PR #903](https://github.com/sendbird/stave/pull/903), [PR #904](https://github.com/sendbird/stave/pull/904), [PR #905](https://github.com/sendbird/stave/pull/905), [PR #906](https://github.com/sendbird/stave/pull/906), [PR #907](https://github.com/sendbird/stave/pull/907)
+
 ## [0.31.0](https://github.com/sendbird/stave/compare/v0.30.0...v0.31.0) (2026-11-04)
 
 This minor release includes all eight merged changes since 0.30.0.
