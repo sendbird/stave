@@ -7,6 +7,7 @@ import { buildTarsTray } from "@/lib/tars/tray-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
 import { tarsHelperObservation } from "../electron/host-service/tars-execution";
 import { helperRunDetail, leadRunDetail, TEAM } from "./fixtures/tars-helper-runs";
+import { followUpFixture } from "./tars-follow-up-fixture";
 
 // A Tars responsibility's lead run delegated a supervised helper, and the
 // helper's stage blocked to ask the user. The helper stays `running` with a
@@ -156,4 +157,19 @@ describe("the host observes the helper's wait, once, across restarts, and the tr
     expect(selectTarsAttentionRows([{ taskId: TEAM.helperTaskId }], [row]).rows).toHaveLength(0);
     expect(selectTarsAttentionRows([{ taskId: TEAM.helperTaskId }], [steps.blocked.row]).responsibilityIds).toEqual(new Set([steps.blocked.row.id]));
   });
+});
+
+test("the helper's ask reaches the real follow-up path once: planner prompt, run admission and answer", async () => {
+  const f = followUpFixture({ replies: [{ reply: "The helper asks whether it may edit vendor/. Decide in its task.", actions: [] }] });
+  try {
+    f.service.start();
+    const row = f.responsibility("running");
+    await f.settle();
+    f.observations.set(row.id, tarsHelperObservation([{ detail: helperRunDetail({ status: "blocked", turnCount: 2, interrupted: true }), pendingRequests: 0 }])!);
+    await f.settle(); await f.settle();
+    expect(f.automatic().map((message) => [message.origin?.kind === "followUp" ? message.origin.reason : null, message.state, message.error])).toEqual([["stageAsksUser", "answered", null]]);
+    expect(f.planner).toHaveLength(1);
+    expect(f.planner[0]!.input.prompt).toContain(JSON.stringify(TEAM.question).slice(1, -1));
+    expect(f.errors).toEqual([]);
+  } finally { await f.close(); }
 });

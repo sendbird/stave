@@ -137,6 +137,23 @@ export function parseTarsDecisionOutput(text: string): TarsDecision {
     actions: output.actions.map((action) => action.kind === "ask" ? withoutIrreversibleRecommendation(action) : action) });
 }
 
+/** Where a reasoning job stopped: before the model call (context, prompt, admission) or at or after it. */
+type TarsReasoningPhase = "context" | "prompt" | "admission" | "model" | "decision" | "answer";
+
+/**
+ * The failure saved on the message: the fixed sentence surfaces translate by
+ * its code, then the phase and the bounded cause, so a failure before the
+ * model call (which has no run ledger entry) can still be inspected.
+ */
+export function describeTarsReasoningFailure(phase: TarsReasoningPhase, error: unknown): string {
+  // A parse error can quote the model's output; keep only where the decision went wrong.
+  const cause = error instanceof z.ZodError
+    ? `The decision did not match its schema at ${error.issues.slice(0, 5).map((issue) => issue.path.join(".") || "(root)").join(", ")}.`
+    : error instanceof SyntaxError ? "The output was not valid JSON."
+      : (error instanceof Error ? error.message : typeof error === "string" ? error : "").trim() || "Unknown error.";
+  return `${TARS_MESSAGE_FAILURE_TEXT.reasoningFailed} Failed at ${phase}: ${cause}`.slice(0, 2_000);
+}
+
 /** A durable one-attempt reasoning job. No direct provider calls or execution tools. */
 export async function processTarsMessage(id: string, ports: PlannerPorts): Promise<void> {
   const now = ports.now ?? (() => new Date().toISOString());
@@ -161,15 +178,18 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
   // Every way out before the model call (a cancel, a recheck, a stop or an
   // error) releases the start the claim recorded; only a call that started keeps it.
   let reachedModel = false;
+  let phase: TarsReasoningPhase = "context";
   try {
     const context = await ports.context(message);
     if (ports.isStopped?.()) return;
     if (ports.conversations.get(id)?.state !== "reasoning") return;
     // Nothing is claimed or billed yet: an automatic follow-up whose change no longer stands stops here.
     if (ports.supersedeStale?.(id)) return;
+    phase = "prompt";
     const input = { providerId: message.providerId, model: message.model,
       cwd: context.cwd, toolsDisabled: true as const, runtimeHints: buildTarsRuntimeHints(message.providerId, message.runtimeHints ?? {}),
       prompt: buildTarsPlannerPrompt(message, context, ports.conversations.listBefore(message.id, 8)) };
+    phase = "admission";
     const claim = await ports.coordinator.claim({
       run: { id: runId, kind: "secondary-provider", origin: { kind: "advisor", id },
         ownership: { repositoryPath: context.cwd, workspaceId: "personal-representative", taskId: null },
@@ -178,7 +198,8 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
       step: { id: stepId, kind: "secondary-provider-turn", dependencyIds: [], idempotencyKey: `${runId}:claim` }, input,
     });
     executionId = claim.aggregate?.step.executionId ?? undefined;
-    if (!claim.accepted || !executionId) throw new Error("The representative could not admit its reasoning turn.");
+    if (!claim.accepted || !executionId)
+      throw new Error(`The representative could not admit its reasoning turn (${claim.accepted ? "no execution" : claim.reason ?? "rejected"}).`);
     // Rechecked after the asynchronous claim, right before the model call: the
     // user may have written, or the work changed again, while it was admitted.
     if (ports.isStopped?.() || ports.conversations.get(id)?.state !== "reasoning" || ports.supersedeStale?.(id)) {
@@ -186,11 +207,17 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
       return;
     }
     reachedModel = true;
+    phase = "model";
     const result = await ports.coordinator.execute({ runId, stepId, executionId, input });
     if (ports.isStopped?.()) return;
-    if (!result.accepted || result.execution?.status !== "completed" || result.execution.truncated)
-      throw new Error("The representative did not return a complete reasoning result.");
-    const decision = parseTarsDecisionOutput(result.execution.text);
+    const execution = result.execution;
+    if (!result.accepted || !execution) throw new Error(`The reasoning turn was not run (${result.reason ?? "no result"}).`);
+    if (execution.status !== "completed")
+      throw new Error(`The provider ended the reasoning turn ${execution.status}${execution.stopReason ? ` (${execution.stopReason})` : ""}: ${execution.error ?? "no error text"}`);
+    if (execution.truncated) throw new Error("The representative's reasoning result was truncated.");
+    phase = "decision";
+    const decision = parseTarsDecisionOutput(execution.text);
+    phase = "answer";
     // CAS rejects cancellation or recovery that happened while the provider was running.
     // The reply is already paid for and held in memory, so a lock held past busy_timeout
     // is retried a bounded number of times instead of discarding the answer.
@@ -205,9 +232,12 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
       idempotencyKey: `${runId}:complete`, resultArtifactRef: `tars-message:${id}` });
   } catch (error) {
     if (ports.isStopped?.()) return;
+    const failure = describeTarsReasoningFailure(phase, error);
+    // Host and provider errors only, never the prompt or the model's output; the run ledger also keeps the cause once a run was admitted.
+    console.error("[tars] reasoning failed", { messageId: id, phase, cause: failure.slice(TARS_MESSAGE_FAILURE_TEXT.reasoningFailed.length + 1, 1_000) });
     const current = ports.conversations.get(id);
     if (current?.state === "reasoning" && current.revision === message.revision)
-      ports.conversations.fail(id, message.revision, TARS_MESSAGE_FAILURE_TEXT.reasoningFailed, now(), "reasoningFailed");
+      ports.conversations.fail(id, message.revision, failure, now(), "reasoningFailed");
     if (executionId) await ports.coordinator.fail({ runId, stepId, executionId,
       idempotencyKey: `${runId}:failed`, error: error instanceof Error ? error.message.slice(0, 1000) : "Reasoning failed." });
   } finally {

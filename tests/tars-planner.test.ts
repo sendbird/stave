@@ -195,3 +195,39 @@ test("a lock that never clears still fails the message after the bounded retries
   expect(f.requests).toHaveLength(1);
   expect(f.conversations.get(message.id)?.state).toBe("failed");
 });
+
+test("a failure keeps its phase and cause on the message, before the model call as well as after it", async () => {
+  const errors: unknown[][] = [];
+  const log = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  try {
+    // Before the model call there is no run in the ledger: the message is the only record.
+    const early = fixture(async () => JSON.stringify({ reply: "Never asked.", actions: [] }));
+    const first = early.create("early");
+    await processTarsMessage(first.id, { ...early.ports, context: async () => { throw new Error("The workspace registry could not be read."); } });
+    expect(early.requests).toEqual([]);
+    expect(early.conversations.get(first.id)).toMatchObject({ state: "failed", errorCode: "reasoningFailed",
+      error: "The representative could not finish this message. Retry explicitly after inspecting its state. Failed at context: The workspace registry could not be read." });
+    early.database.close();
+    // A provider that refuses at once names why, instead of a generic sentence.
+    const refused = fixture(async () => "");
+    const claimRun = refused.ports.coordinator;
+    const second = refused.create("refused");
+    await processTarsMessage(second.id, { ...refused.ports, coordinator: { ...claimRun, execute: async (args: Parameters<typeof claimRun.execute>[0]) => {
+      const accepted = await claimRun.execute(args);
+      return { ...accepted, execution: { ...accepted.execution!, status: "failed" as const, text: "", stopReason: "runtime_failure", error: "Claude usage limit reached." } };
+    } } });
+    expect(refused.conversations.get(second.id)?.error).toContain("Failed at model: The provider ended the reasoning turn failed (runtime_failure): Claude usage limit reached.");
+    refused.database.close();
+    // An invalid decision says where it went wrong without quoting the model's output.
+    const invalid = fixture(async () => '{"reply":"Secret plan","actions":[{"kind":"publish"}]}');
+    const third = invalid.create("invalid");
+    await processTarsMessage(third.id, invalid.ports);
+    const saved = invalid.conversations.get(third.id)?.error ?? "";
+    expect(saved).toContain("Failed at decision: The decision did not match its schema at actions.0");
+    expect(saved).not.toContain("Secret plan");
+    invalid.database.close();
+    expect(errors.map(([line, detail]) => [line, (detail as { phase: string }).phase])).toEqual([["[tars] reasoning failed", "context"],
+      ["[tars] reasoning failed", "model"], ["[tars] reasoning failed", "decision"]]);
+  } finally { console.error = log; }
+});
