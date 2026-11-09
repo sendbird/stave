@@ -9,8 +9,10 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      // Tab from the welcome disclosure enters the actual editor.
+      // The running-work timeline control comes before the editor in keyboard order.
       await page.locator("[data-tars-guide-toggle]").focus();
+      await page.keyboard.press("Tab");
+      await expect(composer.locator("[data-tars-running-timeline]")).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(editor).toBeFocused();
       await editor.fill(lang === "ko" ? "줄바꿈과 포커스를 확인하는 긴 메시지입니다. ".repeat(6) : "Verify wrapping and keyboard focus across the whole composer. ".repeat(6));
