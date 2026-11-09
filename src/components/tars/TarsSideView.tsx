@@ -10,10 +10,12 @@ import type { TarsActionRecord } from "@/lib/tars/conversation";
 import { projectTarsReport, projectTarsReview } from "@/lib/tars/report-model";
 import { isTarsSideViewEscape, TARS_SIDE_VIEW_KINDS, type TarsSideViewKind, type TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { TarsResponsibility } from "@/lib/tars/types";
+import { TarsBriefView } from "./TarsBriefPanel";
 import { TarsChangesPanel } from "./TarsChangesPanel";
 import { TarsReportPanel } from "./TarsReportPanel";
 import { TarsReviewPanel } from "./TarsReviewPanel";
 import { TarsTimelinePanel } from "./TarsTimelinePanel";
+import type { TarsBriefLoader } from "./use-tars-brief";
 import { tarsSideViewStyles as styles } from "./tars-side-view.styles";
 
 export interface TarsSideViewProps {
@@ -32,14 +34,16 @@ export interface TarsSideViewProps {
   blockedActions?: ReactNode;
   /** Completed work's draft pull request link or the button that opens its confirmation card, in the report. */
   publishAction?: ReactNode;
+  /** Reads the request view's saved message and instruction; absent on bridges that cannot. */
+  loadBrief?: TarsBriefLoader;
   onKind: (kind: TarsSideViewKind) => void;
   onClose: () => void;
   onQuote: (text: string) => void;
 }
 
 /**
- * One panel beside the conversation for a responsibility's report, changes,
- * timeline or review. Opening, switching and closing are view-only and never
+ * One panel beside the conversation for a responsibility's request, report,
+ * changes, timeline or review. Opening, switching and closing are view-only and never
  * recorded in the conversation. Esc closes it; the view returns focus.
  */
 export function TarsSideView(props: TarsSideViewProps) {
@@ -58,7 +62,8 @@ export function TarsSideView(props: TarsSideViewProps) {
     event.preventDefault();
     props.onClose();
   };
-  const body = target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} publish={props.publishAction} />
+  const body = target.kind === "brief" ? <TarsBriefView row={row} load={props.loadBrief} />
+    : target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} publish={props.publishAction} />
     : target.kind === "changes" ? <TarsChangesPanel detail={run} cwd={props.cwd} onQuote={props.onQuote} />
       : target.kind === "timeline" ? <TarsTimelinePanel detail={run} records={props.records} title={row.title}
         focusStageId={target.focus && "stageId" in target.focus ? target.focus.stageId : undefined} />

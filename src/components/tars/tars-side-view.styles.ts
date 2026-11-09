@@ -62,6 +62,20 @@ export const tarsSideViewStyles = stylex.create({
   diff: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
   diffHeader: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], minWidth: 0 },
   diffBody: { minWidth: 0, overflowX: "auto" },
+  /** A saved text's title row: the title, then its copy button at the end. */
+  textHead: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], minWidth: 0 },
+  /**
+   * A saved message or instruction, whole: line breaks, indentation and code
+   * kept, long lines wrapped instead of scrolled out of sight, never cut. The
+   * side view's body scrolls past a long one.
+   */
+  savedText: {
+    margin: 0, minWidth: 0, paddingInline: vars["--aui-space-12"], paddingBlock: vars["--aui-space-8"],
+    color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-relaxed"],
+    whiteSpace: "pre-wrap", overflowWrap: "anywhere", tabSize: 4,
+  },
+  /** A criterion keeps the line breaks it was written with. */
+  keepBreaks: { whiteSpace: "pre-wrap" },
   /** A focus target for a part the side view was asked to show (unmet criteria, one stage). */
   anchor: { scrollMarginBlockStart: vars["--aui-space-12"] },
 });

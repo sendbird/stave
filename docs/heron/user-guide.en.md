@@ -495,9 +495,10 @@ never reports "no work" unless the read succeeded. The tray counts
 the same rows Fleet View shows for Tars work, so the two always agree. When Tars
 delegates work, its message carries a work flow: request, Tars's decision,
 each stage of the run and completion. It is folded to one line such as "1 of 3
-stages done · Running" and updates in place. Select a stage to see it on the
-run timeline, the review stage to see the review, or completion to see the
-result report; **Show in Fleet** is in each stage's more menu.
+stages done · Running" and updates in place. Select the request to see what
+the work was handed, a stage to see it on the run timeline, the review stage to
+see the review, or completion to see the result report; **Show in Fleet** is in
+each stage's more menu.
 The conversation keeps only words, decisions and the moments work finishes,
 stops or needs you. Updates arrive as soon as Tars saves them, without waiting
 for a refresh.
@@ -506,17 +507,28 @@ The tray's fourth section, **Outputs**, lists what work produced: the
 **Result report** once a run ended, **Changes** when it changed files, the
 **Review** once the reviewer reported, and links the report recorded, such as a
 pull request (which opens in the browser). The header adds the outputs count,
-such as "1 done · 4 outputs", only when there are some. An output opens the
-side view beside the conversation; on a wide window it takes the tray's place
+such as "1 done · 4 outputs", only when there are some. An output, or
+**Request** at the bottom of any work card, opens the side view beside the
+conversation; on a wide window it takes the tray's place
 and the tray folds to its header until you close it, and the conversation always
 keeps at least 440 px. On a narrow window it opens between the conversation and
 the message box, at most 40% of the height, and scrolls. Switch between
-**Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
+**Request**, **Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
 close button closes it and returns focus to what opened it. You can also ask,
 such as "show me the report" or "보고서 보여줘"; Tars only opens the view and
 cannot change work that way. Opening and closing it is never recorded in the
 conversation.
 
+- **Request**: what you handed the work, readable as soon as it is admitted,
+  even while it waits in the queue with no task or run yet, and after it
+  changes state or Stave restarts. **Your message** is the message that started
+  the work exactly as you sent it, with when you sent it (or, when it was your
+  choice on a Tars question, that question). **Tars's instruction** is what
+  Tars wrote for this work; the run receives it together with your message.
+  **Completion criteria** lists the saved criteria. Long text, line breaks and
+  code are shown whole, and each text has a copy button. Work Tars took on
+  before this view existed says **The original message was not saved for this
+  work** and shows the whole instruction the run received instead.
 - **Result report**: each criterion's status and what decided it (the agent's
   report in a stage, or a Stave check and its result), with the revision it was
   checked on and whether that is the final revision. Evidence is listed once

@@ -703,3 +703,56 @@ test("a failed publish folds to its reason with Retry, which reopens the card an
   await expect(view.locator("[data-tars-publish-record='applied']")).toContainText("Draft PR #12 opened · key");
   await expect(view.locator("[data-tars-publish-card]")).toHaveCount(0);
 });
+
+test("queued work without a run shows the user's message, Tars's instruction and the criteria whole; older work says its message was not saved", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/?stavePreview=tars&tray=true&queue=true&briefFailure=once");
+  const view = page.getByTestId("tars-view");
+  const tray = page.getByRole("complementary");
+  const queued = tray.locator('[data-tars-card="queue-auth"]');
+  await expect(queued).toHaveAttribute("data-tars-lane", "running");
+  // Queued: no task, no run and no timeline yet, but its request opens.
+  await expect(queued.getByRole("button", { name: "Open task" })).toHaveCount(0);
+  await expect(queued.locator("[data-tars-monitor-timeline]")).toHaveCount(0);
+  await queued.getByRole("button", { name: "Open the request and instruction for Rotate the staging auth keys" }).click();
+  const side = sideView(page);
+  await expect(side).toHaveAttribute("data-tars-side-view", "brief");
+  await expect(side.getByRole("button", { name: "Request", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // A failed read keeps the criteria in view and offers Retry.
+  await expect(side.locator('[data-tars-brief-status="failed"]')).toContainText("The saved request could not be loaded.");
+  await expect(side.locator("[data-tars-brief-criterion]")).toHaveCount(2);
+  await side.getByRole("button", { name: "Retry" }).click();
+  // Retry leaves with the failure; focus stays in the side view, so Esc still closes it.
+  await expect(side.locator("h2")).toBeFocused();
+  const message = side.locator('[data-tars-brief-text="request"]');
+  const instruction = side.locator('[data-tars-brief-text="instruction-delegated"]');
+  // Every line of the message survives, the code block's indentation included; nothing scrolls sideways or is cut.
+  const text = await message.innerText();
+  expect(text.split("\n")).toHaveLength(18);
+  expect(text).toContain("auth:\n  signingKey: ${AUTH_SIGNING_KEY}\n  previousKeys:\n    - ${AUTH_SIGNING_KEY_PREVIOUS}");
+  expect(text).toContain("reason=friday-release-preparation-2026-11");
+  await expect(instruction).toContainText("Never change production.");
+  for (const block of [message, instruction]) {
+    const box = await block.evaluate((node) => ({ scroll: node.scrollWidth, client: node.clientWidth, height: node.scrollHeight, shown: node.clientHeight }));
+    expect(box.scroll).toBeLessThanOrEqual(box.client + 1);
+    expect(box.height).toBeLessThanOrEqual(box.shown + 1);
+  }
+  await expect(side.locator('[data-tars-brief-part="criteria"]')).toContainText("2 completion criteria");
+  // Opening is view-only: nothing is added to the conversation.
+  await expect(view.locator("[data-tars-action-record]")).toHaveCount(0);
+
+  // Other work never shows this one's texts: older work says its message was not saved and shows its whole saved instruction.
+  await page.keyboard.press("Escape");
+  await expect(side).toHaveCount(0);
+  await tray.locator('[data-tars-card="queue-docs"]').getByRole("button", { name: /^Open the request and instruction for/ }).click();
+  await expect(side.locator('[data-tars-brief-missing="request"]')).toContainText("The original message was not saved for this work");
+  await expect(side.locator('[data-tars-brief-text="instruction-assignment"]')).toContainText("Update every example in docs/api/*.md");
+  await expect(side.locator('[data-tars-brief-text="request"]')).toHaveCount(0);
+  await expect(side).not.toContainText("Rotate the staging auth keys before Friday's release.");
+
+  // Switching kinds and back keeps to the work shown.
+  await side.getByRole("button", { name: "Report", exact: true }).click();
+  await expect(side).toHaveAttribute("data-tars-side-view", "report");
+  await side.getByRole("button", { name: "Request", exact: true }).click();
+  await expect(side.locator('[data-tars-brief-missing="request"]')).toBeVisible();
+});

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChartNoAxesGantt } from "lucide-react";
+import { ChartNoAxesGantt, ScrollText } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { Button } from "@/components/ui";
@@ -51,7 +51,8 @@ export function TarsStateTag({ state }: { state: TarsState }) {
 /**
  * One piece of Tars work as the design system's run object (AUI `RunMonitor`):
  * the stage it is on with a live elapsed clock in the "now" well, one labelled
- * segment per stage, the step count and a link to the run's timeline. A value
+ * segment per stage, the step count, and links to what the work was handed
+ * (its request) and to the run's timeline. A value
  * the run did not record (a start time, the stage count) is left out, never
  * shown as zero. The caller adds its own rows (`children`) and controls
  * (`actions`); every control still goes through the view's host path.
@@ -75,6 +76,10 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
     ? current.attempt > 1 ? t("shell:tars.tray.monitor.currentAttempt", { title: current.title, attempt: current.attempt }) : t("shell:tars.tray.monitor.current", { title: current.title })
     : null;
   const segments = staged ? tarsStageSegments(staged) : [];
+  // What the work was handed is readable in every state, before its run exists too.
+  const brief = onOpenSide ? <Button variant="ghost" size="2xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
+    onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}>
+    <ScrollText aria-hidden />{t("shell:tars.tray.monitor.brief")}</Button> : null;
   const timeline = onOpenSide && staged ? <Button variant="ghost" size="2xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
     onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}>
     <ChartNoAxesGantt aria-hidden />{t("shell:tars.tray.monitor.timeline")}</Button> : null;
@@ -96,7 +101,7 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
         {t("shell:tars.tray.monitor.stepCount", count)}</span>
         : t("shell:tars.tray.stagesDone", { finished: staged.finished, total: staged.total }),
     } : undefined}
-    actions={actions} trailingActions={timeline}>
+    actions={actions} trailingActions={brief || timeline ? <>{brief}{timeline}</> : undefined}>
     {children}
   </RunMonitor>;
 }

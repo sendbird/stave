@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
+import type { TarsBrief, TarsBriefInput } from "./brief";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
@@ -32,6 +33,8 @@ export const TARS_IPC = Object.freeze({
   publishPreview: "tars:publish-preview",
   /** Moves queued work earlier or later in the queue (a menu item or a drag), on a `reprioritize` decision's host rules. */
   reprioritize: "tars:reprioritize",
+  /** Reads one responsibility's saved message and Tars's instruction (`TarsBrief`); changes nothing. */
+  getBrief: "tars:get-brief",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -145,6 +148,19 @@ export const TarsWorkingChangesSchema = z.discriminatedUnion("kind", [
 export type TarsWorkingChanges = z.infer<typeof TarsWorkingChangesSchema>;
 
 /**
+ * The conversation message that admitted a work unit, saved with the unit:
+ * its `text` exactly as the user sent it, when it was sent, and, when the
+ * message was the user's choice on a Tars question, that question.
+ */
+export const TarsWorkRequestSchema = z.object({
+  messageId: IdSchema,
+  text: z.string().min(1).max(TARS_MESSAGE_MAX_CHARS),
+  sentAt: z.iso.datetime(),
+  answeredQuestion: z.string().min(1).max(500).optional(),
+}).strict();
+export type TarsWorkRequest = z.infer<typeof TarsWorkRequestSchema>;
+
+/**
  * Set only by host decision admission, never by the renderer's create request.
  * - `branchName`: the execution workspace's branch, built by
  *   `buildTarsBranchName` from the planner's proposal for the repository's
@@ -155,11 +171,20 @@ export type TarsWorkingChanges = z.infer<typeof TarsWorkingChangesSchema>;
  * - `workingChanges`: present only when the user's message asked to include
  *   their working changes; the execution workspace then starts from the
  *   snapshot commit instead of the branch.
+ * - `request`: the message that admitted the work (`TarsWorkRequestSchema`).
+ * - `delegatedInstruction`: the unit's instruction exactly as Tars proposed
+ *   it, before the host combined it with the user's message into the run
+ *   assignment (`instruction`).
+ *
+ * `request` and `delegatedInstruction` never change after admission; work
+ * admitted before they were saved has neither (see `buildTarsBrief`).
  */
 const TarsAdmittedWorkFields = {
   branchName: z.string().trim().min(1).max(TARS_BRANCH_NAME_MAX_CHARS + TARS_BRANCH_SUFFIX_CHARS).optional(),
   mandate: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS).optional(),
   workingChanges: TarsWorkingChangesSchema.optional(),
+  request: TarsWorkRequestSchema.optional(),
+  delegatedInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS).optional(),
 };
 
 /**
@@ -224,14 +249,22 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
 }).strict();
 export type TarsResponsibility = z.infer<typeof TarsResponsibilitySchema>;
 
+/** The saved texts a window reads one responsibility at a time (`tars:get-brief`), never with every snapshot. */
+const HOST_ONLY_TEXT = ["mandate", "request", "delegatedInstruction"] as const satisfies readonly (keyof TarsResponsibility)[];
+
 /**
  * The snapshot a window reads. A responsibility's `mandate` (up to
- * `TARS_MESSAGE_MAX_CHARS`) is the run's context, which no window shows, so it
- * stays in the host instead of crossing IPC on every change.
+ * `TARS_MESSAGE_MAX_CHARS`), the user's message that admitted it and Tars's
+ * own instruction can be long, so they stay in the host instead of crossing
+ * IPC on every change; the request view reads them on demand (`buildTarsBrief`).
  */
 export function tarsSnapshotForWindow<T extends { responsibilities: readonly TarsResponsibility[] }>(snapshot: T): T {
-  if (!snapshot.responsibilities.some((row) => row.mandate !== undefined)) return snapshot;
-  return { ...snapshot, responsibilities: snapshot.responsibilities.map(({ mandate: _mandate, ...row }) => row) };
+  if (!snapshot.responsibilities.some((row) => HOST_ONLY_TEXT.some((key) => row[key] !== undefined))) return snapshot;
+  return { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => {
+    const visible: Partial<TarsResponsibility> = { ...row };
+    for (const key of HOST_ONLY_TEXT) delete visible[key];
+    return visible as TarsResponsibility;
+  }) };
 }
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
@@ -328,6 +361,8 @@ export interface TarsBridgeApi {
   previewPublish?(input: TarsPublishPreviewInput): Promise<TarsPublishPreview>;
   /** Moves queued work in the queue and records it like a click; absent on bridges that predate queue moves. */
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
+  /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
+  getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;
