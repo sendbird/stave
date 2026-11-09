@@ -3106,8 +3106,9 @@ interface WindowApi {
    * applies take `act`'s host path. `publish` (`tars:publish`) confirms a
    * publish card and `previewPublish` (`tars:publish-preview`) reads what it
    * shows; the host commits, pushes and opens a draft pull request only on
-   * that confirmation. `onChanged` pushes `tars:changed`
-   * (`{ scope: "snapshot" | "conversation" }`).
+   * that confirmation. `reprioritize` (`tars:reprioritize`) moves queued work
+   * in the queue on a `reprioritize` decision's host rules. `onChanged`
+   * pushes `tars:changed` (`{ scope: "snapshot" | "conversation" }`).
    */
   tars?: TarsBridgeApi;
   agents?: AgentsBridgeApi;

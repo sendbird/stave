@@ -7,6 +7,7 @@ import { projectTarsRunProgress, tarsFleetTarget, tarsRunOf, type TarsRunProgres
 import { tarsConfirmationRequestId } from "./conversation";
 import type { TarsSideViewTarget } from "./side-view";
 import type { TarsControlOperation, TarsFollowUpState, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "./types";
+import { tarsQueueOf } from "./queue-order";
 
 /** The view width at which the tray stays open beside the conversation. */
 export const TARS_TRAY_PINNED_MIN_WIDTH = 1088;
@@ -104,6 +105,8 @@ export interface TarsTrayCard<T extends TarsTrayAttentionInput = TarsTrayAttenti
   branch: string | null;
   /** Queued work waits while one other responsibility holds the single active slot; that one's title. */
   waitingBehind: string | null;
+  /** Queued work's place in the queue (1 starts next) among all queued work; null once it started or ended. */
+  queue: { position: number; total: number } | null;
   /** What the work's run has spent so far, when the host read usage. */
   usage: AgentRunUsage | null;
 }
@@ -178,6 +181,7 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   }
   const lanes: Record<TarsLane, TarsTrayCard<T>[]> = { needsYou: [], running: [], done: [] };
   const active = responsibilities.find(holdsActiveSlot) ?? null;
+  const queued = tarsQueueOf(responsibilities).map((row) => row.id);
   for (const row of responsibilities) {
     const lane = tarsLaneOf(row, responsibilityIds);
     const run = tarsRunOf(row, runs);
@@ -196,30 +200,42 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
       branch: tarsBranchOf(row),
       usage: run?.usage ?? null,
       waitingBehind: active && active.id !== row.id && (row.state === "queued" || (row.state === "preparing" && !row.agentRunId)) ? active.title : null,
+      queue: row.state === "queued" ? { position: queued.indexOf(row.id) + 1, total: queued.length } : null,
     });
   }
+  // Work that started leads its lane; queued work follows in the order it will start, so the cards a user reorders stay together.
+  for (const lane of Object.values(lanes)) lane.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
   return { counts: { needsYou: rows.length, running: lanes.running.length, done: lanes.done.length }, lanes };
 }
 
-/** One action a card offers: a control, the Confirm of a waiting proposal, or its Fleet row. */
+/** One action a card offers: a control, the Confirm of a waiting proposal, its Fleet row, or a move in the queue. */
 export type TarsCardAction =
   | { kind: "control"; operation: TarsControlOperation }
   | { kind: "confirm"; decision: TarsTrayDecision }
-  | { kind: "fleet" };
+  | { kind: "fleet" }
+  | { kind: "move"; direction: "earlier" | "later" };
+
+/** The queue moves a queued card offers: ahead of the work before it, behind the work after it. */
+export function tarsQueueMoves(queue: TarsTrayCard["queue"]): Array<"earlier" | "later"> {
+  if (!queue) return [];
+  return [...(queue.position > 1 ? ["earlier" as const] : []), ...(queue.position < queue.total ? ["later" as const] : [])];
+}
 
 /**
  * A card shows one main action beside Open task and folds the rest into one
  * menu. The main action is the state's own (pause, resume or hand back); a
  * waiting Tars proposal's Confirm takes its place, so the same control never
- * appears twice. Cancel stays last.
+ * appears twice. Queued work's Do first and Do later lead the menu, Cancel
+ * stays last.
  */
-export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention" | "fleetTarget">): { primary: TarsCardAction | null; more: TarsCardAction[] } {
+export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention" | "fleetTarget"> & Partial<Pick<TarsTrayCard, "queue">>): { primary: TarsCardAction | null; more: TarsCardAction[] } {
   const decisions = card.attention.flatMap((entry) => entry.decision ? [entry.decision] : []);
   const [decision, ...otherDecisions] = decisions;
   const controls = decision ? card.controls.filter((operation) => operation !== decision.operation) : card.controls.slice(1);
   const primary: TarsCardAction | null = decision ? { kind: "confirm", decision }
     : card.controls[0] ? { kind: "control", operation: card.controls[0] } : null;
   const more: TarsCardAction[] = [
+    ...tarsQueueMoves(card.queue ?? null).map((direction): TarsCardAction => ({ kind: "move", direction })),
     ...otherDecisions.map((value): TarsCardAction => ({ kind: "confirm", decision: value })),
     ...controls.filter((operation) => operation !== "cancel").map((operation): TarsCardAction => ({ kind: "control", operation })),
     ...(card.fleetTarget ? [{ kind: "fleet" } as const] : []),

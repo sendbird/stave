@@ -1147,7 +1147,9 @@
       "storageBusy": "Tars’s storage stayed busy and nothing changed. Try again.",
       "unknown": "Tars could not apply this control. Check the work’s current state and try again.",
       "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
-      "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it."
+      "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it.",
+      "notQueued": "Only queued work can change its place in the queue.",
+      "queueEdge": "This work is already at that end of the queue."
     },
     "close": "Close Tars",
     "availability": "Work continues while Stave is running and recovers after restart. It does not run while Stave is closed or this computer is asleep.",
@@ -1334,7 +1336,38 @@
             "handBack": "Hand back not applied · click",
             "acceptCompletion": "Accept as done not applied · click"
           }
-        }
+        },
+        "move": {
+          "click": {
+            "pending": {
+              "earlier": "Do first pending · click",
+              "later": "Do later pending · click"
+            },
+            "applied": {
+              "earlier": "Moved earlier · click",
+              "later": "Moved later · click"
+            },
+            "rejected": {
+              "earlier": "Do first not applied · click",
+              "later": "Do later not applied · click"
+            }
+          },
+          "drag": {
+            "pending": {
+              "earlier": "Move earlier pending · drag",
+              "later": "Move later pending · drag"
+            },
+            "applied": {
+              "earlier": "Moved earlier · drag",
+              "later": "Moved later · drag"
+            },
+            "rejected": {
+              "earlier": "Move earlier not applied · drag",
+              "later": "Move later not applied · drag"
+            }
+          }
+        },
+        "movePriority": "Priority {{priority}}"
       },
       "states": {
         "queued": "Queued",
@@ -1357,7 +1390,12 @@
         "timeline": "Opened the run timeline of {{title}}",
         "review": "Opened the review of {{title}}"
       },
-      "publish": "Publish {{title}} as a draft pull request"
+      "publish": "Publish {{title}} as a draft pull request",
+      "workingChanges": {
+        "toggle": "Include my working changes",
+        "hint": "Work this message starts begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
+        "badge": "Includes working changes"
+      }
     },
     "execution": {
       "model": "Execution model",
@@ -1384,7 +1422,8 @@
       "agentPublishes": "This agent publishes or delivers work outside the workspace, which needs a separate request from you, so this work was not started.",
       "agentNotDelegable": "This agent cannot take delegated work on Claude or Codex, so this work was not started.",
       "agentModelConflict": "This agent cannot run on the pinned execution model. Choose Automatic or a matching model in Tars settings, then ask again.",
-      "agentOverCap": "This agent would run with more permission than Tars's delegated work allows, so this work was not started."
+      "agentOverCap": "This agent would run with more permission than Tars's delegated work allows, so this work was not started.",
+      "workingChangesUnavailable": "Your working changes could not be saved as a snapshot, so this work was not started. Check the workspace, then ask again."
     },
     "owner": {
       "label": "Tars",
@@ -1517,7 +1556,15 @@
         "timelineLabel": "Open the timeline for {{title}}"
       },
       "branch": "Branch",
-      "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time."
+      "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time.",
+      "moveEarlier": "Do first",
+      "moveLater": "Do later",
+      "reorder": {
+        "handle": "Reorder {{title}}",
+        "hint": "Drag to change the order. Do first and Do later in More actions do the same.",
+        "moved": "{{title}} is now {{position}} of {{total}} in the queue.",
+        "refused": "{{title}} kept its place: {{reason}}"
+      }
     },
     "flow": {
       "label": "Work flow for {{title}}",
@@ -1580,7 +1627,8 @@
         "expired": "The run stopped because it took too long."
       },
       "unverifiedCompletion": "The run reported its criteria as met, but Stave has no verified check or passed review for it. Accept it as done, or ask Tars for new work to verify it.",
-      "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check."
+      "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check.",
+      "workingChangesUnavailable": "The snapshot of your working changes is no longer in the repository, so Tars could not create this work's workspace. Cancel it and ask again."
     },
     "messageFailure": {
       "interrupted": "Reasoning was interrupted before its answer was saved. Send a new message to try again.",
@@ -1814,7 +1862,7 @@
       "limit1": "Commits, pushes and opens a draft pull request only after you confirm its card each time; never merges or deploys.",
       "limit2": "Works only while Stave is open and this computer is awake.",
       "limit3": "Runs one piece of work at a time; the rest waits in Work.",
-      "limit4": "Starts from the workspace's branch, so uncommitted changes are not included.",
+      "limit4": "Starts from the workspace's branch unless you turn on Include my working changes for that message; ignored files are never included.",
       "limit5": "Uses Claude Code or Codex, and only saved agents you allowed in settings.",
       "limit6": "Calls work done only with a check Stave saw pass or a passed review; otherwise it asks you.",
       "example1": "What is running right now, and does anything need me?",
@@ -1916,6 +1964,10 @@
         "pullRequest": "Draft PR #{{number}}",
         "pullRequestUnnumbered": "Draft pull request"
       }
+    },
+    "workingChanges": {
+      "snapshot": "From your working changes · {{commit}}",
+      "clean": "No working changes to include · from the branch"
     }
   }
 }

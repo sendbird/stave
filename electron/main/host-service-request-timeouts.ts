@@ -43,6 +43,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   // Decisions carry controls too: a deadline would fence an outcome the host may still apply.
   "tars.invoke": null,
   "tars.act": null,
+  "tars.reprioritize": null,
   "tars.apply-decision": null,
   // Commit hooks, a push and pull request creation have no meaningful bound; a deadline would fence an outcome the host may still apply.
   "tars.publish": null,

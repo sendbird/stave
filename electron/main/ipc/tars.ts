@@ -9,7 +9,7 @@ import { getTarsConversationService } from "../tars-conversation-instance";
 import { ensureTarsEventBridge } from "../tars-events";
 import {
   TarsActInputSchema, TarsAnswerInputSchema, TarsConversationSettingsSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema,
-  TarsMessageInputSchema,
+  TarsMessageInputSchema, TarsReprioritizeInputSchema,
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 
@@ -51,6 +51,9 @@ export function registerTarsHandlers() {
     invokeHostService("tars.publish", TarsPublishInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.publishPreview, (_event, input: unknown) =>
     invokeHostService("tars.publish-preview", TarsPublishPreviewInputSchema.parse(input)));
+  // A queue move from the tray takes the host's reprioritize admission; there is no direct priority write.
+  ipcMain.handle(TARS_IPC.reprioritize, (_event, input: unknown) =>
+    invokeHostService("tars.reprioritize", TarsReprioritizeInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));
 }

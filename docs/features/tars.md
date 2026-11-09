@@ -35,7 +35,14 @@ across workspaces, tasks and restarts.
    Stave keeps only git-safe characters and adds a short suffix, for example
    `fix/billing-export-empty-3fa9c1`, so the new workspace never reuses a
    branch or workspace you already have. Uncommitted changes in your
-   workspace are not part of it.
+   workspace are not part of it unless you turn on **Include my working
+   changes** next to **Send** for that message: then, when the work is
+   admitted, Stave snapshots the target workspace's working tree (modified,
+   staged and new files, and deletions; files your `.gitignore` ignores stay
+   out) as a commit on top of its current commit, without changing your files
+   or staging, and the new workspace starts from that commit. A tree without
+   changes starts from the branch as usual. The choice is off by default and
+   turns off again after each send.
 5. **Execution lead and helpers.** The unit becomes a normal Stave task with
    an [agent run](agent-runs.md) led by the built-in Supervisor, Tars's
    execution lead. A named agent does the work stage; otherwise the lead
@@ -84,11 +91,13 @@ service.
   add a repository.
 - Turn an explicit request into one or more work units in registered
   workspaces, each with acceptance criteria and a priority, from a single
-  message.
+  message, starting from the branch or, when you ask, from your uncommitted
+  changes.
 - Hand a unit to a specific agent: the built-in Implementer, Debugger, UI
   Polisher, Reviewer or Researcher, or a saved agent you allowed.
 - Run work by priority (higher first, oldest first on a tie) and change the
-  priority of queued work when you ask.
+  order of queued work when you ask, from a queued card's **Do first** and
+  **Do later**, or by dragging it in the tray.
 - Supervise each unit through work, independent review and verification, and
   refuse to call it done on the agent's word alone.
 - Ask you to choose between 2 to 4 options as a decision card you answer by
@@ -118,12 +127,20 @@ service.
   computer is asleep, and Tars does not schedule wake-ups of its own.
 - **One responsibility runs at a time.** Others wait in the queue, and a
   queued card names the work it waits behind. Work waiting for your answer
-  gives up its slot to independent queued work.
+  gives up its slot to independent queued work. Only queued work can change
+  its place; work that started keeps it, and priorities stay between 0 and
+  100.
 - **Reasoning has no tools.** Tars itself cannot read files, run commands or
   call MCP tools; it sees only the summary Stave supplies. Connected apps are
   not read merely because they are available.
-- **No uncommitted changes.** The Tars workspace starts from the branch, not
-  from your working copy.
+- **Uncommitted changes only when you include them.** The Tars workspace
+  starts from the branch, not from your working copy, unless the message had
+  **Include my working changes** on. Then it starts from a snapshot taken when
+  the work was admitted, not when you sent the message; later edits are not
+  part of it. Ignored files, Stave's own `.stave` folder and changes inside
+  submodules are never included.
+  Every unit one message admits in the same workspace starts from the same
+  snapshot.
 - **Registered workspaces only.** Tars never invents a target, never silently
   picks the active workspace and does not adopt existing tasks.
 - **Claude Code and Codex only**, for both the conversation and the work.
@@ -195,6 +212,7 @@ explicitly. Details are in [Decisions](#decisions).
 | **Hand back** | Returns work you took over; Tars verifies it again before completing. |
 | **Cancel responsibility** | Ends supervision permanently. Changes, worktree, task and history stay. |
 | **Cancel message** | Stops a queued or running reply. Admitted work is not undone. |
+| **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
 You can ask in words too. Pause and take over apply at once; resume, hand back
 and cancel wait for your **Confirm** on a card. **Stop** in a Tars task or in
@@ -203,7 +221,8 @@ Fleet pauses the work rather than cancelling it.
 ### 4. See progress
 
 - **Conversation**: a flow block for each delegated unit, one-line status and
-  control records, and **Automatic follow-up** turns.
+  control records, and **Automatic follow-up** turns. A message sent with
+  **Include my working changes** carries that tag.
 - **Work** tray: the header indicator ("1 running · 1 needs you") opens lanes
   **Needs you**, **Running**, **Done** and **Outputs**, each card with a live
   run monitor and, once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
@@ -230,8 +249,13 @@ provider or model than a pinned execution model, or needs more permission than
 delegated work allows.
 
 **My uncommitted changes are missing from Tars's work.** Tars starts from the
-target workspace's branch. Commit what Tars should build on to that branch
-before delegating.
+target workspace's branch unless you turn on **Include my working changes**
+next to **Send** for that message; the switch turns off after each send. With
+it on, the tray card says **From your working changes** with the snapshot's
+short commit, or **No working changes to include** when the workspace had
+none. Files your `.gitignore` ignores are never included. If Stave could not
+take the snapshot, the work is refused with that reason instead of starting
+from the branch.
 
 **Where are the results?** In the work's own workspace (its branch follows
 the repository's naming rule, with a short suffix), left uncommitted until you
@@ -409,6 +433,29 @@ conversation; it is not shown as a message from you.
 - Previously admitted runs can resume concurrently when their waits end.
 - An unreadable task or run is shown as blocked rather than as completed.
   Open its task to inspect the cause; a refused control shows why.
+
+### Queue order
+
+Queued work starts by priority, higher first, and oldest first on a tie. In
+the tray's **Running** lane, work that started comes first and queued work
+follows in the order it will start. A queued card's more-actions menu offers
+**Do first** (move it ahead of the queued work before it) and **Do later**
+(behind the work after it), each only where it applies. Its grip moves it too:
+drag it to another queued card, or focus the grip and press **Alt+Up** or
+**Alt+Down**. Asking in words ("do the search fix first") still works and sets
+the priority Tars proposes.
+
+A move goes through the same host check as words: the work must be yours to
+control through Tars, still queued and unchanged since you saw it, and its
+registered workspace must still resolve. Stave computes the new priority from
+the queue as it is when it applies the move: the middle between the two
+neighbors, or ten past the neighbor at either end, within 0 to 100. Only the
+moved work changes when such a priority exists (an equal priority is enough
+when oldest-first already orders the pair); otherwise Stave renumbers as few
+other queued items as it can, all in the one move. Each move leaves one line
+such as "Moved earlier · click" with the new priority in the conversation, or
+the reason it was refused. A move changes which work starts next, never work
+already running.
 
 ### Run monitor and the "while you were away" summary
 

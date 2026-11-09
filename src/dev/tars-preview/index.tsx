@@ -4,7 +4,8 @@ import { TarsView } from "@/components/tars/TarsView";
 import type { TarsBridgeApi, TarsSnapshot } from "@/lib/tars/types";
 import { useAppStore } from "@/store/app.store";
 import { applyThemeClass } from "@/lib/themes/apply";
-import type { TarsActInput, TarsAnswerResult, TarsConversation, TarsDecision, TarsDecisionAnswer } from "@/lib/tars/conversation";
+import type { TarsActInput, TarsAnswerResult, TarsConversation, TarsDecision, TarsDecisionAnswer, TarsReprioritizeInput } from "@/lib/tars/conversation";
+import { planTarsQueueMove, tarsQueueOf } from "@/lib/tars/queue-order";
 import { parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
 import { collectFleetTarsAttentionItems, type FleetAttentionItem, type FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { collectTarsAttention } from "@/lib/tars/attention";
@@ -42,6 +43,19 @@ export function TarsPreview() {
     // `queued=true`: one more piece of work waits for the single active slot, so its card says what it waits behind.
     if (fixtures && params.get("queued") === "true") fixtures.responsibilities.push({ ...fixtures.responsibilities[1]!, id: "search-index", requestId: "request-search-index",
       title: "Speed up the search index rebuild", state: "queued", priority: 40, branchName: undefined, taskId: null, agentRunId: null, executionWorkspaceId: null });
+    // `queue=true`: three more pieces of work wait in the queue, so Do first, Do later and dragging have something to reorder.
+    if (fixtures && params.get("queue") === "true") {
+      const queued = (id: string, title: string, priority: number, minutes: number) => ({ ...fixtures.responsibilities[1]!, id, requestId: `request-${id}`, title,
+        state: "queued" as const, priority, branchName: undefined, agentId: null, taskId: null, agentRunId: null, executionWorkspaceId: null,
+        createdAt: new Date(Date.parse(now) + minutes * 60_000).toISOString(), updatedAt: new Date(Date.parse(now) + minutes * 60_000).toISOString() });
+      fixtures.responsibilities.push(queued("queue-auth", "Rotate the staging auth keys", 60, 2), queued("queue-search", "Add retries to the webhook sender", 50, 3),
+        queued("queue-docs", "Refresh the API reference examples with the new pagination parameters", 50, 4));
+    }
+    // `workingChanges=true`: the running fix started from the user's working changes; queued work asked for them but there were none.
+    if (fixtures && params.get("workingChanges") === "true") for (const row of fixtures.responsibilities) {
+      if (row.id === "billing") row.workingChanges = { kind: "snapshot", commit: "3fa9c1d2e4b5a6978877665544332211aabbccdd", ref: "refs/stave/tars/message-delegate/0f1e2d3c4b5a6978" };
+      if (row.id === "search-index") row.workingChanges = { kind: "clean" };
+    }
     // `outputs=true`: ended work with a frozen report, a review, changes and a link, plus work blocked on unmet criteria (the side view).
     // `publish=true|failed` builds on the same ended work: the completed checkout work is what Tars publishes.
     const publishMode = params.get("publish");
@@ -125,8 +139,29 @@ export function TarsPreview() {
     }
     const publishing = side ? createPreviewPublishBridge({ getSnapshot: () => snapshot, conversation, runs: side.runs, failOnce: publishMode === "failed", save: () => saveConversation(),
       setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(snapshot)); } }) : null;
+    /** The host's queue move, against the preview snapshot: same order rules, same record line. */
+    async function reprioritize({ requestId, responsibilityId, expectedRevision, move, source }: TarsReprioritizeInput) {
+      const existing = conversation.records.find((record) => record.requestId === requestId);
+      if (existing) return { record: structuredClone(existing), snapshot: structuredClone(snapshot) };
+      const row = snapshot.responsibilities.find((candidate) => candidate.id === responsibilityId);
+      const plan = row && row.revision === expectedRevision && row.state === "queued" ? planTarsQueueMove(tarsQueueOf(snapshot.responsibilities), responsibilityId, move) : null;
+      const reason = !row ? "notOwned" as const : row.revision !== expectedRevision ? "stale" as const : row.state !== "queued" ? "notQueued" as const
+        : !plan?.ok ? (plan?.reason === "queueEdge" ? "queueEdge" as const : "stale" as const) : null;
+      const changes = plan?.ok ? new Map(plan.changes.map((change) => [change.id, change.priority])) : new Map<string, number>();
+      if (!reason) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => changes.has(candidate.id)
+        ? { ...candidate, priority: changes.get(candidate.id)!, revision: candidate.revision + 1 } : candidate)
+        .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)) };
+      const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+      const record = { requestId, source, requestHash: "d".repeat(64), action: { kind: "move" as const, responsibilityId, expectedRevision, move },
+        status: reason ? "rejected" as const : "applied" as const, error: reason ? "Preview move is not admissible." : null, reason,
+        ...(reason ? {} : { priority: changes.get(responsibilityId)! }), revision: 2, createdAt, updatedAt: createdAt };
+      conversation.records.push(record);
+      saveConversation();
+      return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
+    }
     const bridge: TarsBridgeApi = {
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
+      reprioritize: async (input) => reprioritize(input),
       get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return structuredClone(snapshot); },
       updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem("stave-preview-identity", JSON.stringify(snapshot)); return structuredClone(snapshot); },
       create: async () => { throw new Error("Use the global conversation."); },
@@ -172,7 +207,8 @@ export function TarsPreview() {
       getConversation: async () => structuredClone(conversation),
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
-        if (Object.keys(input).sort().join() !== "requestId,text") throw new Error("Global messages accept only requestId and text.");
+        if (!["requestId,text", "includeWorkingChanges,requestId,text"].includes(Object.keys(input).sort().join()))
+          throw new Error("Global messages accept only requestId, text and the working-changes choice.");
         if (!conversation.settings) throw new Error("Missing global settings.");
         let message = conversation.messages.find((item) => item.requestId === input.requestId);
         if (!message) {

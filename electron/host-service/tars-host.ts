@@ -16,6 +16,7 @@ import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsDetailError, T
 import { createTarsPublisher, type TarsPublishRunner } from "./tars-publish";
 import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
+import { hasTarsSnapshotCommit } from "./tars-working-changes";
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -47,10 +48,14 @@ export function createHostTarsRuntime(args: {
       const repositories = await tasks.listKnownRepositories();
       const repository = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath))!;
       const source = repository.workspaces.find((item) => item.id === row.workspaceId)!;
+      // Work that included the user's working changes starts from the snapshot admission took, never the branch.
+      const snapshot = row.workingChanges?.kind === "snapshot" ? row.workingChanges.commit : null;
+      if (snapshot && !await hasTarsSnapshotCommit(row.repositoryPath, snapshot))
+        throw new TarsDetailError("workingChangesUnavailable", "The snapshot of your working changes is no longer in the repository.");
       // Stable branch name reconciles a lost creation acknowledgement without another checkout.
       // Admission builds it under the repository's naming rule with a unique suffix; older work keeps `tars/<id>`.
       const create = (name: string) => tasks.createWorkspace({ repositoryPath: row.repositoryPath, name, label: row.title,
-        mode: "branch", ...(source.branch ? { fromBranch: source.branch } : {}) });
+        mode: "branch", ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
       const fallback = `tars/${row.id}`;
       if (!row.branchName) return (await create(fallback)).workspaceId;
       try { return (await create(row.branchName)).workspaceId; }

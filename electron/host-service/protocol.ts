@@ -1053,6 +1053,7 @@ export interface HostServiceRequestMap {
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishInput;
   /** What a publish card shows; read only. */
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
+  "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "agent-run.invoke": {
     action: HostAgentRunAction;
     args: unknown;
@@ -1266,6 +1267,7 @@ export interface HostServiceResponseMap {
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishResult;
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
+  "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
   "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;

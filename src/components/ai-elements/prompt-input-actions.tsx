@@ -24,7 +24,8 @@ import { COMPOSER_SIDE_QUESTION_SLOT } from "@/lib/composer-toolbar-fit";
 
 /**
  * The trailing end of the toolbar row: the context meter, the minimal
- * composer's review, secrets and compare controls, Attach, and Stop or Send.
+ * composer's review, secrets and compare controls and its send accessory,
+ * Attach, and Stop or Send.
  */
 export function PromptInputActions(args: {
   /**
@@ -43,6 +44,8 @@ export function PromptInputActions(args: {
   interactionsDisabled: boolean;
   secretsControl: ReactNode;
   compareControl: ReactNode;
+  /** The minimal composer's control just before Send. */
+  sendAccessory?: ReactNode;
   onOpenFileSelector: PromptInputProps["onOpenFileSelector"];
   isTurnActive?: boolean;
   hasDraftPayload: boolean;
@@ -95,6 +98,7 @@ export function PromptInputActions(args: {
         <>
           {secretsControl}
           {compareControl}
+          {args.sendAccessory}
         </>
       ) : null}
       {args.sideQuestionControl ? (

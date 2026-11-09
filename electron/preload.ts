@@ -153,7 +153,7 @@ import { TARS_IPC, CreateTarsResponsibilityInputSchema, TarsChangedEventSchema, 
   type TarsBridgeApi, type TarsChangedEvent } from "../src/lib/tars/types";
 import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversationInputSchema, CancelTarsMessageInputSchema,
   TarsMessageSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
-  TarsAnswerResultSchema } from "../src/lib/tars/conversation";
+  TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import {
   AGENT_RUN_IPC,
@@ -862,6 +862,7 @@ const tarsApi: TarsBridgeApi = {
   answer: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.answer, TarsAnswerInputSchema.parse(input))),
   publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
+  reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);

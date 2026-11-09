@@ -155,6 +155,7 @@ export function PromptInput(args: PromptInputProps) {
     macroControl,
     macroQuickPicks,
     compareControl,
+    sendAccessory,
     composerControlPlacements,
     onComposerControlPlacementsChange,
     workspaceCwd,
@@ -859,6 +860,7 @@ export function PromptInput(args: PromptInputProps) {
               interactionsDisabled={interactionsDisabled}
               secretsControl={secretsControl}
               compareControl={compareControl}
+              sendAccessory={sendAccessory}
               onOpenFileSelector={onOpenFileSelector}
               isTurnActive={isTurnActive}
               hasDraftPayload={hasDraftPayload}

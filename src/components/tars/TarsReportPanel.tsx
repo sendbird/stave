@@ -7,7 +7,7 @@ import { raisedPanel } from "@/components/aui/recipes/raised-panel";
 import { sx } from "@/components/aui/utils/stylex";
 import { EvidenceList } from "@/components/agent-runs/EvidenceList";
 import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
-import { describeTarsResponsibilityDetail } from "@/lib/tars/detail";
+import { describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { describeUsageLong } from "@/lib/agent-runs/usage";
 import type { TarsCriterionSource, TarsCriterionStatus, TarsReportEvidence, TarsReportModel, TarsRevisionFreshness } from "@/lib/tars/report-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
@@ -62,6 +62,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
   }, [focusUnmet, row.id]);
   const reason = blocked ? describeTarsResponsibilityDetail(row) ?? t("shell:tars.tray.blockedDetail") : null;
   const spent = describeUsageLong(model.usage);
+  const workingChanges = describeTarsWorkingChanges(row);
   return <div className={sx(styles.section)} data-tars-report={model.state}>
     {model.state === "frozen"
       ? <p className={sx(styles.meta)} data-tars-report-frozen={model.frozenAt ?? ""}>
@@ -70,6 +71,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
         {spent ? ` · ${t("shell:tars.side.report.spent", { value: spent })}` : ""}
       </p>
       : <p className={sx(styles.meta)} role="status">{t(`shell:tars.side.report.${model.state}`)}</p>}
+    {workingChanges ? <p className={sx(styles.meta)} data-tars-report-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null}
     {model.outcome ? <div className={sx(styles.row)}>
       <Badge size="md" tone={model.outcome === "completed" ? "success" : model.outcome === "stopped" ? "danger" : "neutral"}>
         {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge>

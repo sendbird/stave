@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
-  TarsMessageInput, TarsConversationSettings,
+  TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
@@ -30,6 +30,8 @@ export const TARS_IPC = Object.freeze({
   publish: "tars:publish",
   /** Reads what a publish card shows (repository, branches, changed files, body); changes nothing. */
   publishPreview: "tars:publish-preview",
+  /** Moves queued work earlier or later in the queue (a menu item or a drag), on a `reprioritize` decision's host rules. */
+  reprioritize: "tars:reprioritize",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -73,7 +75,7 @@ export const TarsDetailCodeSchema = z.enum([
   "waitingForUser", "runPaused", "runStopped", "incompleteReport", "staleVerification",
   "scopeUnregistered", "taskIdentityChanged", "taskInUse", "executionAgentUnavailable", "assignmentUnavailable",
   "executionExists", "ownershipUnverified", "ownershipChanged", "taskUnavailable", "takenOverInTask",
-  "admissionWithdrawn", "observationFailed", "unverifiedCompletion", "acceptedWithoutVerification",
+  "admissionWithdrawn", "observationFailed", "unverifiedCompletion", "acceptedWithoutVerification", "workingChangesUnavailable",
 ]);
 export type TarsDetailCode = z.infer<typeof TarsDetailCodeSchema>;
 
@@ -122,6 +124,26 @@ export const CreateTarsResponsibilityInputSchema = z.object({
 }).strict();
 export type CreateTarsResponsibilityInput = z.input<typeof CreateTarsResponsibilityInputSchema>;
 
+/** A full commit id in either of Git's object formats (SHA-1 or SHA-256). */
+const TarsCommitIdSchema = z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/);
+
+/**
+ * Where work from a message that asked to include the user's working changes
+ * starts: `snapshot`, a commit of the target workspace's working tree taken at
+ * admission (tracked, modified and untracked files; gitignored files stay out),
+ * kept reachable by `ref`; `clean`, the tree had no changes, so the work starts
+ * from the branch as usual.
+ */
+export const TarsWorkingChangesSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("snapshot"),
+    commit: TarsCommitIdSchema,
+    ref: z.string().max(300).regex(/^refs\/stave\/tars\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/),
+  }).strict(),
+  z.object({ kind: z.literal("clean") }).strict(),
+]);
+export type TarsWorkingChanges = z.infer<typeof TarsWorkingChangesSchema>;
+
 /**
  * Set only by host decision admission, never by the renderer's create request.
  * - `branchName`: the execution workspace's branch, built by
@@ -130,10 +152,14 @@ export type CreateTarsResponsibilityInput = z.input<typeof CreateTarsResponsibil
  * - `mandate`: the user's complete message when it and the work unit do not
  *   fit the run assignment (`TARS_ASSIGNMENT_MAX_CHARS`); the run replays it
  *   as context on every lead turn.
+ * - `workingChanges`: present only when the user's message asked to include
+ *   their working changes; the execution workspace then starts from the
+ *   snapshot commit instead of the branch.
  */
 const TarsAdmittedWorkFields = {
   branchName: z.string().trim().min(1).max(TARS_BRANCH_NAME_MAX_CHARS + TARS_BRANCH_SUFFIX_CHARS).optional(),
   mandate: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS).optional(),
+  workingChanges: TarsWorkingChangesSchema.optional(),
 };
 
 /**
@@ -293,6 +319,8 @@ export interface TarsBridgeApi {
   publish?(input: TarsPublishInput): Promise<TarsPublishResult>;
   /** What a publish card shows, read by the host; absent on bridges that predate publishing. */
   previewPublish?(input: TarsPublishPreviewInput): Promise<TarsPublishPreview>;
+  /** Moves queued work in the queue and records it like a click; absent on bridges that predate queue moves. */
+  reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

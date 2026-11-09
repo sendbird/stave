@@ -13,7 +13,12 @@ import { useFleetAttention } from "@/store/fleet-attention-store";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { openFleetAt } from "@/store/fleet-focus-store";
 import type { TarsFollowUpState, TarsResponsibility } from "@/lib/tars/types";
-import { tarsConfirmationRequestId, type TarsActInput, type TarsAnswerInput, type TarsControlOperation, type TarsConversationSettings } from "@/lib/tars/conversation";
+import {
+  tarsConfirmationRequestId, type TarsActInput, type TarsActResult, type TarsAnswerInput, type TarsControlOperation, type TarsConversationSettings, type TarsQueueMove,
+  type TarsQueueMoveSource,
+} from "@/lib/tars/conversation";
+import { tarsQueueOf } from "@/lib/tars/queue-order";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { buildTarsFlow, isAppliedDelegateReceipt, tarsRunOf } from "@/lib/tars/flow-model";
 import { buildTarsRecap, buildTarsTray, tarsTrayNextFollowUpChange, tarsTrayStatus, type TarsTrayDecision } from "@/lib/tars/tray-model";
 import { buildTarsRuntimeHints } from "@/lib/tars/runtime-hints";
@@ -35,7 +40,7 @@ import { TarsAwayRecap } from "./TarsAwayRecap";
 import { useTarsAwayWindow } from "./use-tars-away";
 import { useTarsPublish } from "./use-tars-publish";
 import { TarsPublishEntry } from "./TarsPublishEntry";
-import { tarsControlFailureKey } from "@/lib/tars/control-reasons";
+import { tarsControlFailureKey, tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { listAgents } from "@/lib/agents/library";
 import { getAgentDisplayName } from "@/lib/agents/display";
 
@@ -94,6 +99,8 @@ export function TarsView() {
   const [openError, setOpenError] = useState(false);
   // A retried click keeps its request ID, so a lost acknowledgement cannot apply twice.
   const clicks = useRef(new Map<string, string>());
+  // What the last queue move did, for screen readers; the record line says it in the conversation too.
+  const [queueNotice, setQueueNotice] = useState("");
   // The conversation's reasoning model and account. Execution has no pin here, so delegated work routes automatically.
   const initialSettings = useMemo<TarsConversationSettings>(() => {
     const providerId = availability.codex || !availability["claude-code"] ? "codex" : "claude-code";
@@ -114,7 +121,7 @@ export function TarsView() {
   const records = conversation.conversation?.records;
   // A cancel the user applied is theirs, not work that failed while they were away.
   const recap = useMemo(() => buildTarsRecap({ model: tray, since: away.since, until: away.until, pendingDecisions: snapshot?.pendingDecisions,
-    cancelledByYou: new Set((records ?? []).filter((record) => record.status === "applied" && record.action.operation === "cancel").map((record) => record.action.responsibilityId)) }),
+    cancelledByYou: new Set((records ?? []).filter((record) => record.status === "applied" && record.action.kind === "control" && record.action.operation === "cancel").map((record) => record.action.responsibilityId)) }),
   [away.since, away.until, records, snapshot?.pendingDecisions, tray]);
   const rowOf = useCallback((id: string) => responsibilities.find((row) => row.id === id), [responsibilities]);
   const workspaceNameOf = useCallback((id: string) => workspaces.find((workspace) => workspace.id === id)?.name, [workspaces]);
@@ -186,6 +193,44 @@ export function TarsView() {
     clicks.current.set(key, requestId);
     if (await submit({ requestId, responsibilityId: row.id, expectedRevision: row.revision, operation })) clicks.current.delete(key);
   }
+  /**
+   * Moves queued work through the host's reprioritize path. An unchanged
+   * retry reuses its request ID, so a lost reply applies once; the result is
+   * announced, and focus returns to the card's grip or menu when the move
+   * took the focused control out of the document.
+   */
+  async function moveInQueue(row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) {
+    const key = `${row.id}:${row.revision}:${move.direction}:${move.relativeTo ?? ""}:${source}`;
+    const requestId = clicks.current.get(key) ?? crypto.randomUUID();
+    clicks.current.set(key, requestId);
+    const active = document.activeElement;
+    const focusGrip = active instanceof HTMLElement && active.dataset.tarsQueueGrip === row.id;
+    let result: TarsActResult | null = null;
+    const done = await command(async (bridge) => {
+      if (!bridge.reprioritize) throw new Error(t("shell:tars.controlReasons.unknown"));
+      try { result = await bridge.reprioritize({ requestId, responsibilityId: row.id, expectedRevision: row.revision, move, source }); return result.snapshot; }
+      catch (cause) { throw new Error(t(tarsControlFailureKey(cause))); }
+    });
+    void conversation.refresh();
+    if (done) clicks.current.delete(key);
+    const settled = result as TarsActResult | null;
+    if (settled) {
+      const queue = tarsQueueOf(settled.snapshot.responsibilities);
+      const text = settled.record.status === "applied"
+        ? t("shell:tars.tray.reorder.moved", { title: row.title, position: queue.findIndex((entry) => entry.id === row.id) + 1, total: queue.length })
+        : t("shell:tars.tray.reorder.refused", { title: row.title, reason: t(tarsControlReasonKey(settled.record.reason)) });
+      // The same words twice would not be read again; a trailing no-break space makes the second one a change.
+      setQueueNotice((current) => current === text ? `${text}\u00a0` : text);
+    }
+    if (source === "drag") return;
+    // Two frames: the reordered tray has rendered by then.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      const id = CSS.escape(row.id);
+      (document.querySelector<HTMLElement>(focusGrip ? `[data-tars-queue-grip="${id}"]` : `[data-tars-more-actions="${id}"]`)
+        ?? document.querySelector<HTMLElement>(`[data-tars-card="${id}"] button`))?.focus();
+    }));
+  }
   /** Confirms a proposed control at the revision it was proposed for; its request ID makes it apply once, from the tray or the message. */
   function confirmDecision(decision: TarsTrayDecision) {
     void submit({ requestId: tarsConfirmationRequestId(decision.messageId, decision.actionIndex), responsibilityId: decision.responsibilityId,
@@ -202,7 +247,8 @@ export function TarsView() {
     refresh: () => { void refresh(); void conversation.refresh(); }, focusComposer: () => controller.current?.focusComposer() });
   const openPublish = publishing.available ? (row: TarsResponsibility) => { setTrayPopoverOpen(false); publishing.openCard(row); } : undefined;
   const trayActions: TarsTrayActions = { busy, onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
-    onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish };
+    onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
+    ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
     : responsibilities.length ? <>
@@ -252,6 +298,7 @@ export function TarsView() {
         <div className={sx(trayStyles.panelBody)}>{trayBody}</div>
       </aside> : null}
     </div>
+    <VisuallyHidden aria-live="polite" role="status" data-tars-queue-notice="">{queueNotice}</VisuallyHidden>
     <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}><SheetContent><SheetHeader><SheetTitle>{t("shell:tars.conversation.settings")}</SheetTitle><SheetDescription>{t("shell:tars.conversation.settingsDescription")}</SheetDescription></SheetHeader>
       {snapshot && settingsOpen ? <TarsSettings identity={snapshot.identity} initial={conversation.conversation?.settings ?? initialSettings} busy={busy || conversation.busy} onSave={async (identity, settings) => {
         const saved = await conversation.configure(settings);

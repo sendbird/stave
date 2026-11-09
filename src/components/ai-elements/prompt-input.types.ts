@@ -180,6 +180,11 @@ export interface PromptInputProps {
    */
   macroQuickPicks?: ReactNode;
   compareControl?: ReactNode;
+  /**
+   * A control of the `minimal` composer drawn just before Send, such as a
+   * per-message option the next send carries. The full composer ignores it.
+   */
+  sendAccessory?: ReactNode;
   composerControlPlacements?: ComposerControlPlacements;
   onComposerControlPlacementsChange?: (next: ComposerControlPlacements) => void;
   workspaceCwd?: string;

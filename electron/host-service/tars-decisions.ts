@@ -1,19 +1,29 @@
-import { assertTarsSource, resolveTarsWorkspace } from "../main/tars-scope";
+import { resolveTarsWorkspace } from "../main/tars-scope";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema } from "../../src/lib/tars/conversation";
 import { TARS_CONFIRMED_OPERATIONS, type TarsActionReceipt, type TarsMessage } from "../../src/lib/tars/conversation";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsStore } from "../persistence/tars-store";
-import { admitTarsControl, tarsControlRejection, type TarsControlLedger, type TarsControlRequest } from "./tars-control";
+import { admitTarsControl, tarsControlRejection, TarsControlRejection, type TarsControlLedger, type TarsControlRequest } from "./tars-control";
+import { admitTarsReprioritize } from "./tars-queue";
 import type { AgentConfig } from "../../src/lib/agents/schema";
 import {
   admitTarsAgent, assertTarsAgentCatalog, isTarsAgentCatalogPending, tarsDelegationCeiling, TarsDelegateRejection,
 } from "../../src/lib/tars/agents";
 import { tarsExecutionTarget } from "../../src/lib/tars/execution-resources";
 import { buildTarsBranchName } from "../../src/lib/tars/branch-name";
-import { TARS_ASSIGNMENT_MAX_CHARS } from "../../src/lib/tars/types";
+import { TARS_ASSIGNMENT_MAX_CHARS, type TarsWorkingChanges } from "../../src/lib/tars/types";
 import { tarsFollowUpRefusal } from "./tars-follow-up-admission";
 import { tarsPublishProposalRefusal } from "./tars-publish";
+
+/** What admission asks the host to snapshot for a message that included the user's working changes. */
+export interface TarsWorkingChangesRequest {
+  workspaceId: string;
+  repositoryPath: string;
+  messageId: string;
+  /** The commit time; the message's answer time, so a retry asks for the same snapshot. */
+  date: string;
+}
 
 export interface TarsDecisionPorts {
   /** Both stores must share one SQLite connection; applyReceipt owns the transaction. */
@@ -36,7 +46,25 @@ export interface TarsDecisionPorts {
   agentCatalogReady?: () => boolean;
   /** The runtime's admitted control path, shared with direct clicks. */
   control: (request: TarsControlRequest, ledger: TarsControlLedger<TarsActionReceipt>) => Promise<TarsActionReceipt>;
+  /**
+   * Snapshots the target workspace's working tree for a message that asked to
+   * include the user's working changes. It must leave the user's index and
+   * files untouched and return the same snapshot when asked again for the same
+   * message and workspace. Absent, such a message's work is refused rather
+   * than silently started from the branch.
+   */
+  snapshotWorkingChanges?: (request: TarsWorkingChangesRequest) => Promise<TarsWorkingChanges>;
   now?: () => string;
+}
+
+/** Thrown when the working changes a message asked for cannot be snapshotted; refused with its code. */
+class TarsWorkingChangesRejection extends Error {
+  readonly reason = "workingChangesUnavailable" as const;
+  constructor(cause: unknown) {
+    const detail = cause instanceof Error ? cause.message.trim() : "";
+    super(`Your working changes could not be snapshotted, so this work was not started.${detail ? ` ${detail}` : ""}`.slice(0, 2_000));
+    this.name = "TarsWorkingChangesRejection";
+  }
 }
 
 function requireDecision(ports: TarsDecisionPorts, messageId: string, expectedRevision: number): TarsMessage {
@@ -80,6 +108,26 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
   const maxTurns = message.maxTurns;
   const now = ports.now ?? (() => new Date().toISOString());
   const receipts: TarsActionReceipt[] = [];
+  // One snapshot per target workspace, so every unit this message admits there starts from the same tree.
+  const snapshots = new Map<string, Promise<TarsWorkingChanges>>();
+  /**
+   * Taken before the synchronous transaction that admits the unit: Git I/O
+   * cannot run inside it. The snapshot's ref makes a retried admission reuse
+   * the same commit, so the unit's request hash stays the same.
+   */
+  const workingChangesFor = (workspaceId: string): Promise<TarsWorkingChanges> => {
+    let pending = snapshots.get(workspaceId);
+    if (!pending) {
+      pending = (async () => {
+        if (!ports.snapshotWorkingChanges) throw new Error("This host cannot snapshot working changes.");
+        const target = resolveTarsWorkspace(workspaceId, ports.readRegistry());
+        return ports.snapshotWorkingChanges({ workspaceId: target.workspaceId, repositoryPath: target.repositoryPath,
+          messageId: message.id, date: message.updatedAt });
+      })();
+      snapshots.set(workspaceId, pending);
+    }
+    return pending;
+  };
   try {
     for (const [index, action] of actions.entries()) {
       const intent = ports.conversations.recordReceipt(message.id, message.revision, index, action, now());
@@ -158,6 +206,11 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       try {
+        let workingChanges: TarsWorkingChanges | undefined;
+        if (action.kind === "delegate" && message.includeWorkingChanges) {
+          try { workingChanges = await workingChangesFor(action.workspaceId); }
+          catch (error) { throw new TarsWorkingChangesRejection(error); }
+        }
         receipts.push(ports.conversations.applyReceipt(message.id, index, intent.revision, () => {
           // Recheck admission inside the transaction that writes both effect and receipt.
           const admitted = requireDecision(ports, message.id, message.revision);
@@ -186,14 +239,12 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
               ...(mandate ? { mandate } : {}),
               ...(admitted.runtimeHints ? { runtimeHints: admitted.runtimeHints } : {}),
               ...(agentId ? { agentId } : {}),
+              ...(workingChanges ? { workingChanges } : {}),
             }, now());
             return { responsibilityId: row.id };
           }
-          const row = ports.responsibilities.get(action.responsibilityId);
-          if (!row) throw new Error("The responsibility is not owned by the personal representative.");
-          assertTarsSource(row, ports.readRegistry());
-          if (row.state !== "queued") throw new Error("Only queued responsibilities can be reprioritized by a decision.");
-          if (row.revision !== action.expectedRevision) throw new Error("The responsibility changed before reprioritization.");
+          // The same admission as a click or drag in the tray (`tars-queue.ts`); words set the priority itself.
+          const row = admitTarsReprioritize(ports.responsibilities.get(action.responsibilityId), action, ports.readRegistry());
           return { responsibilityId: ports.responsibilities.patch(row.id, action.expectedRevision,
             { priority: action.priority }, now()).id };
         }, now()));
@@ -207,7 +258,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         // therefore records a known unapplied action, never an uncertain external write.
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
           { status: "rejected", error: boundedError(error),
-            ...(error instanceof TarsDelegateRejection ? { reason: error.reason } : {}) }, now()));
+            ...(error instanceof TarsDelegateRejection || error instanceof TarsWorkingChangesRejection || error instanceof TarsControlRejection
+              ? { reason: error.reason } : {}) }, now()));
       }
     }
     return receipts;
