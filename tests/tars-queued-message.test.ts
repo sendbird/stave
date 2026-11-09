@@ -354,6 +354,39 @@ describe("words for a busy work after a restart, a takeover and alongside other 
     expect(f.record(record.requestId).delivery?.status).toBe("delivered");
   });
 
+  test("each pass reads a bounded number of works and the next goes on from there, so every work's words are reached", async () => {
+    const f = fixture();
+    const { store, conversations, database } = f.host;
+    // As many paused works with older words as one pass reads (32 pages of 32), so the free work's are beyond its reach.
+    const waiting = 32 * 32;
+    const kept: TarsResponsibility[] = [];
+    database.transaction(() => {
+      for (let index = 0; index < waiting; index++) {
+        const other = f.work(`paused-${index}`);
+        const paused = store.patch(other.id, other.revision, { state: "paused" }, NOW);
+        kept.push(paused);
+        conversations.recordAction({ requestId: `kept-${index}`, responsibilityId: paused.id, expectedRevision: paused.revision,
+          operation: "message", input: { text: `Paused work ${index}.` }, source: "click" }, NOW);
+        conversations.applyAction(`kept-${index}`, () => {}, NOW, undefined, { agentRunId: "owned-run" });
+      }
+    })();
+    const { record } = await f.tell("Ship it.");
+    const listDeliveryHeads = conversations.listDeliveryHeads.bind(conversations);
+    let pages = 0;
+    conversations.listDeliveryHeads = (limit, after) => { pages++; return listDeliveryHeads(limit, after); };
+    const passes: number[] = [];
+    f.task.busy = false;
+    for (let tick = 0; tick < 3 && !f.task.said.length; tick++) { pages = 0; await f.tick(); passes.push(pages); }
+    expect(f.task.said).toEqual(["Ship it."]);
+    expect(f.record(record.requestId).delivery?.status).toBe("delivered");
+    expect(Math.max(...passes)).toBeLessThanOrEqual(32);
+    // Having read the end, the next pass starts over: the oldest paused work's words are said once it resumes.
+    store.patch(kept[0]!.id, kept[0]!.revision, { state: "running" }, NOW);
+    f.task.busy = false;
+    for (let tick = 0; tick < 2 && f.task.said.length < 2; tick++) await f.tick();
+    expect(f.task.said).toEqual(["Ship it.", "Paused work 0."]);
+  });
+
   test("a slow observation of one work does not hold back another work's words", async () => {
     const f = fixture();
     const slow = f.work("slow");

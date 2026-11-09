@@ -96,7 +96,7 @@ const ENDS_QUEUED_MESSAGES: ReadonlyMap<string, "takenOver" | "ended"> = new Map
   ["takeover", "takenOver"], ["handBack", "takenOver"], ["cancel", "ended"], ["acceptCompletion", "ended"]]);
 // i18n-ignore: persisted diagnostic; the interface translates the reason code
 const QUEUED_MESSAGE_CANCELLED = "The work was taken over, cancelled or completed before its task's turn ended, so the message was not sent.";
-/** Works' next messages read per page, and pages per pass: every work's next message is read, within a bound. */
+/** Works' next messages read per page, and pages per pass: each pass is bounded, and passes take turns through every work's. */
 const DELIVERY_PAGE = 32;
 const DELIVERY_PAGES_MAX = 32;
 
@@ -118,6 +118,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   const saidDeliveries = new Set<string>();
   // Works with a delivery attempt waiting in or running on their queue: one at a time, in the work's order.
   const deliveringWorks = new Set<string>();
+  // Where the next pass goes on reading works' next messages: the last head read, or the start once the end was read.
+  let deliveryCursor: string | undefined;
   // Only mutations of the same responsibility wait for its Git/run I/O.
   function enqueue<T>(key: string, work: () => Promise<T> | T): Promise<T> {
     const next = (operations.get(key) ?? Promise.resolve()).catch(() => {}).then(work);
@@ -275,18 +277,18 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   /**
    * Says each message kept for a busy task once that task's turn has ended.
    * Only each work's oldest open message is looked at, so the next waits for
-   * the turn the last one started. Every work's is read, page by page, however
-   * many others must wait (paused or busy work), and each is said on its own
-   * work's queue, so one work's slow observation or control never holds back
-   * another work's words.
+   * the turn the last one started. A pass reads a bounded number of pages,
+   * going on from where the last pass stopped and starting over after the end,
+   * so every work's is read in turn however many others must wait (paused or
+   * busy work), and each is said on its own work's queue, so one work's slow
+   * observation or control never holds back another work's words.
    */
   function deliverQueuedMessages() {
     const queue = ports.messages;
     if (!queue || !ports.deliverMessage || !ports.hasUserTurn) return;
-    let after: string | undefined;
     for (let page = 0; page < DELIVERY_PAGES_MAX; page++) {
       let heads: TarsActionRecord[];
-      try { heads = queue.listDeliveryHeads(DELIVERY_PAGE, after); }
+      try { heads = queue.listDeliveryHeads(DELIVERY_PAGE, deliveryCursor); }
       catch (error) { if (!isTarsStorageBusy(error)) ports.onError?.(error); return; }
       for (const head of heads) {
         const id = head.action.responsibilityId;
@@ -296,8 +298,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         void enqueue(id, () => deliverOne(queue, head.requestId)).catch((error) => ports.onError?.(error))
           .finally(() => deliveringWorks.delete(id));
       }
-      if (heads.length < DELIVERY_PAGE) return;
-      after = heads.at(-1)!.requestId;
+      // The end was read: the next pass starts over from the oldest head.
+      if (heads.length < DELIVERY_PAGE) { deliveryCursor = undefined; return; }
+      deliveryCursor = heads.at(-1)!.requestId;
     }
   }
   /** Whether a message under way reached its task, by its own turn only; null when that cannot be read now. */

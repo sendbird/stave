@@ -322,8 +322,7 @@ export function createHostTarsRuntime(args: {
       await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text, turnId }, guard);
       return "sent";
     },
-    hasUserTurn: (agentRunId, turnId) => persistence.agentRuns.listEventsByKind(agentRunId, ["user-turn"])
-      .some((event) => event.detail.turnId === turnId),
+    hasUserTurn: (agentRunId, turnId) => persistence.agentRuns.hasUserTurn(agentRunId, turnId),
     // Older work's brief reads its admitting message back, without the message's attachments.
     readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
     onError: (error) => console.error("[tars] reconciliation failed", error),
