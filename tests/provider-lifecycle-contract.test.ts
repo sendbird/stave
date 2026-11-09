@@ -178,6 +178,7 @@ function runStream(args: {
   timeoutMs?: number;
   runtimeOptions?: ProviderRuntimeOptions;
   taskId?: string;
+  agentRunStage?: { agentRunId: string; stageId: string; attempt: number };
 }) {
   const events: BridgeEvent[] = [];
   let finish: (() => void) | undefined;
@@ -192,6 +193,7 @@ function runStream(args: {
       prompt: "test lifecycle",
       turnId,
       ...(args.taskId ? { taskId: args.taskId } : {}),
+      ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
       runtimeOptions: {
         ...args.runtimeOptions,
         ...(args.timeoutMs ? { providerTimeoutMs: args.timeoutMs } : {}),
@@ -325,6 +327,24 @@ test("a task turn's grant carries the accounts it runs on, so a turn it starts k
   expect(resolveCallerGrant(callerKey!)?.accounts).toEqual({ claudeAccountProfileId: "system-default", codexAccountProfileId: personal });
   expect(providerRuntime.abortTurn({ turnId: turn.turnId }).ok).toBe(true);
   await turn.done;
+});
+
+for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: an agent run turn's grant names its run, so a delegation can tell its own turns from the user's`, async () => {
+  const { resolveCallerGrant } = await import("../electron/providers/caller-grants");
+  adapterState.scenario = "wait-for-abort";
+  const staged = runStream({ providerId, taskId: `caller-run-task-${providerId}`, agentRunStage: { agentRunId: "run-1", stageId: "work", attempt: 1 } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const stagedKey = adapterState.lastArgs?.staveTurnGrants?.callerKey;
+  expect(resolveCallerGrant(stagedKey!)).toMatchObject({ taskId: `caller-run-task-${providerId}`, turnId: staged.turnId, agentRunId: "run-1" });
+  expect(providerRuntime.abortTurn({ turnId: staged.turnId }).ok).toBe(true);
+  await staged.done;
+  const plain = runStream({ providerId, taskId: `caller-plain-task-${providerId}` });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const plainGrant = resolveCallerGrant(adapterState.lastArgs!.staveTurnGrants!.callerKey!);
+  expect(plainGrant).toMatchObject({ taskId: `caller-plain-task-${providerId}`, turnId: plain.turnId });
+  expect(plainGrant && "agentRunId" in plainGrant).toBe(false);
+  expect(providerRuntime.abortTurn({ turnId: plain.turnId }).ok).toBe(true);
+  await plain.done;
 });
 
 test("in-turn subagents come only from the task's agent; a supplied list is dropped", async () => {

@@ -103,16 +103,15 @@ The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as p
   and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box
   brings its padding, `controlHeightSm`, radius, hover wash and focus ring with it. Its ink is
   body ink — one step darker than the `agentSurface.rowLabel` its rows use.
-  While the turn runs, the label is a rotating playful status phrase with a shimmer gradient animation,
-  followed by the title of the newest step still in progress ("Reading search.ts", "Running bun test")
-  and the turn's elapsed time: `phrase · activity · 12s`. With no step in progress it is the phrase
-  and the time alone. On a short row the activity ellipsizes first, then the phrase; the time never
-  truncates. None of it is a live region, so the rotating phrase and the changing activity are not
-  announced. A streaming reasoning row inside the trace ticks its own elapsed time the same way.
-  The rotating phrase swap animation is user-selectable in Settings → Chat, with a soft fade as the default.
-  Once the turn finishes, the trigger reads **Work history**, with measured reasoning time when available.
-  It does not repeat the answer's first sentence or append category counts. A failed run that
-  offers recovery is titled **Run failed** instead. Individual tool records remain in the history.
+  While the turn runs, the label shows the newest step still in progress
+  ("Reading search.ts", "Running bun test"), or **Thinking** between steps.
+  The activity ellipsizes on short rows. The header has no rotating status phrase
+  or duplicate turn clock; the message footer owns turn elapsed time. It is not
+  a live region, so changing activity does not interrupt the reader. A streaming
+  reasoning row inside the trace retains its own measured duration.
+  Once the turn finishes, the trigger shows a short completion summary and the total tool-call count, with measured reasoning time when available.
+  The title uses the reply's first meaningful sentence, falling back to counted work. A failed
+  run that offers recovery is titled **Run failed** instead. Individual tool records remain in the history.
 - **Open and close**: The trace panel animates its row track (`grid-template-rows` 0fr ↔ 1fr,
   `motionDurationQuick`, `motionEaseExpressive`) with a `motionDurationFast` content fade, and
   unmounts after the close plays. Reduced motion switches at once. While it moves, the

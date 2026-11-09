@@ -801,6 +801,9 @@
   },
   "acceptance": {
     "extraCopy212": "Acceptance criterion remains unresolved: {{value1}}",
+    "criterionReportedUnverified": "The stage report marked this criterion unverified: {{value1}}",
+    "criterionReportedUnmet": "The stage report marked this criterion unmet: {{value1}}",
+    "criterionNotReported": "The stage report did not name this criterion by its exact text: {{value1}}",
     "extraCopy211": "The required workspace script check has no successful, current verification evidence."
   },
   "subagentSummary": {

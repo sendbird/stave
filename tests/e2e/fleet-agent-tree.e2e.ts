@@ -56,8 +56,8 @@ async function seed(page: Page) {
           tasks: tasksByWorkspace["ws-tree-0"],
           openTaskTabIds: ["task-0-0", "task-0-1"],
           messagesByTask: {},
-          // A profile saved before the Tree layout: it opened on cards, the old default.
-          settings: { fleetBoardLayout: "cards" },
+          // A profile without a saved board layout opens on the default Tree layout.
+          settings: {},
         },
         version: 0,
       }),
@@ -196,7 +196,7 @@ async function startTurn(page: Page) {
   }, REPOSITORY_PATH);
 }
 
-/** Fleet opens on the Tree layout: the default, and where a saved `cards` moved once. */
+/** Fleet opens on the Tree layout, the default. */
 async function openFleet(page: Page) {
   await page.getByTestId("top-bar").getByRole("button", { name: "Open Fleet View" }).click();
   const layout = page.getByRole("radiogroup", { name: "Board layout" });
@@ -382,15 +382,15 @@ test("Fleet's Tree layout shows tasks as agents and opens their subagent trees f
     )
     .toBe("ws-tree-2");
 
-  // Cards stays a choice, and the choice is kept: the old profile moved to the tree only once.
+  // Cards stays a choice, and the choice is kept.
   const layout = await openFleet(page);
   await layout.getByRole("radio", { name: "Cards" }).click();
   await expect(layout.getByRole("radio", { name: "Cards" })).toHaveAttribute("aria-checked", "true");
   await page.getByTestId("close-fleet-view").click();
   await page.getByTestId("top-bar").getByRole("button", { name: "Open Fleet View" }).click();
   await expect(layout.getByRole("radio", { name: "Cards" })).toHaveAttribute("aria-checked", "true");
-  // The saved profile carries the choice and the one-time marker, so reading it
-  // again (the next launch) keeps Cards. (A reload would rerun this test's seed.)
+  // The saved profile carries the choice, so reading it again (the next
+  // launch) keeps Cards. (A reload would rerun this test's seed.)
   const restored = await page.evaluate(async () => {
     const { useAppStore } = await import("/src/store/app.store.ts");
     const { flushAppStorePersistence } = await import("/src/store/app-store-persistence.ts");
@@ -398,9 +398,9 @@ test("Fleet's Tree layout shows tasks as agents and opens their subagent trees f
     flushAppStorePersistence();
     const saved = JSON.parse(window.localStorage.getItem("stave-store") ?? "{}").state?.settings ?? {};
     await useAppStore.persist.rehydrate();
-    return [saved.fleetBoardLayout, saved.fleetTreeDefaultApplied, useAppStore.getState().settings.fleetBoardLayout];
+    return [saved.fleetBoardLayout, useAppStore.getState().settings.fleetBoardLayout];
   });
-  expect(restored).toEqual(["cards", true, "cards"]);
+  expect(restored).toEqual(["cards", "cards"]);
 });
 
 for (const locale of ["en", "ko"] as const) {

@@ -1459,6 +1459,20 @@ export const FilesystemRootArgsSchema = z
 
 export const FilesystemPickFilesArgsSchema = FilesystemRootArgsSchema;
 
+export const FilesystemImportAttachmentsArgsSchema = z
+  .object({
+    rootPath: FilesystemRootPathSchema,
+    entries: z
+      .array(
+        z.union([
+          z.object({ absolutePath: z.string().min(1).max(4096) }).strict(),
+          z.object({ name: z.string().min(1).max(1024), data: z.instanceof(Uint8Array) }).strict(),
+        ]),
+      )
+      .max(100),
+  })
+  .strict();
+
 export const FilesystemDirectoryArgsSchema = z
   .object({
     rootPath: FilesystemRootPathSchema,

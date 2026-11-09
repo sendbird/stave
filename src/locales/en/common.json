@@ -146,13 +146,15 @@
     "copyFailed": "Couldn't copy to the clipboard"
   },
   "transcriptFind": {
-    "previous": "Previous",
-    "next": "Next",
+    "previous": "Previous match",
+    "next": "Next match",
     "close": "Close",
     "chat": "Find in conversation",
     "terminal": "Find in terminal",
     "none": "No matches",
     "matches": "{{current}} / {{total}}",
+    "count_one": "{{count}} match",
+    "count_other": "{{count}} matches",
     "loaded": "Search loaded messages",
     "showSidebar": "Show sidebar"
   }

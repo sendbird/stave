@@ -131,7 +131,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
     if (effect.kind === "control") {
       if (!ports.act || !answer.actRequestId) throw new Error("The host control path is unavailable.");
       const { record } = await ports.act({ requestId: answer.actRequestId, responsibilityId: effect.responsibilityId,
-        expectedRevision: effect.expectedRevision, operation: effect.operation, source: answer.source });
+        expectedRevision: effect.expectedRevision, operation: effect.operation, ...(effect.input ? { input: effect.input } : {}), source: answer.source });
       if (record.status === "pending") return answer;
       return ports.conversations.settleAnswer(answer.decisionId, record.status === "applied" ? { status: "applied" }
         : { status: "rejected", reason: record.reason, error: record.error ?? "The control was not applied." }, now());

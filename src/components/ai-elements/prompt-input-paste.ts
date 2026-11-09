@@ -53,13 +53,14 @@ export function usePromptInputClipboardPaste(args: {
       );
     const shouldHandleImages =
       imageFiles.length > 0 && Boolean(onAttachmentsChange);
+    const fileInputs = onAttachmentsChange ? pastedFiles : [...pastedFiles, ...imageFiles];
     const shouldHandleFiles =
-      pastedFiles.length > 0 && Boolean(onPasteFiles);
+      fileInputs.length > 0 && Boolean(onPasteFiles);
     if (!shouldHandleImages && !shouldHandleFiles) {
       return false;
     }
     if (shouldHandleFiles) {
-      void onPasteFiles?.({ files: pastedFiles });
+      void onPasteFiles?.({ files: fileInputs });
     }
     if (shouldHandleImages) {
       void clipboardReadQueue

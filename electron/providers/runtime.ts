@@ -984,6 +984,7 @@ async function runProviderTurnImpl(
         taskId: agentRunTaskId,
         turnId,
         workspaceId: args.workspaceId?.trim() || null,
+        ...(args.agentRunStage?.agentRunId ? { agentRunId: args.agentRunStage.agentRunId } : {}),
         providerId: args.providerId,
         autonomy: args.turnPolicy?.autonomy ?? null,
         agentMode: args.turnPolicy?.agentMode ?? false,

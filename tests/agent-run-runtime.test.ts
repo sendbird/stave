@@ -277,6 +277,38 @@ async function startedAgentRun(
   return detail.agentRun.id;
 }
 
+test("a report that paraphrases a required criterion is refused in the turn instead of halting the run", async () => {
+  // A Tars Work stage reported every criterion met but rewrote each text with its evidence, so none matched and the run halted.
+  const readable = "Tars text keeps a readable size and hierarchy without clipping.";
+  const focus = "The composer focus ring is not clipped.";
+  const h = createHarness();
+  const id = await startedAgentRun(h, startInput({ workflow: workflow([{ ...DRAFT, acceptanceCriteria: [{ text: readable }, { text: focus }] }, POLISH]) }));
+  const paraphrased = { ...COMPLETE, acceptanceCriteria: [
+    { text: "Readable size: AUI tokens, wide/narrow regressions pass.", status: "met" as const },
+    { text: focus, status: "met" as const },
+  ] };
+  const refusal = h.runtime.reportStage({ agentRunKey: "key-turn-1", report: paraphrased });
+  await expect(refusal).rejects.toThrow(JSON.stringify(readable));
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: paraphrased })).rejects.not.toThrow(JSON.stringify(focus));
+  expect(h.current(id).report).toBeNull();
+  // The tool error reaches the model, which restates the criterion verbatim in the same turn.
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...paraphrased, acceptanceCriteria: [{ text: readable, status: "met" }, { text: focus, status: "met" }] } });
+  h.endTurn("turn-1");
+  await h.tick();
+  expect(h.aggregate(id).agentRun.state).toBe("running");
+  expect(h.current(id).stageId).toBe("polish");
+});
+
+test("an honest unverified criterion is still recorded and halts with what the report said", async () => {
+  const readable = "Tars text keeps a readable size and hierarchy without clipping.";
+  const h = createHarness();
+  const id = await startedAgentRun(h, startInput({ workflow: workflow([{ ...DRAFT, acceptanceCriteria: [{ text: readable }] }, POLISH]) }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: readable, status: "unverified" }] } });
+  h.endTurn("turn-1");
+  await h.tick();
+  expect(h.current(id)).toMatchObject({ stageId: "draft", status: "blocked", blockReason: "acceptance-unmet", detail: `The stage report marked this criterion unverified: ${readable}` });
+});
+
 test.each([false, true])("independent review completion captures revision and skips empty repair only for unchanged work (edited: %s)", async (edited) => {
   let revision = "reviewed";
   const h = createHarness({ extra: { readWorkspaceRevision: async () => ({ status: "known", revision }) } });
@@ -2770,6 +2802,27 @@ test("a paused Run keeps its saved question answerable until Resume", async () =
   h.runtime.stop();
 });
 
+
+test("Tars's reply as the user starts one plain turn on the lead task, and is refused while a turn, a request or a takeover is open", async () => {
+  const turns: Array<{ prompt: string; agentRunStage?: unknown; questionAnswer?: unknown }> = [];
+  const h = createHarness({ extra: { runSupervisedTurn: async args => { turns.push(args); return { turnId: `turn-${turns.length}` }; } } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+  turns.length = 0;
+  h.setSnapshot({ activeTurnId: "running-turn" });
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." })).rejects.toMatchObject({ code: "refused" });
+  h.setSnapshot({ activeTurnId: null, pendingApprovalCount: 1 });
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." })).rejects.toMatchObject({ code: "refused" });
+  h.setSnapshot({ pendingApprovalCount: 0 });
+  // The guard runs inside the run's queue: a takeover that applied first refuses the reply.
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." }, () => { throw new Error("taken over"); })).rejects.toThrow("taken over");
+  expect(turns).toHaveLength(0);
+  await h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." });
+  // A plain chat turn: provider admission links it to the stage as the user's reply, never as a supervised stage turn.
+  expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1" })]);
+  expect(turns[0]!.agentRunStage).toBeUndefined();
+  expect(turns[0]!.questionAnswer).toBeUndefined();
+  h.runtime.stop();
+});
 
 describe("primary write run workspace checks", () => {
   const definitionHash = "a".repeat(64);

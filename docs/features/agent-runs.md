@@ -366,7 +366,19 @@ that stage must be reported **Met**. Criteria for the overall goal are checked
 at the final stage; a Build stage can pass to Test while future checks are
 still pending. At the final stage a goal criterion an earlier stage already
 met stands unless the final report says otherwise; the others must be
-reported **Met** there. Host checks from earlier stages remain valid only for
+reported **Met** there.
+
+Stave matches a reported criterion to its stage criterion by its exact text
+(surrounding spaces aside). A completion report that does not name every
+required criterion it must settle that way, for example because the agent
+rewrote a criterion together with its evidence, is not recorded:
+`stave_report_stage` returns the missing texts, so the agent restates them in
+the same turn instead of the run halting. Host checks and optional criteria
+are not part of that rule. A report that names a criterion **Not met** or
+**Not verified** is recorded, and the stage blocks with what the report said
+("The stage report marked this criterion unverified: …").
+
+Host checks from earlier stages remain valid only for
 the current workspace revision; edits require another admitted check. A report
 holds up to 240 criteria, covering all 12 stages' 20 criteria. Optional checks
 can stay unverified without blocking required work. A simple answer or documentation stage requires no shell check

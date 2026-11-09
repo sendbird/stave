@@ -45,6 +45,9 @@ export const delegationStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  identityModelCaption: {
+    fontSize: vars["--aui-font-size-caption"],
+  },
   identityModelMuted: {
     color: vars["--aui-color-text-muted"],
     fontWeight: vars["--aui-font-weight-regular"],

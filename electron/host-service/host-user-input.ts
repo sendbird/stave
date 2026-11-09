@@ -10,6 +10,8 @@ import { answerRunQuestion } from "./run-question-answer";
 export interface HostUserInputArgs {
   workspaceId: string; taskId: string; requestId: string;
   answers?: Record<string, string>; denied?: boolean; answerDelivered?: boolean;
+  /** Tars: the question must still be the one in this message, since a provider may reuse a request id. */
+  expectedMessageId?: string;
 }
 
 export interface HostUserInputPorts {
@@ -32,7 +34,7 @@ export async function respondHostUserInput(args: HostUserInputArgs, ports: HostU
       messages,
       requestId: args.requestId,
     });
-    if (!userInput) {
+    if (!userInput || (args.expectedMessageId && userInput.messageId !== args.expectedMessageId)) {
       throw new Error(`Pending user input not found: ${args.requestId}`);
     }
 

@@ -1,5 +1,5 @@
 import { i18n } from "../../../src/i18n/runtime";
-import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks } from "../../../src/lib/agent-runs/acceptance";
+import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
 import { mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
 import type { RunQuestionAnswer } from "../run-question-answer";
 import { admitWorkspaceCheck } from "./workspace-check-admission";
@@ -423,14 +423,21 @@ export interface AgentRunRuntime {
   readUsage: (args: AgentRunIdArgs) => AgentRunUsage | null;
   /** How agent runs that ended in the last `days` went, per workflow and provider. */
   getInsights: (args?: { days?: number }) => Promise<AgentRunInsights>;
-  signOff: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
-  requestChanges: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
+  /** `guard` (Tars only) rechecks ownership inside the run's command queue, as pause and resume do. */
+  signOff: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
+  requestChanges: (args: AgentRunRequestChangesArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
+  /**
+   * The user's words to a primary run's current AI stage as a reply turn in
+   * its task, as if typed in the task's composer while the stage waits or
+   * runs between turns. Tars only; refused while a turn or a request is open.
+   */
+  replyAsUser: (args: { agentRunId: string; prompt: string }, guard?: (run: AgentRun) => void) => Promise<void>;
   reply: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
-  skipStage: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
-  retryStage: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
+  skipStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
+  retryStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   pause: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   resume: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
-  extend: (args: AgentRunExtendArgs) => Promise<AgentRunDetail>;
+  extend: (args: AgentRunExtendArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   takeOver: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   /** Hands a taken-over run back: a fresh attempt of its started current stage, then resume, in one transition. */
   restartStageAndResume: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
@@ -451,6 +458,15 @@ export interface AgentRunRuntime {
 
 function refuse(message: string): never {
   throw new AgentRunCommandError("refused", message);
+}
+
+/** Model-facing: what a refused report must restate, each criterion verbatim. */
+export function describeUnreportedCriteria(texts: string[]): string {
+  return [
+    "Not recorded: acceptanceCriteria must name every required criterion by its exact text, and these are missing:",
+    ...texts.map((text) => `- ${JSON.stringify(text)}`),
+    "Copy each text above into `text` unchanged, give its real status (met, unmet or unverified) and put evidence and caveats in `evidence`, not in `text`. Then call stave_report_stage again, or stave_block_stage if you cannot finish.",
+  ].join("\n").slice(0, 8_000);
 }
 
 function stageKey(record: Pick<AgentRunStageRecord, "agentRunId" | "stageId" | "attempt">) {
@@ -2401,19 +2417,44 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         recordEvent(detail.agentRun, { kind: "report-shared", idempotencyKey: null, detail: { threadUrl } });
         return { shared: true as const };
       }),
-    signOff: (args) =>
-      command(args.agentRunId, (aggregate) =>
-        signOffStage({ aggregate, expected: stageIdentity(args), now: now() }),
-      ),
-    requestChanges: (args) =>
-      command(args.agentRunId, (aggregate) =>
-        requestStageChanges({
+    signOff: (args, guard) =>
+      command(args.agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return signOffStage({ aggregate, expected: stageIdentity(args), now: now() });
+      }),
+    requestChanges: (args, guard) =>
+      command(args.agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return requestStageChanges({
           aggregate,
           expected: stageIdentity(args),
           feedback: args.feedback,
           now: now(),
-        }),
-      ),
+        });
+      }),
+    replyAsUser: ({ agentRunId, prompt }, guard) => enqueue(async () => {
+      const aggregate = requireAggregate(agentRunId);
+      guard?.(aggregate.agentRun);
+      const run = aggregate.agentRun, record = currentStageRecord(aggregate);
+      if (delegatedAuthority(run)) refuse("A delegated run takes replies through its parent.");
+      if (!isActiveAgentRunState(run.state) || workflowStageAt(run, run.currentStageIndex).kind !== "ai")
+        throw new AgentRunCommandError("not-active", "The run's current stage cannot take a reply.");
+      if (run.state !== "running" || !["running", "blocked", "stuck"].includes(record.status)) refuse("Resume the run before sending it a reply.");
+      const text = prompt.trim();
+      // The bound of a Tars task message (`TARS_TASK_TEXT_MAX_CHARS`).
+      if (!text || text.length > 8_000) refuse("Send a reply of bounded length.");
+      const snapshot = await readSnapshot(run);
+      if (!snapshot.exists || snapshot.archived || !snapshot.providerId || !snapshot.model) refuse("The run's task is unavailable.");
+      if (snapshot.activeTurnId) refuse("A turn is running in the task. Send the reply when it ends.");
+      if (snapshot.pendingApprovalCount || snapshot.pendingUserInputCount) refuse("Answer the request waiting in the task first.");
+      if (!(await deps.isReportingAvailable({ fresh: true }))) refuse("Local reporting tools must be available before the run continues.");
+      // Rechecked after the reads: nothing may take the run over in between.
+      guard?.(requireAggregate(agentRunId).agentRun);
+      // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
+      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text,
+        fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
+        runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
+    }),
     reply: (args) => enqueue(async () => {
       const aggregate = requireAggregate(args.agentRunId);
       const { agentRun } = aggregate, record = currentStageRecord(aggregate);
@@ -2441,19 +2482,19 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         `The user replied to the blocked stage:\n${feedback}\n\nHandle this guidance once, continue the current stage, and report or block it using the stage tools. Do not restart the original assignment.`, true);
       return detailOf(agentRun.id);
     }),
-    skipStage: (args) =>
-      command(args.agentRunId, async (aggregate) =>
-        skipStage({
-          aggregate,
-          expected: stageIdentity(args),
-          now: now(),
-          betweenTurns: !(await hasRunningTurn(aggregate.agentRun)),
-        }),
-      ),
-    retryStage: (args) =>
-      command(args.agentRunId, (aggregate) =>
-        retryStage({ aggregate, expected: stageIdentity(args), now: now() }),
-      ),
+    skipStage: (args, guard) =>
+      command(args.agentRunId, async (aggregate) => {
+        guard?.(aggregate.agentRun);
+        const betweenTurns = !(await hasRunningTurn(aggregate.agentRun));
+        // Rechecked after the await: nothing may take the run over in between.
+        guard?.(aggregate.agentRun);
+        return skipStage({ aggregate, expected: stageIdentity(args), now: now(), betweenTurns });
+      }),
+    retryStage: (args, guard) =>
+      command(args.agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return retryStage({ aggregate, expected: stageIdentity(args), now: now() });
+      }),
     pause: ({ agentRunId }, guard) => {
       guard?.(requireAggregate(agentRunId).agentRun);
       const releaseInterruption = interruptRun(agentRunId);
@@ -2469,8 +2510,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           refuse("Delegation admission did not finish. Stop or retry it from the parent task.");
         return resumeAgentRun({ aggregate, now: now() });
       }),
-    extend: ({ agentRunId, additionalTurns }) =>
-      command(agentRunId, (aggregate) => extendAgentRun({ aggregate, additionalTurns, now: now() })),
+    extend: ({ agentRunId, additionalTurns }, guard) =>
+      command(agentRunId, (aggregate) => {
+        guard?.(aggregate.agentRun);
+        return extendAgentRun({ aggregate, additionalTurns, now: now() });
+      }),
     takeOver: ({ agentRunId }, guard) => {
       guard?.(requireAggregate(agentRunId).agentRun);
       const releaseInterruption = interruptRun(agentRunId);
@@ -2544,6 +2588,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const input = StageCompleteReportInputSchema.parse(report);
         const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
         if (stage.kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
+        // Stave matches criteria only by exact text. A paraphrase would record a
+        // report that halts the run for its user, so it is refused here while the
+        // agent can still restate it in this turn.
+        const record = currentStageRecord(aggregate);
+        if (record.stageId === grant.stageId && record.attempt === grant.attempt) {
+          const unreported = unreportedStageCriteria(aggregate, record, input);
+          if (unreported.length) refuse(describeUnreportedCriteria(unreported));
+        }
         // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
         const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
         const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;

@@ -155,6 +155,7 @@ import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversa
   TarsMessageSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
   TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
+import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
 import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
@@ -863,6 +864,7 @@ const tarsApi: TarsBridgeApi = {
   publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
   reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
+  getBrief: async (input) => TarsBriefSchema.parse(await ipcRenderer.invoke(TARS_IPC.getBrief, TarsBriefInputSchema.parse(input))),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);
@@ -1857,6 +1859,10 @@ contextBridge.exposeInMainWorld("api", {
     pickDirectory: () => ipcRenderer.invoke("fs:pick-directory"),
     pickFiles: (args: { rootPath: string }) =>
       ipcRenderer.invoke("fs:pick-files", args),
+    importAttachments: (args: {
+      rootPath: string;
+      entries: Array<{ absolutePath: string } | { name: string; data: Uint8Array }>;
+    }) => ipcRenderer.invoke("fs:import-attachments", args),
     // Electron 32+ removed the legacy `File.path` property, so pasted/dropped
     // File objects can only be mapped to a disk path from the preload side.
     getPathForFile: (file: File) => webUtils.getPathForFile(file),

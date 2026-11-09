@@ -6,6 +6,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 import { Bot, Gauge, LayoutGrid } from "lucide-react";
 import { TarsMark } from "@/components/tars/TarsMark";
+import { describeTarsNavLabel, TarsNavStatus, useTarsNavCounts } from "@/components/tars/TarsNavStatus";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { transition } from "@/components/aui/recipes/transition";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
@@ -81,14 +82,16 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const selectAgent = useAgentsViewStore((state) => state.selectAgent);
   const selectedAgentId = useAgentsViewStore((state) => state.selectedAgentId);
   const agentsWithWork = useAgentsWithWork();
+  const tarsCounts = useTarsNavCounts();
   return (
     <>
       <AuiButton layout="host" type="button" onClick={openTars}
-        aria-current={surface === "tars" ? "page" : undefined}
+        aria-current={surface === "tars" ? "page" : undefined} aria-label={describeTarsNavLabel(tarsCounts)} data-tars-nav=""
         xstyle={[repositorySidebarStyles.navButton, transition.colors,
           surface === "tars" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
         <TarsMark className={sx(repositorySidebarStyles.iconMd)} />
         <span className={sx(styles.label)}>{i18n.t("shell:tars.title")}</span>
+        <TarsNavStatus counts={tarsCounts} />
       </AuiButton>
       {props.showFleetView ? (
         <AuiTooltip content={i18n.t("shell:sidebarPrimaryNav.fleetView")} shortcut={fleetShortcut}><AuiButton
@@ -184,6 +187,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const openUsage = useAppStore((state) => state.openUsage);
   const agentsWithWork = useAgentsWithWork();
   const agentsNeedYou = agentsWithWork.agents.some((agent) => agent.needsYou);
+  const tarsCounts = useTarsNavCounts();
   const railButton = (active: boolean) => [
     repositorySidebarStyles.collapsedButton,
     styles.railButton,
@@ -192,10 +196,13 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   return (
     <>
       <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm"
-        xstyle={railButton(surface === "tars")} onClick={openTars}
-        aria-label={i18n.t("shell:tars.title")} aria-current={surface === "tars" ? "page" : undefined} />}>
+        xstyle={railButton(surface === "tars")} onClick={openTars} data-tars-nav=""
+        aria-label={describeTarsNavLabel(tarsCounts)} aria-current={surface === "tars" ? "page" : undefined} />}>
         <TarsMark className={sx(repositorySidebarStyles.iconMd)} />
-      </TooltipTrigger><TooltipContent side="right">{i18n.t("shell:tars.title")}</TooltipContent></Tooltip>
+        {/* What needs the user outranks what runs: one dot, in that state's color. */}
+        {tarsCounts.needsYou ? <span aria-hidden className={sx(styles.railDot)} data-tars-nav-dot="needsYou" />
+          : tarsCounts.running ? <span aria-hidden className={sx(styles.railDot, styles.railDotRunning)} data-tars-nav-dot="running" /> : null}
+      </TooltipTrigger><TooltipContent side="right">{describeTarsNavLabel(tarsCounts)}</TooltipContent></Tooltip>
       {props.showFleetView ? (
         <Tooltip>
           <TooltipTrigger
@@ -252,6 +259,8 @@ const styles = stylex.create({
     backgroundColor: vars["--aui-color-warning"],
     boxShadow: `0 0 0 2px ${vars["--aui-color-canvas"]}`,
   },
+  /** Running work's dot wears the running state color, never the warning a wait on the user wears. */
+  railDotRunning: { backgroundColor: "var(--state-running)" },
   label: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },
   childRow: { height: 28, paddingInlineStart: vars["--aui-space-24"], fontSize: vars["--aui-font-size-caption"] },
 });

@@ -25,6 +25,7 @@ export const KEYBINDING_SCOPES = {
   editor: { parent: "workspace", exclusiveGroup: null },
   lens: { parent: "workspace", exclusiveGroup: null },
   "git-graph": { parent: "workspace", exclusiveGroup: null },
+  terminal: { parent: "workspace", exclusiveGroup: null },
 } as const satisfies Record<
   string,
   { parent: string | null; exclusiveGroup: string | null }

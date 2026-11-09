@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
+import type { TarsBrief, TarsBriefInput } from "./brief";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
@@ -32,6 +33,8 @@ export const TARS_IPC = Object.freeze({
   publishPreview: "tars:publish-preview",
   /** Moves queued work earlier or later in the queue (a menu item or a drag), on a `reprioritize` decision's host rules. */
   reprioritize: "tars:reprioritize",
+  /** Reads one responsibility's saved message and Tars's instruction (`TarsBrief`); changes nothing. */
+  getBrief: "tars:get-brief",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -57,12 +60,94 @@ export const TarsStateSchema = z.enum([
 ]);
 export type TarsState = z.infer<typeof TarsStateSchema>;
 
-/** The controls a click, Fleet, a task or an admitted model proposal can apply. */
-/** `acceptCompletion`: the user accepts work whose completion Stave could not verify. */
-export const TarsControlOperationSchema = z.enum(["pause", "resume", "cancel", "takeover", "handBack", "acceptCompletion"]);
+/**
+ * The controls a click, Fleet, a task or an admitted model proposal can apply.
+ * - `acceptCompletion`: the user accepts work whose completion Stave could not verify.
+ * - `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot.
+ * - `extend`, `retryStage`, `skipStage`, `signOff`: what the user can do to the
+ *   run in its task (add turns at its turn limit, ask a blocked or stuck stage
+ *   again, skip the current stage, approve a stage waiting for sign-off).
+ * - `approve`, `deny`, `answer`: answer a tool approval or a question waiting
+ *   in the work's task (or a helper's task), once; never an "always allow".
+ * - `message`: the user's words to the run as a reply in its task.
+ * - `requestChanges`: ask changes on a stage waiting for sign-off.
+ * The last five carry `input` (`TarsControlInputSchema`).
+ */
+export const TarsControlOperationSchema = z.enum([
+  "pause", "resume", "cancel", "takeover", "handBack", "acceptCompletion",
+  "startNow", "extend", "retryStage", "skipStage", "signOff",
+  "approve", "deny", "answer", "message", "requestChanges",
+]);
 export type TarsControlOperation = z.infer<typeof TarsControlOperationSchema>;
-/** The controls that reach the execution run; accepting completion only settles the responsibility. */
-export type TarsRunControlOperation = Exclude<TarsControlOperation, "acceptCompletion">;
+/** Answers to a request waiting in the work's task, and the user's words to its run; each carries `input`. */
+export type TarsTaskOperation = "approve" | "deny" | "answer" | "message" | "requestChanges";
+export const TARS_TASK_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["approve", "deny", "answer", "message", "requestChanges"]);
+export function isTarsTaskOperation(operation: TarsControlOperation): operation is TarsTaskOperation {
+  return TARS_TASK_OPERATIONS.has(operation);
+}
+/** The controls that reach the execution run; accepting completion only settles the responsibility, queued work has no run yet, and task operations answer in the task. */
+export type TarsRunControlOperation = Exclude<TarsControlOperation, "acceptCompletion" | "startNow" | TarsTaskOperation>;
+
+export const TARS_TASK_TEXT_MAX_CHARS = 8_000;
+/** A question's own answer key (its `key`, else its full text) is kept whole; a longer one is answered only in the task. */
+export const TARS_QUESTION_KEY_MAX_CHARS = 4_000;
+/**
+ * What a task operation says: `requestRef` is the `ref` of a request in the
+ * responsibility's `pendingRequests` (approve, deny, answer); `answers` maps
+ * each question's key to the answer (answer); `text` is the reply or the
+ * requested changes (message, requestChanges).
+ */
+export const TarsControlInputSchema = z.object({
+  requestRef: z.string().trim().min(1).max(64).optional(),
+  answers: z.record(z.string().min(1).max(TARS_QUESTION_KEY_MAX_CHARS), z.string().trim().min(1).max(2_000))
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((answers) => Object.keys(answers).length >= 1 && Object.keys(answers).length <= 12, "Answer 1 to 12 questions.").optional(),
+  text: z.string().trim().min(1).max(TARS_TASK_TEXT_MAX_CHARS).optional(),
+}).strict();
+export type TarsControlInput = z.infer<typeof TarsControlInputSchema>;
+
+/** Which `input` fields an operation needs; operations without `input` must not carry one. Null when the pair fits. */
+export function tarsControlInputProblem(operation: TarsControlOperation, input: TarsControlInput | undefined): string | null {
+  if (!isTarsTaskOperation(operation)) return input === undefined ? null : "This control takes no input."; // i18n-ignore: schema diagnostic
+  if (!input) return "This control needs input."; // i18n-ignore: schema diagnostic
+  const needs = operation === "answer" ? ["requestRef", "answers"] : operation === "approve" || operation === "deny" ? ["requestRef"] : ["text"];
+  const present = Object.entries(input).filter(([, value]) => value !== undefined).map(([key]) => key);
+  return needs.every((key) => present.includes(key)) && present.every((key) => needs.includes(key))
+    ? null : `This control takes exactly: ${needs.join(", ")}.`; // i18n-ignore: schema diagnostic
+}
+
+/**
+ * A request waiting on the user in the work's task, or in the task of a
+ * helper its run delegated to, as the host last observed it. Bounded copies
+ * for the conversation and the planner; the host reads the task again before
+ * answering. `ref` identifies it by workspace, task, message and provider
+ * request id together, since a provider may reuse a request id; a task
+ * operation names it by `ref`. `summary` is the tool's own description
+ * (untrusted text).
+ */
+export const TarsPendingRequestSchema = z.object({
+  kind: z.enum(["approval", "question"]),
+  ref: z.string().min(1).max(64),
+  requestId: z.string().min(1).max(256),
+  messageId: z.string().min(1).max(256),
+  taskId: IdSchema,
+  workspaceId: IdSchema,
+  toolName: z.string().max(120),
+  summary: z.string().max(500),
+  questions: z.array(z.object({
+    key: z.string().min(1).max(TARS_QUESTION_KEY_MAX_CHARS),
+    question: z.string().max(300),
+    options: z.array(z.string().max(120)).max(8),
+  }).strict()).max(12).optional(),
+}).strict();
+export type TarsPendingRequest = z.infer<typeof TarsPendingRequestSchema>;
+export const TARS_PENDING_REQUESTS_MAX = 6;
+/** Run commands the user could give in the task; each acts on the run's current stage or turn limit. */
+export const TARS_RUN_COMMAND_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["extend", "retryStage", "skipStage", "signOff"]);
+export type TarsRunCommandOperation = "extend" | "retryStage" | "skipStage" | "signOff";
+export function isTarsRunCommandOperation(operation: TarsControlOperation): operation is TarsRunCommandOperation {
+  return TARS_RUN_COMMAND_OPERATIONS.has(operation);
+}
 
 /**
  * Stable codes for the status sentences Tars itself writes into a
@@ -145,6 +230,19 @@ export const TarsWorkingChangesSchema = z.discriminatedUnion("kind", [
 export type TarsWorkingChanges = z.infer<typeof TarsWorkingChangesSchema>;
 
 /**
+ * The conversation message that admitted a work unit, saved with the unit:
+ * its `text` exactly as the user sent it, when it was sent, and, when the
+ * message was the user's choice on a Tars question, that question.
+ */
+export const TarsWorkRequestSchema = z.object({
+  messageId: IdSchema,
+  text: z.string().min(1).max(TARS_MESSAGE_MAX_CHARS),
+  sentAt: z.iso.datetime(),
+  answeredQuestion: z.string().min(1).max(500).optional(),
+}).strict();
+export type TarsWorkRequest = z.infer<typeof TarsWorkRequestSchema>;
+
+/**
  * Set only by host decision admission, never by the renderer's create request.
  * - `branchName`: the execution workspace's branch, built by
  *   `buildTarsBranchName` from the planner's proposal for the repository's
@@ -155,11 +253,20 @@ export type TarsWorkingChanges = z.infer<typeof TarsWorkingChangesSchema>;
  * - `workingChanges`: present only when the user's message asked to include
  *   their working changes; the execution workspace then starts from the
  *   snapshot commit instead of the branch.
+ * - `request`: the message that admitted the work (`TarsWorkRequestSchema`).
+ * - `delegatedInstruction`: the unit's instruction exactly as Tars proposed
+ *   it, before the host combined it with the user's message into the run
+ *   assignment (`instruction`).
+ *
+ * `request` and `delegatedInstruction` never change after admission; work
+ * admitted before they were saved has neither (see `buildTarsBrief`).
  */
 const TarsAdmittedWorkFields = {
   branchName: z.string().trim().min(1).max(TARS_BRANCH_NAME_MAX_CHARS + TARS_BRANCH_SUFFIX_CHARS).optional(),
   mandate: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS).optional(),
   workingChanges: TarsWorkingChangesSchema.optional(),
+  request: TarsWorkRequestSchema.optional(),
+  delegatedInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS).optional(),
 };
 
 /**
@@ -207,29 +314,58 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   /** The run's current stage attempt (`stageId#attempt`) when last observed waiting; part of an ask's identity. */
   observedStage: z.string().min(1).max(300).optional(),
   /**
+   * Set by observation while `waiting` because a helper of the run (a task the
+   * run delegated to, at any depth) waits on the user rather than the run's
+   * own task: that helper's task. Fleet shows the wait as rows on that task, so
+   * the tray counts those rows for this responsibility. Absent otherwise.
+   */
+  waitingTaskId: IdSchema.optional(),
+  /**
    * Host-only: the commit, push and draft pull request the user confirmed for
    * completed work, saved after each step so a retry resumes where it stopped.
    * No create request, control or renderer write can set it.
    */
   publication: TarsPublicationSchema.optional(),
+  /**
+   * The run's own current stage attempt (`stageId#attempt`) when last
+   * observed, while the run is active. A stage command (retry, skip, sign off)
+   * applies only to this attempt, so one confirmed for a stage never acts on
+   * a later one; a new attempt saves a change that makes older proposals stale.
+   */
+  activeStage: z.string().min(1).max(300).optional(),
+  /**
+   * Tool approvals and questions waiting in the work's task or a helper's
+   * task, as last observed while the work waits on them. A new or answered
+   * request saves a change, so a proposal made for an older set is stale.
+   */
+  pendingRequests: z.array(TarsPendingRequestSchema).max(TARS_PENDING_REQUESTS_MAX).optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 }).strict();
 export type TarsResponsibility = z.infer<typeof TarsResponsibilitySchema>;
 
+/** The saved texts a window reads one responsibility at a time (`tars:get-brief`), never with every snapshot. */
+const HOST_ONLY_TEXT = ["mandate", "request", "delegatedInstruction"] as const satisfies readonly (keyof TarsResponsibility)[];
+
 /**
  * The snapshot a window reads. A responsibility's `mandate` (up to
- * `TARS_MESSAGE_MAX_CHARS`) is the run's context, which no window shows, so it
- * stays in the host instead of crossing IPC on every change.
+ * `TARS_MESSAGE_MAX_CHARS`), the user's message that admitted it and Tars's
+ * own instruction can be long, so they stay in the host instead of crossing
+ * IPC on every change; the request view reads them on demand (`buildTarsBrief`).
  */
 export function tarsSnapshotForWindow<T extends { responsibilities: readonly TarsResponsibility[] }>(snapshot: T): T {
-  if (!snapshot.responsibilities.some((row) => row.mandate !== undefined)) return snapshot;
-  return { ...snapshot, responsibilities: snapshot.responsibilities.map(({ mandate: _mandate, ...row }) => row) };
+  if (!snapshot.responsibilities.some((row) => HOST_ONLY_TEXT.some((key) => row[key] !== undefined))) return snapshot;
+  return { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => {
+    const visible: Partial<TarsResponsibility> = { ...row };
+    for (const key of HOST_ONLY_TEXT) delete visible[key];
+    return visible as TarsResponsibility;
+  }) };
 }
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, publication: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
+  activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;
 
@@ -321,6 +457,8 @@ export interface TarsBridgeApi {
   previewPublish?(input: TarsPublishPreviewInput): Promise<TarsPublishPreview>;
   /** Moves queued work in the queue and records it like a click; absent on bridges that predate queue moves. */
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
+  /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
+  getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

@@ -32,6 +32,7 @@ import { tarsStyles as styles } from "./tars.styles";
 import { tarsTrayStyles as trayStyles } from "./tars-tray.styles";
 import { TarsConversation, type TarsConversationController, type TarsFlowContext } from "./TarsConversation";
 import { TarsSideView } from "./TarsSideView";
+import type { TarsBriefLoader } from "./use-tars-brief";
 import { TarsBlockedNextSteps } from "./TarsBlockedNextSteps";
 import { useTarsExecutionPath, useTarsRunDetails } from "./use-tars-run-details";
 import { TarsSettings } from "./TarsSettings";
@@ -40,6 +41,9 @@ import { TarsAwayRecap } from "./TarsAwayRecap";
 import { useTarsAwayWindow } from "./use-tars-away";
 import { useTarsPublish } from "./use-tars-publish";
 import { TarsPublishEntry } from "./TarsPublishEntry";
+import { TarsLiveLineFor, TarsRunningStrip } from "./TarsLiveProgress";
+import { isTarsWorkRunning } from "@/lib/tars/live-progress";
+import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
 import { tarsControlFailureKey, tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { listAgents } from "@/lib/agents/library";
 import { getAgentDisplayName } from "@/lib/agents/display";
@@ -166,7 +170,14 @@ export function TarsView() {
     },
     onShowInFleet: openFleetAt,
     onOpenSide: openSide,
+    liveFor: (responsibilityId) => {
+      const row = responsibilities.find((candidate) => candidate.id === responsibilityId);
+      return row && !isTarsResponsibilityTerminal(row) ? <TarsLiveLineFor row={row} run={tarsRunOf(row, runs)} /> : null;
+    },
   }), [openSide, responsibilities, runs]);
+  // The work that actually runs now, oldest first, for the composer band; queued, paused and waiting work is not in it.
+  const running = useMemo(() => responsibilities.filter(isTarsWorkRunning).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map((row) => ({ row, run: tarsRunOf(row, runs) })), [responsibilities, runs]);
   const decisions = useMemo(() => conversation.conversation && snapshot ? projectTarsDecisions({ messages: conversation.conversation.messages,
     receipts: conversation.conversation.receipts, records: conversation.conversation.records, answers: conversation.conversation.answers ?? [],
     activity: conversation.conversation.activity, responsibilities }) : [], [conversation.conversation, responsibilities, snapshot]);
@@ -262,10 +273,12 @@ export function TarsView() {
     if (side) { closeSide(); setPinnedTrayOpen(true); } else setPinnedTrayOpen(next);
   };
   const placement = tarsSideViewPlacement(size ?? { width: 0, height: 0 });
+  // The bridge object never changes, so the request view reads again only when its work changes.
+  const loadBrief = useMemo<TarsBriefLoader | undefined>(() => api?.getBrief ? (input) => api.getBrief!(input) : undefined, [api]);
   const sideView = side && sideRow ? <TarsSideView target={side.target} row={sideRow} run={tarsRunOf(sideRow, runs)} cwd={sideCwd}
     placement={pinned ? { placement: "column" } : { placement: "inline", maxHeight: placement.placement === "inline" ? placement.maxHeight : 0 }}
     records={conversation.conversation?.records.filter((record) => record.action.responsibilityId === sideRow.id) ?? []}
-    publishAction={sideRow.state === "completed" ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined}
+    publishAction={sideRow.state === "completed" ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined} loadBrief={loadBrief}
     takeFocus={side.takeFocus} onClose={closeSide} onKind={(kind) => setSide({ target: { responsibilityId: sideRow.id, kind }, takeFocus: false })}
     onQuote={(text) => controller.current?.insert(text)}
     blockedActions={sideRow.state !== "blocked" ? undefined : <TarsBlockedNextSteps row={sideRow} actions={trayActions} titleOf={(id) => responsibilities.find((row) => row.id === id)?.title}
@@ -290,7 +303,8 @@ export function TarsView() {
       <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
-        publish={publishing.available ? publishing.context : undefined} />
+        publish={publishing.available ? publishing.context : undefined}
+        composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} />
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
       {pinned && pinnedTrayOpen ? <aside id={trayId} hidden={Boolean(sideView)} className={sx(trayStyles.panel, Boolean(sideView) && trayStyles.panelFolded)} aria-labelledby={`${trayId}-title`} data-tars-tray-panel="">

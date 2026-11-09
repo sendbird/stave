@@ -15,7 +15,8 @@ describe("Tars tray read model", () => {
     expect(model.lanes.needsYou.map((value) => value.row.id)).toEqual([f.ids.release]);
     expect(model.lanes.running.map((value) => value.row.id)).toEqual([f.ids.billing, f.ids.migration]);
     expect(model.lanes.done.map((value) => value.row.id)).toEqual([f.ids.docs]);
-    expect(model.counts).toEqual({ needsYou: 1, running: 2, done: 1 });
+    // The in-progress lane holds the running fix and the work the user took over: only the fix counts as running.
+    expect(model.counts).toEqual({ needsYou: 1, running: 1, waiting: 0, yours: 1, done: 1 });
     // A Fleet row on the task (not a Tars kind) also lands the work in needs you, and counts as one more row.
     const signOff = { id: "agent-run-sign-off:run-billing", kind: "agent-run-sign-off", taskId: "task-billing", detail: "Stage 2 · Cause" };
     const both = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [...f.attentionItems, signOff], runs: f.runs, pendingDecisions: f.pendingDecisions });
@@ -90,6 +91,9 @@ describe("Tars tray read model", () => {
     expect(card(model, f.ids.migration).owner).toBe("you");
     const state = (value: TarsResponsibility["state"]) => tarsControlsFor({ state: value });
     expect(state("running")).toEqual(["pause", "takeover", "cancel"]);
+    // Queued work leads with starting it now, ahead of its place in the queue.
+    expect(state("queued")).toEqual(["startNow", "pause", "takeover", "cancel"]);
+    expect(tarsCardActions({ controls: state("queued"), attention: [], fleetTarget: null }).primary).toEqual({ kind: "control", operation: "startNow" });
     expect(state("paused")).toEqual(["resume", "takeover", "cancel"]);
     expect(state("blocked")).toEqual(["resume", "takeover", "cancel"]);
     expect(state("takenOver")).toEqual(["handBack", "cancel"]);

@@ -12,6 +12,7 @@ import {
   isTodoToolName,
   resolveToolNameLeaf,
 } from "@/lib/providers/tool-activity";
+import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 
 export const NOW_LINE_MIN_INTERVAL_MS = 1_500;
 
@@ -96,6 +97,25 @@ export function describeToolActivity(args: { toolName: string; detail?: string }
   const server = /^mcp__([^_]+(?:_[^_]+)*)__/.exec(args.toolName.trim())?.[1];
   if (server) return i18n.t("agentRuns:nowLine.describeToolActivity3", { value1: server.replaceAll("_", " ") });
   return i18n.t("agentRuns:nowLine.describeToolActivity4");
+}
+
+/** The running turn's latest tool call, or null when the turn ended or none was observed. */
+export function selectLatestTurnTool(activity: ProviderTurnActivitySnapshot | undefined) {
+  if (!activity || activity.completedAt) return null;
+  let latest: ProviderTurnActivitySnapshot["workItemsById"][string] | null = null;
+  for (const id of activity.orderedWorkItemIds) {
+    const item = activity.workItemsById[id];
+    if (item?.kind === "tool" && (!latest || item.updatedAt >= latest.updatedAt)) latest = item;
+  }
+  return latest;
+}
+
+/** The phrase for the running turn's latest tool call, or null. */
+export function selectNowPhrase(activity: ProviderTurnActivitySnapshot | undefined): string | null {
+  if (!activity || activity.completedAt) return null;
+  const latest = selectLatestTurnTool(activity);
+  if (!latest) return i18n.t("agentRuns:agentRunBar.thinking");
+  return describeToolActivity({ toolName: latest.toolName ?? latest.title, detail: latest.detail });
 }
 
 export interface NowLineState {

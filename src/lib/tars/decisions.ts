@@ -48,7 +48,25 @@ export function parseTarsDecisionId(id: string): TarsParsedDecisionId | null {
   return unverified ? { kind: "unverifiedCompletion", responsibilityId: unverified[1]!, revision: Number(unverified[2]) } : null;
 }
 
-type ControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation">;
+type ControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation" | "input">;
+
+/**
+ * What a task operation's card shows before the user confirms it: the
+ * request it answers (tool and summary, as the task last showed them) or the
+ * exact words it sends. Null for controls without input.
+ */
+export function describeTarsControlInput(control: ControlRequest, row: Pick<TarsResponsibility, "pendingRequests"> | undefined):
+  { key: "request" | "answers" | "words"; value: string } | null {
+  const input = control.input;
+  if (!input) return null;
+  if (input.text !== undefined) return { key: "words", value: input.text };
+  const request = row?.pendingRequests?.find((entry) => entry.ref === input.requestRef);
+  if (input.answers) {
+    const questionOf = (key: string) => request?.questions?.find((question) => question.key === key)?.question || key;
+    return { key: "answers", value: Object.entries(input.answers).map(([key, answer]) => `${questionOf(key)} → ${answer}`).join("\n") };
+  }
+  return { key: "request", value: request ? [request.toolName, request.summary].filter(Boolean).join(": ") : input.requestRef ?? "" };
+}
 
 /**
  * One option. `label` null names a Stave option by its control. `verify` only
@@ -211,7 +229,8 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
       const record = records.get(id) ?? null;
       // A proposal refused when it was made stays a receipt line with its reason.
       if (receipt.status !== "proposed" && !answer && !record) continue;
-      const control = { responsibilityId: action.responsibilityId, expectedRevision: action.expectedRevision, operation: action.operation };
+      const control = { responsibilityId: action.responsibilityId, expectedRevision: action.expectedRevision, operation: action.operation,
+        ...(action.input ? { input: action.input } : {}) };
       const retiredBy = latestControl.get(action.responsibilityId) !== receipt.messageId ? "superseded"
         : retiredBySibling(receipt, id) ? "settled" : null;
       views.push(settle({ id, kind: "confirm", messageId: receipt.messageId, actionIndex: receipt.actionIndex, question: null,
@@ -232,7 +251,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
         targets: [...targets].map(([responsibilityId, expectedRevision]) => ({ responsibilityId, expectedRevision })),
         options: action.options.map((option): TarsDecisionOption => option.effect.kind === "control"
           ? { kind: "control", control: { responsibilityId: option.effect.responsibilityId, expectedRevision: option.effect.expectedRevision,
-            operation: option.effect.operation }, label: option.label, rationale: option.rationale }
+            operation: option.effect.operation, ...(option.effect.input ? { input: option.effect.input } : {}) }, label: option.label, rationale: option.rationale }
           : { kind: "reply", label: option.label, rationale: option.rationale }),
         recommended: safe.recommended ?? null, answer, record: null, since: receipt.updatedAt }, retiredBy, message.origin, later));
     }

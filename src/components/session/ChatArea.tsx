@@ -299,6 +299,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
     tabIndex: -1,
     "data-testid": "session-area",
     "data-task-abort-scope": "",
+    // Cmd/Ctrl+F from anywhere in this area (the composer included) finds in its transcript.
+    "data-conversation-find-scope": "",
     onMouseDownCapture: handleSessionAreaMouseDownCapture,
     className: sx(chatAreaStyles.sessionArea),
   } as const;

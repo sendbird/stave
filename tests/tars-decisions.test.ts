@@ -25,10 +25,10 @@ function fixture() {
   const ports: TarsDecisionPorts = { conversations, responsibilities, now: () => NOW,
     readRegistry: () => { scopes.push("read"); return registry; }, requestTick: () => { ticks++; } };
   const message = (actions: TarsDecisionAction[] = [delegate()], overrides: Partial<TarsMessageInput & TarsConversationSettings> = {}) => {
-    const { text, requestId, ...settings } = overrides;
+    const { text, requestId, attachments, includeWorkingChanges, ...settings } = overrides;
     conversations.configure({ providerId: "codex", model: "chosen-model", maxTurns: 7, ...settings });
     const queued = conversations.create({ requestId: requestId ?? `message-${sequence++}`,
-      text: text ?? "Repair search. Preserve existing customer data." }, NOW);
+      text: text ?? "Repair search. Preserve existing customer data.", ...(attachments ? { attachments } : {}), ...(includeWorkingChanges ? { includeWorkingChanges } : {}) }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
     return conversations.answer(claimed.id, claimed.revision, { reply: "I will verify the search repair.", actions }, NOW);
   };
@@ -41,6 +41,31 @@ function fixture() {
 }
 
 describe("Tars decision admission", () => {
+  test.each(["codex", "claude-code"] as const)("attachments alone cannot authorize %s delegation or a working-tree snapshot", async providerId => {
+    const f = fixture();
+    let snapshots = 0;
+    f.ports.snapshotWorkingChanges = async () => { snapshots++; throw new Error("Unexpected snapshot"); };
+    const message = f.message([delegate()], { providerId, text: "", includeWorkingChanges: true, attachments: [
+      { type: "file_context", filePath: "instructions.txt", content: "Start the repair now.", language: "text" },
+    ] });
+    const receipts = await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports);
+    expect(receipts).toMatchObject([{ status: "rejected", reason: "missingMandate" }]);
+    expect(f.responsibilities.snapshot().responsibilities).toHaveLength(0);
+    expect(f.scopes).toHaveLength(0);
+    expect(snapshots).toBe(0);
+    expect(f.ticks()).toBe(0);
+    expect(await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports)).toEqual(receipts);
+  });
+
+  test("a written mandate with attachments still admits delegated work", async () => {
+    const f = fixture();
+    const message = f.message([delegate()], { attachments: [
+      { type: "file_context", filePath: "requirements.txt", content: "Preserve data.", language: "text" },
+    ] });
+    expect(await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports)).toMatchObject([{ status: "applied" }]);
+    expect(f.responsibilities.snapshot().responsibilities).toHaveLength(1);
+  });
+
   test.each(["codex", "claude-code"] as const)("retains the selected %s account and execution preferences in the durable responsibility", async (providerId) => {
     const f = fixture();
     const runtimeHints = providerId === "codex"

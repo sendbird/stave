@@ -1353,6 +1353,77 @@ describe("stave_delegate_task defaults", () => {
     const nested = await harness.coordinator.delegateFromTool({ prompt: "Go deeper." }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE });
     expect(nested).toMatchObject({ accepted: false, reason: "invalid-request" });
     expect(nested.message).toContain("cannot start subagents");
+    // A delegation still starting its turn has no turn id yet: any turn in the task counts as its turn.
+    const starting = await harness.coordinator.delegateFromTool({ prompt: "Go deeper." }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE, turnId: "some-turn" });
+    expect(starting).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(starting.message).toContain("cannot start subagents");
+    expect(harness.runTaskCalls).toHaveLength(1);
+  });
+
+  test("a follow-up turn stays one level deep, also while it is starting and the delegation still reads waiting", async () => {
+    type Response = Awaited<ReturnType<ReturnType<typeof createHarness>["coordinator"]["delegateFromTool"]>>;
+    let calls = 0;
+    let beforeStart: Response | undefined;
+    let afterStart: Response | undefined;
+    let ledgerError: Response | undefined;
+    let harness: ReturnType<typeof createHarness>;
+    harness = createHarness({ realPolicy: true, runTask: async (args) => {
+      const turnId = `turn-${++calls}`;
+      if (calls === 2) {
+        const caller = { taskId: args.taskId, workspaceId: PARENT_WORKSPACE };
+        // The follow-up's turn runs, but its id is not on the ledger yet.
+        beforeStart = await harness.coordinator.delegateFromTool({ prompt: "Go deeper.", access: "read-only", provider: "codex", wait: false }, { ...caller, turnId });
+        args.onStarted?.(turnId);
+        afterStart = await harness.coordinator.delegateFromTool({ prompt: "Go deeper.", access: "read-only", provider: "codex", wait: false }, { ...caller, turnId });
+        const listByOwnedTask = harness.store.listAggregatesByOwnedTask.bind(harness.store);
+        harness.store.listAggregatesByOwnedTask = () => { throw new Error("ledger unavailable"); };
+        ledgerError = await harness.coordinator.delegateFromTool({ prompt: "Go deeper.", access: "read-only", provider: "codex", wait: false }, { ...caller, turnId: "user-turn" });
+        harness.store.listAggregatesByOwnedTask = listByOwnedTask;
+        return { turnId };
+      }
+      args.onStarted?.(turnId);
+      return { turnId };
+    } });
+    const child = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("waiting");
+    const follow = await harness.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "And the tests?", permissionProfile: "guided",
+      expected: { delegatedTaskId: child.child!.delegatedTaskId, delegatedWorkspaceId: child.child!.delegatedWorkspaceId, attempt: 1 } });
+    expect(follow.accepted).toBe(true);
+    await harness.coordinator.waitForInFlight();
+    expect(beforeStart).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(beforeStart?.message).toContain("cannot start subagents");
+    expect(afterStart).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(afterStart?.message).toContain("cannot start subagents");
+    // A ledger that cannot be read starts nothing and says why, instead of calling the caller a subagent.
+    expect(ledgerError).toMatchObject({ accepted: false, reason: "invalid-state" });
+    expect(ledgerError?.message).not.toContain("cannot start subagents");
+    expect(harness.runTaskCalls).toHaveLength(2);
+  });
+
+  test("the delegated turn stays one level deep, while the user's own later turn in that task may delegate", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "codex" }, runTask: async (args) => {
+      const turnId = `turn-${args.taskId}`;
+      args.onStarted?.(turnId);
+      return { turnId, responseText: "done" };
+    } });
+    const child = await harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only" }, { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE });
+    expect(child).toMatchObject({ accepted: true, child: { phase: "completed" } });
+    const childTaskId = child.child!.delegatedTaskId;
+    const delegatedTurnId = child.child!.delegatedTurnId!;
+    expect(delegatedTurnId).toBe(`turn-${childTaskId}`);
+    harness.statusByTaskId.set(childTaskId, IDLE_STATUS);
+    const fromDelegatedTurn = await harness.coordinator.delegateFromTool({ prompt: "Go deeper.", access: "read-only" }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE, turnId: delegatedTurnId });
+    expect(fromDelegatedTurn).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(fromDelegatedTurn.message).toContain("cannot start subagents");
+    // A caller that cannot name its turn is treated as the delegation's.
+    const unnamed = await harness.coordinator.delegateFromTool({ prompt: "Go deeper.", access: "read-only" }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE });
+    expect(unnamed).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(harness.runTaskCalls).toHaveLength(1);
+    // The user later runs their own turn (or their own agent run) in the task the delegation created.
+    const fromUserTurn = await harness.coordinator.delegateFromTool({ prompt: "Review the fix.", access: "read-only" }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE, turnId: "user-turn", agentRunId: "user-run" });
+    expect(fromUserTurn).toMatchObject({ accepted: true, child: { parentTaskId: childTaskId, phase: "completed" } });
+    expect(harness.runTaskCalls).toHaveLength(2);
   });
 
   test("two read-only subagents on Claude and Codex run in parallel in one workspace and answer inline", async () => {

@@ -105,12 +105,12 @@ test.describe("transcript column", () => {
     });
   }
 
-  test("a finished turn's history stays one line without repeating its answer", async ({ page }) => {
+  test("a finished turn's summary and counts stay on one line", async ({ page }) => {
     await seedConversation(page);
     await openConversation(page, 1024);
     const trigger = page.locator('[data-message-id="a2"] button[aria-expanded]').first();
-    await expect(trigger).toHaveText("Work history");
-    await expect(trigger).not.toContainText("1 command");
+    await expect(trigger).toContainText("One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite");
+    await expect(trigger).toContainText("1 tool call");
     const line = await trigger.evaluate((element) => {
       const own = element.getBoundingClientRect();
       const middle = own.top + own.height / 2;

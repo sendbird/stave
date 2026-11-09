@@ -950,6 +950,14 @@
         "title": "Send review comments",
         "description": "Send the task's pending diff review comments to the agent from the diff editor."
       },
+      "conversationFind": {
+        "title": "Find in conversation",
+        "description": "Search the loaded messages of the conversation. Works from the transcript or the composer."
+      },
+      "terminalFind": {
+        "title": "Find in terminal",
+        "description": "Search the terminal's retained output."
+      },
       "gitGraphSearch": {
         "title": "Search the commit graph",
         "description": "Focus the commit graph search field."
@@ -1073,6 +1081,7 @@
         "editor": "Editor",
         "lens": "Lens",
         "gitGraph": "Commit graph",
+        "terminal": "Terminal",
         "sideChat": "Side question panel"
       },
       "or": "or",
@@ -1105,7 +1114,7 @@
     "identity": "Name and standing instructions",
     "name": "Name",
     "instructions": "Standing instructions",
-    "instructionsHint": "These instructions guide new work. They do not grant permissions or change work already running.",
+    "instructionsHint": "Applies to new work; does not grant permissions.",
     "save": "Save",
     "delegate": "Delegate a responsibility",
     "outcome": "Outcome",
@@ -1149,7 +1158,12 @@
       "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
       "notByFollowUp": "Tars proposed this in an automatic follow-up, which cannot do it. Ask Tars yourself if you want it.",
       "notQueued": "Only queued work can change its place in the queue.",
-      "queueEdge": "This work is already at that end of the queue."
+      "queueEdge": "This work is already at that end of the queue.",
+      "notStartable": "Only queued work that has not started can start now.",
+      "runRefused": "The run cannot do this in its current state. Open its task to see what it is waiting for.",
+      "resumeFirst": "This work is paused. Resume it before asking its run to do this.",
+      "requestUnavailable": "That request is no longer waiting in the task. Check the task, or ask Tars again.",
+      "taskBusy": "A turn is running in the task. Say it in the task, or ask again when the turn ends."
     },
     "close": "Close Tars",
     "availability": "Work continues while Stave is running and recovers after restart. It does not run while Stave is closed or this computer is asleep.",
@@ -1179,8 +1193,8 @@
       "activityHint": "Owned work and its current state.",
       "noWork": "No work is running on your behalf yet. Describe an outcome in the conversation to get started.",
       "settings": "Conversation settings",
-      "settingsDescription": "These preferences belong to your global conversation.",
-      "settingsHint": "Model and account changes apply to new messages. Existing messages and work keep their saved choices. Each delegated work unit, with its helpers, can use up to the turn limit.",
+      "settingsDescription": "Preferences for this conversation.",
+      "settingsHint": "Changes apply to new messages and work. The turn limit includes helpers.",
       "accountLabel": "Account",
       "searchAccounts": "Search accounts",
       "noAccounts": "No matching accounts",
@@ -1192,7 +1206,7 @@
       "cancel": "Cancel message",
       "confirm": "Confirm",
       "loading": "Loading conversation…",
-      "empty": "One conversation for your work. Ask for a status update, work through a decision, or describe what you want done.",
+      "empty": "Ask about progress, work through a decision, or describe what you want done.",
       "unavailable": "Conversation requires a desktop version with the resident conversation service.",
       "failed": "The conversation request failed. Your draft and saved messages are preserved.",
       "failedHint": "This message will not run again automatically. Send a new message to try again.",
@@ -1204,7 +1218,17 @@
         "cancel": "Cancel {{title}}",
         "takeover": "Take over {{title}}",
         "handBack": "Hand back {{title}}",
-        "acceptCompletion": "Accept {{title}} as done"
+        "acceptCompletion": "Accept {{title}} as done",
+        "startNow": "Start {{title}} now",
+        "extend": "Add turns to {{title}}",
+        "retryStage": "Retry the current stage of {{title}}",
+        "skipStage": "Skip the current stage of {{title}}",
+        "signOff": "Sign off the waiting stage of {{title}}",
+        "approve": "Approve a request in {{title}}",
+        "deny": "Deny a request in {{title}}",
+        "answer": "Answer a question in {{title}}",
+        "message": "Send your words to {{title}}",
+        "requestChanges": "Request changes on the waiting stage of {{title}}"
       },
       "records": {
         "click": {
@@ -1214,7 +1238,17 @@
             "cancel": "Cancel pending · click",
             "takeover": "Take over pending · click",
             "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click"
+            "acceptCompletion": "Accept as done pending · click",
+            "startNow": "Start now pending · click",
+            "extend": "Add turns pending · click",
+            "retryStage": "Retry stage pending · click",
+            "skipStage": "Skip stage pending · click",
+            "signOff": "Sign off pending · click",
+            "approve": "Approve request pending · click",
+            "deny": "Deny request pending · click",
+            "answer": "Answer question pending · click",
+            "message": "Send to task pending · click",
+            "requestChanges": "Request changes pending · click"
           },
           "applied": {
             "pause": "Paused · click",
@@ -1222,7 +1256,17 @@
             "cancel": "Cancelled · click",
             "takeover": "Taken over · click",
             "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click"
+            "acceptCompletion": "Accepted as done · click",
+            "startNow": "Started now · click",
+            "extend": "Turns added · click",
+            "retryStage": "Stage retried · click",
+            "skipStage": "Stage skipped · click",
+            "signOff": "Signed off · click",
+            "approve": "Request approved · click",
+            "deny": "Request denied · click",
+            "answer": "Question answered · click",
+            "message": "Sent to task · click",
+            "requestChanges": "Changes requested · click"
           },
           "rejected": {
             "pause": "Pause not applied · click",
@@ -1230,7 +1274,17 @@
             "cancel": "Cancel not applied · click",
             "takeover": "Take over not applied · click",
             "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click"
+            "acceptCompletion": "Accept as done not applied · click",
+            "startNow": "Start now not applied · click",
+            "extend": "Add turns not applied · click",
+            "retryStage": "Retry stage not applied · click",
+            "skipStage": "Skip stage not applied · click",
+            "signOff": "Sign off not applied · click",
+            "approve": "Approve request not applied · click",
+            "deny": "Deny request not applied · click",
+            "answer": "Answer question not applied · click",
+            "message": "Send to task not applied · click",
+            "requestChanges": "Request changes not applied · click"
           }
         },
         "fleet": {
@@ -1240,7 +1294,17 @@
             "cancel": "Cancel pending · Fleet",
             "takeover": "Take over pending · Fleet",
             "handBack": "Hand back pending · Fleet",
-            "acceptCompletion": "Accept as done pending · Fleet"
+            "acceptCompletion": "Accept as done pending · Fleet",
+            "startNow": "Start now pending · Fleet",
+            "extend": "Add turns pending · Fleet",
+            "retryStage": "Retry stage pending · Fleet",
+            "skipStage": "Skip stage pending · Fleet",
+            "signOff": "Sign off pending · Fleet",
+            "approve": "Approve request pending · Fleet",
+            "deny": "Deny request pending · Fleet",
+            "answer": "Answer question pending · Fleet",
+            "message": "Send to task pending · Fleet",
+            "requestChanges": "Request changes pending · Fleet"
           },
           "applied": {
             "pause": "Paused · Fleet",
@@ -1248,7 +1312,17 @@
             "cancel": "Cancelled · Fleet",
             "takeover": "Taken over · Fleet",
             "handBack": "Handed back · Fleet",
-            "acceptCompletion": "Accepted as done · Fleet"
+            "acceptCompletion": "Accepted as done · Fleet",
+            "startNow": "Started now · Fleet",
+            "extend": "Turns added · Fleet",
+            "retryStage": "Stage retried · Fleet",
+            "skipStage": "Stage skipped · Fleet",
+            "signOff": "Signed off · Fleet",
+            "approve": "Request approved · Fleet",
+            "deny": "Request denied · Fleet",
+            "answer": "Question answered · Fleet",
+            "message": "Sent to task · Fleet",
+            "requestChanges": "Changes requested · Fleet"
           },
           "rejected": {
             "pause": "Pause not applied · Fleet",
@@ -1256,7 +1330,17 @@
             "cancel": "Cancel not applied · Fleet",
             "takeover": "Take over not applied · Fleet",
             "handBack": "Hand back not applied · Fleet",
-            "acceptCompletion": "Accept as done not applied · Fleet"
+            "acceptCompletion": "Accept as done not applied · Fleet",
+            "startNow": "Start now not applied · Fleet",
+            "extend": "Add turns not applied · Fleet",
+            "retryStage": "Retry stage not applied · Fleet",
+            "skipStage": "Skip stage not applied · Fleet",
+            "signOff": "Sign off not applied · Fleet",
+            "approve": "Approve request not applied · Fleet",
+            "deny": "Deny request not applied · Fleet",
+            "answer": "Answer question not applied · Fleet",
+            "message": "Send to task not applied · Fleet",
+            "requestChanges": "Request changes not applied · Fleet"
           }
         },
         "task": {
@@ -1266,7 +1350,17 @@
             "cancel": "Cancel pending · task view",
             "takeover": "Take over pending · task view",
             "handBack": "Hand back pending · task view",
-            "acceptCompletion": "Accept as done pending · task view"
+            "acceptCompletion": "Accept as done pending · task view",
+            "startNow": "Start now pending · task view",
+            "extend": "Add turns pending · task view",
+            "retryStage": "Retry stage pending · task view",
+            "skipStage": "Skip stage pending · task view",
+            "signOff": "Sign off pending · task view",
+            "approve": "Approve request pending · task view",
+            "deny": "Deny request pending · task view",
+            "answer": "Answer question pending · task view",
+            "message": "Send to task pending · task view",
+            "requestChanges": "Request changes pending · task view"
           },
           "applied": {
             "pause": "Paused · task view",
@@ -1274,7 +1368,17 @@
             "cancel": "Cancelled · task view",
             "takeover": "Taken over · task view",
             "handBack": "Handed back · task view",
-            "acceptCompletion": "Accepted as done · task view"
+            "acceptCompletion": "Accepted as done · task view",
+            "startNow": "Started now · task view",
+            "extend": "Turns added · task view",
+            "retryStage": "Stage retried · task view",
+            "skipStage": "Stage skipped · task view",
+            "signOff": "Signed off · task view",
+            "approve": "Request approved · task view",
+            "deny": "Request denied · task view",
+            "answer": "Question answered · task view",
+            "message": "Sent to task · task view",
+            "requestChanges": "Changes requested · task view"
           },
           "rejected": {
             "pause": "Pause not applied · task view",
@@ -1282,7 +1386,17 @@
             "cancel": "Cancel not applied · task view",
             "takeover": "Take over not applied · task view",
             "handBack": "Hand back not applied · task view",
-            "acceptCompletion": "Accept as done not applied · task view"
+            "acceptCompletion": "Accept as done not applied · task view",
+            "startNow": "Start now not applied · task view",
+            "extend": "Add turns not applied · task view",
+            "retryStage": "Retry stage not applied · task view",
+            "skipStage": "Skip stage not applied · task view",
+            "signOff": "Sign off not applied · task view",
+            "approve": "Approve request not applied · task view",
+            "deny": "Deny request not applied · task view",
+            "answer": "Answer question not applied · task view",
+            "message": "Send to task not applied · task view",
+            "requestChanges": "Request changes not applied · task view"
           }
         },
         "key": {
@@ -1292,7 +1406,17 @@
             "cancel": "Cancel pending · click",
             "takeover": "Take over pending · click",
             "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click"
+            "acceptCompletion": "Accept as done pending · click",
+            "startNow": "Start now pending · click",
+            "extend": "Add turns pending · click",
+            "retryStage": "Retry stage pending · click",
+            "skipStage": "Skip stage pending · click",
+            "signOff": "Sign off pending · click",
+            "approve": "Approve request pending · click",
+            "deny": "Deny request pending · click",
+            "answer": "Answer question pending · click",
+            "message": "Send to task pending · click",
+            "requestChanges": "Request changes pending · click"
           },
           "applied": {
             "pause": "Paused · click",
@@ -1300,7 +1424,17 @@
             "cancel": "Cancelled · click",
             "takeover": "Taken over · click",
             "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click"
+            "acceptCompletion": "Accepted as done · click",
+            "startNow": "Started now · click",
+            "extend": "Turns added · click",
+            "retryStage": "Stage retried · click",
+            "skipStage": "Stage skipped · click",
+            "signOff": "Signed off · click",
+            "approve": "Request approved · click",
+            "deny": "Request denied · click",
+            "answer": "Question answered · click",
+            "message": "Sent to task · click",
+            "requestChanges": "Changes requested · click"
           },
           "rejected": {
             "pause": "Pause not applied · click",
@@ -1308,7 +1442,17 @@
             "cancel": "Cancel not applied · click",
             "takeover": "Take over not applied · click",
             "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click"
+            "acceptCompletion": "Accept as done not applied · click",
+            "startNow": "Start now not applied · click",
+            "extend": "Add turns not applied · click",
+            "retryStage": "Retry stage not applied · click",
+            "skipStage": "Skip stage not applied · click",
+            "signOff": "Sign off not applied · click",
+            "approve": "Approve request not applied · click",
+            "deny": "Deny request not applied · click",
+            "answer": "Answer question not applied · click",
+            "message": "Send to task not applied · click",
+            "requestChanges": "Request changes not applied · click"
           }
         },
         "words": {
@@ -1318,7 +1462,17 @@
             "cancel": "Cancel pending · click",
             "takeover": "Take over pending · click",
             "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click"
+            "acceptCompletion": "Accept as done pending · click",
+            "startNow": "Start now pending · click",
+            "extend": "Add turns pending · click",
+            "retryStage": "Retry stage pending · click",
+            "skipStage": "Skip stage pending · click",
+            "signOff": "Sign off pending · click",
+            "approve": "Approve request pending · click",
+            "deny": "Deny request pending · click",
+            "answer": "Answer question pending · click",
+            "message": "Send to task pending · click",
+            "requestChanges": "Request changes pending · click"
           },
           "applied": {
             "pause": "Paused · click",
@@ -1326,7 +1480,17 @@
             "cancel": "Cancelled · click",
             "takeover": "Taken over · click",
             "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click"
+            "acceptCompletion": "Accepted as done · click",
+            "startNow": "Started now · click",
+            "extend": "Turns added · click",
+            "retryStage": "Stage retried · click",
+            "skipStage": "Stage skipped · click",
+            "signOff": "Signed off · click",
+            "approve": "Request approved · click",
+            "deny": "Request denied · click",
+            "answer": "Question answered · click",
+            "message": "Sent to task · click",
+            "requestChanges": "Changes requested · click"
           },
           "rejected": {
             "pause": "Pause not applied · click",
@@ -1334,7 +1498,17 @@
             "cancel": "Cancel not applied · click",
             "takeover": "Take over not applied · click",
             "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click"
+            "acceptCompletion": "Accept as done not applied · click",
+            "startNow": "Start now not applied · click",
+            "extend": "Add turns not applied · click",
+            "retryStage": "Retry stage not applied · click",
+            "skipStage": "Skip stage not applied · click",
+            "signOff": "Sign off not applied · click",
+            "approve": "Approve request not applied · click",
+            "deny": "Deny request not applied · click",
+            "answer": "Answer question not applied · click",
+            "message": "Send to task not applied · click",
+            "requestChanges": "Request changes not applied · click"
           }
         },
         "move": {
@@ -1393,18 +1567,23 @@
       "publish": "Publish {{title}} as a draft pull request",
       "workingChanges": {
         "toggle": "Include my working changes",
-        "hint": "Work this message starts begins from the target workspace's uncommitted changes, including new files. Ignored files are left out. Turns off after sending.",
+        "hint": "Start this message’s work from uncommitted changes, including new files. Ignored files stay out. Resets after sending.",
         "badge": "Includes working changes"
+      },
+      "attachments": {
+        "select": "Select files",
+        "sent": "Attached files",
+        "failed": "Could not attach files. Use up to 8 text files (32 KB total) or PNG, JPEG, GIF or WebP images (4 MB each, 6 MB total)."
       }
     },
     "execution": {
       "model": "Execution model",
       "auto": "Automatic",
       "autoDescription": "Stave Auto picks the model for each step of delegated work.",
-      "autoHint": "Delegated work routes automatically, and reviews can run on the other provider. The conversation model above is used only for talking with Tars.",
-      "pinnedHint": "Delegated work and its helpers, including reviewers, stay on this model and provider. Choose Automatic to let Stave Auto route each step.",
+      "autoHint": "Stave chooses a model for each step. Reviews may use another provider.",
+      "pinnedHint": "All work and helpers use this model. Choose Automatic to allow routing.",
       "systemAccount": "This model runs with the {{provider}} System default account.",
-      "unsupported": "Tars runs delegated work only on Claude and Codex. Cursor, Kiro and OpenCode are not supported."
+      "unsupported": "Delegated work uses Claude or Codex."
     },
     "agents": {
       "title": "Agents Tars may use",
@@ -1417,6 +1596,7 @@
       "missing": "This agent is no longer available. Uncheck it to remove it."
     },
     "delegateReasons": {
+      "missingMandate": "Attachments alone do not authorize work. Write what you want Tars to do, then send it with the files.",
       "agentUnknown": "Tars named an agent that does not exist or is archived, so this work was not started.",
       "agentNotAllowed": "This saved agent is not allowed for Tars. Allow it in Tars settings, then ask again.",
       "agentPublishes": "This agent publishes or delivers work outside the workspace, which needs a separate request from you, so this work was not started.",
@@ -1445,6 +1625,10 @@
       "indicator": {
         "running_one": "{{count}} running",
         "running_other": "{{count}} running",
+        "waiting_one": "{{count}} waiting",
+        "waiting_other": "{{count}} waiting",
+        "yours_one": "{{count}} yours",
+        "yours_other": "{{count}} yours",
         "needsYou_one": "{{count}} needs you",
         "needsYou_other": "{{count}} need you",
         "done_one": "{{count}} done",
@@ -1459,7 +1643,7 @@
       },
       "lanes": {
         "needsYou": "Needs you",
-        "running": "Running",
+        "running": "In progress",
         "done": "Done",
         "outputs": "Outputs"
       },
@@ -1494,7 +1678,17 @@
         "takeover": "Tars proposes that you take over this work.",
         "handBack": "Tars proposes to take this work back.",
         "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check.",
-        "answerInConversation": "Answer it in the conversation."
+        "answerInConversation": "Answer it in the conversation.",
+        "startNow": "Tars proposes to start this queued work now.",
+        "extend": "Tars proposes to give this run more turns.",
+        "retryStage": "Tars proposes to retry the current stage.",
+        "skipStage": "Tars proposes to skip the current stage.",
+        "signOff": "Tars proposes to sign off the waiting stage.",
+        "approve": "Tars proposes to approve a request in this work's task.",
+        "deny": "Tars proposes to deny a request in this work's task.",
+        "answer": "Tars proposes an answer to a question in this work's task.",
+        "message": "Tars proposes to send your words to this work's task.",
+        "requestChanges": "Tars proposes to request changes on the waiting stage."
       },
       "blockedDetail": "Tars could not finish this work. Check it and choose what to do.",
       "showInFleet": "Show in Fleet",
@@ -1510,7 +1704,17 @@
         "cancel": "Confirm cancel",
         "takeover": "Confirm take over",
         "handBack": "Confirm hand back",
-        "acceptCompletion": "Confirm accept as done"
+        "acceptCompletion": "Confirm accept as done",
+        "startNow": "Confirm start now",
+        "extend": "Confirm add turns",
+        "retryStage": "Confirm retry stage",
+        "skipStage": "Confirm skip stage",
+        "signOff": "Confirm sign off",
+        "approve": "Confirm approval",
+        "deny": "Confirm denial",
+        "answer": "Confirm answer",
+        "message": "Confirm send",
+        "requestChanges": "Confirm change request"
       },
       "moreActions": "More actions for {{title}}",
       "moreActionsHint": "More actions",
@@ -1553,7 +1757,9 @@
           "stopped": "{{title}}: stopped"
         },
         "timeline": "Timeline",
-        "timelineLabel": "Open the timeline for {{title}}"
+        "timelineLabel": "Open the timeline for {{title}}",
+        "brief": "Request",
+        "briefLabel": "Open the request and instruction for {{title}}"
       },
       "branch": "Branch",
       "waitingBehind": "Waiting while “{{title}}” runs. One piece of work runs at a time.",
@@ -1582,16 +1788,71 @@
       "completion": "Completion",
       "criteriaMet": "{{met}} of {{total}} criteria met",
       "notFinished": "Not finished yet",
-      "notice": {
-        "completed": "Done",
-        "blocked": "Needs you",
-        "cancelled": "Stopped"
-      },
       "nodeMenu": "More for {{title}}",
       "openTimeline": "Open {{title}} in the run timeline",
       "openReview": "Open the findings of {{title}}",
       "openUnmet": "{{title}} cannot continue: open the report's unmet criteria",
-      "openReport": "Open the result report"
+      "openReport": "Open the result report",
+      "openBrief": "Open the request and Tars's instruction"
+    },
+    "live": {
+      "lastUpdate": "Last update {{time}}",
+      "observed": "seen {{time}}",
+      "betweenTurns": "No turn running right now",
+      "turnNoStep": "Turn in progress · no step observed yet",
+      "turnUnknown": "No turn activity observed yet",
+      "notObserved": "No run observation yet",
+      "notStarted": "The run has not started yet",
+      "stale": "Nothing observed for {{duration}} · progress may be out of date",
+      "staleStep": "Last step: {{activity}}, {{duration}} ago · progress may be out of date",
+      "staleUnknown": "Nothing observed recently · progress may be out of date",
+      "stage": "Stage {{position}} of {{total}} · {{title}}",
+      "stageAttempt": "Stage {{position}} of {{total}} · {{title}}, attempt {{attempt}}",
+      "recent": "Recent progress",
+      "noRecent": "The run has recorded no progress yet.",
+      "stripLabel_one": "{{count}} piece of work running",
+      "stripLabel_other": "{{count}} pieces of work running",
+      "more_one": "{{count}} more running",
+      "more_other": "{{count}} more running",
+      "event": {
+        "runStarted": "Run started",
+        "turnStarted": "Turn started in {{stage}}",
+        "turnFailed": "A turn could not start",
+        "turnInterrupted": "A turn was interrupted",
+        "reported": "{{stage}} reported done",
+        "reportedBlocked": "{{stage}} reported it cannot continue",
+        "stageCompleted": "{{stage}} completed",
+        "stageSkipped": "{{stage}} skipped",
+        "stageRetried": "{{stage}} retried, attempt {{attempt}}",
+        "stageBlocked": "{{stage}} blocked",
+        "stageStuck": "{{stage}} stuck",
+        "signedOff": "{{stage}} signed off",
+        "changesRequested": "Changes requested in {{stage}}",
+        "checksObserved": "Checks observed in {{stage}}",
+        "paused": "Run paused",
+        "resumed": "Run resumed",
+        "userWait": {
+          "approval": "Waiting for your approval",
+          "question": "Waiting for your answer",
+          "signOff": "Waiting for your sign-off"
+        },
+        "userWaitEnded": "Stopped waiting for you",
+        "waitRegistered": "Waiting for an outside event",
+        "waitWoke": "The outside event arrived",
+        "waitExpired": "The outside wait ended without its event",
+        "accountSwitched": "Switched to another account",
+        "ended": {
+          "completed": "Run completed",
+          "cancelled": "Run cancelled",
+          "stopped": "Run stopped",
+          "other": "Run ended"
+        },
+        "hostStopped": "Stave stopped while the run was active",
+        "hostStarted": "Stave started again"
+      }
+    },
+    "nav": {
+      "label": "{{name}}, {{status}}"
     },
     "detail": {
       "waitingForUser": "The task is waiting for your answer or approval.",
@@ -1658,7 +1919,17 @@
         "verify": "Ask Tars for new verification work",
         "acceptRationale": "Completes it without a Stave-verified check.",
         "cancelRationale": "Ends its supervision. Changes already made stay.",
-        "verifyRationale": "Puts a request for a fresh check in the message box. Nothing runs until you send it."
+        "verifyRationale": "Puts a request for a fresh check in the message box. Nothing runs until you send it.",
+        "startNow": "Start now",
+        "extend": "Add turns",
+        "retryStage": "Retry stage",
+        "skipStage": "Skip stage",
+        "signOff": "Sign off",
+        "approve": "Approve",
+        "deny": "Deny",
+        "answer": "Send answer",
+        "message": "Send",
+        "requestChanges": "Request changes"
       },
       "verifyRequest": "Start new work to verify “{{title}}”: check the current result against each of its criteria and report what Stave can confirm.",
       "source": {
@@ -1700,7 +1971,17 @@
           "cancel": "Cancel this work?",
           "takeover": "Take over this work?",
           "handBack": "Hand this work back to Tars?",
-          "acceptCompletion": "Accept this work as done?"
+          "acceptCompletion": "Accept this work as done?",
+          "startNow": "Start this work now?",
+          "extend": "Give this run more turns?",
+          "retryStage": "Retry the current stage?",
+          "skipStage": "Skip the current stage?",
+          "signOff": "Sign off the waiting stage?",
+          "approve": "Approve this request?",
+          "deny": "Deny this request?",
+          "answer": "Send this answer?",
+          "message": "Send this to the task?",
+          "requestChanges": "Request these changes?"
         },
         "unverifiedTitle": "Stave could not verify this completion",
         "risk": "Can't be undone",
@@ -1709,7 +1990,10 @@
           "repository": "Repository",
           "workspace": "Workspace",
           "revision": "Revision",
-          "effect": "Effect"
+          "effect": "Effect",
+          "request": "Request",
+          "answers": "Answers",
+          "words": "Words sent"
         },
         "revision": "r{{revision}}",
         "effect": {
@@ -1718,7 +2002,17 @@
           "cancel": "Ends Tars's supervision. Changes already made stay.",
           "takeover": "You hold the work. Tars stops acting on it until you hand it back.",
           "handBack": "Tars takes the work back and verifies it again before it counts as done.",
-          "acceptCompletion": "Completes it without a Stave-verified check."
+          "acceptCompletion": "Completes it without a Stave-verified check.",
+          "startNow": "Tars starts this queued work now, beside work that is already running.",
+          "extend": "The run gets 10 more turns and continues from its turn limit.",
+          "retryStage": "The blocked or stuck stage starts a fresh attempt.",
+          "skipStage": "The run moves past the current stage without finishing it. This cannot be undone.",
+          "signOff": "The stage waiting for your sign-off starts.",
+          "approve": "The tool runs once with this request. This cannot be undone.",
+          "deny": "The tool call is refused; the run continues without it.",
+          "answer": "The question in the task gets this answer.",
+          "message": "The run receives this as your reply and continues its stage.",
+          "requestChanges": "The previous stage runs again with this feedback, then the stages after it."
         },
         "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
         "notNow": "Not now",
@@ -1728,12 +2022,14 @@
     },
     "side": {
       "kinds": {
+        "brief": "Request and instruction",
         "report": "Result report",
         "changes": "Changes",
         "timeline": "Run timeline",
         "review": "Review"
       },
       "kindsShort": {
+        "brief": "Request",
         "report": "Report",
         "changes": "Changes",
         "timeline": "Timeline",
@@ -1747,6 +2043,28 @@
         "superseded": "Checked on {{revision}} · not the final revision",
         "unknown": "Checked revision unknown",
         "finalUnknown": "Checked on {{revision}} · final revision unknown"
+      },
+      "brief": {
+        "request": "Your message",
+        "sentAt": "Sent {{time}}",
+        "answered": "Sent {{time}} · your choice on Tars's question: {{question}}",
+        "requestMissing": "The original message was not saved for this work: it was delegated before Stave kept the message with its work.",
+        "instruction": "Tars's instruction",
+        "instructionHint": "What Tars wrote for this work. The run receives it together with your message.",
+        "assignment": "Instruction as saved",
+        "assignmentHint": "This work was delegated before your message and Tars's instruction were saved apart, so they cannot be shown separately. This is the full instruction the run received.",
+        "context": "Attached in full",
+        "contextHint": "Too long for the run's instruction, so the run's lead receives it whole as context on every turn.",
+        "criteria_one": "{{count}} completion criterion",
+        "criteria_other": "{{count}} completion criteria",
+        "copyRequest": "Copy your message",
+        "copyInstruction": "Copy the instruction",
+        "copyContext": "Copy the attached text",
+        "status": {
+          "loading": "Loading the saved request…",
+          "failed": "The saved request could not be loaded.",
+          "unavailable": "This version of Stave cannot read the saved request."
+        }
       },
       "report": {
         "frozenAt": "As of {{time}}, when the run ended",
@@ -1802,7 +2120,10 @@
         "exit": "exit code {{code}}",
         "exitUnknown": "exit code unknown",
         "toolOk": "succeeded",
-        "toolFailed": "failed"
+        "toolFailed": "failed",
+        "now": "Now",
+        "notStarted": "The run has not started yet. Its stages appear here once it starts.",
+        "noRun": "This work ended before a run started."
       },
       "changes": {
         "noRun": "The run's details are not loaded, so its changes cannot be read.",
@@ -1968,6 +2289,16 @@
     "workingChanges": {
       "snapshot": "From your working changes · {{commit}}",
       "clean": "No working changes to include · from the branch"
-    }
+    },
+    "startNow": "Start now",
+    "extend": "Add turns",
+    "retryStage": "Retry stage",
+    "skipStage": "Skip stage",
+    "signOff": "Sign off",
+    "approve": "Approve request",
+    "deny": "Deny request",
+    "answer": "Answer question",
+    "message": "Send to task",
+    "requestChanges": "Request changes"
   }
 }

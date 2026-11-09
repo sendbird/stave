@@ -159,6 +159,8 @@ These keys work only while their surface is open or focused.
 | Close Schedules | `Esc` | Schedules |
 | Close Agents | `Esc` | Agents |
 | Close AI usage | `Esc` | AI usage |
+| Find in conversation | `Cmd/Ctrl+F` | A task's transcript or its composer |
+| Find in terminal | `Cmd/Ctrl+F` | A focused terminal |
 | Search the commit graph | `Cmd/Ctrl+F` | Commit graph |
 | Reload the commit graph | `Cmd/Ctrl+R` | Commit graph |
 | Go to HEAD | `Cmd/Ctrl+H` | Commit graph |

@@ -271,6 +271,12 @@ export async function getDraftFileContexts(args: {
       continue;
     }
 
+    // Binary files (PDF, archives, office documents) cannot be inlined as text.
+    if (isBinaryAttachmentPath(filePath)) {
+      nextFileContexts.push(buildPathBackedFileContext(filePath));
+      continue;
+    }
+
     const openTab = args.session.editorTabs.find(
       (tab) =>
         tab.filePath === filePath &&
@@ -294,6 +300,11 @@ export async function getDraftFileContexts(args: {
       rootPath: args.workspaceRootPath,
       filePath,
     });
+    if (!result.ok && result.tooLarge) {
+      // Too large to inline; the agent reads it from the workspace by path instead.
+      nextFileContexts.push(buildPathBackedFileContext(filePath));
+      continue;
+    }
     if (!result.ok) {
       // A restored draft can outlive the file it referenced. Preserve the
       // existing send behavior for stale paths; surface read/size failures
@@ -306,6 +317,11 @@ export async function getDraftFileContexts(args: {
       );
     }
 
+    if (result.content.includes("\u0000")) {
+      nextFileContexts.push(buildPathBackedFileContext(filePath));
+      continue;
+    }
+
     nextFileContexts.push({
       filePath,
       content: result.content,
@@ -314,4 +330,32 @@ export async function getDraftFileContexts(args: {
   }
 
   return nextFileContexts;
+}
+
+/** Extensions whose bytes are not text, so the file is attached by path instead of inlined. */
+const BINARY_ATTACHMENT_EXTENSIONS = new Set([
+  ".pdf", ".zip", ".gz", ".tgz", ".tar", ".7z", ".rar", ".bz2", ".xz",
+  ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp",
+  ".key", ".pages", ".numbers", ".rtf",
+  ".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm",
+  ".heic", ".heif", ".tif", ".tiff", ".psd", ".ai", ".sketch", ".fig",
+  ".woff", ".woff2", ".ttf", ".otf", ".eot",
+  ".exe", ".dll", ".so", ".dylib", ".bin", ".dmg", ".pkg", ".app", ".jar", ".class", ".wasm",
+  ".sqlite", ".sqlite3", ".db", ".parquet", ".pyc",
+]);
+
+export function isBinaryAttachmentPath(filePath: string) {
+  const lower = filePath.toLowerCase();
+  const dot = lower.lastIndexOf(".");
+  return dot > lower.lastIndexOf("/") && BINARY_ATTACHMENT_EXTENSIONS.has(lower.slice(dot));
+}
+
+function buildPathBackedFileContext(filePath: string): DraftFileContext {
+  return {
+    filePath,
+    content: "[Workspace file attached by path. Its content is not inlined.]",
+    language: "binary",
+    instruction:
+      "Read the attached workspace file from disk with an available file or shell tool.",
+  };
 }

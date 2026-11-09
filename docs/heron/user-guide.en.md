@@ -4,12 +4,12 @@ title: Stave User Guide
 product: Stave
 brandSub: Guide
 versionLabel: v1
-status: Current · Stave 0.29.2
+status: Current · Stave 0.32.0
 statusTone: current
-captured: 2026-11-02
-updated: 2026-11-05
+captured: 2026-11-09
+updated: 2026-11-09
 recorder: jacob.kim
-footer: Stave User Guide v1 · Stave 0.29.2 (main 6e7a65a7) · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
+footer: Stave User Guide v1 · Stave 0.32.0 (main df0f0f0b) · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
 
 @page start | Getting started | Stave at a glance | guide
@@ -17,7 +17,7 @@ footer: Stave User Guide v1 · Stave 0.29.2 (main 6e7a65a7) · Source in the rep
 
 ```meta
 Audience | Developers new to Stave | From installing to handing a goal to an agent
-Version | Stave 0.29.2 | main `6e7a65a7`. No app code changed after the 0.29.2 release
+Version | Stave 0.32.0 | main `df0f0f0b`, the 0.32.0 release commit
 Screens | Captures with synthetic data | English UI, in the repository's `docs/screenshots/guide/en`
 UI language | English (default) and Korean | Change it in Settings > General > Language
 ```
@@ -448,6 +448,8 @@ setup form; an unclear execution target is resolved in the conversation.
 Switching workspaces keeps the same history, and you can chat before adding a
 repository.
 
+Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+
 Open **Settings** in the header for the name, standing instructions,
 conversation model and account, execution model, the agents Tars may use and
 the turn limit each work unit can use. Initial model/account choices come from your app
@@ -455,7 +457,7 @@ settings and are saved for this conversation. The conversation model is only
 for talking with Tars. **Execution model** defaults to **Automatic**: Stave
 Auto routes delegated work, and reviews can run on the other provider. Pin a
 model only when every step and its review should stay on it. Tars runs work
-only on Claude and Codex; Cursor, Kiro and OpenCode are not supported.
+only on Claude or Codex.
 
 Built-in agents are always available to Tars. Allow a saved agent under
 **Agents Tars may use** before Tars can hand it work. Agents that publish,
@@ -468,19 +470,31 @@ work retains its account and execution choice. A reply is a proposal; action
 outcomes show whether work was admitted, and saved status changes appear back
 in the conversation.
 
-The header shows where your work stands, such as "2 running · 1 needs you ·
-3 done". Select it to open the work tray; on a wide window the tray stays open
-beside the conversation. The tray lists **Needs you**, **Running** and **Done**
+The header shows where your work stands, such as "1 running · 2 waiting ·
+1 needs you · 3 done". **Running** counts only work that is actually running;
+queued, paused and waiting work counts as **waiting**, and work you took over
+as **yours**. Select it to open the work tray; on a wide window the tray stays open
+beside the conversation. The tray lists **Needs you**, **In progress** and **Done**
 (folded). Each card shows its title, a state tag, the owner, the turns left and
-helpers working when Stave knows them, and what waits on you. A card whose run
+helpers working when Stave knows them, and what waits on you. State tags never
+share a color: running work alone is blue with the only moving mark, blocked
+work is amber, completed work green, and queued, waiting, paused and taken-over
+work stays neutral with its own symbol and word. A card whose run
 Stave has read is a run monitor: the stage it is on (such as "Now: Cause,
 attempt 2") with how long it has been on it, one segment per stage (done, in
 progress, not started or stopped), the step count such as "2/3", and
-**Timeline**, which opens the run's timeline at that stage. A value Stave does
-not know is left out, never shown as zero. The card keeps two buttons in view,
+**Timeline**, which opens the run's timeline at that stage. Under it the card
+says what Stave observed: what the run's turn is doing now (such as "Running
+the tests · seen just now"), that no turn is running or that no turn activity
+has reached this window yet, with when the run last changed, or, when nothing
+was observed for five minutes while the work runs, "Nothing observed for 7m ·
+progress may be out of date" in amber. **Recent
+progress** lists the run's three latest changes with how long ago they
+happened. A value Stave does not know is left out, never shown as zero, and
+work whose run Stave has not observed says "No run observation yet". The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
 responsibility** are under the card's more-actions menu. Queued work follows
-the work that started, in the order it will start; its menu adds **Do first**
+the work that started, in the order it will start; its main action is **Start now**, which starts it at once beside running work, and its menu adds **Do first**
 and **Do later**, and its grip lets you drag it among the queued cards or move
 it with **Alt+Up** and **Alt+Down**. Each move leaves a one-line record with
 the new priority. When Tars proposes
@@ -495,28 +509,47 @@ never reports "no work" unless the read succeeded. The tray counts
 the same rows Fleet View shows for Tars work, so the two always agree. When Tars
 delegates work, its message carries a work flow: request, Tars's decision,
 each stage of the run and completion. It is folded to one line such as "1 of 3
-stages done · Running" and updates in place. Select a stage to see it on the
-run timeline, the review stage to see the review, or completion to see the
-result report; **Show in Fleet** is in each stage's more menu.
-The conversation keeps only words, decisions and the moments work finishes,
-stops or needs you. Updates arrive as soon as Tars saves them, without waiting
-for a refresh.
+stages done · Running" with the state's mark, keeps the same observation line
+as the card under it, and updates in place. Select the request to see what
+the work was handed, a stage to see it on the run timeline, the review stage to
+see the review, or completion to see the result report; **Show in Fleet** is in
+each stage's more menu.
+While work runs, the band above the message box names it, its stage (such as
+"Stage 2 of 3 · Cause, attempt 2") and what Stave last observed, with
+**Timeline**; beyond two running pieces of work it counts the rest. A reply Tars
+is still writing shows **Thinking** with the moving mark. The sidebar's **Tars**
+entry shows the moving mark with the number of running work and an amber count
+of what needs you; collapsed, it shows one dot, amber when something needs you,
+blue when work only runs. The conversation keeps only words, decisions and the
+moments work completes, is blocked or is cancelled, each with the state tag's
+word. Updates arrive as soon as Tars saves them, without waiting for a refresh.
 
 The tray's fourth section, **Outputs**, lists what work produced: the
 **Result report** once a run ended, **Changes** when it changed files, the
 **Review** once the reviewer reported, and links the report recorded, such as a
 pull request (which opens in the browser). The header adds the outputs count,
-such as "1 done · 4 outputs", only when there are some. An output opens the
-side view beside the conversation; on a wide window it takes the tray's place
+such as "1 done · 4 outputs", only when there are some. An output, or
+**Request** at the bottom of any work card, opens the side view beside the
+conversation; on a wide window it takes the tray's place
 and the tray folds to its header until you close it, and the conversation always
 keeps at least 440 px. On a narrow window it opens between the conversation and
 the message box, at most 40% of the height, and scrolls. Switch between
-**Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
+**Request**, **Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
 close button closes it and returns focus to what opened it. You can also ask,
 such as "show me the report" or "보고서 보여줘"; Tars only opens the view and
 cannot change work that way. Opening and closing it is never recorded in the
 conversation.
 
+- **Request**: what you handed the work, readable as soon as it is admitted,
+  even while it waits in the queue with no task or run yet, and after it
+  changes state or Stave restarts. **Your message** is the message that started
+  the work exactly as you sent it, with when you sent it (or, when it was your
+  choice on a Tars question, that question). **Tars's instruction** is what
+  Tars wrote for this work; the run receives it together with your message.
+  **Completion criteria** lists the saved criteria. Long text, line breaks and
+  code are shown whole, and each text has a copy button. Work Tars took on
+  before this view existed says **The original message was not saved for this
+  work** and shows the whole instruction the run received instead.
 - **Result report**: each criterion's status and what decided it (the agent's
   report in a stage, or a Stave check and its result), with the revision it was
   checked on and whether that is the final revision. Evidence is listed once
@@ -528,8 +561,12 @@ conversation.
   the workspace is now (not frozen with the report); **Refresh** reads it again.
   Select lines in the diff and choose **Ask about this** to quote the file, line
   range and lines into the message box; nothing is sent until you send it.
-- **Timeline**: stages with attempts, the run's own decisions (routes, waits,
-  retries), hand-offs and controls, and the commands and tool calls, folded.
+- **Timeline**: **Now** first (the state, the stage the run is on, what Stave
+  observed and how current it is, and the run's recent progress, newest
+  first), then stages with attempts (the current stage's time keeps counting),
+  the run's own decisions (routes, waits, retries), hand-offs and controls, and
+  the commands and tool calls, folded. Work without a run says whether its run
+  has not started yet or the work ended before one started.
 - **Review**: the reviewer's verdict and findings in its own words.
 
 Completed work that Stave verified can become a draft pull request. Choose
@@ -566,7 +603,7 @@ control** on the run line, and every **Stop** of its turn (composer, Esc,
 command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Paused · Fleet"
 or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
-own turn. Take the work over before changing its agent in the composer. Resume, hand back and cancel asked in words wait for you as a
+own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
 decision card with **Confirm**. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
@@ -608,10 +645,11 @@ concurrently. Use **Settings** to guide newly admitted
 work without changing an existing run or granting permissions.
 
 Tars also follows up by itself when work needs judgment: it became blocked,
-its run stopped to ask you for a decision (followed up at once), its completion
-could not be verified, it ended with criteria unmet, it waited an hour without
-change (a run you paused, a usage-limit pause, or an approval or question you
-answer in its task), or a question Tars asked became invalid. The message
+its run or one of its helpers stopped to ask you for a decision (followed up
+at once), its completion could not be verified, it ended with criteria unmet,
+it waited an hour without change (a run you paused, a usage-limit pause, or
+an approval or question you answer in its task), or a question Tars asked
+became invalid. The message
 reads **Automatic follow-up ·** with its reason and the work's title. It can
 ask, propose a resume or cancel that waits for your **Confirm**, change a
 queued priority or open a view. It never starts work by itself (it asks you
@@ -668,7 +706,9 @@ The counts above the list are filters (**All**, **Needs you**, **Failed**, **Run
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
 
-The calling message also shows **Subagent results** above the answer. Select a row to read the original result and execution details. **Result received** means the child returned an answer, not that the parent verified or used it. **Open task** takes you to the child; if it is waiting on you, the button points to answering or reviewing approval there. Completed tool activity folds into **Work history**, without repeating the answer or its tool counts. Questions remain visible outside the folded history.
+The calling message also shows **Subagent results** above the answer. Each subagent appears as a run monitor card, and several cards sit side by side, wrapping into rows in a narrow window. A running card shows its model, current work, observed time and reported history; a returned card shows a summary of the answer. Select **View result** to expand the original answer and execution details across the whole row, or **Collapse result** to close them. Unknown times and costs are omitted. The composer retains its compact summary. **Result received** means the child returned an answer, not that the parent verified or used it. **Open task** takes you to the child; if it is waiting on you, the button points to answering or reviewing approval there. While work runs, the trace header shows the latest active step on one line. When it ends, the header shows a short completion summary and the tool-call count on the right; expand it to read the full history. Questions remain visible outside the folded history.
+
+Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/subagent-results.png)
 
 @page automation | Automation | Schedules, check-backs and Fleet | guide
 @lead Put repeating work on a schedule and work to revisit on a check-back. Whatever needs your hand, across all workspaces, gathers in Fleet View.
@@ -732,6 +772,8 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 | Inline HTML pages | Shown by an agent in the conversation                      | See charts, tables and mockups in the chat; **View source**, **Save as HTML file**    |
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |
 | MCP               | Settings > MCP                                             | **Add server**, then **Review change** and **Apply change**. The **Local MCP Server** card |
+
+Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
 
 Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/command-palette.png) · [Workspace Tools](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-tools.png) · [Information panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/information-panel.png) · [Lens toolbar](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/lens.png) · [Settings > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/settings-mcp.png)
 
@@ -808,13 +850,13 @@ Screenshot links point at the `main` branch on GitHub. Once re-captured screensh
 
 ## What this edition checked and did not check
 
-- Labels and behavior were checked against the Stave 0.29.2 source and its Korean and English copy files.
+- Labels and behavior were checked against the source and the Korean and English copy files in each change that altered a feature. 0.32.0 as a whole was not re-checked in one pass.
 - Screenshots were captured from development screens with synthetic data. Behavior with a real signed-in provider was not re-run for this edition.
 - The Lens screenshot comes from the browser build, so only the toolbar is shown.
 
 ## Finding text and navigating views
 
-Use Find in conversation above a transcript, or Cmd+F / Ctrl+F while focused in the conversation. It searches loaded message text, including messages outside the viewport, and excludes thinking and tool parts. Load older messages to search earlier history. Enter and Shift+Enter move between matching messages.
+Press Cmd+F / Ctrl+F while focused in the conversation or its composer, or hover the transcript and choose the search button in its top-right corner. The find bar floats over the transcript and does not move messages. It searches loaded message text, including messages outside the viewport, and excludes thinking and tool parts. Load older messages to search earlier history. Enter and Shift+Enter move between matching messages.
 
 In a terminal, Cmd+F / Ctrl+F searches the retained terminal buffer. Enter and Shift+Enter move between matches; Escape closes the search. The terminal header shows Running or the completed command's exit code.
 

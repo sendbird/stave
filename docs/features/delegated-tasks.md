@@ -11,8 +11,14 @@ restart — and the child's answer comes back to the parent on its own.
 ## Results in the conversation
 
 The message that launched a subagent shows **Subagent results** outside its collapsed
-**Work history**. Each row previews the result or failure; select it to read the original
-answer and execution details. **Result received** confirms arrival, not incorporation into
+trace summary. Its heading shows the number of subagents. Each subagent is an Atelier UI
+run monitor card, and several cards sit side by side, wrapping into rows when the column is
+narrow. A live card shows its identity, current work with its observed duration, and reported
+history. A returned result or failure shows a preview with any observed duration. Select
+**View result** to read the original answer and execution details; the open card takes the
+whole row.
+Unknown durations and costs are omitted. Reported history is narration, not a count of
+completed tool calls. The composer keeps its compact subagent summary. **Result received** confirms arrival, not incorporation into
 or verification of the parent answer. A pending asynchronous launch is not a completed result.
 
 For a durable child, **Open task** opens its conversation. A current question or approval
@@ -100,8 +106,12 @@ collaboration panels use the same coordinator as these Local MCP tools:
 Inside a Stave turn these tools take the calling task from the host's caller
 grant: the parent ids are optional, and a `parentTaskId` that names another task
 is refused with `invalid-ownership`. A subagent cannot start subagents of its
-own. A client Stave did not start (a terminal CLI with your token) names the
-parent explicitly.
+own: a turn a delegation started, or any turn of the agent run it supervises,
+is refused with `invalid-request`. The task a delegation created is still an
+ordinary task, so a turn or agent run you start in it yourself (for example
+`$ship` with a review stage) may delegate within its own run's limits. A client
+Stave did not start (a terminal CLI with your token) names the parent
+explicitly.
 
 The Subagents tab shows each subagent's agent (or model), what it is doing,
 its state and how long it ran (still counting while it runs; a finished one also

@@ -78,6 +78,7 @@ const SCOPE_LABEL_KEYS: Partial<Record<KeybindingScope, I18nKey>> = {
   editor: "shell:keybindings.ui.scope.editor",
   lens: "shell:keybindings.ui.scope.lens",
   "git-graph": "shell:keybindings.ui.scope.gitGraph",
+  terminal: "shell:keybindings.ui.scope.terminal",
 };
 
 function describeMeta(entry: KeybindingEntry) {

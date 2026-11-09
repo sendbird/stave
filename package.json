@@ -1,7 +1,7 @@
 {
   "name": "stave",
   "private": true,
-  "version": "0.31.0",
+  "version": "0.32.1",
   "description": "Stave: AI coding workspace for Claude and Codex.",
   "author": {
     "name": "Sendbird, Inc.",
@@ -57,7 +57,7 @@
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:design-system": "bun scripts/check-design-system-migration.mjs",
     "check:ui-layout": "bun run check:style-channel && bun run check:design-system",
-    "test:ui-layout": "playwright test tests/e2e/icon-text-alignment.e2e.ts tests/e2e/layout-spacing.e2e.ts tests/e2e/trace-row-alignment.e2e.ts tests/e2e/transcript-column.e2e.ts tests/e2e/task-preset-effort.e2e.ts tests/e2e/toast-host-position.e2e.ts tests/e2e/agent-motion.e2e.ts --workers=1 --trace=retain-on-failure",
+    "test:ui-layout": "playwright test tests/e2e/tars-composer.e2e.ts tests/e2e/icon-text-alignment.e2e.ts tests/e2e/layout-spacing.e2e.ts tests/e2e/trace-row-alignment.e2e.ts tests/e2e/transcript-column.e2e.ts tests/e2e/task-preset-effort.e2e.ts tests/e2e/toast-host-position.e2e.ts tests/e2e/agent-motion.e2e.ts --workers=1 --trace=retain-on-failure",
     "check:style-channel": "node scripts/check-style-channel.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:max-lines-ratchet": "node scripts/check-max-lines-ratchet.mjs",
@@ -118,11 +118,11 @@
     "shiki": "^4.4.3",
     "thinking-orbs": "0.3.2",
     "unified": "^11.0.5",
-    "zod": "^4.6.5",
+    "zod": "^4.6.6",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.65.0",
     "@stylexjs/unplugin": "0.19.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -153,6 +153,6 @@
     "path-to-regexp": "8.4.0",
     "proxy-addr": "2.0.8",
     "qs": "6.16.0",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   }
 }

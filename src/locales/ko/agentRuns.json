@@ -783,6 +783,9 @@
   },
   "acceptance": {
     "extraCopy212": "미해결 완료 기준: {{value1}}",
+    "criterionReportedUnverified": "단계 보고에서 이 기준을 미검증으로 표시했습니다: {{value1}}",
+    "criterionReportedUnmet": "단계 보고에서 이 기준을 미충족으로 표시했습니다: {{value1}}",
+    "criterionNotReported": "단계 보고에 이 기준이 원문 그대로 없습니다: {{value1}}",
     "extraCopy211": "필수 워크스페이스 스크립트 검사에 현재 변경 사항의 성공한 검증 근거가 없습니다."
   },
   "subagentSummary": {

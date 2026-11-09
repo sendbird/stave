@@ -373,3 +373,22 @@ describe("Tars writes shared by main and the host-service", () => {
     expect(f.responsibilities.snapshot().responsibilities).toHaveLength(1);
   });
 });
+
+test("attachment snapshots survive a database reopen and reject invalid or oversized payloads", () => {
+  const filename = persisted();
+  const first = open(filename);
+  const attachments = [{ type: "file_context" as const, filePath: "requirements.md", content: "완료 기준", language: "md" }];
+  const result = first.store.create({ requestId: "attachment-restart", text: "Read this", attachments }, NOW);
+  first.database.close();
+  const restarted = open(filename).store;
+  expect(restarted.get(result.id)?.attachments).toEqual(attachments);
+  for (const invalid of [
+    [{ ...attachments[0], content: "가".repeat(11_000) }],
+    Array.from({ length: 9 }, () => attachments[0]),
+    [{ type: "file_context", filePath: "local.png", content: "", language: "image" }],
+    [{ type: "file_context", filePath: "../private.txt", content: "a", language: "text" }],
+    [{ type: "image_context", label: "remote", dataUrl: "https://example.com/image.png", mimeType: "image/png" }],
+    [{ type: "file_context", filePath: "secret.txt", content: "a", language: "text", rootPath: "/tmp/private" }],
+  ]) expect(() => restarted.create({ requestId: "invalid-files", text: "Read", attachments: invalid } as never, NOW)).toThrow();
+  expect(restarted.list()).toHaveLength(1);
+});

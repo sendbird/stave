@@ -89,4 +89,4 @@ Stave persists the provider session and native turn identifiers with task messag
 
 ## Find in conversation
 
-Choose Find in conversation above the transcript, or press Cmd+F / Ctrl+F with focus in the conversation. Search matches the text of loaded messages, including virtualized messages outside the viewport; it excludes tool and thinking parts. Enter and Shift+Enter move to the next and previous matching message, wrapping at either end. Load older messages before searching earlier history.
+Press Cmd+F / Ctrl+F with focus in the conversation or its composer, or hover the transcript and choose the search button in its top-right corner. The find bar floats over the top-right corner of the transcript instead of pushing messages down; pressing Cmd+F / Ctrl+F again selects the query. Escape or the close button hides it and returns focus to where it was. Search matches the text of loaded messages, including virtualized messages outside the viewport; it excludes tool and thinking parts. Enter and Shift+Enter move to the next and previous matching message, wrapping at either end. Load older messages before searching earlier history.

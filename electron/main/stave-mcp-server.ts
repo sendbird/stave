@@ -773,7 +773,8 @@ function createToolServer(options?: {
         delegation: await getDelegatedTaskCoordinator().delegateFromTool(
           input,
           caller.kind === "turn"
-            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId,
+            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId, turnId: caller.grant.turnId,
+                ...(caller.grant.agentRunId ? { agentRunId: caller.grant.agentRunId } : {}),
                 ...(caller.grant.accounts ? { accounts: caller.grant.accounts } : {}) }
             : undefined,
         ),

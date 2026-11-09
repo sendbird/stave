@@ -81,8 +81,10 @@ export interface PromptInputProps {
   modelShortcutEfforts?: readonly ModelShortcutEffort[];
   windowShortcutsEnabled?: boolean;
   attachedFilePaths: string[];
-  /** Plain global chat: no attachments, task token palettes, model shortcuts or task-context hints. */
+  /** Plain global chat: no task token palettes, model shortcuts or task-context hints. Attachments are opt-in. */
   plainText?: boolean;
+  /** Allow file snapshots while keeping task token palettes disabled. */
+  allowPlainTextAttachments?: boolean;
   attachments?: Attachment[];
   attachmentScopeId?: string;
   promptHistoryEntries?: readonly string[];

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChartNoAxesGantt } from "lucide-react";
+import { ChartNoAxesGantt, ScrollText } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { Button } from "@/components/ui";
@@ -21,7 +21,7 @@ import { tarsMonitorStyles as styles } from "./tars-monitor.styles";
 type TarsState = TarsResponsibility["state"];
 
 /** A Tars state drawn in the design system's work-state vocabulary. */
-const WORK_STATE_OF: Record<TarsState, WorkState> = {
+export const WORK_STATE_OF: Record<TarsState, WorkState> = {
   queued: "queued", preparing: "queued", running: "working", waiting: "waiting", paused: "paused",
   completed: "ready", blocked: "halted", cancelled: "stopped", takenOver: "idle",
 };
@@ -34,15 +34,32 @@ const RUN_STATE_OF: Record<TarsState, AgentStepState> = {
 
 const SEGMENT_OF: Record<TarsStageSegment, RunMonitorSegment["state"]> = { finished: "done", current: "now", pending: "pending", stopped: "stopped" };
 
+/**
+ * The chip tone of each state. Running, waiting, blocked and completed never
+ * share a tone: running alone wears a hue, the running stage's tone (as the
+ * flow's stage chip does); blocked wears the warning, completed the success.
+ * Waiting, queued, paused and taken-over work stays neutral, told apart by its
+ * glyph and word, so no theme where accent and info share a hue can make
+ * taken-over work read as running.
+ */
 export function stateTone(state: TarsState): BadgeTone {
-  return state === "completed" ? "success" : state === "blocked" ? "warning" : state === "takenOver" ? "accent" : "neutral";
+  return state === "running" ? "info" : state === "completed" ? "success" : state === "blocked" ? "warning" : "neutral";
 }
 
-/** The state tag every Tars surface shares with the run panel and Agents: the AUI status chip, a still state mark and the state's word. */
+/**
+ * A state's mark alone, for lines that say the state in words elsewhere. Only
+ * running work moves (the vocabulary's one moving state); reduced motion
+ * settles it on its glyph.
+ */
+export function TarsWorkMark({ state, size = "xs", label }: { state: TarsState; size?: "xs" | "sm"; label?: string }) {
+  return <StateMark state={WORK_STATE_OF[state]} size={size} motion={state === "running" ? "moving" : "still"} label={label} />;
+}
+
+/** The state tag every Tars surface shares with the run panel and Agents: the AUI status chip, the state mark (moving only while running) and the state's word. */
 export function TarsStateTag({ state }: { state: TarsState }) {
   const { t } = useTranslation(["shell"]);
   return <Badge size="md" tone={stateTone(state)} xstyle={styles.stateTag} data-tars-state={state}>
-    <StateMark state={WORK_STATE_OF[state]} size="xs" motion="still" />
+    <TarsWorkMark state={state} />
     {/* The word fades over when the state changes (agent motion); a remount shows it settled. */}
     <AgentTextSwap swapKey={state}>{t(`shell:tars.states.${state}`)}</AgentTextSwap>
   </Badge>;
@@ -51,7 +68,8 @@ export function TarsStateTag({ state }: { state: TarsState }) {
 /**
  * One piece of Tars work as the design system's run object (AUI `RunMonitor`):
  * the stage it is on with a live elapsed clock in the "now" well, one labelled
- * segment per stage, the step count and a link to the run's timeline. A value
+ * segment per stage, the step count, and links to what the work was handed
+ * (its request) and to the run's timeline. A value
  * the run did not record (a start time, the stage count) is left out, never
  * shown as zero. The caller adds its own rows (`children`) and controls
  * (`actions`); every control still goes through the view's host path.
@@ -75,6 +93,10 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
     ? current.attempt > 1 ? t("shell:tars.tray.monitor.currentAttempt", { title: current.title, attempt: current.attempt }) : t("shell:tars.tray.monitor.current", { title: current.title })
     : null;
   const segments = staged ? tarsStageSegments(staged) : [];
+  // What the work was handed is readable in every state, before its run exists too.
+  const brief = onOpenSide ? <Button variant="ghost" size="2xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
+    onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}>
+    <ScrollText aria-hidden />{t("shell:tars.tray.monitor.brief")}</Button> : null;
   const timeline = onOpenSide && staged ? <Button variant="ghost" size="2xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
     onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}>
     <ChartNoAxesGantt aria-hidden />{t("shell:tars.tray.monitor.timeline")}</Button> : null;
@@ -96,7 +118,7 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
         {t("shell:tars.tray.monitor.stepCount", count)}</span>
         : t("shell:tars.tray.stagesDone", { finished: staged.finished, total: staged.total }),
     } : undefined}
-    actions={actions} trailingActions={timeline}>
+    actions={actions} trailingActions={brief || timeline ? <>{brief}{timeline}</> : undefined}>
     {children}
   </RunMonitor>;
 }

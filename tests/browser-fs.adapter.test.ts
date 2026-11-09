@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES } from "../src/lib/fs/file-preview-limits";
 import { BrowserFsAdapter } from "../src/lib/fs/browser-fs.adapter";
 
 type FakeFileHandle = {
@@ -73,5 +74,43 @@ describe("BrowserFsAdapter", () => {
     await expect(adapter.listDirectory({ directoryPath: ".github" })).resolves.toEqual([
       { name: "workflows", path: ".github/workflows", type: "folder" },
     ]);
+  });
+});
+
+describe("HTML file preview size policy", () => {
+  for (const name of ["artifact.html", "ARTIFACT.HTM"]) {
+    test(`${name} reads 10 MiB including multibyte text, then refuses an extra byte`, async () => {
+      const content = "한".repeat(Math.floor(WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES / 3)) + "x";
+      let file = new File([content], name);
+      expect(file.size).toBe(WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES);
+      const rootHandle = createDirectory("fixture", [[name, {
+        ...createFile(name),
+        getFile: async () => file,
+      } as FakeFileHandle]]);
+      globalThis.window = { showDirectoryPicker: async () => rootHandle } as unknown as Window;
+      const adapter = new BrowserFsAdapter();
+      await adapter.pickRoot();
+      expect((await adapter.readFile({ filePath: name }))?.content).toBe(content);
+      file = new File([content, "x"], name);
+      expect(await adapter.readFile({ filePath: name })).toMatchObject({
+        content: "",
+        tooLarge: true,
+        sizeBytes: WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES + 1,
+        maxSizeBytes: WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES,
+      });
+    });
+  }
+
+  test("other text still refuses more than 1 MiB before reading content", async () => {
+    const rootHandle = createDirectory("fixture", [["large.ts", {
+      ...createFile("large.ts"),
+      getFile: async () => new File(["x".repeat(1024 * 1024 + 1)], "large.ts"),
+    } as FakeFileHandle]]);
+    globalThis.window = { showDirectoryPicker: async () => rootHandle } as unknown as Window;
+    const adapter = new BrowserFsAdapter();
+    await adapter.pickRoot();
+    expect(await adapter.readFile({ filePath: "large.ts" })).toMatchObject({
+      content: "", tooLarge: true, maxSizeBytes: 1024 * 1024,
+    });
   });
 });

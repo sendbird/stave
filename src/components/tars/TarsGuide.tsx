@@ -102,7 +102,7 @@ const styles = stylex.create({
   welcome: { display: "flex", flexDirection: "column", gap: vars["--aui-space-20"], paddingBlock: vars["--aui-space-24"], minWidth: 0 },
   intro: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: vars["--aui-space-4"], minWidth: 0 },
   mark: { width: vars["--aui-control-icon-size-lg"], height: vars["--aui-control-icon-size-lg"], marginBottom: vars["--aui-space-8"], color: vars["--aui-color-text-muted"] },
-  title: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"] },
+  title: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-title"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"] },
   description: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-body"], lineHeight: vars["--aui-line-height-prose"] },
   /** Optically on the column edge: the ghost xs padding (space-8) hangs outside, as the hover fill does. */
   disclosure: { alignSelf: "flex-start", marginInlineStart: `calc(-1 * ${vars["--aui-space-8"]})` },

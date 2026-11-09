@@ -27,6 +27,8 @@ import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
 import { tarsTrayStyles as styles } from "./tars-tray.styles";
 import { tarsMonitorStyles as monitorStyles } from "./tars-monitor.styles";
 import { TarsRunMonitor } from "./TarsRunMonitor";
+import { TarsLiveLine, TarsRecentProgress, tarsLiveLineShows } from "./TarsLiveProgress";
+import { useTarsLiveProgress } from "./use-tars-live-progress";
 import { TarsPublishEntry } from "./TarsPublishEntry";
 import { isTarsPublishable } from "@/lib/tars/publish-model";
 
@@ -58,18 +60,24 @@ const OPEN_LANES: TarsLane[] = ["needsYou", "running"];
 
 const CONTROL_LABEL = {
   pause: "shell:tars.pause", resume: "shell:tars.resume", takeover: "shell:tars.takeOver", handBack: "shell:tars.handBack", cancel: "shell:tars.cancel",
-  acceptCompletion: "shell:tars.acceptCompletion",
+  acceptCompletion: "shell:tars.acceptCompletion", startNow: "shell:tars.startNow", extend: "shell:tars.extend",
+  retryStage: "shell:tars.retryStage", skipStage: "shell:tars.skipStage", signOff: "shell:tars.signOff",
+  approve: "shell:tars.approve", deny: "shell:tars.deny", answer: "shell:tars.answer", message: "shell:tars.message", requestChanges: "shell:tars.requestChanges",
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**
- * "2 running · 1 needs you · 3 done": each part only when it counts, as Fleet
- * says its counts. Before a successful read the indicator says so instead of
+ * "1 running · 2 waiting · 1 needs you · 3 done": each part only when it
+ * counts, as Fleet says its counts. Running counts only work that actually
+ * runs; queued, paused and waiting work is "waiting", work the user took over
+ * is "yours". Before a successful read the indicator says so instead of
  * claiming there is no work.
  */
 export function describeTarsTrayCounts(counts: TarsTrayModel["counts"], status: TarsTrayStatus = "ready", outputs = 0) {
   if (status !== "ready") return i18n.t(`shell:tars.tray.indicator.${status}`);
   const parts = [
     counts.running > 0 ? i18n.t("shell:tars.tray.indicator.running", { count: counts.running }) : null,
+    counts.waiting > 0 ? i18n.t("shell:tars.tray.indicator.waiting", { count: counts.waiting }) : null,
+    counts.yours > 0 ? i18n.t("shell:tars.tray.indicator.yours", { count: counts.yours }) : null,
     counts.needsYou > 0 ? i18n.t("shell:tars.tray.indicator.needsYou", { count: counts.needsYou }) : null,
     counts.done > 0 ? i18n.t("shell:tars.tray.indicator.done", { count: counts.done }) : null,
     // Outputs are what work produced, not work: counted only when there are some.
@@ -168,10 +176,15 @@ export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardMod
   </div>;
 }
 
+/** How many of the run's recent changes a card lists; the timeline has the rest. */
+const CARD_RECENT_LIMIT = 3;
+
 export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
   const { row, progress } = card;
   const terminal = card.lane === "done";
+  // What Stave observed: the turn's activity, how current it is, and the run's last few changes.
+  const { live, now } = useTarsLiveProgress(row, card.run, { recentLimit: CARD_RECENT_LIMIT });
   const detail = describeTarsResponsibilityDetail(row);
   const workingChanges = describeTarsWorkingChanges(row);
   // Who holds it, then what the run reported; an unknown budget or helper count is left out, never "0".
@@ -186,7 +199,9 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const hasActions = Boolean(primary || row.taskId || more.length || grip);
   const body = [
     card.waitingBehind ? <p key="waiting" className={sx(styles.meta)} data-tars-waiting-behind="">{t("shell:tars.tray.waitingBehind", { title: card.waitingBehind })}</p> : null,
-    !staged && !terminal && row.agentRunId ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
+    !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
+    tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
+    !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title /> : null,
     detail ? <p key="detail" className={sx(styles.meta)}>{detail}</p> : null,
     row.reverifyAfter && !terminal ? <p key="reverify" className={sx(styles.meta)}>{t("shell:tars.reverify")}</p> : null,
     card.branch ? <p key="branch" className={sx(styles.meta, styles.branch)} data-tars-branch={card.branch} title={card.branch}>

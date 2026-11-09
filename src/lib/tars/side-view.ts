@@ -2,11 +2,14 @@ import { TarsShowViewSchema, type TarsActionReceipt, type TarsShowView } from ".
 import { TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_PINNED_MIN_WIDTH } from "./tray-model";
 
 /**
- * What the side view shows about one responsibility: its frozen result report,
- * its execution workspace's changes, its run timeline or its independent review.
+ * What the side view shows about one responsibility: what it was handed (its
+ * request: the user's message, Tars's instruction and the completion
+ * criteria), its frozen result report, its execution workspace's changes, its
+ * run timeline or its independent review. The request is opened by the user
+ * only; a `show` action names one of the others.
  */
-export const TARS_SIDE_VIEW_KINDS: readonly TarsShowView[] = TarsShowViewSchema.options;
-export type TarsSideViewKind = TarsShowView;
+export type TarsSideViewKind = "brief" | TarsShowView;
+export const TARS_SIDE_VIEW_KINDS: readonly TarsSideViewKind[] = ["brief", ...TarsShowViewSchema.options];
 
 /**
  * Where the side view opens. `focus` scrolls to a part of the kind: the report's

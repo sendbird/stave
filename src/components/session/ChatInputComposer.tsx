@@ -129,8 +129,8 @@ import {
   TaskSourceContextNotice,
 } from "./TaskSourceContextNotice";
 import {
-  resolvePastedFileAbsolutePath,
-  toWorkspaceRelativeFilePath,
+  mergeAttachedFilePaths,
+  resolveComposerFileAttachments,
 } from "./chat-input.attachments";
 import { ComposerShelf } from "./composer-shelf/ComposerShelf";
 import { reorderQueuedTurns } from "./composer-shelf/composer-shelf.utils";
@@ -1096,65 +1096,51 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
 
   const filePicker = window.api?.fs?.pickFiles;
   const workspaceRootPath = args.workspaceCwd?.trim() || undefined;
+  const attachFilePaths = (filePaths: readonly string[]) => {
+    const currentFilePaths =
+      useAppStore.getState().promptDraftByTask[args.providerSelectionTarget]
+        ?.attachedFilePaths ?? [];
+    const nextFilePaths = mergeAttachedFilePaths(currentFilePaths, filePaths);
+    if (nextFilePaths.length !== currentFilePaths.length) {
+      updateNonTextPromptDraft({ attachedFilePaths: nextFilePaths });
+    }
+  };
+  const warnSkippedAttachments = (failures: readonly { name: string }[] | undefined) => {
+    if (!failures || failures.length === 0) {
+      return;
+    }
+    toast.warning(i18n.t("session:chatInputComposer.attachSkippedTitle"), {
+      description: i18n.t("session:chatInputComposer.attachSkippedDescription", {
+        names: failures.map((failure) => failure.name).join(", "),
+      }),
+    });
+  };
   const handleOpenFileSelector =
     workspaceRootPath && filePicker
       ? async () => {
           const result = await filePicker({ rootPath: workspaceRootPath });
-          if (!result.ok || result.filePaths.length === 0) {
+          if (!result.ok) {
             return;
           }
-
-          const currentFilePaths =
-            useAppStore.getState().promptDraftByTask[
-              args.providerSelectionTarget
-            ]?.attachedFilePaths ?? [];
-          const nextFilePaths = [...currentFilePaths];
-          for (const filePath of result.filePaths) {
-            if (!nextFilePaths.includes(filePath)) {
-              nextFilePaths.push(filePath);
-            }
-          }
-          updateNonTextPromptDraft({ attachedFilePaths: nextFilePaths });
+          attachFilePaths(result.filePaths);
+          warnSkippedAttachments(result.failures);
         }
       : undefined;
   const handlePasteFiles = workspaceRootPath
     ? async (input: { files: File[] }) => {
-        const currentFilePaths =
-          useAppStore.getState().promptDraftByTask[args.providerSelectionTarget]
-            ?.attachedFilePaths ?? [];
-        const nextFilePaths = [...currentFilePaths];
-        let attachedCount = 0;
-
-        for (const file of input.files) {
-          const absolutePath = resolvePastedFileAbsolutePath({
-            file,
-            getPathForFile: window.api?.fs?.getPathForFile,
-          });
-          if (!absolutePath) {
-            continue;
-          }
-
-          const relativePath = toWorkspaceRelativeFilePath({
-            absolutePath,
-            rootPath: workspaceRootPath,
-          });
-          if (!relativePath || nextFilePaths.includes(relativePath)) {
-            continue;
-          }
-
-          nextFilePaths.push(relativePath);
-          attachedCount += 1;
-        }
-
-        if (attachedCount === 0) {
-          toast.warning(i18n.t("session:chatInputComposer.copy"), {
-            description:
-              i18n.t("session:chatInputComposer.description8"),
-          });
+        const { filePaths, failures } = await resolveComposerFileAttachments({
+          files: input.files,
+          rootPath: workspaceRootPath,
+          importAttachments: window.api?.fs?.importAttachments,
+          getPathForFile: window.api?.fs?.getPathForFile,
+        });
+        if (filePaths.length === 0 && failures.length === 0) {
+          toast.warning(i18n.t("session:chatInputComposer.copy"), { description: i18n.t("session:chatInputComposer.description8") });
           return;
         }
 
-        updateNonTextPromptDraft({ attachedFilePaths: nextFilePaths });
+        attachFilePaths(filePaths);
+        warnSkippedAttachments(failures);
       }
     : undefined;
 

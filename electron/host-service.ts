@@ -2230,6 +2230,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.publish-preview":
       await respond(request.id, await tarsPublisher.preview(request.params));
       return;
+    case "tars.brief":
+      await respond(request.id, await tarsRuntime.brief(request.params));
+      return;
     case "tars.reprioritize": {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await reprioritizeTars(request.params, {

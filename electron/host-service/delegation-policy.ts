@@ -49,6 +49,7 @@ export function resolveHostDelegationPolicy(args: {
   // A delegated Agent's saved permission matters only when it is read only;
   // any other value is full access, so it no longer lowers the helper.
   const readOnlyAgent = args.permissionCeiling === "read-only";
+  const recorded = store.loadTask(args.delegatedTaskId);
   const policy = helperAutonomyPolicy(args.providerId, parent, args.permissionProfile, resolveDelegationPermissionPolicy({
     providerId: args.providerId,
     permissionProfile: args.permissionProfile,
@@ -56,10 +57,10 @@ export function resolveHostDelegationPolicy(args: {
     requestedProfile: args.requestedProfile,
     parent,
     settings: store.loadSettings()?.[args.providerId],
-    recorded: store.loadTask(args.delegatedTaskId),
+    recorded,
   }));
   // A Tars run's read-only reviewer may run the repository's check commands (D6); nothing else changes.
-  const checked = withTarsReviewerCheckCommands(policy, { agentConfigId: args.agentConfigId,
+  const checked = withTarsReviewerCheckCommands(policy, { agentConfigId: args.agentConfigId, pinned: recorded ? recorded.options.claudeAllowedTools ?? [] : null,
     checkout: args.agentConfigId === TARS_REVIEWER_AGENT_ID && policy.access === "read-only"
       ? tarsExecutionCheckoutOf(args.parentTaskId, persistence.tars.snapshot().responsibilities, persistence.loadRepositoryRegistry()) : null });
   // The first admission pins this policy; later starts may only narrow it.

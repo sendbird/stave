@@ -18,7 +18,9 @@ export const terminalSurfaceStyles = stylex.create({
     position: "relative",
     width: "100%",
   },
-  frame: { flexDirection: "column", borderRadius: "inherit", height: "100%", width: "100%" },
+  // `relative`: the find widget floats over the terminal's top-end corner
+  // instead of taking a row, so opening it never resizes the terminal.
+  frame: { position: "relative", flexDirection: "column", borderRadius: "inherit", height: "100%", width: "100%" },
   surface: {
     flex: 1, minHeight: 0,
     borderRadius: "inherit",

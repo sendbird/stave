@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { applyTarsDecision, type TarsDecisionPorts } from "../electron/host-service/tars-decisions";
-import { hasTarsSnapshotCommit, snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "../electron/host-service/tars-working-changes";
+import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef, snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "../electron/host-service/tars-working-changes";
 import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import type { PersistenceRepositoryRegistryEntry } from "../electron/persistence/types";
@@ -259,5 +259,50 @@ describe("admission with working changes", () => {
     const { snapshotWorkingChanges: _absent, ...ports } = f.ports;
     expect((await applyTarsDecision({ messageId: unsupported.id, expectedRevision: unsupported.revision }, ports))[0])
       .toMatchObject({ status: "rejected", reason: "workingChangesUnavailable" });
+  });
+});
+
+describe("Tars working-changes snapshot pins and cleanup (review fixes)", () => {
+  const snap = (root: string, ref: string) => snapshotTarsWorkingChanges({ workspacePath: root, ref, message: "stave: snapshot", date: NOW });
+
+  test("a clean first result stays clean on a retry, even when the tree changed since", async () => {
+    const root = repository();
+    const ref = tarsWorkingChangesRef("message-clean", "workspace-a");
+    expect(await snap(root, ref)).toEqual({ kind: "clean" });
+    writeFileSync(path.join(root, "tracked.txt"), "changed after the first admission\n");
+    expect(await snap(root, ref)).toEqual({ kind: "clean" });
+  });
+
+  test("`.stave` entries the user already staged stay out of the snapshot", async () => {
+    const root = repository();
+    execFileSync("mkdir", ["-p", path.join(root, ".stave")]);
+    writeFileSync(path.join(root, ".stave", "notes.md"), "private\n");
+    git(root, "add", "-f", ".stave/notes.md");
+    writeFileSync(path.join(root, "tracked.txt"), "changed\n");
+    const result = await snap(root, tarsWorkingChangesRef("message-stave", "workspace-a"));
+    expect(result.kind).toBe("snapshot");
+    if (result.kind !== "snapshot") return;
+    expect(git(root, "ls-tree", "-r", "--name-only", result.commit)).not.toContain(".stave/notes.md");
+    // The user's own index still has it staged.
+    expect(git(root, "diff", "--cached", "--name-only")).toContain(".stave/notes.md");
+  });
+
+  test("releasing drops the snapshot ref and the clean marker; the commit survives while a branch holds it", async () => {
+    const root = repository();
+    writeFileSync(path.join(root, "tracked.txt"), "changed\n");
+    const ref = tarsWorkingChangesRef("message-release", "workspace-a");
+    const result = await snap(root, ref);
+    if (result.kind !== "snapshot") throw new Error("expected a snapshot");
+    git(root, "branch", "tars/work", result.commit);
+    await releaseTarsWorkingChangesRef(root, ref);
+    expect(() => git(root, "rev-parse", "--verify", "--quiet", ref)).toThrow();
+    expect(await hasTarsSnapshotCommit(root, result.commit)).toBe(true);
+    // Releasing again is harmless.
+    await releaseTarsWorkingChangesRef(root, ref);
+    const cleanRoot = repository();
+    const cleanRef = tarsWorkingChangesRef("message-release-clean", "workspace-a");
+    await snap(cleanRoot, cleanRef);
+    await releaseTarsWorkingChangesRef(cleanRoot, cleanRef);
+    expect(() => git(cleanRoot, "rev-parse", "--verify", "--quiet", `${cleanRef}-clean`)).toThrow();
   });
 });

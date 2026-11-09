@@ -239,6 +239,17 @@ export interface DelegatedTaskHostPort {
   }): Promise<unknown>;
 }
 
+/** The Stave turn calling `stave_delegate_task`, from the host's caller grant. */
+export interface DelegateCaller {
+  taskId: string;
+  workspaceId: string | null;
+  /** The calling turn; absent for a caller that cannot name one. */
+  turnId?: string;
+  /** The agent run this turn belongs to, when it is a stage or reply turn of one. */
+  agentRunId?: string;
+  accounts?: ProviderAccountSelection;
+}
+
 interface DelegatedTaskCoordinatorDependencies {
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
   resolveTurnRoute?: (input: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput) => Promise<import("../../../src/lib/routing/constrained-route").ConstrainedRouteResult>;
@@ -1446,9 +1457,10 @@ export function createDelegatedTaskCoordinator(
     return accepted({ duplicate: false, child });
   };
 
-  const getParentLink = async (args: { delegatedTaskId: string }) => {
+  /** Every delegation that owns a task, newest first. */
+  const listParentLinks = async (args: { delegatedTaskId: string }) => {
     const ledger = await getLedger();
-    const summaries = ledger
+    return ledger
       .listRunAggregatesByOwnedTask({
         taskId: args.delegatedTaskId,
         limit: DELEGATED_TASK_LIST_LIMIT,
@@ -1459,7 +1471,32 @@ export function createDelegatedTaskCoordinator(
           ? [summary]
           : [];
       });
-    return summaries[0] ?? null;
+  };
+
+  const getParentLink = async (args: { delegatedTaskId: string }) =>
+    (await listParentLinks(args))[0] ?? null;
+
+  /**
+   * One level deep: a turn a delegation started never starts subagents of its
+   * own. A task a delegation created stays an ordinary task, though: once the
+   * user runs their own turn or agent run in it, that turn is the user's and
+   * may delegate within its own run's limits. A turn counts as the
+   * delegation's when it is the delegation's turn or a turn of the agent run
+   * the delegation supervises, and, while an active delegation is starting a
+   * turn whose id is not recorded yet, any turn in the task. That includes a
+   * follow-up, which stays `waiting` while its turn starts. A caller without a
+   * turn id is treated as the delegation's.
+   */
+  const callerActsForDelegation = async (caller: DelegateCaller): Promise<boolean> => {
+    const links = await listParentLinks({ delegatedTaskId: caller.taskId });
+    if (links.length === 0) return false;
+    const turnId = caller.turnId?.trim();
+    if (!turnId) return true;
+    return links.some((link) => {
+      if (link.delegatedTurnId === turnId) return true;
+      if (link.agentRunId && caller.agentRunId === link.agentRunId) return true;
+      return isActiveDelegatedTaskPhase(link.phase) && !link.delegatedTurnId && !link.agentRunId;
+    });
   };
 
   /**
@@ -1471,7 +1508,7 @@ export function createDelegatedTaskCoordinator(
    */
   const delegateFromTool = async (
     rawInput: unknown,
-    caller?: { taskId: string; workspaceId: string | null; accounts?: ProviderAccountSelection },
+    caller?: DelegateCaller,
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskToolInputSchema.safeParse(rawInput);
     if (!parsed.success) return rejected("invalid-request");
@@ -1486,9 +1523,15 @@ export function createDelegatedTaskCoordinator(
     const parentWorkspaceId = caller?.workspaceId ?? input.parentWorkspaceId?.trim();
     if (!parentTaskId || !parentWorkspaceId)
       return rejected("invalid-request", null, "Name the calling task and its workspace (parentTaskId, parentWorkspaceId).");
-    // One level deep: a subagent's own work stays in its turn.
-    if (caller && (await getParentLink({ delegatedTaskId: parentTaskId }).catch(() => null)))
-      return rejected("invalid-request", null, "A subagent cannot start subagents of its own.");
+    // One level deep: a subagent's own work stays in its turn (`callerActsForDelegation`).
+    // An unreadable ledger cannot show the caller is not a subagent, so nothing starts.
+    if (caller) {
+      const nested = await callerActsForDelegation(caller).then((value) => ({ ok: true as const, value }), () => ({ ok: false as const }));
+      if (!nested.ok)
+        return rejected("invalid-state", null, "Stave could not read whether this task is itself a subagent, so it started nothing. Try again.");
+      if (nested.value)
+        return rejected("invalid-request", null, "A subagent cannot start subagents of its own. Do this work in this turn, or report what still needs another agent so the task that delegated you can start it.");
+    }
     const repositoryPath = input.repositoryPath?.trim() ||
       (await dependencies.host.resolveWorkspace({ workspaceId: parentWorkspaceId }).catch(() => null))?.repositoryPath;
     if (!repositoryPath) return rejected("workspace-unavailable");

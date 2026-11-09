@@ -115,9 +115,12 @@ async function inspect(row: TarsResponsibility, ports: TarsPublishPorts): Promis
   const git = (args: readonly string[]) => ports.run("git", args, workspace.path);
   const current = await git(["rev-parse", "--abbrev-ref", "HEAD"]);
   if (!current.ok) return stop("noWorkspace", diagnostic(current, "The execution workspace is not a Git checkout."));
+  // A rule-following name git refused falls back to `tars/<id>` (tars-host prepareWorkspace); both are this work's own.
+  const fallback = `tars/${row.id}`;
+  if (current.stdout.trim() === fallback && head !== fallback) facts.head = fallback;
   if (!workspace.base) stop("wrongBranch", "The base branch could not be determined.");
-  else if (workspace.base === head) stop("wrongBranch", "The work's branch is the base branch; Tars never pushes to it.");
-  if (current.stdout.trim() !== head) stop("wrongBranch", `The workspace is on ${current.stdout.trim() || "a detached HEAD"}, not the work's branch ${head}.`);
+  else if (workspace.base === facts.head) stop("wrongBranch", "The work's branch is the base branch; Tars never pushes to it.");
+  if (current.stdout.trim() !== facts.head) stop("wrongBranch", `The workspace is on ${current.stdout.trim() || "a detached HEAD"}, not the work's branch ${facts.head}.`);
   const status = await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
   if (!status.ok) return stop("noWorkspace", diagnostic(status, "The workspace status could not be read."));
   facts.dirty = statusPaths(status.stdout);
@@ -155,7 +158,8 @@ async function inspect(row: TarsResponsibility, ports: TarsPublishPorts): Promis
 export const tarsPublishCommands = {
   stage: (): string[] => ["add", "-A"],
   commit: (message: string): string[] => ["commit", "-m", message],
-  push: (head: string): string[] => ["push", "-u", "origin", `refs/heads/${head}:refs/heads/${head}`],
+  // The commit the card published, by its SHA: a branch that moved after the commit step is not what gets pushed.
+  push: (head: string, commit: string): string[] => ["push", "origin", `${commit}:refs/heads/${head}`],
   existing: (head: string): string[] => ["pr", "list", `--head=${head}`, "--state=open", "--json=number,url", "--limit=1"],
   // `--flag=value`, so a title or body that starts with "-" can never read as another flag.
   create: (args: { base: string; head: string; title: string; body: string }): string[] =>
@@ -236,7 +240,11 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
       } else advance({ state: step === "push" ? "committed" : "pushed" });
       if (step === "push") {
         await onBranch();
-        const pushed = await git(tarsPublishCommands.push(head));
+        const commit = publication.commit;
+        // Resumed after a failed push: the saved commit is what the user confirmed, so only that is pushed.
+        if (!commit || !(await git(["rev-parse", "--verify", "--quiet", "--end-of-options", `${commit}^{commit}`])).ok)
+          fail("publishFailed", "The commit Tars made for this publish no longer exists. Publish again to commit the current work.");
+        const pushed = await git(tarsPublishCommands.push(head, commit!));
         if (!pushed.ok) fail("publishFailed", diagnostic(pushed, "git push failed."));
         advance({ state: "pushed" });
         step = "pr";

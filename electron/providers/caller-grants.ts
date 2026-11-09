@@ -27,6 +27,12 @@ export interface CallerGrant {
   taskId: string;
   turnId: string;
   workspaceId: string | null;
+  /**
+   * The agent run whose stage or reply this turn is, when it is one. A task
+   * that was created by a delegation may later run turns the delegation did
+   * not start; this, with `turnId`, tells the two apart.
+   */
+  agentRunId?: string;
   providerId: ProviderId;
   /** The calling turn's resolved autonomy; null when it had no turn policy. */
   autonomy: Autonomy | null;

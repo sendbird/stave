@@ -43,9 +43,16 @@ export function tarsExecutionCheckoutOf(parentTaskId: string, responsibilities: 
  */
 export function withTarsReviewerCheckCommands(policy: DelegationPermissionPolicy, args: {
   agentConfigId?: string; checkout: string | null; readRules?: (checkout: string) => string[];
+  /**
+   * The allow list the delegation's first admission pinned. A later start may
+   * only keep rules from it: a check script added to package.json since then
+   * is not granted.
+   */
+  pinned?: readonly string[] | null;
 }): DelegationPermissionPolicy {
   if (policy.providerId !== "claude-code" || policy.access !== "read-only" || args.agentConfigId !== TARS_REVIEWER_AGENT_ID || !args.checkout) return policy;
-  const rules = (args.readRules ?? readTarsCheckCommandRules)(args.checkout);
+  const read = (args.readRules ?? readTarsCheckCommandRules)(args.checkout);
+  const rules = args.pinned ? read.filter((rule) => args.pinned!.includes(rule)) : read;
   if (!rules.length) return policy;
   const allowed = [...new Set([...(policy.options.claudeAllowedTools ?? []), ...rules])];
   return { ...policy, options: { ...policy.options, claudeAllowedTools: allowed } };

@@ -41,13 +41,17 @@ test("owned responsibility and Run status are source/timestamp observations and 
   const initial = tars.create({ requestId: "owned", title: "Search", instruction: "Fix search", acceptanceCriteria: ["Verified"],
     workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, NOW);
   tars.patch(initial.id, initial.revision, { taskId: "owned-task", executionWorkspaceId: "execution", agentRunId: "owned-run", state: "running" }, NOW);
-  let run = { id: "owned-run", workspaceId: "execution", repositoryPath: "/tmp/project", state: "running", updatedAt: NOW, stopReason: null } as AgentRun;
+  let run = { id: "owned-run", workspaceId: "execution", repositoryPath: "/tmp/project", state: "paused", updatedAt: NOW, stopReason: null,
+    pauseReason: "limit-reached", turnCount: 30, maxTurns: 30, currentStageIndex: 1,
+    workflow: { stages: [{ title: "Work" }, { title: "Review" }] } } as unknown as AgentRun;
   const ports = { tars, loadRepositoryRegistry: () => REGISTRY, loadWorkspaceShellSummary: () => { throw new Error("Unavailable"); },
     agentRuns: { getLatestAgentRunForTask: () => run } };
   const observed = observeTarsContext(ports, NOW).observation;
   expect(observed.repositories[0]?.workspaces[0]?.available).toBe(false);
   expect(observed.responsibilities[0]).toMatchObject({ source: "persisted-personal-responsibility", state: "running", updatedAt: NOW,
-    execution: { source: "persisted-agent-run", id: "owned-run", state: "running", updatedAt: NOW } });
+    execution: { source: "persisted-agent-run", id: "owned-run", state: "paused", updatedAt: NOW,
+      // What the user's run commands (extend, retry, skip, sign off) are chosen from.
+      pauseReason: "limit-reached", turns: { used: 30, max: 30 }, currentStage: "Review" } });
   run = { ...run, id: "manual-replacement", state: "completed" };
   expect(observeTarsContext(ports, NOW).observation.responsibilities[0]?.execution).toBeNull();
   expect(tars.listActivity()).toHaveLength(2); db.close();

@@ -12,6 +12,7 @@ import {
 } from "../../src/lib/tars/agents";
 import { tarsExecutionTarget } from "../../src/lib/tars/execution-resources";
 import { buildTarsBranchName } from "../../src/lib/tars/branch-name";
+import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
 import { TARS_ASSIGNMENT_MAX_CHARS, type TarsWorkingChanges } from "../../src/lib/tars/types";
 import { tarsFollowUpRefusal } from "./tars-follow-up-admission";
 import { tarsPublishProposalRefusal } from "./tars-publish";
@@ -206,6 +207,11 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       try {
+        // Attachment contents are context, never a substitute for the user's written mandate.
+        if (action.kind === "delegate" && !message.text.trim()) {
+          // i18n-ignore: diagnostic only; the interface translates the typed refusal reason
+          throw new TarsDelegateRejection("missingMandate", "Attachments alone do not authorize delegated work.");
+        }
         let workingChanges: TarsWorkingChanges | undefined;
         if (action.kind === "delegate" && message.includeWorkingChanges) {
           try { workingChanges = await workingChangesFor(action.workspaceId); }
@@ -237,6 +243,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
               providerId: execution.providerId, model: execution.model, maxTurns,
               branchName: buildTarsBranchName({ proposed: action.branchName, title: action.title, requestId }),
               ...(mandate ? { mandate } : {}),
+              // Kept apart from the combined assignment, so the request view shows each as it was.
+              request: tarsWorkRequestOf(admitted), delegatedInstruction: action.instruction,
               ...(admitted.runtimeHints ? { runtimeHints: admitted.runtimeHints } : {}),
               ...(agentId ? { agentId } : {}),
               ...(workingChanges ? { workingChanges } : {}),

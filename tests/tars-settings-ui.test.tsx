@@ -78,22 +78,26 @@ describe("Tars settings agent allowlist", () => {
     expect(korean.html).toContain("저장한 에이전트 검색");
   });
 
-  test("the settings sheet separates the conversation model from automatic execution and states unsupported providers", () => {
+  test("the settings sheet separates the conversation model from automatic execution and states available providers", async () => {
     const identity = { id: "personal" as const, name: "Tars", instructions: "", updatedAt: NOW };
     const automatic = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30 } }));
     expect(automatic).toContain("Conversation model");
     expect(automatic).toContain("Execution model");
     expect(automatic).toContain("Automatic");
-    expect(automatic).toContain("Delegated work routes automatically, and reviews can run on the other provider.");
-    expect(automatic).toContain("Cursor, Kiro and OpenCode are not supported.");
+    expect(automatic).toContain("Reviews may use another provider.");
+    expect(automatic).toContain("Delegated work uses Claude or Codex.");
     expect(automatic).toContain('data-tars-agent-allowlist=""');
     const pinned = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30, executionModel: { providerId: "claude-code", model: "claude-sonnet-5-5" }, allowedAgentIds: ["release-notes"] } }));
-    expect(pinned).toContain("stay on this model and provider");
+    expect(pinned).toContain("All work and helpers use this model");
     expect(pinned).toContain("This model runs with the Claude System default account.");
     // A saved choice whose agent is not in this library stays listed so it can be removed.
     expect(pinned).toContain("This agent is no longer available.");
+    applyAppLocale("ko"); await i18n.changeLanguage("ko");
+    const korean = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
+      initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30 } }));
+    expect(korean).toContain("검토는 다른 프로바이더에서 실행할 수 있습니다.");
   });
 
   test("a refused agent shows its translated reason and the chosen agent's name, never the host diagnostic", async () => {

@@ -46,8 +46,13 @@ export function observeTarsContext(store: ObservationPorts,
       // Whether its draft pull request is open, failed or underway; a URL only once opened.
       ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),
       source: "persisted-personal-responsibility", acceptanceCriteria: row.acceptanceCriteria.slice(0, 3),
+      // What the user's run commands need: why it paused, how many turns are left and which stage it is on.
+      ...(row.stageAsksUser ? { stageAsksUser: true } : {}),
+      // Requests waiting in the work's task or a helper's task; their text is the tool's own words, untrusted.
+      ...(row.pendingRequests?.length ? { pendingRequests: row.pendingRequests.map(({ workspaceId: _workspace, ...request }) => request) } : {}),
       execution: owned ? { source: "persisted-agent-run", id: owned.id, state: owned.state, updatedAt: owned.updatedAt,
-        stopReason: owned.stopReason } : null };
+        stopReason: owned.stopReason, pauseReason: owned.pauseReason ?? null, turns: { used: owned.turnCount, max: owned.maxTurns },
+        currentStage: owned.workflow.stages[owned.currentStageIndex]?.title.slice(0, 120) ?? null } : null };
   });
   return { snapshot, observation: { source: "local-persisted-snapshot", observedAt, repositories, responsibilities,
     omittedRepositories: Math.max(0, registry.length - repositories.length),

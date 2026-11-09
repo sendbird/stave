@@ -1,6 +1,10 @@
 import { z } from "zod";
+import { AttachmentContextsSchema } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
-import { TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlOperationSchema, TarsSnapshotSchema, type TarsControlOperation } from "./types";
+import {
+  TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema,
+  tarsControlInputProblem, type TarsControlOperation,
+} from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
 import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
 
@@ -14,7 +18,7 @@ export const TARS_REPLY_MAX_CHARS = 8_000;
 export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
 
 /**
- * The global conversation accepts only the user's words, retry identity and
+ * The global conversation accepts the user's words, immutable attachment snapshots, retry identity and
  * one per-message choice: `includeWorkingChanges` starts the work this message
  * admits from the target workspace's uncommitted changes, which the host
  * snapshots at admission. Optional so earlier messages still parse; absent or
@@ -22,9 +26,10 @@ export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
  */
 export const TarsMessageInputSchema = z.object({
   requestId: IdSchema,
-  text: z.string().trim().min(1).max(TARS_MESSAGE_MAX_CHARS),
+  text: z.string().trim().max(TARS_MESSAGE_MAX_CHARS),
+  attachments: AttachmentContextsSchema.optional(),
   includeWorkingChanges: z.boolean().optional(),
-}).strict();
+}).strict().refine((message) => Boolean(message.text || message.attachments?.length));
 export type TarsMessageInput = z.infer<typeof TarsMessageInputSchema>;
 
 /** Tars executes only on these providers; the rest are explicitly unsupported. */
@@ -76,6 +81,16 @@ export const TarsControlReasonSchema = z.enum([
   "notByFollowUp",
   // A priority change or queue move: only queued work moves, and work already at that end of the queue cannot move further.
   "notQueued", "queueEdge",
+  // Start now: only queued work that has not started can start ahead of the queue.
+  "notStartable",
+  // A run command (extend, retry, skip, sign off) or a resume the run itself refused in its current state.
+  "runRefused",
+  // A run command on work the user paused through Tars: resume it first.
+  "resumeFirst",
+  // A task operation named a request no longer waiting in the task.
+  "requestUnavailable",
+  // A message while a turn runs in the task: it is said in the task, or after the turn.
+  "taskBusy",
 ]);
 export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
 
@@ -85,9 +100,11 @@ export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
  * workspace (which needs a separate request), it cannot take delegated work on
  * Claude or Codex, it conflicts with the pinned execution model, or it would
  * exceed the delegated permission ceiling; or the user's working changes,
- * which the message asked to include, could not be snapshotted.
+ * which the message asked to include, could not be snapshotted. Attachments
+ * without a written user mandate cannot authorize delegation.
  */
 export const TarsDelegateReasonSchema = z.enum([
+  "missingMandate",
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
   // The message asked to include the user's working changes, and the host could not snapshot them.
   "workingChangesUnavailable",
@@ -110,17 +127,30 @@ export const TarsControlActionSchema = z.object({
   responsibilityId: IdSchema,
   expectedRevision: RevisionSchema,
   operation: TarsControlOperationSchema,
-}).strict();
+  /** Only on task operations (approve, deny, answer, message, requestChanges); see `tarsControlInputProblem`. */
+  input: TarsControlInputSchema.optional(),
+}).strict().superRefine((action, context) => {
+  const problem = tarsControlInputProblem(action.operation, action.input);
+  if (problem) context.addIssue({ code: "custom", message: problem, path: ["input"] });
+});
 export type TarsControlAction = z.infer<typeof TarsControlActionSchema>;
 
 /**
- * Controls that return authority to Tars or end work. When the model proposes
- * one, it waits for the user's confirming click; pause and takeover, which only
- * reduce Tars's authority, apply at once.
+ * Controls that return authority to Tars, give its run more room or end work.
+ * When the model proposes one, it waits for the user's confirming click; pause
+ * and takeover, which only reduce Tars's authority, apply at once, and so does
+ * `startNow`, which only changes when work the user already admitted starts.
  */
-export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["resume", "handBack", "cancel", "acceptCompletion"]);
-/** Effects that cannot be undone. They are never a default: no recommended option, no Enter, no "yes". */
-export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion"]);
+export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set([
+  "resume", "handBack", "cancel", "acceptCompletion", "extend", "retryStage", "skipStage", "signOff",
+  // Answering for the user in the task: the card shows the exact request, answers or words first.
+  "approve", "answer", "message", "requestChanges",
+]);
+/**
+ * Effects that cannot be undone. They are never a default: no recommended
+ * option, no Enter, no "yes". An approved tool call runs at once.
+ */
+export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion", "skipStage", "approve"]);
 export function tarsConfirmationRequestId(messageId: string, actionIndex: number) {
   return `confirm:${messageId}:${actionIndex}`;
 }
@@ -298,7 +328,7 @@ export const TarsMessageOriginSchema = z.discriminatedUnion("kind", [
 export type TarsMessageOrigin = z.infer<typeof TarsMessageOriginSchema>;
 
 export const TarsMessageStateSchema = z.enum(["queued", "reasoning", "answered", "failed", "cancelled"]);
-export const TarsMessageSchema = TarsMessageInputSchema.extend({
+export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
   ...TarsConversationSettingsSchema.shape,
   id: IdSchema,
   state: TarsMessageStateSchema,
@@ -378,6 +408,8 @@ export const TarsActInputSchema = z.object({
   responsibilityId: IdSchema,
   expectedRevision: RevisionSchema,
   operation: TarsControlOperationSchema,
+  /** A task operation's input. A confirming click may omit it: the host takes it from the proposal the card showed. */
+  input: TarsControlInputSchema.optional(),
   source: TarsActSourceSchema,
 }).strict();
 export type TarsActInput = z.infer<typeof TarsActInputSchema>;

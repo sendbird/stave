@@ -76,6 +76,9 @@ describe("Tars control admission rules", () => {
     ["queued", "cancel", null], ["takenOver", "handBack", null], ["takenOver", "cancel", null],
     ["takenOver", "resume", "takenOver"], ["takenOver", "pause", "takenOver"], ["takenOver", "takeover", "alreadyTakenOver"],
     ["running", "handBack", "notTakenOver"], ["running", "resume", "notResumable"], ["paused", "pause", "alreadyPaused"],
+    ["queued", "startNow", null], ["preparing", "startNow", "notStartable"], ["running", "startNow", "notStartable"],
+    ["paused", "startNow", "notStartable"], ["blocked", "startNow", "notStartable"], ["takenOver", "startNow", "notStartable"],
+    ["cancelled", "startNow", "ended"], ["completed", "startNow", "ended"],
     ...OPERATIONS.flatMap((operation) => [["cancelled", operation, "ended"], ["completed", operation, "ended"]]),
   ] as Array<[TarsState, TarsControlOperation, TarsControlReason | null]>)("%s + %s", (state, operation, reason) => {
     const admit = () => admitTarsControl(row(state), { responsibilityId: "goal", expectedRevision: 4, operation });
@@ -194,6 +197,24 @@ describe("Tars control through the host path", () => {
     f.database.exec("DROP TRIGGER busy_record");
     expect((await f.click(row.id, row.revision, "pause", "busy-click")).record.status).toBe("applied");
     expect(f.store.get(row.id)).toMatchObject({ state: "paused", revision: row.revision + 1 });
+  });
+
+  test("a spoken start now applies at once, starts each named queued work beside running work and replays once", async () => {
+    const f = fixture();
+    const running = f.responsibility("running", true);
+    const first = f.responsibility("queued", false);
+    const second = f.responsibility("queued", false);
+    const spoken = await f.say([first, second].map((row) => ({ kind: "control" as const, responsibilityId: row.id, expectedRevision: row.revision, operation: "startNow" as const })), "queued된 작업 바로 실행해");
+    const receipts = await spoken.apply();
+    // Not a proposal waiting for Confirm: the user's words already asked for it.
+    expect(receipts.map((receipt) => receipt.status)).toEqual(["applied", "applied"]);
+    await f.settle();
+    for (const row of [first, second]) expect(f.store.get(row.id)).toMatchObject({ state: "running", agentRunId: `run-${row.id}` });
+    expect(f.store.get(running.id)?.state).toBe("running");
+    // A lost acknowledgement replays the saved receipts without starting anything again.
+    expect(await spoken.apply()).toEqual(receipts);
+    expect(f.calls.filter((call) => call === "start")).toHaveLength(2);
+    expect(f.controls()).toEqual([]);
   });
 
   test("words and clicks take the same admission, run control and outcome", async () => {
