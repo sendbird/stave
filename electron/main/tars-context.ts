@@ -118,6 +118,8 @@ export function observeTarsContext(store: ObservationPorts,
       request: asked.resolved.has(row.id) ? { messageId: asked.resolved.get(row.id)! } : "notStored" as const,
       // Tars's own instruction for the unit, as it proposed it; absent on work admitted before it was kept.
       ...(instruction ? { delegatedInstructionExcerpt: instruction.text, ...(instruction.truncated ? { delegatedInstructionTruncated: true } : {}) } : {}),
+      // The names of the message's files and images the work carries (its run's first turn receives them); never their content.
+      ...(row.attachments ? { attachments: row.attachments.items.map((item) => excerpt(item.name, 200).text) } : {}),
       requiresReverification: row.reverifyAfter !== null,
       // Whether its draft pull request is open, failed or underway; a URL only once opened.
       ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),

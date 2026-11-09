@@ -242,6 +242,37 @@ export const TarsWorkRequestSchema = z.object({
 }).strict();
 export type TarsWorkRequest = z.infer<typeof TarsWorkRequestSchema>;
 
+/** The most attachments one message carries (`AttachmentContextsSchema`), so the most one work can carry. */
+export const TARS_MESSAGE_ATTACHMENTS_MAX = 8;
+
+/**
+ * What a window shows of one attachment: its name, a file's language or an
+ * image's MIME type, and its size in bytes (a file's UTF-8 text, an image's
+ * decoded data). The content itself stays in the host for the planner.
+ */
+export const TarsAttachmentSummarySchema = z.object({
+  kind: z.enum(["file", "image"]),
+  name: z.string().trim().min(1).max(500),
+  type: z.string().max(200),
+  size: z.number().int().min(0),
+}).strict();
+export type TarsAttachmentSummary = z.infer<typeof TarsAttachmentSummarySchema>;
+
+/**
+ * The admitting message's attachments a work carries, as a reference: which
+ * of them (`index`, the attachment's position in the message) with each one's
+ * summary. Their content stays in the message's row in the conversation store
+ * and is read only for the first turn of the work's run (`tarsRunAttachmentContext`),
+ * so neither this row nor any snapshot copies it.
+ */
+export const TarsWorkAttachmentsSchema = z.object({
+  messageId: IdSchema,
+  items: z.array(TarsAttachmentSummarySchema.extend({ index: z.number().int().min(0).max(TARS_MESSAGE_ATTACHMENTS_MAX - 1) }).strict())
+    .min(1).max(TARS_MESSAGE_ATTACHMENTS_MAX)
+    .refine((items) => new Set(items.map((item) => item.index)).size === items.length),
+}).strict();
+export type TarsWorkAttachments = z.infer<typeof TarsWorkAttachmentsSchema>;
+
 /**
  * What the run's own waiting stage waits for, saved beside `stageAsksUser`:
  * - `question`: the stage asks the user. Its agent blocked it with
@@ -280,9 +311,13 @@ export type TarsStageWait = z.infer<typeof TarsStageWaitSchema>;
  * - `delegatedInstruction`: the unit's instruction exactly as Tars proposed
  *   it, before the host combined it with the user's message into the run
  *   assignment (`instruction`).
+ * - `attachments`: the admitting message's files and images the work carries
+ *   (`TarsWorkAttachmentsSchema`), a reference only; the run's first turn
+ *   receives their content. Absent when the message had none or Tars gave
+ *   this unit none.
  *
- * `request` and `delegatedInstruction` never change after admission; work
- * admitted before they were saved has neither (see `buildTarsBrief`).
+ * `request`, `delegatedInstruction` and `attachments` never change after
+ * admission; work admitted before they were saved has none (see `buildTarsBrief`).
  */
 const TarsAdmittedWorkFields = {
   branchName: z.string().trim().min(1).max(TARS_BRANCH_NAME_MAX_CHARS + TARS_BRANCH_SUFFIX_CHARS).optional(),
@@ -290,6 +325,7 @@ const TarsAdmittedWorkFields = {
   workingChanges: TarsWorkingChangesSchema.optional(),
   request: TarsWorkRequestSchema.optional(),
   delegatedInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS).optional(),
+  attachments: TarsWorkAttachmentsSchema.optional(),
 };
 
 /**
@@ -372,13 +408,14 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
 export type TarsResponsibility = z.infer<typeof TarsResponsibilitySchema>;
 
 /** The saved texts a window reads one responsibility at a time (`tars:get-brief`), never with every snapshot. */
-const HOST_ONLY_TEXT = ["mandate", "request", "delegatedInstruction"] as const satisfies readonly (keyof TarsResponsibility)[];
+const HOST_ONLY_TEXT = ["mandate", "request", "delegatedInstruction", "attachments"] as const satisfies readonly (keyof TarsResponsibility)[];
 
 /**
  * The snapshot a window reads. A responsibility's `mandate` (up to
- * `TARS_MESSAGE_MAX_CHARS`), the user's message that admitted it and Tars's
- * own instruction can be long, so they stay in the host instead of crossing
- * IPC on every change; the request view reads them on demand (`buildTarsBrief`).
+ * `TARS_MESSAGE_MAX_CHARS`), the user's message that admitted it, Tars's
+ * own instruction and the names of the attachments it carries can be long,
+ * so they stay in the host instead of crossing IPC on every change; the
+ * request view reads them on demand (`buildTarsBrief`).
  */
 export function tarsSnapshotForWindow<T extends { responsibilities: readonly TarsResponsibility[] }>(snapshot: T): T {
   if (!snapshot.responsibilities.some((row) => HOST_ONLY_TEXT.some((key) => row[key] !== undefined))) return snapshot;

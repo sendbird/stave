@@ -448,7 +448,9 @@ setup form; an unclear execution target is resolved in the conversation.
 Switching workspaces keeps the same history, and you can chat before adding a
 repository.
 
-Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. The conversation shows only each attachment's name; the contents, such as image data, are read only when Tars reasons about that message, not on every refresh. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. The conversation shows only each attachment's name; the contents, such as image data, are read only when Tars reasons about that message and when the work it delegates starts, not on every refresh. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+
+The attachments also go to the work the message delegates, so you can send a screenshot with "fix this" and the agent doing the work sees it. The work's run receives them with its first turn, as attached files and images, and does not send them again on later turns; its helpers get only what the lead passes on. When one message starts several works, each gets every attachment unless Tars gives a work only the ones it needs, such as one screenshot per bug. Queued work keeps them through a restart. If the saved attachments cannot be read when the work starts, its first turn waits with the reason instead of running without them. The work's **Request** view lists them by name.
 
 Open **Settings** in the header for the name, standing instructions,
 conversation model and account, execution model, the agents Tars may use and
@@ -546,6 +548,8 @@ conversation.
   the work exactly as you sent it, with when you sent it (or, when it was your
   choice on a Tars question, that question). **Tars's instruction** is what
   Tars wrote for this work; the run receives it together with your message.
+  **N attachments** names the files and images from your message that the
+  work carries; its run receives them with its first turn.
   **Completion criteria** lists the saved criteria. Long text, line breaks and
   code are shown whole, and each text has a copy button. For work Tars took on
   before this view existed, Stave reads the message that started it back from

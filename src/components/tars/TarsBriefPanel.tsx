@@ -47,7 +47,8 @@ const INSTRUCTION_KEYS = {
 
 /**
  * What a responsibility was handed, readable before its run exists: the
- * user's message as sent, Tars's own instruction and the completion criteria.
+ * user's message as sent, Tars's own instruction, the names of the files and
+ * images it carries and the completion criteria.
  * Texts are shown whole as plain text. Work saved before the message was kept
  * says so instead of showing a guess. The criteria come from the snapshot, so
  * they show even while the saved texts load or after a failed read.
@@ -57,6 +58,7 @@ export function TarsBriefPanel({ row, state, onRetry }: {
 }) {
   const { t } = useTranslation(["shell"]);
   const requestId = useId();
+  const attachmentsId = useId();
   const criteriaId = useId();
   const brief = state.status === "ready" ? state.brief : null;
   const request = brief?.request ?? null;
@@ -75,6 +77,14 @@ export function TarsBriefPanel({ row, state, onRetry }: {
         copyLabel={t("shell:tars.side.brief.copyInstruction")} note={<p className={sx(styles.meta)}>{t(INSTRUCTION_KEYS[brief.instruction.source].hint)}</p>} />
       {brief.context ? <SavedText part="context" title={t("shell:tars.side.brief.context")} text={brief.context} copyLabel={t("shell:tars.side.brief.copyContext")}
         note={<p className={sx(styles.meta)}>{t("shell:tars.side.brief.contextHint")}</p>} /> : null}
+      {brief.attachments?.length ? <section className={sx(styles.section)} aria-labelledby={attachmentsId} data-tars-brief-part="attachments">
+        <h3 id={attachmentsId} className={sx(styles.sectionTitle)}>{t("shell:tars.side.brief.attachments", { count: brief.attachments.length })}</h3>
+        <p className={sx(styles.meta)}>{t("shell:tars.side.brief.attachmentsHint")}</p>
+        <ul className={sx(raisedPanel.panel, styles.panelList)}>
+          {brief.attachments.map((attachment, index) => <li key={index} className={sx(raisedPanel.row, styles.criterionText)}
+            data-tars-brief-attachment={attachment.kind}>{attachment.name}</li>)}
+        </ul>
+      </section> : null}
     </> : state.status !== "ready" ? <div className={sx(styles.row)} role={state.status === "failed" ? "alert" : "status"} data-tars-brief-status={state.status}>
       <p className={sx(styles.meta)}>{t(STATUS_KEYS[state.status])}</p>
       {state.status === "failed" ? <Button variant="secondary" size="xs" onClick={(event) => {

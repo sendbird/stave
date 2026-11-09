@@ -13,6 +13,7 @@ import {
 import { tarsExecutionTarget } from "../../src/lib/tars/execution-resources";
 import { buildTarsBranchName } from "../../src/lib/tars/branch-name";
 import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
+import { tarsWorkAttachmentsOf } from "../../src/lib/tars/work-attachments";
 import { TARS_ASSIGNMENT_MAX_CHARS, type TarsWorkingChanges } from "../../src/lib/tars/types";
 import { tarsFollowUpRefusal } from "./tars-follow-up-admission";
 import { tarsPublishProposalRefusal } from "./tars-publish";
@@ -234,6 +235,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
                 ceiling: tarsDelegationCeiling(agents) }).id;
             }
             const requestId = `tars-message:${message.id}:${index}`;
+            // A reference to the message's attachments this unit carries; their content stays in the message's row.
+            const attachments = tarsWorkAttachmentsOf(admitted, action.attachments);
             const { instruction, mandate } = tarsWorkInstruction(admitted.text, action.instruction);
             const row = ports.responsibilities.create({
               requestId,
@@ -248,6 +251,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
               ...(admitted.runtimeHints ? { runtimeHints: admitted.runtimeHints } : {}),
               ...(agentId ? { agentId } : {}),
               ...(workingChanges ? { workingChanges } : {}),
+              ...(attachments ? { attachments } : {}),
             }, now());
             return { responsibilityId: row.id };
           }

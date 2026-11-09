@@ -833,6 +833,54 @@ describe("run runtime: failures and restarts", () => {
     expect(h.runCalls[1]?.initialContext?.questionReply).toBeUndefined();
   });
 
+  describe("attachments another store keeps", () => {
+    const image = { dataUrl: "data:image/png;base64,c2NyZWVu", label: "screen.png", mimeType: "image/png" };
+    const file = { filePath: "notes.txt", content: "The button overlaps the header.", language: "txt" };
+    const mandate = { type: "retrieved_context" as const, sourceId: "tars:mandate", content: "Fix the header." };
+    const reader = (reads: string[]) => ({ resolveAttachmentSource: ({ source, agentRun }: { source: string; agentRun: { leadTaskId: string } }) => {
+      reads.push(`${source}@${agentRun.leadTaskId}`);
+      return { fileContexts: [file], imageContexts: [image] };
+    } });
+
+    test("are read for the run's first turn only and never stored in the run", async () => {
+      const reads: string[] = [];
+      const h = createHarness({ extra: reader(reads) });
+      const id = await startedAgentRun(h, startInput({ initialContext: { attachmentSource: "tars-work:work-1", retrievedContextParts: [mandate] } }));
+      expect(h.runCalls[0]?.initialContext).toEqual({ retrievedContextParts: [mandate], fileContexts: [file], imageContexts: [image] });
+      // The run keeps the reference; the content stays where it was.
+      expect(h.aggregate(id).agentRun.initialContext).toEqual({ attachmentSource: "tars-work:work-1", retrievedContextParts: [mandate] });
+      h.endTurn("turn-1");
+      await h.tick();
+      expect(h.runCalls).toHaveLength(2);
+      // Later turns keep the replayed context and send the attachments no more.
+      expect(h.runCalls[1]?.initialContext).toEqual({ retrievedContextParts: [mandate] });
+      expect(reads).toEqual(["tars-work:work-1@task-1"]);
+    });
+
+    test("survive a restart before the run's first turn", async () => {
+      const store = new AgentRunStore(new Database(":memory:"));
+      const reads: string[] = [];
+      const first = createHarness({ store, extra: reader(reads) });
+      // The task is busy, so the stopped host never starts the run's first turn.
+      first.setSnapshot({ activeTurnId: "user-turn" });
+      const id = await startedAgentRun(first, startInput({ initialContext: { attachmentSource: "tars-work:work-1" } }));
+      expect(first.runCalls).toHaveLength(0);
+      const restarted = createHarness({ store, extra: reader(reads) });
+      restarted.runtime.start();
+      await restarted.tick();
+      expect(restarted.runCalls[0]?.initialContext).toEqual({ fileContexts: [file], imageContexts: [image] });
+      expect(restarted.aggregate(id).agentRun.initialContext).toEqual({ attachmentSource: "tars-work:work-1" });
+    });
+
+    test("that cannot be read stop the first turn's start instead of running without them", async () => {
+      const h = createHarness({ extra: { resolveAttachmentSource: () => { throw new Error("The message is gone."); } } });
+      const id = await startedAgentRun(h, startInput({ initialContext: { attachmentSource: "tars-work:work-1" } }));
+      expect(h.runCalls).toHaveLength(0);
+      expect(h.current(id).status).toBe("stuck");
+      expect(h.notifications.join("\n")).toContain("The message is gone.");
+    });
+  });
+
   test("a restart closes the run turn the stopped host left open", async () => {
     const store = new AgentRunStore(new Database(":memory:"));
     const first = createHarness({ store });

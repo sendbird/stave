@@ -100,10 +100,27 @@ reopening Stave preserves the attachment names in the conversation. The
 conversation itself shows only each attachment's name (and keeps its type and
 size): the saved contents, such as an image's data, are not loaded again every
 time the conversation refreshes, and Stave reads them only for Tars's own
-reasoning turn on that message. Attached
+reasoning turn on that message and for the first turn of the work it delegates. Attached
 material supplies context and does not authorize delegated work on its own.
 You can discuss attachments without text; to start work, include a written
 instruction with them. The host refuses delegation from an attachment-only message.
+
+The attachments also reach the work the message delegates, so you can send a
+screenshot with "fix this" and the agent doing the work sees it. Each work
+keeps a reference to the message's attachments, never a copy: their content
+stays saved with the message, and the work's run reads it for its first turn
+only, as attached files and images (images as image input on Claude and Codex,
+text files the way the task composer sends them). Later turns of that run do
+not send them again, and the run's helpers receive only what the lead passes
+on. When one message starts several works, each carries every attachment
+unless Tars gives a work only the ones it needs, for example one screenshot per
+bug; a work Tars gives an attachment the message does not have is refused with
+that reason. Queued work keeps the reference through a restart, and starting
+queued work now sends them the same way. If the saved attachments cannot be
+read when the run's first turn starts, that turn does not start and the stage
+waits with the reason, instead of running without them. The **Request** view
+lists the attachments a work carries by name, and Tars sees their names when it
+reports on the work.
 
 ## What it can do
 
@@ -652,7 +669,9 @@ recorded in the conversation.
   admitted the work exactly as you sent it, with when you sent it (and, when
   it was your choice on a Tars question, that question). **Tars's
   instruction** is the instruction Tars wrote for this unit; the run receives
-  it together with your message. **Completion criteria** lists the criteria
+  it together with your message. **N attachments** lists, by name, the files
+  and images from your message that the work carries; its run's lead receives
+  them with its first turn. **Completion criteria** lists the criteria
   saved with the work. Texts are shown whole as plain text: line breaks,
   indentation and code blocks are kept and long lines wrap, and each text has
   a copy button. Work Tars admitted before this view existed did not keep your

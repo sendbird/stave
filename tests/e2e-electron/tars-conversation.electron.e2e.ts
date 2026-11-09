@@ -79,7 +79,8 @@ test("global conversation works without a workspace, admits one decision, and su
       workspaceId: E2E_WORKSPACE_ID,
       title: "Inspect the fixture", instruction: "[hold] Inspect README.md and report the result.",
       acceptanceCriteria: ["README.md was inspected."], priority: 60, branchName: "chore/inspect fixture" }] }));
-    const delegation = { requestId: "delegation", text: "Inspect README.md within the registered repository." };
+    // The same screenshot and notes again: the work this message delegates carries them to its run's first turn.
+    const delegation = { requestId: "delegation", text: "Inspect README.md within the registered repository.", attachments: discussion.attachments };
     const delegated = await stave.page.evaluate((input) => window.api!.tars!.sendMessage!(input), delegation);
     await expect.poll(() => stave!.page.evaluate(async (id) =>
       (await window.api!.tars!.getConversation!()).receipts.find((row) => row.messageId === id)?.status, delegated.id), { timeout: 60_000 }).toBe("applied");
@@ -95,6 +96,15 @@ test("global conversation works without a workspace, admits one decision, and su
     expect(execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: repositoryPath, encoding: "utf8" }))
       .toContain(`branch refs/heads/${responsibilities[0]!.branchName}`);
     expect(await reasoningCount()).toBe(2);
+    // The delegated run's first turn received the image bytes and the file's text, like the planner did.
+    const runTurns = async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line))
+      .filter((entry) => entry.runTurn && !entry.fixture);
+    await expect.poll(async () => (await runTurns()).length, { timeout: 60_000 }).toBeGreaterThan(0);
+    expect((await runTurns())[0]!.markers).toEqual({ currentMessage: false, "tars-attachment-proof": true, c2NyZWVu: true });
+    // The work keeps their names for its request view; no snapshot a window reads holds their content.
+    const brief = await stave.page.evaluate((id) => window.api!.tars!.getBrief!({ responsibilityId: id }), responsibilities[0]!.id);
+    expect(brief.attachments).toEqual(first.attachments);
+    expect(JSON.stringify(await stave.page.evaluate(() => window.api!.tars!.get()))).not.toContain("c2NyZWVu");
     // Stop owned execution, independently of the conversation's settled receipt.
     const cancelled = await stave.page.evaluate((row) => window.api!.tars!.act({ requestId: "cancel-click", responsibilityId: row.id,
       expectedRevision: row.revision, operation: "cancel", source: "click" }), responsibilities[0]!);

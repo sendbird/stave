@@ -13,6 +13,7 @@ import {
   TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
 } from "../../src/lib/tars/publication";
 import { TarsWorkRequestSchema, type TarsWorkRequest } from "../../src/lib/tars/types";
+import { AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/providers/attachment-context";
 import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readSettledTarsTargets } from "./tars-proposals";
@@ -148,6 +149,19 @@ export class TarsConversationStore {
     const parsed = TarsWorkRequestSchema.safeParse(tarsWorkRequestOf({ id: messageId, text: row.text, createdAt: row.created_at,
       ...(origin?.success ? { origin: origin.data } : {}) }));
     return parsed.success ? parsed.data : null;
+  }
+
+  /**
+   * One message's saved attachments, content included, read without the rest
+   * of the message: the first turn of a work that carries them reads them
+   * here (`tarsRunAttachmentContext`). Empty when the message has none; null
+   * when the message is gone.
+   */
+  attachmentsOf(messageId: string): AttachmentContext[] | null {
+    const row = this.db.prepare("SELECT json_extract(body_json, '$.attachments') AS attachments_json FROM tars_messages WHERE id = ?")
+      .get(messageId) as { attachments_json: unknown } | undefined;
+    if (!row) return null;
+    return typeof row.attachments_json === "string" ? AttachmentContextsSchema.parse(JSON.parse(row.attachments_json)) : [];
   }
 
   /** Return the most recent bounded window in conversation order. */

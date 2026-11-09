@@ -2,7 +2,8 @@ import { z } from "zod";
 import { AttachmentContextsSchema, type AttachmentContext } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
-  TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema, TarsStageWaitSchema,
+  TARS_MESSAGE_ATTACHMENTS_MAX, TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAttachmentSummarySchema, type TarsAttachmentSummary,
+  TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema, TarsStageWaitSchema,
   tarsControlInputProblem, type TarsControlOperation,
 } from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
@@ -103,13 +104,16 @@ export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
  * Claude or Codex, it conflicts with the pinned execution model, or it would
  * exceed the delegated permission ceiling; or the user's working changes,
  * which the message asked to include, could not be snapshotted. Attachments
- * without a written user mandate cannot authorize delegation.
+ * without a written user mandate cannot authorize delegation, and a unit that
+ * names an attachment its message does not have is refused.
  */
 export const TarsDelegateReasonSchema = z.enum([
   "missingMandate",
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
   // The message asked to include the user's working changes, and the host could not snapshot them.
   "workingChangesUnavailable",
+  // Tars gave the unit an attachment position the message does not have.
+  "attachmentUnknown",
 ]);
 export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
 /** A publish proposal refused when it was made carries a `TarsPublishReason`. */
@@ -253,6 +257,15 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
     /** Optional one line on why this unit and agent; shown under the flow block. Display only, so it is cut, never fatal. */
     reason: z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim().slice(0, TARS_DELEGATION_REASON_MAX_CHARS) : undefined,
       z.string().min(1).max(TARS_DELEGATION_REASON_MAX_CHARS).optional()),
+    /**
+     * Optional: the 0-based positions, in the message, of the attachments this
+     * unit carries; absent gives it every attachment, empty none. A repeated
+     * position counts once; one the message does not have is refused at
+     * admission (`attachmentUnknown`), not here, so one bad unit never fails
+     * the whole reply.
+     */
+    attachments: z.preprocess((value) => Array.isArray(value) ? [...new Set(value)] : value,
+      z.array(z.number().int().min(0).max(1_000)).max(TARS_MESSAGE_ATTACHMENTS_MAX).optional()),
   }).strict(),
   z.object({
     kind: z.literal("reprioritize"),
@@ -365,18 +378,7 @@ function checkMessageState(message: { state: string; reply: string | null; error
 export const TarsMessageSchema = z.object({ ...messageInputShape, ...messageFields }).strict().refine(hasContent).superRefine(checkMessageState);
 export type TarsMessage = z.infer<typeof TarsMessageSchema>;
 
-/**
- * What a window shows of one attachment: its name, a file's language or an
- * image's MIME type, and its size in bytes (a file's UTF-8 text, an image's
- * decoded data). The content itself stays in the host for the planner.
- */
-export const TarsAttachmentSummarySchema = z.object({
-  kind: z.enum(["file", "image"]),
-  name: z.string().trim().min(1).max(500),
-  type: z.string().max(200),
-  size: z.number().int().min(0),
-}).strict();
-export type TarsAttachmentSummary = z.infer<typeof TarsAttachmentSummarySchema>;
+export { TarsAttachmentSummarySchema, type TarsAttachmentSummary } from "./types";
 
 /**
  * A message as a window reads it (`tars:get-conversation`, and what sending

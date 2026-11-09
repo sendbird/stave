@@ -327,6 +327,22 @@ describe("Tars start now", () => {
     expect(f.calls.filter((call) => !call.includes(":"))).toEqual([]);
     f.database.close();
   });
+  test("starting queued work now starts its run with the attachments its message gave it", async () => {
+    const started: Array<TarsResponsibility["attachments"]> = [];
+    const f = fixture({ startRun: async (row) => { started.push(row.attachments); return `run-${row.id}`; } });
+    const first = f.store.create(input("first", 90), NOW);
+    await f.tick();
+    const attachments = { messageId: "message-1", items: [{ index: 0, kind: "image" as const, name: "screen.png", type: "image/png", size: 6 }] };
+    const second = f.store.create({ ...input("second", 10), attachments }, NOW);
+    await f.tick();
+    expect(f.store.get(first.id)?.state).toBe("running");
+    expect(f.store.get(second.id)?.state).toBe("queued");
+    expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
+    await f.runtime.drain();
+    expect(f.store.get(second.id)).toMatchObject({ state: "running", agentRunId: `run-${second.id}` });
+    expect(started).toEqual([undefined, attachments]);
+    f.database.close();
+  });
   test("refuses paused, taken-over, stale and out-of-scope work without starting anything", async () => {
     let denied = false;
     const f = fixture({ validateScope: async () => { if (denied) throw new Error("denied repository"); } });

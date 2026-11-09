@@ -264,6 +264,13 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
     freshSession?: boolean;
   }) => Promise<{ turnId: string }>;
   /**
+   * Reads the attachments a run's initial context names (`attachmentSource`)
+   * for its first turn, from the store that keeps them; throws when they
+   * cannot be read, so that turn does not start without them. Absent: a run
+   * naming a source cannot start its first turn.
+   */
+  resolveAttachmentSource?: (args: { source: string; agentRun: AgentRun }) => Pick<AgentRunInitialContext, "fileContexts" | "imageContexts">;
+  /**
    * The user's own provider permission settings, for turns no consent sets:
    * an agent run on "Your settings" (`manual`) and the report-sharing turn.
    * Absent: those turns pass no permissions (tests and headless callers).
@@ -1327,6 +1334,25 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * the reporting grant; a turn a Stave action asked for reports nothing and
    * carries none.
    */
+  /**
+   * The run's initial context for one of its turns. A question's provenance
+   * and the attachments another store keeps (`attachmentSource`) belong to
+   * the first turn only: the source is read for that turn and merged into its
+   * file and image contexts, and a later turn carries neither.
+   */
+  function turnInitialContext(agentRun: AgentRun, isContinuation: boolean): AgentRunInitialContext | undefined {
+    const context = agentRun.initialContext;
+    if (!context?.attachmentSource) return context?.questionReply && isContinuation ? { ...context, questionReply: undefined } : context;
+    const { attachmentSource: source, ...rest } = context;
+    if (isContinuation) return rest.questionReply ? { ...rest, questionReply: undefined } : rest;
+    // i18n-ignore: run diagnostic recorded with the turn that could not start
+    if (!deps.resolveAttachmentSource) throw new Error("This host cannot read the attachments this run carries.");
+    const read = deps.resolveAttachmentSource({ source, agentRun });
+    return { ...rest,
+      ...(read.fileContexts?.length ? { fileContexts: [...(rest.fileContexts ?? []), ...read.fileContexts] } : {}),
+      ...(read.imageContexts?.length ? { imageContexts: [...(rest.imageContexts ?? []), ...read.imageContexts] } : {}) };
+  }
+
   async function startAgentRunTurn(
     aggregate: AgentRunAggregate,
     decision: Extract<
@@ -1518,8 +1544,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
         prompt,
-        initialContext: agentRun.initialContext?.questionReply && isContinuation
-          ? { ...agentRun.initialContext, questionReply: undefined } : agentRun.initialContext,
+        // Read here, inside the turn's start: attachments that cannot be read fail this turn's start.
+        initialContext: turnInitialContext(agentRun, isContinuation),
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
         retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey,

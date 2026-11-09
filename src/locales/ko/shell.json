@@ -1597,7 +1597,8 @@
       "agentNotDelegable": "이 에이전트는 Claude나 Codex에서 위임 작업을 맡을 수 없어 이 작업을 시작하지 않았습니다.",
       "agentModelConflict": "이 에이전트는 지정한 실행 모델에서 실행할 수 없습니다. Tars 설정에서 자동이나 맞는 모델을 선택한 뒤 다시 요청하세요.",
       "agentOverCap": "이 에이전트는 Tars가 맡기는 작업에 허용된 권한보다 넓은 권한으로 실행되므로 이 작업을 시작하지 않았습니다.",
-      "workingChangesUnavailable": "작업 중인 변경을 스냅숏으로 저장하지 못해 이 작업을 시작하지 않았습니다. 워크스페이스를 확인한 뒤 다시 요청하세요."
+      "workingChangesUnavailable": "작업 중인 변경을 스냅숏으로 저장하지 못해 이 작업을 시작하지 않았습니다. 워크스페이스를 확인한 뒤 다시 요청하세요.",
+      "attachmentUnknown": "Tars가 메시지에 없는 첨부를 이 작업에 지정해 작업을 시작하지 않았습니다."
     },
     "owner": {
       "label": "Tars",
@@ -2037,6 +2038,8 @@
         "assignmentHint": "이 작업은 메시지 원문과 Tars의 지시를 따로 저장하기 전에 맡겨져 둘을 나누어 보여 드릴 수 없습니다. 아래는 실행에 전달된 지시 전체입니다.",
         "context": "전체 첨부 내용",
         "contextHint": "실행 지시에 담기에는 길어서, 실행 리드가 매 턴 맥락으로 전체를 받습니다.",
+        "attachments_other": "첨부 {{count}}개",
+        "attachmentsHint": "보낸 메시지에 첨부한 파일과 이미지입니다. 실행 리드가 첫 턴에 함께 받습니다.",
         "criteria_other": "완료 기준 {{count}}개",
         "copyRequest": "메시지 원문 복사",
         "copyInstruction": "지시 복사",
