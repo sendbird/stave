@@ -25,6 +25,12 @@ export interface AgentIdentityProps {
   source?: DelegationIdentitySource | null;
   /** One line, no wrapping, effort folded into the text: for list rows. */
   compact?: boolean;
+  /**
+   * `caption` sets the model name in the meta line's 12px step, for a surface
+   * whose title is the run, not the agent (a run monitor's meta line).
+   * @default "body"
+   */
+  size?: "body" | "caption";
   modelEvidence?: "requested" | "configured" | "reported";
   /** Renders the source badge (`Auto` / `Preset` / `Explicit`). */
   showSource?: boolean;
@@ -53,6 +59,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
     identity.modelLabel ?? identity.providerLabel ?? i18n.t("agentRuns:agentIdentity.nameLabel");
   const nameStyle = [
     styles.identityModel,
+    props.size === "caption" && styles.identityModelCaption,
     tone ? providerInkStyles[tone] : styles.identityModelMuted,
   ] as const;
   return (
