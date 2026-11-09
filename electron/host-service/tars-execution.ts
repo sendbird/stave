@@ -1,4 +1,5 @@
-import type { TarsResponsibility } from "../../src/lib/tars/types";
+import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
+import type { AgentRunStageRecord } from "../../src/lib/agent-runs/domain";
 import type { Workflow } from "../../src/lib/workflows/schema";
 import type { AgentRunDetail } from "../../src/lib/agent-runs/api";
 import type { TarsExecutionObservation } from "./tars-runtime";
@@ -89,6 +90,33 @@ export function hasStaveVerifiedOutcome(detail: AgentRunDetail, verification: St
 }
 
 /**
+ * What a waiting stage waits for. Only the agent's own block of kind `input`
+ * or `permission` asks the user a question, carried with its words and
+ * suggested action as the agent reported them; a stage awaiting sign-off asks
+ * for the user's sign-off. Everything else is one of Stave's own checks (a
+ * criterion unmet or unverified, no report, reporting down, a failed action)
+ * or the agent blocked on its environment or an outside service: a gate that
+ * needs verification or a next step, not an answer. Null for a stage that
+ * does not wait.
+ */
+export function tarsStageWait(record: Pick<AgentRunStageRecord, "status" | "blockReason" | "report"> | undefined): TarsStageWait | null {
+  if (!record) return null;
+  if (record.status === "awaiting-sign-off") return { kind: "signOff" };
+  if (record.status === "stuck") return { kind: "gate", gate: "stuck" };
+  if (record.status !== "blocked") return null;
+  if (record.blockReason === "agent-blocked") {
+    const report = record.report?.outcome === "blocked" ? record.report : null;
+    const words = report ? { missing: report.missing, ...(report.suggestedAction ? { suggestedAction: report.suggestedAction } : {}) } : {};
+    // An agent's own block without its report still came from the agent, never from a Stave gate.
+    if (!report || report.kind === "input" || report.kind === "permission")
+      return { kind: "question", ...(report ? { blockKind: report.kind } : {}), ...words };
+    return { kind: "gate", gate: "blocker", blockKind: report.kind, ...words };
+  }
+  return { kind: "gate", gate: record.blockReason === "acceptance-unmet" ? "acceptanceUnmet"
+    : record.blockReason === "action-failed" ? "actionFailed" : "reportingUnavailable" };
+}
+
+/**
  * `reverifyAfter` comes from a hand-back: the user may have changed the work,
  * so a completion counts only on a final-stage attempt that started after it.
  * A hand-back during the final stage restarts that attempt (`controlTarsRun`).
@@ -129,9 +157,10 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
   if (run.state === "paused" || stageWaits) {
     const words = current?.detail ?? run.reasonDetail ?? null;
     // Any run pause (the user's, a usage limit, an expired event wait) is a
-    // plain wait even over a waiting stage; only a running run's own stage
-    // asks the user for a decision (`isTarsStageAskingUser`).
-    const asks = run.state !== "paused" ? { stageAsksUser: true } : {};
+    // plain wait even over a waiting stage; only a running run's own stage is
+    // judged at once (`isTarsStageAskingUser`), with what it waits for.
+    const wait = run.state !== "paused" ? tarsStageWait(current) : null;
+    const asks = run.state !== "paused" ? { stageAsksUser: true, ...(wait ? { stageWait: wait } : {}) } : {};
     // The turn count lets a turn taken between two looks restart the quiet wait.
     const turns = { runTurns: run.turnCount, ...(current ? { runStage: `${current.stageId}#${current.attempt}` } : {}) };
     // A bare pause reason is a code, never words to show as written.
@@ -181,7 +210,9 @@ export function tarsHelperObservation(helpers: readonly TarsHelperRead[]): TarsE
     const stage = currentStageRecord(detail);
     // The helper's own turn and stage attempt identify the ask: a new turn or attempt there is a new ask.
     const at = { waitingTaskId: run.leadTaskId, runTurns: run.turnCount, runStage: `${run.id}/${stage.stageId}#${stage.attempt}`.slice(0, 300) };
-    if (kind && run.state === "running") return [{ asks: true, observation: { state: "waiting" as const, detail: stage.detail ?? null, stageAsksUser: true, ...at } }];
+    const wait = tarsStageWait(stage);
+    if (kind && run.state === "running") return [{ asks: true, observation: { state: "waiting" as const, detail: stage.detail ?? null, stageAsksUser: true,
+      ...(wait ? { stageWait: wait } : {}), ...at } }];
     if (kind) {
       const words = stage.detail ?? run.reasonDetail ?? null;
       return [{ asks: false, observation: words || !run.pauseReason ? { state: "waiting" as const, detail: words, ...at }

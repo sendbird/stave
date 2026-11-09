@@ -135,7 +135,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     {origin?.kind === "reask" ? <p className={sx(styles.actionRecord)} data-tars-reask=""><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
       <span>{t(`shell:tars.decision.reaskLine.${origin.reason}`)}</span></p>
       : origin?.kind === "followUp" ? <p className={sx(styles.actionRecord)} data-tars-follow-up={origin.reason}><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
-        <span>{t(`shell:tars.followUp.line.${origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
+        <span>{t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
         : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p>
           {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index}>{attachmentName(part)}</li>)}</ul> : null}</MessageContent></Message>}

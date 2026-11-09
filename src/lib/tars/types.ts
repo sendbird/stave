@@ -6,7 +6,7 @@ import type {
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
-import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
+import { AGENT_RUN_LIMITS, STAGE_BLOCK_KINDS } from "../agent-runs/domain";
 import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-name";
 import { TarsPublicationSchema } from "./publication";
 
@@ -243,6 +243,29 @@ export const TarsWorkRequestSchema = z.object({
 export type TarsWorkRequest = z.infer<typeof TarsWorkRequestSchema>;
 
 /**
+ * What the run's own waiting stage waits for, saved beside `stageAsksUser`:
+ * - `question`: the stage asks the user. Its agent blocked it with
+ *   `stave_block_stage` of kind `input` or `permission`; `missing` is its
+ *   question and `suggestedAction` its suggestion.
+ * - `signOff`: the stage waits for the user's sign-off.
+ * - `gate`: one of Stave's own checks stopped it, and it asks the user no
+ *   question; it needs verification or a next step. `gate` says which:
+ *   `acceptanceUnmet` (a required criterion unmet or unverified), `stuck` (no
+ *   report after the reminder, or provider retries spent),
+ *   `reportingUnavailable`, `actionFailed`, or `blocker` (the agent blocked on
+ *   its environment or an outside service, `blockKind`).
+ * `missing` and `suggestedAction` are the run's own words: untrusted.
+ */
+export const TarsStageWaitSchema = z.object({
+  kind: z.enum(["question", "signOff", "gate"]),
+  gate: z.enum(["acceptanceUnmet", "stuck", "reportingUnavailable", "actionFailed", "blocker"]).optional(),
+  blockKind: z.enum(STAGE_BLOCK_KINDS).optional(),
+  missing: z.string().max(AGENT_RUN_LIMITS.report.missing).optional(),
+  suggestedAction: z.string().max(AGENT_RUN_LIMITS.report.suggestedAction).optional(),
+}).strict();
+export type TarsStageWait = z.infer<typeof TarsStageWaitSchema>;
+
+/**
  * Set only by host decision admission, never by the renderer's create request.
  * - `branchName`: the execution workspace's branch, built by
  *   `buildTarsBranchName` from the planner's proposal for the repository's
@@ -300,11 +323,15 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   reverifyAfter: z.iso.datetime().nullable(),
   /**
    * Set by observation while `waiting` because the run's own current stage
-   * blocked, got stuck or awaits sign-off to ask the user for a decision.
-   * Absent for plain waits: the user paused the run, a usage-limit or other
-   * run pause, or a tool approval or question the user answers in the task.
+   * blocked, got stuck or awaits sign-off, so Tars judges it at once.
+   * `stageWait` says whether the stage actually asks the user (`question`,
+   * `signOff`) or one of Stave's own checks stopped it (`gate`). Absent for
+   * plain waits: the user paused the run, a usage-limit or other run pause, or
+   * a tool approval or question the user answers in the task.
    */
   stageAsksUser: z.boolean().optional(),
+  /** What the waiting stage waits for (`TarsStageWaitSchema`); only with `stageAsksUser`. Absent on rows observed before it existed. */
+  stageWait: TarsStageWaitSchema.optional(),
   /**
    * The run's turn count when it was last observed waiting. A turn taken
    * since is activity, so it saves a change that restarts the quiet wait even
@@ -364,7 +391,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

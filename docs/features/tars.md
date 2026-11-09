@@ -64,7 +64,7 @@ across workspaces, tasks and restarts.
 
 **Follow-ups.** Saved status changes appear in the conversation and the
 **Work** tray without you asking. When a change needs judgment (the work
-blocked, its run stopped to ask you, a completion could not be verified,
+blocked, its run's stage stopped to ask you or at one of Stave's own checks, a completion could not be verified,
 criteria were left unmet, or a plain wait went an hour without change), Tars
 starts one **Automatic follow-up** turn of its own to explain and advise. See
 [Automatic follow-up](#automatic-follow-up) for the exact rules.
@@ -851,16 +851,26 @@ follow-up turn of Tars's own, so blocked work does not wait silently for you to
 ask:
 
 - the work became blocked,
-- its run stopped its own stage to ask you for a decision: the stage blocked,
-  got stuck or awaits your sign-off while the run is still running. A helper
-  the run delegated to counts the same way when its stage asks you, since the
-  run waits for that helper. Tars shows the work as waiting for you and follows
-  up at once, not after the quiet hour, and the tray's **Needs you** counts the
-  helper's row that Fleet shows. When the stage blocked on an acceptance
-  criterion, the reason Tars reads says whether the stage report marked it
-  **Not met** or **Not verified**; a report that left a required criterion out
-  or reworded it is refused while the run's turn is still going, so it does
-  not reach you,
+- its run's own stage stopped while the run is still running: the stage
+  blocked, got stuck or awaits your sign-off. A helper the run delegated to
+  counts the same way when its stage stops, since the run waits for that
+  helper. Tars shows the work as waiting for you and follows up at once, not
+  after the quiet hour, and the tray's **Needs you** counts the helper's row
+  that Fleet shows. Tars tells apart what the stage waits for. Only a stage
+  whose agent blocked it for your input or permission asks you a question:
+  Tars gets that question and the agent's suggested action in the agent's own
+  words, and the line reads **Automatic follow-up · Needs your decision**. A
+  stage awaiting your sign-off reads the same. A stage that one of Stave's own
+  checks stopped (a required criterion not met or not verified, no report, the
+  reporting tools unavailable, a failed stage action) or that the agent
+  blocked on its environment or an outside service asks you nothing: the line
+  reads **Automatic follow-up · Needs verification or a next step** (in
+  Korean, **자동 후속 · 확인 또는 다음 단계 필요**), and Tars says what needs
+  verifying or which next step fits instead of saying the run asked you
+  something. When the stage blocked on an acceptance criterion, the reason
+  Tars reads says whether the stage report marked it **Not met** or **Not
+  verified**; a report that left a required criterion out or reworded it is
+  refused while the run's turn is still going, so it does not reach you,
 - its run reported completion Stave could not verify,
 - it ended with required criteria unmet or a verification older than a hand-back,
 - it waited an hour without any change (a turn the run took counts as a

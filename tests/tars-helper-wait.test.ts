@@ -19,9 +19,10 @@ beforeEach(async () => { await applyAppLocale("en"); });
 
 describe("a helper of the run that waits on the user", () => {
   test("a helper's asking stage is the team asking: an immediate ask on the helper's task", () => {
+    const waits = { blocked: { kind: "question" }, stuck: { kind: "gate", gate: "stuck" }, "awaiting-sign-off": { kind: "signOff" } } as const;
     for (const status of ["blocked", "stuck", "awaiting-sign-off"] as const)
       expect(tarsHelperObservation([{ detail: helperRunDetail({ status, turnCount: 2 }), pendingRequests: 0 }])).toEqual({
-        state: "waiting", detail: TEAM.question, stageAsksUser: true, waitingTaskId: TEAM.helperTaskId, runTurns: 2,
+        state: "waiting", detail: TEAM.question, stageAsksUser: true, stageWait: waits[status], waitingTaskId: TEAM.helperTaskId, runTurns: 2,
         runStage: `${TEAM.helperRunId}/${helperRunDetail().agentRun.workflow.stages[0]!.id}#1` });
     expect(tarsHelperObservation([{ detail: helperRunDetail({ status: "running" }), pendingRequests: 0 }])).toBeNull();
     expect(tarsHelperObservation([])).toBeNull();

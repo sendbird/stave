@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AttachmentContextsSchema } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
-  TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema,
+  TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema, TarsStageWaitSchema,
   tarsControlInputProblem, type TarsControlOperation,
 } from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
@@ -323,6 +323,12 @@ export const TarsMessageOriginSchema = z.discriminatedUnion("kind", [
     observedRevision: RevisionSchema,
     /** Model-facing summary of what changed. */
     summary: z.string().max(2_000),
+    /**
+     * For `stageAsksUser`: what the stopped stage waits for (`TarsStageWait`
+     * kind), so a gate is followed up as needing verification or a next step,
+     * never as a question to the user. Absent on older follow-ups.
+     */
+    stage: TarsStageWaitSchema.shape.kind.optional(),
   }).strict(),
 ]);
 export type TarsMessageOrigin = z.infer<typeof TarsMessageOriginSchema>;

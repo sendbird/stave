@@ -33,6 +33,12 @@ function excerpt(text: string, max: number) {
   return { text: kept, truncated: true };
 }
 
+/** Units one message admitted share its time; the decision's action order (`tars-message:<id>:<index>`) keeps them in order. */
+function actionIndex(row: Pick<TarsResponsibility, "requestId">) {
+  const index = /:(\d+)$/.exec(row.requestId)?.[1];
+  return index === undefined ? Number.MAX_SAFE_INTEGER : Number(index);
+}
+
 /**
  * The user's own messages that admitted the observed work, oldest first by
  * when they were sent, so the planner can list them, or the work, in the
@@ -58,7 +64,7 @@ function observeRequests(rows: readonly TarsResponsibility[], read: ((messageId:
       const cut = excerpt(request.text, TARS_REQUEST_EXCERPT_CHARS);
       return { messageId: request.messageId, sentAt: request.sentAt, textExcerpt: cut.text, truncated: cut.truncated, source,
         ...(request.answeredQuestion ? { answeredQuestion: excerpt(request.answeredQuestion, 200).text } : {}),
-        works: [...works].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)).slice(0, MAX_WORKS_PER_REQUEST)
+        works: [...works].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || actionIndex(a) - actionIndex(b) || a.id.localeCompare(b.id)).slice(0, MAX_WORKS_PER_REQUEST)
           .map((row) => ({ id: row.id, title: row.title, state: row.state })),
         ...(works.length > MAX_WORKS_PER_REQUEST ? { omittedWorks: works.length - MAX_WORKS_PER_REQUEST } : {}) };
     }),
@@ -107,7 +113,9 @@ export function observeTarsContext(store: ObservationPorts,
       ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),
       source: "persisted-personal-responsibility", acceptanceCriteria: row.acceptanceCriteria.slice(0, 3),
       // What the user's run commands need: why it paused, how many turns are left and which stage it is on.
-      ...(row.stageAsksUser ? { stageAsksUser: true } : {}),
+      // stageAsksUser only when the stage really asks; stageWait says what it waits for (a gate asks nothing).
+      ...(row.stageAsksUser && row.stageWait?.kind !== "gate" ? { stageAsksUser: true } : {}),
+      ...(row.stageAsksUser && row.stageWait ? { stageWait: row.stageWait } : {}),
       // Requests waiting in the work's task or a helper's task; their text is the tool's own words, untrusted.
       ...(row.pendingRequests?.length ? { pendingRequests: row.pendingRequests.map(({ workspaceId: _workspace, ...request }) => request) } : {}),
       execution: owned ? { source: "persisted-agent-run", id: owned.id, state: owned.state, updatedAt: owned.updatedAt,

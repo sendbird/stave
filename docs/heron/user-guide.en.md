@@ -653,12 +653,17 @@ concurrently. Use **Settings** to guide newly admitted
 work without changing an existing run or granting permissions.
 
 Tars also follows up by itself when work needs judgment: it became blocked,
-its run or one of its helpers stopped to ask you for a decision (followed up
-at once), its completion could not be verified, it ended with criteria unmet,
+its run or one of its helpers stopped its stage (followed up at once), its completion could not be verified, it ended with criteria unmet,
 it waited an hour without change (a run you paused, a usage-limit pause, or
 an approval or question you answer in its task), or a question Tars asked
 became invalid. The message
-reads **Automatic follow-up ·** with its reason and the work's title. It can
+reads **Automatic follow-up ·** with its reason and the work's title. A stage
+whose agent asks for your input or permission, or that waits for your
+sign-off, reads **Needs your decision**, and Tars gets the agent's question
+and suggested action. A stage that one of Stave's own checks stopped (a
+criterion not met or not verified, no report, a failed action) or that is
+blocked on its environment reads **Needs verification or a next step**, and
+Tars says what to verify or do next instead of saying it asked you. It can
 ask, propose a resume or cancel that waits for your **Confirm**, change a
 queued priority or open a view. It never starts work by itself (it asks you
 instead), never pauses, takes over or accepts work as done, and proposes

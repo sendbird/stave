@@ -2121,6 +2121,7 @@
         "unverifiedCompletion": "자동 후속 · 완료 미확인: {{title}}",
         "verificationFailed": "자동 후속 · 기준 미충족: {{title}}",
         "stageAsksUser": "자동 후속 · 결정 필요: {{title}}",
+        "stageGate": "자동 후속 · 확인 또는 다음 단계 필요: {{title}}",
         "waitExpired": "자동 후속 · 변화 없이 대기: {{title}}"
       },
       "exhausted": "자동 후속이 턴 한도에 닿아 {{title}}에 대한 후속을 하지 않았습니다. 이어가려면 메시지를 보내세요.",

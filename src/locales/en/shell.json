@@ -2144,6 +2144,7 @@
         "unverifiedCompletion": "Automatic follow-up · Completion not verified: {{title}}",
         "verificationFailed": "Automatic follow-up · Criteria not met: {{title}}",
         "stageAsksUser": "Automatic follow-up · Needs your decision: {{title}}",
+        "stageGate": "Automatic follow-up · Needs verification or a next step: {{title}}",
         "waitExpired": "Automatic follow-up · Waiting without change: {{title}}"
       },
       "exhausted": "No automatic follow-up for {{title}}: automatic turns reached the turn limit. Send a message to continue.",

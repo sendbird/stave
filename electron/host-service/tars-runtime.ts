@@ -2,7 +2,7 @@ import {
   CreateTarsResponsibilityInputSchema, isTarsRunCommandOperation, isTarsTaskOperation,
   UpdateTarsIdentityInputSchema, tarsSnapshotForWindow,
   type TarsDetailCode, type TarsDetailParams, type TarsPendingRequest, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation,
-  type TarsWorkRequest,
+  type TarsStageWait, type TarsWorkRequest,
 } from "../../src/lib/tars/types";
 import { buildTarsBrief, resolveTarsWorkRequest, TarsBriefInputSchema } from "../../src/lib/tars/brief";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError } from "./tars-ownership";
@@ -20,8 +20,10 @@ export interface TarsExecutionObservation {
   /** Set when `detail` is a sentence Tars wrote; absent, `detail` is the run's own words. */
   detailCode?: TarsDetailCode | null;
   detailParams?: TarsDetailParams | null;
-  /** Waiting because the run's own stage asks the user; absent for a plain wait. */
+  /** Waiting because the run's own stage stopped, judged at once; absent for a plain wait. */
   stageAsksUser?: boolean;
+  /** With `stageAsksUser`: whether that stage asks the user or one of Stave's own checks stopped it. */
+  stageWait?: TarsStageWait;
   /** The run's turn count, reported with a wait; a new turn restarts the quiet wait. */
   runTurns?: number;
   /** The run's current stage attempt (`stageId#attempt`), reported with a wait. */
@@ -107,7 +109,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     const rest = (row.pendingRequests ?? []).filter((entry) => entry.ref !== request.input?.requestRef);
     if (rest.length && (request.operation === "approve" || request.operation === "deny" || request.operation === "answer"))
       return { pendingRequests: rest };
-    return { state: "running", detail: null, stageAsksUser: undefined, pendingRequests: undefined };
+    return { state: "running", detail: null, stageAsksUser: undefined, stageWait: undefined, pendingRequests: undefined };
   }
   async function prepare(initial: TarsResponsibility) {
     let row = initial;
@@ -161,10 +163,11 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         const observed = await ports.observe(initial);
         if (stopped || held.has(initial.id)) continue;
         // Absent means a plain wait, so a stage that stopped asking clears the mark.
-        const { runTurns, runStage, waitingTaskId, activeStage, pendingRequests, ...change } = observed;
+        const { runTurns, runStage, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
         const waiting = observed.state === "waiting";
         const going = waiting || observed.state === "running";
-        noteExpiredWait(patch(initial, { ...change, stageAsksUser: observed.stageAsksUser === true || undefined,
+        const asks = waiting && observed.stageAsksUser === true;
+        noteExpiredWait(patch(initial, { ...change, stageAsksUser: asks || undefined, stageWait: asks ? stageWait : undefined,
           activeStage: going ? activeStage : undefined,
           pendingRequests: waiting && pendingRequests?.length ? pendingRequests : undefined,
           observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
@@ -292,7 +295,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
                 // The run continues after its command (paused work refuses one); the next observation says exactly where,
                 // including a run the command completed.
                 : isTarsRunCommandOperation(request.operation)
-                  ? { state: "running", detail: null, stageAsksUser: undefined }
+                  ? { state: "running", detail: null, stageAsksUser: undefined, stageWait: undefined }
                   : { state: row.agentRunId ? "running" : "queued", detail: null,
                     ...(request.operation === "handBack" ? { reverifyAfter: handedBackAt } : {}) };
         const outcome = ledger.apply(() => {
