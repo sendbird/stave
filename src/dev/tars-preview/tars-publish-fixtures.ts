@@ -30,7 +30,8 @@ export function buildTarsPublishFixtures(start: Date, args: { responsibilityId: 
 export function createPreviewPublishBridge(args: {
   getSnapshot: () => TarsSnapshot;
   setSnapshot: (snapshot: TarsSnapshot) => void;
-  conversation: TarsConversation;
+  /** Publications and receipts only; messages are never read here. */
+  conversation: Pick<TarsConversation, "publications" | "receipts">;
   runs: Readonly<Record<string, AgentRunDetail>>;
   failOnce: boolean;
   save: () => void;

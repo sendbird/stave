@@ -1604,7 +1604,8 @@
       "agentNotDelegable": "This agent cannot take delegated work on Claude or Codex, so this work was not started.",
       "agentModelConflict": "This agent cannot run on the pinned execution model. Choose Automatic or a matching model in Tars settings, then ask again.",
       "agentOverCap": "This agent would run with more permission than Tars's delegated work allows, so this work was not started.",
-      "workingChangesUnavailable": "Your working changes could not be saved as a snapshot, so this work was not started. Check the workspace, then ask again."
+      "workingChangesUnavailable": "Your working changes could not be saved as a snapshot, so this work was not started. Check the workspace, then ask again.",
+      "attachmentUnknown": "Tars gave this work an attachment your message does not have, so this work was not started."
     },
     "owner": {
       "label": "Tars",
@@ -2056,6 +2057,9 @@
         "assignmentHint": "The full instruction the run received; older work did not save your message separately.",
         "context": "Attached in full",
         "contextHint": "Too long for the run's instruction, so the run's lead receives it whole as context on every turn.",
+        "attachments_one": "{{count}} attachment",
+        "attachments_other": "{{count}} attachments",
+        "attachmentsHint": "Files and images from your message. The run's lead receives them with its first turn.",
         "criteria_one": "{{count}} completion criterion",
         "criteria_other": "{{count}} completion criteria",
         "copyRequest": "Copy your message",
@@ -2139,12 +2143,20 @@
         "refresh": "Refresh"
       }
     },
+    "delivery": {
+      "queued": "Waiting for the run's current turn to end. Tars says it in the task once, then.",
+      "delivering": "Saying it in the task now.",
+      "delivered": "Said in the task after its turn ended.",
+      "failed": "Not said in the task.",
+      "cancelled": "Not said: the work was taken over, cancelled or ended first."
+    },
     "followUp": {
       "line": {
         "blocked": "Automatic follow-up · Blocked: {{title}}",
         "unverifiedCompletion": "Automatic follow-up · Completion not verified: {{title}}",
         "verificationFailed": "Automatic follow-up · Criteria not met: {{title}}",
         "stageAsksUser": "Automatic follow-up · Needs your decision: {{title}}",
+        "stageGate": "Automatic follow-up · Needs verification or a next step: {{title}}",
         "waitExpired": "Automatic follow-up · Waiting without change: {{title}}"
       },
       "exhausted": "No automatic follow-up for {{title}}: automatic turns reached the turn limit. Send a message to continue.",

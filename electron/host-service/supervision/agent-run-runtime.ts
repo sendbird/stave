@@ -262,7 +262,16 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
     questionAnswer?: RunQuestionAnswer;
     /** The turn after an account-pool switch: a new conversation on that account, never a stored or cached one. */
     freshSession?: boolean;
+    /** The turn's ID, when the caller named it in advance; otherwise a new one. */
+    turnId?: string;
   }) => Promise<{ turnId: string }>;
+  /**
+   * Reads the attachments a run's initial context names (`attachmentSource`)
+   * for its first turn, from the store that keeps them; throws when they
+   * cannot be read, so that turn does not start without them. Absent: a run
+   * naming a source cannot start its first turn.
+   */
+  resolveAttachmentSource?: (args: { source: string; agentRun: AgentRun }) => Pick<AgentRunInitialContext, "fileContexts" | "imageContexts">;
   /**
    * The user's own provider permission settings, for turns no consent sets:
    * an agent run on "Your settings" (`manual`) and the report-sharing turn.
@@ -431,7 +440,8 @@ export interface AgentRunRuntime {
    * its task, as if typed in the task's composer while the stage waits or
    * runs between turns. Tars only; refused while a turn or a request is open.
    */
-  replyAsUser: (args: { agentRunId: string; prompt: string }, guard?: (run: AgentRun) => void) => Promise<void>;
+  /** `turnId` names the reply's turn when the caller must find it later (a Tars delivery after a restart). */
+  replyAsUser: (args: { agentRunId: string; prompt: string; turnId?: string }, guard?: (run: AgentRun) => void) => Promise<void>;
   reply: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
   skipStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   retryStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
@@ -1327,6 +1337,25 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * the reporting grant; a turn a Stave action asked for reports nothing and
    * carries none.
    */
+  /**
+   * The run's initial context for one of its turns. A question's provenance
+   * and the attachments another store keeps (`attachmentSource`) belong to
+   * the first turn only: the source is read for that turn and merged into its
+   * file and image contexts, and a later turn carries neither.
+   */
+  function turnInitialContext(agentRun: AgentRun, isContinuation: boolean): AgentRunInitialContext | undefined {
+    const context = agentRun.initialContext;
+    if (!context?.attachmentSource) return context?.questionReply && isContinuation ? { ...context, questionReply: undefined } : context;
+    const { attachmentSource: source, ...rest } = context;
+    if (isContinuation) return rest.questionReply ? { ...rest, questionReply: undefined } : rest;
+    // i18n-ignore: run diagnostic recorded with the turn that could not start
+    if (!deps.resolveAttachmentSource) throw new Error("This host cannot read the attachments this run carries.");
+    const read = deps.resolveAttachmentSource({ source, agentRun });
+    return { ...rest,
+      ...(read.fileContexts?.length ? { fileContexts: [...(rest.fileContexts ?? []), ...read.fileContexts] } : {}),
+      ...(read.imageContexts?.length ? { imageContexts: [...(rest.imageContexts ?? []), ...read.imageContexts] } : {}) };
+  }
+
   async function startAgentRunTurn(
     aggregate: AgentRunAggregate,
     decision: Extract<
@@ -1518,8 +1547,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
         prompt,
-        initialContext: agentRun.initialContext?.questionReply && isContinuation
-          ? { ...agentRun.initialContext, questionReply: undefined } : agentRun.initialContext,
+        // Read here, inside the turn's start: attachments that cannot be read fail this turn's start.
+        initialContext: turnInitialContext(agentRun, isContinuation),
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
         retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey,
@@ -2432,7 +2461,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           now: now(),
         });
       }),
-    replyAsUser: ({ agentRunId, prompt }, guard) => enqueue(async () => {
+    replyAsUser: ({ agentRunId, prompt, turnId }, guard) => enqueue(async () => {
       const aggregate = requireAggregate(agentRunId);
       guard?.(aggregate.agentRun);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
@@ -2451,7 +2480,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // Rechecked after the reads: nothing may take the run over in between.
       guard?.(requireAggregate(agentRunId).agentRun);
       // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
-      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text,
+      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, ...(turnId ? { turnId } : {}),
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),

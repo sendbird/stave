@@ -1659,6 +1659,7 @@ async function runTaskImpl(args: {
   spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean }; // the calling turn caps this one
   questionAnswer?: RunQuestionAnswer; // host-owned Run reply only
   freshSession?: boolean; // agent run supervisor only: an account-pool switch starts a new conversation on that account
+  turnId?: string; // host-owned run reply only: the turn ID its caller saved first, to find this turn again after a restart
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
@@ -1816,7 +1817,7 @@ async function runTaskImpl(args: {
   const residentMessagesBeforeTurn = session.messagesByTask[task.id] ?? [];
   const messageCountBeforeTurn = session.messageCountByTask[task.id];
 
-  const turnId = randomUUID();
+  const turnId = args.turnId ?? randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
   const providerSessionCursor = args.freshSession ? null : getTurnProviderSessionCursor({ // Only the turn's own account's; none when fresh.
     sessions: session.providerSessionByTask[task.id], providerId: provider, runtimeOptions: args.runtimeOptions,

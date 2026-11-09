@@ -36,21 +36,30 @@ test("global conversation works without a workspace, admits one decision, and su
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input), settings);
     await stave.page.getByRole("button", { name: /^(Tars|Tars)$/ }).click();
     const conversationView = stave.page.getByTestId("tars-view");
+    const notes = Buffer.from("tars-attachment-proof: preserve the saved labels");
+    const screen = Buffer.concat([Buffer.from("screen"), Buffer.alloc(4_000_000 - 6)]);
     await conversationView.locator('input[type="file"]').setInputFiles([
-      { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("tars-attachment-proof: preserve the saved labels") },
-      { name: "screen.png", mimeType: "image/png", buffer: Buffer.concat([Buffer.from("screen"), Buffer.alloc(4_000_000 - 6)]) },
+      { name: "notes.txt", mimeType: "text/plain", buffer: notes },
+      { name: "screen.png", mimeType: "image/png", buffer: screen },
     ]);
     await expect(conversationView.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
     await conversationView.getByRole("textbox").fill("Help clarify this work.");
     await conversationView.getByRole("button", { name: /^(Send|보내기)$/ }).click();
     await expect.poll(() => stave!.page.evaluate(async () => (await window.api!.tars!.getConversation!()).messages.length)).toBe(1);
-    const first = (await stave.page.evaluate(() => window.api!.tars!.getConversation!())).messages[0]!;
-    const discussion = { requestId: first.requestId, text: first.text, attachments: first.attachments };
-    expect(first.attachments).toHaveLength(2);
+    const snapshot = await stave.page.evaluate(() => window.api!.tars!.getConversation!());
+    const first = snapshot.messages[0]!;
+    // The conversation a window reads carries each attachment's name, type and size, never its content.
+    expect(first.attachments).toEqual([{ kind: "file", name: "notes.txt", type: "txt", size: notes.byteLength },
+      { kind: "image", name: "screen.png", type: "image/png", size: screen.byteLength }]);
+    expect(JSON.stringify(snapshot)).not.toContain("data:image");
+    expect(JSON.stringify(snapshot)).not.toContain("tars-attachment-proof");
+    // The same message again, as the composer read it: the retry identity is the saved snapshot.
+    const discussion = { requestId: first.requestId, text: first.text, attachments: [
+      { type: "file_context" as const, filePath: "notes.txt", content: notes.toString("utf8"), language: "txt" },
+      { type: "image_context" as const, label: "screen.png", dataUrl: `data:image/png;base64,${screen.toString("base64")}`, mimeType: "image/png" as const }] };
     // Largest advertised single image: its base64 request crosses the old 4 MiB
     // host boundary. The actual SDK/fixture CLI must receive it and settle.
-    const savedImage = first.attachments?.find(part => part.type === "image_context");
-    expect(savedImage?.dataUrl.length).toBeGreaterThan(4 * 1024 * 1024);
+    expect(discussion.attachments[1]!.dataUrl.length).toBeGreaterThan(4 * 1024 * 1024);
     await expect.poll(() => stave!.page.evaluate(async (id) =>
       (await window.api!.tars!.getConversation!()).messages.find((row) => row.id === id)?.state, first.id), { timeout: 60_000 }).toBe("answered");
     expect((await stave.page.evaluate(() => window.api!.tars!.get())).responsibilities).toHaveLength(0);
@@ -70,7 +79,8 @@ test("global conversation works without a workspace, admits one decision, and su
       workspaceId: E2E_WORKSPACE_ID,
       title: "Inspect the fixture", instruction: "[hold] Inspect README.md and report the result.",
       acceptanceCriteria: ["README.md was inspected."], priority: 60, branchName: "chore/inspect fixture" }] }));
-    const delegation = { requestId: "delegation", text: "Inspect README.md within the registered repository." };
+    // The same screenshot and notes again: the work this message delegates carries them to its run's first turn.
+    const delegation = { requestId: "delegation", text: "Inspect README.md within the registered repository.", attachments: discussion.attachments };
     const delegated = await stave.page.evaluate((input) => window.api!.tars!.sendMessage!(input), delegation);
     await expect.poll(() => stave!.page.evaluate(async (id) =>
       (await window.api!.tars!.getConversation!()).receipts.find((row) => row.messageId === id)?.status, delegated.id), { timeout: 60_000 }).toBe("applied");
@@ -86,9 +96,21 @@ test("global conversation works without a workspace, admits one decision, and su
     expect(execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: repositoryPath, encoding: "utf8" }))
       .toContain(`branch refs/heads/${responsibilities[0]!.branchName}`);
     expect(await reasoningCount()).toBe(2);
-    // Stop owned execution, independently of the conversation's settled receipt.
-    const cancelled = await stave.page.evaluate((row) => window.api!.tars!.act({ requestId: "cancel-click", responsibilityId: row.id,
-      expectedRevision: row.revision, operation: "cancel", source: "click" }), responsibilities[0]!);
+    // The delegated run's first turn received the image bytes and the file's text, like the planner did.
+    const runTurns = async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean).map((line) => JSON.parse(line))
+      .filter((entry) => entry.runTurn && !entry.fixture);
+    await expect.poll(async () => (await runTurns()).length, { timeout: 60_000 }).toBeGreaterThan(0);
+    expect((await runTurns())[0]!.markers).toEqual({ currentMessage: false, "tars-attachment-proof": true, c2NyZWVu: true });
+    // The work keeps their names for its request view; no snapshot a window reads holds their content.
+    const brief = await stave.page.evaluate((id) => window.api!.tars!.getBrief!({ responsibilityId: id }), responsibilities[0]!.id);
+    expect(brief.attachments).toEqual(first.attachments);
+    expect(JSON.stringify(await stave.page.evaluate(() => window.api!.tars!.get()))).not.toContain("c2NyZWVu");
+    // Stop owned execution, independently of the conversation's settled receipt. The click carries the revision
+    // shown now: observations of the run saved while its first turn was awaited above have moved it on.
+    const cancelled = await stave.page.evaluate(async (id) => {
+      const row = (await window.api!.tars!.get()).responsibilities.find((entry) => entry.id === id)!;
+      return window.api!.tars!.act({ requestId: "cancel-click", responsibilityId: row.id, expectedRevision: row.revision, operation: "cancel", source: "click" });
+    }, responsibilities[0]!.id);
     expect(cancelled.record, cancelled.record.error ?? undefined).toMatchObject({ status: "applied" });
     await rm(path.join(fakeDir, "held-once"), { force: true });
 

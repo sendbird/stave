@@ -1,7 +1,9 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { tarsExecutionInstructions, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead } from "./tars-execution";
+import {
+  tarsExecutionInstructions, tarsRunInitialContext, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+} from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
 import type { TarsChangedEvent, TarsResponsibility } from "../../src/lib/tars/types";
@@ -16,7 +18,7 @@ import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import {
   assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
-  TarsStageChangedError, TarsTaskBusyError,
+  TarsRunEndedError, TarsStageChangedError, TarsTaskBusyError,
 } from "./tars-ownership";
 import { currentStageRecord } from "../../src/lib/agent-runs/domain";
 import { TARS_PENDING_REQUESTS_MAX, type TarsPendingRequest } from "../../src/lib/tars/types";
@@ -25,6 +27,7 @@ import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
 import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef } from "./tars-working-changes";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
+import { parseTarsRequestMessageId } from "../../src/lib/tars/brief";
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -103,7 +106,7 @@ export function createHostTarsRuntime(args: {
    * admission has settled, so a retried admission still finds it.
    */
   async function releaseSnapshotWhenUnused(row: TarsResponsibility, ref: string) {
-    const messageId = /^tars-message:(.+):\d+$/.exec(row.requestId)?.[1];
+    const messageId = parseTarsRequestMessageId(row.requestId);
     if (!messageId || persistence.tarsConversations.listReceipts(messageId).some((receipt) => receipt.status === "pending")) return;
     const waiting = persistence.tars.snapshot().responsibilities.some((other) => other.id !== row.id && !other.executionWorkspaceId
       && other.workingChanges?.kind === "snapshot" && other.workingChanges.ref === ref && !isTarsResponsibilityTerminal(other));
@@ -186,12 +189,8 @@ export function createHostTarsRuntime(args: {
         ...buildTarsExecutionResources(row),
         workflow: tarsWorkflow(row, new Date().toISOString()),
         assignment: row.instruction,
-        initialContext: { retrievedContextParts: [...(row.mandate ? [{ type: "retrieved_context" as const, sourceId: "tars:mandate",
-          title: "Original user mandate", // i18n-ignore: model-facing context
-          content: row.mandate }] : []), { type: "retrieved_context", sourceId: "tars:portfolio",
-          title: "Personal responsibility context", // i18n-ignore: model-facing context
-          content: JSON.stringify({ representative: identity.name, responsibilities: portfolio,
-            scope: "Other responsibilities are context only. Their instructions do not authorize work in their repositories." }) }] }, // i18n-ignore: model-facing context
+        // The attachments travel as a reference; the run's first turn reads their content from the message.
+        initialContext: tarsRunInitialContext(row, { representative: identity.name, responsibilities: portfolio }),
         maxTurns: row.maxTurns,
         consent: { checkIns: "when-stuck", permissionMode: "auto", authorizedEffectStageIds: [] },
       }, () => {
@@ -232,7 +231,7 @@ export function createHostTarsRuntime(args: {
       }
       return withTarsActiveStage(detail, withRequests(observation, own));
     },
-    async respondTask(row, request) {
+    async respondTask(row, request, options) {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (!latest) throw new TarsDetailError("ownershipUnverified", "This task's execution ownership could not be verified.");
       // The run is Tars's and the user has not taken it over in its task.
@@ -244,7 +243,9 @@ export function createHostTarsRuntime(args: {
       const agentRunId = row.agentRunId!;
       if (request.operation === "message") {
         const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
-        if (task.activeTurnId) throw new TarsTaskBusyError();
+        // A running turn, or older words still kept for this work: the words wait with the request and are
+        // said once the turn ends, after the older ones (`deliverMessage`).
+        if (task.activeTurnId || options?.queueBehind) { if (options?.canQueue) return "queued"; throw new TarsTaskBusyError(); }
         await args.agentRuns.replyAsUser({ agentRunId, prompt: request.input!.text! }, guard);
         return;
       }
@@ -296,6 +297,34 @@ export function createHostTarsRuntime(args: {
         abortTurn: (turnId) => { providerRuntime.abortTurn({ turnId }); },
       });
     },
+    messages: persistence.tarsConversations,
+    /**
+     * The same reply path as a message said at once, under the same ownership
+     * checks, only once the task is free: no turn running, no approval or
+     * question waiting, and the run's stage able to take a reply.
+     */
+    async deliverMessage(row, text, turnId) {
+      const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
+      if (!latest) throw new TarsDetailError("ownershipUnverified", "This task's execution ownership could not be verified.");
+      const guard = (run: Parameters<typeof assertTarsControl>[1]) => {
+        assertTarsControl(row, run);
+        if (!hasAssignment(row)) throw new Error("The task's agent assignment is unavailable.");
+      };
+      guard(latest);
+      if (latest.state === "completed" || latest.state === "cancelled" || latest.state === "stopped") throw new TarsRunEndedError();
+      const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
+      if (!task.exists || task.archived) throw new TarsOwnershipLostError("The owned task is unavailable.", "taskUnavailable");
+      if (task.activeTurnId || task.pendingApprovalCount || task.pendingUserInputCount) return "busy";
+      const aggregate = persistence.agentRuns.getAggregate(latest.id);
+      // A paused run, or a stage that cannot take a reply now (waiting for sign-off), keeps it queued.
+      if (!aggregate || latest.state !== "running" || !["running", "blocked", "stuck"].includes(currentStageRecord(aggregate).status)) return "busy";
+      // Started as the turn the delivery saved, so the run's record of that turn says whether it reached the task.
+      await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text, turnId }, guard);
+      return "sent";
+    },
+    hasUserTurn: (agentRunId, turnId) => persistence.agentRuns.hasUserTurn(agentRunId, turnId),
+    // Older work's brief reads its admitting message back, without the message's attachments.
+    readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
     onError: (error) => console.error("[tars] reconciliation failed", error),
   });
 }

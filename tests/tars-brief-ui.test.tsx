@@ -74,6 +74,22 @@ describe("the request view", () => {
     expect(html).toContain('aria-label="Copy the instruction"');
   });
 
+  test.each(["en", "ko"] as const)("says in %s how many files and images the work carries, by name", async (locale) => {
+    await applyAppLocale(locale);
+    const row = queued("queue-auth");
+    const html = renderToStaticMarkup(createElement(TarsBriefPanel, { row, state: ready(buildTarsBrief(row)), onRetry() {} }));
+    expect(html).toContain('data-tars-brief-part="attachments"');
+    expect(html).toContain(locale === "en" ? "2 attachments" : "첨부 2개");
+    expect(html).toContain(locale === "en" ? "The run&#x27;s lead receives them with its first turn." : "실행 리드가 첫 턴에 함께 받습니다.");
+    expect(html).toContain('data-tars-brief-attachment="image">staging-login-error.png</li>');
+    expect(html).toContain('data-tars-brief-attachment="file">staging-deploy.yaml</li>');
+    // Work that carries none shows no such section.
+    const other = queued("queue-search");
+    expect(renderToStaticMarkup(createElement(TarsBriefPanel, { row: other, state: ready(buildTarsBrief(other)), onRetry() {} })))
+      .not.toContain('data-tars-brief-part="attachments"');
+    await applyAppLocale("en");
+  });
+
   test("names the question a choice answered", async () => {
     await applyAppLocale("en");
     const row = queued("queue-search");

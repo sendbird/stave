@@ -2,7 +2,7 @@ import {
   TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
 import type {
-  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAnswer, TarsMessage, TarsMessageOrigin,
+  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
 import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
 
@@ -113,6 +113,8 @@ export interface TarsDecisionView {
   latest: boolean;
   /** A confirmation made outside the card (Fleet, the tray): its record. */
   record: TarsActionRecord | null;
+  /** Words it sent to a busy task: where their delivery stands (`TarsMessageDelivery`); null otherwise. */
+  delivery: TarsMessageDelivery | null;
   since: string;
   /** Invalid, asked by Tars and still the newest message: Tars asks once more by itself. */
   reask: boolean;
@@ -122,7 +124,8 @@ export interface TarsDecisionView {
 
 export interface TarsDecisionSources {
   /** Conversation order, oldest first. */
-  messages: readonly TarsMessage[];
+  /** Saved messages or a window's views of them; attachments are never read. */
+  messages: readonly Omit<TarsMessage, "attachments">[];
   receipts: readonly TarsActionReceipt[];
   records: readonly TarsActionRecord[];
   answers: readonly TarsDecisionAnswer[];
@@ -207,10 +210,12 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
    * example past its own automatic follow-up). Only then does a later message
    * retire a question that is otherwise still valid.
    */
-  function settle(view: Omit<TarsDecisionView, "state" | "why" | "checked" | "reask" | "reasked" | "failure" | "latest">, retiredBy: TarsDecisionWhy | null,
+  function settle(view: Omit<TarsDecisionView, "state" | "why" | "checked" | "reask" | "reasked" | "failure" | "latest" | "delivery">, retiredBy: TarsDecisionWhy | null,
     origin: TarsMessageOrigin | undefined, movedOn = false): TarsDecisionView {
     const latest = view.messageId !== null ? lastMessage?.id === view.messageId : !lastMessage || lastMessage.createdAt <= view.since;
-    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest };
+    // The control an answer applied keeps its record under the answer's request id (the proposal's own id for a confirmation).
+    const delivery = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record)?.delivery ?? null;
+    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
     const targets = targetsOf(view.targets);

@@ -31,8 +31,10 @@ describe("the boundary between a stage that asks and a plain wait", () => {
   };
 
   test("a running run whose own stage blocked, got stuck or awaits sign-off asks the user", () => {
+    // The agent's own block asks; stuck is Stave's own gate; sign-off asks for the user's sign-off (`stageWait`).
+    const waits = { blocked: { kind: "question" }, stuck: { kind: "gate", gate: "stuck" }, "awaiting-sign-off": { kind: "signOff" } } as const;
     for (const status of ["blocked", "stuck", "awaiting-sign-off"] as const)
-      expect(tarsObservation(run({ state: "running", turnCount: 4 }, status))).toEqual({ ...asks(), runTurns: 4, runStage: `${stageId}#1` });
+      expect(tarsObservation(run({ state: "running", turnCount: 4 }, status))).toEqual({ ...asks(), stageWait: waits[status], runTurns: 4, runStage: `${stageId}#1` });
     expect(tarsObservation(run({ state: "running" }, "running"))).toEqual({ state: "running", detail: null });
   });
 

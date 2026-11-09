@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { i18n } from "@/i18n";
 import type { TarsBridgeApi } from "@/lib/tars/types";
-import type { TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsConversationSettings, TarsMessage, TarsMessageInput } from "@/lib/tars/conversation";
+import type { TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsConversationSettings, TarsMessageInput, TarsMessageView } from "@/lib/tars/conversation";
 import { coalesceTarsReads } from "@/store/tars-snapshot-store";
 import { createTarsRequestQueue } from "./use-tars";
 
-export function mergeTarsMessage(conversation: TarsConversation, message: TarsMessage): TarsConversation {
+export function mergeTarsMessage(conversation: TarsConversation, message: TarsMessageView): TarsConversation {
   const previous = conversation.messages.find((item) => item.id === message.id);
   if (previous && previous.revision > message.revision) return conversation;
   return { ...conversation, messages: previous ? conversation.messages.map((item) => item.id === message.id ? message : item) : [...conversation.messages, message] };

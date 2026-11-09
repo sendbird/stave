@@ -7,11 +7,14 @@ import {
   TarsReprioritizeInputSchema, type TarsReprioritizeInput,
   type TarsActionReceipt, type TarsActionRecord, type TarsActInput, type TarsDecision, type TarsDecisionAction,
   type TarsMessage, type TarsMessageInput, type TarsReceiptOutcome, type TarsDecisionAnswer, type TarsAnswerRefusal, type TarsMessageOrigin,
-  type TarsActionReason,
+  type TarsActionReason, TarsMessageViewSchema, type TarsMessageView, type TarsAttachmentSummary, type TarsMessageDelivery, type TarsMessageDeliveryStatus,
 } from "../../src/lib/tars/conversation";
 import {
   TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
 } from "../../src/lib/tars/publication";
+import { TarsWorkRequestSchema, type TarsWorkRequest } from "../../src/lib/tars/types";
+import { AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/providers/attachment-context";
+import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
 import { TarsComposerDraftSchema, type TarsComposerDraft } from "../../src/lib/tars/composer-draft";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readSettledTarsTargets } from "./tars-proposals";
@@ -26,6 +29,7 @@ interface ConversationDatabase {
   transaction<T>(operation: () => T): { (): T; immediate(): T };
 }
 interface StoredRow { body_json: string; request_hash: string }
+interface ViewRow { id: string; body_json: string }
 export interface TarsProposalRef { messageId: string; actionIndex: number }
 
 function hash(value: unknown): string {
@@ -135,6 +139,35 @@ export class TarsConversationStore {
     return this.readMessage(this.db.prepare("SELECT body_json FROM tars_messages WHERE id = ?").get(id));
   }
 
+  /**
+   * The text, time and answered question of one message, read without its
+   * attachments: what a work unit keeps as its original request
+   * (`tarsWorkRequestOf`). Null when the message is gone or has no text.
+   */
+  workRequestOf(messageId: string): TarsWorkRequest | null {
+    const row = this.db.prepare(`SELECT json_extract(body_json, '$.text') AS text, json_extract(body_json, '$.createdAt') AS created_at,
+      json_extract(body_json, '$.origin') AS origin_json FROM tars_messages WHERE id = ?`).get(messageId) as
+      { text: unknown; created_at: unknown; origin_json: unknown } | undefined;
+    if (!row || typeof row.text !== "string" || !row.text || typeof row.created_at !== "string") return null;
+    const origin = typeof row.origin_json === "string" ? TarsMessageOriginSchema.safeParse(JSON.parse(row.origin_json)) : null;
+    const parsed = TarsWorkRequestSchema.safeParse(tarsWorkRequestOf({ id: messageId, text: row.text, createdAt: row.created_at,
+      ...(origin?.success ? { origin: origin.data } : {}) }));
+    return parsed.success ? parsed.data : null;
+  }
+
+  /**
+   * One message's saved attachments, content included, read without the rest
+   * of the message: the first turn of a work that carries them reads them
+   * here (`tarsRunAttachmentContext`). Empty when the message has none; null
+   * when the message is gone.
+   */
+  attachmentsOf(messageId: string): AttachmentContext[] | null {
+    const row = this.db.prepare("SELECT json_extract(body_json, '$.attachments') AS attachments_json FROM tars_messages WHERE id = ?")
+      .get(messageId) as { attachments_json: unknown } | undefined;
+    if (!row) return null;
+    return typeof row.attachments_json === "string" ? AttachmentContextsSchema.parse(JSON.parse(row.attachments_json)) : [];
+  }
+
   /** Return the most recent bounded window in conversation order. */
   list(limit = 100): TarsMessage[] {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("The message limit must be between 1 and 1000.");
@@ -142,13 +175,59 @@ export class TarsConversationStore {
       .all(limit).map((row) => this.readMessage(row)!).reverse();
   }
 
-  /** Admit history before this request, independent of queue depth or equal/shifted clocks. */
-  listBefore(messageId: string, limit = 8): TarsMessage[] {
+  /**
+   * The same window as `list`, as a window reads it: each attachment's
+   * summary (`TarsAttachmentSummary`) instead of its content. SQLite drops the
+   * content and measures it, so an image's data is never loaded here.
+   */
+  listViews(limit = 100): TarsMessageView[] {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("The message limit must be between 1 and 1000.");
+    return this.readViews(this.db.prepare(`SELECT id, json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
+      ORDER BY created_at DESC, rowid DESC LIMIT ?`).all(limit) as ViewRow[]).reverse();
+  }
+
+  /** The newest message's id, without reading any message. */
+  latestId(): string | null {
+    return (this.db.prepare("SELECT id FROM tars_messages ORDER BY created_at DESC, rowid DESC LIMIT 1").get() as { id: string } | undefined)?.id ?? null;
+  }
+
+  /**
+   * Admit history before this request, independent of queue depth or
+   * equal/shifted clocks. History is words only: attachments are summaries.
+   */
+  listBefore(messageId: string, limit = 8): TarsMessageView[] {
     this.requireLimit(limit);
-    return this.db.prepare(`SELECT body_json FROM tars_messages
+    return this.readViews(this.db.prepare(`SELECT id, json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
       WHERE rowid < (SELECT rowid FROM tars_messages WHERE id = ?)
-      ORDER BY rowid DESC LIMIT ?`).all(messageId, limit)
-      .map((row) => this.readMessage(row)!).reverse();
+      ORDER BY rowid DESC LIMIT ?`).all(messageId, limit) as ViewRow[]).reverse();
+  }
+
+  /**
+   * Rows read without their attachments, joined with each attachment's
+   * summary measured in SQL: a file's UTF-8 bytes, an image's decoded bytes
+   * from its base64 length and padding (as `tarsAttachmentSummary` measures).
+   */
+  private readViews(rows: readonly ViewRow[]): TarsMessageView[] {
+    if (!rows.length) return [];
+    const summaries = new Map<string, TarsAttachmentSummary[]>();
+    const parts = this.db.prepare(`SELECT m.id AS id, json_extract(a.value, '$.type') AS type,
+        coalesce(json_extract(a.value, '$.filePath'), json_extract(a.value, '$.label')) AS name,
+        coalesce(json_extract(a.value, '$.language'), json_extract(a.value, '$.mimeType')) AS format,
+        length(CAST(json_extract(a.value, '$.content') AS BLOB)) AS text_bytes,
+        length(json_extract(a.value, '$.dataUrl')) - instr(json_extract(a.value, '$.dataUrl'), ',') AS base64_chars,
+        (substr(json_extract(a.value, '$.dataUrl'), -2) = '==') + (substr(json_extract(a.value, '$.dataUrl'), -1) = '=') AS padding
+      FROM tars_messages m, json_each(m.body_json, '$.attachments') a
+      WHERE m.id IN (SELECT value FROM json_each(?)) ORDER BY m.id, a.key`).all(JSON.stringify(rows.map((row) => row.id))) as Array<{
+        id: string; type: string; name: string; format: string; text_bytes: number | null; base64_chars: number | null; padding: number | null }>;
+    for (const part of parts) {
+      const image = part.type === "image_context";
+      const size = image ? Math.max(0, Math.floor((part.base64_chars ?? 0) * 3 / 4) - (part.padding ?? 0)) : part.text_bytes ?? 0;
+      summaries.set(part.id, [...(summaries.get(part.id) ?? []), { kind: image ? "image" : "file", name: part.name, type: part.format, size }]);
+    }
+    return rows.map((row) => {
+      const attachments = summaries.get(row.id);
+      return TarsMessageViewSchema.parse({ ...JSON.parse(row.body_json), ...(attachments?.length ? { attachments } : {}) });
+    });
   }
 
   /** Scheduling is independent of the recent conversation window. */
@@ -488,20 +567,99 @@ export class TarsConversationStore {
     });
   }
 
-  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number } | { status: "rejected"; reason: TarsControlReason; error: string },
-    now: string): TarsActionRecord {
+  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number; delivery?: TarsMessageDelivery }
+    | { status: "rejected"; reason: TarsControlReason; error: string }, now: string): TarsActionRecord {
     const current = this.getAction(requestId);
     if (!current) throw new Error("The action record was not found.");
     if (current.status !== "pending") throw new Error("The action record has already settled.");
     const rejected = outcome.status === "rejected" ? outcome : null;
     const next = TarsActionRecordSchema.parse({ ...current, status: outcome.status, error: rejected?.error ?? null,
       reason: rejected?.reason ?? null, ...(outcome.status === "applied" && outcome.priority !== undefined ? { priority: outcome.priority } : {}),
+      ...(outcome.status === "applied" && outcome.delivery ? { delivery: outcome.delivery } : {}),
       revision: current.revision + 1, updatedAt: now });
     const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
       .run(next.revision, JSON.stringify(next), requestId, current.revision);
     if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
     this.changes.emit("conversation");
     return next;
+  }
+
+  /** Messages waiting for, or under, delivery to a busy task, oldest first: the delivery queue. */
+  listOpenDeliveries(limit = 32): TarsActionRecord[] {
+    this.requireLimit(limit);
+    return this.db.prepare(`SELECT body_json FROM tars_action_records
+      WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering') ORDER BY created_at, rowid LIMIT ?`)
+      .all(limit).map((row) => this.readRecord(row)!);
+  }
+
+  /**
+   * The oldest open message of each work, in the order those were queued: the
+   * only one of its work that may be said next. `after`, the request ID of the
+   * last head read, pages on, so heads that must wait (paused or busy work)
+   * never hide another work's.
+   */
+  listDeliveryHeads(limit = 32, after?: string): TarsActionRecord[] {
+    this.requireLimit(limit);
+    return this.db.prepare(`WITH open AS (
+        SELECT rowid AS position, created_at, body_json, ROW_NUMBER() OVER (
+          PARTITION BY json_extract(body_json, '$.action.responsibilityId') ORDER BY created_at, rowid) AS place
+        FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering'))
+      SELECT body_json FROM open WHERE place = 1
+        AND (? IS NULL OR (created_at, position) > (SELECT created_at, rowid FROM tars_action_records WHERE request_id = ?))
+      ORDER BY created_at, position LIMIT ?`)
+      .all(after ?? null, after ?? null, limit).map((row) => this.readRecord(row)!);
+  }
+
+  /** Whether any message still waits for, or is under, delivery to this responsibility's task. */
+  hasOpenDelivery(responsibilityId: string): boolean {
+    return this.db.prepare(`SELECT 1 FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering')
+      AND json_extract(body_json, '$.action.responsibilityId') = ? LIMIT 1`).get(responsibilityId) != null;
+  }
+
+  /**
+   * Moves one message's delivery on, only from the given statuses, in one
+   * immediate transaction: the delivery queue's compare-and-set. Returns the
+   * record, or null when its delivery was not in one of them (another pass or
+   * a control settled it first).
+   */
+  transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
+    next: { status: TarsMessageDeliveryStatus; turnId?: string; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
+    return this.write(() => {
+      const current = this.getAction(requestId);
+      if (!current?.delivery || !from.includes(current.delivery.status)) return null;
+      const settledOtherwise = next.status === "failed" || next.status === "cancelled";
+      const delivery: TarsMessageDelivery = { ...current.delivery, status: next.status,
+        ...(next.turnId !== undefined ? { turnId: next.turnId } : {}),
+        reason: settledOtherwise ? next.reason ?? "unknown" : null, error: settledOtherwise ? (next.error ?? "The message was not delivered.").slice(0, 2_000) : null, updatedAt: now };
+      const record = TarsActionRecordSchema.parse({ ...current, delivery, revision: current.revision + 1, updatedAt: now });
+      const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
+        .run(record.revision, JSON.stringify(record), requestId, current.revision);
+      if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
+      this.changes.emit("conversation");
+      return record;
+    });
+  }
+
+  /**
+   * Settles every message still open for one responsibility, as a control or
+   * observation that takes the work away does, in one transaction. A queued
+   * one is cancelled. One under way counts as said only when `reached`
+   * confirms its run took that message's own turn; otherwise it is cancelled
+   * too, so it is never said later (after a hand-back, say). Returns how many it cancelled.
+   */
+  cancelOpenDeliveries(responsibilityId: string, reason: TarsControlReason, error: string, now: string,
+    reached: (record: TarsActionRecord) => boolean = () => false): number {
+    return this.write(() => {
+      const open = this.db.prepare(`SELECT body_json FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering')
+        AND json_extract(body_json, '$.action.responsibilityId') = ? ORDER BY created_at, rowid`).all(responsibilityId).map((row) => this.readRecord(row)!);
+      let cancelled = 0;
+      for (const record of open) {
+        const said = record.delivery!.status === "delivering" && reached(record);
+        const settled = this.transitionDelivery(record.requestId, [record.delivery!.status], said ? { status: "delivered" } : { status: "cancelled", reason, error }, now);
+        if (settled && !said) cancelled++;
+      }
+      return cancelled;
+    });
   }
 
   /**
@@ -527,13 +685,19 @@ export class TarsConversationStore {
     });
   }
 
-  /** Effect, record and any confirmed proposal settle together; a replayed applied record never runs its effect again. */
-  applyAction(requestId: string, apply: () => void, now: string, proposal?: TarsProposalRef): TarsActionRecord {
+  /**
+   * Effect, record and any confirmed proposal settle together; a replayed
+   * applied record never runs its effect again. `queue` names the run a
+   * message waits for when its task was busy: the record is applied with its
+   * words queued for delivery (`TarsMessageDelivery`) instead of said now.
+   */
+  applyAction(requestId: string, apply: () => void, now: string, proposal?: TarsProposalRef, queue?: { agentRunId: string }): TarsActionRecord {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (current?.status === "applied") return current;
       apply();
-      const record = this.settleRecord(requestId, { status: "applied" }, now);
+      const record = this.settleRecord(requestId, { status: "applied", ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
+        reason: null, error: null, queuedAt: now, updatedAt: now } } : {}) }, now);
       if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
       return record;
     });

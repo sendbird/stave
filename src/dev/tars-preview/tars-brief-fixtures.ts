@@ -1,10 +1,11 @@
 import type { TarsResponsibility } from "@/lib/tars/types";
 
-type BriefFields = Pick<TarsResponsibility, "instruction"> & Partial<Pick<TarsResponsibility, "request" | "delegatedInstruction" | "mandate">>;
+type BriefFields = Pick<TarsResponsibility, "instruction"> & Partial<Pick<TarsResponsibility, "request" | "delegatedInstruction" | "mandate" | "attachments">>;
 
 /**
  * Saved texts for the request view, keyed by the preview's work ids: a long
- * message with a list, a code block and an unbroken URL (`queue-auth`), a
+ * message with a list, a code block, an unbroken URL and a screenshot and a
+ * file it carries (`queue-auth`), a
  * choice on a Tars question (`queue-search`), work admitted before the message
  * was saved apart (`queue-docs`) and the running fix the conversation's flow
  * block opens (`billing`). The user's words follow the preview's language.
@@ -67,6 +68,10 @@ export function buildTarsBriefFixtures(start: Date, korean: boolean): Record<str
       instruction: `Original user mandate:\n${authMessage}\n\nProposed work unit within that mandate:\n${authInstruction}`,
       request: { messageId: "message-queue-auth", text: authMessage, sentAt: at(2) },
       delegatedInstruction: authInstruction,
+      attachments: { messageId: "message-queue-auth", items: [
+        { index: 0, kind: "image", name: "staging-login-error.png", type: "image/png", size: 182_344 },
+        { index: 1, kind: "file", name: "staging-deploy.yaml", type: "yaml", size: 1_204 },
+      ] },
     },
     "queue-search": {
       instruction: `Original user mandate:\nRetry three times, then give up\n\nProposed work unit within that mandate:\n${searchInstruction}`,

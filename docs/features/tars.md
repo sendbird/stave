@@ -64,7 +64,7 @@ across workspaces, tasks and restarts.
 
 **Follow-ups.** Saved status changes appear in the conversation and the
 **Work** tray without you asking. When a change needs judgment (the work
-blocked, its run stopped to ask you, a completion could not be verified,
+blocked, its run's stage stopped to ask you or at one of Stave's own checks, a completion could not be verified,
 criteria were left unmet, or a plain wait went an hour without change), Tars
 starts one **Automatic follow-up** turn of its own to explain and advise. See
 [Automatic follow-up](#automatic-follow-up) for the exact rules.
@@ -96,10 +96,31 @@ Files with the same name stay separate; a number distinguishes their attachment 
 
 Stave saves the selected contents with the message and passes them to the
 conversation model. A retry uses the same snapshot; switching workspaces or
-reopening Stave preserves the attachment names in the conversation. Attached
+reopening Stave preserves the attachment names in the conversation. The
+conversation itself shows only each attachment's name (and keeps its type and
+size): the saved contents, such as an image's data, are not loaded again every
+time the conversation refreshes, and Stave reads them only for Tars's own
+reasoning turn on that message and for the first turn of the work it delegates. Attached
 material supplies context and does not authorize delegated work on its own.
 You can discuss attachments without text; to start work, include a written
 instruction with them. The host refuses delegation from an attachment-only message.
+
+The attachments also reach the work the message delegates, so you can send a
+screenshot with "fix this" and the agent doing the work sees it. Each work
+keeps a reference to the message's attachments, never a copy: their content
+stays saved with the message, and the work's run reads it for its first turn
+only, as attached files and images (images as image input on Claude and Codex,
+text files the way the task composer sends them). Later turns of that run do
+not send them again, and the run's helpers receive only what the lead passes
+on. When one message starts several works, each carries every attachment
+unless Tars gives a work only the ones it needs, for example one screenshot per
+bug; a work Tars gives an attachment the message does not have is refused with
+that reason. Queued work keeps the reference through a restart, and starting
+queued work now sends them the same way. If the saved attachments cannot be
+read when the run's first turn starts, that turn does not start and the stage
+waits with the reason, instead of running without them. The **Request** view
+lists the attachments a work carries by name, and Tars sees their names when it
+reports on the work.
 
 ## What it can do
 
@@ -284,8 +305,30 @@ observes, so you can answer them in the conversation:
 |---|---|
 | "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
 | "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
-| "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. Refused while a turn runs there. |
+| "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. While a turn runs there, Stave keeps them and says them once that turn ends (see below). |
 | "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |
+
+Words you confirm while the work's task is in the middle of a turn are not
+refused. Stave keeps them with the confirmation and says them in the task as
+your reply exactly once, after that turn ends and nothing else waits there (a
+paused run keeps them until it resumes). Under the card a line says **Waiting
+for the run's current turn to end**, then **Said in the task after its turn
+ended**, or that they were not said and why: taking the work over, cancelling
+it or its completion first cancels them, and so does its run ending or
+changing owner; a run that refuses them leaves them **Not said in the task**.
+Several are said in order, each after the turn the previous one started; words
+you confirm while earlier ones for the same work still wait are kept behind
+them even if the task is free by then. One work's words never wait for
+another work: each is said on its own, however many other works are paused or
+busy. They survive a restart: before saying them Stave names the turn they
+start, so words that were being said when Stave stopped count as said only if
+the run took that very turn (another reply you typed in the task does not
+count), and are otherwise said once after the restart, provided the work is
+still Tars's. Taking the work over, cancelling it or accepting it also cancels
+words that were being said and did not reach the run, and handing the work
+back never says words kept from before you took it over. Your words are only
+your reply in the task: they grant no permission and never answer a waiting
+approval or question.
 
 A request that is no longer waiting, or a set of requests that changed since
 you saw it, is refused instead of answering something else. These answers are
@@ -686,15 +729,27 @@ recorded in the conversation.
   admitted the work exactly as you sent it, with when you sent it (and, when
   it was your choice on a Tars question, that question). **Tars's
   instruction** is the instruction Tars wrote for this unit; the run receives
-  it together with your message. **Completion criteria** lists the criteria
+  it together with your message. **N attachments** lists, by name, the files
+  and images from your message that the work carries; its run's lead receives
+  them with its first turn. **Completion criteria** lists the criteria
   saved with the work. Texts are shown whole as plain text: line breaks,
   indentation and code blocks are kept and long lines wrap, and each text has
   a copy button. Work Tars admitted before this view existed did not keep your
-  message apart: it says **The original message was not saved for this work**
-  and shows the whole saved instruction the run received (and, for a long
+  message apart. For such work Stave reads the message that admitted it back
+  from the conversation (the same message, so the text is exact) and shows it
+  as **Your message**, next to the whole saved instruction the run received.
+  Only when that message is no longer in the conversation, or the work was not
+  admitted from a message, does it say **The original message was not saved
+  for this work** and show the whole saved instruction (and, for a long
   message, the text attached in full) instead of a guess. Two work units from
   one message share that message, never each other's instruction. If the
   saved texts cannot be read, the criteria stay and **Retry** reads again.
+  You can also ask Tars for your requests in the order you sent them, for
+  example "show the queued ones in the order I asked". Tars sees, for up to
+  the 20 most recent requests, when each was sent, its first 300 characters
+  and which work it started, plus when each work was created. It quotes only
+  that excerpt, says when it was cut and points you to this view for the full
+  text; it says so when a work's message was not stored.
 - **Report**: per acceptance criterion, its status and what decided it: the
   agent's report in a named stage, or a Stave check with its result, each with
   the workspace revision it was checked on and whether that is the revision the
@@ -893,16 +948,26 @@ follow-up turn of Tars's own, so blocked work does not wait silently for you to
 ask:
 
 - the work became blocked,
-- its run stopped its own stage to ask you for a decision: the stage blocked,
-  got stuck or awaits your sign-off while the run is still running. A helper
-  the run delegated to counts the same way when its stage asks you, since the
-  run waits for that helper. Tars shows the work as waiting for you and follows
-  up at once, not after the quiet hour, and the tray's **Needs you** counts the
-  helper's row that Fleet shows. When the stage blocked on an acceptance
-  criterion, the reason Tars reads says whether the stage report marked it
-  **Not met** or **Not verified**; a report that left a required criterion out
-  or reworded it is refused while the run's turn is still going, so it does
-  not reach you,
+- its run's own stage stopped while the run is still running: the stage
+  blocked, got stuck or awaits your sign-off. A helper the run delegated to
+  counts the same way when its stage stops, since the run waits for that
+  helper. Tars shows the work as waiting for you and follows up at once, not
+  after the quiet hour, and the tray's **Needs you** counts the helper's row
+  that Fleet shows. Tars tells apart what the stage waits for. Only a stage
+  whose agent blocked it for your input or permission asks you a question:
+  Tars gets that question and the agent's suggested action in the agent's own
+  words, and the line reads **Automatic follow-up · Needs your decision**. A
+  stage awaiting your sign-off reads the same. A stage that one of Stave's own
+  checks stopped (a required criterion not met or not verified, no report, the
+  reporting tools unavailable, a failed stage action) or that the agent
+  blocked on its environment or an outside service asks you nothing: the line
+  reads **Automatic follow-up · Needs verification or a next step** (in
+  Korean, **자동 후속 · 확인 또는 다음 단계 필요**), and Tars says what needs
+  verifying or which next step fits instead of saying the run asked you
+  something. When the stage blocked on an acceptance criterion, the reason
+  Tars reads says whether the stage report marked it **Not met** or **Not
+  verified**; a report that left a required criterion out or reworded it is
+  refused while the run's turn is still going, so it does not reach you,
 - its run reported completion Stave could not verify,
 - it ended with required criteria unmet or a verification older than a hand-back,
 - it waited an hour without any change (a turn the run took counts as a

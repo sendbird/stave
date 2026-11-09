@@ -152,7 +152,7 @@ import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-i
 import { TARS_IPC, CreateTarsResponsibilityInputSchema, TarsChangedEventSchema, TarsSnapshotSchema, UpdateTarsIdentityInputSchema,
   type TarsBridgeApi, type TarsChangedEvent } from "../src/lib/tars/types";
 import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversationInputSchema, CancelTarsMessageInputSchema,
-  TarsMessageSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
+  TarsMessageViewSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
   TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
@@ -855,9 +855,9 @@ ipcRenderer.on(TARS_IPC.changed, (_event, payload: unknown) => {
 
 const tarsApi: TarsBridgeApi = {
   configureConversation: async (input) => TarsConversationSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureConversation, TarsConversationSettingsSchema.parse(input))),
-  sendMessage: async (input) => TarsMessageSchema.parse(await ipcRenderer.invoke(TARS_IPC.sendMessage, TarsMessageInputSchema.parse(input))),
+  sendMessage: async (input) => TarsMessageViewSchema.parse(await ipcRenderer.invoke(TARS_IPC.sendMessage, TarsMessageInputSchema.parse(input))),
   getConversation: async (input = {}) => TarsConversationSchema.parse(await ipcRenderer.invoke(TARS_IPC.getConversation, GetTarsConversationInputSchema.parse(input))),
-  cancelMessage: async (input) => TarsMessageSchema.parse(await ipcRenderer.invoke(TARS_IPC.cancelMessage, CancelTarsMessageInputSchema.parse(input))),
+  cancelMessage: async (input) => TarsMessageViewSchema.parse(await ipcRenderer.invoke(TARS_IPC.cancelMessage, CancelTarsMessageInputSchema.parse(input))),
   get: async () => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.get)),
   create: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.create, CreateTarsResponsibilityInputSchema.parse(input))),
   act: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.act, TarsActInputSchema.parse(input))),

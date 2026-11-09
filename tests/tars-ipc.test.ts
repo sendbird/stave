@@ -113,10 +113,15 @@ test("actual preload exposes strict send/list/cancel and rejects malformed respo
     reply = settings; await api.tars.configureConversation(settings);
     const routed = { ...settings, executionModel: { providerId: "codex", model: "gpt-6.1-sol" }, allowedAgentIds: ["release-notes"] };
     reply = routed; const saved = await api.tars.configureConversation(routed);
-    reply = { ...input, ...settings, id: "saved", state: "queued", revision: 1, reply: null, error: null, decision: null, createdAt: "2026-11-05T00:00:00.000Z", updatedAt: "2026-11-05T00:00:00.000Z" };
+    // Main returns the saved message as a window reads it: each attachment's summary, never its content.
+    const view = { ...input, attachments: [{ kind: "file", name: "notes.txt", type: "text", size: 16 }], ...settings, id: "saved", state: "queued", revision: 1, reply: null, error: null, decision: null, createdAt: "2026-11-05T00:00:00.000Z", updatedAt: "2026-11-05T00:00:00.000Z" };
+    reply = view;
     const sent = await api.tars.sendMessage(input);
-    reply = { settings, messages: [reply], receipts: [], activity: [], records: [] }; await api.tars.getConversation();
+    reply = { settings, messages: [view], receipts: [], activity: [], records: [] }; await api.tars.getConversation();
     let denied = 0;
+    // A reply that carries attachment content is refused.
+    reply = { ...view, attachments: input.attachments }; try { await api.tars.sendMessage(input); } catch { denied++; }
+    reply = { settings, messages: [{ ...view, attachments: input.attachments }], receipts: [], activity: [], records: [] }; try { await api.tars.getConversation(); } catch { denied++; }
     for (const operation of [
       () => api.tars.sendMessage({ ...input, actions: [] }),
       () => api.tars.getConversation({ limit: 1001 }),
@@ -136,9 +141,9 @@ test("actual preload exposes strict send/list/cancel and rejects malformed respo
   expect(result.exitCode, result.stderr.toString()).toBe(0);
   expect(JSON.parse(result.stdout.toString())).toEqual({ sent: "saved",
     saved: { providerId: "codex", model: "chosen", maxTurns: 30, executionModel: { providerId: "codex", model: "gpt-6.1-sol" }, allowedAgentIds: ["release-notes"] },
-    denied: 8, before: 5,
-    channels: ["tars:configure-conversation", "tars:configure-conversation", "tars:send-message", "tars:get-conversation", "tars:configure-conversation",
-      "tars:cancel-message", "tars:get-conversation"], hasHostAction: false });
+    denied: 10, before: 7,
+    channels: ["tars:configure-conversation", "tars:configure-conversation", "tars:send-message", "tars:get-conversation", "tars:send-message", "tars:get-conversation",
+      "tars:configure-conversation", "tars:cancel-message", "tars:get-conversation"], hasHostAction: false });
 });
 
 test("act IPC admits only a strict click control and forwards it to the host's admitted path", () => {

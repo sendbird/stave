@@ -1598,7 +1598,8 @@
       "agentNotDelegable": "이 에이전트는 Claude나 Codex에서 위임 작업을 맡을 수 없어 이 작업을 시작하지 않았습니다.",
       "agentModelConflict": "이 에이전트는 지정한 실행 모델에서 실행할 수 없습니다. Tars 설정에서 자동이나 맞는 모델을 선택한 뒤 다시 요청하세요.",
       "agentOverCap": "이 에이전트는 Tars가 맡기는 작업에 허용된 권한보다 넓은 권한으로 실행되므로 이 작업을 시작하지 않았습니다.",
-      "workingChangesUnavailable": "작업 중인 변경을 스냅숏으로 저장하지 못해 이 작업을 시작하지 않았습니다. 워크스페이스를 확인한 뒤 다시 요청하세요."
+      "workingChangesUnavailable": "작업 중인 변경을 스냅숏으로 저장하지 못해 이 작업을 시작하지 않았습니다. 워크스페이스를 확인한 뒤 다시 요청하세요.",
+      "attachmentUnknown": "Tars가 메시지에 없는 첨부를 이 작업에 지정해 작업을 시작하지 않았습니다."
     },
     "owner": {
       "label": "Tars",
@@ -2038,6 +2039,8 @@
         "assignmentHint": "이전 작업이라 메시지를 따로 저장하지 않아, 실행이 받은 지시 전체를 보여 줍니다.",
         "context": "전체 첨부 내용",
         "contextHint": "실행 지시에 담기에는 길어서, 실행 리드가 매 턴 맥락으로 전체를 받습니다.",
+        "attachments_other": "첨부 {{count}}개",
+        "attachmentsHint": "보낸 메시지에 첨부한 파일과 이미지입니다. 실행 리드가 첫 턴에 함께 받습니다.",
         "criteria_other": "완료 기준 {{count}}개",
         "copyRequest": "메시지 원문 복사",
         "copyInstruction": "지시 복사",
@@ -2116,12 +2119,20 @@
         "refresh": "새로 고침"
       }
     },
+    "delivery": {
+      "queued": "실행의 현재 턴이 끝나기를 기다리는 중입니다. 끝나면 Tars가 Task에 한 번 전달합니다.",
+      "delivering": "지금 Task에 전달하고 있습니다.",
+      "delivered": "턴이 끝난 뒤 Task에 전달했습니다.",
+      "failed": "Task에 전달하지 못했습니다.",
+      "cancelled": "전달하지 않았습니다. 그 전에 작업을 직접 맡았거나, 취소했거나, 작업이 끝났습니다."
+    },
     "followUp": {
       "line": {
         "blocked": "자동 후속 · 막힘: {{title}}",
         "unverifiedCompletion": "자동 후속 · 완료 미확인: {{title}}",
         "verificationFailed": "자동 후속 · 기준 미충족: {{title}}",
         "stageAsksUser": "자동 후속 · 결정 필요: {{title}}",
+        "stageGate": "자동 후속 · 확인 또는 다음 단계 필요: {{title}}",
         "waitExpired": "자동 후속 · 변화 없이 대기: {{title}}"
       },
       "exhausted": "자동 후속이 턴 한도에 닿아 {{title}}에 대한 후속을 하지 않았습니다. 이어가려면 메시지를 보내세요.",

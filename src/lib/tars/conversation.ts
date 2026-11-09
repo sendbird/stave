@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { AttachmentContextsSchema } from "../providers/attachment-context";
+import { AttachmentContextsSchema, type AttachmentContext } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
-  TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema,
+  TARS_MESSAGE_ATTACHMENTS_MAX, TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAttachmentSummarySchema, type TarsAttachmentSummary,
+  TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema, TarsStageWaitSchema,
   tarsControlInputProblem, type TarsControlOperation,
 } from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
@@ -24,12 +25,14 @@ export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
  * snapshots at admission. Optional so earlier messages still parse; absent or
  * false starts from the branch.
  */
-export const TarsMessageInputSchema = z.object({
+const messageInputShape = {
   requestId: IdSchema,
   text: z.string().trim().max(TARS_MESSAGE_MAX_CHARS),
   attachments: AttachmentContextsSchema.optional(),
   includeWorkingChanges: z.boolean().optional(),
-}).strict().refine((message) => Boolean(message.text || message.attachments?.length));
+};
+const hasContent = (message: { text: string; attachments?: readonly unknown[] }) => Boolean(message.text || message.attachments?.length);
+export const TarsMessageInputSchema = z.object(messageInputShape).strict().refine(hasContent);
 export type TarsMessageInput = z.infer<typeof TarsMessageInputSchema>;
 
 /** Tars executes only on these providers; the rest are explicitly unsupported. */
@@ -103,13 +106,16 @@ export type TarsControlReason = z.infer<typeof TarsControlReasonSchema>;
  * Claude or Codex, it conflicts with the pinned execution model, or it would
  * exceed the delegated permission ceiling; or the user's working changes,
  * which the message asked to include, could not be snapshotted. Attachments
- * without a written user mandate cannot authorize delegation.
+ * without a written user mandate cannot authorize delegation, and a unit that
+ * names an attachment its message does not have is refused.
  */
 export const TarsDelegateReasonSchema = z.enum([
   "missingMandate",
   "agentUnknown", "agentNotAllowed", "agentPublishes", "agentNotDelegable", "agentModelConflict", "agentOverCap",
   // The message asked to include the user's working changes, and the host could not snapshot them.
   "workingChangesUnavailable",
+  // Tars gave the unit an attachment position the message does not have.
+  "attachmentUnknown",
 ]);
 export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
 /** A publish proposal refused when it was made carries a `TarsPublishReason`. */
@@ -253,6 +259,15 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
     /** Optional one line on why this unit and agent; shown under the flow block. Display only, so it is cut, never fatal. */
     reason: z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim().slice(0, TARS_DELEGATION_REASON_MAX_CHARS) : undefined,
       z.string().min(1).max(TARS_DELEGATION_REASON_MAX_CHARS).optional()),
+    /**
+     * Optional: the 0-based positions, in the message, of the attachments this
+     * unit carries; absent gives it every attachment, empty none. A repeated
+     * position counts once; one the message does not have is refused at
+     * admission (`attachmentUnknown`), not here, so one bad unit never fails
+     * the whole reply.
+     */
+    attachments: z.preprocess((value) => Array.isArray(value) ? [...new Set(value)] : value,
+      z.array(z.number().int().min(0).max(1_000)).max(TARS_MESSAGE_ATTACHMENTS_MAX).optional()),
   }).strict(),
   z.object({
     kind: z.literal("reprioritize"),
@@ -325,12 +340,18 @@ export const TarsMessageOriginSchema = z.discriminatedUnion("kind", [
     observedRevision: RevisionSchema,
     /** Model-facing summary of what changed. */
     summary: z.string().max(2_000),
+    /**
+     * For `stageAsksUser`: what the stopped stage waits for (`TarsStageWait`
+     * kind), so a gate is followed up as needing verification or a next step,
+     * never as a question to the user. Absent on older follow-ups.
+     */
+    stage: TarsStageWaitSchema.shape.kind.optional(),
   }).strict(),
 ]);
 export type TarsMessageOrigin = z.infer<typeof TarsMessageOriginSchema>;
 
 export const TarsMessageStateSchema = z.enum(["queued", "reasoning", "answered", "failed", "cancelled"]);
-export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
+const messageFields = {
   ...TarsConversationSettingsSchema.shape,
   id: IdSchema,
   state: TarsMessageStateSchema,
@@ -344,7 +365,9 @@ export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
   origin: TarsMessageOriginSchema.optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
-}).strict().superRefine((message, context) => {
+};
+function checkMessageState(message: { state: string; reply: string | null; error: string | null; errorCode?: string | null; decision: { reply: string } | null },
+  context: z.RefinementCtx) {
   const answered = message.state === "answered";
   if ((message.errorCode != null && message.state !== "failed") || (answered
     ? !message.decision || message.reply !== message.decision.reply || message.error !== null
@@ -352,8 +375,40 @@ export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "Message state and decision fields disagree." });
   }
-});
+}
+/** A saved message: the user's words and full attachment snapshots, read by the host and the planner. */
+export const TarsMessageSchema = z.object({ ...messageInputShape, ...messageFields }).strict().refine(hasContent).superRefine(checkMessageState);
 export type TarsMessage = z.infer<typeof TarsMessageSchema>;
+
+export { TarsAttachmentSummarySchema, type TarsAttachmentSummary } from "./types";
+
+/**
+ * A message as a window reads it (`tars:get-conversation`, and what sending
+ * or cancelling returns): every field of the saved message, with each
+ * attachment's summary instead of its content. A conversation is read again
+ * on every change, so an image's data never crosses IPC with it.
+ */
+export const TarsMessageViewSchema = z.object({ ...messageInputShape, attachments: z.array(TarsAttachmentSummarySchema).max(8).optional(), ...messageFields })
+  .strict().refine(hasContent).superRefine(checkMessageState);
+export type TarsMessageView = z.infer<typeof TarsMessageViewSchema>;
+
+/** Bytes a base64 payload decodes to. */
+function base64Bytes(dataUrl: string) {
+  const payload = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  return Math.max(0, Math.floor(payload.length * 3 / 4) - (payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0));
+}
+
+export function tarsAttachmentSummary(part: AttachmentContext): TarsAttachmentSummary {
+  return part.type === "file_context"
+    ? { kind: "file", name: part.filePath, type: part.language, size: new TextEncoder().encode(part.content).byteLength }
+    : { kind: "image", name: part.label, type: part.mimeType, size: base64Bytes(part.dataUrl) };
+}
+
+/** A saved message as a window reads it: attachment summaries, never their content. */
+export function tarsMessageView(message: TarsMessage): TarsMessageView {
+  const { attachments, ...rest } = message;
+  return attachments?.length ? { ...rest, attachments: attachments.map(tarsAttachmentSummary) } : rest;
+}
 
 export const TarsActionReceiptSchema = z.object({
   messageId: IdSchema,
@@ -456,6 +511,38 @@ export const TarsQueueMoveActionSchema = z.object({
 }).strict();
 export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
 
+/**
+ * The user's words to a run whose task was busy (a turn running) when they
+ * confirmed them: kept with the confirmation's record and said in the task
+ * once that turn ends, exactly once, as their reply there.
+ * - `queued`: waiting for the task's turn to end (or a paused run to resume).
+ * - `delivering`: being said now, as the user turn `turnId`, minted and saved
+ *   before the reply starts. After a restart it reached the task only if the
+ *   run recorded that very turn; any other user turn says nothing about it.
+ * - `delivered`: said in the task.
+ * - `failed`: the run refused it (`reason`, `error`).
+ * - `cancelled`: the work was taken over, cancelled or completed, its run
+ *   ended or changed owner first (`reason`).
+ * `agentRunId` is the run it was confirmed for; it is never said to another.
+ */
+export const TarsMessageDeliverySchema = z.object({
+  status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled"]),
+  agentRunId: IdSchema,
+  turnId: IdSchema.optional(),
+  reason: TarsControlReasonSchema.nullable(),
+  error: ErrorSchema.nullable(),
+  queuedAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+}).strict().superRefine((delivery, context) => {
+  const settledOtherwise = delivery.status === "failed" || delivery.status === "cancelled";
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (settledOtherwise !== (delivery.reason !== null)) context.addIssue({ code: "custom", message: "Only a failed or cancelled delivery has a reason." });
+  // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+  if (delivery.status === "delivering" && delivery.turnId === undefined) context.addIssue({ code: "custom", message: "A delivery under way names the user turn it starts." });
+});
+export type TarsMessageDelivery = z.infer<typeof TarsMessageDeliverySchema>;
+export type TarsMessageDeliveryStatus = TarsMessageDelivery["status"];
+
 /** Where a recorded action came from: a control's sources, plus a drag for a queue move. */
 export const TarsActionRecordSourceSchema = z.enum([...TarsActSourceSchema.options, "drag"]);
 export type TarsActionRecordSource = z.infer<typeof TarsActionRecordSourceSchema>;
@@ -476,6 +563,8 @@ export const TarsActionRecordSchema = z.object({
   reason: TarsControlReasonSchema.nullable(),
   /** An applied queue move's new priority for the moved work. */
   priority: z.number().int().min(0).max(100).optional(),
+  /** An applied `message` whose task was busy: its words wait in this record and are said once (`TarsMessageDeliverySchema`). */
+  delivery: TarsMessageDeliverySchema.optional(),
   revision: RevisionSchema,
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
@@ -487,6 +576,9 @@ export const TarsActionRecordSchema = z.object({
   if ((record.source === "drag" && !move) || (record.priority !== undefined && !(move && record.status === "applied")))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "Only an applied queue move records a priority, and only a queue move comes from a drag." });
+  if (record.delivery && !(record.status === "applied" && record.action.kind === "control" && record.action.operation === "message"))
+    // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+    context.addIssue({ code: "custom", message: "Only an applied message to a run waits for delivery." });
 });
 export type TarsActionRecord = z.infer<typeof TarsActionRecordSchema>;
 
@@ -578,7 +670,8 @@ export type ApplyTarsDecisionInput = z.infer<typeof ApplyTarsDecisionInputSchema
 export const TarsConversationSchema = z.object({
   settings: TarsConversationSettingsSchema.nullable(),
   activity: z.array(TarsActivitySchema).max(1_000),
-  messages: z.array(TarsMessageSchema).max(1_000),
+  /** Attachment summaries only (`TarsMessageViewSchema`); the planner reads the saved content in the host. */
+  messages: z.array(TarsMessageViewSchema).max(1_000),
   receipts: z.array(TarsActionReceiptSchema).max(8_000),
   records: z.array(TarsActionRecordSchema).max(1_000),
   /** Optional so older hosts' conversations still parse. */

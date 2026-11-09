@@ -19,7 +19,7 @@ import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { TarsMark } from "./TarsMark";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
-import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessage } from "@/lib/tars/conversation";
+import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessage, TarsMessageView } from "@/lib/tars/conversation";
 import {
   bindTarsShortAnswer, projectTarsDecisions, selectAnswerableTarsDecisions, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "@/lib/tars/decisions";
@@ -115,7 +115,7 @@ function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishCont
 }
 
 export function TarsConversationMessage({ message, receipts, name, busy, onCancel, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish }: {
-  message: TarsMessage; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
+  message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   titleOf?: (responsibilityId: string) => string | undefined;
   /** The display name of a delegate action's agent. */
   agentNameOf?: (agentId: string) => string | undefined;
@@ -143,12 +143,12 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     {origin?.kind === "reask" ? <p className={sx(styles.actionRecord)} data-tars-reask=""><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
       <span>{t(`shell:tars.decision.reaskLine.${origin.reason}`)}</span></p>
       : origin?.kind === "followUp" ? <p className={sx(styles.actionRecord)} data-tars-follow-up={origin.reason}><span aria-hidden="true" className={sx(styles.glyph)}>↳</span>
-        <span>{t(`shell:tars.followUp.line.${origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
+        <span>{t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
         // The user's words sit on the trailing side in a bubble no wider than they need; Tars's reply reads full-width under its name.
         : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(styles.userBubble)}>
           <MessageContent><p className={sx(styles.messageText)}>{message.text}</p>
-            {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index}>{attachmentName(part)}</li>)}</ul> : null}</MessageContent></div></Message>}
+            {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index} data-tars-attachment-kind={part.kind}>{part.name}</li>)}</ul> : null}</MessageContent></div></Message>}
     <div className={sx(styles.actions, !origin && styles.metaUser)} data-tars-message-meta=""><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
       {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}

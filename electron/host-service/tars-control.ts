@@ -28,6 +28,12 @@ export interface TarsControlLedger<R> {
    */
   admit?(): void;
   apply(effect: () => void): R;
+  /**
+   * Settles a `message` as accepted with its words queued for `agentRunId`,
+   * said once the task's running turn ends (`TarsMessageDelivery`). Absent on
+   * ledgers that cannot show a queued delivery: a busy task is then refused.
+   */
+  queue?(effect: () => void, agentRunId: string): R;
   reject(rejection: TarsControlRejectionOutcome): R;
 }
 
@@ -159,6 +165,7 @@ export function tarsActionLedger(conversations: TarsConversationStore, requestId
       if (!conversations.isCurrentProposal(proposal)) throw new TarsControlRejection("stale", TARS_PROPOSAL_SUPERSEDED);
     } } : {}),
     apply: (effect) => conversations.applyAction(requestId, effect, now(), proposal),
+    queue: (effect, agentRunId) => conversations.applyAction(requestId, effect, now(), proposal, { agentRunId }),
     reject: ({ reason, error }) => conversations.rejectAction(requestId, reason, error, now(), proposal),
   };
 }
