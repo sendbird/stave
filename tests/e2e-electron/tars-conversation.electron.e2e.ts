@@ -36,21 +36,30 @@ test("global conversation works without a workspace, admits one decision, and su
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input), settings);
     await stave.page.getByRole("button", { name: /^(Tars|Tars)$/ }).click();
     const conversationView = stave.page.getByTestId("tars-view");
+    const notes = Buffer.from("tars-attachment-proof: preserve the saved labels");
+    const screen = Buffer.concat([Buffer.from("screen"), Buffer.alloc(4_000_000 - 6)]);
     await conversationView.locator('input[type="file"]').setInputFiles([
-      { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("tars-attachment-proof: preserve the saved labels") },
-      { name: "screen.png", mimeType: "image/png", buffer: Buffer.concat([Buffer.from("screen"), Buffer.alloc(4_000_000 - 6)]) },
+      { name: "notes.txt", mimeType: "text/plain", buffer: notes },
+      { name: "screen.png", mimeType: "image/png", buffer: screen },
     ]);
     await expect(conversationView.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
     await conversationView.getByRole("textbox").fill("Help clarify this work.");
     await conversationView.getByRole("button", { name: /^(Send|보내기)$/ }).click();
     await expect.poll(() => stave!.page.evaluate(async () => (await window.api!.tars!.getConversation!()).messages.length)).toBe(1);
-    const first = (await stave.page.evaluate(() => window.api!.tars!.getConversation!())).messages[0]!;
-    const discussion = { requestId: first.requestId, text: first.text, attachments: first.attachments };
-    expect(first.attachments).toHaveLength(2);
+    const snapshot = await stave.page.evaluate(() => window.api!.tars!.getConversation!());
+    const first = snapshot.messages[0]!;
+    // The conversation a window reads carries each attachment's name, type and size, never its content.
+    expect(first.attachments).toEqual([{ kind: "file", name: "notes.txt", type: "txt", size: notes.byteLength },
+      { kind: "image", name: "screen.png", type: "image/png", size: screen.byteLength }]);
+    expect(JSON.stringify(snapshot)).not.toContain("data:image");
+    expect(JSON.stringify(snapshot)).not.toContain("tars-attachment-proof");
+    // The same message again, as the composer read it: the retry identity is the saved snapshot.
+    const discussion = { requestId: first.requestId, text: first.text, attachments: [
+      { type: "file_context" as const, filePath: "notes.txt", content: notes.toString("utf8"), language: "txt" },
+      { type: "image_context" as const, label: "screen.png", dataUrl: `data:image/png;base64,${screen.toString("base64")}`, mimeType: "image/png" as const }] };
     // Largest advertised single image: its base64 request crosses the old 4 MiB
     // host boundary. The actual SDK/fixture CLI must receive it and settle.
-    const savedImage = first.attachments?.find(part => part.type === "image_context");
-    expect(savedImage?.dataUrl.length).toBeGreaterThan(4 * 1024 * 1024);
+    expect(discussion.attachments[1]!.dataUrl.length).toBeGreaterThan(4 * 1024 * 1024);
     await expect.poll(() => stave!.page.evaluate(async (id) =>
       (await window.api!.tars!.getConversation!()).messages.find((row) => row.id === id)?.state, first.id), { timeout: 60_000 }).toBe("answered");
     expect((await stave.page.evaluate(() => window.api!.tars!.get())).responsibilities).toHaveLength(0);

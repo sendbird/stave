@@ -15,7 +15,7 @@ import { TarsWelcome } from "./TarsGuide";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
-import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessage } from "@/lib/tars/conversation";
+import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessage, TarsMessageView } from "@/lib/tars/conversation";
 import {
   bindTarsShortAnswer, projectTarsDecisions, selectAnswerableTarsDecisions, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "@/lib/tars/decisions";
@@ -107,7 +107,7 @@ function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishCont
 }
 
 export function TarsConversationMessage({ message, receipts, name, busy, onCancel, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish }: {
-  message: TarsMessage; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
+  message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   titleOf?: (responsibilityId: string) => string | undefined;
   /** The display name of a delegate action's agent. */
   agentNameOf?: (agentId: string) => string | undefined;
@@ -138,7 +138,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
         <span>{t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })}</span></p>
       : origin?.kind === "answer" ? null
         : <Message from="user"><MessageContent><p className={sx(styles.messageText)}>{message.text}</p>
-          {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index}>{attachmentName(part)}</li>)}</ul> : null}</MessageContent></Message>}
+          {message.attachments?.length ? <ul className={sx(styles.receipts)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">{message.attachments.map((part, index) => <li key={index} data-tars-attachment-kind={part.kind}>{part.name}</li>)}</ul> : null}</MessageContent></Message>}
     <div className={sx(styles.actions)}><time className={sx(styles.text)} dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>{message.state !== "answered" ? <TarsMessageStateTag state={message.state} /> : null}
       {message.includeWorkingChanges && !origin ? <Badge data-tars-message-working-changes="">{t("shell:tars.conversation.workingChanges.badge")}</Badge> : null}
       {message.state === "queued" || message.state === "reasoning" ? <Button variant="ghost" size="sm" disabled={busy} onClick={onCancel}>{t("shell:tars.conversation.cancel")}</Button> : null}

@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
 import type {
-  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
+  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
@@ -469,9 +469,10 @@ export type TarsSnapshot = z.infer<typeof TarsSnapshotSchema>;
 export interface TarsBridgeApi {
   /** Available on the desktop bridge; older/browser preview bridges may omit conversation support. */
   configureConversation?(input: TarsConversationSettings): Promise<TarsConversationSettings>;
-  sendMessage?(input: TarsMessageInput): Promise<TarsMessage>;
+  /** Returns the saved message as a window reads it: attachment summaries, never their content. */
+  sendMessage?(input: TarsMessageInput): Promise<TarsMessageView>;
   getConversation?(input?: GetTarsConversationInput): Promise<TarsConversation>;
-  cancelMessage?(input: CancelTarsMessageInput): Promise<TarsMessage>;
+  cancelMessage?(input: CancelTarsMessageInput): Promise<TarsMessageView>;
   get(): Promise<TarsSnapshot>;
   create(input: CreateTarsResponsibilityInput): Promise<TarsSnapshot>;
   /** Pause, resume, cancel, take over or hand back through the host's admitted control path. */

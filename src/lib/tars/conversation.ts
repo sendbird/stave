@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AttachmentContextsSchema } from "../providers/attachment-context";
+import { AttachmentContextsSchema, type AttachmentContext } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
   TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema, TarsStageWaitSchema,
@@ -24,12 +24,14 @@ export const TARS_DELEGATION_REASON_MAX_CHARS = 200;
  * snapshots at admission. Optional so earlier messages still parse; absent or
  * false starts from the branch.
  */
-export const TarsMessageInputSchema = z.object({
+const messageInputShape = {
   requestId: IdSchema,
   text: z.string().trim().max(TARS_MESSAGE_MAX_CHARS),
   attachments: AttachmentContextsSchema.optional(),
   includeWorkingChanges: z.boolean().optional(),
-}).strict().refine((message) => Boolean(message.text || message.attachments?.length));
+};
+const hasContent = (message: { text: string; attachments?: readonly unknown[] }) => Boolean(message.text || message.attachments?.length);
+export const TarsMessageInputSchema = z.object(messageInputShape).strict().refine(hasContent);
 export type TarsMessageInput = z.infer<typeof TarsMessageInputSchema>;
 
 /** Tars executes only on these providers; the rest are explicitly unsupported. */
@@ -334,7 +336,7 @@ export const TarsMessageOriginSchema = z.discriminatedUnion("kind", [
 export type TarsMessageOrigin = z.infer<typeof TarsMessageOriginSchema>;
 
 export const TarsMessageStateSchema = z.enum(["queued", "reasoning", "answered", "failed", "cancelled"]);
-export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
+const messageFields = {
   ...TarsConversationSettingsSchema.shape,
   id: IdSchema,
   state: TarsMessageStateSchema,
@@ -348,7 +350,9 @@ export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
   origin: TarsMessageOriginSchema.optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
-}).strict().superRefine((message, context) => {
+};
+function checkMessageState(message: { state: string; reply: string | null; error: string | null; errorCode?: string | null; decision: { reply: string } | null },
+  context: z.RefinementCtx) {
   const answered = message.state === "answered";
   if ((message.errorCode != null && message.state !== "failed") || (answered
     ? !message.decision || message.reply !== message.decision.reply || message.error !== null
@@ -356,8 +360,51 @@ export const TarsMessageSchema = TarsMessageInputSchema.safeExtend({
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "Message state and decision fields disagree." });
   }
-});
+}
+/** A saved message: the user's words and full attachment snapshots, read by the host and the planner. */
+export const TarsMessageSchema = z.object({ ...messageInputShape, ...messageFields }).strict().refine(hasContent).superRefine(checkMessageState);
 export type TarsMessage = z.infer<typeof TarsMessageSchema>;
+
+/**
+ * What a window shows of one attachment: its name, a file's language or an
+ * image's MIME type, and its size in bytes (a file's UTF-8 text, an image's
+ * decoded data). The content itself stays in the host for the planner.
+ */
+export const TarsAttachmentSummarySchema = z.object({
+  kind: z.enum(["file", "image"]),
+  name: z.string().trim().min(1).max(500),
+  type: z.string().max(200),
+  size: z.number().int().min(0),
+}).strict();
+export type TarsAttachmentSummary = z.infer<typeof TarsAttachmentSummarySchema>;
+
+/**
+ * A message as a window reads it (`tars:get-conversation`, and what sending
+ * or cancelling returns): every field of the saved message, with each
+ * attachment's summary instead of its content. A conversation is read again
+ * on every change, so an image's data never crosses IPC with it.
+ */
+export const TarsMessageViewSchema = z.object({ ...messageInputShape, attachments: z.array(TarsAttachmentSummarySchema).max(8).optional(), ...messageFields })
+  .strict().refine(hasContent).superRefine(checkMessageState);
+export type TarsMessageView = z.infer<typeof TarsMessageViewSchema>;
+
+/** Bytes a base64 payload decodes to. */
+function base64Bytes(dataUrl: string) {
+  const payload = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  return Math.max(0, Math.floor(payload.length * 3 / 4) - (payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0));
+}
+
+export function tarsAttachmentSummary(part: AttachmentContext): TarsAttachmentSummary {
+  return part.type === "file_context"
+    ? { kind: "file", name: part.filePath, type: part.language, size: new TextEncoder().encode(part.content).byteLength }
+    : { kind: "image", name: part.label, type: part.mimeType, size: base64Bytes(part.dataUrl) };
+}
+
+/** A saved message as a window reads it: attachment summaries, never their content. */
+export function tarsMessageView(message: TarsMessage): TarsMessageView {
+  const { attachments, ...rest } = message;
+  return attachments?.length ? { ...rest, attachments: attachments.map(tarsAttachmentSummary) } : rest;
+}
 
 export const TarsActionReceiptSchema = z.object({
   messageId: IdSchema,
@@ -582,7 +629,8 @@ export type ApplyTarsDecisionInput = z.infer<typeof ApplyTarsDecisionInputSchema
 export const TarsConversationSchema = z.object({
   settings: TarsConversationSettingsSchema.nullable(),
   activity: z.array(TarsActivitySchema).max(1_000),
-  messages: z.array(TarsMessageSchema).max(1_000),
+  /** Attachment summaries only (`TarsMessageViewSchema`); the planner reads the saved content in the host. */
+  messages: z.array(TarsMessageViewSchema).max(1_000),
   receipts: z.array(TarsActionReceiptSchema).max(8_000),
   records: z.array(TarsActionRecordSchema).max(1_000),
   /** Optional so older hosts' conversations still parse. */

@@ -56,7 +56,7 @@ function originContext(message: TarsMessage) {
 }
 
 /** Model output proposes work; only the host admission bridge may apply it. */
-export function buildTarsPlannerPrompt(message: TarsMessage, context: TarsPlannerContext, history: TarsMessage[]) {
+export function buildTarsPlannerPrompt(message: TarsMessage, context: TarsPlannerContext, history: readonly Omit<TarsMessage, "attachments">[]) {
   const instructions = [
     "You are the user's persistent personal representative in one global conversation. Clarify outcomes, coordinate explicitly delegated work and report progress honestly.",
     `Return only one JSON object with reply (string, at most ${TARS_REPLY_MAX_CHARS} characters) and actions (array). Reply in the user's language. Proposed actions have not executed.`,

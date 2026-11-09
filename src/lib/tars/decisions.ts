@@ -118,7 +118,8 @@ export interface TarsDecisionView {
 
 export interface TarsDecisionSources {
   /** Conversation order, oldest first. */
-  messages: readonly TarsMessage[];
+  /** Saved messages or a window's views of them; attachments are never read. */
+  messages: readonly Omit<TarsMessage, "attachments">[];
   receipts: readonly TarsActionReceipt[];
   records: readonly TarsActionRecord[];
   answers: readonly TarsDecisionAnswer[];

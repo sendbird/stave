@@ -135,7 +135,7 @@ export function admitTarsFollowUps(ports: TarsFollowUpPorts): { created: number;
 function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: string, maxTurns: number): { created: number; nextWindowAt: string | null } {
   const groups = new Map<string, TarsEvent[]>();
   for (const event of page) groups.set(event.responsibilityId, [...(groups.get(event.responsibilityId) ?? []), event]);
-  const newestSeen = ports.conversations.list(1)[0]?.id ?? null;
+  const newestSeen = ports.conversations.latestId();
   const reaskable = [...groups.values()].flat().some((event) => event.kind === "decisionInvalidated") ? ports.reaskable() : new Map<string, TarsDecisionView>();
   let created = 0;
   for (const [responsibilityId, group] of groups) {
@@ -145,7 +145,7 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
       if (!events.length) return null;
       const row = ports.responsibilities.get(responsibilityId);
       // A message since the projection (such as a re-ask just created) may change it: judge those decisions next pass.
-      const projectionCurrent = (ports.conversations.list(1)[0]?.id ?? null) === newestSeen;
+      const projectionCurrent = ports.conversations.latestId() === newestSeen;
       const stands = new Map(events.map((event) => [event.key, event.kind === "decisionInvalidated"
         ? (projectionCurrent ? reaskable.has(event.episode) : null)
         // Work the user paused or took over is never at the observed state, so it is never followed up.

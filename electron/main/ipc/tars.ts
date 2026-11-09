@@ -9,7 +9,7 @@ import { getTarsConversationService } from "../tars-conversation-instance";
 import { ensureTarsEventBridge } from "../tars-events";
 import {
   TarsActInputSchema, TarsAnswerInputSchema, TarsConversationSettingsSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema,
-  TarsMessageInputSchema, TarsReprioritizeInputSchema,
+  TarsMessageInputSchema, TarsReprioritizeInputSchema, tarsMessageView,
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
@@ -23,7 +23,8 @@ export function registerTarsHandlers() {
   });
   ipcMain.handle(TARS_IPC.sendMessage, async (_event, rawInput: unknown) => {
     const input = TarsMessageInputSchema.parse(rawInput);
-    return (await getTarsConversationService()).sendMessage(input);
+    // The window gets the saved message back with attachment summaries; the content stays here for the planner.
+    return tarsMessageView((await getTarsConversationService()).sendMessage(input));
   });
   ipcMain.handle(TARS_IPC.getConversation, async (_event, rawInput: unknown) => {
     const input = GetTarsConversationInputSchema.parse(rawInput === undefined ? {} : rawInput);
@@ -31,7 +32,7 @@ export function registerTarsHandlers() {
   });
   ipcMain.handle(TARS_IPC.cancelMessage, async (_event, rawInput: unknown) => {
     const input = CancelTarsMessageInputSchema.parse(rawInput);
-    return (await getTarsConversationService()).cancelMessage(input);
+    return tarsMessageView(await (await getTarsConversationService()).cancelMessage(input));
   });
   // An answer names a saved decision and an option index; main reads the option and controls go to the host's act path.
   ipcMain.handle(TARS_IPC.answer, async (_event, rawInput: unknown) => {

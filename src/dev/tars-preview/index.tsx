@@ -5,7 +5,8 @@ import { tarsSnapshotForWindow, type TarsBridgeApi, type TarsSnapshot } from "@/
 import { buildTarsBrief } from "@/lib/tars/brief";
 import { useAppStore } from "@/store/app.store";
 import { applyThemeClass } from "@/lib/themes/apply";
-import type { TarsActInput, TarsAnswerResult, TarsConversation, TarsDecision, TarsDecisionAnswer, TarsReprioritizeInput } from "@/lib/tars/conversation";
+import { tarsMessageView, type TarsActInput, type TarsAnswerResult, type TarsConversation, type TarsDecision, type TarsDecisionAnswer, type TarsMessage,
+  type TarsReprioritizeInput } from "@/lib/tars/conversation";
 import { planTarsQueueMove, tarsQueueOf } from "@/lib/tars/queue-order";
 import { parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
 import { collectFleetTarsAttentionItems, type FleetAttentionItem, type FleetAttentionKind } from "@/lib/fleet/attention-projection";
@@ -108,7 +109,9 @@ export function TarsPreview() {
     }
     let sendFailed = false;
     const conversationKey = "stave-preview-conversation";
-    const conversation: TarsConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (followUp
+    // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
+    type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
+    const conversation: PreviewConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (followUp
       ? { settings: null, messages: [followUp.message], receipts: [], activity: [], records: [], events: followUp.events }
       : side
       ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
@@ -247,7 +250,7 @@ export function TarsPreview() {
         saveConversation();
         return { answer: structuredClone(answer), refusal: null };
       },
-      getConversation: async () => structuredClone(conversation),
+      getConversation: async () => ({ ...structuredClone(conversation), messages: conversation.messages.map((message) => tarsMessageView(structuredClone(message))) }),
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
         if (Object.keys(input).some((key) => !["requestId", "text", "includeWorkingChanges", "attachments"].includes(key)))
@@ -312,13 +315,13 @@ export function TarsPreview() {
           saveConversation();
         }
         if (params.get("sendFailure") === "once" && !sendFailed) { sendFailed = true; throw new Error("Preview message transport failed after admission."); }
-        return structuredClone(message);
+        return tarsMessageView(structuredClone(message));
       },
       cancelMessage: async ({ messageId, expectedRevision }) => {
         const message = conversation.messages.find((item) => item.id === messageId);
         if (!message || message.revision !== expectedRevision) throw new Error("Preview stale message revision.");
         if (message.state !== "queued" && message.state !== "reasoning") throw new Error("Preview message is already settled.");
-        Object.assign(message, { state: "cancelled", revision: message.revision + 1 }); saveConversation(); return structuredClone(message);
+        Object.assign(message, { state: "cancelled", revision: message.revision + 1 }); saveConversation(); return tarsMessageView(structuredClone(message));
       },
     };
     window.api = { ...window.api, tars: bridge, ...(side ? { sourceControl: { ...window.api?.sourceControl,

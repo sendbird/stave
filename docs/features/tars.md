@@ -96,7 +96,11 @@ Files with the same name stay separate; a number distinguishes their attachment 
 
 Stave saves the selected contents with the message and passes them to the
 conversation model. A retry uses the same snapshot; switching workspaces or
-reopening Stave preserves the attachment names in the conversation. Attached
+reopening Stave preserves the attachment names in the conversation. The
+conversation itself shows only each attachment's name (and keeps its type and
+size): the saved contents, such as an image's data, are not loaded again every
+time the conversation refreshes, and Stave reads them only for Tars's own
+reasoning turn on that message. Attached
 material supplies context and does not authorize delegated work on its own.
 You can discuss attachments without text; to start work, include a written
 instruction with them. The host refuses delegation from an attachment-only message.

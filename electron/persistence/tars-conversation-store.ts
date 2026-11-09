@@ -7,7 +7,7 @@ import {
   TarsReprioritizeInputSchema, type TarsReprioritizeInput,
   type TarsActionReceipt, type TarsActionRecord, type TarsActInput, type TarsDecision, type TarsDecisionAction,
   type TarsMessage, type TarsMessageInput, type TarsReceiptOutcome, type TarsDecisionAnswer, type TarsAnswerRefusal, type TarsMessageOrigin,
-  type TarsActionReason,
+  type TarsActionReason, TarsMessageViewSchema, type TarsMessageView, type TarsAttachmentSummary,
 } from "../../src/lib/tars/conversation";
 import {
   TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
@@ -27,6 +27,7 @@ interface ConversationDatabase {
   transaction<T>(operation: () => T): { (): T; immediate(): T };
 }
 interface StoredRow { body_json: string; request_hash: string }
+interface ViewRow { id: string; body_json: string }
 export interface TarsProposalRef { messageId: string; actionIndex: number }
 
 function hash(value: unknown): string {
@@ -156,13 +157,59 @@ export class TarsConversationStore {
       .all(limit).map((row) => this.readMessage(row)!).reverse();
   }
 
-  /** Admit history before this request, independent of queue depth or equal/shifted clocks. */
-  listBefore(messageId: string, limit = 8): TarsMessage[] {
+  /**
+   * The same window as `list`, as a window reads it: each attachment's
+   * summary (`TarsAttachmentSummary`) instead of its content. SQLite drops the
+   * content and measures it, so an image's data is never loaded here.
+   */
+  listViews(limit = 100): TarsMessageView[] {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("The message limit must be between 1 and 1000.");
+    return this.readViews(this.db.prepare(`SELECT id, json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
+      ORDER BY created_at DESC, rowid DESC LIMIT ?`).all(limit) as ViewRow[]).reverse();
+  }
+
+  /** The newest message's id, without reading any message. */
+  latestId(): string | null {
+    return (this.db.prepare("SELECT id FROM tars_messages ORDER BY created_at DESC, rowid DESC LIMIT 1").get() as { id: string } | undefined)?.id ?? null;
+  }
+
+  /**
+   * Admit history before this request, independent of queue depth or
+   * equal/shifted clocks. History is words only: attachments are summaries.
+   */
+  listBefore(messageId: string, limit = 8): TarsMessageView[] {
     this.requireLimit(limit);
-    return this.db.prepare(`SELECT body_json FROM tars_messages
+    return this.readViews(this.db.prepare(`SELECT id, json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
       WHERE rowid < (SELECT rowid FROM tars_messages WHERE id = ?)
-      ORDER BY rowid DESC LIMIT ?`).all(messageId, limit)
-      .map((row) => this.readMessage(row)!).reverse();
+      ORDER BY rowid DESC LIMIT ?`).all(messageId, limit) as ViewRow[]).reverse();
+  }
+
+  /**
+   * Rows read without their attachments, joined with each attachment's
+   * summary measured in SQL: a file's UTF-8 bytes, an image's decoded bytes
+   * from its base64 length and padding (as `tarsAttachmentSummary` measures).
+   */
+  private readViews(rows: readonly ViewRow[]): TarsMessageView[] {
+    if (!rows.length) return [];
+    const summaries = new Map<string, TarsAttachmentSummary[]>();
+    const parts = this.db.prepare(`SELECT m.id AS id, json_extract(a.value, '$.type') AS type,
+        coalesce(json_extract(a.value, '$.filePath'), json_extract(a.value, '$.label')) AS name,
+        coalesce(json_extract(a.value, '$.language'), json_extract(a.value, '$.mimeType')) AS format,
+        length(CAST(json_extract(a.value, '$.content') AS BLOB)) AS text_bytes,
+        length(json_extract(a.value, '$.dataUrl')) - instr(json_extract(a.value, '$.dataUrl'), ',') AS base64_chars,
+        (substr(json_extract(a.value, '$.dataUrl'), -2) = '==') + (substr(json_extract(a.value, '$.dataUrl'), -1) = '=') AS padding
+      FROM tars_messages m, json_each(m.body_json, '$.attachments') a
+      WHERE m.id IN (SELECT value FROM json_each(?)) ORDER BY m.id, a.key`).all(JSON.stringify(rows.map((row) => row.id))) as Array<{
+        id: string; type: string; name: string; format: string; text_bytes: number | null; base64_chars: number | null; padding: number | null }>;
+    for (const part of parts) {
+      const image = part.type === "image_context";
+      const size = image ? Math.max(0, Math.floor((part.base64_chars ?? 0) * 3 / 4) - (part.padding ?? 0)) : part.text_bytes ?? 0;
+      summaries.set(part.id, [...(summaries.get(part.id) ?? []), { kind: image ? "image" : "file", name: part.name, type: part.format, size }]);
+    }
+    return rows.map((row) => {
+      const attachments = summaries.get(row.id);
+      return TarsMessageViewSchema.parse({ ...JSON.parse(row.body_json), ...(attachments?.length ? { attachments } : {}) });
+    });
   }
 
   /** Scheduling is independent of the recent conversation window. */
