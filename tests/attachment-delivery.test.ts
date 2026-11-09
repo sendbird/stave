@@ -81,3 +81,22 @@ test("skips stale file paths restored from an older draft", async () => {
     session: { editorTabs: [] }, workspaceRootPath: "/tmp/project",
   })).resolves.toEqual([]);
 });
+
+test("binary and too-large attachments go by path instead of failing the send", async () => {
+  const reads: string[] = [];
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { api: { fs: {
+    readFile: async ({ filePath }: { filePath: string }) => {
+      reads.push(filePath);
+      if (filePath === "huge.log") return { ok: false, content: "", tooLarge: true, stderr: "File is too large to preview." };
+      return { ok: true, content: "a\u0000b" };
+    },
+  } } } });
+  const contexts = await getDraftFileContexts({
+    promptDraft: { text: "Read", attachedFilePaths: ["docs/spec.PDF", "huge.log", "data.unknown"], attachments: [] },
+    session: { editorTabs: [] }, workspaceRootPath: "/tmp/project",
+  });
+  expect(reads).toEqual(["huge.log", "data.unknown"]);
+  expect(contexts.map((context) => [context.filePath, context.language])).toEqual([
+    ["docs/spec.PDF", "binary"], ["huge.log", "binary"], ["data.unknown", "binary"],
+  ]);
+});
