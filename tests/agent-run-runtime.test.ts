@@ -2803,6 +2803,27 @@ test("a paused Run keeps its saved question answerable until Resume", async () =
 });
 
 
+test("Tars's reply as the user starts one plain turn on the lead task, and is refused while a turn, a request or a takeover is open", async () => {
+  const turns: Array<{ prompt: string; agentRunStage?: unknown; questionAnswer?: unknown }> = [];
+  const h = createHarness({ extra: { runSupervisedTurn: async args => { turns.push(args); return { turnId: `turn-${turns.length}` }; } } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+  turns.length = 0;
+  h.setSnapshot({ activeTurnId: "running-turn" });
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." })).rejects.toMatchObject({ code: "refused" });
+  h.setSnapshot({ activeTurnId: null, pendingApprovalCount: 1 });
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." })).rejects.toMatchObject({ code: "refused" });
+  h.setSnapshot({ pendingApprovalCount: 0 });
+  // The guard runs inside the run's queue: a takeover that applied first refuses the reply.
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." }, () => { throw new Error("taken over"); })).rejects.toThrow("taken over");
+  expect(turns).toHaveLength(0);
+  await h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." });
+  // A plain chat turn: provider admission links it to the stage as the user's reply, never as a supervised stage turn.
+  expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1" })]);
+  expect(turns[0]!.agentRunStage).toBeUndefined();
+  expect(turns[0]!.questionAnswer).toBeUndefined();
+  h.runtime.stop();
+});
+
 describe("primary write run workspace checks", () => {
   const definitionHash = "a".repeat(64);
   const scriptDefinitions = [{ scriptId: "check", definitionHash }];

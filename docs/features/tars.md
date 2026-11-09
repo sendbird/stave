@@ -97,7 +97,18 @@ service.
   Polisher, Reviewer or Researcher, or a saved agent you allowed.
 - Run work by priority (higher first, oldest first on a tie) and change the
   order of queued work when you ask, from a queued card's **Do first** and
-  **Do later**, or by dragging it in the tray.
+  **Do later**, or by dragging it in the tray. Start queued work at once,
+  beside the work already running, from **Start now** or your words ("run it
+  now", "대기 중인 거 강제로 실행해").
+- Do what you would do to the run in its task, from your words: give a run
+  paused at its turn limit more turns, retry a blocked or stuck stage, skip
+  the current stage, sign off a stage waiting for your approval, or resume a
+  run paused by a usage limit. Each waits for your **Confirm**.
+- Answer what waits in the work's task from your words: approve or deny a
+  tool approval, answer a question the run asked, send your words to the run
+  as your reply ("tell it to use the existing index"), or request changes on a
+  stage waiting for your sign-off. Denying applies at once; the rest wait for
+  your **Confirm** on a card that shows the exact request, answers or words.
 - Supervise each unit through work, independent review and verification, and
   refuse to call it done on the agent's word alone.
 - Ask you to choose between 2 to 4 options as a decision card you answer by
@@ -130,7 +141,8 @@ service.
   queued card names the work it waits behind. Work waiting for your answer
   gives up its slot to independent queued work. Only queued work can change
   its place; work that started keeps it, and priorities stay between 0 and
-  100.
+  100. **Start now** is the one exception you choose: that work starts beside
+  the running work, and the rest of the queue still waits for the slot.
 - **Reasoning has no tools.** Tars itself cannot read files, run commands or
   call MCP tools; it sees only the summary Stave supplies. Connected apps are
   not read merely because they are available.
@@ -156,8 +168,17 @@ service.
   limit, a tool approval or question waiting in the task) only after an hour
   without change. At most six follow-ups start per hour, and automatic turns
   since your last action toward Tars stop at the turn-limit number. A
-  follow-up never starts new work, pauses, takes over, hands back or accepts
-  work as done.
+  follow-up never starts new work, starts queued work now, pauses, takes over,
+  hands back, skips a stage or accepts work as done.
+- **Answers in the task are once and yours.** Tars answers a tool approval
+  once, never with an "always allow" rule, and only for a request it observed
+  in the work's own task or the task of a helper its run delegated to. An
+  approval waits for your **Confirm** and is never a recommended or default
+  choice. Your words reach the run only while no turn runs in its task;
+  otherwise say them in the task or ask again after the turn.
+- **Never through Tars.** Merging, deploying, force-pushing, deleting
+  branches, worktrees or tasks, "always allow" rules, spending money and
+  messaging other people are not available through Tars at all.
 - **Message limits.** A message holds up to 32,000 characters and at most 32
   messages can be outstanding. A message too long to sit in the run's
   8,000-character assignment reaches the run whole as context on every turn
@@ -220,6 +241,41 @@ You can ask in words too ("run the queued work now", "바로 실행해"). Start 
 pause and take over apply at once; resume, hand back and cancel wait for your
 **Confirm** on a card. **Stop** in a Tars task or in
 Fleet pauses the work rather than cancelling it.
+
+Words also reach what you would do to the run in its task. Each waits for your
+**Confirm**, and the run checks its own state again, so a command that does not
+fit (for example, sign-off while no stage waits for it) is refused with
+"The run cannot do this in its current state":
+
+| Ask | Effect on the run |
+|---|---|
+| "Give it more turns" (**Add turns**) | A run paused at its turn limit gets 10 more turns and continues. |
+| "Retry it" (**Retry stage**) | A blocked or stuck current stage starts a fresh attempt. |
+| "Skip this stage" (**Skip stage**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
+| "Approve it" (**Sign off**) | A stage waiting for your sign-off starts. |
+| "Resume it" (**Resume**) | Also continues a run paused by a usage limit or an expired wait. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
+
+None of these apply to work you took over, including a run you took over in
+its task before Tars noticed, or to work you paused through Tars: resume it
+first.
+
+Requests waiting in the work's task (or a helper's task) appear in what Tars
+observes, so you can answer them in the conversation:
+
+| Ask | Effect in the task |
+|---|---|
+| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request. |
+| "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
+| "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. Refused while a turn runs there. |
+| "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |
+
+A request that is no longer waiting, or a set of requests that changed since
+you saw it, is refused instead of answering something else. These answers are
+confirmed only on the conversation card that shows them: the tray and Fleet
+name the waiting proposal and lead you to Tars instead of offering
+**Confirm**. A stage command applies only to the stage attempt Tars had observed at
+the revision you saw; if the run moved to another stage or attempt since, it
+is refused as changed, so a confirmed skip never skips a later stage.
 
 ### 4. See progress
 
@@ -791,7 +847,11 @@ reason and the work's title (in Korean, **자동 후속 ·**), never as your wor
 It goes through the same queue as your messages: it is only added while none
 of your messages can start, and a follow-up still queued starts nothing once
 you have written to Tars about the change. It may ask a question, propose a
-resume or cancel that waits for your **Confirm**, or open a view. It never
+resume, cancel, stage retry, more turns or sign-off that waits for your
+**Confirm** when what it observed fits, or open a view. It never proposes
+skipping a stage or starting queued work now, and never answers in the task
+for you: for a waiting approval it can only ask you with **Approve** and
+**Deny** options, and your choice applies it. It never
 changes a priority, because that applies at once; it can ask whether you want it. It never starts work by itself: to suggest new work it asks, for
 example "Start new work to fix it?", and only your answer can lead to it. It
 never pauses, takes over or hands back anything, never offers accept as done

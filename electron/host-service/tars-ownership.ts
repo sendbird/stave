@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
-import { AGENT_RUN_LIMITS, type AgentRun, type AgentRunPauseReason } from "../../src/lib/agent-runs/domain";
-import type { TarsDetailCode, TarsResponsibility, TarsResponsibilityPatch, TarsRunControlOperation } from "../../src/lib/tars/types";
+import { AGENT_RUN_LIMITS, currentStageRecord, type AgentRun, type AgentRunPauseReason } from "../../src/lib/agent-runs/domain";
+import { isTarsRunCommandOperation, type TarsDetailCode, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation } from "../../src/lib/tars/types";
 
 /**
  * A host failure whose sentence surfaces translate from `detailCode`; the
@@ -33,6 +33,26 @@ export class TarsRunHeldError extends Error {
 
 /** Pauses a hand-back may clear; the same set agent-run Resume accepts. */
 const HAND_BACK_CLEARABLE: ReadonlySet<AgentRunPauseReason> = new Set(["paused-by-user", "taken-over", "usage-limit", "wait-expired"]);
+
+/** The run refused a resume or run command in its current state; nothing changed. */
+export class TarsRunRefusedError extends Error {
+  constructor(message: string) { super(message); this.name = "TarsRunRefusedError"; }
+}
+
+/** The run's current stage is not the attempt the user saw when the stage command was proposed or clicked. */
+export class TarsStageChangedError extends Error {
+  constructor() { super("The run moved to another stage attempt since you saw it. Check its current stage and try again."); this.name = "TarsStageChangedError"; }
+}
+
+/** A task operation named a request that no longer waits in the task Tars observed it in. */
+export class TarsRequestUnavailableError extends Error {
+  constructor(message = "That request is no longer waiting in the task.") { super(message); this.name = "TarsRequestUnavailableError"; }
+}
+
+/** A message to the run while a turn runs in its task: it is said in the task, or after the turn. */
+export class TarsTaskBusyError extends Error {
+  constructor() { super("A turn is running in the task. Say it in the task, or ask again when the turn ends."); this.name = "TarsTaskBusyError"; }
+}
 
 /** The owned run already ended, so there is nothing for Tars to continue. */
 export class TarsRunEndedError extends Error {
@@ -74,7 +94,7 @@ export function assertTarsControl(row: TarsResponsibility, run: AgentRun): void 
 
 interface TarsControlPorts {
   agentRuns: Pick<import("./supervision/agent-run-runtime").AgentRunRuntime,
-    "get" | "pause" | "resume" | "cancel" | "takeOver" | "restartStageAndResume">;
+    "get" | "pause" | "resume" | "cancel" | "takeOver" | "restartStageAndResume" | "extend" | "retryStage" | "skipStage" | "signOff">;
   hasAssignment: (row: TarsResponsibility) => boolean;
   readTask: (args: { workspaceId: string; taskId: string }) => Promise<{ activeTurnId: string | null }>;
   readRun: (id: string) => AgentRun | null;
@@ -98,7 +118,8 @@ export async function controlTarsRun(
   assertTarsRun(row, detail.agentRun);
   // Pausing, cancelling or taking over leaves an already human-owned task untouched.
   if (detail.agentRun.pauseReason === "taken-over" && operation !== "handBack") {
-    if (operation === "resume") assertTarsControl(row, detail.agentRun);
+    // Continuing or commanding a run the user holds in its task is refused, never a silent no-op.
+    if (operation === "resume" || isTarsRunCommandOperation(operation)) assertTarsControl(row, detail.agentRun);
     return;
   }
   const guard = (run: AgentRun) => {
@@ -119,6 +140,21 @@ export async function controlTarsRun(
     guard(run);
     if (run.state === "paused") await ports.agentRuns.resume({ agentRunId: row.agentRunId! }, guard);
     else if (run.state !== "running") throw new TarsRunEndedError();
+    // Waiting work over a running run waits on its stage or task, not a pause: resuming would change nothing.
+    else if (row.state === "waiting") throw new TarsRunRefusedError("The run is not paused. Its stage or task is waiting for an answer.");
+  } else if (isTarsRunCommandOperation(operation)) {
+    guard(run);
+    if (run.state !== "running" && run.state !== "paused") throw new TarsRunEndedError();
+    const agentRunId = row.agentRunId!;
+    // The run's own command checks the stage state, exactly as when the user gives it in the task,
+    // and the guard rechecks ownership inside the run's command queue.
+    if (operation === "extend") await ports.agentRuns.extend({ agentRunId }, guard);
+    else {
+      // Only the attempt Tars observed at the revision the user confirmed: a later stage is never retried, skipped or signed off by it.
+      const record = currentStageRecord(detail);
+      if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
+      await ports.agentRuns[operation]({ agentRunId, stageId: record.stageId, attempt: record.attempt }, guard);
+    }
   } else if (operation === "handBack") {
     const reclaim = (current: AgentRun) => {
       assertTarsRun(row, current);

@@ -60,7 +60,9 @@ const OPEN_LANES: TarsLane[] = ["needsYou", "running"];
 
 const CONTROL_LABEL = {
   pause: "shell:tars.pause", resume: "shell:tars.resume", takeover: "shell:tars.takeOver", handBack: "shell:tars.handBack", cancel: "shell:tars.cancel",
-  acceptCompletion: "shell:tars.acceptCompletion", startNow: "shell:tars.startNow",
+  acceptCompletion: "shell:tars.acceptCompletion", startNow: "shell:tars.startNow", extend: "shell:tars.extend",
+  retryStage: "shell:tars.retryStage", skipStage: "shell:tars.skipStage", signOff: "shell:tars.signOff",
+  approve: "shell:tars.approve", deny: "shell:tars.deny", answer: "shell:tars.answer", message: "shell:tars.message", requestChanges: "shell:tars.requestChanges",
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**

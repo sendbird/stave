@@ -63,7 +63,7 @@ import {
   applyUserInputState,
   normalizeProviderTimeoutMs,
 } from "../../src/store/editor.utils";
-import { buildApprovalResolution, type ApprovalRuleDecider } from "../../src/lib/approvals/approval-resolution";
+import { buildApprovalResolution } from "../../src/lib/approvals/approval-resolution";
 import {
   buildRepositoryDefaultWorkspaceId,
   buildImportedWorktreeWorkspaceId,
@@ -108,7 +108,7 @@ import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
 } from "../../src/store/provider-message.utils";
-import { findPendingApprovals, findPendingUserInputs } from "./local-mcp-pending";
+import { describePendingRequests, findPendingApprovals, findPendingUserInputs, type HostApprovalArgs } from "./local-mcp-pending";
 import type {
   ChatMessage,
   Task,
@@ -230,6 +230,7 @@ export interface TaskSupervisionSnapshot {
   activeTurnId: string | null;
   pendingApprovalCount: number;
   pendingUserInputCount: number;
+  pendingRequests?: ReturnType<typeof describePendingRequests>; // the first six, bounded copies (Tars)
 }
 
 const workspaceSessionCacheById = new Map<string, WorkspaceSessionState>();
@@ -2352,7 +2353,7 @@ export async function getTaskSupervisionSnapshot(args: {
     model: resolveTaskModel({ messages, draft: session.promptDraftByTask[task.id], providerId: task.provider }),
     activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
     pendingApprovalCount: findPendingApprovals(messages).length,
-    pendingUserInputCount: findPendingUserInputs(messages).length,
+    pendingUserInputCount: findPendingUserInputs(messages).length, pendingRequests: describePendingRequests(messages, 6),
   };
 }
 
@@ -2611,14 +2612,7 @@ async function loadTaskInteractionSession(workspaceId: string, taskId: string) {
   return ensureResidentTaskMessages({ workspaceId, taskId, session: await loadWorkspaceSession(workspaceId) });
 }
 
-export async function respondApproval(args: {
-  workspaceId: string;
-  taskId: string;
-  requestId: string;
-  approved: boolean;
-  /** A Stave rule answered (trusted tools, the managed timeout); absent: a person did. */
-  decidedBy?: ApprovalRuleDecider;
-}) {
+export async function respondApproval(args: HostApprovalArgs) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
     repositories,
@@ -2640,7 +2634,7 @@ export async function respondApproval(args: {
       messages,
       requestId: args.requestId,
     });
-    if (!approval) {
+    if (!approval || (args.expectedMessageId && approval.messageId !== args.expectedMessageId)) {
       throw new Error(`Pending approval not found: ${args.requestId}`);
     }
 

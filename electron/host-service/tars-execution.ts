@@ -141,6 +141,20 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
   return { state: "running", detail: null };
 }
 
+/** The run's own current stage attempt as a responsibility records it (`activeStage`). */
+export function tarsActiveStage(detail: Pick<AgentRunDetail, "agentRun" | "stages">): string {
+  const record = currentStageRecord(detail);
+  return `${record.stageId}#${record.attempt}`;
+}
+
+/**
+ * Adds the run's own current stage attempt to an observation of a run that is
+ * still going, so stage commands can be bound to the attempt the user saw.
+ */
+export function withTarsActiveStage(detail: Pick<AgentRunDetail, "agentRun" | "stages">, observation: TarsExecutionObservation): TarsExecutionObservation {
+  return observation.state === "running" || observation.state === "waiting" ? { ...observation, activeStage: tarsActiveStage(detail) } : observation;
+}
+
 /** A helper run of the work's team as the host read it, with the requests pending in its task. */
 export interface TarsHelperRead {
   detail: AgentRunDetail;

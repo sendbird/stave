@@ -1,6 +1,7 @@
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { tarsExecutionInstructions, tarsWorkflow, tarsObservation, tarsHelperObservation, type TarsHelperRead } from "./tars-execution";
+import { tarsExecutionInstructions, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
 import type { TarsChangedEvent, TarsResponsibility } from "../../src/lib/tars/types";
@@ -13,7 +14,12 @@ import { providerRuntime } from "../providers/runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
-import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError } from "./tars-ownership";
+import {
+  assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
+  TarsStageChangedError, TarsTaskBusyError,
+} from "./tars-ownership";
+import { currentStageRecord } from "../../src/lib/agent-runs/domain";
+import { TARS_PENDING_REQUESTS_MAX, type TarsPendingRequest } from "../../src/lib/tars/types";
 import { createTarsPublisher, type TarsPublishRunner } from "./tars-publish";
 import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
@@ -69,6 +75,21 @@ export function createHostTarsRuntime(args: {
       } catch { return null; }
     }));
     return reads.filter((read): read is TarsHelperRead => read !== null);
+  }
+  /**
+   * Gives each waiting request its `ref`: workspace, task, message and provider
+   * request id together, so a reused provider id never names another request.
+   */
+  function withRefs(requests: ReadonlyArray<Omit<TarsPendingRequest, "ref" | "taskId" | "workspaceId">>, workspaceId: string, taskId: string): TarsPendingRequest[] {
+    return requests.slice(0, TARS_PENDING_REQUESTS_MAX).map((request) => ({ ...request, taskId, workspaceId,
+      ref: createHash("sha256").update([workspaceId, taskId, request.messageId, request.requestId].join("\u0000")).digest("hex").slice(0, 24) }));
+  }
+  /** The approvals and questions waiting in one task, as the planner and the conversation show them. */
+  async function pendingIn(workspaceId: string, taskId: string): Promise<TarsPendingRequest[]> {
+    try {
+      const snapshot = await tasks.getTaskSupervisionSnapshot({ workspaceId, taskId });
+      return withRefs(snapshot.pendingRequests ?? [], workspaceId, taskId);
+    } catch { return []; }
   }
   async function validateScope(row: Pick<TarsResponsibility, "workspaceId" | "repositoryPath">) {
     const repositories = await tasks.listKnownRepositories();
@@ -191,12 +212,66 @@ export function createHostTarsRuntime(args: {
       assertTarsRun(row, detail.agentRun);
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "This task's agent assignment is unavailable.");
       const observation = tarsObservation(detail, row.acceptanceCriteria, row.reverifyAfter);
+      // The requests themselves, bounded, so the user can answer them through Tars.
+      const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
+      const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>
+        requests.length ? { ...value, pendingRequests: requests.slice(0, TARS_PENDING_REQUESTS_MAX) } : value;
+      // Every observation of a run still going names its own current stage attempt, which stage commands are bound to.
       if (observation.state === "running" && (snapshot.pendingApprovalCount || snapshot.pendingUserInputCount))
-        return { state: "waiting", detail: "The execution task is waiting for your input or approval.", detailCode: "waitingForUser", detailParams: null,
-          runTurns: detail.agentRun.turnCount };
+        return withTarsActiveStage(detail, withRequests({ state: "waiting", detail: "The execution task is waiting for your input or approval.", detailCode: "waitingForUser",
+          detailParams: null, runTurns: detail.agentRun.turnCount }, own));
       // A running lead may be waiting on a helper that waits on the user.
-      if (observation.state === "running") return tarsHelperObservation(await readHelpers(detail.agentRun)) ?? observation;
-      return observation;
+      if (observation.state === "running") {
+        const helpers = await readHelpers(detail.agentRun);
+        const helperRequests = (await Promise.all(helpers.filter((helper) => helper.pendingRequests > 0)
+          .map((helper) => pendingIn(helper.detail.agentRun.workspaceId, helper.detail.agentRun.leadTaskId)))).flat();
+        const helperWait = tarsHelperObservation(helpers);
+        return withTarsActiveStage(detail, helperWait ? withRequests(helperWait, helperRequests) : observation);
+      }
+      return withTarsActiveStage(detail, withRequests(observation, own));
+    },
+    async respondTask(row, request) {
+      const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
+      if (!latest) throw new TarsDetailError("ownershipUnverified", "This task's execution ownership could not be verified.");
+      // The run is Tars's and the user has not taken it over in its task.
+      const guard = (run: Parameters<typeof assertTarsControl>[1]) => {
+        assertTarsControl(row, run);
+        if (!hasAssignment(row)) throw new Error("The task's agent assignment is unavailable.");
+      };
+      guard(latest);
+      const agentRunId = row.agentRunId!;
+      if (request.operation === "message") {
+        const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
+        if (task.activeTurnId) throw new TarsTaskBusyError();
+        await args.agentRuns.replyAsUser({ agentRunId, prompt: request.input!.text! }, guard);
+        return;
+      }
+      if (request.operation === "requestChanges") {
+        const detail = await args.agentRuns.get({ agentRunId });
+        const record = currentStageRecord(detail);
+        if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
+        await args.agentRuns.requestChanges({ agentRunId, stageId: record.stageId, attempt: record.attempt, feedback: request.input!.text! }, guard);
+        return;
+      }
+      // Only a request Tars observed in the work's own task or a helper task of its run, read again here.
+      const entry = row.pendingRequests?.find((candidate) => candidate.ref === request.input!.requestRef);
+      if (!entry) throw new TarsRequestUnavailableError();
+      const team = entry.taskId === row.taskId && entry.workspaceId === row.executionWorkspaceId ? true
+        : (await readHelpers(latest)).some((helper) => helper.detail.agentRun.leadTaskId === entry.taskId && helper.detail.agentRun.workspaceId === entry.workspaceId);
+      if (!team) throw new TarsRequestUnavailableError("That request's task is no longer part of this work.");
+      const current = await pendingIn(entry.workspaceId, entry.taskId);
+      if (!current.some((candidate) => candidate.ref === entry.ref && candidate.kind === entry.kind)) throw new TarsRequestUnavailableError();
+      guard(persistence.agentRuns.getLatestAgentRunForTask(row.taskId!) ?? latest);
+      // Once, as the user's own answer on the card: never an "always allow" rule.
+      // The task's own answer path checks the message again inside its queue: a reused provider id in another message is refused.
+      const target = { workspaceId: entry.workspaceId, taskId: entry.taskId, requestId: entry.requestId, expectedMessageId: entry.messageId };
+      try {
+        if (request.operation === "answer") await tasks.respondUserInput({ ...target, answers: request.input!.answers! });
+        else await tasks.respondApproval({ ...target, approved: request.operation === "approve" });
+      } catch (error) {
+        if (error instanceof Error && /^Pending (approval|user input) not found/.test(error.message)) throw new TarsRequestUnavailableError();
+        throw error;
+      }
     },
     controlRun: (row, operation) => {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
