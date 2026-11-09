@@ -90,6 +90,9 @@ describe("Tars tray read model", () => {
     expect(card(model, f.ids.migration).owner).toBe("you");
     const state = (value: TarsResponsibility["state"]) => tarsControlsFor({ state: value });
     expect(state("running")).toEqual(["pause", "takeover", "cancel"]);
+    // Queued work leads with starting it now, ahead of its place in the queue.
+    expect(state("queued")).toEqual(["startNow", "pause", "takeover", "cancel"]);
+    expect(tarsCardActions({ controls: state("queued"), attention: [], fleetTarget: null }).primary).toEqual({ kind: "control", operation: "startNow" });
     expect(state("paused")).toEqual(["resume", "takeover", "cancel"]);
     expect(state("blocked")).toEqual(["resume", "takeover", "cancel"]);
     expect(state("takenOver")).toEqual(["handBack", "cancel"]);

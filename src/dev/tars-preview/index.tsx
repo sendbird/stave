@@ -1,7 +1,8 @@
 import { useLayoutEffect, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import { TarsView } from "@/components/tars/TarsView";
-import type { TarsBridgeApi, TarsSnapshot } from "@/lib/tars/types";
+import { tarsSnapshotForWindow, type TarsBridgeApi, type TarsSnapshot } from "@/lib/tars/types";
+import { buildTarsBrief } from "@/lib/tars/brief";
 import { useAppStore } from "@/store/app.store";
 import { applyThemeClass } from "@/lib/themes/apply";
 import type { TarsActInput, TarsAnswerResult, TarsConversation, TarsDecision, TarsDecisionAnswer, TarsReprioritizeInput } from "@/lib/tars/conversation";
@@ -14,6 +15,7 @@ import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { useFleetFocusStore } from "@/store/fleet-focus-store";
 import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
 import { buildTarsTrayFixtures } from "./tars-fixtures";
+import { buildTarsBriefFixtures } from "./tars-brief-fixtures";
 import { TARS_LAST_VISIBLE_KEY } from "@/components/tars/use-tars-away";
 import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
@@ -50,6 +52,9 @@ export function TarsPreview() {
         createdAt: new Date(Date.parse(now) + minutes * 60_000).toISOString(), updatedAt: new Date(Date.parse(now) + minutes * 60_000).toISOString() });
       fixtures.responsibilities.push(queued("queue-auth", "Rotate the staging auth keys", 60, 2), queued("queue-search", "Add retries to the webhook sender", 50, 3),
         queued("queue-docs", "Refresh the API reference examples with the new pagination parameters", 50, 4));
+      // What each was handed, for the request view: the host keeps these texts out of the window's snapshot.
+      const briefs = buildTarsBriefFixtures(new Date(now), params.get("lang") === "ko");
+      for (const row of fixtures.responsibilities) if (briefs[row.id]) Object.assign(row, briefs[row.id]);
     }
     // `workingChanges=true`: the running fix started from the user's working changes; queued work asked for them but there were none.
     if (fixtures && params.get("workingChanges") === "true") for (const row of fixtures.responsibilities) {
@@ -111,6 +116,7 @@ export function TarsPreview() {
       { id: "activity-initial", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate", state: "running", detail: null, createdAt: now },
       { id: "activity-blocked", responsibilityId: "preview-responsibility", revision: 2, title: "Verify the release candidate", state: "blocked", detail: "Waiting for independent review.", createdAt: now });
     let reads = 0;
+    let briefReads = 0;
     async function act({ requestId, responsibilityId, expectedRevision, operation, source }: TarsActInput) {
       const existing = conversation.records.find((record) => record.requestId === requestId);
       if (existing) return { record: structuredClone(existing), snapshot: structuredClone(snapshot) };
@@ -121,7 +127,7 @@ export function TarsPreview() {
           : (operation === "pause" || operation === "resume") && takenOver ? "takenOver" as const : null;
       const error = reason ? "Preview control is not admissible." : null;
       const state = operation === "pause" ? "paused" : operation === "cancel" ? "cancelled" : operation === "takeover" ? "takenOver"
-        : operation === "acceptCompletion" ? "completed" : "queued";
+        : operation === "acceptCompletion" ? "completed" : operation === "startNow" ? "running" : "queued";
       if (!error) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => candidate.id !== responsibilityId ? candidate
         : { ...candidate, revision: expectedRevision + 1, state, reverifyAfter: operation === "handBack" ? now : candidate.reverifyAfter }),
         // A control moves the revision past any proposal waiting on it, so Fleet's decision row ends with it.
@@ -162,7 +168,15 @@ export function TarsPreview() {
     const bridge: TarsBridgeApi = {
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
       reprioritize: async (input) => reprioritize(input),
-      get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return structuredClone(snapshot); },
+      get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone(snapshot)); },
+      // `briefFailure=once`: the first opening's reads fail (a development mount reads twice), so its Retry has something to do.
+      getBrief: async ({ responsibilityId }) => {
+        briefReads++;
+        if (params.get("briefFailure") === "once" && briefReads <= 2) throw new Error("Preview request read failed.");
+        const row = snapshot.responsibilities.find((candidate) => candidate.id === responsibilityId);
+        if (!row) throw new Error("The responsibility was not found.");
+        return buildTarsBrief(row);
+      },
       updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem("stave-preview-identity", JSON.stringify(snapshot)); return structuredClone(snapshot); },
       create: async () => { throw new Error("Use the global conversation."); },
       act: async (input) => act(input),

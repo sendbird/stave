@@ -106,7 +106,8 @@ service.
   your words ("stop it", "I'll take it from here", "take it back").
 - Follow up by itself when work blocks, asks you, or cannot be verified, so
   stuck work does not wait for you to ask.
-- Open a responsibility's report, changes, timeline or review beside the
+- Open a responsibility's request (your message, Tars's instruction and the
+  completion criteria), report, changes, timeline or review beside the
   conversation, also on request ("show me the report", "what changed?").
 - Commit, push and open a draft pull request for completed, verified work,
   each time only after you confirm its card.
@@ -206,6 +207,7 @@ explicitly. Details are in [Decisions](#decisions).
 
 | Control | Effect |
 |---|---|
+| **Start now** | The main action on a queued card: starts that work at once, beside work already running, bypassing the configured admission limit. Other queued work keeps its priority and follows normal admission. |
 | **Pause** | Holds the responsibility. A manual pause stays paused after a restart. |
 | **Resume** | Continues paused or blocked work. Never continues work you took over. |
 | **Take over** | Stops Tars's execution and makes the work yours; continue in its task. |
@@ -214,8 +216,9 @@ explicitly. Details are in [Decisions](#decisions).
 | **Cancel message** | Stops a queued or running reply. Admitted work is not undone. |
 | **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
-You can ask in words too. Pause and take over apply at once; resume, hand back
-and cancel wait for your **Confirm** on a card. **Stop** in a Tars task or in
+You can ask in words too ("run the queued work now", "바로 실행해"). Start now,
+pause and take over apply at once; resume, hand back and cancel wait for your
+**Confirm** on a card. **Stop** in a Tars task or in
 Fleet pauses the work rather than cancelling it.
 
 ### 4. See progress
@@ -226,7 +229,7 @@ Fleet pauses the work rather than cancelling it.
 - **Work** tray: the header indicator ("1 running · 1 needs you") opens lanes
   **Needs you**, **Running**, **Done** and **Outputs**, each card with a live
   run monitor and, once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
-- **Side view**: **Report**, **Changes**, **Timeline** and **Review** of one
+- **Side view**: **Request**, **Report**, **Changes**, **Timeline** and **Review** of one
   responsibility, opened from an output, a flow stage or your words.
 - **Fleet**: the **Tars** owner label and **Tars decision** rows in
   [Fleet](fleet-needs-me.md)'s attention inbox.
@@ -417,6 +420,16 @@ Control details beyond the [quick start table](#3-control-work):
   task can clear, or when the final verification has no attempts left.
 - **Cancel responsibility** cancels a run still in progress but does not undo
   changes already made or delete its worktree, task or history.
+- **Start now** applies only to queued work you delegated earlier: right after
+  the control settles, Tars prepares the worktree and task and starts the run
+  outside the configured admission limit, so it runs beside work already
+  running. Pause or cancel still apply while it prepares.
+  It does not change the priority or the order of the rest of the queue. If
+  preparation fails, the work is blocked with its reason. If a restart or a
+  database lock interrupts preparation, it continues like any interrupted
+  preparation in its reserved slot. Started, paused, blocked or
+  taken-over work is refused (`notStartable`). An automatic follow-up never
+  proposes or offers it.
 
 When a control comes from the conversation, resume, hand back and cancel wait
 for you as a decision card with **Confirm** under the reply; Tars's reply alone
@@ -479,7 +492,9 @@ A tray card whose run Stave has read shows the run as it stands: the stage it
 is on with the time since that stage's latest attempt started (a live clock),
 one segment per workflow stage (done, in progress, not started, or stopped
 short), the step count such as "2/3", and **Timeline**, which opens the side
-view's timeline at that stage. Each card wears the same state tag (a still
+view's timeline at that stage. Every card, queued work included, also has
+**Request**, which opens what the work was handed (see
+[Results, changes and the side view](#results-changes-and-the-side-view)). Each card wears the same state tag (a still
 state mark and the state's word) as the run panel and Agents. Values the run
 did not record, such as a start time, are left out rather than shown as zero.
 
@@ -500,9 +515,9 @@ draft pull request Stave opened after you confirmed it, and the links the
 run's report recorded, which open in the browser. The header indicator adds the outputs count only when there is at
 least one; **Needs you** keeps counting Fleet's rows.
 
-An output opens the side view: one panel about one responsibility, with a
-switch between **Report**, **Changes**, **Timeline** and **Review** at its
-top. In a wide Tars view (1,088 px or more) it takes the tray's column and the
+An output or a card's **Request** opens the side view: one panel about one
+responsibility, with a switch between **Request**, **Report**, **Changes**,
+**Timeline** and **Review** at its top. In a wide Tars view (1,088 px or more) it takes the tray's column and the
 tray folds to its header indicator until the side view closes; the
 conversation never gets narrower than 440 px. In a narrower view it opens
 between the conversation and the message box, at most 40% of the view's
@@ -510,6 +525,21 @@ height, and scrolls. Esc or the close button closes it and returns focus to
 what opened it. Opening, switching and closing it are view-only and never
 recorded in the conversation.
 
+- **Request**: what the work was handed, readable from the moment it is
+  admitted, before it has a task, a run or an execution workspace, and in
+  every later state and after a restart. **Your message** is the message that
+  admitted the work exactly as you sent it, with when you sent it (and, when
+  it was your choice on a Tars question, that question). **Tars's
+  instruction** is the instruction Tars wrote for this unit; the run receives
+  it together with your message. **Completion criteria** lists the criteria
+  saved with the work. Texts are shown whole as plain text: line breaks,
+  indentation and code blocks are kept and long lines wrap, and each text has
+  a copy button. Work Tars admitted before this view existed did not keep your
+  message apart: it says **The original message was not saved for this work**
+  and shows the whole saved instruction the run received (and, for a long
+  message, the text attached in full) instead of a guess. Two work units from
+  one message share that message, never each other's instruction. If the
+  saved texts cannot be read, the criteria stay and **Retry** reads again.
 - **Report**: per acceptance criterion, its status and what decided it: the
   agent's report in a named stage, or a Stave check with its result, each with
   the workspace revision it was checked on and whether that is the revision the
@@ -533,8 +563,9 @@ recorded in the conversation.
 - **Review**: the reviewer stage's verdict, findings with their reasons and
   cited evidence, on the revision it reviewed.
 
-In a delegated work flow, a stage opens its place on the timeline, the review
-stage opens the review and completion opens the report. A blocked or stuck
+In a delegated work flow, the request node opens the request, a stage opens
+its place on the timeline, the review stage opens the review and completion
+opens the report. A blocked or stuck
 stage shows its reason and opens the report on its unmet criteria. **Show in
 Fleet** stays in each stage's menu and the tray card's menu.
 

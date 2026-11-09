@@ -285,3 +285,51 @@ test("actual preload validates a queue move and rejects a malformed move record"
   expect(result.exitCode, result.stderr.toString()).toBe(0);
   expect(JSON.parse(result.stdout.toString())).toEqual({ status: "applied", priority: 40, denied: 4, channels: ["tars:reprioritize", "tars:reprioritize", "tars:reprioritize"] });
 });
+
+test("brief IPC names exactly one responsibility and reads it from the host", () => {
+  const source = `
+    import { mock } from "bun:test";
+    const handlers = new Map(); const calls = [];
+    mock.module("electron", () => ({ webContents: { getAllWebContents: () => [] }, ipcMain: { handle: (key, callback) => handlers.set(key, callback) } }));
+    mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: async (...args) => { calls.push(args); return { forwarded: true }; } }));
+    mock.module("./electron/main/tars-conversation-instance", () => ({ getTarsConversationService: async () => { throw new Error("A brief must not use the conversation service"); } }));
+    const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
+    const result = await handlers.get("tars:get-brief")(null, { responsibilityId: "goal" });
+    let denied = 0;
+    for (const invalid of [undefined, {}, { responsibilityId: "" }, { responsibilityId: "goal", text: "invented" }, { responsibilityId: "goal", messageId: "other" }]) {
+      try { await handlers.get("tars:get-brief")(null, invalid); } catch { denied++; }
+    }
+    console.log(JSON.stringify({ result, denied, calls }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({ result: { forwarded: true }, denied: 5, calls: [["tars.brief", { responsibilityId: "goal" }]] });
+});
+
+test("actual preload validates a brief request and rejects a malformed brief", () => {
+  const source = `
+    import { mock } from "bun:test";
+    let api; const calls = []; let reply;
+    mock.module("electron", () => ({
+      contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
+      ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webUtils: { getPathForFile: () => "" },
+    }));
+    await import("./electron/preload");
+    const brief = { responsibilityId: "goal", request: { messageId: "message-1", text: "Fix it.\\n\\n\`\`\`ts\\nconst a = 1;\\n\`\`\`", sentAt: "2026-11-05T00:00:00.000Z" },
+      instruction: { source: "delegated", text: "Fix the export." }, context: null };
+    reply = brief;
+    const accepted = await api.tars.getBrief({ responsibilityId: "goal" });
+    let denied = 0;
+    try { await api.tars.getBrief({ responsibilityId: "goal", extra: true }); } catch { denied++; }
+    for (const malformed of [{ ...brief, instruction: { source: "guessed", text: "x" } }, { ...brief, request: { ...brief.request, text: "" } },
+      { ...brief, criteria: [] }, { ...brief, context: undefined }]) {
+      reply = malformed; try { await api.tars.getBrief({ responsibilityId: "goal" }); } catch { denied++; }
+    }
+    console.log(JSON.stringify({ text: accepted.request.text, denied, channels: calls.map(([channel]) => channel) }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({ text: "Fix it.\n\n```ts\nconst a = 1;\n```", denied: 5,
+    channels: ["tars:get-brief", "tars:get-brief", "tars:get-brief", "tars:get-brief", "tars:get-brief"] });
+});

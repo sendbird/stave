@@ -11,11 +11,12 @@ restart — and the child's answer comes back to the parent on its own.
 ## Results in the conversation
 
 The message that launched a subagent shows **Subagent results** outside its collapsed
-trace summary. Its heading shows the number of subagents. Live subagents appear as
-compact monitors with their identity, current work, observed duration and reported history.
-Fold a monitor with its header; **View result** opens its execution details.
-Returned results and failures appear as summary cards with a preview and any observed
-duration. Select **View result** to read the original answer and execution details.
+trace summary. Its heading shows the number of subagents. Each subagent is an Atelier UI
+run monitor card, and several cards sit side by side, wrapping into rows when the column is
+narrow. A live card shows its identity, current work with its observed duration, and reported
+history. A returned result or failure shows a preview with any observed duration. Select
+**View result** to read the original answer and execution details; the open card takes the
+whole row.
 Unknown durations and costs are omitted. Reported history is narration, not a count of
 completed tool calls. The composer keeps its compact subagent summary. **Result received** confirms arrival, not incorporation into
 or verification of the parent answer. A pending asynchronous launch is not a completed result.

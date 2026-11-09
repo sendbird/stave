@@ -639,6 +639,10 @@ Agent run and provider paths:
   forwarding them to the host
 - `electron/host-service/protocol.ts` and `electron/host-service.ts` —
   `tars.invoke` request/result maps, awaited dispatch, startup and shutdown
+- `src/lib/tars/brief.ts` — the request view's read (`tars:get-brief` →
+  `tars.brief`): the user's message and Tars's instruction a unit keeps from
+  admission (`request`, `delegatedInstruction`), which `tarsSnapshotForWindow`
+  leaves out of every snapshot like `mandate`
 - `electron/host-service/tars-runtime.ts` — serialized admission,
   reconciliation and the one `act` control path
 - `electron/host-service/tars-control.ts` — deterministic control admission,
@@ -811,8 +815,8 @@ a user-typed message or chosen reply, or any row in `tars_action_records`
 (`supersedeStale` → `supersedeStaleTarsFollowUp`), a follow-up whose event no
 longer stands is cancelled and its event set `superseded`, with no model call.
 `applyTarsDecision` refuses, with reason `notByFollowUp` (allowed on every
-action kind), a follow-up's `delegate`, pause, takeover, hand-back and
-acceptCompletion, any action or ask option on work that is paused, taken
+action kind), a follow-up's `delegate`, pause, takeover, hand-back,
+acceptCompletion and startNow (directly or as an ask option), any action or ask option on work that is paused, taken
 over, cancelled or completed at admission, and accept or cancel where Stave's
 unverified-completion card already asks. Resume and cancel stay proposals that
 wait for Confirm. The follow-up's context quotes the run's words as

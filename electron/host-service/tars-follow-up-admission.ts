@@ -13,8 +13,8 @@ const OUT_OF_REACH = new Set(["paused", "takenOver", "cancelled", "completed"]);
  * propose resume or cancel, which wait for the user's Confirm. It never
  * reprioritizes: a priority change applies at once, so it needs the user's words.
  * It never proposes publishing, which needs the user's own words.
- * It never pauses, takes over or hands back (those apply at once or return
- * authority), never proposes acceptCompletion or cancel where Stave's own
+ * It never pauses, takes over, hands back or starts queued work now (those apply
+ * at once or return authority), never proposes acceptCompletion or cancel where Stave's own
  * unverified-completion card already asks it, and never touches work the user
  * paused or took over, or work that ended.
  */
@@ -37,7 +37,7 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowU
   // An option applies only when the user chooses it, but it may still not offer what the follow-up could not propose.
   if (action.kind === "ask" && action.options.some((option) => option.effect.kind === "control"
     && (outOfReach(option.effect.responsibilityId) || staveAsks(option.effect.responsibilityId, option.effect.operation)
-      || option.effect.operation === "handBack" || option.effect.operation === "acceptCompletion")))
+      || option.effect.operation === "handBack" || option.effect.operation === "acceptCompletion" || option.effect.operation === "startNow")))
     return "An automatic follow-up cannot offer to continue or settle work the user holds, that ended, or that Stave already asks about.";
   return null;
 }

@@ -58,7 +58,7 @@ const OPEN_LANES: TarsLane[] = ["needsYou", "running"];
 
 const CONTROL_LABEL = {
   pause: "shell:tars.pause", resume: "shell:tars.resume", takeover: "shell:tars.takeOver", handBack: "shell:tars.handBack", cancel: "shell:tars.cancel",
-  acceptCompletion: "shell:tars.acceptCompletion",
+  acceptCompletion: "shell:tars.acceptCompletion", startNow: "shell:tars.startNow",
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**

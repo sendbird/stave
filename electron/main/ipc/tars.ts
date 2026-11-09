@@ -12,6 +12,7 @@ import {
   TarsMessageInputSchema, TarsReprioritizeInputSchema,
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
+import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -54,6 +55,9 @@ export function registerTarsHandlers() {
   // A queue move from the tray takes the host's reprioritize admission; there is no direct priority write.
   ipcMain.handle(TARS_IPC.reprioritize, (_event, input: unknown) =>
     invokeHostService("tars.reprioritize", TarsReprioritizeInputSchema.parse(input)));
+  // A brief names one responsibility; its saved message can be long, so it is read on demand instead of riding on every snapshot.
+  ipcMain.handle(TARS_IPC.getBrief, (_event, input: unknown) =>
+    invokeHostService("tars.brief", TarsBriefInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));
 }

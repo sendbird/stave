@@ -384,7 +384,8 @@
       "cancel": "Tars proposes to cancel this work.",
       "takeover": "Tars proposes that you take over this work.",
       "handBack": "Tars proposes to take this work back.",
-      "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check."
+      "acceptCompletion": "Tars proposes to accept this work as done without a Stave-verified check.",
+      "startNow": "Tars proposes to start this queued work now."
     },
     "blockedDetail": "Tars stopped this work and waits for your decision.",
     "confirm": {
@@ -393,7 +394,8 @@
       "cancel": "Confirm cancel",
       "takeover": "Confirm take over",
       "handBack": "Confirm hand back",
-      "acceptCompletion": "Confirm accept as done"
+      "acceptCompletion": "Confirm accept as done",
+      "startNow": "Confirm start now"
     },
     "confirmLabel": "{{action}} for {{title}}",
     "openInTars": "Open in Tars",

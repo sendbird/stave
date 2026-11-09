@@ -132,6 +132,21 @@ test("a delegation reason is kept, cut to its limit, or dropped when empty, neve
   for (const empty of [null, "", " "]) expect(parse(empty)).toBeUndefined();
 });
 
+test("the prompt offers start now for queued work, applied at once, and never for an automatic follow-up", async () => {
+  const f = fixture(async () => JSON.stringify({ reply: "ok", actions: [] }));
+  const message = f.create();
+  await processTarsMessage(message.id, f.ports);
+  const prompt = f.requests[0]?.input.prompt ?? "";
+  expect(prompt).toContain("'acceptCompletion'|'startNow'");
+  expect(prompt).toContain("propose startNow for each queued responsibility they named");
+  expect(prompt).toContain("pause, takeover and startNow apply at once");
+  expect(prompt).toContain("Never claim you cannot start queued work.");
+  // The decision schema holds 8 actions; more queued work than that is started in turns, and the reply says so.
+  expect(prompt).toContain("propose startNow for the first ones in queue order up to that limit");
+  expect(prompt).toContain("Never propose pause, takeover, handBack, acceptCompletion or startNow");
+  f.database.close();
+});
+
 test("the prompt asks for a branch name under each repository's rule, with the suffix left to the host", async () => {
   const f = fixture(async () => JSON.stringify({ reply: "ok", actions: [] }));
   const message = f.create();

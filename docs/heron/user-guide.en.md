@@ -480,7 +480,7 @@ progress, not started or stopped), the step count such as "2/3", and
 not know is left out, never shown as zero. The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
 responsibility** are under the card's more-actions menu. Queued work follows
-the work that started, in the order it will start; its menu adds **Do first**
+the work that started, in the order it will start; its main action is **Start now**, which starts it at once beside running work, and its menu adds **Do first**
 and **Do later**, and its grip lets you drag it among the queued cards or move
 it with **Alt+Up** and **Alt+Down**. Each move leaves a one-line record with
 the new priority. When Tars proposes
@@ -495,9 +495,10 @@ never reports "no work" unless the read succeeded. The tray counts
 the same rows Fleet View shows for Tars work, so the two always agree. When Tars
 delegates work, its message carries a work flow: request, Tars's decision,
 each stage of the run and completion. It is folded to one line such as "1 of 3
-stages done · Running" and updates in place. Select a stage to see it on the
-run timeline, the review stage to see the review, or completion to see the
-result report; **Show in Fleet** is in each stage's more menu.
+stages done · Running" and updates in place. Select the request to see what
+the work was handed, a stage to see it on the run timeline, the review stage to
+see the review, or completion to see the result report; **Show in Fleet** is in
+each stage's more menu.
 The conversation keeps only words, decisions and the moments work finishes,
 stops or needs you. Updates arrive as soon as Tars saves them, without waiting
 for a refresh.
@@ -506,17 +507,28 @@ The tray's fourth section, **Outputs**, lists what work produced: the
 **Result report** once a run ended, **Changes** when it changed files, the
 **Review** once the reviewer reported, and links the report recorded, such as a
 pull request (which opens in the browser). The header adds the outputs count,
-such as "1 done · 4 outputs", only when there are some. An output opens the
-side view beside the conversation; on a wide window it takes the tray's place
+such as "1 done · 4 outputs", only when there are some. An output, or
+**Request** at the bottom of any work card, opens the side view beside the
+conversation; on a wide window it takes the tray's place
 and the tray folds to its header until you close it, and the conversation always
 keeps at least 440 px. On a narrow window it opens between the conversation and
 the message box, at most 40% of the height, and scrolls. Switch between
-**Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
+**Request**, **Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
 close button closes it and returns focus to what opened it. You can also ask,
 such as "show me the report" or "보고서 보여줘"; Tars only opens the view and
 cannot change work that way. Opening and closing it is never recorded in the
 conversation.
 
+- **Request**: what you handed the work, readable as soon as it is admitted,
+  even while it waits in the queue with no task or run yet, and after it
+  changes state or Stave restarts. **Your message** is the message that started
+  the work exactly as you sent it, with when you sent it (or, when it was your
+  choice on a Tars question, that question). **Tars's instruction** is what
+  Tars wrote for this work; the run receives it together with your message.
+  **Completion criteria** lists the saved criteria. Long text, line breaks and
+  code are shown whole, and each text has a copy button. Work Tars took on
+  before this view existed says **The original message was not saved for this
+  work** and shows the whole instruction the run received instead.
 - **Result report**: each criterion's status and what decided it (the agent's
   report in a stage, or a Stave check and its result), with the revision it was
   checked on and whether that is the final revision. Evidence is listed once
@@ -566,7 +578,7 @@ control** on the run line, and every **Stop** of its turn (composer, Esc,
 command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Paused · Fleet"
 or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
-own turn. Take the work over before changing its agent in the composer. Resume, hand back and cancel asked in words wait for you as a
+own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
 decision card with **Confirm**. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
@@ -606,7 +618,8 @@ Higher numeric priorities start first, with oldest first on a tie. Independent
 responsibilities start concurrently, including work in separate worktrees of
 the same repository. **Settings → Concurrent responsibilities** defaults to
 **0**, which adds no limit. Set a positive number to bound admissions; lowering
-it leaves existing runs running. Waiting work yields its slot and admitted runs
+it leaves existing runs running. **Start now** explicitly bypasses this admission
+limit for the selected queued work. Waiting work yields its slot and admitted runs
 may resume when their constraints clear. This setting is separate from the turn
 budget. Queued cards show the observed active count and limit or a database
 lock being retried. If the cause has not been observed, they say it has not
@@ -676,7 +689,7 @@ The counts above the list are filters (**All**, **Needs you**, **Failed**, **Run
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
 
-The calling message also shows **Subagent results** above the answer. Running subagents appear as compact monitors with their model, current work, observed time and reported history. Fold a monitor with its header. Returned results appear as summary cards; select **View result** to expand the original answer and execution details, or **Collapse result** to close them. Unknown times and costs are omitted. The composer retains its compact summary. **Result received** means the child returned an answer, not that the parent verified or used it. **Open task** takes you to the child; if it is waiting on you, the button points to answering or reviewing approval there. While work runs, the trace header shows the latest active step on one line. When it ends, the header shows a short completion summary and the tool-call count on the right; expand it to read the full history. Questions remain visible outside the folded history.
+The calling message also shows **Subagent results** above the answer. Each subagent appears as a run monitor card, and several cards sit side by side, wrapping into rows in a narrow window. A running card shows its model, current work, observed time and reported history; a returned card shows a summary of the answer. Select **View result** to expand the original answer and execution details across the whole row, or **Collapse result** to close them. Unknown times and costs are omitted. The composer retains its compact summary. **Result received** means the child returned an answer, not that the parent verified or used it. **Open task** takes you to the child; if it is waiting on you, the button points to answering or reviewing approval there. While work runs, the trace header shows the latest active step on one line. When it ends, the header shows a short completion summary and the tool-call count on the right; expand it to read the full history. Questions remain visible outside the folded history.
 
 Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/subagent-results.png)
 
