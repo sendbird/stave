@@ -666,6 +666,17 @@ interface WindowFsApi {
   pickFiles?: (args: { rootPath: string }) => Promise<{
     ok: boolean;
     filePaths: string[];
+    failures?: Array<{ name: string; reason: "not-a-file" | "too-large" | "unreadable" }>;
+    stderr?: string;
+  }>;
+  /** Attaches files from anywhere: workspace files keep their path, others are copied into `.stave/attachments/`. */
+  importAttachments?: (args: {
+    rootPath: string;
+    entries: Array<{ absolutePath: string } | { name: string; data: Uint8Array }>;
+  }) => Promise<{
+    ok: boolean;
+    filePaths: string[];
+    failures: Array<{ name: string; reason: "not-a-file" | "too-large" | "unreadable" }>;
     stderr?: string;
   }>;
   getPathForFile?: (file: File) => string;

@@ -10,6 +10,7 @@ import {
   FilesystemDeleteFileArgsSchema,
   FilesystemDirectoryArgsSchema,
   FilesystemFileArgsSchema,
+  FilesystemImportAttachmentsArgsSchema,
   FilesystemPickFilesArgsSchema,
   FilesystemRootArgsSchema,
   FilesystemWriteFileArgsSchema,
@@ -17,6 +18,7 @@ import {
   OpenPathArgsSchema,
 } from "./schemas";
 import { openExternalWithFallback } from "../utils/external-url";
+import { importAttachmentFiles } from "../utils/attachment-import";
 import { toAsarUnpackedPath } from "../../providers/executable-path";
 import {
   WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
@@ -85,6 +87,24 @@ export function registerFilesystemHandlers() {
     return { ok: true as const, directoryPath };
   });
 
+  ipcMain.handle("fs:import-attachments", async (_event, args: unknown) => {
+    const parsed = FilesystemImportAttachmentsArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        ok: false as const,
+        filePaths: [],
+        failures: [],
+        stderr: "Invalid attachment import request.",
+      };
+    }
+    try {
+      const result = await importAttachmentFiles(parsed.data);
+      return { ok: true as const, ...result };
+    } catch (error) {
+      return { ok: false as const, filePaths: [], failures: [], stderr: String(error) };
+    }
+  });
+
   ipcMain.handle("fs:pick-files", async (_event, args: unknown) => {
     const parsed = FilesystemPickFilesArgsSchema.safeParse(args);
     if (!parsed.success) {
@@ -96,7 +116,6 @@ export function registerFilesystemHandlers() {
     }
     try {
       const rootPath = path.resolve(parsed.data.rootPath);
-      const rootRealPath = await fs.realpath(rootPath);
       const selected = await dialog.showOpenDialog({
         defaultPath: rootPath,
         properties: ["openFile", "multiSelections"],
@@ -108,33 +127,12 @@ export function registerFilesystemHandlers() {
           stderr: "No file selected.",
         };
       }
-
-      const filePaths: string[] = [];
-      for (const selectedPath of selected.filePaths) {
-        const absolutePath = path.resolve(selectedPath);
-        const candidateRealPath = await fs.realpath(absolutePath);
-        const relativeRealPath = path.relative(rootRealPath, candidateRealPath);
-        if (
-          !relativeRealPath ||
-          relativeRealPath.startsWith("..") ||
-          path.isAbsolute(relativeRealPath)
-        ) {
-          continue;
-        }
-
-        const relativePath = path.relative(rootPath, absolutePath);
-        if (
-          !relativePath ||
-          relativePath.startsWith("..") ||
-          path.isAbsolute(relativePath)
-        ) {
-          continue;
-        }
-
-        filePaths.push(relativePath.replaceAll("\\", "/"));
-      }
-
-      return { ok: true as const, filePaths: [...new Set(filePaths)] };
+      // Files outside the workspace are copied in, so any file the dialog offers can be attached.
+      const result = await importAttachmentFiles({
+        rootPath,
+        entries: selected.filePaths.map((absolutePath) => ({ absolutePath })),
+      });
+      return { ok: true as const, ...result };
     } catch (error) {
       return { ok: false as const, filePaths: [], stderr: String(error) };
     }
