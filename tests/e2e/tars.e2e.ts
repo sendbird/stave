@@ -15,7 +15,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     await expect(view.getByRole("spinbutton")).toHaveCount(0);
     await expect(view.getByRole("combobox")).toHaveCount(0);
     await expect(view.getByRole("radio")).toHaveCount(0);
-    await expect(composer(page).getByRole("button", { name: lang === "ko" ? "파일 첨부" : "Attach files", exact: true })).toHaveCount(0);
+    await expect(composer(page).getByRole("button", { name: lang === "ko" ? "파일 첨부" : "Attach files", exact: true })).toBeVisible();
     await send(page, "Check the shared plan. " + "longword".repeat(30));
     await expect(view.locator("[data-tars-message]")).toBeVisible();
     // Live progress stays in the tray; only the block that needs the user reads as a transcript notice.

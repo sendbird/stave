@@ -1,5 +1,9 @@
-export const HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES = 4 * 1024 * 1024;
-export const HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
+// Secondary runs carry up to 8,000,000 ASCII image data-URL characters plus
+// 32,000 text bytes, a 100,000-character prompt and bounded metadata. Allow
+// JSON escaping (up to six bytes per text character) and envelope headroom.
+// Both pipe decoders and the client's send guard share this finite cap.
+export const HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES = 16 * 1024 * 1024;
+export const HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES = 2 * HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES;
 
 // Compatibility alias for older call sites/tests migrated incrementally.
 export const HOST_SERVICE_PROTOCOL_LINE_MAX_BYTES =

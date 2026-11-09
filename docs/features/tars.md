@@ -85,6 +85,23 @@ does not execute while Stave is closed or the computer is asleep; it catches up
 when Stave starts again. The browser-only development runtime has no Tars
 service.
 
+## Attach files
+
+Use **Attach files** beside **Send**, or drop or paste files onto the input.
+Text files and PNG, JPEG, GIF and WebP images are supported, including files
+outside a registered workspace. You can attach up to eight files: text is
+limited to 32 KB total; images to 4 MB each and 6 MB total. Remove a file with
+its chip's remove button before sending. Unsupported or oversized selections
+show an error and leave the existing draft intact.
+Files with the same name stay separate; a number distinguishes their attachment names.
+
+Stave saves the selected contents with the message and passes them to the
+conversation model. A retry uses the same snapshot; switching workspaces or
+reopening Stave preserves the attachment names in the conversation. Attached
+material supplies context and does not authorize delegated work on its own.
+You can discuss attachments without text; to start work, include a written
+instruction with them. The host refuses delegation from an attachment-only message.
+
 ## What it can do
 
 - Answer questions about your work from what Stave observed, saying when an

@@ -207,6 +207,11 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       try {
+        // Attachment contents are context, never a substitute for the user's written mandate.
+        if (action.kind === "delegate" && !message.text.trim()) {
+          // i18n-ignore: diagnostic only; the interface translates the typed refusal reason
+          throw new TarsDelegateRejection("missingMandate", "Attachments alone do not authorize delegated work.");
+        }
         let workingChanges: TarsWorkingChanges | undefined;
         if (action.kind === "delegate" && message.includeWorkingChanges) {
           try { workingChanges = await workingChangesFor(action.workspaceId); }

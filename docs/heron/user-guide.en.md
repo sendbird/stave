@@ -448,6 +448,8 @@ setup form; an unclear execution target is resolved in the conversation.
 Switching workspaces keeps the same history, and you can chat before adding a
 repository.
 
+Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+
 Open **Settings** in the header for the name, standing instructions,
 conversation model and account, execution model, the agents Tars may use and
 the turn limit each work unit can use. Initial model/account choices come from your app
@@ -455,7 +457,7 @@ settings and are saved for this conversation. The conversation model is only
 for talking with Tars. **Execution model** defaults to **Automatic**: Stave
 Auto routes delegated work, and reviews can run on the other provider. Pin a
 model only when every step and its review should stay on it. Tars runs work
-only on Claude and Codex; Cursor, Kiro and OpenCode are not supported.
+only on Claude or Codex.
 
 Built-in agents are always available to Tars. Allow a saved agent under
 **Agents Tars may use** before Tars can hand it work. Agents that publish,

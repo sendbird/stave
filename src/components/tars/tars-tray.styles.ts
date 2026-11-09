@@ -53,14 +53,14 @@ export const tarsTrayStyles = stylex.create({
     borderTopWidth: { default: vars["--aui-border-width-hairline"], ":first-child": 0 },
     borderTopStyle: "solid", borderTopColor: vars["--aui-color-border-subtle"],
   },
-  meta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], overflowWrap: "anywhere" },
+  meta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
   /** The work's branch: a git glyph, then the name in the mono face so it reads as an identifier. */
   branch: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"] },
   branchIcon: { flexShrink: 0, width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
   branchName: { minWidth: 0, fontFamily: vars["--aui-font-mono"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   attention: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
   attentionRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
-  attentionText: { flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  attentionText: { flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   /** One output: what it is (the opener), then whose work it came from. */
   output: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], paddingBlock: vars["--aui-space-8"] },
@@ -77,21 +77,21 @@ export const tarsTrayStyles = stylex.create({
   },
   outputLabel: { minWidth: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
   outputIcon: { flexShrink: 0, width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
-  empty: { margin: 0, paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
+  empty: { margin: 0, paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"] },
 });
 
 export const tarsFlowStyles = stylex.create({
   root: { marginBlockStart: vars["--aui-space-4"] },
   summary: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], minWidth: 0 },
   summaryTitle: { color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
-  summaryState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums" },
+  summaryState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], fontVariantNumeric: "tabular-nums" },
   /** The folded flow's live line: under the summary, on the trigger's text edge. */
   live: { paddingInlineStart: `calc(${vars["--aui-space-8"]} + ${vars["--aui-control-icon-size-md"]} + ${vars["--aui-space-8"]})`, paddingInlineEnd: vars["--aui-space-8"], minWidth: 0 },
   nodes: { margin: 0, padding: 0, listStyle: "none" },
   /** Same inline pad as a stage button, so every node's text starts on one edge. */
   node: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0, paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"] },
-  nodeLabel: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"] },
-  nodeText: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], overflowWrap: "anywhere" },
+  nodeLabel: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
+  nodeText: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
   /** A stage node is the Fleet link for its task: the whole row is the hit target. */
   stageButton: {
     display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0,
@@ -105,9 +105,9 @@ export const tarsFlowStyles = stylex.create({
   nodeFlush: { paddingBlock: 0, paddingInline: 0 },
   stageReason: { paddingInline: vars["--aui-space-4"], overflowWrap: "anywhere" },
   stageStatic: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"] },
-  stageTitle: { flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"], overflowWrap: "anywhere" },
-  attempt: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
-  notice: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], margin: 0, paddingBlock: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], overflowWrap: "anywhere" },
+  stageTitle: { flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  attempt: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"] },
+  notice: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], margin: 0, paddingBlock: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], overflowWrap: "anywhere" },
   noticeTitle: { color: vars["--aui-color-text"], minWidth: 0 },
   noticeState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], alignSelf: "center" },
 });

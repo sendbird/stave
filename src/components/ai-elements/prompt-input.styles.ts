@@ -291,6 +291,9 @@ export const promptInputStyles = stylex.create({
   },
   /** `chrome="tray"`: the form is the raised input (`composerTray.field`); no top hairline. */
   formTray: {
+    // Clear the terminal-only edge so the field recipe owns every state,
+    // including invalid, focus and hover, on all four sides.
+    borderTopColor: null,
     borderTopWidth: vars["--aui-border-width-hairline"],
     gap: vars["--aui-space-4"],
     paddingBlock: vars["--aui-space-8"],
