@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { unmetStageAcceptance } from "../src/lib/agent-runs/acceptance";
+import { unmetStageAcceptance, unreportedStageCriteria } from "../src/lib/agent-runs/acceptance";
 import { currentStageRecord, createStageRecord, StageCompleteReportInputSchema } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction } from "../src/lib/agent-runs/policy";
 import { WorkflowSchema, WORKFLOW_LIMITS, MAX_WORKFLOW_STAGES, MAX_STAGE_ACCEPTANCE_CRITERIA } from "../src/lib/workflows/schema";
@@ -31,6 +31,42 @@ test("complete reports with unmet or missing stage requirements block; simple an
   expect(decide(reported([stage], [{ text: "Answer supplied", status: "met" }]))).toEqual({ action: "complete-stage", next: "finish" });
   expect(decide(reported([ai("answer")]))).toEqual({ action: "complete-stage", next: "finish" });
   expect(decide(reported([{ ...stage, acceptanceCriteria: [{ text: "Answer supplied", required: false }] }], [{ text: "Answer supplied", status: "unverified" }]))).toEqual({ action: "complete-stage", next: "finish" });
+});
+
+test("the unmet detail says whether the report named the criterion and with which status", () => {
+  const stage = { ...ai("answer"), acceptanceCriteria: [{ text: "Answer supplied" }] };
+  const detail = (criteria: typeof COMPLETE_REPORT.acceptanceCriteria) => unmetStageAcceptance(reported([stage], criteria), currentStageRecord(reported([stage], criteria)));
+  expect(detail([])).toBe("The stage report did not name this criterion by its exact text: Answer supplied");
+  expect(detail([{ text: "Answer: supplied with evidence", status: "met" }])).toBe("The stage report did not name this criterion by its exact text: Answer supplied");
+  expect(detail([{ text: "Answer supplied", status: "unverified" }])).toBe("The stage report marked this criterion unverified: Answer supplied");
+  expect(detail([{ text: "Answer supplied", status: "unmet" }])).toBe("The stage report marked this criterion unmet: Answer supplied");
+  expect(detail([{ text: " Answer supplied ", status: "met" }])).toBeNull();
+});
+
+test("a report must name each required criterion by its exact text, but not optional criteria or host checks", () => {
+  const stage = { ...ai("work"), acceptanceCriteria: [{ text: "Readable text" }, { text: "Focus ring" }, { text: "Nice to have", required: false }, { text: "Tests pass", verification: "stave-check", scriptIds: ["test"] }] };
+  const aggregate = reported([stage, ai("review")]);
+  const record = currentStageRecord(aggregate);
+  expect(unreportedStageCriteria(aggregate, record, { acceptanceCriteria: [{ text: "Readable text: tokens applied", status: "met" }] })).toEqual(["Readable text", "Focus ring"]);
+  expect(unreportedStageCriteria(aggregate, record, { acceptanceCriteria: [{ text: "Readable text ", status: "met" }, { text: "Focus ring", status: "unverified" }] })).toEqual([]);
+  expect(unreportedStageCriteria(aggregate, record, {})).toEqual(["Readable text", "Focus ring"]);
+  // A re-report replaces the earlier one: its criteria neither count nor add requirements.
+  const earlier = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Readable text", status: "met" }, { text: "Focus ring", status: "met" }, { text: "Extra claim", status: "met" }] } });
+  expect(unreportedStageCriteria(earlier, currentStageRecord(earlier), {})).toEqual(["Readable text", "Focus ring"]);
+  expect(unreportedStageCriteria(earlier, currentStageRecord(earlier), { acceptanceCriteria: [{ text: "Readable text", status: "met" }, { text: "Focus ring", status: "met" }] })).toEqual([]);
+});
+
+test("the final stage must also name the goal criteria an earlier stage left unmet; a planning stage only its own", () => {
+  let aggregate = aggregateFor([{ ...ai("plan"), role: "plan", acceptanceCriteria: [{ text: "Plan written" }] }, ai("build")]);
+  aggregate = patchCurrent(aggregate, { status: "running" });
+  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), { acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] })).toEqual(["Plan written"]);
+  aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }, { text: "Docs updated", status: "met" }] } };
+  aggregate.agentRun.currentStageIndex = 1;
+  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "build", attempt: 1 }), status: "running" });
+  const record = currentStageRecord(aggregate);
+  // "Docs updated" was met earlier and stands; "Tests pass" must be restated.
+  expect(unreportedStageCriteria(aggregate, record, { acceptanceCriteria: [] })).toEqual(["Tests pass"]);
+  expect(unreportedStageCriteria(aggregate, record, { acceptanceCriteria: [{ text: "Tests pass", status: "met" }] })).toEqual([]);
 });
 
 test("a delegated run whose report leaves a criterion unmet ends for its parent instead of halting", () => {
