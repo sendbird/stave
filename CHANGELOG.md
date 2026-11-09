@@ -1,3 +1,16 @@
+## [0.32.1](https://github.com/sendbird/stave/compare/v0.32.0...v0.32.1) (2026-11-09)
+
+This patch release includes the two merged changes since 0.32.0 (PRs #909 and #910).
+
+### Changes
+
+- Composer attachments now accept files from outside the workspace through the picker, paste and drag-and-drop flows. Workspace files keep their relative paths; external files are copied into ignored `.stave/attachments/` folders.
+- Binary files and files too large for inline preview are attached by path instead of failing, while folders, oversized files and unreadable files are reported to the user.
+- The English and Korean user-guide sources now identify the Stave 0.32.0 edition and accurately describe its review scope.
+
+### References
+
+- [PR #909](https://github.com/sendbird/stave/pull/909), [PR #910](https://github.com/sendbird/stave/pull/910)
 ## [0.32.0](https://github.com/sendbird/stave/compare/v0.31.0...v0.32.0) (2026-11-09)
 
 This minor release includes all eleven merged changes since 0.31.0.
