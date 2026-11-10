@@ -10,8 +10,8 @@ async function send(page: Page, text: string) {
 /**
  * A record row's geometry: its mark sits in a slot one text line tall at the
  * row's top, so it is centred on the first line of the text however far that
- * wraps; the inline pad is the 8px space token; detail lines start under the
- * first line; nothing overflows the row.
+ * wraps; the row has no inline pad of its own (the rail's mark slot is its
+ * leading edge); detail lines start under the first line; nothing overflows the row.
  */
 async function recordGeometry(row: Locator) {
   return row.evaluate((node) => {
@@ -81,19 +81,19 @@ for (const [theme, lang, density] of [["light", "en", "regular"], ["dark", "ko",
       await expect(refused).toBeVisible();
       await expect(refused).toHaveAttribute("data-tars-record-state", "refused");
       await expect(refused.locator("[data-tars-record-status]")).toHaveText(lang === "ko" ? "적용하지 않음" : "Not applied");
-      expect(await recordGeometry(refused)).toEqual({ hasMark: true, markOffset: expect.any(Number), padInline: [8, 8], detailBelow: true, overflow: 0 });
+      expect(await recordGeometry(refused)).toEqual({ hasMark: true, markOffset: expect.any(Number), padInline: [0, 0], detailBelow: true, overflow: 0 });
       expect((await recordGeometry(refused)).markOffset).toBeLessThanOrEqual(1.5);
 
-      // The recommended reply is chosen; Answer sends it and the card folds to its record on the shared wash.
+      // The recommended reply is chosen; Answer sends it and the card folds to its record on the rail, with no wash behind it.
       await editor(page).fill("");
       await card.getByRole("button", { name: lang === "ko" ? "답하기" : "Answer", exact: true }).click();
       const answered = view.locator('[data-tars-decision-state="answered"] [data-tars-record-state]');
       await expect(answered).toHaveAttribute("data-tars-record-state", "applied");
       const folded = await recordGeometry(answered);
-      expect(folded).toMatchObject({ hasMark: true, padInline: [8, 8], overflow: 0 });
+      expect(folded).toMatchObject({ hasMark: true, padInline: [0, 0], overflow: 0 });
       expect(folded.markOffset).toBeLessThanOrEqual(1.5);
       const wash = await answered.evaluate((node) => getComputedStyle(node.closest("[data-tars-records]")!).backgroundColor);
-      expect(wash).not.toBe("rgba(0, 0, 0, 0)");
+      expect(wash).toBe("rgba(0, 0, 0, 0)");
       const viewFit = await view.evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
       expect(viewFit.scroll).toBeLessThanOrEqual(viewFit.client + 1);
     });
@@ -108,7 +108,8 @@ test("control records wear their mark and a run of them shares one list", async 
   await panel.getByRole("button", { name: "More actions for Verify the release candidate across two repositories", exact: true }).click();
   await page.getByRole("menuitem", { name: "Take over", exact: true }).click();
   const record = view.locator("[data-tars-action-record]");
-  await expect(record).toContainText(/Take over.*click.*Applied/);
+  await expect(record).toContainText(/Take over.*Applied/);
+  await expect(record.locator("[data-tars-record-actor]")).toHaveAccessibleName("You did this in Tars");
   await expect(record.locator("svg").first()).toBeVisible();
   // Consecutive records share one list: a run of them reads as one block, not separate lines.
   await panel.getByRole("button", { name: "Hand back", exact: true }).click();

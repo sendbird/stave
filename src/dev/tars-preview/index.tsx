@@ -107,9 +107,13 @@ export function TarsPreview() {
     const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" || galleryMode ? buildTarsSideViewFixtures(new Date(now)) : null;
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
     const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
-    const gallery = galleryMode && fixtures && side ? buildTarsGalleryFixtures({ start: new Date(now), korean: params.get("lang") === "ko", tray: fixtures, side }) : null;
-    // The gallery keeps its own saved state per language, so another preview's or language's conversation never replaces it.
-    const identityKey = gallery ? `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}-identity` : "stave-preview-identity";
+    // `days=true`: the gallery's cases spread over the last week up to now, so the transcript's day rules show.
+    const spread = galleryMode && params.get("days") === "true";
+    const gallery = galleryMode && fixtures && side ? buildTarsGalleryFixtures({ start: new Date(now), korean: params.get("lang") === "ko", tray: fixtures, side,
+      ...(spread ? { spreadUntil: new Date() } : {}) }) : null;
+    // The gallery keeps its own saved state per language (and per spread), so another preview's or language's conversation never replaces it.
+    const galleryKey = `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}${spread ? "-days" : ""}`;
+    const identityKey = gallery ? `${galleryKey}-identity` : "stave-preview-identity";
     let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem(identityKey) ?? "null") ?? {
       runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: now }, pendingDecisions: gallery?.pendingDecisions ?? fixtures?.pendingDecisions ?? [],
       followUps: gallery?.followUps ?? followUp?.followUps ?? [],
@@ -123,7 +127,7 @@ export function TarsPreview() {
         actionIndex: null, operation: null, expectedRevision: 1, proposedAt: now, optionCount: 3 }] };
     }
     let sendFailed = false;
-    const conversationKey = gallery ? `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}-conversation` : "stave-preview-conversation";
+    const conversationKey = gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
     // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
     type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
