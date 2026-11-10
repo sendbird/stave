@@ -526,6 +526,9 @@ Rules:
   `carryRendererOwnedShellFields`; it opens a tab only for a top-level task it
   adds in that write. Omitting `openTaskTabIds` reads as a legacy snapshot and
   reopens every live task the user had closed
+- the renderer opens a tab for a host-reported task only when a live or cached
+  session lacks it (`applyHostTaskTurnSync`); for an uncached workspace the
+  persisted tab set is already the host's decision
 - there is no synchronous renderer→main persistence IPC; quit asks the
   renderer to flush and waits behind a bounded timeout
 - the renderer keeps at most `MAX_CACHED_WORKSPACE_SESSIONS` inactive
