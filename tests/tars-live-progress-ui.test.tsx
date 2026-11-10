@@ -238,7 +238,7 @@ describe("Tars live progress UI", () => {
     expect(describeTarsNavLabel({ running: 1, needsYou: 0 })).toBe("Tars, 1 running");
     expect(describeTarsNavLabel({ running: 0, needsYou: 0 })).toBe("Tars");
     await applyAppLocale("ko");
-    try { expect(describeTarsNavLabel({ running: 1, needsYou: 1 })).toBe("Tars, 실행 1 · 확인 1"); }
+    try { expect(describeTarsNavLabel({ running: 1, needsYou: 1 })).toBe("Tars, 실행 1 · 확인 필요 1"); }
     finally { await applyAppLocale("en"); }
   });
 });

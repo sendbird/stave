@@ -123,13 +123,14 @@ export function tarsBranchOf(row: Pick<TarsResponsibility, "id" | "branchName" |
 const holdsActiveSlot = isTarsWorkRunning;
 
 /**
- * What the header indicator counts. `needsYou` counts Fleet's rows for Tars
- * work, so the tray and Fleet show the same number. `running` counts only work
- * that is actually running (in any lane), never queued, paused, waiting or
- * taken-over work; `waiting` counts the in-progress lane's work that is not
- * running and not held by the user, `yours` the work the user took over.
+ * What the header indicator and the lane headers count, one number per lane.
+ * `needsYou` counts Fleet's rows for Tars work (one card may hold several), so
+ * the tray and Fleet show the same number; `inProgress` and `done` count the
+ * cards in their lanes. `running` counts only work that is actually running,
+ * in any lane, never queued, paused, waiting or taken-over work; it is the
+ * navigation status's number, not a lane's.
  */
-export interface TarsTrayCounts { needsYou: number; running: number; waiting: number; yours: number; done: number }
+export interface TarsTrayCounts { needsYou: number; inProgress: number; done: number; running: number }
 
 export interface TarsTrayModel<T extends TarsTrayAttentionInput = TarsTrayAttentionInput> {
   counts: TarsTrayCounts;
@@ -219,13 +220,11 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   }
   // Work that started leads its lane; queued work follows in the order it will start, so the cards a user reorders stay together.
   for (const lane of Object.values(lanes)) lane.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
-  const inProgress = lanes.running;
   const counts: TarsTrayCounts = {
     needsYou: rows.length,
-    running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,
-    waiting: inProgress.filter((card) => !holdsActiveSlot(card.row) && card.row.state !== "takenOver").length,
-    yours: inProgress.filter((card) => card.row.state === "takenOver").length,
+    inProgress: lanes.running.length,
     done: lanes.done.length,
+    running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,
   };
   return { counts, lanes };
 }

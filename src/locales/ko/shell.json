@@ -1394,9 +1394,8 @@
       "title": "맡긴 일",
       "indicator": {
         "running_other": "실행 {{count}}",
-        "waiting_other": "대기 {{count}}",
-        "yours_other": "직접 {{count}}",
-        "needsYou_other": "확인 {{count}}",
+        "needsYou_other": "확인 필요 {{count}}",
+        "inProgress_other": "진행 중 {{count}}",
         "done_other": "끝남 {{count}}",
         "empty": "맡긴 일 없음",
         "show": "맡긴 일 보기",
@@ -1493,7 +1492,9 @@
           "changesRequested": "리뷰 · 수정 요청",
           "none": "리뷰"
         },
-        "open": "{{title}}의 {{label}} 열기"
+        "open": "{{title}}의 {{label}} 열기",
+        "opensSide": "대화 옆에서 열림",
+        "opensExternal": "브라우저에서 열림"
       },
       "openReport": "보고서 열기",
       "followUp": {

@@ -34,19 +34,60 @@ export const tarsTrayStyles = stylex.create({
     borderBottomWidth: vars["--aui-border-width-hairline"], borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border-subtle"],
   },
   panelTitle: { flex: 1, minWidth: 0, margin: 0 },
-  panelBody: { flex: 1, minHeight: 0, overflowY: "auto", paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"] },
+  /**
+   * The tray's scroll container. Its inline pad is the focus ring's bleed
+   * gutter (`space.4`), so a lane's chevron and its cards start on the panel
+   * bar's icon edge (`space.16` with the trigger's and the cards' own pad), as
+   * the side view's body does. It has no top pad: a sticky lane header pins
+   * to the scroll container's content edge, so a pad there would leave a strip
+   * above the pinned header for cards to scroll through; the header's own
+   * block pad spaces the first lane from the panel bar.
+   */
+  panelBody: { flex: 1, minHeight: 0, overflowY: "auto", paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-4"] },
   /** The narrow tray: anchored to its indicator, wider and taller than a default popover so a card fits. */
   popover: {
     inlineSize: `min(${TRAY_WIDTH}, calc(100dvw - 2 * ${vars["--aui-space-16"]}))`,
     maxBlockSize: `min(calc(100dvh - ${vars["--aui-space-64"]}), var(--available-height, calc(100dvh - ${vars["--aui-space-32"]})))`,
   },
   /** Portaled outside the view, so it restates the view's Korean line-break policy (`textWrap.keepAll`, applied with this body). */
-  popoverBody: { paddingInline: vars["--aui-space-8"], paddingBlockEnd: vars["--aui-space-8"] },
+  popoverBody: { paddingInline: vars["--aui-space-4"], paddingBlockEnd: vars["--aui-space-8"] },
   indicator: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
+  /**
+   * A lane's header row, pinned to the top of the tray's scroll container
+   * while its lane scrolls under it: the disclosure trigger, then the lane's
+   * own controls (Clear, Undo) on the end. It paints the tray's surface
+   * (`laneHeadOn`), so cards never show through it, and sits on the
+   * in-surface sticky layer.
+   */
+  laneHead: {
+    position: "sticky", insetBlockStart: 0, zIndex: vars["--aui-z-index-sticky"],
+    display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0, paddingInlineEnd: vars["--aui-space-12"],
+  },
+  /** The surface the tray sits on: the view's canvas when pinned, the popover's raised surface when it opens over the conversation. */
+  laneHeadOnCanvas: { backgroundColor: vars["--aui-color-canvas"] },
+  laneHeadOnRaised: { backgroundColor: vars["--aui-color-surface-raised"] },
+  laneHeader: { flex: 1, minWidth: 0 },
+  /**
+   * The AUI disclosure row with the chevron leading and the count trailing the
+   * label: the whole row is the hit target, hover lays the quiet-control wash
+   * (the ink stays put) and keyboard focus keeps the trigger's own ring.
+   */
+  laneTrigger: {
+    display: "flex", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"],
+    color: vars["--aui-color-text"],
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover) and (pointer: fine)": { default: "transparent", ":hover": vars["--aui-color-overlay-hover"], ":active": vars["--aui-color-overlay-pressed"] },
+    },
+  },
   /** The AUI #809 in-surface section title: 15/500. */
-  sectionTitle: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"], color: vars["--aui-color-text"] },
+  sectionTitle: { display: "flex", alignItems: "baseline", gap: vars["--aui-space-8"], minWidth: 0, fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"], color: vars["--aui-color-text"] },
   sectionCount: { color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums", fontWeight: vars["--aui-font-weight-regular"] },
+  /** A lane with nothing in it: its title steps down to the muted ink, so the lanes that hold work lead. */
+  sectionTitleEmpty: { color: vars["--aui-color-text-muted"] },
   chevron: { flexShrink: 0, color: vars["--aui-color-text-muted"], width: vars["--aui-control-icon-size-md"], height: vars["--aui-control-icon-size-md"] },
+  /** Open, the leading chevron turns to point down at its lane (timing from `transition.transform`). */
+  chevronOpen: { transform: "rotate(90deg)" },
   /**
    * Each card is a lifted run object (AUI `RunMonitor`), so the lane stacks
    * them on a gap instead of hairline rows. Cards share the section trigger's
@@ -93,22 +134,39 @@ export const tarsTrayStyles = stylex.create({
   attentionHead: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   attentionEnd: { flexShrink: 0, marginInlineStart: "auto" },
   attentionText: { minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  /**
+   * A Tars decision's row: the proposal itself carries the row, so it drops the
+   * label line and keeps one mark (named for assistive technology) on the
+   * text's first line, with the irreversible tag on the end.
+   */
+  attentionInline: { flexDirection: "row", alignItems: "flex-start", gap: vars["--aui-space-8"] },
+  /** The mark's box is the text's first line, so the dot centres on it however the text wraps. */
+  attentionMarkBox: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"] },
+  attentionInlineText: { flex: 1 },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
-  /** One output: what it is (the opener), then whose work it came from. */
-  output: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], paddingBlock: vars["--aui-space-8"] },
-  outputButton: {
-    display: "flex", alignItems: "center", justifyContent: "flex-start", width: "100%", minWidth: 0,
-    minHeight: vars["--aui-control-height-sm"], paddingInline: vars["--aui-space-4"],
-    borderRadius: vars["--aui-radius-control"], textAlign: "start", whiteSpace: "normal",
+  /** One output: a single row that opens it, on the hairline rhythm. */
+  output: { paddingBlock: vars["--aui-space-4"] },
+  /**
+   * The output's row, a side-view button or an external link drawn alike: its
+   * kind's glyph, what it is over whose work it came from, then where it opens
+   * (the side view or the browser). Hover lays the quiet-control wash and
+   * keyboard focus draws the AUI ring.
+   */
+  outputRow: {
+    display: "flex", alignItems: "flex-start", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0,
+    minHeight: vars["--aui-control-height-sm"], paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"],
+    borderRadius: vars["--aui-radius-control"], textAlign: "start", whiteSpace: "normal", color: vars["--aui-color-text"], textDecorationLine: "none",
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover) and (pointer: fine)": { default: "transparent", ":hover": vars["--aui-color-overlay-hover"], ":active": vars["--aui-color-overlay-pressed"] },
+    },
   },
-  /** The opener's own inline pad, so the label and the work it came from start on one edge. */
-  outputMeta: { paddingInline: vars["--aui-space-4"] },
-  outputLink: {
-    display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0, minHeight: vars["--aui-control-height-sm"], paddingInline: vars["--aui-space-4"],
-    color: vars["--aui-color-accent"], fontSize: vars["--aui-font-size-body"], textDecoration: { default: "none", ":hover": "underline" },
-  },
-  outputLabel: { minWidth: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
+  /** The glyph's box is the label's line, so it centres on the first line however the text wraps. */
+  outputGlyph: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"], color: vars["--aui-color-text-muted"] },
   outputIcon: { flexShrink: 0, width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
+  outputText: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], flex: 1, minWidth: 0 },
+  outputLabel: { minWidth: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  outputMeta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
   empty: { margin: 0, paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"] },
 });
 

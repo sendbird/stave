@@ -318,7 +318,7 @@ export function TarsView() {
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
     : responsibilities.length ? <>
       {recap && !away.dismissed ? <TarsAwayRecap recap={recap} onOpenSide={openSide} onDismiss={away.dismiss} /> : null}
-      <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} />
+      <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} surface={pinned ? "canvas" : "raised"} />
     </> : <p className={sx(styles.text)}>{t("shell:tars.conversation.noWork")}</p>;
   // Wide, the side view takes the tray's column and the tray folds to its indicator until the side view closes.
   const trayOpen = pinned ? pinnedTrayOpen && !side : trayPopoverOpen;

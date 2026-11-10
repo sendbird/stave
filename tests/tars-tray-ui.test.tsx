@@ -52,15 +52,33 @@ async function inKorean(run: () => void) {
 }
 
 describe("Tars tray UI", () => {
-  test("the header indicator names only the lanes that count, in both languages", async () => {
-    const counts = (patch: Partial<TarsTrayModel["counts"]>) => ({ running: 0, waiting: 0, yours: 0, needsYou: 0, done: 0, ...patch });
-    expect(describeTarsTrayCounts(counts({ running: 2, needsYou: 1, done: 3 }))).toBe("2 running · 1 needs you · 3 done");
-    expect(describeTarsTrayCounts(counts({ running: 1, needsYou: 2 }))).toBe("1 running · 2 need you");
-    // Queued, paused and waiting work is never called running; work the user took over is theirs.
-    expect(describeTarsTrayCounts(counts({ running: 1, waiting: 2, yours: 1 }))).toBe("1 running · 2 waiting · 1 yours");
-    expect(describeTarsTrayCounts(counts({ waiting: 1 }))).toBe("1 waiting");
+  test("the header indicator names only the lanes that count, by the lanes' own names, in both languages", async () => {
+    const counts = (patch: Partial<TarsTrayModel["counts"]>) => ({ needsYou: 0, inProgress: 0, done: 0, running: 0, ...patch });
+    expect(describeTarsTrayCounts(counts({ inProgress: 2, needsYou: 1, done: 3 }))).toBe("1 needs you · 2 in progress · 3 done");
+    // Running work that needs the user is counted in Needs you, where its card is, never as a second "running" number.
+    expect(describeTarsTrayCounts(counts({ running: 3, needsYou: 16, done: 4 }), "ready", 7)).toBe("16 need you · 4 done · 7 outputs");
     expect(describeTarsTrayCounts(counts({}))).toBe("No work yet");
-    await inKorean(() => expect(describeTarsTrayCounts(counts({ running: 2, waiting: 1, yours: 1, needsYou: 1, done: 3 }))).toBe("실행 2 · 대기 1 · 직접 1 · 확인 1 · 끝남 3"));
+    await inKorean(() => expect(describeTarsTrayCounts(counts({ inProgress: 2, needsYou: 1, done: 3 }), "ready", 7)).toBe("확인 필요 1 · 진행 중 2 · 끝남 3 · 산출물 7"));
+  });
+
+  test("the indicator and every lane header say the same number for the same lane, under the lane's own name", async () => {
+    const f = fixtures();
+    const model = trayOf(f);
+    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const header = (lane: string) => Number(new RegExp(`data-tars-lane-head="${lane}"(?:(?!data-tars-lane-head=).)*?data-tars-lane-count="(\\d+)"`).exec(html)?.[1]);
+    const chip = describeTarsTrayCounts(model.counts);
+    for (const [lane, word] of [["needsYou", "need"], ["running", "in progress"], ["done", "done"]] as const) {
+      const shown = header(lane);
+      if (shown > 0) expect(chip).toMatch(new RegExp(`\\b${shown} ${word}`));
+      else expect(chip).not.toContain(word);
+    }
+    await inKorean(() => {
+      const ko = describeTarsTrayCounts(model.counts);
+      for (const lane of ["needsYou", "running", "done"] as const) {
+        const name = i18n.t(`shell:tars.tray.lanes.${lane}`);
+        if (header(lane) > 0) expect(ko).toContain(`${name} ${header(lane)}`);
+      }
+    });
   });
 
   test("before a successful read the indicator and body say checking or unavailable, never no work", async () => {
@@ -353,12 +371,13 @@ test("queued cards show capacity evidence or an explicitly unknown cause in both
 });
 
 describe("Tars tray card hierarchy", () => {
-  test("a decision sits in the card's well: its label line, then its text across the full width, after the run's status lines", () => {
+  test("a decision sits in the card's well as one marked line: its text, no repeated label, after the run's status lines", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.needsYou[0]!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
-    // The text is a sibling under the label line, never a second column beside it.
-    expect(html).toMatch(/<li[^>]*data-tars-attention="tars-decision"[^>]*><span[^>]*>(?:(?!<\/li>).)*Tars decision waiting<\/span><\/span><span[^>]*>Tars proposes to resume this work\.<\/span><\/li>/);
+    // The proposal says what Tars proposes, so the row keeps one mark named for assistive technology and no visible label.
+    expect(html).toMatch(/<li[^>]*data-tars-attention="tars-decision"[^>]*><span[^>]*><span aria-label="Tars decision waiting" data-tars-attention-mark=""[^>]*role="img"[^>]*>(?:(?!<\/li>).)*<span[^>]*>Tars proposes to resume this work\.<\/span><\/li>/);
+    expect(html.split(">Tars decision waiting<").length).toBe(1);
     expect(html).toContain('data-tars-attention-list="1"');
     // What the work waits on comes after what it is doing, right above the actions that answer it.
     expect(html.indexOf("Paused by you")).toBeLessThan(html.indexOf("data-tars-attention-list"));
@@ -388,5 +407,77 @@ describe("Tars tray card hierarchy", () => {
     expect(group).toContain('aria-label="Open the timeline for Fix the billing export on empty invoice lists"');
     // Icon-only: the visible words live in the tooltip, not in the button.
     expect(group).not.toMatch(/data-tars-monitor-brief="billing"[^>]*>(?:(?!<\/button>).)*Request/);
+  });
+});
+
+describe("Tars tray lanes and card actions", () => {
+  const laneHeads = (html: string) => [...html.matchAll(/data-tars-lane-head="(\w+)"(?:(?!data-tars-lane-head=).)*?aria-expanded="(true|false)"(?:(?!data-tars-lane-head=).)*?data-tars-lane-chevron="(open|closed)"/g)]
+    .map(([, lane, expanded, chevron]) => ({ lane, expanded, chevron }));
+
+  test("each lane's chevron says open or closed as its trigger's aria-expanded does, leading the label", () => {
+    const html = renderToStaticMarkup(createElement(TarsTray, { model: trayOf(fixtures()), actions: noActions, outputs: [] }));
+    const heads = laneHeads(html);
+    expect(heads.map((head) => head.lane)).toEqual(["needsYou", "running", "done", "outputs"]);
+    for (const head of heads) expect(head.chevron).toBe(head.expanded === "true" ? "open" : "closed");
+    expect(heads.find((head) => head.lane === "done")!.expanded).toBe("false");
+    // The chevron sits before the lane's name, not across the row from it.
+    const needs = html.slice(html.indexOf('data-tars-lane-head="needsYou"'));
+    expect(needs.indexOf("data-tars-lane-chevron")).toBeLessThan(needs.indexOf("Needs you"));
+  });
+
+  test("an empty lane folds to its muted header with a zero count, its sentence kept in the panel for when it opens", () => {
+    const f = fixtures();
+    const model = buildTarsTray({ responsibilities: f.responsibilities.filter((row) => row.id !== f.ids.billing && row.id !== f.ids.migration), attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
+    expect(model.lanes.running).toHaveLength(0);
+    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const running = laneHeads(html).find((head) => head.lane === "running")!;
+    expect(running).toEqual({ lane: "running", expanded: "false", chevron: "closed" });
+    const lane = html.slice(html.indexOf('data-tars-tray-lane="running"'), html.indexOf('data-tars-tray-lane="done"'));
+    expect(lane).toContain('data-tars-lane-empty=""');
+    expect(lane).toContain('data-tars-lane-count="0"');
+    expect(lane).toContain("Nothing is running.");
+    // A lane holding work opens as before.
+    expect(laneHeads(html).find((head) => head.lane === "needsYou")!.expanded).toBe("true");
+  });
+
+  test("a card offers at most one primary action, a decision on the 28px rung; everything else is a 24px secondary action", () => {
+    const f = fixtures();
+    const model = trayOf(f);
+    for (const card of Object.values(model.lanes).flat()) {
+      const html = renderToStaticMarkup(createElement(TarsCardActions, { card, actions: noActions }));
+      const primaries = html.match(/data-tars-card-primary=""/g) ?? [];
+      expect(primaries.length).toBeLessThanOrEqual(1);
+      const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
+      for (const tag of buttons) expect(tag).toContain(tag.includes("data-tars-card-primary") ? 'data-size="xs"' : 'data-size="2xs"');
+    }
+    // The paused card's proposal is its primary; its state control is not a second one.
+    const release = renderToStaticMarkup(createElement(TarsCardActions, { card: model.lanes.needsYou[0]!, actions: noActions }));
+    expect(release).toMatch(/data-tars-card-primary=""[^>]*data-variant="primary"/);
+    // Running work without a proposal keeps Pause as a secondary action, beside Open task and in the same weight.
+    const billing = renderToStaticMarkup(createElement(TarsCardActions, { card: model.lanes.running.find((value) => value.row.id === f.ids.billing)!, actions: noActions }));
+    expect(billing).not.toContain("data-tars-card-primary");
+    expect(billing).toMatch(/data-tars-action="pause"[^>]*data-size="2xs"[^>]*data-variant="quiet"/);
+    // The menu trigger is named and hinted.
+    expect(release).toContain('aria-label="More actions for Verify the release candidate"');
+    expect(release).toContain("data-base-ui-tooltip-trigger");
+  });
+
+  test("a confirmation that cannot be undone is the card's primary action in the danger tone, with its tag in the well", () => {
+    const f = fixtures();
+    const card = trayOf(f).lanes.needsYou[0]!;
+    const entry = card.attention.find((value) => value.decision)!;
+    const cancel = { ...card, attention: [{ ...entry, decision: { ...entry.decision!, operation: "cancel" as const } }] };
+    const actionsHtml = renderToStaticMarkup(createElement(TarsCardActions, { card: cancel, actions: noActions }));
+    expect(actionsHtml).toMatch(/data-tars-card-primary=""[^>]*data-size="xs"[^>]*data-tone="danger"/);
+    const cardHtml = renderToStaticMarkup(createElement(TarsTrayCard, { card: cancel, actions: noActions }));
+    expect(cardHtml).toContain("data-tars-decision-risk-tag");
+    expect(cardHtml).toContain("Can&#x27;t be undone");
+  });
+
+  test("the step count says what it counts in words, not only as a bare fraction", () => {
+    const f = fixtures();
+    const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
+    expect(html).toMatch(/data-tars-monitor-count="2\/3"[^>]*><span aria-hidden="true">2\/3<\/span><span[^>]*>Stage 2 of 3<\/span>/);
   });
 });

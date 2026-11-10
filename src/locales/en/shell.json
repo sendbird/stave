@@ -1401,12 +1401,10 @@
       "indicator": {
         "running_one": "{{count}} running",
         "running_other": "{{count}} running",
-        "waiting_one": "{{count}} waiting",
-        "waiting_other": "{{count}} waiting",
-        "yours_one": "{{count}} yours",
-        "yours_other": "{{count}} yours",
         "needsYou_one": "{{count}} needs you",
         "needsYou_other": "{{count}} need you",
+        "inProgress_one": "{{count}} in progress",
+        "inProgress_other": "{{count}} in progress",
         "done_one": "{{count}} done",
         "done_other": "{{count}} done",
         "empty": "No work yet",
@@ -1508,7 +1506,9 @@
           "changesRequested": "Review · changes requested",
           "none": "Review"
         },
-        "open": "Open {{label}} for {{title}}"
+        "open": "Open {{label}} for {{title}}",
+        "opensSide": "Opens beside the conversation",
+        "opensExternal": "Opens in your browser"
       },
       "openReport": "Open report",
       "followUp": {

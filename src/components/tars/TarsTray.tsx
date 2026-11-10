@@ -1,16 +1,19 @@
-import type { KeyboardEvent, ReactNode } from "react";
-import { ArrowUpRight, ChevronDown, Ellipsis, FileText, GitBranch, GripVertical } from "lucide-react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ui";
+import { Button, ExternalAnchor } from "@/components/ui";
 import { Accordion } from "@/components/aui/components/Accordion";
 import { Badge } from "@/components/aui/components/Badge";
 import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
 import { Popover } from "@/components/aui/components/Popover";
 import { runStyles } from "@/components/aui/components/RunMonitor";
 import { StatusDot } from "@/components/aui/components/StatusDot";
+import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { transition } from "@/components/aui/recipes/transition";
-import { cx, sx } from "@/components/aui/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { TarsLane } from "@/lib/tars/attention";
 import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, describeTarsWorkingChanges } from "@/lib/tars/detail";
@@ -64,22 +67,30 @@ export interface TarsTrayClearing {
 }
 
 /**
- * A clearable lane's controls under its header: how many ended items it
- * leaves out (with the newest clear's Undo) and Clear, which hides the ended
- * work it shows now. Nothing appears while there is nothing to say or do.
+ * A clearable lane's controls on the end of its sticky header row: the newest
+ * clear's Undo, and Clear, which hides the ended work the lane shows now. They
+ * stay in reach however far the lane scrolls. Nothing appears while there is
+ * nothing to do.
  */
 function TarsLaneTools({ scope, clearing }: { scope: "done" | "outputs"; clearing: TarsTrayClearing }) {
   const { t } = useTranslation(["shell"]);
   const lane = clearing[scope];
-  if (!lane.clearable && !lane.hidden && !lane.error) return null;
+  if (!lane.clearable && !lane.onUndo) return null;
   const label = t(scope === "done" ? "shell:tars.clear.lane.clearDone" : "shell:tars.clear.lane.clearOutputs");
-  return <div className={sx(clearStyles.laneTools)} data-tars-lane-tools={scope}>
+  return <div className={sx(clearStyles.laneActions)} data-tars-lane-tools={scope}>
+    {lane.onUndo ? <Button variant="ghost" size="2xs" disabled={clearing.busy} data-tars-lane-undo={scope} onClick={lane.onUndo}>{t("shell:tars.clear.undo")}</Button> : null}
+    {lane.clearable ? <Button variant="ghost" size="2xs" disabled={clearing.busy} aria-label={label} title={label} data-tars-lane-clear={scope}
+      onClick={() => clearing.onClear(scope)}>{t("shell:tars.clear.lane.clear")}</Button> : null}
+  </div>;
+}
+
+/** Under a clearable lane's header: how many ended items it leaves out, and a failed clear's reason. */
+function TarsLaneNote({ scope, clearing }: { scope: "done" | "outputs"; clearing: TarsTrayClearing }) {
+  const { t } = useTranslation(["shell"]);
+  const lane = clearing[scope];
+  if (!lane.hidden && !lane.error) return null;
+  return <div className={sx(clearStyles.laneTools)} data-tars-lane-note={scope}>
     {lane.hidden ? <p className={sx(clearStyles.laneNote)} data-tars-lane-hidden={lane.hidden}>{t("shell:tars.clear.lane.hidden", { count: lane.hidden })}</p> : null}
-    <div className={sx(clearStyles.laneActions)}>
-      {lane.onUndo ? <Button variant="ghost" size="2xs" disabled={clearing.busy} data-tars-lane-undo={scope} onClick={lane.onUndo}>{t("shell:tars.clear.undo")}</Button> : null}
-      {lane.clearable ? <Button variant="ghost" size="2xs" disabled={clearing.busy} aria-label={label} title={label} data-tars-lane-clear={scope}
-        onClick={() => clearing.onClear(scope)}>{t("shell:tars.clear.lane.clear")}</Button> : null}
-    </div>
     {lane.error ? <p className={sx(clearStyles.laneNote, clearStyles.laneError)} role="alert">{lane.error}</p> : null}
   </div>;
 }
@@ -90,8 +101,9 @@ const QUEUE_LIST_ID = "tars-queue";
 const QUEUE_MOVE_ARIA_KEYS = "Alt+ArrowUp Alt+ArrowDown";
 
 const LANES: readonly TarsLane[] = ["needsYou", "running", "done"];
-/** Done work is folded until asked for; what waits and what runs stays in view. */
-const OPEN_LANES: TarsLane[] = ["needsYou", "running"];
+type TarsTrayLaneId = TarsLane | "outputs";
+/** Done work is folded until asked for; what waits, what runs and what it produced stays in view, unless the lane is empty. */
+const OPEN_LANES: readonly TarsTrayLaneId[] = ["needsYou", "running", "outputs"];
 
 const CONTROL_LABEL = {
   pause: "shell:tars.pause", resume: "shell:tars.resume", takeover: "shell:tars.takeOver", handBack: "shell:tars.handBack", cancel: "shell:tars.cancel",
@@ -101,24 +113,27 @@ const CONTROL_LABEL = {
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**
- * "1 running · 2 waiting · 1 needs you · 3 done": each part only when it
- * counts, as Fleet says its counts. Running counts only work that actually
- * runs; queued, paused and waiting work is "waiting", work the user took over
- * is "yours". Before a successful read the indicator says so instead of
- * claiming there is no work.
+ * "16 need you · 2 in progress · 4 done · 7 outputs": the lanes' own names and
+ * the numbers their headers show (`tarsTrayLaneCount`), each part only when it
+ * counts, so the indicator and the tray never disagree. Running work that
+ * needs the user is in Needs you, and counted there. Before a successful read
+ * the indicator says so instead of claiming there is no work.
  */
 export function describeTarsTrayCounts(counts: TarsTrayModel["counts"], status: TarsTrayStatus = "ready", outputs = 0) {
   if (status !== "ready") return i18n.t(`shell:tars.tray.indicator.${status}`);
   const parts = [
-    counts.running > 0 ? i18n.t("shell:tars.tray.indicator.running", { count: counts.running }) : null,
-    counts.waiting > 0 ? i18n.t("shell:tars.tray.indicator.waiting", { count: counts.waiting }) : null,
-    counts.yours > 0 ? i18n.t("shell:tars.tray.indicator.yours", { count: counts.yours }) : null,
     counts.needsYou > 0 ? i18n.t("shell:tars.tray.indicator.needsYou", { count: counts.needsYou }) : null,
+    counts.inProgress > 0 ? i18n.t("shell:tars.tray.indicator.inProgress", { count: counts.inProgress }) : null,
     counts.done > 0 ? i18n.t("shell:tars.tray.indicator.done", { count: counts.done }) : null,
     // Outputs are what work produced, not work: counted only when there are some.
     outputs > 0 ? i18n.t("shell:tars.tray.indicator.outputs", { count: outputs }) : null,
   ].filter((part): part is string => Boolean(part));
   return parts.length ? parts.join(" · ") : i18n.t("shell:tars.tray.indicator.empty");
+}
+
+/** The number a lane's header shows, the same number the indicator says for it. */
+export function tarsTrayLaneCount(counts: TarsTrayModel["counts"], lane: TarsLane) {
+  return lane === "needsYou" ? counts.needsYou : lane === "running" ? counts.inProgress : counts.done;
 }
 
 function IndicatorLabel({ counts, status, outputs }: { counts: TarsTrayModel["counts"]; status: TarsTrayStatus; outputs: number }) {
@@ -178,9 +193,13 @@ function actionLabel(action: TarsCardAction) {
 }
 
 /**
- * One main action and Open task stay visible; the rest fold into one menu, so
- * a card's actions keep to a single line. Every control still goes through
- * the view's host action path.
+ * A card's actions keep to one line: at most one primary action, then the
+ * secondary ones, then one menu with the rest. The primary action is a Tars
+ * proposal waiting for the user's Confirm, on the AUI decision rung; one that
+ * cannot be undone wears the danger tone, as on its decision card. The state's
+ * own control (pause, resume, hand back) and Open task are 24px secondary
+ * actions of one weight. Every control still goes through the view's host
+ * action path.
  */
 export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
@@ -196,16 +215,21 @@ export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardMod
     else actions.onAct(row, action.operation);
   };
   if (!primary && !row.taskId && !more.length && !grip) return null;
+  const decision = primary?.kind === "confirm" ? primary : null;
+  const moreLabel = t("shell:tars.tray.moreActions", { title: row.title });
   return <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.tray.controls", { title: row.title })} data-tars-card-actions="">
     {grip}
-    {/* A reversible confirmation is the card's primary action; one that cannot be undone is never filled primary, as on its decision card. */}
-    {/* A confirmation is a decision and keeps the 28px decision rung; a control and the rest are in-surface secondary actions on the 24px rung (AUI #809 A1). */}
-    {primary ? <Button variant={primary.kind !== "confirm" ? "secondary" : TARS_IRREVERSIBLE_OPERATIONS.has(primary.decision.operation) ? "destructive" : "default"} size={primary.kind === "confirm" ? "xs" : "2xs"} disabled={actions.busy}
+    {decision ? <Button variant={TARS_IRREVERSIBLE_OPERATIONS.has(decision.decision.operation) ? "destructive" : "default"} size="xs" disabled={actions.busy}
+      data-tars-action="confirm" data-tars-card-primary="" onClick={() => run(decision)}>{actionLabel(decision)}</Button> : null}
+    {primary && !decision ? <Button variant="ghost" size="2xs" disabled={actions.busy}
       data-tars-action={primary.kind === "control" ? primary.operation : primary.kind} onClick={() => run(primary)}>{actionLabel(primary)}</Button> : null}
     {row.taskId ? <Button variant="ghost" size="2xs" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
     {more.length ? <DropdownMenu placement="bottom-end"
       trigger={<Ellipsis aria-hidden />}
-      triggerProps={{ render: <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.moreActions", { title: row.title })} title={t("shell:tars.tray.moreActionsHint")} data-tars-more-actions={row.id} /> }}
+      // The menu's trigger is also the hint's trigger: the hint names it on hover and keyboard focus.
+      triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.tray.moreActionsHint")}>
+        <Button {...props} variant="ghost" size="icon-2xs" aria-label={moreLabel} data-tars-more-actions={row.id} />
+      </Tooltip> }}
       groups={[{ items: more.map((action) => ({ label: actionLabel(action), tone: action.kind === "control" && action.operation === "cancel" ? "danger" as const : "neutral" as const,
         disabled: action.kind !== "fleet" && actions.busy, onSelect: () => run(action) })) }]} /> : null}
   </div>;
@@ -258,13 +282,22 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     card.attention.length ? <ul key="attention" className={sx(runStyles.well, styles.attention)} data-tars-attention-list={card.attention.length}>
       {card.attention.map((entry) => {
         const { label, text } = describeAttention(row, entry);
+        const irreversible = entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
+          ? <Badge size="sm" tone="danger" variant="outlined" xstyle={styles.attentionEnd} data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null;
+        // A Tars decision's text already says what Tars proposes, so the row keeps one named mark instead of repeating a label.
+        if (entry.item.kind === "tars-decision") {
+          return <li key={entry.item.id} className={sx(styles.attentionRow, styles.attentionInline)} data-tars-attention={entry.item.kind}>
+            <span className={sx(styles.attentionMarkBox)}><StatusDot tone="warning" size="sm" aria-label={label} xstyle={monitorStyles.attentionMark} data-tars-attention-mark="" /></span>
+            {text ? <span className={sx(styles.attentionText, styles.attentionInlineText)}>{text}</span> : null}
+            {irreversible}
+          </li>;
+        }
         // One state tag per card: what needs the user reads as a marked label, not a second tag.
         return <li key={entry.item.id} className={sx(styles.attentionRow)} data-tars-attention={entry.item.kind}>
           <span className={sx(styles.attentionHead)}>
             <StatusDot tone="warning" size="sm" xstyle={monitorStyles.attentionMark} />
             <span className={sx(monitorStyles.attentionLabel)}>{label}</span>
-            {entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
-              ? <Badge size="sm" tone="danger" variant="outlined" xstyle={styles.attentionEnd} data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null}
+            {irreversible}
             {report && entry === blockedEntry ? <span className={sx(styles.attentionEnd)}>{report}</span> : null}
           </span>
           {text ? <span className={sx(styles.attentionText)}>{text}</span> : null}
@@ -310,9 +343,11 @@ function TarsQueuedCardItem({ card, actions, sortable }: { card: TarsTrayCardMod
     const direction = event.key === "ArrowUp" ? "earlier" : "later";
     if (!actions.busy && moves.includes(direction)) actions.onMove?.(row, { direction }, "click");
   };
-  const grip = sortable ? <Button ref={setHandleElement} variant="ghost" size="icon-2xs" data-tars-queue-grip={row.id}
-    aria-label={t("shell:tars.tray.reorder.handle", { title: row.title })} title={t("shell:tars.tray.reorder.hint")}
-    aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS} onKeyDown={onKeyDown}><GripVertical aria-hidden /></Button> : undefined;
+  const grip = sortable ? <Tooltip content={t("shell:tars.tray.reorder.hint")}>
+    <Button ref={setHandleElement} variant="ghost" size="icon-2xs" data-tars-queue-grip={row.id}
+      aria-label={t("shell:tars.tray.reorder.handle", { title: row.title })}
+      aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS} onKeyDown={onKeyDown}><GripVertical aria-hidden /></Button>
+  </Tooltip> : undefined;
   return <li ref={setRowElement} className={sx(styles.cardItem, styles.queuedItem, isDragging && styles.queuedItemDragging)} data-tars-queue-item={row.id}
     data-tars-queue-position={card.queue ? card.queue.position : undefined}>
     <TarsTrayCard card={card} actions={actions} grip={grip} />
@@ -335,30 +370,79 @@ function outputLabel(output: TarsOutput) {
   }
 }
 
-/** What finished or running work produced; each opens the side view, a recorded link opens where it points. */
+/** Each output's kind as a glyph; a side-view output wears the side view's own glyph for it. */
+const OUTPUT_ICON: Record<TarsOutput["kind"], LucideIcon> = { report: FileText, changes: FileDiff, review: SearchCheck, pullRequest: GitPullRequest, link: Link2 };
+
+/**
+ * What finished or running work produced. Every row says its kind with a
+ * glyph, then where it opens on the end: the side view beside the
+ * conversation, or the browser for a recorded link or pull request. The whole
+ * row is the opener, with the quiet hover and the focus ring.
+ */
 export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly TarsOutput[]; onOpenSide?: (target: TarsSideViewTarget) => void }) {
   const { t } = useTranslation(["shell"]);
   if (!outputs.length) return <p className={sx(styles.empty)}>{t("shell:tars.tray.emptyLane.outputs")}</p>;
   return <ul className={sx(styles.cards, styles.outputList)} data-tars-outputs="">
     {outputs.map((output, index) => {
       const label = outputLabel(output);
-      return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}>
-        {output.kind === "link" || output.kind === "pullRequest"
-          ? <a className={sx(styles.outputLink)} href={output.url} target="_blank" rel="noreferrer">
-            <span className={sx(styles.outputLabel)}>{label}</span><ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /></a>
-          : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputButton} disabled={!onOpenSide}
+      const KindIcon = OUTPUT_ICON[output.kind];
+      const external = output.kind === "link" || output.kind === "pullRequest";
+      const opens = t(external ? "shell:tars.tray.outputs.opensExternal" : "shell:tars.tray.outputs.opensSide");
+      const content = <>
+        <span className={sx(styles.outputGlyph)}><KindIcon aria-hidden className={sx(styles.outputIcon)} /></span>
+        <span className={sx(styles.outputText)}>
+          <span className={sx(styles.outputLabel)}>{label}</span>
+          <span className={sx(styles.outputMeta)}>{output.title}</span>
+        </span>
+        <span className={sx(styles.outputGlyph)} title={opens}>
+          {external ? <ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /> : <PanelRight aria-hidden className={sx(styles.outputIcon)} />}
+        </span>
+        {/* The side-view button is named by its label; a link reads its text, so it says where it opens in words. */}
+        {external ? <VisuallyHidden>{opens}</VisuallyHidden> : null}
+      </>;
+      return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}
+        data-tars-output-opens={external ? "external" : "side"}>
+        {external
+          ? <ExternalAnchor href={output.url} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ExternalAnchor>
+          : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputRow} disabled={!onOpenSide}
             aria-label={t("shell:tars.tray.outputs.open", { label, title: output.title })}
-            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, kind: OUTPUT_KIND[output.kind] })}>
-            <span className={sx(styles.outputLabel)}>{label}</span></Button>}
-        <span className={sx(styles.meta, styles.outputMeta)}>{output.title}</span>
+            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, kind: OUTPUT_KIND[output.kind] })}>{content}</Button>}
       </li>;
     })}
   </ul>;
 }
 
-/** Needs you, Running and Done, each folding on its own, then the outputs; the conversation beside it never moves. */
-export function TarsTray({ model, actions, outputs, clearing }: { model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[]; clearing?: TarsTrayClearing }) {
+/** One lane's sticky header: the chevron leading, the lane's name and count, then its Clear and Undo. */
+function TarsLaneHeader({ lane, count, open, surface, tools }: { lane: TarsTrayLaneId; count: number; open: boolean; surface: TarsTraySurface; tools?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
+  return <div className={sx(styles.laneHead, surface === "raised" ? styles.laneHeadOnRaised : styles.laneHeadOnCanvas)} data-tars-lane-head={lane}>
+    <Accordion.Header xstyle={styles.laneHeader}>
+      <Accordion.Trigger xstyle={styles.laneTrigger}>
+        <ChevronRight aria-hidden className={sx(styles.chevron, transition.transform, open && styles.chevronOpen)} data-tars-lane-chevron={open ? "open" : "closed"} />
+        <span className={sx(styles.sectionTitle, count === 0 && styles.sectionTitleEmpty)} data-tars-lane-empty={count === 0 ? "" : undefined}>
+          {t(`shell:tars.tray.lanes.${lane}`)}<span className={sx(styles.sectionCount)} data-tars-lane-count={count}>{count}</span>
+        </span>
+      </Accordion.Trigger>
+    </Accordion.Header>
+    {tools}
+  </div>;
+}
+
+/** What the tray sits on, which its sticky lane headers paint: the view's canvas when pinned, the popover's raised surface otherwise. */
+export type TarsTraySurface = "canvas" | "raised";
+
+/**
+ * Needs you, In progress and Done, each folding on its own, then the outputs;
+ * the conversation beside it never moves. A lane opens by default unless it is
+ * Done or empty; once the user folds or opens one, that choice holds for this
+ * tray. Lane headers stay pinned while their lane scrolls.
+ */
+export function TarsTray({ model, actions, outputs, clearing, surface = "canvas" }: {
+  model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[]; clearing?: TarsTrayClearing; surface?: TarsTraySurface;
+}) {
+  const { t } = useTranslation(["shell"]);
+  // Only what the user chose is kept; every other lane follows the default rule as its count changes.
+  const [chosen, setChosen] = useState<Partial<Record<TarsTrayLaneId, boolean>>>({});
   const queued = Object.values(model.lanes).flat().filter((card) => card.queue);
   // Reordering needs the host's move path and something to reorder with.
   const sortable = Boolean(actions.onMove) && queued.length > 1;
@@ -370,20 +454,25 @@ export function TarsTray({ model, actions, outputs, clearing }: { model: TarsTra
       if (source && move && !actions.busy) actions.onMove?.(source.row, move, "drag");
     },
   });
-  return <Accordion.Root multiple defaultValue={outputs ? [...OPEN_LANES, "outputs"] : OPEN_LANES} data-tars-tray="">
+  const counts: Partial<Record<TarsTrayLaneId, number>> = Object.fromEntries(LANES.map((lane) => [lane, tarsTrayLaneCount(model.counts, lane)]));
+  if (outputs) counts.outputs = outputs.length;
+  const isOpen = (lane: TarsTrayLaneId) => chosen[lane] ?? (OPEN_LANES.includes(lane) && (counts[lane] ?? 0) > 0);
+  const lanes: TarsTrayLaneId[] = outputs ? [...LANES, "outputs"] : [...LANES];
+  const value = lanes.filter(isOpen);
+  const onValueChange = (next: unknown[]) => setChosen((previous) => {
+    const updated = { ...previous };
+    for (const lane of lanes) if (next.includes(lane) !== value.includes(lane)) updated[lane] = next.includes(lane);
+    return updated;
+  });
+  return <Accordion.Root multiple value={value} onValueChange={onValueChange} data-tars-tray="">
     {LANES.map((lane) => {
       const cards = model.lanes[lane];
-      // The header says the indicator's number: Fleet's rows for needs you (one card may hold several), cards elsewhere.
-      const count = lane === "needsYou" ? model.counts.needsYou : cards.length;
+      const count = counts[lane] ?? 0;
       return <Accordion.Item key={lane} value={lane} data-tars-tray-lane={lane}>
-        <Accordion.Header>
-          <Accordion.Trigger>
-            <span className={sx(styles.sectionTitle)}>{t(`shell:tars.tray.lanes.${lane}`)}<span className={sx(styles.sectionCount)} data-tars-lane-count={count}>{count}</span></span>
-            <ChevronDown aria-hidden className={cx(sx(styles.chevron, transition.transform), "atelier-accordion-chevron")} />
-          </Accordion.Trigger>
-        </Accordion.Header>
+        <TarsLaneHeader lane={lane} count={count} open={isOpen(lane)} surface={surface}
+          tools={lane === "done" && clearing ? <TarsLaneTools scope="done" clearing={clearing} /> : undefined} />
         <Accordion.Panel>
-          {lane === "done" && clearing ? <TarsLaneTools scope="done" clearing={clearing} /> : null}
+          {lane === "done" && clearing ? <TarsLaneNote scope="done" clearing={clearing} /> : null}
           {cards.length ? <ul className={sx(styles.cards)}>
             {cards.map((card) => card.queue ? <TarsQueuedCardItem key={card.row.id} card={card} actions={actions} sortable={sortable} />
               : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
@@ -392,14 +481,10 @@ export function TarsTray({ model, actions, outputs, clearing }: { model: TarsTra
       </Accordion.Item>;
     })}
     {outputs ? <Accordion.Item value="outputs" data-tars-tray-lane="outputs">
-      <Accordion.Header>
-        <Accordion.Trigger>
-          <span className={sx(styles.sectionTitle)}>{t("shell:tars.tray.lanes.outputs")}<span className={sx(styles.sectionCount)} data-tars-lane-count={outputs.length}>{outputs.length}</span></span>
-          <ChevronDown aria-hidden className={cx(sx(styles.chevron, transition.transform), "atelier-accordion-chevron")} />
-        </Accordion.Trigger>
-      </Accordion.Header>
+      <TarsLaneHeader lane="outputs" count={outputs.length} open={isOpen("outputs")} surface={surface}
+        tools={clearing ? <TarsLaneTools scope="outputs" clearing={clearing} /> : undefined} />
       <Accordion.Panel>
-        {clearing ? <TarsLaneTools scope="outputs" clearing={clearing} /> : null}
+        {clearing ? <TarsLaneNote scope="outputs" clearing={clearing} /> : null}
         {!outputs.length && clearing?.outputs.hidden ? null : <TarsOutputList outputs={outputs} onOpenSide={actions.onOpenSide} />}
       </Accordion.Panel>
     </Accordion.Item> : null}

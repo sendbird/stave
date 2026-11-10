@@ -7,6 +7,7 @@ import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { RunMonitor, type RunMonitorSegment } from "@/components/aui/components/RunMonitor";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { AgentTextSwap } from "@/components/aui/components/agent-motion";
 import type { AgentStepState } from "@/components/aui/components/agent-state";
 import type { WorkState } from "@/components/aui/components/state-vocabulary";
@@ -119,8 +120,11 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
       completed: staged.finished, total: staged.total,
       stripLabel: t("shell:tars.tray.monitor.stagesLabel", { title: row.title }),
       segments: staged.stages.map((stage, index) => ({ state: SEGMENT_OF[segments[index]!], label: t(`shell:tars.tray.monitor.segment.${segments[index]!}`, { title: stage.title }) })),
-      label: count ? <span className={sx(styles.count)} aria-label={t("shell:tars.tray.monitor.stepCountLabel", count)} data-tars-monitor-count={`${count.position}/${count.total}`}>
-        {t("shell:tars.tray.monitor.stepCount", count)}</span>
+      // The bare "2/3" says what it counts in its hint on hover and, read aloud, in words.
+      label: count ? <Tooltip content={t("shell:tars.tray.monitor.stepCountLabel", count)}>
+        <span className={sx(styles.count)} data-tars-monitor-count={`${count.position}/${count.total}`}>
+          <span aria-hidden>{t("shell:tars.tray.monitor.stepCount", count)}</span><VisuallyHidden>{t("shell:tars.tray.monitor.stepCountLabel", count)}</VisuallyHidden>
+        </span></Tooltip>
         : t("shell:tars.tray.stagesDone", { finished: staged.finished, total: staged.total }),
     } : undefined}
     actions={actions} trailingActions={brief || timeline ? <span className={sx(styles.views)} data-tars-monitor-views="">{brief}{timeline}</span> : undefined}>
