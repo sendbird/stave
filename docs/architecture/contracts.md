@@ -652,6 +652,17 @@ Agent run and provider paths:
   `tars.brief`): the user's message and Tars's instruction a unit keeps from
   admission (`request`, `delegatedInstruction`), which `tarsSnapshotForWindow`
   leaves out of every snapshot like `mandate`
+- `src/lib/tars/usage.ts` — the usage view's read (`tars:get-usage`, handled
+  in main by `electron/main/tars-usage.ts`): the window sends the period it
+  computed in local time (`TarsUsageInputSchema`), main reads the completed
+  turns of each work's own task (`electron/persistence/task-turn-usage.ts`,
+  bounded by work and row count) and returns a `TarsUsageReport`, parsed again
+  in preload. It reports only what turn rows recorded and never estimates a
+  cost
+- `src/lib/tars/knowledge.ts` — what the "What Tars knows" view groups, and
+  the planner limits it states (`TARS_PLANNER_HISTORY_MESSAGES`,
+  `TARS_PLANNER_MAX_REPOSITORIES`), which `tars-planner.ts` and
+  `tars-context.ts` read from the same constants
 - `electron/host-service/tars-runtime.ts` — serialized admission,
   reconciliation and the one `act` control path
 - `electron/host-service/tars-control.ts` — deterministic control admission,
