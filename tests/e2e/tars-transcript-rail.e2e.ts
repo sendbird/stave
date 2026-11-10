@@ -233,3 +233,32 @@ test("every entry between messages pads like an exchange, so the transcript has 
   expect(new Set(entries.pads)).toEqual(new Set([entries.pads[0]!]));
   expect(entries.pads[0]).not.toBe("0px 0px");
 });
+
+test("card text follows the chat font size: the title and effect at the messages' size, secondary lines one step under", async ({ page }) => {
+  for (const size of [12, 16, 20]) {
+    await openGallery(page, `messageFontSize=${size}`);
+    const card = page.locator('[data-tars-message="g-f1"] [data-tars-decision]');
+    await card.scrollIntoViewIfNeeded();
+    const sizes = await card.evaluate((node) => {
+      const px = (element: Element) => parseFloat(getComputedStyle(element).fontSize);
+      return { title: px(node.querySelector("p")!), effect: px(node.querySelector("[data-tars-decision-effect]")!),
+        work: px(node.querySelector("[data-tars-record-work]")!), details: px(node.querySelector("[data-tars-decision-details-toggle]")!) };
+    });
+    // Secondary lines are the rail's size: 0.875 of the messages, never under the 12px caption tier.
+    const secondary = Math.max(12, size * 0.875);
+    expect(sizes).toEqual({ title: size, effect: size, work: secondary, details: secondary });
+  }
+});
+
+test("Enter on a card's Details opens it and confirms nothing, even on a card whose action takes Enter", async ({ page }) => {
+  await openGallery(page, "");
+  const card = page.locator('[data-tars-message="g-f1"] [data-tars-decision]');
+  await card.scrollIntoViewIfNeeded();
+  await expect(card.locator("[data-tars-decision-option='0']")).toHaveAttribute("aria-keyshortcuts", "1 Enter");
+  const details = card.locator("[data-tars-decision-details-toggle]");
+  await details.focus();
+  await page.keyboard.press("Enter");
+  await expect(details).toHaveAttribute("aria-expanded", "true");
+  await expect(card.locator('[data-tars-decision-row="revision"]')).toBeVisible();
+  await expect(card).toHaveAttribute("data-tars-decision-state", "waiting");
+});

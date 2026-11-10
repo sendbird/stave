@@ -77,14 +77,19 @@ for (const [theme, lang, density] of [["light", "en", "regular"], ["dark", "ko",
       expect(footer.order).toBe(true);
       expect(footer.trailing).toBeLessThanOrEqual(24);
 
-      // A refused answer: the ban mark on the first line, its outcome in words, and why on its own line under it.
+      // A refused answer: an inline alert under the options (not a record band inside the card), saying what was not applied and why.
       await send(page, "1");
       const refused = card.locator('[data-tars-decision-attempt="rejected"]');
       await expect(refused).toBeVisible();
-      await expect(refused).toHaveAttribute("data-tars-record-state", "refused");
-      await expect(refused.locator("[data-tars-record-status]")).toHaveText(lang === "ko" ? "적용하지 않음" : "Not applied");
-      expect(await recordGeometry(refused)).toEqual({ hasMark: true, markOffset: expect.any(Number), padInline: [0, 0], detailBelow: true, overflow: 0 });
-      expect((await recordGeometry(refused)).markOffset).toBeLessThanOrEqual(1.5);
+      await expect(refused).toHaveAttribute("role", "status");
+      await expect(refused).not.toHaveAttribute("data-tars-record-state");
+      await expect(refused.locator("strong")).toContainText(lang === "ko" ? "적용하지 않음:" : "Not applied:");
+      const alert = await refused.evaluate((node) => {
+        const options = node.parentElement!.querySelector("[data-tars-decision-options]")!.getBoundingClientRect();
+        const box = node.getBoundingClientRect();
+        return { below: box.top >= options.bottom - 0.5, overflow: node.scrollWidth - node.clientWidth };
+      });
+      expect(alert).toEqual({ below: true, overflow: 0 });
 
       // The recommended reply is chosen; Answer sends it and the card folds to its record on the rail, with no wash behind it.
       await editor(page).fill("");

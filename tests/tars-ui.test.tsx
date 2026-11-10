@@ -165,7 +165,9 @@ describe("Tars UI", () => {
       onAnswer: (decision: TarsDecisionView, index: number, source: string) => { answered.push([decision.id, index, source]); } };
     function Capture() { sink.tree = TarsConversationMessage(props); return sink.tree; }
     const html = renderToStaticMarkup(createElement(Capture));
-    expect(html).toContain("Awaiting your confirmation");
+    // The button says it waits, named by what it does; there is no waiting badge.
+    expect(html).not.toContain("Awaiting your confirmation");
+    expect(html).toMatch(/data-tars-decision-option="0"[^>]*>(?:(?!<\/button>).)*Hand back/);
     expect(html).toContain("Hand this work back to Tars?");
     expect(html).toContain("Verified result");
     expect(html).not.toContain("Hand back goal");

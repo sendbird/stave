@@ -432,10 +432,11 @@ test("a proposed cancel waits as a decision card, and the confirmed proposal fol
   await send(page, "Cancel the release check");
   const message = view.locator("[data-tars-message]");
   const card = message.locator('[data-tars-decision-state="waiting"]');
-  await expect(card).toContainText("Awaiting your confirmation");
-  await card.getByRole("button", { name: "Confirm", exact: true }).click();
+  // The button says what it does and that the card waits; there is no waiting badge.
+  await expect(card).not.toContainText("Awaiting your confirmation");
+  await card.getByRole("button", { name: "Cancel work", exact: true }).click();
   await expect(message.locator('[data-tars-decision-state="answered"]')).toContainText(/Cancel Verify the release candidate across two repositories.*Confirmed/);
-  await expect(message.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(0);
+  await expect(message.getByRole("button", { name: /^Cancel work/ })).toHaveCount(0);
   // The confirmation's own record shows on its card, not twice.
   await expect(view.locator("[data-tars-action-record]")).toHaveCount(0);
 });
@@ -533,11 +534,12 @@ test("an unverified completion is a decision card: verification work goes to the
   // It only drafts the request: nothing is answered or sent.
   await expect(editor(page)).toContainText("Start new work to verify");
   await expect(card).toBeVisible();
-  // Accepting and cancelling cannot be undone, so either keeps Answer out of the filled primary; asking for verification does not.
+  // Answer is always the card's primary action; accepting or cancelling, which cannot be undone, gives it the danger tone.
   await expect(submit).toHaveAttribute("data-variant", "primary");
+  await expect(submit).toHaveAttribute("data-tone", "default");
   await card.getByText("Cancel responsibility", { exact: true }).click();
   await expect(submit).toHaveAttribute("data-tone", "danger");
-  await expect(submit).not.toHaveAttribute("data-variant", "primary");
+  await expect(submit).toHaveAttribute("data-variant", "primary");
   await card.getByText("Accept as done", { exact: true }).click();
   await expect(submit).toHaveAttribute("data-tone", "danger");
   await submit.click();
@@ -604,18 +606,21 @@ test("an approval cut to fit says so under its request and offers its task, in b
       await send(page, "Approve the release script");
       const request = view.locator('[data-tars-decision-row="request"]');
       await expect(request).toBeVisible();
-      // The text ends in the mark and keeps its line break; the note and the task sit under it, inside the card.
-      await expect(request.locator("dd")).toContainText("set -euo pipefail");
+      // The request is a code block: mono, wrapped at the card's edge; it ends in the mark and keeps its line break; the note and
+      // the task sit under it, inside the card.
+      const command = request.locator("[data-tars-decision-command]");
+      await expect(command).toContainText("set -euo pipefail");
       await expect(request.locator("[data-tars-decision-truncated]")).toContainText(note);
       await expect(request.locator("[data-tars-decision-open-task]")).toBeVisible();
       const geometry = await request.evaluate((row) => {
-        const value = row.querySelector("dd")!;
-        const text = [...value.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("");
+        const value = row.querySelector("[data-tars-decision-command]")!;
+        const style = getComputedStyle(value);
         const card = row.closest("[data-tars-decision]")!.getBoundingClientRect();
         const note = row.querySelector("[data-tars-decision-truncated]")!.getBoundingClientRect();
-        return { endsWithMark: text.endsWith("…"), lines: getComputedStyle(value).whiteSpace, inside: note.left >= card.left && note.right <= card.right + 0.5 };
+        return { endsWithMark: value.textContent!.endsWith("…"), lines: style.whiteSpace, mono: /mono/i.test(style.fontFamily), scroll: value.scrollWidth - value.clientWidth,
+          noteBelow: note.top >= value.getBoundingClientRect().bottom - 0.5, inside: note.left >= card.left && note.right <= card.right + 0.5 };
       });
-      expect(geometry).toEqual({ endsWithMark: true, lines: "pre-wrap", inside: true });
+      expect(geometry).toEqual({ endsWithMark: true, lines: "pre-wrap", mono: true, scroll: 0, noteBelow: true, inside: true });
     }
   }
 });
@@ -838,8 +843,19 @@ test("a confirmation card names its effect, marks what cannot be undone, and Esc
   const card = view.locator('[data-tars-decision-kind="confirm"][data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Cancel this work?");
   await expect(card).toContainText("Can't be undone");
-  await expect(card.locator("[data-tars-decision-rows]")).toHaveAttribute("data-tars-decision-rows", "repository,workspace,revision,effect");
+  await expect(card.locator("[data-tars-decision-effect]")).toHaveText("Ends Tars's supervision. Changes already made stay.");
+  // Where it runs waits behind Details, collapsed; opening it shows the repository, workspace and revision.
+  const details = card.locator("[data-tars-decision-details-toggle]");
+  await expect(details).toHaveAttribute("aria-expanded", "false");
+  await expect(card.locator('[data-tars-decision-row="workspace"]')).toBeHidden();
+  await details.click();
+  await expect(card.locator("[data-tars-decision-rows]")).toHaveAttribute("data-tars-decision-rows", "repository,workspace,revision");
   await expect(card.locator('[data-tars-decision-row="workspace"]')).toContainText("Release check");
+  // Cancelling can't be undone: the main action is the primary button in the danger tone, named by its verb.
+  const confirm = card.locator("[data-tars-decision-option='0']");
+  await expect(confirm).toHaveAttribute("data-variant", "primary");
+  await expect(confirm).toHaveAttribute("data-tone", "danger");
+  await expect(confirm).toContainText("Cancel work");
   await expect(card.getByRole("button", { name: "Not now", exact: true })).toHaveAttribute("aria-keyshortcuts", "Escape");
   // The tray offers the same confirmation without inviting it: not filled primary, with the same cue.
   const trayConfirm = page.getByRole("complementary").getByRole("button", { name: "Confirm cancel", exact: true });
@@ -865,7 +881,9 @@ test("Korean decision text wraps between words, not inside one", async ({ page }
   const card = page.getByTestId("tars-view").locator('[data-tars-decision-kind="unverifiedCompletion"][data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Stave가 완료를 확인하지 못했습니다");
   expect(await card.evaluate((node) => getComputedStyle(node).wordBreak)).toBe("keep-all");
-  await expect(card.locator('[data-tars-decision-risk-tag]')).toHaveText("되돌릴 수 없음");
+  // Can't be undone is said on each option it applies to, not again in the header.
+  await expect(card.locator('[data-tars-decision-risk-tag]')).toHaveText(["되돌릴 수 없음", "되돌릴 수 없음"]);
+  await expect(card.locator('[data-tars-decision-options] [data-tars-decision-risk-tag]')).toHaveCount(2);
   const geometry = await card.evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
 });

@@ -247,7 +247,9 @@ describe("Tars flow block", () => {
     expect(superseded).not.toContain("data-tars-decision-option");
     // Without a snapshot nothing is offered on a guess: the card shows, its option is disabled.
     const unknown = render(null);
-    expect(unknown).toContain("Awaiting your confirmation");
+    // The one tag a waiting card keeps: the work is still being checked.
+    expect(unknown).toContain("Checking the work");
+    expect(unknown).not.toContain("Awaiting your confirmation");
     expect(unknown).toMatch(/<button[^>]*disabled=""[^>]*data-tars-decision-option="0"|<button[^>]*data-tars-decision-option="0"[^>]*disabled=""/);
     await inKorean(() => expect(render([release], true)).toContain("더 이상 대기하지 않음"));
   });

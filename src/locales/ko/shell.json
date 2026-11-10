@@ -1745,7 +1745,29 @@
         "escKey": "Esc",
         "answer": "답하기",
         "about": "{{title}} 관련",
-        "optionsLabel": "고를 수 있는 답"
+        "optionsLabel": "고를 수 있는 답",
+        "action": {
+          "pause": "일시 정지",
+          "resume": "재개",
+          "cancel": "작업 취소",
+          "takeover": "직접 맡기",
+          "handBack": "다시 맡기기",
+          "acceptCompletion": "완료로 인정",
+          "startNow": "지금 시작",
+          "extend": "턴 추가",
+          "retryStage": "단계 다시 시도",
+          "skipStage": "단계 건너뛰기",
+          "signOff": "승인",
+          "approve": "승인",
+          "deny": "거절",
+          "answer": "답변 보내기",
+          "message": "Task에 보내기",
+          "requestChanges": "변경 요청"
+        },
+        "showDetails": "세부 정보",
+        "requestFrom": "{{tool}} 요청",
+        "checking": "작업 확인 중",
+        "attemptRefused": "적용하지 않음: {{option}}"
       },
       "outcome": {
         "pending": "적용 중",
@@ -1960,6 +1982,11 @@
         "escKey": "Esc",
         "keysHint": "Enter를 누르면 Draft PR을 엽니다. Esc를 누르면 거절합니다.",
         "bodyHint": "고정된 결과 보고서로 Stave가 만들었고, 보이는 그대로 보냅니다.",
+        "bodyView": {
+          "label": "PR 본문 보기 방식",
+          "preview": "미리 보기",
+          "raw": "원문"
+        },
         "required": "커밋 메시지와 PR 제목을 입력해 주세요.",
         "resumeStep": {
           "commit": "커밋",
