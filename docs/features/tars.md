@@ -744,8 +744,34 @@ warning tone, completed work the success tone, and queued, waiting, paused and
 taken-over work stays neutral, told apart by its glyph and word. The header
 counts work as **running** only while its run is active (running, or
 preparing with its run created); the rest of **In progress** counts as
-**waiting**, or **yours** once you took it over. The conversation's one-line
-notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
+**waiting**, or **yours** once you took it over. The conversation's notices
+use the state's own word: **Completed**, **Blocked**, **Cancelled**.
+
+**Ended work shows what it came to.** Where work completes or stops, the
+conversation shows a result card under the notice's row (the state, the work,
+its agent and how long the run worked). The card shows only what the run
+recorded:
+
+- The completion criteria, each with what backs it. **Met · confirmed by a
+  check** is a criterion whose own Stave check passed on the revision the run
+  ended on. **Met · confirmed by review** is one the independent review passed
+  on that revision. **Met · agent's report only** is everything else that was
+  reported met: nothing Stave ran or reviewed confirms it. **Not met**,
+  **Not confirmed** and **Not reported** are the report's own statuses. Checks
+  Stave ran and saw pass are named on one line under the list; they back the
+  result as a whole and never turn a single criterion into a verified one.
+- The last summary from the report, cut to two lines, with **Open report**.
+- The changed files with lines added and removed, and **View changes**; the
+  review's result; and the draft pull request as a link, or **Create draft
+  PR** where the work can be published.
+- For blocked work, and for work that **Failed** (a step that could not start,
+  or a run that stopped for a reason other than unmet criteria): the reason in
+  your language, the tool's own message under **Technical details**, the
+  controls that state admits (the tray's own, such as **Resume**, **Take
+  over** and **Open task**) and **Open timeline**.
+
+A cancel stays one row. So does an earlier stop the work has since moved on
+from: only the newest notice of a piece of work carries its card and controls.
 
 **Live progress is observed, never inferred.** Under the monitor, in the flow
 block, in the composer band and at the top of the timeline, Tars says what it

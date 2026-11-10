@@ -1898,6 +1898,38 @@
         "refresh": "새로 고침"
       }
     },
+    "result": {
+      "label": "{{title}} 결과",
+      "views": "{{title}} 보기",
+      "outcome": {
+        "failed": "실패"
+      },
+      "criteria": {
+        "title": "완료 기준",
+        "verifiedCheck": "충족 · 검사로 확인",
+        "verifiedReview": "충족 · 리뷰로 확인",
+        "reported": "충족 · 에이전트 보고만 있음",
+        "unmet": "미충족",
+        "unverified": "확인 안 됨",
+        "staveChecks": "Stave가 직접 실행해 통과를 확인: {{checks}}",
+        "notReported": "보고 없음"
+      },
+      "changes_other": "파일 {{count}}개 변경",
+      "changesUncounted": "파일 변경됨",
+      "review": {
+        "passed": "리뷰 통과",
+        "changesRequested": "리뷰에서 수정 요청",
+        "blocked": "리뷰를 끝내지 못함",
+        "recorded": "리뷰 기록됨",
+        "findings_other": "발견 사항 {{count}}개"
+      },
+      "openReport": "보고서 열기",
+      "openReportFor": "{{title}} 보고서 열기",
+      "openChanges": "변경 사항 보기",
+      "openChangesFor": "{{title}} 변경 사항 보기",
+      "openTimeline": "타임라인 열기",
+      "openTimelineFor": "{{title}} 타임라인 열기"
+    },
     "delivery": {
       "queued": "실행의 현재 턴이 끝나기를 기다리는 중입니다. 끝나면 Tars가 Task에 한 번 전달합니다.",
       "delivering": "지금 Task에 전달하고 있습니다.",

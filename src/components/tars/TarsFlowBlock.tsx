@@ -24,6 +24,7 @@ import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
+import { TarsResultCard, useTarsResult } from "./TarsResultCard";
 import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
 
@@ -209,6 +210,9 @@ const NOTICE_STATE: Record<TarsActivityNotice["kind"], TarsRecordState> = { comp
  */
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
+  // Completed, blocked or failed work the view still holds shows its result card; a cancel, and work it no longer reads, stay this one row.
+  const result = useTarsResult(notice);
+  if (result) return <TarsResultCard notice={notice} result={result} />;
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
   const diagnostic = notice.kind === "completed" ? null : describeTarsResponsibilityDiagnostic(notice.activity);
   return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} at={notice.activity.createdAt}
