@@ -41,7 +41,7 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
     // Unless a test says otherwise, the run is observed as it was last saved: an unchanged observation.
     observe: async (row) => observations.get(row.id) ?? { state: row.state === "preparing" ? "running" : row.state as TarsExecutionObservation["state"],
       detail: row.detail, detailCode: row.detailCode ?? null, detailParams: row.detailParams ?? null, stageAsksUser: row.stageAsksUser,
-      runTurns: row.observedTurns },
+      ...(row.stageWait ? { stageWait: row.stageWait } : {}), runTurns: row.observedTurns },
     controlRun: async (_row, operation) => { runControls.push(operation); } });
   const coordinator = createSecondaryRunCoordinator({
     getLedger: () => ({ getRunAggregate: ledger.getAggregate.bind(ledger), claimRunStep: ledger.claimStep.bind(ledger),

@@ -200,10 +200,11 @@ describe("Tars control through the host path", () => {
   });
 
   test("a spoken start now applies at once, starts each named queued work beside running work and replays once", async () => {
-    const f = fixture();
+    const f = fixture({ concurrencyLimit: () => 1 });
     const running = f.responsibility("running", true);
     const first = f.responsibility("queued", false);
     const second = f.responsibility("queued", false);
+    const unnamed = f.responsibility("queued", false);
     const spoken = await f.say([first, second].map((row) => ({ kind: "control" as const, responsibilityId: row.id, expectedRevision: row.revision, operation: "startNow" as const })), "queued된 작업 바로 실행해");
     const receipts = await spoken.apply();
     // Not a proposal waiting for Confirm: the user's words already asked for it.
@@ -211,6 +212,7 @@ describe("Tars control through the host path", () => {
     await f.settle();
     for (const row of [first, second]) expect(f.store.get(row.id)).toMatchObject({ state: "running", agentRunId: `run-${row.id}` });
     expect(f.store.get(running.id)?.state).toBe("running");
+    expect(f.store.get(unnamed.id)?.state).toBe("queued");
     // A lost acknowledgement replays the saved receipts without starting anything again.
     expect(await spoken.apply()).toEqual(receipts);
     expect(f.calls.filter((call) => call === "start")).toHaveLength(2);

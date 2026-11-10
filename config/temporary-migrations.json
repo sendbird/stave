@@ -1,18 +1,5 @@
 {
   "version": 1,
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
-  "migrations": [
-    {
-      "id": "aui-rename-spacing-baseline",
-      "description": "The spacing ratchet keys declarations by their text. A PR whose base commit predates the AUI rename (#814) has `--ads-*` keys there, so the renamed declarations would read as new debt. The check compares the base keys after the same rename. At expiry every open branch is based after the rename; delete the marked block.",
-      "introducedAfter": "0.31.0",
-      "removeInVersion": "0.33.0",
-      "files": [
-        "scripts/check-spacing-baseline.mjs"
-      ],
-      "tests": [
-        "tests/spacing-baseline-rename.test.ts"
-      ]
-    }
-  ]
+  "migrations": []
 }

@@ -249,7 +249,7 @@ describe("changing the agent of work Tars holds", () => {
         actions.selectModel({ selection });
         await settle(() => toasts.length === 2);
         expect(toasts[0]).toEqual({ title: "Tars가 이 작업의 에이전트를 맡고 있습니다",
-          description: "에이전트를 바꾸거나 해제하면 Tars의 실행이 끝납니다. 먼저 작업을 직접 맡은 뒤(여기서 직접 제어, 또는 Fleet이나 Tars에서 직접 맡기) 바꾸세요." });
+          description: "에이전트를 바꾸면 Tars의 실행이 끝나므로 먼저 작업을 직접 맡으세요." });
       } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
       expect(calls).toEqual([]);
       expect(selected()).toBe(0);

@@ -374,6 +374,86 @@ describe("Tars writes shared by main and the host-service", () => {
   });
 });
 
+describe("Tars composer draft", () => {
+  test("is saved, read back after a restart, and deleted with null", () => {
+    const filename = persisted();
+    const first = open(filename);
+    expect(first.store.getDraft()).toBeNull();
+    first.store.saveDraft({ text: "Unsent words", includeWorkingChanges: true, requestId: null });
+    first.database.close();
+    const reopened = open(filename);
+    expect(reopened.store.getDraft()).toEqual({ text: "Unsent words", includeWorkingChanges: true, requestId: null });
+    reopened.store.saveDraft(null);
+    expect(reopened.store.getDraft()).toBeNull();
+  });
+
+  test("is not announced as a conversation change", () => {
+    const { store } = open();
+    const scopes: string[] = [];
+    store.onChange((scope) => scopes.push(scope));
+    store.saveDraft({ text: "Typing", includeWorkingChanges: false, requestId: null });
+    store.saveDraft(null);
+    expect(scopes).toEqual([]);
+  });
+
+  test("is deleted in the same write that saves the message carrying its request ID, also on a retried request", () => {
+    const { store } = open();
+    store.saveDraft({ text: input.text, includeWorkingChanges: false, requestId: input.requestId });
+    store.create(input, NOW);
+    expect(store.getDraft()).toBeNull();
+    // The draft was re-saved without the request ID after an edit; a retry of the old request leaves it alone.
+    store.saveDraft({ text: "A newer draft", includeWorkingChanges: false, requestId: null });
+    store.create(input, NOW);
+    expect(store.getDraft()).toEqual({ text: "A newer draft", includeWorkingChanges: false, requestId: null });
+    // A lost acknowledgement retried with the saved request ID clears the draft that carries it.
+    store.saveDraft({ text: input.text, includeWorkingChanges: false, requestId: input.requestId });
+    store.create(input, NOW);
+    expect(store.getDraft()).toBeNull();
+  });
+
+  test("survives a send the host refused before saving it", () => {
+    const { store } = open();
+    store.create(input, NOW);
+    const next = { requestId: "message-b", text: "Queue another change." };
+    store.saveDraft({ text: next.text, includeWorkingChanges: false, requestId: next.requestId });
+    // One message is still outstanding, so the host refuses this one and rolls the write back: the draft stays.
+    expect(() => store.create(next, NOW, 1)).toThrow("Too many outstanding messages");
+    expect(store.getDraft()).toEqual({ text: next.text, includeWorkingChanges: false, requestId: next.requestId });
+  });
+
+  test("a draft whose request is already a message is never saved again or offered", () => {
+    const { database, store } = open();
+    store.create(input, NOW);
+    // A retry after a lost acknowledgement re-saves the draft with the sent request ID before the message call reaches the host.
+    store.saveDraft({ text: input.text, includeWorkingChanges: false, requestId: input.requestId });
+    expect(store.getDraft()).toBeNull();
+    expect(database.prepare("SELECT COUNT(*) AS count FROM tars_composer_drafts").get()).toEqual({ count: 0 });
+    // A row left by an older build is hidden the same way.
+    database.prepare("INSERT INTO tars_composer_drafts (id, body_json) VALUES ('personal', ?)")
+      .run(JSON.stringify({ text: input.text, includeWorkingChanges: false, requestId: input.requestId }));
+    expect(store.getDraft()).toBeNull();
+  });
+
+  test("an unreadable row reads as no draft and invalid drafts are refused", () => {
+    const { database, store } = open();
+    database.prepare("INSERT INTO tars_composer_drafts (id, body_json) VALUES ('personal', ?)").run("{not json");
+    expect(store.getDraft()).toBeNull();
+    expect(() => store.saveDraft({ text: "x", includeWorkingChanges: false, requestId: null, workspaceId: "a" } as never)).toThrow();
+  });
+
+  test("keeps the mark of a request that also carried files, and still drops that draft when the message is saved", () => {
+    const { store } = open();
+    const attachments = [{ type: "file_context" as const, filePath: "notes.md", content: "Scope", language: "md" }];
+    const withFiles = { requestId: "with-files", text: "Read the notes", attachments };
+    // The files themselves are not part of the saved draft; only the mark that its request carried some.
+    store.saveDraft({ text: withFiles.text, includeWorkingChanges: false, requestId: withFiles.requestId, requestHadAttachments: true });
+    expect(store.getDraft()).toEqual({ text: withFiles.text, includeWorkingChanges: false, requestId: withFiles.requestId, requestHadAttachments: true });
+    store.create(withFiles, NOW);
+    expect(store.getDraft()).toBeNull();
+    expect(() => store.saveDraft({ text: "x", includeWorkingChanges: false, requestId: null, attachments } as never)).toThrow();
+  });
+});
+
 test("attachment snapshots survive a database reopen and reject invalid or oversized payloads", () => {
   const filename = persisted();
   const first = open(filename);

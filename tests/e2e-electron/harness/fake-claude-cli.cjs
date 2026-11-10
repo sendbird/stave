@@ -29,6 +29,7 @@
  * The first turn whose prompt contains `[hold]` keeps running until a
  * `release` file appears in `FAKE_CLAUDE_DIR`, so a spec can act while a turn
  * runs. Later prompts that carry it in their history answer at once.
+ * `FAKE_CLAUDE_HOLD_ALL=1` holds every such turn for concurrent-execution tests.
  *
  * Launch it through a wrapper on `STAVE_CLAUDE_CLI_PATH` (see
  * `agent-run-usage-limit.electron.e2e.ts`).
@@ -153,7 +154,7 @@ function answerTurn(line) {
       stop_reason: "end_turn", session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [], uuid: randomUUID() });
   };
   const heldOnce = path.join(dir, "held-once");
-  if (line.includes("[hold]") && !fs.existsSync(heldOnce)) {
+  if (line.includes("[hold]") && (process.env.FAKE_CLAUDE_HOLD_ALL === "1" || !fs.existsSync(heldOnce))) {
     fs.writeFileSync(heldOnce, "");
     const release = path.join(dir, "release");
     const timer = setInterval(() => {

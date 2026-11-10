@@ -12,7 +12,7 @@ import { TarsFlowBlock, TarsFlowNodes, TarsFlowStageNode } from "../src/componen
 import { TarsConversation, TarsConversationMessage, type TarsFlowContext } from "../src/components/tars/TarsConversation";
 import type { TarsConversationState } from "../src/components/tars/use-tars-conversation";
 import { buildTarsFlow } from "../src/lib/tars/flow-model";
-import { buildTarsTray, TARS_CONVERSATION_MIN_WIDTH, type TarsTrayDecision, type TarsTrayModel } from "../src/lib/tars/tray-model";
+import { buildTarsTray, TARS_CONVERSATION_MIN_WIDTH, TARS_TRAY_WIDTH, type TarsTrayDecision, type TarsTrayModel } from "../src/lib/tars/tray-model";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import { projectTarsDecisions } from "../src/lib/tars/decisions";
 import type { FleetFocusTarget } from "../src/store/fleet-focus-store";
@@ -162,9 +162,10 @@ describe("Tars tray UI", () => {
     expect(fleet).toEqual([{ workspaceId: "exec-release", taskId: "task-release" }]);
   });
 
-  test("the pinned layout restates the conversation floor the model defines", () => {
+  test("the pinned layout restates the tray width and the conversation floor the model defines", () => {
     const source = readFileSync(path.join(import.meta.dir, "../src/components/tars/tars-tray.styles.ts"), "utf8");
     expect(source).toContain(`const CONVERSATION_FLOOR = "${TARS_CONVERSATION_MIN_WIDTH}px";`);
+    expect(source).toContain(`const TRAY_WIDTH = "${TARS_TRAY_WIDTH / 16}rem";`);
   });
 });
 
@@ -330,4 +331,21 @@ describe("Tars run monitor agent motion", () => {
     expect(rollClass).toBeTruthy();
     expect(markup).toContain(`class="${rollClass}"`);
   });
+});
+
+// Queued reasons use only the scheduler's read model, with no inferred single-running blocker.
+test("queued cards show capacity evidence or an explicitly unknown cause in both locales", async () => {
+  const f = buildTarsTrayFixtures(new Date("2026-11-09T00:00:00.000Z"));
+  for (const language of ["en", "ko"] as const) {
+    applyAppLocale(language); await i18n.changeLanguage(language);
+    for (const queueWait of [{ code: "capacity" as const, active: 32, limit: 32 }, { code: "unknown" as const }]) {
+      const row = { ...f.responsibilities[0]!, state: "queued" as const, agentRunId: null, queueWait };
+      const model = buildTarsTray({ responsibilities: [row], attentionItems: [], runs: {} });
+      const html = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.running[0]!, actions: noActions }));
+      expect(html).toContain(`data-tars-queue-wait="${queueWait.code}"`);
+      expect(html).toContain(queueWait.code === "capacity" ? "32" : language === "ko" ? "확인되지" : "not been confirmed");
+      expect(html).not.toContain("data-tars-waiting-behind");
+    }
+  }
+  applyAppLocale("en"); await i18n.changeLanguage("en");
 });

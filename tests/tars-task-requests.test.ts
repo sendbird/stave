@@ -6,13 +6,13 @@ import { createTarsRuntime, type TarsExecutionObservation } from "../electron/ho
 import { actTars, type TarsControlRequest } from "../electron/host-service/tars-control";
 import { applyTarsDecision } from "../electron/host-service/tars-decisions";
 import { tarsFollowUpRefusal } from "../electron/host-service/tars-follow-up-admission";
-import { describePendingRequests } from "../electron/host-service/local-mcp-pending";
+import { boundApprovalSummary, describePendingRequests, PENDING_REQUEST_SUMMARY_MAX } from "../electron/host-service/local-mcp-pending";
 import {
   TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, TarsDecisionActionSchema, tarsConfirmationRequestId,
   type TarsControlOperation, type TarsDecisionAction,
 } from "../src/lib/tars/conversation";
 import { describeTarsControlInput } from "../src/lib/tars/decisions";
-import type { TarsControlInput, TarsPendingRequest, TarsResponsibility } from "../src/lib/tars/types";
+import { TarsPendingRequestSchema, type TarsControlInput, type TarsPendingRequest, type TarsResponsibility } from "../src/lib/tars/types";
 import type { ChatMessage } from "../src/types/chat";
 
 const NOW = "2026-11-09T00:00:00.000Z";
@@ -192,7 +192,8 @@ describe("Task operation rules", () => {
   test("the card shows the request, the answers or the words before anyone confirms", () => {
     const row = { pendingRequests: [APPROVAL, QUESTION] } as Pick<TarsResponsibility, "pendingRequests">;
     const control = (operation: TarsControlOperation, input: TarsControlInput) => ({ responsibilityId: "r", expectedRevision: 1, operation, input });
-    expect(describeTarsControlInput(control("approve", { requestRef: "ref-approval-1" }), row)).toEqual({ key: "request", value: "Bash: Run the test suite — bun test" });
+    expect(describeTarsControlInput(control("approve", { requestRef: "ref-approval-1" }), row)).toEqual({ key: "request", value: "Bash: Run the test suite — bun test",
+      truncated: false, source: { taskId: "exec-task", workspaceId: "execution" } });
     expect(describeTarsControlInput(control("answer", { requestRef: "ref-question-1", answers: { index: "existing" } }), row))
       .toEqual({ key: "answers", value: "Which index? → existing" });
     expect(describeTarsControlInput(control("message", { text: "Use the existing index." }), row)).toEqual({ key: "words", value: "Use the existing index." });
@@ -200,7 +201,7 @@ describe("Task operation rules", () => {
 
   test("pending requests are copied bounded from the task's messages", () => {
     const messages = [{ id: "m1", role: "assistant", parts: [
-      { type: "approval", requestId: "approval-1", toolName: "Bash", description: "Run the test suite", input: "bun   test", state: "approval-requested" },
+      { type: "approval", requestId: "approval-1", toolName: "Bash", description: "Run the test suite", input: "bun test", state: "approval-requested" },
     ] }, { id: "m2", role: "assistant", parts: [
       { type: "user_input", requestId: "question-1", toolName: "AskUserQuestion", state: "input-requested",
         questions: [{ question: "Which index?", header: "Index", options: [{ label: "existing", description: "" }, { label: "new", description: "" }] }] },
@@ -211,6 +212,44 @@ describe("Task operation rules", () => {
         questions: [{ key: "Which index?", question: "Which index?", options: ["existing", "new"] }] },
     ]);
     expect(describePendingRequests(messages, 1)).toHaveLength(1);
+  });
+
+  test("a long approval is cut with a visible mark and flagged, never shown as the whole command", () => {
+    const command = `set -e\n${Array.from({ length: 40 }, (_, index) => `echo step-${index} >> /tmp/log`).join(" && ")}\nrm -rf ./build`;
+    const messages = [{ id: "m1", role: "assistant", parts: [
+      { type: "approval", requestId: "approval-1", toolName: "Bash", description: "Run the release script", input: command, state: "approval-requested" },
+    ] }] as unknown as ChatMessage[];
+    const [request] = describePendingRequests(messages, 6);
+    expect(request).toMatchObject({ kind: "approval", truncated: true });
+    expect(request!.summary.length).toBeLessThanOrEqual(PENDING_REQUEST_SUMMARY_MAX);
+    expect(request!.summary.endsWith("…")).toBe(true);
+    // The tail the user would be approving is not in the summary, and the summary does not pretend it is whole.
+    expect(request!.summary).not.toContain("rm -rf ./build");
+    // Line breaks stay: a multi-line command does not read as one line.
+    expect(request!.summary.startsWith("Run the release script — set -e\necho step-0")).toBe(true);
+    // The host's copy still fits the snapshot schema the window and the planner read.
+    expect(TarsPendingRequestSchema.safeParse({ ...request, ref: "ref", taskId: "task", workspaceId: "workspace" }).success).toBe(true);
+    // A short one stays whole and unflagged.
+    expect(describePendingRequests([{ ...messages[0]!, parts: [{ ...messages[0]!.parts[0]!, input: "bun test" }] }] as ChatMessage[], 6)[0])
+      .not.toHaveProperty("truncated");
+  });
+
+  test("bounding keeps lines, folds blank runs and never splits a surrogate pair", () => {
+    expect(boundApprovalSummary("a  b\r\n\r\n\r\n\r\nc   \n  d")).toEqual({ summary: "a  b\n\nc\n  d", truncated: false });
+    expect(boundApprovalSummary("x".repeat(500))).toEqual({ summary: "x".repeat(500), truncated: false });
+    const cut = boundApprovalSummary(`${"x".repeat(498)}😀tail`);
+    expect(cut).toEqual({ summary: `${"x".repeat(498)}…`, truncated: true });
+    expect(cut.summary.length).toBeLessThanOrEqual(PENDING_REQUEST_SUMMARY_MAX);
+  });
+
+  test("the card marks a cut request and names the task that shows it whole", () => {
+    const cut = { ...APPROVAL, summary: "Run the release script — set -e…", truncated: true as const, taskId: "helper-task", workspaceId: "helper-workspace" };
+    const row = { pendingRequests: [cut] } as Pick<TarsResponsibility, "pendingRequests">;
+    expect(describeTarsControlInput({ responsibilityId: "r", expectedRevision: 1, operation: "approve", input: { requestRef: cut.ref } }, row))
+      .toEqual({ key: "request", value: "Bash: Run the release script — set -e…", truncated: true, source: { taskId: "helper-task", workspaceId: "helper-workspace" } });
+    // A request the window no longer holds names only its ref, and offers no task.
+    expect(describeTarsControlInput({ responsibilityId: "r", expectedRevision: 1, operation: "approve", input: { requestRef: "gone" } }, row))
+      .toEqual({ key: "request", value: "gone", truncated: false, source: null });
   });
 });
 

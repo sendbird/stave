@@ -100,3 +100,11 @@ export function describeTarsWorkingChanges(row: Pick<TarsResponsibility, "workin
     ? i18n.t("shell:tars.workingChanges.snapshot", { commit: changes.commit.slice(0, TARS_SHORT_COMMIT_CHARS) })
     : i18n.t("shell:tars.workingChanges.clean");
 }
+
+/** Only scheduler evidence explains a queued row; another running row alone proves nothing. */
+export function describeTarsQueueWait(row: Pick<TarsResponsibility, "state" | "queueWait">): string | null {
+  if (row.state !== "queued") return null;
+  const wait = row.queueWait;
+  if (wait?.code === "capacity") return i18n.t("shell:tars.queueWait.capacity", { active: wait.active, limit: wait.limit });
+  return i18n.t(wait?.code === "storageBusy" ? "shell:tars.queueWait.storageBusy" : "shell:tars.queueWait.unknown");
+}

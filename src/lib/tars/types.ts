@@ -1,12 +1,13 @@
 import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
+import type { SaveTarsComposerDraftInput, TarsComposerDraft } from "./composer-draft";
 import type {
-  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessage,
+  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
-import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
+import { AGENT_RUN_LIMITS, STAGE_BLOCK_KINDS } from "../agent-runs/domain";
 import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-name";
 import { TarsPublicationSchema } from "./publication";
 
@@ -35,6 +36,10 @@ export const TARS_IPC = Object.freeze({
   reprioritize: "tars:reprioritize",
   /** Reads one responsibility's saved message and Tars's instruction (`TarsBrief`); changes nothing. */
   getBrief: "tars:get-brief",
+  /** Reads the saved composer draft; `null` when there is none. */
+  getDraft: "tars:get-draft",
+  /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
+  saveDraft: "tars:save-draft",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -63,7 +68,7 @@ export type TarsState = z.infer<typeof TarsStateSchema>;
 /**
  * The controls a click, Fleet, a task or an admitted model proposal can apply.
  * - `acceptCompletion`: the user accepts work whose completion Stave could not verify.
- * - `startNow`: the user starts queued work at once, ahead of the queue and outside the portfolio slot.
+ * - `startNow`: the user starts queued work at once, ahead of the queue and outside any configured admission limit.
  * - `extend`, `retryStage`, `skipStage`, `signOff`: what the user can do to the
  *   run in its task (add turns at its turn limit, ask a blocked or stuck stage
  *   again, skip the current stage, approve a stage waiting for sign-off).
@@ -123,7 +128,8 @@ export function tarsControlInputProblem(operation: TarsControlOperation, input: 
  * answering. `ref` identifies it by workspace, task, message and provider
  * request id together, since a provider may reuse a request id; a task
  * operation names it by `ref`. `summary` is the tool's own description
- * (untrusted text).
+ * (untrusted text); `truncated` marks one cut to fit (it ends in "…"), whose
+ * task shows it whole.
  */
 export const TarsPendingRequestSchema = z.object({
   kind: z.enum(["approval", "question"]),
@@ -134,6 +140,7 @@ export const TarsPendingRequestSchema = z.object({
   workspaceId: IdSchema,
   toolName: z.string().max(120),
   summary: z.string().max(500),
+  truncated: z.literal(true).optional(),
   questions: z.array(z.object({
     key: z.string().min(1).max(TARS_QUESTION_KEY_MAX_CHARS),
     question: z.string().max(300),
@@ -242,6 +249,60 @@ export const TarsWorkRequestSchema = z.object({
 }).strict();
 export type TarsWorkRequest = z.infer<typeof TarsWorkRequestSchema>;
 
+/** The most attachments one message carries (`AttachmentContextsSchema`), so the most one work can carry. */
+export const TARS_MESSAGE_ATTACHMENTS_MAX = 8;
+
+/**
+ * What a window shows of one attachment: its name, a file's language or an
+ * image's MIME type, and its size in bytes (a file's UTF-8 text, an image's
+ * decoded data). The content itself stays in the host for the planner.
+ */
+export const TarsAttachmentSummarySchema = z.object({
+  kind: z.enum(["file", "image"]),
+  name: z.string().trim().min(1).max(500),
+  type: z.string().max(200),
+  size: z.number().int().min(0),
+}).strict();
+export type TarsAttachmentSummary = z.infer<typeof TarsAttachmentSummarySchema>;
+
+/**
+ * The admitting message's attachments a work carries, as a reference: which
+ * of them (`index`, the attachment's position in the message) with each one's
+ * summary. Their content stays in the message's row in the conversation store
+ * and is read only for the first turn of the work's run (`tarsRunAttachmentContext`),
+ * so neither this row nor any snapshot copies it.
+ */
+export const TarsWorkAttachmentsSchema = z.object({
+  messageId: IdSchema,
+  items: z.array(TarsAttachmentSummarySchema.extend({ index: z.number().int().min(0).max(TARS_MESSAGE_ATTACHMENTS_MAX - 1) }).strict())
+    .min(1).max(TARS_MESSAGE_ATTACHMENTS_MAX)
+    .refine((items) => new Set(items.map((item) => item.index)).size === items.length),
+}).strict();
+export type TarsWorkAttachments = z.infer<typeof TarsWorkAttachmentsSchema>;
+
+/**
+ * What the run's own waiting stage waits for, saved beside `stageAsksUser`:
+ * - `question`: the stage asks the user. Its agent blocked it with
+ *   `stave_block_stage` of kind `input` or `permission`; `missing` is its
+ *   question and `suggestedAction` its suggestion.
+ * - `signOff`: the stage waits for the user's sign-off.
+ * - `gate`: one of Stave's own checks stopped it, and it asks the user no
+ *   question; it needs verification or a next step. `gate` says which:
+ *   `acceptanceUnmet` (a required criterion unmet or unverified), `stuck` (no
+ *   report after the reminder, or provider retries spent),
+ *   `reportingUnavailable`, `actionFailed`, or `blocker` (the agent blocked on
+ *   its environment or an outside service, `blockKind`).
+ * `missing` and `suggestedAction` are the run's own words: untrusted.
+ */
+export const TarsStageWaitSchema = z.object({
+  kind: z.enum(["question", "signOff", "gate"]),
+  gate: z.enum(["acceptanceUnmet", "stuck", "reportingUnavailable", "actionFailed", "blocker"]).optional(),
+  blockKind: z.enum(STAGE_BLOCK_KINDS).optional(),
+  missing: z.string().max(AGENT_RUN_LIMITS.report.missing).optional(),
+  suggestedAction: z.string().max(AGENT_RUN_LIMITS.report.suggestedAction).optional(),
+}).strict();
+export type TarsStageWait = z.infer<typeof TarsStageWaitSchema>;
+
 /**
  * Set only by host decision admission, never by the renderer's create request.
  * - `branchName`: the execution workspace's branch, built by
@@ -257,9 +318,13 @@ export type TarsWorkRequest = z.infer<typeof TarsWorkRequestSchema>;
  * - `delegatedInstruction`: the unit's instruction exactly as Tars proposed
  *   it, before the host combined it with the user's message into the run
  *   assignment (`instruction`).
+ * - `attachments`: the admitting message's files and images the work carries
+ *   (`TarsWorkAttachmentsSchema`), a reference only; the run's first turn
+ *   receives their content. Absent when the message had none or Tars gave
+ *   this unit none.
  *
- * `request` and `delegatedInstruction` never change after admission; work
- * admitted before they were saved has neither (see `buildTarsBrief`).
+ * `request`, `delegatedInstruction` and `attachments` never change after
+ * admission; work admitted before they were saved has none (see `buildTarsBrief`).
  */
 const TarsAdmittedWorkFields = {
   branchName: z.string().trim().min(1).max(TARS_BRANCH_NAME_MAX_CHARS + TARS_BRANCH_SUFFIX_CHARS).optional(),
@@ -267,6 +332,7 @@ const TarsAdmittedWorkFields = {
   workingChanges: TarsWorkingChangesSchema.optional(),
   request: TarsWorkRequestSchema.optional(),
   delegatedInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS).optional(),
+  attachments: TarsWorkAttachmentsSchema.optional(),
 };
 
 /**
@@ -280,6 +346,14 @@ export const AdmittedTarsResponsibilityInputSchema = CreateTarsResponsibilityInp
 }).strict();
 export type AdmittedTarsResponsibilityInput = z.input<typeof AdmittedTarsResponsibilityInputSchema>;
 
+/** Live scheduler evidence; projected on reads, never persisted as a historical blocker. */
+export const TarsQueueWaitSchema = z.discriminatedUnion("code", [
+  z.object({ code: z.literal("capacity"), active: z.number().int().min(0), limit: z.number().int().min(1) }).strict(),
+  z.object({ code: z.literal("storageBusy") }).strict(),
+  z.object({ code: z.literal("unknown") }).strict(),
+]);
+export type TarsQueueWait = z.infer<typeof TarsQueueWaitSchema>;
+
 export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.extend({
   id: IdSchema,
   /** The execution model pin; null runs the work on automatic routing. */
@@ -291,20 +365,27 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   maxTurns: z.number().int().min(1).max(100),
   revision: z.number().int().min(1),
   state: TarsStateSchema,
+  queueWait: TarsQueueWaitSchema.optional(),
   detail: z.string().max(2_000).nullable(),
   ...DetailCodeFields,
   taskId: IdSchema.nullable(),
   executionWorkspaceId: IdSchema.nullable(),
   agentRunId: IdSchema.nullable(),
+  /** A start may have committed without its acknowledgement; only a receipt read clears this reservation. */
+  executionPending: z.boolean().optional(),
   /** Set by a hand-back: completion needs a final verification started at or after this time. */
   reverifyAfter: z.iso.datetime().nullable(),
   /**
    * Set by observation while `waiting` because the run's own current stage
-   * blocked, got stuck or awaits sign-off to ask the user for a decision.
-   * Absent for plain waits: the user paused the run, a usage-limit or other
-   * run pause, or a tool approval or question the user answers in the task.
+   * blocked, got stuck or awaits sign-off, so Tars judges it at once.
+   * `stageWait` says whether the stage actually asks the user (`question`,
+   * `signOff`) or one of Stave's own checks stopped it (`gate`). Absent for
+   * plain waits: the user paused the run, a usage-limit or other run pause, or
+   * a tool approval or question the user answers in the task.
    */
   stageAsksUser: z.boolean().optional(),
+  /** What the waiting stage waits for (`TarsStageWaitSchema`); only with `stageAsksUser`. Absent on rows observed before it existed. */
+  stageWait: TarsStageWaitSchema.optional(),
   /**
    * The run's turn count when it was last observed waiting. A turn taken
    * since is activity, so it saves a change that restarts the quiet wait even
@@ -345,13 +426,14 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
 export type TarsResponsibility = z.infer<typeof TarsResponsibilitySchema>;
 
 /** The saved texts a window reads one responsibility at a time (`tars:get-brief`), never with every snapshot. */
-const HOST_ONLY_TEXT = ["mandate", "request", "delegatedInstruction"] as const satisfies readonly (keyof TarsResponsibility)[];
+const HOST_ONLY_TEXT = ["mandate", "request", "delegatedInstruction", "attachments"] as const satisfies readonly (keyof TarsResponsibility)[];
 
 /**
  * The snapshot a window reads. A responsibility's `mandate` (up to
- * `TARS_MESSAGE_MAX_CHARS`), the user's message that admitted it and Tars's
- * own instruction can be long, so they stay in the host instead of crossing
- * IPC on every change; the request view reads them on demand (`buildTarsBrief`).
+ * `TARS_MESSAGE_MAX_CHARS`), the user's message that admitted it, Tars's
+ * own instruction and the names of the attachments it carries can be long,
+ * so they stay in the host instead of crossing IPC on every change; the
+ * request view reads them on demand (`buildTarsBrief`).
  */
 export function tarsSnapshotForWindow<T extends { responsibilities: readonly TarsResponsibility[] }>(snapshot: T): T {
   if (!snapshot.responsibilities.some((row) => HOST_ONLY_TEXT.some((key) => row[key] !== undefined))) return snapshot;
@@ -364,7 +446,8 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
+  executionPending: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;
@@ -442,9 +525,10 @@ export type TarsSnapshot = z.infer<typeof TarsSnapshotSchema>;
 export interface TarsBridgeApi {
   /** Available on the desktop bridge; older/browser preview bridges may omit conversation support. */
   configureConversation?(input: TarsConversationSettings): Promise<TarsConversationSettings>;
-  sendMessage?(input: TarsMessageInput): Promise<TarsMessage>;
+  /** Returns the saved message as a window reads it: attachment summaries, never their content. */
+  sendMessage?(input: TarsMessageInput): Promise<TarsMessageView>;
   getConversation?(input?: GetTarsConversationInput): Promise<TarsConversation>;
-  cancelMessage?(input: CancelTarsMessageInput): Promise<TarsMessage>;
+  cancelMessage?(input: CancelTarsMessageInput): Promise<TarsMessageView>;
   get(): Promise<TarsSnapshot>;
   create(input: CreateTarsResponsibilityInput): Promise<TarsSnapshot>;
   /** Pause, resume, cancel, take over or hand back through the host's admitted control path. */
@@ -459,6 +543,9 @@ export interface TarsBridgeApi {
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
   getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
+  /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */
+  getDraft?(): Promise<TarsComposerDraft | null>;
+  saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

@@ -2,9 +2,9 @@ import {
   TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
 import type {
-  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAnswer, TarsMessage, TarsMessageOrigin,
+  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
-import type { TarsActivity, TarsDecisionKind, TarsResponsibility } from "./types";
+import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
 
 /**
  * One decision shape for three sources: a control the model proposed that
@@ -53,10 +53,13 @@ type ControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevi
 /**
  * What a task operation's card shows before the user confirms it: the
  * request it answers (tool and summary, as the task last showed them) or the
- * exact words it sends. Null for controls without input.
+ * exact words it sends. Null for controls without input. A request the host
+ * cut to fit is `truncated`, with the task that shows it whole (`source`),
+ * so the card never presents part of a command as the whole of it.
  */
 export function describeTarsControlInput(control: ControlRequest, row: Pick<TarsResponsibility, "pendingRequests"> | undefined):
-  { key: "request" | "answers" | "words"; value: string } | null {
+  | { key: "request"; value: string; truncated: boolean; source: Pick<TarsPendingRequest, "taskId" | "workspaceId"> | null }
+  | { key: "answers" | "words"; value: string } | null {
   const input = control.input;
   if (!input) return null;
   if (input.text !== undefined) return { key: "words", value: input.text };
@@ -65,7 +68,8 @@ export function describeTarsControlInput(control: ControlRequest, row: Pick<Tars
     const questionOf = (key: string) => request?.questions?.find((question) => question.key === key)?.question || key;
     return { key: "answers", value: Object.entries(input.answers).map(([key, answer]) => `${questionOf(key)} → ${answer}`).join("\n") };
   }
-  return { key: "request", value: request ? [request.toolName, request.summary].filter(Boolean).join(": ") : input.requestRef ?? "" };
+  return { key: "request", value: request ? [request.toolName, request.summary].filter(Boolean).join(": ") : input.requestRef ?? "",
+    truncated: request?.truncated === true, source: request ? { taskId: request.taskId, workspaceId: request.workspaceId } : null };
 }
 
 /**
@@ -109,6 +113,8 @@ export interface TarsDecisionView {
   latest: boolean;
   /** A confirmation made outside the card (Fleet, the tray): its record. */
   record: TarsActionRecord | null;
+  /** Words it sent to a busy task: where their delivery stands (`TarsMessageDelivery`); null otherwise. */
+  delivery: TarsMessageDelivery | null;
   since: string;
   /** Invalid, asked by Tars and still the newest message: Tars asks once more by itself. */
   reask: boolean;
@@ -118,7 +124,8 @@ export interface TarsDecisionView {
 
 export interface TarsDecisionSources {
   /** Conversation order, oldest first. */
-  messages: readonly TarsMessage[];
+  /** Saved messages or a window's views of them; attachments are never read. */
+  messages: readonly Omit<TarsMessage, "attachments">[];
   receipts: readonly TarsActionReceipt[];
   records: readonly TarsActionRecord[];
   answers: readonly TarsDecisionAnswer[];
@@ -203,10 +210,12 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
    * example past its own automatic follow-up). Only then does a later message
    * retire a question that is otherwise still valid.
    */
-  function settle(view: Omit<TarsDecisionView, "state" | "why" | "checked" | "reask" | "reasked" | "failure" | "latest">, retiredBy: TarsDecisionWhy | null,
+  function settle(view: Omit<TarsDecisionView, "state" | "why" | "checked" | "reask" | "reasked" | "failure" | "latest" | "delivery">, retiredBy: TarsDecisionWhy | null,
     origin: TarsMessageOrigin | undefined, movedOn = false): TarsDecisionView {
     const latest = view.messageId !== null ? lastMessage?.id === view.messageId : !lastMessage || lastMessage.createdAt <= view.since;
-    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest };
+    // The control an answer applied keeps its record under the answer's request id (the proposal's own id for a confirmation).
+    const delivery = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record)?.delivery ?? null;
+    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
     const targets = targetsOf(view.targets);

@@ -16,7 +16,7 @@ import { tarsLiveStyles as styles } from "./tars-live.styles";
 type LiveRow = Pick<TarsResponsibility, "id" | "title" | "state" | "agentRunId" | "taskId">;
 
 /**
- * What Stave last observed about the work, in one caption line:
+ * What Stave last observed about the work, in one line:
  * - running, turn streaming: what the turn is doing and when it was seen;
  * - running between turns: that no turn runs now, and the last update;
  * - running with nothing observed for a while: how long, in the warning ink;

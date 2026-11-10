@@ -170,6 +170,20 @@ describe("run store", () => {
     expect(store.listEvents("agent-run-1", { limit: AGENT_RUN_LIMITS.maxRetainedEvents + 10 }).some((event) => event.kind === "agent-run-started")).toBe(true);
   });
 
+  test("a user turn is found by its own ID, however many user turns the run recorded before it", () => {
+    store.create(startChange(), AGENT_RUN_NOW);
+    // One more user turn than a list of the run's events holds; each is keyed as the runtime records it.
+    const turns = AGENT_RUN_LIMITS.maxRetainedEvents + 1;
+    database.transaction(() => {
+      for (let index = 0; index < turns; index += 1)
+        store.recordEvent("agent-run-1", { kind: "user-turn", idempotencyKey: `agent-run-1:user-turn:turn-${index}`, detail: { turnId: `turn-${index}` } }, AGENT_RUN_NOW);
+    })();
+    expect(store.hasUserTurn("agent-run-1", "turn-0")).toBe(true);
+    expect(store.hasUserTurn("agent-run-1", `turn-${turns - 1}`)).toBe(true);
+    expect(store.hasUserTurn("agent-run-1", "turn-missing")).toBe(false);
+    expect(store.hasUserTurn("agent-run-2", "turn-0")).toBe(false);
+  });
+
   test("a pause older than the retention bound still counts against the run's active time", () => {
     store.create(startChange("agent-run-1"), AGENT_RUN_NOW);
     store.recordEvent("agent-run-1", { kind: "paused", idempotencyKey: null, detail: {} }, AGENT_RUN_NOW);

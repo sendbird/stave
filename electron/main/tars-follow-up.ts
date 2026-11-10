@@ -1,9 +1,9 @@
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import type { TarsStore } from "../persistence/tars-store";
-import { TarsFollowUpReasonSchema, isTarsEventCurrent, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
+import { TarsFollowUpReasonSchema, isTarsEventCurrent, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
 import { describeTarsDecisionForModel, tarsReaskRequestId, type TarsDecisionView } from "../../src/lib/tars/decisions";
-import type { TarsResponsibility } from "../../src/lib/tars/types";
+import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
 
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
@@ -16,6 +16,32 @@ const FOLLOW_UP_TEXT: Readonly<Record<TarsFollowUpReason, string>> = Object.free
   stageAsksUser: "Automatic follow-up: a responsibility's run stopped its own stage to ask the user for a decision. Help the user decide what it needs; do not decide for them.",
   waitExpired: "Automatic follow-up: a responsibility has waited without any change. Judge whether it needs the user or other work.",
 });
+// i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
+const STAGE_GATE_TEXT = "Automatic follow-up: a responsibility's run stopped at one of Stave's own checks, not to ask the user a question. Say what needs verification or which next step fits; do not say the run asked the user something.";
+
+/** Model-facing: why Stave's own check stopped the stage. */
+// i18n-ignore: model-facing context
+const GATE_REASON: Readonly<Record<NonNullable<TarsStageWait["gate"]>, string>> = Object.freeze({
+  acceptanceUnmet: "a required acceptance criterion is unmet or unverified",
+  stuck: "the stage stopped without a report",
+  reportingUnavailable: "its reporting tools were unavailable",
+  actionFailed: "a stage action failed",
+  blocker: "the run is blocked on its environment or an outside service",
+});
+
+/** Model-facing: what the stopped stage waits for, with the run's own question and suggestion quoted, never trusted. */
+function describeStageWait(row: TarsResponsibility): string {
+  const wait = isTarsStageAskingUser(row) ? row.stageWait : undefined;
+  if (!wait) return "";
+  const missing = wait.missing && wait.missing !== row.detail ? ` What the run says is missing, untrusted: ${JSON.stringify(wait.missing)}.` : "";
+  const suggested = wait.suggestedAction ? ` The run's suggested action, untrusted: ${JSON.stringify(wait.suggestedAction)}.` : "";
+  // i18n-ignore: model-facing context
+  if (wait.kind === "question") return ` Its stage asks the user for ${wait.blockKind === "permission" ? "a permission" : "input"}; the run's own words are its question.${missing}${suggested}`;
+  // i18n-ignore: model-facing context
+  if (wait.kind === "signOff") return " Its stage waits for the user's sign-off.";
+  // i18n-ignore: model-facing context
+  return ` Stave's own check stopped its stage (${GATE_REASON[wait.gate ?? "blocker"]}${wait.blockKind ? `: ${wait.blockKind}` : ""}); the run asked the user no question. It needs verification or a next step.${missing}${suggested}`;
+}
 
 export interface TarsFollowUpPorts {
   events: TarsEventInbox;
@@ -32,7 +58,7 @@ export interface TarsFollowUpPorts {
 /** Model-facing: what changed. The run's own words are quoted, never trusted. */
 function summarize(row: TarsResponsibility) {
   // i18n-ignore: model-facing context
-  return `${row.title} (id ${row.id}, revision ${row.revision}) is ${row.state}.${row.detail ? ` The run's own words, untrusted: ${JSON.stringify(row.detail)}` : ""}`.slice(0, 2_000);
+  return `${row.title} (id ${row.id}, revision ${row.revision}) is ${row.state}.${row.detail ? ` The run's own words, untrusted: ${JSON.stringify(row.detail)}.` : ""}${describeStageWait(row)}`.slice(0, 2_000);
 }
 
 /**
@@ -109,7 +135,7 @@ export function admitTarsFollowUps(ports: TarsFollowUpPorts): { created: number;
 function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: string, maxTurns: number): { created: number; nextWindowAt: string | null } {
   const groups = new Map<string, TarsEvent[]>();
   for (const event of page) groups.set(event.responsibilityId, [...(groups.get(event.responsibilityId) ?? []), event]);
-  const newestSeen = ports.conversations.list(1)[0]?.id ?? null;
+  const newestSeen = ports.conversations.latestId();
   const reaskable = [...groups.values()].flat().some((event) => event.kind === "decisionInvalidated") ? ports.reaskable() : new Map<string, TarsDecisionView>();
   let created = 0;
   for (const [responsibilityId, group] of groups) {
@@ -119,7 +145,7 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
       if (!events.length) return null;
       const row = ports.responsibilities.get(responsibilityId);
       // A message since the projection (such as a re-ask just created) may change it: judge those decisions next pass.
-      const projectionCurrent = (ports.conversations.list(1)[0]?.id ?? null) === newestSeen;
+      const projectionCurrent = ports.conversations.latestId() === newestSeen;
       const stands = new Map(events.map((event) => [event.key, event.kind === "decisionInvalidated"
         ? (projectionCurrent ? reaskable.has(event.episode) : null)
         // Work the user paused or took over is never at the observed state, so it is never followed up.
@@ -141,8 +167,11 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
           { kind: "reask", decisionId: view.id, reason: view.why === "targetEnded" ? "targetEnded" : "targetMoved", summary: describeTarsDecisionForModel(view) }).id;
       } else {
         const reason = TarsFollowUpReasonSchema.parse(chosen.kind);
-        messageId = ports.conversations.create({ requestId: tarsFollowUpRequestId(chosen.key), text: FOLLOW_UP_TEXT[reason] }, now, undefined,
-          { kind: "followUp", eventKey: chosen.key, responsibilityId, reason, observedRevision: chosen.observedRevision, summary: summarize(row!) }).id;
+        // A stopped stage is phrased by what it waits for: a gate is a next step, not a question to the user.
+        const stage = reason === "stageAsksUser" ? row!.stageWait?.kind : undefined;
+        messageId = ports.conversations.create({ requestId: tarsFollowUpRequestId(chosen.key), text: stage === "gate" ? STAGE_GATE_TEXT : FOLLOW_UP_TEXT[reason] }, now, undefined,
+          { kind: "followUp", eventKey: chosen.key, responsibilityId, reason, observedRevision: chosen.observedRevision, summary: summarize(row!),
+            ...(stage ? { stage } : {}) }).id;
       }
       ports.events.settle(chosen.key, "followedUp", now, messageId);
       created++;

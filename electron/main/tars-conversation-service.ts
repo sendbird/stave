@@ -9,6 +9,7 @@ import {
 } from "../../src/lib/tars/decisions";
 import { admitTarsFollowUps, claimTarsMessage, releaseTarsFollowUpStart, supersedeStaleTarsFollowUp, tarsAutomaticStartDeferral } from "./tars-follow-up";
 import type { TarsStore } from "../persistence/tars-store";
+import { SaveTarsComposerDraftInputSchema } from "../../src/lib/tars/composer-draft";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { createSecondaryRunCoordinator } from "./runs/secondary-run-coordinator";
 import { processTarsMessage, tarsMessageRunIdentity, type TarsPlannerContext } from "./tars-planner";
@@ -102,7 +103,8 @@ export function createTarsConversationService(ports: ConversationPorts) {
 
   /** The saved state every decision is projected from, read by exact identity where the window could miss it. */
   function decisions() {
-    const messages = ports.conversations.list(DECISION_WINDOW);
+    // Decisions read words, receipts and origins: never attachment content.
+    const messages = ports.conversations.listViews(DECISION_WINDOW);
     const receipts = messages.flatMap((message) => ports.conversations.listReceipts(message.id));
     const snapshot = ports.responsibilities.snapshot();
     const activity = ports.responsibilities.listActivity(DECISION_WINDOW);
@@ -293,12 +295,20 @@ export function createTarsConversationService(ports: ConversationPorts) {
     },
     getConversation(rawInput: unknown = {}) {
       const { limit, activityLimit } = GetTarsConversationInputSchema.parse(rawInput);
-      const messages = ports.conversations.list(limit);
+      // A window reads this on every change: attachment summaries only, the content stays for the planner.
+      const messages = ports.conversations.listViews(limit);
       return TarsConversationSchema.parse({ settings: ports.conversations.getSettings(),
         activity: ports.responsibilities.listActivity(activityLimit), messages,
         receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)),
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
         events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit) });
+    },
+    /** The composer draft is the user's words, not reasoning work: it stays readable and writable while the service is stopped. */
+    getDraft() {
+      return ports.conversations.getDraft();
+    },
+    saveDraft(rawInput: unknown) {
+      ports.conversations.saveDraft(SaveTarsComposerDraftInputSchema.parse(rawInput).draft);
     },
     /**
      * Answers one option of a waiting decision. The option is read from saved

@@ -59,3 +59,10 @@ test("malformed or unscoped flush replies cannot settle the current request", ()
     }).success,
   ).toBe(true);
 });
+
+test("the unsaved-changes notice names the Tars draft, whose failed save also lands here", async () => {
+  const en = (await import("../src/locales/en/desktop.json")).default.unsavedChanges;
+  const ko = (await import("../src/locales/ko/desktop.json")).default.unsavedChanges;
+  expect(en.message).toContain("Tars draft");
+  expect(ko.message).toContain("Tars 초안");
+});

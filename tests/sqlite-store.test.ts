@@ -1775,6 +1775,25 @@ describe("SqliteStore", () => {
     }
   });
 
+  nativeSqliteTest("a host registry update edits the value saved by another connection", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const main = new SqliteStore({ dbPath });
+    const host = new SqliteStore({ dbPath });
+    const entry = (repositoryPath: string) => ({ repositoryPath, repositoryName: repositoryPath, lastOpenedAt: "2026-11-09T00:00:00.000Z", defaultBranch: "main",
+      workspaces: [], activeWorkspaceId: "", workspaceBranchById: {}, workspacePathById: {}, workspaceDefaultById: {} });
+    try {
+      main.saveRepositoryRegistry({ repositories: [entry("/a")], keepUnseenWorkspaces: true });
+      const result = host.updateRepositoryRegistry((persisted) => ({ repositories: [...persisted, entry("/b")], result: persisted.length }));
+      expect(result).toBe(1);
+      expect(main.loadRepositoryRegistry().map((repository) => repository.repositoryPath)).toEqual(["/a", "/b"]);
+      expect(() => host.updateRepositoryRegistry(() => { throw new Error("refused"); })).toThrow("refused");
+      expect(main.loadRepositoryRegistry()).toHaveLength(2);
+    } finally {
+      main.close();
+      host.close();
+    }
+  });
+
   nativeSqliteTest(
     "persistTaskTurnDelta declines a legacy inline-message payload",
     async () => {

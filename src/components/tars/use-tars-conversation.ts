@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { i18n } from "@/i18n";
 import type { TarsBridgeApi } from "@/lib/tars/types";
-import type { TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsConversationSettings, TarsMessage, TarsMessageInput } from "@/lib/tars/conversation";
+import type { TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsConversationSettings, TarsMessageInput, TarsMessageView } from "@/lib/tars/conversation";
 import { coalesceTarsReads } from "@/store/tars-snapshot-store";
 import { createTarsRequestQueue } from "./use-tars";
 
-export function mergeTarsMessage(conversation: TarsConversation, message: TarsMessage): TarsConversation {
+export function mergeTarsMessage(conversation: TarsConversation, message: TarsMessageView): TarsConversation {
   const previous = conversation.messages.find((item) => item.id === message.id);
   if (previous && previous.revision > message.revision) return conversation;
   return { ...conversation, messages: previous ? conversation.messages.map((item) => item.id === message.id ? message : item) : [...conversation.messages, message] };
@@ -42,6 +42,8 @@ export function useTarsConversation(bridge: TarsBridgeApi | undefined) {
     apply(mergeTarsMessage(latest.current, message));
     return message;
   }), [apply, bridge, mutate]);
+  /** A send that stopped before it reached the host (its draft could not be saved) shows the same failure as one the host refused. */
+  const reportSendFailure = useCallback(() => fail(null), [fail]);
   const configure = useCallback((settings: TarsConversationSettings) => mutate(async () => {
     const saved = await bridge!.configureConversation!(settings);
     apply({ ...latest.current, settings: saved });
@@ -79,6 +81,6 @@ export function useTarsConversation(bridge: TarsBridgeApi | undefined) {
       document.removeEventListener("visibilitychange", onFocus);
     };
   }, [bridge, refresh]);
-  return { conversation, error, busy, available, refresh, send, configure, cancel, answer };
+  return { conversation, error, busy, available, refresh, send, reportSendFailure, configure, cancel, answer };
 }
 export type TarsConversationState = ReturnType<typeof useTarsConversation>;

@@ -448,7 +448,9 @@ setup form; an unclear execution target is resolved in the conversation.
 Switching workspaces keeps the same history, and you can chat before adding a
 repository.
 
-Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. The conversation shows only each attachment's name; the contents, such as image data, are read only when Tars reasons about that message and when the work it delegates starts, not on every refresh. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+
+The attachments also go to the work the message delegates, so you can send a screenshot with "fix this" and the agent doing the work sees it. The work's run receives them with its first turn, as attached files and images, and does not send them again on later turns; its helpers get only what the lead passes on. When one message starts several works, each gets every attachment unless Tars gives a work only the ones it needs, such as one screenshot per bug. Queued work keeps them through a restart. If the saved attachments cannot be read when the work starts, its first turn waits with the reason instead of running without them. The work's **Request** view lists them by name.
 
 Open **Settings** in the header for the name, standing instructions,
 conversation model and account, execution model, the agents Tars may use and
@@ -530,10 +532,12 @@ The tray's fourth section, **Outputs**, lists what work produced: the
 pull request (which opens in the browser). The header adds the outputs count,
 such as "1 done · 4 outputs", only when there are some. An output, or
 **Request** at the bottom of any work card, opens the side view beside the
-conversation; on a wide window it takes the tray's place
-and the tray folds to its header until you close it, and the conversation always
-keeps at least 440 px. On a narrow window it opens between the conversation and
-the message box, at most 40% of the height, and scrolls. Switch between
+conversation; on a wide window it takes the tray's place at the tray's width, so
+the conversation does not move, and the tray folds to its header until you close
+it. Each panel names itself in its title bar: the tray's **Work**, and the side
+view's kind, such as **Run timeline**, with the work's title under it. On a
+narrow window it opens between the conversation and the message box, at most 40%
+of the height, and scrolls. Switch between
 **Request**, **Report**, **Changes**, **Timeline** and **Review** at its top; Esc or the
 close button closes it and returns focus to what opened it. You can also ask,
 such as "show me the report" or "보고서 보여줘"; Tars only opens the view and
@@ -546,10 +550,20 @@ conversation.
   the work exactly as you sent it, with when you sent it (or, when it was your
   choice on a Tars question, that question). **Tars's instruction** is what
   Tars wrote for this work; the run receives it together with your message.
+  **N attachments** names the files and images from your message that the
+  work carries; its run receives them with its first turn.
   **Completion criteria** lists the saved criteria. Long text, line breaks and
-  code are shown whole, and each text has a copy button. Work Tars took on
-  before this view existed says **The original message was not saved for this
-  work** and shows the whole instruction the run received instead.
+  code are shown whole, and each text has a copy button. For work Tars took on
+  before this view existed, Stave reads the message that started it back from
+  the conversation and shows it as **Your message**, next to the whole
+  instruction the run received. When that message is no longer in the
+  conversation, or the work was not started from a message, it says **The
+  original message was not saved for this work** and shows the whole
+  instruction the run received instead. You can also ask Tars for your
+  requests in the order you sent them, for example "show the queued ones in
+  the order I asked". Tars answers from up to the 20 most recent requests:
+  when each was sent, its first 300 characters and the work it started. It
+  says when an excerpt was cut and points you to this view for the full text.
 - **Result report**: each criterion's status and what decided it (the agent's
   report in a stage, or a Stave check and its result), with the revision it was
   checked on and whether that is the final revision. Evidence is listed once
@@ -590,10 +604,14 @@ shows its reason and opens the same place.
 Work runs in an
 isolated worktree with execution, independent review and verification.
 Uncommitted source changes are not copied unless you turn on **Include my
-working changes** next to **Send** for that message: Stave then snapshots the
-workspace's uncommitted changes (ignored files stay out) without touching your
-files, starts the work from that snapshot and says so on its tray card with the
-short commit. The switch turns off after each send. **Pause**, **Resume**, **Take
+working changes**, the icon button next to **Send**, for that message: Stave
+then snapshots the workspace's uncommitted changes (ignored files stay out)
+without touching your files, starts the work from that snapshot and says so on
+its tray card with the short commit. The toggle turns off after each send. What you type stays as a
+draft, with that choice, when you leave Tars and after a restart; attached
+files stay with it until Stave quits. A sent message clears it and a failed
+send keeps it. If the draft cannot be saved, sending stops and keeps it, and
+quitting offers to keep Stave open, retry saving or quit without saving. **Pause**, **Resume**, **Take
 over**, **Hand back** and **Cancel responsibility** control owned work. You can
 also ask in words, such as "stop it" or "I'll take it from here"; both go
 through the same check, and each click leaves a one-line record in the
@@ -604,7 +622,7 @@ command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Paused · Fleet"
 or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
 own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
-decision card with **Confirm**. Work you take over stays yours until you hand it back, and Tars
+decision card with **Confirm**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or it ended first. Words confirmed while earlier ones for the same work still wait are said after them, in order, and are not said after you hand the work back. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
 saw a check pass on the current revision in the final stage, or its
@@ -639,18 +657,33 @@ include it. **Cancel message** stops unfinished
 reasoning; it does not undo admitted work. Interrupted reasoning requires a
 new message and is not run again automatically.
 
-Higher numeric priorities start first, with oldest first on a tie. A waiting
-responsibility lets independent queued work begin; admitted runs may resume
-concurrently. Use **Settings** to guide newly admitted
-work without changing an existing run or granting permissions.
+Higher numeric priorities start first, with oldest first on a tie. Independent
+responsibilities start concurrently, including work in separate worktrees of
+the same repository. Each is prepared on its own, but Stave starts, pauses and
+cancels their runs one at a time, so a slow start can delay another work's
+start or pause until it finishes. **Settings → Concurrent responsibilities** defaults to
+**0**, which adds no limit. Set a positive number to bound admissions; lowering
+it leaves existing runs running. **Start now** explicitly bypasses this admission
+limit for the selected queued work. Waiting work yields its slot and admitted runs
+may resume when their constraints clear. This setting is separate from the turn
+budget. Queued cards show the observed active count and limit or a database
+lock being retried. If the cause has not been observed, they say it has not
+been confirmed. Provider/account limits and task ownership still apply.
+Other execution preferences guide newly admitted work without changing an
+existing run or granting permissions.
 
 Tars also follows up by itself when work needs judgment: it became blocked,
-its run or one of its helpers stopped to ask you for a decision (followed up
-at once), its completion could not be verified, it ended with criteria unmet,
+its run or one of its helpers stopped its stage (followed up at once), its completion could not be verified, it ended with criteria unmet,
 it waited an hour without change (a run you paused, a usage-limit pause, or
 an approval or question you answer in its task), or a question Tars asked
 became invalid. The message
-reads **Automatic follow-up ·** with its reason and the work's title. It can
+reads **Automatic follow-up ·** with its reason and the work's title. A stage
+whose agent asks for your input or permission, or that waits for your
+sign-off, reads **Needs your decision**, and Tars gets the agent's question
+and suggested action. A stage that one of Stave's own checks stopped (a
+criterion not met or not verified, no report, a failed action) or that is
+blocked on its environment reads **Needs verification or a next step**, and
+Tars says what to verify or do next instead of saying it asked you. It can
 ask, propose a resume or cancel that waits for your **Confirm**, change a
 queued priority or open a view. It never starts work by itself (it asks you
 instead), never pauses, takes over or accepts work as done, and proposes

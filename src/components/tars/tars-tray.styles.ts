@@ -3,8 +3,8 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /**
  * Structural widths of the pinned layout. StyleX resolves these at build time,
- * so they restate `TARS_CONVERSATION_MIN_WIDTH` (`src/lib/tars/tray-model.ts`)
- * instead of importing it; the tray test keeps the two equal.
+ * so they restate `TARS_TRAY_WIDTH` and `TARS_CONVERSATION_MIN_WIDTH`
+ * (`src/lib/tars/tray-model.ts`) instead of importing them; the tray test keeps them equal.
  */
 const TRAY_WIDTH = "26rem";
 const CONVERSATION_FLOOR = "440px";
@@ -12,6 +12,11 @@ const CONVERSATION_FLOOR = "440px";
 export const tarsTrayStyles = stylex.create({
   /** Applied to the conversation column only while the tray is pinned beside it. */
   conversationFloor: { minWidth: CONVERSATION_FLOOR },
+  /**
+   * The pinned column beside the conversation. The tray and the side view
+   * both take it, at one width, so opening a timeline or a report in the
+   * tray's place never moves the conversation.
+   */
   panel: {
     display: "flex", flexDirection: "column", flexShrink: 0, minWidth: 0, minHeight: 0,
     width: TRAY_WIDTH, maxWidth: `calc(100% - ${CONVERSATION_FLOOR})`,
@@ -19,11 +24,16 @@ export const tarsTrayStyles = stylex.create({
   },
   /** The pinned tray while the side view has its column: kept mounted, out of layout and the accessibility tree. */
   panelFolded: { display: "none" },
+  /**
+   * The column's title bar: Stave's panel bar (`panelBarStyles.bar`, icon and
+   * title in `panelBarStyles.headerTitle`), the same bar the side view opens
+   * with, so each pane names itself the way the right rail's panels do.
+   */
   panelHeader: {
-    flexShrink: 0, paddingInline: vars["--aui-space-16"], paddingBlock: vars["--aui-space-12"],
+    display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flexShrink: 0, minWidth: 0, paddingInline: vars["--aui-space-16"],
     borderBottomWidth: vars["--aui-border-width-hairline"], borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border-subtle"],
   },
-  panelTitle: { margin: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-semibold"], lineHeight: vars["--aui-line-height-normal"] },
+  panelTitle: { flex: 1, minWidth: 0, margin: 0 },
   panelBody: { flex: 1, minHeight: 0, overflowY: "auto", paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"] },
   /** The narrow tray: anchored to its indicator, wider and taller than a default popover so a card fits. */
   popover: {

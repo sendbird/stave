@@ -3120,8 +3120,10 @@ interface WindowApi {
    * that confirmation. `reprioritize` (`tars:reprioritize`) moves queued work
    * in the queue on a `reprioritize` decision's host rules. `getBrief`
    * (`tars:get-brief`) reads one responsibility's saved message and Tars's
-   * instruction, which the snapshot leaves out. `onChanged`
-   * pushes `tars:changed` (`{ scope: "snapshot" | "conversation" }`).
+   * instruction, which the snapshot leaves out. `getDraft` / `saveDraft`
+   * (`tars:get-draft` / `tars:save-draft`) keep the composer draft across
+   * views and restarts. `onChanged` pushes `tars:changed`
+   * (`{ scope: "snapshot" | "conversation" }`).
    */
   tars?: TarsBridgeApi;
   agents?: AgentsBridgeApi;

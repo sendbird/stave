@@ -21,6 +21,14 @@ export const AgentRunInitialContextSchema = z.object({
     title: z.string().max(500).optional(),
     content: z.string().max(500_000),
   }).strict()).max(32).optional(),
+  /**
+   * Attachments another host store keeps (a Tars work's message), named by an
+   * opaque reference. The host reads them only for the run's first turn and
+   * sends them as that turn's file and image contexts, so their content is
+   * never copied into the run and later turns do not send it again. Set only
+   * by the host; the renderer's start request cannot name one.
+   */
+  attachmentSource: z.string().trim().min(1).max(300).optional(),
 }).strict();
 
 export type AgentRunInitialContext = z.infer<typeof AgentRunInitialContextSchema>;

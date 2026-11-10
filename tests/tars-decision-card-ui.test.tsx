@@ -25,7 +25,14 @@ function rendered(decision: TarsDecisionView, onAnswer: (index: number, source: 
   const sink: { tree: ReactNode } = { tree: null };
   function Capture() { sink.tree = TarsDecisionCard({ decision, titleOf, ...context, onAnswer: (_view, index, source) => onAnswer(index, source) }); return sink.tree; }
   const html = renderToStaticMarkup(createElement(Capture));
-  return { html, root: isValidElement(sink.tree) ? sink.tree.props as { onKeyDown?: (event: unknown) => void; tabIndex?: number; role?: string } : null };
+  return { html, tree: sink.tree, root: isValidElement(sink.tree) ? sink.tree.props as { onKeyDown?: (event: unknown) => void; tabIndex?: number; role?: string } : null };
+}
+/** The props of the first element in a rendered tree that carries `attribute`, so a test presses its real handler. */
+function findProp(tree: ReactNode, attribute: string): Record<string, unknown> | null {
+  if (Array.isArray(tree)) { for (const child of tree) { const found = findProp(child, attribute); if (found) return found; } return null; }
+  if (!isValidElement(tree)) return null;
+  const props = tree.props as Record<string, unknown>;
+  return attribute in props ? props : findProp(props.children as ReactNode, attribute);
 }
 const key = (value: string, patch: Record<string, unknown> = {}) => {
   let prevented = false;
@@ -186,6 +193,32 @@ describe("confirmation card", () => {
     const passThrough = key("Escape");
     without.root!.onKeyDown!(passThrough.event);
     expect(passThrough.prevented()).toBe(false);
+  });
+
+  test("an approval whose request was cut says so under it and opens the task that shows it whole", async () => {
+    const summary = "Run the release script — set -e\necho step-0 && echo step-1…";
+    const approve = ask({ id: "confirm:message:0", kind: "confirm", question: null, recommended: null, targets: [{ responsibilityId: "goal", expectedRevision: 3 }],
+      options: [{ kind: "control", control: { responsibilityId: "goal", expectedRevision: 3, operation: "approve", input: { requestRef: "ref-cut" } }, label: null, rationale: null }] });
+    const row = { ...goal, pendingRequests: [{ kind: "approval", ref: "ref-cut", requestId: "approval-1", messageId: "m1", taskId: "helper-task",
+      workspaceId: "exec-1", toolName: "Bash", summary, truncated: true }] } as TarsResponsibility;
+    const opened: unknown[] = [];
+    const cut = rendered(approve, () => {}, { ...context, rowOf: () => row, onOpenTask: (target) => opened.push(target) });
+    expect(cut.html).toContain('data-tars-decision-rows="repository,workspace,revision,request,effect"');
+    // The request ends in the mark, keeps its line break, and the note says only its start is shown.
+    expect(cut.html).toContain("set -e\necho step-0 &amp;&amp; echo step-1…");
+    expect(cut.html).toContain('data-tars-decision-truncated=""');
+    expect(cut.html).toContain("Only the start is shown; open its task to read the whole request.");
+    expect(cut.html).toContain('data-tars-decision-open-task=""');
+    const button = findProp(cut.tree, "data-tars-decision-open-task") as { onClick: () => void };
+    button.onClick();
+    expect(opened).toEqual([{ responsibilityId: "goal", taskId: "helper-task", workspaceId: "exec-1" }]);
+    // Without a way to open the task the card still says it was cut; a whole request says nothing.
+    expect(rendered(approve, () => {}, { ...context, rowOf: () => row }).html).not.toContain("data-tars-decision-open-task");
+    expect(rendered(approve, () => {}, { ...context, rowOf: () => row }).html).toContain('data-tars-decision-truncated=""');
+    const whole = { ...row, pendingRequests: [{ ...row.pendingRequests![0]!, summary: "Run the test suite — bun test", truncated: undefined }] } as TarsResponsibility;
+    expect(rendered(approve, () => {}, { ...context, rowOf: () => whole, onOpenTask: () => {} }).html).not.toContain("data-tars-decision-truncated");
+    applyAppLocale("ko"); await i18n.changeLanguage("ko");
+    expect(rendered(approve, () => {}, { ...context, rowOf: () => row, onOpenTask: () => {} }).html).toContain("앞부분만 보이므로 전체 요청은 작업에서 확인하세요.");
   });
 
   test("Korean confirmation copy", async () => {

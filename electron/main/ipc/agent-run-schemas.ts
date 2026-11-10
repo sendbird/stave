@@ -28,6 +28,10 @@ const IdSchema = z.string().trim().min(1).max(AGENT_RUN_LIMITS.maxIdChars);
 export const AgentRunStartArgsSchema = AgentRunStartInputSchema.refine((input) => input.origin === "agent", {
   message: "Only agent runs can be started.",
   path: ["origin"],
+}).refine((input) => input.initialContext?.attachmentSource === undefined, {
+  // Only the host names attachments another store keeps (a Tars work's message).
+  message: "A started run cannot name an attachment source.",
+  path: ["initialContext", "attachmentSource"],
 });
 
 export const AgentRunIdArgsSchema = z

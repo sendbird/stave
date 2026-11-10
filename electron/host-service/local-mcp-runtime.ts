@@ -69,7 +69,6 @@ import {
   buildImportedWorktreeWorkspaceId,
   buildWorkspaceCreationNotice,
   buildWorkspaceRootNodeModulesSymlinkCommand,
-  mergeArchivedWorkspacePaths,
   normalizeRepositoryDisplayName,
   normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
   normalizeRecentRepositoryStates,
@@ -83,7 +82,6 @@ import {
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
   toWorkspaceFolderName,
-  upsertRecentRepositoryState,
   type RecentRepositoryState,
 } from "../../src/store/repository.utils";
 import {
@@ -130,6 +128,7 @@ import {
 } from "../../src/lib/providers/managed-task-runtime";
 import { withManagedApprovalDeadline } from "./managed-approval-deadline";
 import { ensureHostServicePersistenceReady } from "./persistence";
+import { upsertRegisteredRepository, withCreatedWorkspace, withDefaultWorkspace } from "./repository-registry-update";
 import { recordTurnWorkspaceDocuments } from "./turn-workspace-documents";
 import {
   RepositoryMemoryContentSchema,
@@ -468,13 +467,6 @@ export async function loadNormalizedRepositories() {
   };
 }
 
-async function saveNormalizedRepositories(repositories: RecentRepositoryState[]) {
-  const store = ensureHostServicePersistenceReady();
-  store.saveRepositoryRegistry({
-    repositories: normalizeRecentRepositoryStates({ repositories }) as never[],
-  });
-}
-
 function findRepositoryByPath(
   repositories: RecentRepositoryState[],
   repositoryPath: string,
@@ -522,90 +514,19 @@ async function ensureRepositoryRegistryEntry(args: {
     args.defaultBranch?.trim() || (await detectDefaultBranch(repositoryPath));
   const now = new Date().toISOString();
 
-  const { store, repositories } = await loadNormalizedRepositories();
-  const existingRepository = findRepositoryByPath(repositories, repositoryPath);
-  const defaultWorkspaceId = existingRepository
-    ? resolveCurrentRepositoryDefaultWorkspaceId({
-        repositoryPath,
-        workspaces: existingRepository.workspaces,
-        workspaceDefaultById: existingRepository.workspaceDefaultById,
-      })
-    : buildRepositoryDefaultWorkspaceId({ repositoryPath });
-  const existingShell = store.loadWorkspaceShell({
-    workspaceId: defaultWorkspaceId,
+  const store = ensureHostServicePersistenceReady();
+  // Read, default workspace row and write share one transaction, so a workspace or repository saved concurrently stays.
+  const { repository: nextRepository, defaultWorkspaceId } = upsertRegisteredRepository(store, (repositories) => {
+    const existing = findRepositoryByPath(repositories, repositoryPath);
+    const defaultWorkspaceId = existing
+      ? resolveCurrentRepositoryDefaultWorkspaceId({ repositoryPath, workspaces: existing.workspaces, workspaceDefaultById: existing.workspaceDefaultById })
+      : buildRepositoryDefaultWorkspaceId({ repositoryPath });
+    if (!store.loadWorkspaceShell({ workspaceId: defaultWorkspaceId })) {
+      store.upsertWorkspace({ id: defaultWorkspaceId, name: defaultWorkspaceName, snapshot: createEmptyWorkspaceSnapshot() as never });
+    }
+    const repository = withDefaultWorkspace({ existing, repositoryPath, repositoryName: resolvedRepositoryName, defaultBranch, defaultWorkspaceId, now });
+    return { repository, result: { repository, defaultWorkspaceId } };
   });
-
-  if (!existingShell) {
-    store.upsertWorkspace({
-      id: defaultWorkspaceId,
-      name: defaultWorkspaceName,
-      snapshot: createEmptyWorkspaceSnapshot() as never,
-    });
-  }
-
-  const nextRepository: RecentRepositoryState = existingRepository
-    ? {
-        ...existingRepository,
-        repositoryName: resolvedRepositoryName,
-        defaultBranch,
-        lastOpenedAt: now,
-        activeWorkspaceId:
-          existingRepository.activeWorkspaceId || defaultWorkspaceId,
-        workspaceBranchById: {
-          ...existingRepository.workspaceBranchById,
-          [defaultWorkspaceId]:
-            existingRepository.workspaceBranchById[defaultWorkspaceId] ||
-            defaultBranch,
-        },
-        workspacePathById: {
-          ...existingRepository.workspacePathById,
-          [defaultWorkspaceId]:
-            existingRepository.workspacePathById[defaultWorkspaceId] ||
-            repositoryPath,
-        },
-        workspaceDefaultById: {
-          ...existingRepository.workspaceDefaultById,
-          [defaultWorkspaceId]: true,
-        },
-        workspaces: existingRepository.workspaces.some(
-          (workspace) => workspace.id === defaultWorkspaceId,
-        )
-          ? existingRepository.workspaces
-          : [
-              {
-                id: defaultWorkspaceId,
-                name: defaultWorkspaceName,
-                updatedAt: now,
-              },
-              ...existingRepository.workspaces,
-            ],
-      }
-    : {
-        repositoryPath,
-        repositoryName: resolvedRepositoryName,
-        lastOpenedAt: now,
-        defaultBranch,
-        workspaces: [
-          {
-            id: defaultWorkspaceId,
-            name: defaultWorkspaceName,
-            updatedAt: now,
-          },
-        ],
-        activeWorkspaceId: defaultWorkspaceId,
-        workspaceBranchById: { [defaultWorkspaceId]: defaultBranch },
-        workspacePathById: { [defaultWorkspaceId]: repositoryPath },
-        workspaceDefaultById: { [defaultWorkspaceId]: true },
-        repositoryBasePrompt: "",
-        newWorkspaceInitCommand: "",
-        newWorkspaceUseRootNodeModulesSymlink: false,
-      };
-
-  const nextRepositories = upsertRecentRepositoryState({
-    repositories,
-    repository: nextRepository,
-  });
-  await saveNormalizedRepositories(nextRepositories);
 
   return {
     projectPath: repositoryPath,
@@ -1685,39 +1606,13 @@ export async function createWorkspace(args: {
     buildWorkspaceSessionState({ snapshot: snapshot as never }),
   );
 
-  const now = new Date().toISOString();
-  const nextRepository: RecentRepositoryState = {
-    ...repository,
-    lastOpenedAt: now,
-    activeWorkspaceId: workspaceId,
-    workspaces: [
-      ...repository.workspaces,
-      { id: workspaceId, name: workspaceDisplayName, updatedAt: now },
-    ],
-    workspaceBranchById: {
-      ...repository.workspaceBranchById,
-      [workspaceId]: branchName,
-    },
-    workspacePathById: {
-      ...repository.workspacePathById,
-      [workspaceId]: workspacePath,
-    },
-    workspaceDefaultById: {
-      ...repository.workspaceDefaultById,
-      [workspaceId]: false,
-    },
-    archivedWorkspacePaths: mergeArchivedWorkspacePaths({
-      current: repository.archivedWorkspacePaths,
-      remove: [workspacePath],
+  // Applied to the entry saved now, not the copy read before the worktree was created.
+  upsertRegisteredRepository(store, (repositories) => ({
+    repository: withCreatedWorkspace(findRepositoryByPath(repositories, repositoryPath) ?? repository, {
+      id: workspaceId, name: workspaceDisplayName, branch: branchName, path: workspacePath, now: new Date().toISOString(),
     }),
-  };
-  const { repositories } = await loadNormalizedRepositories();
-  await saveNormalizedRepositories(
-    upsertRecentRepositoryState({
-      repositories,
-      repository: nextRepository,
-    }),
-  );
+    result: undefined,
+  }));
 
   const notice = buildWorkspaceCreationNotice({ notices });
   return {
@@ -1764,6 +1659,7 @@ async function runTaskImpl(args: {
   spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean }; // the calling turn caps this one
   questionAnswer?: RunQuestionAnswer; // host-owned Run reply only
   freshSession?: boolean; // agent run supervisor only: an account-pool switch starts a new conversation on that account
+  turnId?: string; // host-owned run reply only: the turn ID its caller saved first, to find this turn again after a restart
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
@@ -1921,7 +1817,7 @@ async function runTaskImpl(args: {
   const residentMessagesBeforeTurn = session.messagesByTask[task.id] ?? [];
   const messageCountBeforeTurn = session.messageCountByTask[task.id];
 
-  const turnId = randomUUID();
+  const turnId = args.turnId ?? randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
   const providerSessionCursor = args.freshSession ? null : getTurnProviderSessionCursor({ // Only the turn's own account's; none when fresh.
     sessions: session.providerSessionByTask[task.id], providerId: provider, runtimeOptions: args.runtimeOptions,

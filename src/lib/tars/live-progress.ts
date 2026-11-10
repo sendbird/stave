@@ -20,7 +20,7 @@ export const TARS_PROGRESS_STALE_MS = 5 * 60_000;
 export const TARS_RECENT_PROGRESS_LIMIT = 5;
 
 /**
- * Running work holds the single active slot: its state is running, or it is
+ * Running work has an active run: its state is running, or it is
  * preparing with a run already created (`tars-runtime.ts`). Queued, paused,
  * waiting and taken-over work is not running, whatever lane it sits in.
  */

@@ -46,6 +46,13 @@ export const tarsDecisionStyles = stylex.create({
   rowLabel: { flex: "0 0 7rem", minWidth: 0, margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
   /** The 13px interface row (AUI #809 S2). */
   rowValue: { flex: "1 1 12rem", minWidth: 0, margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  /** A request keeps its line breaks: a multi-line command must not read as one line. */
+  rowValueLines: { whiteSpace: "pre-wrap" },
+  /** Under a request cut to fit: that it was cut, and the task that shows it whole. */
+  truncation: {
+    display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"], marginBlockStart: vars["--aui-space-4"],
+    color: vars["--aui-color-warning-text"], whiteSpace: "normal",
+  },
   footer: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: vars["--aui-space-8"], minWidth: 0 },
   footerActions: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: vars["--aui-space-8"], marginInlineStart: "auto", minWidth: 0 },
   footerOptions: { display: "flex", minWidth: 0, margin: 0, padding: 0, listStyle: "none" },

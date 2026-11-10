@@ -43,6 +43,7 @@ import { getScriptEntry } from "../../../src/lib/workspace-scripts/config";
 import { resolveScriptsForWorkspace, runScriptEntry } from "../../main/workspace-scripts";
 import { createScmAgentRunPort } from "./agent-run-scm";
 import { createAgentRunRuntime } from "./agent-run-runtime";
+import { resolveTarsRunAttachments } from "../../../src/lib/tars/work-attachments";
 import {
   collectStageFacts,
   readHeadSha,
@@ -194,6 +195,11 @@ export function createHostAgentRunRuntime(args: {
     getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
     listRecentTurns: (turnArgs) => persistence.listTurns(turnArgs),
     runSupervisedTurn,
+    // The only source today: a Tars work's message, whose attachments stay in the conversation store.
+    resolveAttachmentSource: ({ source, agentRun }) => resolveTarsRunAttachments(source, agentRun, {
+      responsibility: (id) => persistence.tars.get(id),
+      attachments: (messageId) => persistence.tarsConversations.attachmentsOf(messageId),
+    }),
     userPermissionOptions: loadUserPermissionOptions,
     completeInterruptedTurn: (turnId) => persistence.completeInterruptedTurn({ id: turnId }),
     countActiveDelegatedTasks: (taskId) => countActiveDelegatedTasks({ parentTaskId: taskId }),

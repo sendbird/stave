@@ -23,7 +23,7 @@ function fixture(overrides: Partial<TarsRuntimePorts> = {}) {
   const store = new TarsStore(database);
   const calls: string[] = [];
   const ports: TarsRuntimePorts = {
-    store, now: () => NOW, validateScope: async () => {},
+    store, concurrencyLimit: () => 1, now: () => NOW, validateScope: async () => {},
     prepareWorkspace: async (row) => { calls.push(`workspace:${row.requestId}`); return `execution-${row.id}`; },
     prepareTask: async (row) => { calls.push(`task:${row.taskId}`); },
     findRun: async () => null,
@@ -82,8 +82,10 @@ describe("Tars responsibility execution", () => {
     const row = f.store.create(input(), NOW);
     f.runtime.requestTick();
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    while (!release) await Promise.resolve();
     const current = f.store.get(row.id)!;
     const cancelling = f.act(current, "cancel");
+    while (!release) await Promise.resolve();
     release("created-workspace");
     expect((await cancelling).status).toBe("applied");
     expect(f.store.get(row.id)?.state).toBe("cancelled"); expect(f.calls).toEqual([]);
@@ -181,7 +183,9 @@ describe("Tars responsibility execution", () => {
     const f = fixture({ observe: () => new Promise((resolve) => { release = resolve; }) });
     const row = f.store.create(input(), NOW); await f.tick();
     f.runtime.requestTick(); await Promise.resolve(); await Promise.resolve();
+    while (!release) await Promise.resolve();
     const cancel = f.act(f.store.get(row.id)!, "cancel");
+    while (!release) await Promise.resolve();
     release({ state: "completed", detail: null });
     await cancel;
     expect(f.store.get(row.id)?.state).toBe("cancelled");
@@ -306,7 +310,7 @@ describe("Tars accept as done", () => {
 
 
 describe("Tars start now", () => {
-  test("starts queued work at once beside running work, and the queue still waits for the slot", async () => {
+  test("starts queued work at once beside running work, and the rest of the queue still waits within the limit", async () => {
     const f = fixture();
     const first = f.store.create(input("first", 90), NOW);
     await f.tick();
@@ -318,13 +322,29 @@ describe("Tars start now", () => {
     expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
     await f.runtime.drain();
     expect(f.store.get(second.id)).toMatchObject({ state: "running", taskId: `tars-${second.id}`, agentRunId: `run-${second.id}` });
-    // Only the named work skipped the queue: the rest still waits for the portfolio slot.
+    // Only the named work bypassed the configured limit (1 in this fixture): the rest still waits for it.
     await f.tick();
     expect(f.store.get(third.id)?.state).toBe("queued");
     expect(f.calls.filter((call) => call.startsWith("run:"))).toEqual(["run:first", "run:second"]);
     // A start now never controls a run: started work has one already and is refused.
     expect(await f.act(f.store.get(first.id)!, "startNow")).toMatchObject({ status: "rejected", reason: "notStartable" });
     expect(f.calls.filter((call) => !call.includes(":"))).toEqual([]);
+    f.database.close();
+  });
+  test("starting queued work now starts its run with the attachments its message gave it", async () => {
+    const started: Array<TarsResponsibility["attachments"]> = [];
+    const f = fixture({ startRun: async (row) => { started.push(row.attachments); return `run-${row.id}`; } });
+    const first = f.store.create(input("first", 90), NOW);
+    await f.tick();
+    const attachments = { messageId: "message-1", items: [{ index: 0, kind: "image" as const, name: "screen.png", type: "image/png", size: 6 }] };
+    const second = f.store.create({ ...input("second", 10), attachments }, NOW);
+    await f.tick();
+    expect(f.store.get(first.id)?.state).toBe("running");
+    expect(f.store.get(second.id)?.state).toBe("queued");
+    expect(await f.act(second, "startNow")).toMatchObject({ status: "applied" });
+    await f.runtime.drain();
+    expect(f.store.get(second.id)).toMatchObject({ state: "running", agentRunId: `run-${second.id}` });
+    expect(started).toEqual([undefined, attachments]);
     f.database.close();
   });
   test("refuses paused, taken-over, stale and out-of-scope work without starting anything", async () => {

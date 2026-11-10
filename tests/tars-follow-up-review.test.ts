@@ -107,9 +107,12 @@ test("the next check of waiting work is never shown in the past, nor once that w
   expect(tarsTrayFollowUp(row, [{ responsibilityId: row.id, kind: "waitExpired", status: "nextCheck", at: due }], f.now())).toBeNull();
   await f.settle();
   expect(f.planner).toHaveLength(1);
+  expect(f.responsibilities.get(row.id)).toMatchObject({ revision: row.revision, updatedAt: row.updatedAt });
   f.advance(minutes(30));
   // That wait was followed up: nothing further is scheduled for this revision.
   expect(f.responsibilities.snapshot().followUps).toEqual([]);
+  await f.settle();
+  expect(f.planner).toHaveLength(1);
 });
 
 test("retention removes processed events older than 30 days at startup and keeps pending ones", async () => {

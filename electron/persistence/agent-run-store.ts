@@ -483,6 +483,15 @@ export class AgentRunStore {
     );
   }
 
+  /**
+   * Whether the run recorded the user turn `turnId`, read by that turn's own
+   * event key (the one each user turn is recorded under), so it is found
+   * however many user turns the run recorded before or after it.
+   */
+  hasUserTurn(agentRunId: string, turnId: string): boolean {
+    return this.hasEvent(`${agentRunId}:user-turn:${turnId}`);
+  }
+
   getAgentRun(id: string): AgentRun | null {
     const row = this.db.prepare("SELECT * FROM agent_runs WHERE id = ?").get(id) as
       | AgentRunRow
