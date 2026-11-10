@@ -54,7 +54,14 @@ async function checkCards(page: Page) {
       const tag = node.querySelector("[data-tars-state]")!;
       const rows = [...node.querySelectorAll("[data-tars-attention]")].map((row) => {
         const [head, text] = [row.firstElementChild!, row.lastElementChild!];
-        return { single: head === text, rowLeft: box(row).left, rowRight: box(row).right, headLeft: box(head).left, headBottom: box(head).bottom,
+        // A Tars decision is one marked line: its mark on the text's first line, the text running to the row's end or its risk tag.
+        const mark = row.querySelector("[data-tars-attention-mark]");
+        const inline = mark ? (() => {
+          const body = mark.parentElement!.nextElementSibling!;
+          const lineHeight = Number.parseFloat(getComputedStyle(body).lineHeight);
+          return { markCenter: (box(mark).top + box(mark).bottom) / 2, firstLineCenter: box(body).top + lineHeight / 2, labelShown: Boolean(row.textContent?.includes(mark.getAttribute("aria-label")!)) };
+        })() : null;
+        return { single: head === text, inline, rowLeft: box(row).left, rowRight: box(row).right, headLeft: box(head).left, headBottom: box(head).bottom,
           textLeft: box(text).left, textRight: box(text).right, textTop: box(text).top };
       });
       const list = node.querySelector("[data-tars-attention-list]");
@@ -82,6 +89,11 @@ async function checkCards(page: Page) {
       expect(Math.abs(geometry.listPad - wellPad)).toBeLessThanOrEqual(0.5);
     }
     for (const row of geometry.rows) {
+      if (row.inline) {
+        expect(Math.abs(row.inline.markCenter - row.inline.firstLineCenter)).toBeLessThanOrEqual(1);
+        expect(row.inline.labelShown).toBe(false);
+        continue;
+      }
       if (row.single) continue;
       // Label line above, text below it, both from the row's start edge to its end.
       expect(row.textTop).toBeGreaterThanOrEqual(row.headBottom - 0.5);
@@ -237,6 +249,38 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
     expect(sticky.background).toBe(sticky.surface);
     // Clear stays in the Outputs header row.
     await expect(page.locator('[data-tars-lane-head="outputs"] [data-tars-lane-clear="outputs"]')).toHaveCount(1);
+  });
+}
+
+for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (const width of [1440, 390]) {
+  test(`tray cards: one primary action, secondary actions on one rung, named menus and counters (${lang}/${theme}/${width})`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await openGallery(page, { lang, theme, width });
+    const [decision, secondary] = [await tokenPx(page, "--aui-control-height-xs"), await tokenPx(page, "--aui-control-height-2xs")];
+    // Cards in a folded lane are out of layout; layout heights, so no entering transform skews them.
+    const cards = await page.locator("[data-tars-card-actions]").evaluateAll((groups) => groups.filter((group) => group.checkVisibility()).map((group) => ({
+      primaries: [...group.querySelectorAll<HTMLElement>("[data-tars-card-primary]")].map((node) => node.offsetHeight),
+      others: [...group.querySelectorAll<HTMLElement>("button:not([data-tars-card-primary])")].map((node) => ({ height: node.offsetHeight, name: node.getAttribute("aria-label") ?? node.textContent ?? "" })),
+    })));
+    expect(cards.length).toBeGreaterThan(4);
+    for (const card of cards) {
+      expect(card.primaries.length).toBeLessThanOrEqual(1);
+      for (const height of card.primaries) expect(Math.abs(height - decision)).toBeLessThanOrEqual(0.5);
+      for (const other of card.others) {
+        expect(Math.abs(other.height - secondary)).toBeLessThanOrEqual(0.5);
+        expect(other.name.trim().length).toBeGreaterThan(0);
+      }
+    }
+    // A bare "2/3" is read as the stage it counts.
+    const count = page.locator("[data-tars-monitor-count]").first();
+    await expect(count.locator("span").last()).toHaveText(/\d/);
+    expect(await count.evaluate((node) => node.textContent!.length > node.getAttribute("data-tars-monitor-count")!.length)).toBe(true);
+    // Hovering the menu trigger names it.
+    const more = page.locator("[data-tars-more-actions]").first();
+    await more.scrollIntoViewIfNeeded();
+    await more.hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    await page.mouse.move(0, 0);
   });
 }
 

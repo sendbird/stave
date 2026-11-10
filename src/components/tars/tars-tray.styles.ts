@@ -134,6 +134,15 @@ export const tarsTrayStyles = stylex.create({
   attentionHead: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   attentionEnd: { flexShrink: 0, marginInlineStart: "auto" },
   attentionText: { minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  /**
+   * A Tars decision's row: the proposal itself carries the row, so it drops the
+   * label line and keeps one mark (named for assistive technology) on the
+   * text's first line, with the irreversible tag on the end.
+   */
+  attentionInline: { flexDirection: "row", alignItems: "flex-start", gap: vars["--aui-space-8"] },
+  /** The mark's box is the text's first line, so the dot centres on it however the text wraps. */
+  attentionMarkBox: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"] },
+  attentionInlineText: { flex: 1 },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   /** One output: what it is (the opener), then whose work it came from. */
   output: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], paddingBlock: vars["--aui-space-8"] },

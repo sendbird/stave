@@ -777,7 +777,9 @@ test("a running card is a run monitor: current stage with a live clock, one segm
   const segments = monitor.locator("[data-run-segments] > li");
   await expect(monitor.locator("[data-run-segments]")).toHaveAttribute("data-run-segments", "done,now,pending");
   await expect(segments).toHaveCount(3);
-  await expect(monitor.locator("[data-tars-monitor-count]")).toHaveText("2/3");
+  // The bare fraction is shown; what it counts is read in words and shown in its hint.
+  await expect(monitor.locator("[data-tars-monitor-count] [aria-hidden]")).toHaveText("2/3");
+  await expect(monitor.locator("[data-tars-monitor-count]")).toContainText("Stage 2 of 3");
   const clock = monitor.getByRole("timer");
   await expect(clock).toHaveText(/^\d+m/);
   // Segments share one row and never wrap.

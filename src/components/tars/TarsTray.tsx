@@ -8,6 +8,7 @@ import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
 import { Popover } from "@/components/aui/components/Popover";
 import { runStyles } from "@/components/aui/components/RunMonitor";
 import { StatusDot } from "@/components/aui/components/StatusDot";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
@@ -189,9 +190,13 @@ function actionLabel(action: TarsCardAction) {
 }
 
 /**
- * One main action and Open task stay visible; the rest fold into one menu, so
- * a card's actions keep to a single line. Every control still goes through
- * the view's host action path.
+ * A card's actions keep to one line: at most one primary action, then the
+ * secondary ones, then one menu with the rest. The primary action is a Tars
+ * proposal waiting for the user's Confirm, on the AUI decision rung; one that
+ * cannot be undone wears the danger tone, as on its decision card. The state's
+ * own control (pause, resume, hand back) and Open task are 24px secondary
+ * actions of one weight. Every control still goes through the view's host
+ * action path.
  */
 export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
@@ -207,16 +212,21 @@ export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardMod
     else actions.onAct(row, action.operation);
   };
   if (!primary && !row.taskId && !more.length && !grip) return null;
+  const decision = primary?.kind === "confirm" ? primary : null;
+  const moreLabel = t("shell:tars.tray.moreActions", { title: row.title });
   return <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.tray.controls", { title: row.title })} data-tars-card-actions="">
     {grip}
-    {/* A reversible confirmation is the card's primary action; one that cannot be undone is never filled primary, as on its decision card. */}
-    {/* A confirmation is a decision and keeps the 28px decision rung; a control and the rest are in-surface secondary actions on the 24px rung (AUI #809 A1). */}
-    {primary ? <Button variant={primary.kind !== "confirm" ? "secondary" : TARS_IRREVERSIBLE_OPERATIONS.has(primary.decision.operation) ? "destructive" : "default"} size={primary.kind === "confirm" ? "xs" : "2xs"} disabled={actions.busy}
+    {decision ? <Button variant={TARS_IRREVERSIBLE_OPERATIONS.has(decision.decision.operation) ? "destructive" : "default"} size="xs" disabled={actions.busy}
+      data-tars-action="confirm" data-tars-card-primary="" onClick={() => run(decision)}>{actionLabel(decision)}</Button> : null}
+    {primary && !decision ? <Button variant="ghost" size="2xs" disabled={actions.busy}
       data-tars-action={primary.kind === "control" ? primary.operation : primary.kind} onClick={() => run(primary)}>{actionLabel(primary)}</Button> : null}
     {row.taskId ? <Button variant="ghost" size="2xs" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
     {more.length ? <DropdownMenu placement="bottom-end"
       trigger={<Ellipsis aria-hidden />}
-      triggerProps={{ render: <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.moreActions", { title: row.title })} title={t("shell:tars.tray.moreActionsHint")} data-tars-more-actions={row.id} /> }}
+      // The menu's trigger is also the hint's trigger: the hint names it on hover and keyboard focus.
+      triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.tray.moreActionsHint")}>
+        <Button {...props} variant="ghost" size="icon-2xs" aria-label={moreLabel} data-tars-more-actions={row.id} />
+      </Tooltip> }}
       groups={[{ items: more.map((action) => ({ label: actionLabel(action), tone: action.kind === "control" && action.operation === "cancel" ? "danger" as const : "neutral" as const,
         disabled: action.kind !== "fleet" && actions.busy, onSelect: () => run(action) })) }]} /> : null}
   </div>;
@@ -266,13 +276,22 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     card.attention.length ? <ul key="attention" className={sx(runStyles.well, styles.attention)} data-tars-attention-list={card.attention.length}>
       {card.attention.map((entry) => {
         const { label, text } = describeAttention(row, entry);
+        const irreversible = entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
+          ? <Badge size="sm" tone="danger" variant="outlined" xstyle={styles.attentionEnd} data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null;
+        // A Tars decision's text already says what Tars proposes, so the row keeps one named mark instead of repeating a label.
+        if (entry.item.kind === "tars-decision") {
+          return <li key={entry.item.id} className={sx(styles.attentionRow, styles.attentionInline)} data-tars-attention={entry.item.kind}>
+            <span className={sx(styles.attentionMarkBox)}><StatusDot tone="warning" size="sm" aria-label={label} xstyle={monitorStyles.attentionMark} data-tars-attention-mark="" /></span>
+            {text ? <span className={sx(styles.attentionText, styles.attentionInlineText)}>{text}</span> : null}
+            {irreversible}
+          </li>;
+        }
         // One state tag per card: what needs the user reads as a marked label, not a second tag.
         return <li key={entry.item.id} className={sx(styles.attentionRow)} data-tars-attention={entry.item.kind}>
           <span className={sx(styles.attentionHead)}>
             <StatusDot tone="warning" size="sm" xstyle={monitorStyles.attentionMark} />
             <span className={sx(monitorStyles.attentionLabel)}>{label}</span>
-            {entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
-              ? <Badge size="sm" tone="danger" variant="outlined" xstyle={styles.attentionEnd} data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null}
+            {irreversible}
             {report && entry === blockedEntry ? <span className={sx(styles.attentionEnd)}>{report}</span> : null}
           </span>
           {text ? <span className={sx(styles.attentionText)}>{text}</span> : null}
@@ -318,9 +337,11 @@ function TarsQueuedCardItem({ card, actions, sortable }: { card: TarsTrayCardMod
     const direction = event.key === "ArrowUp" ? "earlier" : "later";
     if (!actions.busy && moves.includes(direction)) actions.onMove?.(row, { direction }, "click");
   };
-  const grip = sortable ? <Button ref={setHandleElement} variant="ghost" size="icon-2xs" data-tars-queue-grip={row.id}
-    aria-label={t("shell:tars.tray.reorder.handle", { title: row.title })} title={t("shell:tars.tray.reorder.hint")}
-    aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS} onKeyDown={onKeyDown}><GripVertical aria-hidden /></Button> : undefined;
+  const grip = sortable ? <Tooltip content={t("shell:tars.tray.reorder.hint")}>
+    <Button ref={setHandleElement} variant="ghost" size="icon-2xs" data-tars-queue-grip={row.id}
+      aria-label={t("shell:tars.tray.reorder.handle", { title: row.title })}
+      aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS} onKeyDown={onKeyDown}><GripVertical aria-hidden /></Button>
+  </Tooltip> : undefined;
   return <li ref={setRowElement} className={sx(styles.cardItem, styles.queuedItem, isDragging && styles.queuedItemDragging)} data-tars-queue-item={row.id}
     data-tars-queue-position={card.queue ? card.queue.position : undefined}>
     <TarsTrayCard card={card} actions={actions} grip={grip} />
