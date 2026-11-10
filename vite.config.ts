@@ -30,8 +30,14 @@ export default defineConfig({
       ignored: createWorkspaceWatchIgnore(__dirname),
     },
   },
-  // The highlighter worker imports these after first paint. Pre-bundle them so a cold gallery does not reload an active conversation.
-  optimizeDeps: { include: ["shiki/themes/github-light.mjs", "shiki/themes/github-dark.mjs"] },
+  // Scan the worker too: its engine, grammars and themes load after first paint.
+  // Discovering them then would re-optimize dependencies and reload an active conversation.
+  optimizeDeps: {
+    entries: ["**/*.html", "!**/__tests__/**", "!**/coverage/**", "src/lib/syntax-highlight.worker.ts"],
+    // The scanner covers both module graphs; serve its result without waiting
+    // for the browser's initial import crawl, which can wait on that same result.
+    holdUntilCrawlEnd: false,
+  },
   resolve: {
     // React hooks and editor nodes must share one runtime across dependency trees.
     dedupe: ["react", "react-dom", "lexical"],
