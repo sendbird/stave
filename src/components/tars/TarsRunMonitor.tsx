@@ -99,11 +99,11 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
   // beside a confirmation, Open task, the menu and the step count, in either language. Each keeps its full accessible name.
   // What the work was handed is readable in every state, before its run exists too.
   const brief = onOpenSide ? <Tooltip content={t("shell:tars.tray.monitor.brief")}>
-    <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
+    <Button variant="ghost" size="icon-xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
       onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}><ScrollText aria-hidden /></Button>
   </Tooltip> : null;
   const timeline = onOpenSide && staged ? <Tooltip content={t("shell:tars.tray.monitor.timeline")}>
-    <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
+    <Button variant="ghost" size="icon-xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
       onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}><ChartNoAxesGantt aria-hidden /></Button>
   </Tooltip> : null;
   return <RunMonitor {...data} data-tars-monitor={staged ? row.id : undefined} title={row.title} meta={meta}

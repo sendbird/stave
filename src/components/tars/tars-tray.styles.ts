@@ -93,7 +93,7 @@ export const tarsTrayStyles = stylex.create({
    * them on a gap instead of hairline rows. Cards share the section trigger's
    * inline gutter, so titles, cards and the chevron column line up.
    */
-  cards: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, margin: 0, paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], listStyle: "none" },
+  cards: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, margin: 0, paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], listStyle: "none" },
   groupingTools: { display: "flex", paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-12"] },
   projectTrigger: { display: "flex", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0, paddingInline: vars["--aui-space-12"] },
   projectName: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },

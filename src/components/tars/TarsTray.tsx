@@ -80,8 +80,8 @@ function TarsLaneTools({ scope, clearing }: { scope: "done" | "outputs"; clearin
   if (!lane.clearable && !lane.onUndo) return null;
   const label = t(scope === "done" ? "shell:tars.clear.lane.clearDone" : "shell:tars.clear.lane.clearOutputs");
   return <div className={sx(clearStyles.laneActions)} data-tars-lane-tools={scope}>
-    {lane.onUndo ? <Button variant="ghost" size="2xs" disabled={clearing.busy} data-tars-lane-undo={scope} onClick={lane.onUndo}>{t("shell:tars.clear.undo")}</Button> : null}
-    {lane.clearable ? <Button variant="ghost" size="2xs" disabled={clearing.busy} aria-label={label} title={label} data-tars-lane-clear={scope}
+    {lane.onUndo ? <Button variant="ghost" size="xs" disabled={clearing.busy} data-tars-lane-undo={scope} onClick={lane.onUndo}>{t("shell:tars.clear.undo")}</Button> : null}
+    {lane.clearable ? <Button variant="ghost" size="xs" disabled={clearing.busy} aria-label={label} title={label} data-tars-lane-clear={scope}
       onClick={() => clearing.onClear(scope)}>{t("shell:tars.clear.lane.clear")}</Button> : null}
   </div>;
 }
@@ -199,7 +199,7 @@ function actionLabel(action: TarsCardAction) {
  * secondary ones, then one menu with the rest. The primary action is a Tars
  * proposal waiting for the user's Confirm, on the AUI decision rung; one that
  * cannot be undone wears the danger tone, as on its decision card. The state's
- * own control (pause, resume, hand back) and Open task are 24px secondary
+ * own control (pause, resume, hand back) and Open task are 28px secondary
  * actions of one weight. Every control still goes through the view's host
  * action path.
  */
@@ -221,16 +221,16 @@ export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardMod
   const moreLabel = t("shell:tars.tray.moreActions", { title: row.title });
   return <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.tray.controls", { title: row.title })} data-tars-card-actions="">
     {grip}
-    {decision ? <Button variant={TARS_IRREVERSIBLE_OPERATIONS.has(decision.decision.operation) ? "destructive" : "default"} size="xs" disabled={actions.busy}
+    {decision ? <Button variant={TARS_IRREVERSIBLE_OPERATIONS.has(decision.decision.operation) ? "destructive" : "default"} size="sm" disabled={actions.busy}
       data-tars-action="confirm" data-tars-card-primary="" onClick={() => run(decision)}>{actionLabel(decision)}</Button> : null}
-    {primary && !decision ? <Button variant="ghost" size="2xs" disabled={actions.busy}
+    {primary && !decision ? <Button variant="ghost" size="xs" disabled={actions.busy}
       data-tars-action={primary.kind === "control" ? primary.operation : primary.kind} onClick={() => run(primary)}>{actionLabel(primary)}</Button> : null}
-    {row.taskId ? <Button variant="ghost" size="2xs" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
+    {row.taskId ? <Button variant="ghost" size="xs" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
     {more.length ? <DropdownMenu placement="bottom-end"
       trigger={<Ellipsis aria-hidden />}
       // The menu's trigger is also the hint's trigger: the hint names it on hover and keyboard focus.
       triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.tray.moreActionsHint")}>
-        <Button {...props} variant="ghost" size="icon-2xs" aria-label={moreLabel} data-tars-more-actions={row.id} />
+        <Button {...props} variant="ghost" size="icon-xs" aria-label={moreLabel} data-tars-more-actions={row.id} />
       </Tooltip> }}
       groups={[{ items: more.map((action) => ({ label: actionLabel(action), tone: action.kind === "control" && action.operation === "cancel" ? "danger" as const : "neutral" as const,
         disabled: action.kind !== "fleet" && actions.busy, onSelect: () => run(action) })) }]} /> : null}
@@ -264,7 +264,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const blockedEntry = card.attention.find((entry) => entry.item.kind === "tars-blocked");
   const detailInAttention = Boolean(blockedEntry);
   // A blocked card leads to what is unmet: from the end of the well's Blocked line when there is one, else under the card's lines.
-  const report = row.state === "blocked" && actions.onOpenSide ? <Button variant="ghost" size="2xs" data-tars-open-report={row.id}
+  const report = row.state === "blocked" && actions.onOpenSide ? <Button variant="ghost" size="xs" data-tars-open-report={row.id}
     onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
     <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
   // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
@@ -346,7 +346,7 @@ function TarsQueuedCardItem({ card, actions, sortable }: { card: TarsTrayCardMod
     if (!actions.busy && moves.includes(direction)) actions.onMove?.(row, { direction }, "click");
   };
   const grip = sortable ? <Tooltip content={t("shell:tars.tray.reorder.hint")}>
-    <Button ref={setHandleElement} variant="ghost" size="icon-2xs" data-tars-queue-grip={row.id}
+    <Button ref={setHandleElement} variant="ghost" size="icon-xs" data-tars-queue-grip={row.id}
       aria-label={t("shell:tars.tray.reorder.handle", { title: row.title })}
       aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS} onKeyDown={onKeyDown}><GripVertical aria-hidden /></Button>
   </Tooltip> : undefined;
@@ -500,7 +500,7 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
       : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
   </ul>;
   return <><div className={sx(styles.groupingTools)}>
-    <Button variant="ghost" size="2xs" aria-pressed={grouped} data-tars-group-projects="" onClick={() => setGrouped(!grouped)}>{t("shell:tars.tray.grouping.toggle")}</Button>
+    <Button variant="ghost" size="xs" aria-pressed={grouped} data-tars-group-projects="" onClick={() => setGrouped(!grouped)}>{t("shell:tars.tray.grouping.toggle")}</Button>
   </div><Accordion.Root multiple value={value} onValueChange={onValueChange} data-tars-tray="">
     {LANES.map((lane) => {
       const cards = model.lanes[lane];

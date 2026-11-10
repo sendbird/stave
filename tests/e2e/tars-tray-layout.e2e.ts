@@ -63,6 +63,8 @@ async function openTray(page: Page, { fixture, lang, theme, width }: { fixture: 
 /** Checks every visible card's header, attention well and footer; returns how many wells it measured. */
 async function checkCards(page: Page) {
   const wellPad = await tokenPx(page, "--aui-space-12");
+  const cardGap = await tokenPx(page, "--aui-space-12");
+  const secondaryHeight = await tokenPx(page, "--aui-control-height-xs");
   const cards = page.locator("[data-tars-card]");
   let wells = 0;
   for (const card of await cards.all()) {
@@ -89,14 +91,17 @@ async function checkCards(page: Page) {
       const facts = node.querySelector("[data-tars-facts]");
       const views = node.querySelector("[data-tars-monitor-views]");
       return {
+        cardGap: parseFloat(getComputedStyle(node.closest('ul')!).rowGap),
         titleRight: box(title).right, tagLeft: box(tag).left,
         rows, listPad: list ? Number.parseFloat(getComputedStyle(list).paddingLeft) : null,
         branch: branch && facts ? { mono: getComputedStyle(branch.lastElementChild!).fontFamily.toLowerCase().includes("mono"),
           size: Number.parseFloat(getComputedStyle(branch.lastElementChild!).fontSize), factsSize: Number.parseFloat(getComputedStyle(facts).fontSize),
           right: box(branch).right, columnRight: box(title.parentElement!).right } : null,
-        views: views ? { right: box(views).right, footRight: box(views.parentElement!).right - Number.parseFloat(getComputedStyle(views.parentElement!).paddingRight) } : null,
+        views: views ? { right: box(views).right, footRight: box(views.parentElement!).right - Number.parseFloat(getComputedStyle(views.parentElement!).paddingRight),
+          heights: [...views.querySelectorAll('button')].map((button) => button.getBoundingClientRect().height) } : null,
       };
     });
+    expect(Math.abs(geometry.cardGap - cardGap)).toBeLessThanOrEqual(0.5);
     // The title wraps beside the state tag; nothing in the header widens its column under the tag.
     expect(geometry.titleRight).toBeLessThanOrEqual(geometry.tagLeft + 0.5);
     if (geometry.branch) {
@@ -121,7 +126,10 @@ async function checkCards(page: Page) {
       expect(Math.abs(row.textLeft - row.rowLeft)).toBeLessThanOrEqual(0.5);
       expect(Math.abs(row.textRight - row.rowRight)).toBeLessThanOrEqual(0.5);
     }
-    if (geometry.views) expect(Math.abs(geometry.views.right - geometry.views.footRight)).toBeLessThanOrEqual(0.5);
+    if (geometry.views) {
+      expect(Math.abs(geometry.views.right - geometry.views.footRight)).toBeLessThanOrEqual(0.5);
+      for (const height of geometry.views.heights) expect(Math.abs(height - secondaryHeight)).toBeLessThanOrEqual(0.5);
+    }
   }
   return wells;
 }
@@ -286,7 +294,7 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
   test(`tray cards: one primary action, secondary actions on one rung, named menus and counters (${lang}/${theme}/${width})`, async ({ page }) => {
     test.setTimeout(60_000);
     await openGallery(page, { lang, theme, width });
-    const [decision, secondary] = [await tokenPx(page, "--aui-control-height-xs"), await tokenPx(page, "--aui-control-height-2xs")];
+    const [decision, secondary] = [await tokenPx(page, "--aui-control-height-sm"), await tokenPx(page, "--aui-control-height-xs")];
     // Cards in a folded lane are out of layout; layout heights, so no entering transform skews them.
     const cards = await page.locator("[data-tars-card-actions]").evaluateAll((groups) => groups.filter((group) => group.checkVisibility()).map((group) => ({
       primaries: [...group.querySelectorAll<HTMLElement>("[data-tars-card-primary]")].map((node) => node.offsetHeight),
