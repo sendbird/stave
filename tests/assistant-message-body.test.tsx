@@ -100,6 +100,41 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain('aria-expanded="false"');
   });
 
+  describe("text after an answered question", () => {
+    const question = {
+      type: "user_input" as const, requestId: "question-1", toolName: "AskUserQuestion", state: "input-responded" as const,
+      questions: [{ key: "deps", header: "Dependencies", question: "Install the shared node_modules?", options: [] }],
+      answers: { deps: "I installed it myself." },
+    };
+    const reply = "Committed. Rebasing on main next.";
+    const render = async (args: { isStreaming: boolean; followedByTool?: boolean }) => {
+      const { AssistantMessageBody } = await loadAssistantMessageBodies();
+      return renderToStaticMarkup(createElement(AssistantMessageBody, {
+        message: createAssistantMessage({ isStreaming: args.isStreaming, parts: [
+          { type: "tool_use", toolName: "Bash", input: "git commit", state: "output-available", output: "hook failed" },
+          question,
+          { type: "text", text: reply },
+          ...(args.followedByTool
+            ? [{ type: "tool_use" as const, toolName: "Bash", input: "git rebase main", state: "input-available" as const }]
+            : []),
+        ] }), taskId: "parent", messageId: "reply", streamingEnabled: true, showInterimMessages: true,
+      }));
+    };
+    const replyIsAboveQuestion = (html: string) => {
+      expect(html.split(reply)).toHaveLength(2);
+      return html.indexOf(reply) < html.indexOf("Install the shared node_modules?");
+    };
+
+    test("streams above the pinned question, where it stays when the next tool call makes it interim", async () => {
+      expect(replyIsAboveQuestion(await render({ isStreaming: true }))).toBe(true);
+      expect(replyIsAboveQuestion(await render({ isStreaming: true, followedByTool: true }))).toBe(true);
+    });
+
+    test("settles below the question once the turn ends", async () => {
+      expect(replyIsAboveQuestion(await render({ isStreaming: false }))).toBe(false);
+    });
+  });
+
   test("read-only past questions cannot submit or deny an answer", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
