@@ -134,7 +134,7 @@ describe("decision card states", () => {
     expect(answered).not.toContain("<button");
     const invalid = rendered(ask({ state: "invalid", why: "targetMoved", reask: true })).html;
     expect(invalid).toContain("No longer valid: the work changed after this was asked.");
-    expect(invalid).toContain("Tars will ask again.");
+    expect(invalid).toContain("Tars will check whether this question is still needed.");
     expect(invalid).not.toContain("<button");
     expect(rendered(ask({ state: "invalid", why: "targetEnded", reasked: true })).html).toContain("Tars asked again below.");
     const rejected = rendered(ask({ state: "answered", answer: { ...answer, optionIndex: 0, label: "Pause it now", source: "click", status: "rejected", reason: "stale", error: "Stale." } })).html;
@@ -196,11 +196,13 @@ describe("confirmation card", () => {
     expect(html).toContain("Release check");
     expect(html).toContain('data-tars-decision-risk="irreversible"');
     expect(html).toContain("Can&#x27;t be undone");
-    expect(html).toContain('data-tars-decision-rows="repository,workspace,revision,effect"');
+    // The revision binds the decision for the host; people never see it as a row.
+    expect(html).toContain('data-tars-decision-rows="repository,workspace,effect"');
+    expect(html).toContain('data-tars-decision-revision="3"');
     expect(html).toContain("stave-app");
     expect(html).toContain('title="/tmp/work/stave-app"');
     expect(html).toContain("Release branch");
-    expect(html).toContain(">r3<");
+    expect(html).not.toContain(">r3<");
     expect(html).toContain("Ends Tars&#x27;s supervision. Changes already made stay.");
     // No default for an irreversible effect: Confirm is outlined, keyed 1 only.
     expect(html).toContain('aria-keyshortcuts="1"');
@@ -211,7 +213,7 @@ describe("confirmation card", () => {
     const { html } = rendered(proposal("pause"));
     expect(html).toContain("Pause this work?");
     expect(html).not.toContain("data-tars-decision-risk-tag");
-    expect(html).toContain('data-tars-decision-rows="revision,effect"');
+    expect(html).toContain('data-tars-decision-rows="effect"');
     expect(describeTarsDecisionTarget(proposal("pause"), {})).toEqual({ repository: null, repositoryPath: null, workspace: null, revision: 3 });
     // The execution workspace names the place, falling back to the request's own workspace.
     expect(describeTarsDecisionTarget(proposal("pause"), { rowOf: () => ({ ...goal, executionWorkspaceId: null }), workspaceNameOf: (id) => id === "home" ? "Home" : undefined }).workspace).toBe("Home");
@@ -248,7 +250,7 @@ describe("confirmation card", () => {
       workspaceId: "exec-1", toolName: "Bash", summary, truncated: true }] } as TarsResponsibility;
     const opened: unknown[] = [];
     const cut = rendered(approve, () => {}, { ...context, rowOf: () => row, onOpenTask: (target) => opened.push(target) });
-    expect(cut.html).toContain('data-tars-decision-rows="repository,workspace,revision,request,effect"');
+    expect(cut.html).toContain('data-tars-decision-rows="repository,workspace,request,effect"');
     // The request ends in the mark, keeps its line break, and the note says only its start is shown.
     expect(cut.html).toContain("set -e\necho step-0 &amp;&amp; echo step-1…");
     expect(cut.html).toContain('data-tars-decision-truncated=""');
@@ -269,6 +271,7 @@ describe("confirmation card", () => {
   test("Korean confirmation copy", async () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const { html } = rendered(proposal("cancel"), () => {}, { ...context, onDismiss: () => {} });
-    for (const text of ["이 작업의 책임을 취소할까요?", "되돌릴 수 없음", "저장소", "워크스페이스", "리비전", "효과", "나중에"]) expect(html).toContain(text);
+    for (const text of ["이 작업의 책임을 취소할까요?", "되돌릴 수 없음", "저장소", "워크스페이스", "효과", "나중에"]) expect(html).toContain(text);
+    expect(html).not.toContain("리비전");
   });
 });

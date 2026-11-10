@@ -124,7 +124,7 @@ describe("Stop on a task whose run Tars holds", () => {
       expect(abortedTurns).toEqual([]);
       expect(useAppStore.getState().activeTurnIdsByTask["task-1"]).toBe("turn-1");
       expect(toasts).toEqual([{ title: "Tars가 이 조작을 적용하지 않았습니다",
-        description: "Tars가 이 조작을 적용하지 못했습니다. 작업의 현재 상태를 확인하고 다시 시도하세요." }]);
+        description: "Tars가 이 동작을 하지 못했습니다. 작업의 현재 상태를 확인하고 다시 시도하세요." }]);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
   });
 

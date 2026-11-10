@@ -14,6 +14,13 @@ export function tarsReceiptRefusalKey(receipt: TarsActionReceipt) {
 
 const RECEIPT_STATE: Record<TarsActionReceipt["status"], TarsRecordState> = { applied: "applied", pending: "pending", rejected: "refused", proposed: "proposed" };
 
+/** What an applied action did, in its own words ("Work added", "Paused"); other statuses read the same for every action. */
+export function tarsReceiptStatusKey(receipt: Pick<TarsActionReceipt, "status" | "action">) {
+  if (receipt.status !== "applied") return `shell:tars.conversation.receipts.${receipt.status}` as const;
+  const { action } = receipt;
+  return `shell:tars.conversation.receipts.appliedAction.${action.kind === "control" ? action.operation : action.kind}` as const;
+}
+
 /**
  * One action Tars took from a message, as a record row: what it was asked to
  * do and to what, the agent it named, how the host took it, and on its own
@@ -35,7 +42,7 @@ export function TarsReceiptRow({ receipt, titleOf, agentNameOf }: {
             : [t("shell:tars.record.reprioritize", { priority: action.priority }), title(action.responsibilityId)];
   const agent = action.kind === "delegate" && action.agentId ? action.agentId : null;
   const refusal = receipt.error ? (() => { const key = tarsReceiptRefusalKey(receipt); return key ? t(key) : receipt.error; })() : null;
-  return <TarsRecordRow state={RECEIPT_STATE[receipt.status]} lead={lead} subject={subject} status={t(`shell:tars.conversation.receipts.${receipt.status}`)}
+  return <TarsRecordRow state={RECEIPT_STATE[receipt.status]} lead={lead} subject={subject} status={t(tarsReceiptStatusKey(receipt))}
     data-tars-receipt={receipt.status} data-tars-receipt-kind={action.kind}
     meta={agent ? <span data-tars-delegate-agent={agent}>{t("shell:tars.conversation.delegateAgent", { name: agentNameOf?.(agent) ?? agent })}</span> : null}
     detail={refusal ? <TarsRecordDetail data-tars-reason={receipt.reason ?? undefined}>{refusal}</TarsRecordDetail> : null} />;

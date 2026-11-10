@@ -117,8 +117,8 @@ describe("the follow-up says what the stage waits for", () => {
     const render = (message: TarsMessage) => renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [], name: "Tars", busy: false,
       onCancel() {}, titleOf: () => "Export" }));
     try {
-      for (const [locale, gate, asks] of [["en", "Needs verification or a next step: Export", "Needs your decision: Export"],
-        ["ko", "확인 또는 다음 단계 필요: Export", "결정 필요: Export"]] as const) {
+      for (const [locale, gate, asks] of [["en", "A Stave check stopped progress: Export", "Needs your answer or approval: Export"],
+        ["ko", "Stave 검사에서 멈춤: Export", "답변이나 승인 필요: Export"]] as const) {
         applyAppLocale(locale); await i18n.changeLanguage(locale);
         expect(render(base)).toContain(gate);
         expect(render(base)).not.toContain(asks);

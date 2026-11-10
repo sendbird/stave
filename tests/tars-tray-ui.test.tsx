@@ -136,7 +136,7 @@ describe("Tars tray UI", () => {
     }
     // Running work whose run this window has not read says so once, as an observation that is missing, never as progress.
     expect(billing).toContain('data-tars-live-freshness="none"');
-    expect(billing).toContain("No run observation yet");
+    expect(billing).toContain("No progress information yet");
     expect(billing).not.toContain("Run details are not loaded yet.");
     expect(docs).not.toContain("data-tars-live-line");
     expect(docs).not.toContain("Run details are not loaded yet.");
@@ -208,7 +208,7 @@ describe("Tars flow block", () => {
     const flows: TarsFlowContext = { flowFor: () => flowOf(f), onShowInFleet() {} };
     const props = { message: f.message, receipts: [f.receipt], name: "Tars", busy: false, onCancel() {} };
     const plain = renderToStaticMarkup(createElement(TarsConversationMessage, props));
-    expect(plain).toContain("Accepted for execution");
+    expect(plain).toContain("Work added");
     expect(plain).not.toContain("data-tars-flow=");
     const flowed = renderToStaticMarkup(createElement(TarsConversationMessage, { ...props, flows }));
     expect(flowed).toContain('data-tars-flow="billing"');

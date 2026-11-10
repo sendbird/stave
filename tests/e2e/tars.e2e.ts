@@ -730,7 +730,7 @@ test("asking for the report in words opens it beside the conversation as a view-
   await expect(sideView(page)).toHaveAttribute("data-tars-side-view", "report");
   await expect(sideView(page)).toContainText("Show the saved card first at checkout");
   await expect(page.getByTestId("tars-view").locator("[data-tars-message]").filter({ hasText: "Show me the report" }))
-    .toContainText(/Open the result report.*Show the saved card first at checkout.*Accepted for execution/);
+    .toContainText(/Open the result report.*Show the saved card first at checkout.*View opened/);
   // Focus stays in the composer, and nothing was pressed to open it, so Esc leaves focus there.
   await expect(editor(page)).toBeFocused();
   await page.keyboard.press("Escape");
@@ -751,18 +751,18 @@ for (const lang of ["en", "ko"] as const) {
     const view = page.getByTestId("tars-view");
     const korean = lang === "ko";
     // Marked as Tars's own follow-up with its reason, never shown as the user's words.
-    await expect(view.locator('[data-tars-follow-up="blocked"]')).toContainText(korean ? "자동 후속 · 막힘: Fix the flaky upload test"
-      : "Automatic follow-up · Blocked: Fix the flaky upload test");
+    await expect(view.locator('[data-tars-follow-up="blocked"]')).toContainText(korean ? "Tars 후속 확인 · 진행할 수 없음: Fix the flaky upload test"
+      : "Tars follow-up · Work cannot continue: Fix the flaky upload test");
     await expect(view.getByText("Judge what it needs next", { exact: false })).toHaveCount(0);
     await expect(view.locator('[data-tars-message="message-follow-up"]')).toContainText(korean ? "업로드 테스트가 CI에서 계속 실패해" : "The upload test still fails on CI");
-    // A change past the turn limit says so once, in the conversation.
+    // A change past the automatic follow-up limit says so once, in the conversation.
     await expect(view.locator('[data-tars-follow-up-exhausted="follow-exhausted"]')).toContainText(korean
-      ? "자동 후속이 턴 한도에 닿아 Refresh the API reference에 대한 후속을 하지 않았습니다." : "No automatic follow-up for Refresh the API reference: automatic turns reached the turn limit.");
+      ? "자동 후속 확인 한도에 도달해 Tars가 Refresh the API reference 작업을 더 이상 자동으로 확인하지 않습니다." : "Tars stopped checking on Refresh the API reference automatically because it reached its limit for automatic follow-ups.");
     // The tray card says when Tars looks next, or that it stopped.
     const tray = page.getByRole("complementary");
-    await expect(tray.locator('[data-tars-card="follow-waiting"] [data-tars-follow-up-state="nextCheck"]')).toContainText(korean ? "다음 확인:" : "Next check:");
+    await expect(tray.locator('[data-tars-card="follow-waiting"] [data-tars-follow-up-state="nextCheck"]')).toContainText(korean ? "그 전에 변화가 없으면 Tars가" : "Tars checks again at");
     await expect(tray.locator('[data-tars-card="follow-exhausted"] [data-tars-follow-up-state="exhausted"]')).toContainText(korean
-      ? "자동 후속이 턴 한도에 닿아 멈췄습니다." : "No automatic follow-up: automatic turns reached the turn limit.");
+      ? "자동 후속 확인 한도에 도달해 Tars가 더 이상 자동으로 확인하지 않습니다." : "Tars stopped checking automatically because it reached its limit for automatic follow-ups.");
   });
 }
 
@@ -832,7 +832,7 @@ test("a confirmation card names its effect, marks what cannot be undone, and Esc
   const card = view.locator('[data-tars-decision-kind="confirm"][data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Cancel this work?");
   await expect(card).toContainText("Can't be undone");
-  await expect(card.locator("[data-tars-decision-rows]")).toHaveAttribute("data-tars-decision-rows", "repository,workspace,revision,effect");
+  await expect(card.locator("[data-tars-decision-rows]")).toHaveAttribute("data-tars-decision-rows", "repository,workspace,effect");
   await expect(card.locator('[data-tars-decision-row="workspace"]')).toContainText("Release check");
   await expect(card.getByRole("button", { name: "Not now", exact: true })).toHaveAttribute("aria-keyshortcuts", "Escape");
   // The tray offers the same confirmation without inviting it: not filled primary, with the same cue.
@@ -1003,7 +1003,7 @@ test("running work says what Stave observed in the tray, the flow, the composer 
   // The composer band: only the running fix, its stage and the turn's current step, from the relayed turn.
   await expect(view.locator("[data-tars-running]")).toHaveCount(1);
   await expect(band).toContainText("Fix the billing export on empty invoice lists");
-  await expect(band).toContainText(/Stage 2 of 3 · .+, attempt 2/);
+  await expect(band).toContainText(/Phase 2 of 3 · .+, attempt 2/);
   await expect(band.locator('[data-tars-live-freshness="live"]')).toContainText("Running the tests");
   // The folded flow under the delegating message and the tray card say the same observation.
   await expect(view.locator('[data-tars-flow="billing"] [data-tars-flow-live]')).toContainText("Running the tests");
@@ -1032,7 +1032,7 @@ test("running work says what Stave observed in the tray, the flow, the composer 
   const now = view.locator("[data-tars-timeline-now]");
   await expect(now).toContainText("Running the tests");
   await expect(now.locator('[data-tars-state="running"]')).toBeVisible();
-  await expect(now).toContainText("retried, attempt 2");
+  await expect(now).toContainText("started again, attempt 2");
   await expect(view.locator('[aria-controls="agent-run-stage-cause"]')).toHaveAttribute("aria-expanded", "true");
 });
 
@@ -1042,7 +1042,7 @@ test("running work Stave has not observed for a while is marked out of date ever
   const view = page.getByTestId("tars-view");
   for (const scope of ['[data-tars-running="billing"]', '[data-tars-flow="billing"] [data-tars-flow-live]', '[data-tars-card="billing"]']) {
     const stale = view.locator(`${scope} [data-tars-live-freshness="stale"]`).or(page.locator(`${scope} [data-tars-live-freshness="stale"]`)).first();
-    await expect(stale).toContainText("14분 동안 관측 없음 · 진행 정보가 오래됐을 수 있습니다");
+    await expect(stale).toContainText("14분 동안 업데이트 없음 · 진행 정보가 오래됐을 수 있습니다");
     await expect(stale).not.toContainText("테스트 실행 중");
   }
 });
