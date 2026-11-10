@@ -1166,6 +1166,78 @@ work. A task's completion report remains distinct from host-verified checks or
 a live external outcome. Use [Fleet](fleet-needs-me.md) for the detailed
 cross-workspace attention inbox.
 
+## What Tars knows, and usage
+
+The book button in the conversation header (**Knowledge and usage**) opens two
+read-mostly views beside the conversation. Opening them changes nothing and is
+not recorded in the conversation.
+
+### What Tars knows
+
+Everything Tars carries from one message to the next, grouped by where it
+applies, each part with its source and the editor that changes it:
+
+- **Everywhere**
+  - **Standing instructions**: the text as saved, whether you wrote it or it is
+    Stave's default, and when it was last saved. Tars reads it with every
+    message and hands it to the agents it starts. **Edit** opens
+    **Conversation settings**.
+  - **Agents Tars may hand work to**: the saved agents you allowed. Built-in
+    agents are always allowed. **Edit** opens **Conversation settings**.
+- **Per repository** (the first 12 registered repositories, which is what Tars
+  is shown; more are counted)
+  - **Branch naming rule**: the repository's own rule, or Stave's default when
+    none is set. **Edit** opens **Settings > Repository**.
+  - **Repository memory**: the repository's
+    [memories](repository-memory.md), read when you open the repository's
+    section. Tars does not read these itself: the tasks it starts in that
+    repository receive the relevant ones, at most 6 per turn. Memories in use
+    are listed first, the always-included ones leading; candidates waiting for
+    review and memories not confirmed for a long time are listed under **Not
+    used yet**. Each row shows its kind, how it is used, when it was last
+    confirmed and the task it came from, and has the same edit and forget
+    actions as the Memory section (forgetting offers **Undo**). When memory is
+    turned off for a repository the view says its tasks receive none.
+- **What Tars does not remember**: with each message Tars rereads only the last
+  8 messages of the conversation and the current state of its work. Older
+  messages stay on screen but are not read again, and Tars saves no memories
+  from the conversation.
+
+The view adds no memory store. It shows a time only where one is saved: the
+standing instructions' last save and each memory's last confirmation. The
+allowed agents and the branch rule have no saved time, and no item records when
+it was last used.
+
+### Usage
+
+What the work Tars started spent, as the providers reported it, for **Today**,
+**7 days** (the first shown) and **30 days**. Days are calendar days in your
+local time: today from midnight, 7 days as today and the six days before it.
+
+- **Totals**: tokens, turns and time working. **Reported cost** appears only
+  when a provider reported a cost for a turn in the period; Stave never applies
+  a price to tokens. When some turns reported no token count, or only some
+  reported a cost, the view says how many.
+- **By work**: each piece of work with its share of the period as a bar, its
+  tokens, turns, time, repository and the models its turns ran on. The title
+  opens that work's timeline (or its request when it has no run).
+- **By model**: the same figures per model, with its provider.
+
+Tokens are new prompt plus output; prompt read back from a provider's cache is
+not counted, on the same rule as the **AI usage** screen. A turn belongs
+to the period in which it started. The figures come from the turns of each
+work's own task, including any turns you took there.
+
+Not counted, and said in the view:
+
+- Tars's own replies. Their number is shown; their tokens and cost are not
+  recorded.
+- Turns of helper tasks that a run starts.
+
+The report is read when the view opens and on **Refresh**, never on a timer. It
+reads at most the 200 most recently changed pieces of work and 20,000 turns; if
+there were more, it says the totals are a lower bound.
+
 ## Live verification
 
 `tests/e2e-electron/tars-live-provider.electron.e2e.ts` runs Tars against the
