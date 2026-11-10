@@ -1949,6 +1949,40 @@
         "refresh": "Refresh"
       }
     },
+    "result": {
+      "label": "Result of {{title}}",
+      "views": "Views of {{title}}",
+      "outcome": {
+        "failed": "Failed"
+      },
+      "criteria": {
+        "title": "Completion criteria",
+        "verifiedCheck": "Met · confirmed by a check",
+        "verifiedReview": "Met · confirmed by review",
+        "reported": "Met · agent's report only",
+        "unmet": "Not met",
+        "unverified": "Not confirmed",
+        "staveChecks": "Stave ran and saw pass: {{checks}}",
+        "notReported": "Not reported"
+      },
+      "changes_one": "{{count}} file changed",
+      "changes_other": "{{count}} files changed",
+      "changesUncounted": "Files changed",
+      "review": {
+        "passed": "Review passed",
+        "changesRequested": "Review asked for changes",
+        "blocked": "Review could not finish",
+        "recorded": "Review recorded",
+        "findings_one": "{{count}} finding",
+        "findings_other": "{{count}} findings"
+      },
+      "openReport": "Open report",
+      "openReportFor": "Open report for {{title}}",
+      "openChanges": "View changes",
+      "openChangesFor": "View changes for {{title}}",
+      "openTimeline": "Open timeline",
+      "openTimelineFor": "Open timeline for {{title}}"
+    },
     "delivery": {
       "queued": "Waiting for the run's current turn to end. Tars says it in the task once, then.",
       "delivering": "Saying it in the task now.",

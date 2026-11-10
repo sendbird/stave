@@ -10,6 +10,7 @@ import type { buildTarsTrayFixtures } from "./tars-fixtures";
 import type { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
 import { tarsGalleryCodeReply } from "./tars-code-languages-fixture";
+import { buildTarsResultFixtures } from "./tars-result-fixtures";
 
 type ControlAction = Extract<TarsDecisionAction, { kind: "control" }>;
 type ReceiptOutcome = { status: "applied"; responsibilityId: string } | { status: "proposed" | "pending" } | { status: "rejected"; reason: TarsActionReason };
@@ -619,6 +620,27 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
       expectedRevision: audit.revision, proposedAt: c.at(10), optionCount: 3 });
   }
 
+  // K3–K7 · Result cards: ended work the view still holds shows what it came to, where its notice would be one line.
+  const result = buildTarsResultFixtures(start);
+  for (const [code, id, en, ko, replyEn, replyKo] of [
+    ["K3", result.ids.verified, "Result card: completed and verified", "결과 카드: 완료, 검증됨",
+      "A check Stave ran or a passed review backs each criterion.", "Stave가 실행한 검사나 통과한 리뷰가 각 기준을 뒷받침합니다."],
+    ["K4", result.ids.reported, "Result card: completed, agent's report only", "결과 카드: 완료, 에이전트 보고만 있음",
+      "Nothing Stave ran or reviewed confirms these, so the card says so.", "Stave가 실행하거나 리뷰한 것이 없어 카드가 그렇게 표시합니다."],
+    ["K5", result.ids.published, "Result card: completed with a draft PR", "결과 카드: 완료, Draft PR 있음",
+      "The draft pull request is a link on the card.", "Draft PR은 카드에 링크로 표시됩니다."],
+    ["K6", result.ids.stalled, "Result card: blocked, with the run's own words", "결과 카드: 진행 불가, 실행이 남긴 설명 포함",
+      "The card says why, keeps the run's own words one click away and offers the next steps.", "카드가 이유를 말하고, 실행이 남긴 설명은 한 번 눌러 볼 수 있으며, 다음에 할 수 있는 일을 보여 줍니다."],
+    ["K7", result.ids.failed, "Result card: failed to start", "결과 카드: 시작 실패",
+      "A run that could not go on reads as failed, with the provider's diagnostic folded.", "더 진행할 수 없는 실행은 실패로 표시하고, 프로바이더의 진단은 접어 둡니다."],
+  ] as const) {
+    const c = begin(code, en, ko);
+    const target = result.responsibilities.find((entry) => entry.id === id)!;
+    said(`g-${code.toLowerCase()}`, c.at(), `${c.label}`, l(replyEn, replyKo));
+    activity.push({ id: `gallery-activity-${target.id}`, responsibilityId: target.id, revision: target.revision, title: target.title, state: target.state, detail: target.detail,
+      detailCode: target.detailCode, detailParams: target.detailParams, createdAt: c.at(10) });
+  }
+
   // L · Publishing completed work as a draft pull request.
   const publishRecord = (patch: Pick<TarsPublishRecord, "requestId" | "responsibilityId" | "expectedRevision" | "status" | "createdAt"> & Partial<TarsPublishRecord>,
     target: TarsResponsibility): TarsPublishRecord => {
@@ -685,11 +707,11 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   }
 
   const responsibilities = [...byId.values()].map((entry) => entry.id === docs.id ? docs : entry)
-    .concat([upload, audit, settingsStore, runtime, packages, webhook, onboarding, landing]);
+    .concat([upload, audit, settingsStore, runtime, packages, webhook, onboarding, landing], result.responsibilities);
   const followUps: TarsFollowUpState[] = [{ responsibilityId: search.id, kind: "blocked", status: "exhausted", at: null },
     { responsibilityId: release.id, kind: "waitExpired", status: "nextCheck", at: new Date(Math.max(Date.now(), galleryStart) + 55 * 60_000).toISOString() }];
   const conversation: GalleryConversation = { settings, messages, receipts, records, answers, activity, events, publications };
-  const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs };
+  const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs, ...result.runs };
   // Named so a confirmation card can say where the work runs.
   const workspaceNames = Object.fromEntries(responsibilities.flatMap((entry) => entry.executionWorkspaceId
     ? [[entry.executionWorkspaceId, entry.branchName ?? `tars/${entry.id}`]] : []));

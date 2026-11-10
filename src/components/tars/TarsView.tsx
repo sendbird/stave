@@ -36,6 +36,7 @@ import { TarsConversation, type TarsConversationController, type TarsFlowContext
 import { TarsSideView } from "./TarsSideView";
 import type { TarsBriefLoader } from "./use-tars-brief";
 import { TarsBlockedNextSteps } from "./TarsBlockedNextSteps";
+import { TarsResultProvider } from "./TarsResultCard";
 import { useTarsExecutionPath, useTarsRunDetails } from "./use-tars-run-details";
 import { TarsSettings } from "./TarsSettings";
 import { TarsTray, TarsTrayStatusNote, TarsTrayToggle, type TarsTrayActions } from "./TarsTray";
@@ -356,11 +357,15 @@ export function TarsView() {
     </div>} />
     {error || openError ? <div role="alert" className={sx(styles.errorBar)}><p>{error ?? t("shell:tars.openFailed")}</p><Button variant="secondary" size="xs" onClick={() => { setOpenError(false); void refresh(); }}>{t("shell:tars.retry")}</Button></div> : null}
     <div className={sx(styles.workspace)}>
+      {/* A notice for ended work reads the work, its run and the tray's handlers from here, to show its result card. */}
+      <TarsResultProvider responsibilities={responsibilities} runs={runs} activity={conversation.conversation?.activity} records={records} actions={trayActions}
+        agentNameOf={(id) => agentNames.get(id)}>
       <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
         composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} />
+      </TarsResultProvider>
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
       {pinned && pinnedTrayOpen ? <aside id={trayId} hidden={Boolean(sideView)} className={sx(trayStyles.panel, Boolean(sideView) && trayStyles.panelFolded)} aria-labelledby={`${trayId}-title`} data-tars-tray-panel="">

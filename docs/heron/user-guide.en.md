@@ -559,7 +559,14 @@ entry shows the moving mark with the number of running work and an amber count
 of what needs you; collapsed, it shows one dot, amber when something needs you,
 blue when work only runs. The conversation keeps only words, decisions and the
 moments work completes, is blocked or is cancelled, each with the state tag's
-word. Updates arrive as soon as Tars saves them, without waiting for a refresh.
+word. Completed, blocked and failed work shows a result card there: the completion
+criteria with what backs each one (**Met · confirmed by a check**, **Met · confirmed by
+review**, or **Met · agent's report only** when nothing Stave ran or reviewed confirms
+it), a two-line summary with **Open report**, the changed files with **View changes**,
+the review's result and the draft pull request. Blocked or failed work adds the reason,
+the tool's own message under **Technical details** and the controls it admits, such as
+**Resume**. A cancel stays one line. Updates arrive as soon as Tars saves them, without
+waiting for a refresh.
 
 The tray's fourth section, **Outputs**, lists what work produced: the
 **Result report** once a run ended, **Changes** when it changed files, the

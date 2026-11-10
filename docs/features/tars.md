@@ -754,8 +754,35 @@ disagree: running work that needs you is in **Needs you** and counted there.
 The sidebar's Tars entry still counts what is actually running. Each lane
 header keeps its place at the top of the tray while you scroll through it,
 with the chevron beside its name turned down while it is open; an empty lane
-stays folded to its muted header with a zero count until you open it. The conversation's one-line
-notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
+stays folded to its muted header with a zero count until you open it. The
+conversation's notices use the state's own word: **Completed**, **Blocked**,
+**Cancelled**.
+
+**Ended work shows what it came to.** Where work completes or stops, the
+conversation shows a result card under the notice's row (the state, the work,
+its agent and how long the run worked). The card shows only what the run
+recorded:
+
+- The completion criteria, each with what backs it. **Met · confirmed by a
+  check** is a criterion whose own Stave check passed on the revision the run
+  ended on. **Met · confirmed by review** is one the independent review passed
+  on that revision. **Met · agent's report only** is everything else that was
+  reported met: nothing Stave ran or reviewed confirms it. **Not met**,
+  **Not confirmed** and **Not reported** are the report's own statuses. Checks
+  Stave ran and saw pass are named on one line under the list; they back the
+  result as a whole and never turn a single criterion into a verified one.
+- The last summary from the report, cut to two lines, with **Open report**.
+- The changed files with lines added and removed, and **View changes**; the
+  review's result; and the draft pull request as a link, or **Create draft
+  PR** where the work can be published.
+- For blocked work, and for work that **Failed** (a step that could not start,
+  or a run that stopped for a reason other than unmet criteria): the reason in
+  your language, the tool's own message under **Technical details**, the
+  controls that state admits (the tray's own, such as **Resume**, **Take
+  over** and **Open task**) and **Open timeline**.
+
+A cancel stays one row. So does an earlier stop the work has since moved on
+from: only the newest notice of a piece of work carries its card and controls.
 
 **The composer band starts folded.** Above the message box, running work is
 one summary line: how many pieces run now, and how many of them Stave has not
