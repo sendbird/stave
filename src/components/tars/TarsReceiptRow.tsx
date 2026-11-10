@@ -1,4 +1,5 @@
 import { useTranslation } from "@/i18n";
+import { formatList } from "@/i18n/format";
 import type { TarsActionReceipt } from "@/lib/tars/conversation";
 import { tarsControlReasonKey, tarsDelegateReasonKey } from "@/lib/tars/control-reasons";
 import { TarsPublishReasonSchema } from "@/lib/tars/publication";
@@ -8,7 +9,8 @@ import { TarsRecordDetail, TarsRecordRow, type TarsRecordState } from "./TarsRec
 export function tarsReceiptRefusalKey(receipt: TarsActionReceipt) {
   // An automatic follow-up's refusal reads the same for every kind of action.
   if (receipt.action.kind === "publish") { const parsed = TarsPublishReasonSchema.safeParse(receipt.reason); return `shell:tars.publish.reason.${parsed.success ? parsed.data : "unknown"}` as const; }
-  if (receipt.reason === "notByFollowUp" || receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show") return tarsControlReasonKey(receipt.reason);
+  if (receipt.reason === "notByFollowUp" || receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show"
+    || receipt.action.kind === "clear") return tarsControlReasonKey(receipt.reason);
   return receipt.action.kind === "delegate" ? tarsDelegateReasonKey(receipt.reason) : null;
 }
 
@@ -32,7 +34,8 @@ export function TarsReceiptRow({ receipt, titleOf, agentNameOf }: {
       : action.kind === "ask" ? [t("shell:tars.record.ask"), action.question]
         : action.kind === "show" ? [t(`shell:tars.record.show.${action.view}`), title(action.responsibilityId)]
           : action.kind === "publish" ? [t("shell:tars.record.publish"), title(action.responsibilityId)]
-            : [t("shell:tars.record.reprioritize", { priority: action.priority }), title(action.responsibilityId)];
+            : action.kind === "clear" ? [t("shell:tars.record.clear"), formatList(action.scopes.map((scope) => t(`shell:tars.clear.scope.${scope}`)))]
+              : [t("shell:tars.record.reprioritize", { priority: action.priority }), title(action.responsibilityId)];
   const agent = action.kind === "delegate" && action.agentId ? action.agentId : null;
   const refusal = receipt.error ? (() => { const key = tarsReceiptRefusalKey(receipt); return key ? t(key) : receipt.error; })() : null;
   return <TarsRecordRow state={RECEIPT_STATE[receipt.status]} lead={lead} subject={subject} status={t(`shell:tars.conversation.receipts.${receipt.status}`)}

@@ -178,6 +178,12 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
           refusal ? { status: "rejected", ...refusal } : { status: "proposed" }, now()));
         continue;
       }
+      if (action.kind === "clear") {
+        // Clearing is never applied from words: the proposal waits for the user's confirmation
+        // on its card, which takes the same clear path as the tray and header buttons.
+        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision, { status: "proposed" }, now()));
+        continue;
+      }
       if (action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(action.operation)) {
         // Model text is untrusted: returning authority or ending work waits for the
         // user's confirming click, which takes the click path. An inadmissible

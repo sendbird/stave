@@ -127,6 +127,9 @@ reports on the work.
 - Answer questions about your work from what Stave observed, saying when an
   observation is stale or missing. General conversation works even before you
   add a repository.
+- Clear this conversation, or the ended work in the panel's **Done** and
+  **Outputs**, when you ask; it shows a card first and only your **Clear**
+  hides anything. See [Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
 - Turn an explicit request into one or more work units in registered
   workspaces, each with acceptance criteria and a priority, from a single
   message, starting from the branch or, when you ask, from your uncommitted
@@ -495,6 +498,57 @@ is marked failed rather than run again. **Edit and resend** puts the message's
 words (and its working-changes choice, but not its files) back in the message
 box to send as a new message. Reads and unchanged execution
 observations do not start model calls.
+
+### Suggested requests
+
+While the message box is empty, up to four suggestion chips sit above it,
+built from the work as Stave last read it, most useful first and at most one
+per piece of work: **What needs me?** when anything waits on you, how the work
+Tars just delegated is going, why blocked work stopped, **Resume** paused work,
+**Start … now** for queued work (or all of it), **Open a draft PR** or **Show
+the report** for work that completed in the last day, **What finished today?**
+when several did, and how running work is going. A long title is shortened on
+the chip; the words it inserts keep the whole title. Pressing a chip (or Enter
+on it) only puts its words in the message box and focuses it: nothing is sent
+until you send it, and the chips step aside while the box holds words. No chip
+is offered before the work was read, and ended work the tray cleared is not
+suggested.
+
+## Clear the conversation and the panel
+
+Clearing hides; it never deletes. Every clear leaves a record with **Undo**
+(for the conversation, **Restore**), and survives a restart.
+
+- **Conversation.** **Clear conversation** (the eraser in the header) asks
+  first, then hides the conversation so far: the welcome returns and Tars's
+  recent conversation memory starts fresh, so its next reply does not draw on
+  the hidden messages. Your work, the requests that admitted it, decisions and
+  records stay saved and Tars still knows your work. Some things always stay
+  in view: a message still queued or being answered (and its reply, even when
+  it arrives after the clear), a question or confirmation still waiting for
+  you, a draft PR proposal still waiting for its card, and words still waiting
+  to be said in a task. The record at the top says how many messages it hid;
+  **Restore** brings them back.
+- **Done and Outputs.** **Clear** in the tray's **Done** section hides ended
+  work's cards; **Clear** in **Outputs** hides ended work's outputs. Only ended
+  (completed or cancelled) work is hidden; running, waiting, paused, blocked
+  and taken-over work never is, and neither is completed work whose draft PR
+  is still committing or pushing, failed and waiting for a retry, or proposed
+  and waiting for your confirmation. The section then says how many ended
+  items it hides, with **Undo** for the latest clear. Hidden work stays in Fleet
+  and in its task, and Tars can still report on it.
+- **By asking.** Say "clear the chat", "대화 지워줘", "done 정리해줘" or
+  "clear everything". Tars proposes a clear card that lists what each part
+  would hide now and what always stays; **Clear** (Enter) applies it through
+  the same path as the buttons, **Not now** (Esc) leaves everything as it is.
+  Tars never proposes a clear on its own initiative, and an automatic
+  follow-up cannot.
+- **Retention.** **Keep ended work in the panel** in settings hides ended
+  work's card and outputs once the work last changed more than that many days
+  ago: 1, 3, 7 (the default), 14 or 30 days, or **Until I clear it**. It is
+  judged each time the tray is read and needs no background job; work a clear
+  never hides is never aged out either. Choosing **Until I clear it** shows such
+  work again.
 
 ## Delegation and execution
 
@@ -1064,14 +1118,27 @@ when Stave starts; unprocessed ones are kept.
 ## Settings and models
 
 Open the settings button (**Conversation settings**) in the conversation
-header to change the name, standing instructions, conversation model and
-account, execution model, the agents Tars may use and the turn limit per work
-unit.
+header to change the name, standing instructions, how long ended work stays in
+the panel, conversation model and account, execution model, the agents Tars may
+use and the turn limit per work unit.
 Until you change them, the conversation uses Codex when it is available
 (otherwise Claude Code) with that provider's model from your app settings, and
 a turn limit of 30; the first send saves these choices for the conversation.
 Saving settings affects later messages and new work, not already admitted
 runs. Instructions do not grant new permissions.
+
+**Standing instructions** have a short default in your app language: lead with
+the answer or the decision needed, restate the goal and completion criteria
+before delegating, prefer small reviewable work without lowering criteria, say
+what happened and what you need to decide when work blocks, and say when an
+observation is stale or unknown. A profile that has never used Tars starts with
+it. Otherwise it is only offered: while the field is empty it shows the default
+as a placeholder and **Use default** fills it; when you have edited it, **Reset
+to default** puts it back. Either fills the field only, and **Save** keeps it.
+An empty field means Tars follows only its built-in rules.
+
+**Keep ended work in the panel** sets the retention period described in
+[Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
 
 The **Conversation model** is used only for talking with Tars, including its
 automatic follow-ups. Delegated work runs separately:

@@ -42,6 +42,9 @@ import {
   TarsComposerAttachments, TarsConversationError, TarsMessageAttachments, TarsMessageFailure, TarsMessageStatus, TarsMessageTime, useTarsTextScale,
 } from "./TarsMessageChrome";
 import { tarsMessageStyles as chrome } from "./tars-message.styles";
+import { TarsClearCard, TarsClearProposalRecord, TarsClearRecordLine, TarsSuggestionChips } from "./TarsClear";
+import type { TarsClearContext } from "./use-tars-clear";
+import type { TarsSuggestion } from "@/lib/tars/suggestions";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -69,6 +72,17 @@ export interface TarsConversationController {
 
 export type TarsDecisionAnswerHandler = (decision: TarsDecisionView, optionIndex: number, source: TarsAnswerSource) => void;
 
+/** A clear proposal in place of its receipt: the card while it waits, its record once confirmed, one line once declined. */
+function TarsClearProposal({ view, clear }: { view: TarsClearContext["proposals"][number]; clear: TarsClearContext }) {
+  const { t } = useTranslation(["shell"]);
+  if (view.record) return <TarsClearProposalRecord record={view.record} busy={clear.busy} error={clear.errors.get(view.record.requestId)}
+    onUndo={() => void clear.undo(view.record!.requestId)} />;
+  if (clear.declined.has(view.requestId)) return <TarsRecordList><TarsRecordRow state="stopped" lead={t("shell:tars.record.clear")}
+    subject={t("shell:tars.clear.card.declined")} data-tars-clear-proposal="declined" /></TarsRecordList>;
+  return <TarsClearCard id={view.requestId} scopes={view.scopes} counts={clear.counts} busy={clear.busy} error={clear.errors.get(view.requestId)}
+    onDecline={() => clear.decline(view.requestId)} onConfirm={(source) => void clear.clear(view.scopes, source, view.requestId)} />;
+}
+
 /** A publish proposal in place of its receipt: the card while it waits, else one line. */
 function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishContext["proposals"][number]; publish: TarsPublishContext; titleOf?: (id: string) => string | undefined }) {
   const { t } = useTranslation(["shell"]);
@@ -86,7 +100,7 @@ function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishCont
     onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
 }
 
-export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish }: {
+export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear }: {
   message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   /** Puts a failed message's words back in the message box; absent, its failure offers no action. */
   onResend?: () => void;
@@ -103,13 +117,17 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   context?: TarsDecisionCardContext;
   /** Publish proposals and their cards; absent, a publish proposal stays a receipt line. */
   publish?: TarsPublishContext;
+  /** Clear proposals and their cards; absent, a clear proposal stays a receipt line. */
+  clear?: TarsClearContext;
 }) {
   const { t } = useTranslation(["shell"]);
   const cards = new Map((decisions ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const publishViews = new Map((publish?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
+  const clearViews = new Map((clear?.available ? clear.proposals : []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   // An applied delegation reads as its flow block, and a decision as its card, so their receipt lines would only repeat them.
   const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: cards.get(receipt.actionIndex) ?? null }));
-  const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex)).map((entry) => entry.receipt);
+  const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex) && !clearViews.has(entry.receipt.actionIndex))
+    .map((entry) => entry.receipt);
   const origin = message.origin;
   const userWords = !origin;
   return <div className={sx(chrome.exchange)} data-tars-message={message.id} data-tars-message-origin={origin?.kind}>
@@ -139,6 +157,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       ? <TarsDecisionCard key={`decision:${receipt.actionIndex}`} decision={card} titleOf={titleOf} {...context} busy={busy} error={answerErrors?.get(card.id)}
         onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null)}
     {publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf} />) : null}
+    {clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : null}
     {flowed.map(({ receipt, flow }) => flow
       ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide}
         live={flows?.liveFor?.(flow.responsibilityId)} /> : null)}
@@ -186,7 +205,7 @@ function groupTarsRecordRuns(entries: Array<ReactNode | { record: ReactElement }
   return out;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge, clear, suggestions }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -208,6 +227,10 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   composerStatus?: ReactNode;
   /** Where the draft is saved across restarts; absent, it lasts for this window. */
   draftBridge?: Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
+  /** Clear proposals, clear records and their Undo; absent on bridges without clearing. */
+  clear?: TarsClearContext;
+  /** Suggested requests shown above the composer while the message box is empty. */
+  suggestions?: readonly TarsSuggestion[];
 }) {
   const { t } = useTranslation(["shell"]);
   // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again. Its files stay for this window.
@@ -246,8 +269,11 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // A change Tars did not follow up because automatic turns reached the turn limit says so once, where it happened.
     ...(state.conversation?.events ?? []).filter((value) => value.status === "exhausted")
       .map((value) => ({ kind: "event" as const, id: `event:${value.key}`, at: value.processedAt ?? value.createdAt, value })),
-  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [decisionIds, publish?.records, state.conversation]);
+    // A clear from a button (or a restored conversation clear) stays where it happened, with its Undo.
+    ...(clear?.records ?? []).map((value) => ({ kind: "clear" as const, id: `clear:${value.requestId}`, at: value.createdAt, value })),
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [clear?.records, decisionIds, publish?.records, state.conversation]);
   const scrollKey = timeline.map((item) => `${item.id}:${item.kind === "activity" ? item.value.activity.revision : item.kind === "event" ? item.value.status : item.value.revision}`).join("|")
+    + (clear?.active ? `|cleared:${clear.active.requestId}` : "")
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
     + (publish?.open ? `|open:${publish.open.id}` : "");
   const tooLong = text.length > TARS_MESSAGE_LIMIT;
@@ -327,11 +353,16 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       <ConversationContent scrollScopeKey="personal-representative" autoScrollKey={`${scrollKey}|error:${state.error ?? ""}`} data-testid="tars-transcript">
         {!state.available ? <p role="status">{t("shell:tars.conversation.unavailable")}</p> : null}
         {!state.conversation && state.available && !state.error ? <p role="status">{t("shell:tars.conversation.loading")}</p> : null}
-        {state.conversation && !timeline.length ? <TarsWelcome name={name} onExample={insertDraft} /> : null}
+        {/* The active conversation clear leads what is left, with its Restore. */}
+        {clear?.active ? <TarsRecordList><TarsClearRecordLine record={clear.active} busy={clear.busy} error={clear.errors.get(clear.active.requestId)}
+          onUndo={() => void clear.undo(clear.active!.requestId)} /></TarsRecordList> : null}
+        {state.conversation && !timeline.some((item) => item.kind !== "clear") ? <TarsWelcome name={name} onExample={insertDraft} /> : null}
         {groupTarsRecordRuns(timeline.map((item) => {
           if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
             onResend={() => resend(item.value)}
-            titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} />;
+            titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} />;
+          if (item.kind === "clear") return { record: <TarsClearRecordLine key={item.id} record={item.value} busy={clear?.busy} error={clear?.errors.get(item.value.requestId)}
+            onUndo={clear ? () => void clear.undo(item.value.requestId) : undefined} /> };
           if (item.kind === "publish") return { record: <TarsPublishRecordLine key={item.id} record={item.value} row={publish?.rowOf(item.value.responsibilityId)}
             title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} /> };
           if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.(item.value.action.responsibilityId)} /> };
@@ -361,6 +392,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     {sidePanel}
     {/* The AUI #809 tray composer: a tinted band around the raised input; its one quiet line appears only for the over-limit error. */}
     <div ref={composerRef} className={sx(styles.composer)} data-tars-composer="">
+      {/* Suggestions only fill an empty message box; they never send. */}
+      {suggestions?.length && !text.trim() && !composerDisabled ? <TarsSuggestionChips items={suggestions} onPick={(words) => { setTarsDraftText(words); focusComposer(); }} /> : null}
       <div className={sx(composerTray.tray)}>
       {composerStatus}
       <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />

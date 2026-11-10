@@ -55,7 +55,7 @@ describe("Tars durable responsibilities", () => {
 
     const restarted = open(filename).store;
     expect(restarted.snapshot()).toEqual({
-      followUps: [],
+      followUps: [], cleared: { done: [], outputs: [] },
       identity: { id: "personal", name: "My Tars", instructions: "Repair local work; ask before publishing.", updatedAt: NOW },
       responsibilities: [running], pendingDecisions: [], runtime: "desktop",
     });

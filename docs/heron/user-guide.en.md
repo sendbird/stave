@@ -461,6 +461,31 @@ Auto routes delegated work, and reviews can run on the other provider. Pin a
 model only when every step and its review should stay on it. Tars runs work
 only on Claude or Codex.
 
+**Standing instructions** start with a short default in your app language for a
+profile that has never used Tars. Otherwise the default is only offered: an
+empty field shows it as a placeholder with **Use default**, and an edited one
+offers **Reset to default**; either fills the field, and **Save** keeps it.
+**Keep ended work in the panel** hides ended work's card and outputs from the
+tray once it last changed 1, 3, 7 (the default), 14 or 30 days ago, or keeps
+them **Until I clear it**.
+
+To tidy up, use **Clear conversation** (the eraser in the header) or **Clear**
+in the tray's **Done** and **Outputs** sections, or ask, such as "clear the
+chat" or "done 정리해줘"; Tars then shows a card, and only your **Clear**
+(Enter) applies it. Clearing hides and never deletes: every clear leaves a
+record with **Undo** (**Restore** for the conversation) and stays after a
+restart. A cleared conversation shows the welcome again and Tars's recent
+conversation memory starts fresh, but a message still being answered, a
+decision still waiting for you and words waiting for a task stay in view. Only
+ended work leaves **Done** and **Outputs**; running, waiting, blocked and
+taken-over work, and work whose draft PR is unfinished or waits for your
+confirmation, stay. Hidden work stays in Fleet and in its task.
+
+While the message box is empty, up to four suggestions sit above it, drawn
+from your work, such as **What needs me?**, **Resume …** or **Show the report
+for …**. A suggestion only fills the message box; nothing is sent until you
+send it.
+
 Built-in agents are always available to Tars. Allow a saved agent under
 **Agents Tars may use** before Tars can hand it work. Agents that publish,
 such as Shipper, are never used: only Stave publishes, and only after you

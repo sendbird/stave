@@ -8,6 +8,7 @@ import {
 } from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
 import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
+import { TarsClearActionSchema, TarsClearRecordSchema, TarsConversationViewSchema } from "./clearing";
 
 const IdSchema = z.string().trim().min(1).max(256);
 const RevisionSchema = z.number().int().min(1);
@@ -279,6 +280,7 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   TarsAskActionSchema,
   TarsShowActionSchema,
   TarsPublishActionSchema,
+  TarsClearActionSchema,
 ]);
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
 
@@ -291,7 +293,9 @@ export const TarsDecisionSchema = z.object({
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((actions) => actions.filter((action) => action.kind === "show").length <= 1, "A reply opens at most one view.")
     // i18n-ignore: schema diagnostic, not user-facing copy
-    .refine((actions) => actions.filter((action) => action.kind === "publish").length <= 1, "A reply proposes at most one publish."),
+    .refine((actions) => actions.filter((action) => action.kind === "publish").length <= 1, "A reply proposes at most one publish.")
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((actions) => actions.filter((action) => action.kind === "clear").length <= 1, "A reply proposes at most one clear."),
 }).strict();
 export type TarsDecision = z.infer<typeof TarsDecisionSchema>;
 
@@ -425,9 +429,11 @@ export const TarsActionReceiptSchema = z.object({
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 }).strict().superRefine((receipt, context) => {
-  // An ask always waits for the user's answer, and a publish for the user's confirmation on its card; neither applies anything itself.
+  // An ask always waits for the user's answer, and a publish or a clear for the user's confirmation on its card; none applies anything itself.
   const proposable = (receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)) || receipt.action.kind === "ask"
-    || receipt.action.kind === "publish";
+    || receipt.action.kind === "publish" || receipt.action.kind === "clear";
+  // A clear belongs to no responsibility, so its applied receipt names none.
+  const unbound = receipt.action.kind === "clear";
   // An automatic follow-up's refusal carries its one code on any kind of action.
   const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
@@ -436,7 +442,7 @@ export const TarsActionReceiptSchema = z.object({
   const valid = coded &&
     (receipt.status === "proposed" || receipt.status === "pending" ? receipt.responsibilityId === null && receipt.error === null &&
       (receipt.status === "pending" || proposable)
-      : receipt.status === "applied" ? receipt.responsibilityId !== null && receipt.error === null
+      : receipt.status === "applied" ? (receipt.responsibilityId !== null) !== unbound && receipt.error === null
         : receipt.responsibilityId === null && receipt.error !== null);
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (!valid) context.addIssue({ code: "custom", message: "Receipt status and outcome fields disagree." });
@@ -680,5 +686,9 @@ export const TarsConversationSchema = z.object({
   events: z.array(TarsEventSchema).max(1_000).optional(),
   /** Publish confirmations and their outcomes; optional so older hosts' conversations still parse. */
   publications: z.array(TarsPublishRecordSchema).max(1_000).optional(),
+  /** Clears from the active conversation clear on (its own record included); optional so older hosts' conversations still parse. */
+  clears: z.array(TarsClearRecordSchema).max(1_000).optional(),
+  /** Retention and the active conversation clear; absent from older hosts. */
+  view: TarsConversationViewSchema.optional(),
 }).strict();
 export type TarsConversation = z.infer<typeof TarsConversationSchema>;

@@ -32,6 +32,7 @@ import { TarsLiveLine, TarsRecentProgress, tarsLiveLineShows } from "./TarsLiveP
 import { useTarsLiveProgress } from "./use-tars-live-progress";
 import { TarsPublishEntry } from "./TarsPublishEntry";
 import { isTarsPublishable } from "@/lib/tars/publish-model";
+import { tarsClearStyles as clearStyles } from "./tars-clear.styles";
 
 export { stateTone } from "./TarsRunMonitor";
 
@@ -48,6 +49,38 @@ export interface TarsTrayActions {
   onPublish?: (row: TarsResponsibility) => void;
   /** Moves queued work in the queue through the host; absent, queued cards offer no Do first, Do later or drag. */
   onMove?: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void;
+}
+
+/** One clearable lane: how many ended items a clear would hide now, how many are hidden, and the newest clear's Undo. */
+export interface TarsTrayLaneClearing { clearable: number; hidden: number; onUndo: (() => void) | null; error?: string | null }
+
+/** The Done and Outputs lanes' Clear; absent on bridges without clearing. */
+export interface TarsTrayClearing {
+  busy: boolean;
+  done: TarsTrayLaneClearing;
+  outputs: TarsTrayLaneClearing;
+  onClear: (scope: "done" | "outputs") => void;
+}
+
+/**
+ * A clearable lane's controls under its header: how many ended items it
+ * leaves out (with the newest clear's Undo) and Clear, which hides the ended
+ * work it shows now. Nothing appears while there is nothing to say or do.
+ */
+function TarsLaneTools({ scope, clearing }: { scope: "done" | "outputs"; clearing: TarsTrayClearing }) {
+  const { t } = useTranslation(["shell"]);
+  const lane = clearing[scope];
+  if (!lane.clearable && !lane.hidden && !lane.error) return null;
+  const label = t(scope === "done" ? "shell:tars.clear.lane.clearDone" : "shell:tars.clear.lane.clearOutputs");
+  return <div className={sx(clearStyles.laneTools)} data-tars-lane-tools={scope}>
+    {lane.hidden ? <p className={sx(clearStyles.laneNote)} data-tars-lane-hidden={lane.hidden}>{t("shell:tars.clear.lane.hidden", { count: lane.hidden })}</p> : null}
+    <div className={sx(clearStyles.laneActions)}>
+      {lane.onUndo ? <Button variant="ghost" size="2xs" disabled={clearing.busy} data-tars-lane-undo={scope} onClick={lane.onUndo}>{t("shell:tars.clear.undo")}</Button> : null}
+      {lane.clearable ? <Button variant="ghost" size="2xs" disabled={clearing.busy} aria-label={label} title={label} data-tars-lane-clear={scope}
+        onClick={() => clearing.onClear(scope)}>{t("shell:tars.clear.lane.clear")}</Button> : null}
+    </div>
+    {lane.error ? <p className={sx(clearStyles.laneNote, clearStyles.laneError)} role="alert">{lane.error}</p> : null}
+  </div>;
 }
 
 /** The queue moves list for the tray's drag and drop; one list, so a card only drops among queued work. */
@@ -320,7 +353,7 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
 }
 
 /** Needs you, Running and Done, each folding on its own, then the outputs; the conversation beside it never moves. */
-export function TarsTray({ model, actions, outputs }: { model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[] }) {
+export function TarsTray({ model, actions, outputs, clearing }: { model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[]; clearing?: TarsTrayClearing }) {
   const { t } = useTranslation(["shell"]);
   const queued = Object.values(model.lanes).flat().filter((card) => card.queue);
   // Reordering needs the host's move path and something to reorder with.
@@ -346,10 +379,11 @@ export function TarsTray({ model, actions, outputs }: { model: TarsTrayModel; ac
           </Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Panel>
+          {lane === "done" && clearing ? <TarsLaneTools scope="done" clearing={clearing} /> : null}
           {cards.length ? <ul className={sx(styles.cards)}>
             {cards.map((card) => card.queue ? <TarsQueuedCardItem key={card.row.id} card={card} actions={actions} sortable={sortable} />
               : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
-          </ul> : <p className={sx(styles.empty)}>{t(`shell:tars.tray.emptyLane.${lane}`)}</p>}
+          </ul> : lane === "done" && clearing?.done.hidden ? null : <p className={sx(styles.empty)}>{t(`shell:tars.tray.emptyLane.${lane}`)}</p>}
         </Accordion.Panel>
       </Accordion.Item>;
     })}
@@ -360,7 +394,10 @@ export function TarsTray({ model, actions, outputs }: { model: TarsTrayModel; ac
           <ChevronDown aria-hidden className={cx(sx(styles.chevron, transition.transform), "atelier-accordion-chevron")} />
         </Accordion.Trigger>
       </Accordion.Header>
-      <Accordion.Panel><TarsOutputList outputs={outputs} onOpenSide={actions.onOpenSide} /></Accordion.Panel>
+      <Accordion.Panel>
+        {clearing ? <TarsLaneTools scope="outputs" clearing={clearing} /> : null}
+        {!outputs.length && clearing?.outputs.hidden ? null : <TarsOutputList outputs={outputs} onOpenSide={actions.onOpenSide} />}
+      </Accordion.Panel>
     </Accordion.Item> : null}
   </Accordion.Root>;
 }
