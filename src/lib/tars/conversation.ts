@@ -14,6 +14,8 @@ import {
 } from "./autonomy";
 import { TarsScheduleActionSchema, TarsScheduleReasonSchema, TarsScheduleRecordSchema, TarsScheduleRunSchema } from "./schedules";
 
+import { TarsActionUndoSchema, TarsUndoActionRefusalSchema } from "./action-undo";
+
 const IdSchema = z.string().trim().min(1).max(256);
 const RevisionSchema = z.number().int().min(1);
 const ErrorSchema = z.string().trim().min(1).max(2_000);
@@ -577,6 +579,8 @@ export const TarsActionRecordSchema = z.object({
   /** English diagnostic for logs and support; the interface shows the translated `reason`. */
   error: ErrorSchema.nullable(),
   reason: TarsControlReasonSchema.nullable(),
+  /** Host-saved prior state; absent on historical or irreversible records. */
+  undo: TarsActionUndoSchema.optional(),
   /** An applied queue move's new priority for the moved work. */
   priority: z.number().int().min(0).max(100).optional(),
   /** An applied `message` whose task was busy: its words wait in this record and are said once (`TarsMessageDeliverySchema`). */
@@ -588,6 +592,10 @@ export const TarsActionRecordSchema = z.object({
   const rejected = record.status === "rejected";
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
+  if (record.undo && (record.status !== "applied" || (record.undo.kind === "queue" ? record.action.kind !== "move"
+    : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
+    // i18n-ignore: persisted-state integrity diagnostic
+    context.addIssue({ code: "custom", message: "Only reversible applied actions retain prior state." });
   const move = record.action.kind === "move";
   if ((record.source === "drag" && !move) || (record.priority !== undefined && !(move && record.status === "applied")))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
@@ -603,6 +611,9 @@ export const TarsActResultSchema = z.object({
   snapshot: TarsSnapshotSchema,
 }).strict();
 export type TarsActResult = z.infer<typeof TarsActResultSchema>;
+
+export const TarsUndoActionResultSchema = z.object({ record: TarsActionRecordSchema.nullable(), refusal: TarsUndoActionRefusalSchema.nullable() }).strict();
+export type TarsUndoActionResult = z.infer<typeof TarsUndoActionResultSchema>;
 
 /** One decision card option chosen by the user. The host reads the option from saved state; the caller names only its index. */
 export const TarsAnswerInputSchema = z.object({

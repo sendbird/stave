@@ -1,3 +1,5 @@
+import type { TarsUndoActionInput } from "./action-undo";
+import type { TarsUndoActionResult } from "./conversation";
 import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
@@ -27,6 +29,7 @@ export const TARS_IPC = Object.freeze({
   get: "tars:get",
   create: "tars:create",
   act: "tars:act",
+  undoAction: "tars:undo-action",
   updateIdentity: "tars:update-identity",
   sendMessage: "tars:send-message",
   configureConversation: "tars:configure-conversation",
@@ -571,7 +574,9 @@ export interface TarsBridgeApi {
   publish?(input: TarsPublishInput): Promise<TarsPublishResult>;
   /** What a publish card shows, read by the host; absent on bridges that predate publishing. */
   previewPublish?(input: TarsPublishPreviewInput): Promise<TarsPublishPreview>;
-  /** Moves queued work in the queue and records it like a click; absent on bridges that predate queue moves. */
+  /** Restores host-snapshotted local changes only; absent on older bridges. */
+  undoAction?(input: TarsUndoActionInput): Promise<TarsUndoActionResult>;
+  /** Moves queued work and records the result; absent on older bridges. */
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
   getBrief?(input: TarsBriefInput): Promise<TarsBrief>;

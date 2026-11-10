@@ -390,6 +390,16 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         await Promise.allSettled([...operations.values()]);
       }
     },
+    /** A local reversal waits for all preparation/controls already admitted for this work. */
+    serializeUndo<T>(id: string, restore: () => T): Promise<T> {
+      return enqueue(id, () => {
+        const result = restore();
+        // Refusals leave a paused/taken-over hold intact. A successful local restore is queued again.
+        if (ports.store.get(id)?.state === "queued") held.delete(id);
+        requestTick();
+        return result;
+      });
+    },
     get: () => Promise.resolve(snapshot()),
     create: async (raw: unknown) => {
       const input = CreateTarsResponsibilityInputSchema.parse(raw);

@@ -1,3 +1,4 @@
+import { TarsUndoActionRefused, type TarsActionUndo, type TarsUndoActionInput } from "../../src/lib/tars/action-undo";
 import { createHash, randomUUID } from "node:crypto";
 import {
   TARS_MESSAGE_FAILURE_TEXT, TARS_STORAGE_BUSY_MESSAGE, parseTarsConfirmationRequestId, tarsConfirmationRequestId, type TarsControlReason, type TarsMessageFailureCode,
@@ -584,15 +585,16 @@ export class TarsConversationStore {
   }
 
   /** A queue move and its record settle together; `apply` returns the moved work's new priority. A replay never moves it again. */
-  applyMove(requestId: string, apply: () => number, now: string): TarsActionRecord {
+  applyMove(requestId: string, apply: () => number | { priority: number; undo: TarsActionUndo }, now: string): TarsActionRecord {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (current?.status === "applied") return current;
-      return this.settleRecord(requestId, { status: "applied", priority: apply() }, now);
+      const result = apply();
+      return this.settleRecord(requestId, { status: "applied", ...(typeof result === "number" ? { priority: result } : result) }, now);
     });
   }
 
-  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number; delivery?: TarsMessageDelivery }
+  private settleRecord(requestId: string, outcome: { status: "applied"; priority?: number; delivery?: TarsMessageDelivery; undo?: TarsActionUndo }
     | { status: "rejected"; reason: TarsControlReason; error: string }, now: string): TarsActionRecord {
     const current = this.getAction(requestId);
     if (!current) throw new Error("The action record was not found.");
@@ -601,12 +603,30 @@ export class TarsConversationStore {
     const next = TarsActionRecordSchema.parse({ ...current, status: outcome.status, error: rejected?.error ?? null,
       reason: rejected?.reason ?? null, ...(outcome.status === "applied" && outcome.priority !== undefined ? { priority: outcome.priority } : {}),
       ...(outcome.status === "applied" && outcome.delivery ? { delivery: outcome.delivery } : {}),
+      ...(outcome.status === "applied" && outcome.undo ? { undo: outcome.undo } : {}),
       revision: current.revision + 1, updatedAt: now });
     const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
       .run(next.revision, JSON.stringify(next), requestId, current.revision);
     if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
     this.changes.emit("conversation");
     return next;
+  }
+
+  /** The restoration and its durable receipt commit together; an acknowledged replay has no effect. */
+  undoAction(input: TarsUndoActionInput, restore: (record: TarsActionRecord) => void, now: string): TarsActionRecord {
+    return this.write(() => {
+      const current = this.getAction(input.requestId);
+      if (!current) throw new Error("The action record was not found.");
+      if (current.undo?.undoneAt) return current;
+      if (current.revision !== input.expectedRevision) throw new TarsUndoActionRefused("stale");
+      restore(current);
+      const next = TarsActionRecordSchema.parse({ ...current, undo: { ...current.undo, undoneAt: now }, revision: current.revision + 1, updatedAt: now });
+      const saved = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
+        .run(next.revision, JSON.stringify(next), current.requestId, current.revision);
+      if (Number(saved.changes ?? 0) !== 1) throw new TarsUndoActionRefused("stale");
+      this.changes.emit("conversation");
+      return next;
+    });
   }
 
   /** Messages waiting for, or under, delivery to a busy task, oldest first: the delivery queue. */
@@ -716,12 +736,12 @@ export class TarsConversationStore {
    * message waits for when its task was busy: the record is applied with its
    * words queued for delivery (`TarsMessageDelivery`) instead of said now.
    */
-  applyAction(requestId: string, apply: () => void, now: string, proposal?: TarsProposalRef, queue?: { agentRunId: string }): TarsActionRecord {
+  applyAction(requestId: string, apply: () => void | TarsActionUndo, now: string, proposal?: TarsProposalRef, queue?: { agentRunId: string }): TarsActionRecord {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (current?.status === "applied") return current;
-      apply();
-      const record = this.settleRecord(requestId, { status: "applied", ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
+      const undo = apply();
+      const record = this.settleRecord(requestId, { status: "applied", ...(undo ? { undo } : {}), ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
         reason: null, error: null, queuedAt: now, updatedAt: now } } : {}) }, now);
       if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
       return record;

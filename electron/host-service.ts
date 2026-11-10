@@ -1,3 +1,4 @@
+import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
 import { findAutomationWorkspace } from "./host-service/automation-workspace-location";
@@ -2240,6 +2241,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.act":
       await respond(request.id, await actTars(request.params, {
         conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
+        responsibilities: ensureHostServicePersistenceReady().tars,
       }));
       return;
     case "tars.publish":
@@ -2263,6 +2265,14 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.schedules":
       await respond(request.id, await tarsScheduler.list());
       return;
+    case "tars.undo-action": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await undoTarsAction(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo,
+      }));
+      return;
+    }
     case "tars.reprioritize": {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await reprioritizeTars(request.params, {

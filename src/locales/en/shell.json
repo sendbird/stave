@@ -1433,7 +1433,16 @@
       },
       "publish": "Publish as a draft PR",
       "reprioritize": "Set priority {{priority}}",
-      "clear": "Clear"
+      "clear": "Clear",
+      "undo": {
+        "action": "Undo",
+        "pending": "Undoing…",
+        "done": "Undone",
+        "unsupported": "This record cannot be undone.",
+        "stale": "The work or queue changed. Undo would overwrite newer work.",
+        "outOfScope": "The workspace is no longer available to Tars.",
+        "failed": "Undo could not be confirmed. Try again."
+      }
     },
     "execution": {
       "model": "Execution model",

@@ -1423,7 +1423,16 @@
       },
       "publish": "Draft PR로 게시",
       "reprioritize": "우선순위 {{priority}}로 변경",
-      "clear": "정리"
+      "clear": "정리",
+      "undo": {
+        "action": "되돌리기",
+        "pending": "되돌리는 중…",
+        "done": "되돌림",
+        "unsupported": "이 기록은 되돌릴 수 없습니다.",
+        "stale": "작업이나 큐가 변경되어 되돌릴 수 없습니다. 이후 변경은 그대로 유지됩니다.",
+        "outOfScope": "Tars가 이 워크스페이스에 더 이상 접근할 수 없습니다.",
+        "failed": "되돌리기 결과를 확인하지 못했습니다. 다시 시도해 주세요."
+      }
     },
     "execution": {
       "model": "실행 모델",

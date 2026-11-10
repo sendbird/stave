@@ -1,3 +1,4 @@
+import { TarsUndoActionInputSchema } from "../../../src/lib/tars/action-undo";
 import { ipcMain } from "electron";
 import { z } from "zod";
 import {
@@ -91,6 +92,8 @@ export function registerTarsHandlers() {
     z.undefined().parse(input);
     return invokeHostService("tars.schedules", undefined);
   });
+  ipcMain.handle(TARS_IPC.undoAction, (_event, input: unknown) =>
+    invokeHostService("tars.undo-action", TarsUndoActionInputSchema.parse(input)));
   // A queue move from the tray takes the host's reprioritize admission; there is no direct priority write.
   ipcMain.handle(TARS_IPC.reprioritize, (_event, input: unknown) =>
     invokeHostService("tars.reprioritize", TarsReprioritizeInputSchema.parse(input)));

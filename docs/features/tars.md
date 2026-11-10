@@ -382,6 +382,14 @@ name the waiting proposal and lead you to Tars instead of offering
 the revision you saw; if the run moved to another stage or attempt since, it
 is refused as changed, so a confirmed skip never skips a later stage.
 
+New queue-move records offer **Undo**, which restores the earlier priorities,
+including any neighboring work that the move renumbered. A pause or takeover
+of queued work also offers **Undo** if execution had never started. Undo
+refuses if the work, its queue or its registered scope changed meanwhile; it
+never overwrites newer work. Older records without saved prior values, active
+run controls, starts, task replies, completion decisions and publication have
+no Undo. Clearing keeps its separate Undo.
+
 ### 4. See progress
 
 - **Sidebar**: the **Tars** entry shows the number of running work with the

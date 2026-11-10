@@ -3126,6 +3126,8 @@ interface WindowApi {
    * `tars:undo-clear`) hide and restore the conversation view, the tray's
    * Done cards or its outputs, and `configureView` (`tars:configure-view`)
    * saves how long ended work stays in the tray; nothing is deleted.
+   * `undoAction` (`tars:undo-action`) restores only host-snapshotted reversible
+   * records, rejecting changed work or queue membership. It never resumes a run.
    * `getAway` / `saveAway` (`tars:get-away` / `tars:save-away`) keep when
    * the user last saw the conversation and the "while you were away" summary
    * on screen (`TarsAwayState`); saving is idempotent and never announced.

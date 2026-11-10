@@ -1,3 +1,5 @@
+import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
+import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
@@ -870,6 +872,7 @@ const tarsApi: TarsBridgeApi = {
   answer: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.answer, TarsAnswerInputSchema.parse(input))),
   publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
+  undoAction: async (input) => TarsUndoActionResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoAction, TarsUndoActionInputSchema.parse(input))),
   reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
   getBrief: async (input) => TarsBriefSchema.parse(await ipcRenderer.invoke(TARS_IPC.getBrief, TarsBriefInputSchema.parse(input))),
   getUsage: async (input) => TarsUsageReportSchema.parse(await ipcRenderer.invoke(TARS_IPC.getUsage, TarsUsageInputSchema.parse(input))),

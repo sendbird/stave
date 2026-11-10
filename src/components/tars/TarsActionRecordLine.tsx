@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui";
+import { useTarsActionUndo } from "./use-tars-action-undo";
 import { ArrowDownUp } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import type { TarsActionRecord, TarsActionRecordSource, TarsMessageDelivery } from "@/lib/tars/conversation";
@@ -55,6 +57,7 @@ export function useTarsDirectActor(): (source: TarsActionRecordSource) => TarsRe
 export function TarsActionRecordLine({ record, title }: { record: TarsActionRecord; title?: string }) {
   const { t } = useTranslation(["shell"]);
   const actorOf = useTarsDirectActor();
+  const undo = useTarsActionUndo(record);
   const { action, source } = record;
   const status = lineStatus(record);
   const lead = action.kind === "move"
@@ -64,10 +67,13 @@ export function TarsActionRecordLine({ record, title }: { record: TarsActionReco
     {title ? <TarsWorkChip title={title} responsibilityId={action.responsibilityId} /> : null}
     {record.priority !== undefined ? <TarsRecordChip icon={ArrowDownUp} data-tars-record-priority-value="">{t("shell:tars.record.priority", { priority: record.priority })}</TarsRecordChip> : null}
   </>;
-  return <TarsRecordRow state={TARS_RECORD_STATE[status]} actor={actorOf(source)} lead={lead} values={values} status={t(`shell:tars.record.status.${status}`)} at={record.createdAt}
+  return <TarsRecordRow state={TARS_RECORD_STATE[status]} actor={actorOf(source)} lead={lead} values={values} status={undo.undone ? t("shell:tars.record.undo.done") : t(`shell:tars.record.status.${status}`)} at={record.createdAt}
     data-tars-action-record={record.status} data-tars-record-kind={action.kind} data-tars-record-priority={record.priority} data-tars-record-source={source}
+    actions={undo.available ? <Button type="button" variant="ghost" size="2xs" disabled={undo.pending} onClick={() => void undo.undo()}
+      data-tars-record-undo="">{t(undo.pending ? "shell:tars.record.undo.pending" : "shell:tars.record.undo.action")}</Button> : null}
     detail={<>
       {record.status === "rejected" ? <TarsRecordDetail data-tars-reason={record.reason}>{t(tarsControlReasonKey(record.reason))}</TarsRecordDetail> : null}
+      {undo.refusal ? <TarsRecordDetail role="status">{t(`shell:tars.record.undo.${undo.refusal}`)}</TarsRecordDetail> : null}
       {record.delivery ? <TarsMessageDeliveryLine delivery={record.delivery} /> : null}
     </>} />;
 }

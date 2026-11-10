@@ -503,6 +503,14 @@ model, and each work's title opens that work. A cost appears only when a
 provider reported one; nothing is estimated. Tars's own replies are counted but
 their tokens are not recorded, and turns of helper tasks are not counted.
 
+New queue-move records offer **Undo**, which restores the earlier priorities,
+including any neighboring work that the move renumbered. A pause or takeover
+of queued work also offers **Undo** if execution had never started. Undo
+refuses if the work, its queue or its registered scope changed meanwhile; it
+never overwrites newer work. Older records without saved prior values, active
+run controls, starts, task replies, completion decisions and publication have
+no Undo. Clearing keeps its separate Undo.
+
 To tidy up, use **Clear conversation** (the eraser in the header) or **Clear**
 in the tray's **Done** and **Outputs** sections, or ask, such as "clear the
 chat" or "done 정리해줘"; Tars then shows a card, and only your **Clear**

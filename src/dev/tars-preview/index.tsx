@@ -1,3 +1,5 @@
+import { captureTarsControlUndo, captureTarsQueueUndo } from "@/lib/tars/action-undo";
+import { previewTarsActionUndo } from "./tars-action-undo-bridge";
 import { useLayoutEffect, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import { TarsView } from "@/components/tars/TarsView";
@@ -232,6 +234,8 @@ export function TarsPreview() {
       const createdAt = new Date(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
       const record = { requestId, source, requestHash: "b".repeat(64), action: { kind: "control" as const, responsibilityId, expectedRevision, operation },
         status: error ? "rejected" as const : "applied" as const, error, reason, revision: 2, createdAt, updatedAt: createdAt };
+      const undo = captureTarsControlUndo(record.action, row ?? null, snapshot.responsibilities.find((candidate) => candidate.id === responsibilityId) ?? null);
+      if (undo && !error) Object.assign(record, { undo });
       conversation.records.push(record);
       // A confirming click settles the proposal it confirms, as the host does in one transaction.
       const proposal = conversation.receipts.find((receipt) => `confirm:${receipt.messageId}:${receipt.actionIndex}` === requestId);
@@ -249,6 +253,7 @@ export function TarsPreview() {
       const plan = row && row.revision === expectedRevision && row.state === "queued" ? planTarsQueueMove(tarsQueueOf(snapshot.responsibilities), responsibilityId, move) : null;
       const reason = !row ? "notOwned" as const : row.revision !== expectedRevision ? "stale" as const : row.state !== "queued" ? "notQueued" as const
         : !plan?.ok ? (plan?.reason === "queueEdge" ? "queueEdge" as const : "stale" as const) : null;
+      const before = snapshot.responsibilities;
       const changes = plan?.ok ? new Map(plan.changes.map((change) => [change.id, change.priority])) : new Map<string, number>();
       if (!reason) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => changes.has(candidate.id)
         ? { ...candidate, priority: changes.get(candidate.id)!, revision: candidate.revision + 1 } : candidate)
@@ -256,15 +261,19 @@ export function TarsPreview() {
       const createdAt = new Date(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
       const record = { requestId, source, requestHash: "d".repeat(64), action: { kind: "move" as const, responsibilityId, expectedRevision, move },
         status: reason ? "rejected" as const : "applied" as const, error: reason ? "Preview move is not admissible." : null, reason,
-        ...(reason ? {} : { priority: changes.get(responsibilityId)! }), revision: 2, createdAt, updatedAt: createdAt };
+        ...(reason ? {} : { priority: changes.get(responsibilityId)!, undo: captureTarsQueueUndo(before, snapshot.responsibilities) }), revision: 2, createdAt, updatedAt: createdAt };
       conversation.records.push(record);
       saveConversation();
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
     const bridge: TarsBridgeApi = {
+      undoAction: previewTarsActionUndo({ conversation, getSnapshot: () => snapshot,
+        setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
+        changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
       // A fired schedule is announced as the host announces it, so the conversation reads again without a click.
       ...(scheduling ? { ...scheduling.bridge, onChanged: (listener) => { changeListeners.add(listener); return () => { changeListeners.delete(listener); }; } } : {}),
+      onChanged: (listener) => { changeListeners.add(listener); return () => { changeListeners.delete(listener); }; },
       reprioritize: async (input) => reprioritize(input),
       ...away?.bridge,
       get: async () => { syncAway(); reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone({ ...snapshot, cleared: clearing.cleared() })); },
