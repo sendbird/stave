@@ -1561,6 +1561,12 @@
       "stripLabel_other": "{{count}} pieces of work running",
       "more_one": "{{count}} more running",
       "more_other": "{{count}} more running",
+      "stripSummary_one": "{{count}} running now",
+      "stripSummary_other": "{{count}} running now",
+      "stripStale_one": "{{count}} not updated recently",
+      "stripStale_other": "{{count}} not updated recently",
+      "stripSummaryWithStale_one": "{{count}} running now, {{stale}} not updated recently",
+      "stripSummaryWithStale_other": "{{count}} running now, {{stale}} not updated recently",
       "event": {
         "runStarted": "Run started",
         "turnStarted": "Turn started in {{stage}}",

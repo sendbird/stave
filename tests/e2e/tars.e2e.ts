@@ -1013,6 +1013,12 @@ test("running work says what Stave observed in the tray, the flow, the composer 
   await expect(card.locator("[data-tars-recent-entry]")).toHaveCount(3);
   // Paused and taken-over work gets no live line and no place in the band.
   await expect(page.getByRole("complementary").locator('[data-tars-card="migration"] [data-tars-live-line]')).toHaveCount(0);
+  // Folded, the band is one summary line; unfolded, the rows below.
+  const toggle = view.locator("[data-tars-running-toggle]");
+  await expect(toggle).toHaveText("1 running now");
+  await expect(band).toBeHidden();
+  await toggle.click();
+  await expect(band).toBeVisible();
   // The band's mark sits on its first line, and the band never overflows the composer.
   await page.evaluate(() => document.fonts.ready);
   for (const width of [390, 1440]) {
@@ -1046,4 +1052,6 @@ test("running work Stave has not observed for a while is marked out of date ever
     await expect(stale).toContainText("14분 동안 관측 없음 · 진행 정보가 오래됐을 수 있습니다");
     await expect(stale).not.toContainText("테스트 실행 중");
   }
+  // The folded composer band says so in its one summary line.
+  await expect(view.locator("[data-tars-running-toggle]")).toHaveText("지금 1개 실행 중·1개 최근 업데이트 없음");
 });

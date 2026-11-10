@@ -1,4 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+
+/** The composer band starts folded to its summary; its rows (and their Timeline buttons) show once unfolded. */
+async function unfoldRunningStrip(view: Locator) {
+  const toggle = view.locator("[data-tars-running-toggle]");
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
 
 for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
   test(`Tars composer typography, keyboard focus and containment: ${theme} ${lang} ${density}`, async ({ page }) => {
@@ -9,10 +16,10 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      // The running-work timeline control comes before the editor in keyboard order.
+      // The folded running-work summary comes before the editor in keyboard order; its rows stay out of it until unfolded.
       await page.locator("[data-tars-guide-toggle]").focus();
       await page.keyboard.press("Tab");
-      await expect(composer.locator("[data-tars-running-timeline]")).toBeFocused();
+      await expect(composer.locator("[data-tars-running-toggle]")).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(editor).toBeFocused();
       await editor.fill(lang === "ko" ? "줄바꿈과 포커스를 확인하는 긴 메시지입니다. ".repeat(6) : "Verify wrapping and keyboard focus across the whole composer. ".repeat(6));
@@ -321,6 +328,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
           bar: { top: bar.top, height: bar.height }, rem: parseFloat(getComputedStyle(document.documentElement).fontSize) };
       });
       expect(before.tray).toBe(26 * before.rem);
+      await unfoldRunningStrip(view);
       await view.locator("[data-tars-running-timeline]").first().click();
       const side = view.locator('[data-tars-side-view="timeline"]');
       await expect(side).toHaveAttribute("data-tars-side-placement", "column");
@@ -341,16 +349,22 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
       expect(after.titleSize).toBe(16);
       expect(after.subject).toBe(13);
       expect(after.switcherRight).toBeLessThanOrEqual(after.right);
-      // Live progress reads at the 13px interface row, in the composer band and in the timeline.
-      const sizes = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-live-line], [data-tars-recent-entry]")]
-        .map((element) => parseFloat(getComputedStyle(element).fontSize)));
-      expect(sizes.length).toBeGreaterThan(2);
+      // Live progress reads at the 13px interface row in the timeline, and at the conversation's
+      // secondary step (14px beside 16px messages) in the composer band.
+      const sizes = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-live-line], [data-tars-recent-entry]")]
+        .filter((element) => !element.closest("[data-tars-running-strip]")).map((element) => parseFloat(getComputedStyle(element).fontSize)));
+      expect(sizes.length).toBeGreaterThan(1);
       expect(new Set(sizes)).toEqual(new Set([13]));
+      const band = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-running-strip] [data-tars-live-line]")]
+        .map((element) => parseFloat(getComputedStyle(element).fontSize)));
+      expect(band.length).toBeGreaterThan(1);
+      expect(new Set(band)).toEqual(new Set([14]));
       await page.keyboard.press("Escape");
       await expect(side).toHaveCount(0);
     }
     // Narrow: the view sits above the composer under its own bar, and the page itself never scrolls to show it.
     await page.setViewportSize({ width: 390, height: 900 });
+    await unfoldRunningStrip(view);
     await view.locator("[data-tars-running-timeline]").first().click();
     const inline = view.locator('[data-tars-side-view="timeline"]');
     await expect(inline).toHaveAttribute("data-tars-side-placement", "inline");
