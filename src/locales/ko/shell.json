@@ -2356,6 +2356,10 @@
         "subject": {
           "delegate": "{{title}} 시작",
           "reprioritize": "{{title}} 우선순위 변경"
+        },
+        "action": {
+          "delegate": "작업 시작",
+          "reprioritize": "우선순위 변경"
         }
       }
     }

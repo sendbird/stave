@@ -127,8 +127,12 @@ describe("a held work proposal's card", () => {
     expect(html).toContain("Repair search");
     expect(html).toContain("Tars adds this work to its queue and starts it when there is room.");
     expect(html).toContain("Source");
-    expect(html).toContain("Awaiting your confirmation");
-    expect(html).toContain("Confirm");
+    // The button says the card waits; there is no waiting badge.
+    expect(html).not.toContain("Awaiting your confirmation");
+    // The primary button is named by what it does and, with no rule matched, takes Enter.
+    expect(html).toMatch(/data-tars-decision-option="0"[^>]*>(?:(?!<\/button>).)*Start work/);
+    expect(html).toContain('aria-keyshortcuts="1 Enter"');
+    expect(html).not.toContain(">Confirm<");
     expect(html).not.toContain("data-tars-never-rule-notice");
     // Not an irreversible action: no danger tag.
     expect(html).not.toContain("data-tars-decision-risk-tag");

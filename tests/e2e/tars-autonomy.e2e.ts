@@ -51,7 +51,9 @@ test("choosing Careful turns the next delegation into a proposal that starts onl
   await expect(card).toHaveAttribute("data-tars-decision-state", "waiting");
   await expect(card).toContainText("Start this work?");
   await expect(card).toContainText("Check the review");
-  await expect(card).toContainText("Awaiting your confirmation");
+  // It waits: nothing started, and its main action is the card's primary button with the workspace behind Details.
+  await expect(card).toHaveAttribute("data-tars-decision-state", "waiting");
+  await expect(card.locator("[data-tars-decision-details-toggle]")).toHaveAttribute("aria-expanded", "false");
   await expect(second.locator("[data-tars-flow]")).toHaveCount(0);
   const held = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
   expect(held.settings.autonomy).toBe("careful");
@@ -59,7 +61,7 @@ test("choosing Careful turns the next delegation into a proposal that starts onl
   await page.screenshot({ path: testInfo.outputPath("tars-autonomy-proposal-card.png") });
 
   // Confirm applies exactly that proposal: the card folds to its record and the work's flow appears.
-  await card.getByRole("button", { name: /^Confirm/ }).click();
+  await card.getByRole("button", { name: /^Start work/ }).click();
   await expect(second.locator('[data-tars-decision-kind="confirm"]')).toHaveAttribute("data-tars-decision-state", "answered");
   await expect(second.locator('[data-tars-flow="preview-responsibility"]')).toBeVisible();
   const confirmed = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));

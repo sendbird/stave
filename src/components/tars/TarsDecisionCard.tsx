@@ -65,10 +65,12 @@ export function describeTarsDecisionOption(decision: TarsDecisionView, option: T
 
 /**
  * A confirmation button's words: the verb of what it does ("Resume", "Cancel
- * work", "Approve"); an ask's own option keeps its label.
+ * work", "Approve", "Start work"); an ask's own option keeps its label.
  */
 function confirmLabel(decision: TarsDecisionView, option: TarsDecisionOption): string {
   if (decision.kind === "confirm" && option.kind === "control" && !option.label) return i18n.t(`shell:tars.decision.card.action.${option.control.operation}`);
+  // A held work proposal is named by what confirming it does, like every other confirmation.
+  if (option.kind === "proposal" && !option.label) return i18n.t(`shell:tars.autonomy.proposal.action.${option.action.kind}`);
   return describeTarsDecisionOption(decision, option);
 }
 

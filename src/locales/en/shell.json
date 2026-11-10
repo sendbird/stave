@@ -2404,6 +2404,10 @@
         "subject": {
           "delegate": "Start {{title}}",
           "reprioritize": "Change the priority of {{title}}"
+        },
+        "action": {
+          "delegate": "Start work",
+          "reprioritize": "Change priority"
         }
       }
     }
