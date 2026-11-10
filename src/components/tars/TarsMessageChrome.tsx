@@ -113,7 +113,8 @@ export function TarsMessageStatus({ state, busy, onCancel }: { state: "queued" |
   const { t } = useTranslation(["shell"]);
   const label = t(`shell:tars.conversation.states.${state}`);
   return <div className={sx(styles.status)} data-tars-message-state={state}>
-    <StateMark state={state === "reasoning" ? "working" : state === "queued" ? "queued" : "stopped"} size="xs" motion={state === "reasoning" ? "moving" : "still"} />
+    {/* The mark sits in the records' mark column, so a message's state lines up with the rail beside it. */}
+    <span className={sx(styles.statusMark)}><StateMark state={state === "reasoning" ? "working" : state === "queued" ? "queued" : "stopped"} size="xs" motion={state === "reasoning" ? "moving" : "still"} /></span>
     {/* The words are the status a screen reader hears when the message starts or stops thinking. */}
     <span role="status" className={sx(styles.statusLabel)}>{state === "reasoning" ? <TextShimmer>{label}</TextShimmer> : label}</span>
     {state === "cancelled" ? null : <CancelMessageButton state={state} busy={busy} onCancel={onCancel} />}

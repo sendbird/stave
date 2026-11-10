@@ -41,6 +41,7 @@ Host modifications are intentional and retained when refreshing the bundle:
   and the display language's locale). It also takes `triggerXstyle`, host-owned
   geometry for the trigger button (the Tars message time's line box and 24px hit area).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
+- Alert (added 2026-11-10 with `headless/alert`) uses the installed feedback dismiss control: like Banner it shows its dismiss control only with a host `dismissLabel` and calls `onDismiss` at once, because the installed `feedback-dismiss` predates the bundle's collapse-before-dismiss hook (`useCollapseDismiss`). The rest of the file is the bundle's.
 
 - Plan takes three optional props the host needs to draw every plan on it (the
   Agent run Progress tab and report, the composer shelf, the task's turn plan):

@@ -38,9 +38,10 @@ for (const [width, theme, lang] of [[390, "dark", "ko"], [1440, "light", "en"]] 
     const geometry = await rows.evaluateAll((nodes) => nodes.slice(0, 60).map((node) => {
       const [slot, body] = [...node.children] as HTMLElement[];
       const main = body!.firstElementChild!.firstElementChild as HTMLElement;
-      // The first line's text: the lead (or the only part).
+      // The first line's text: the first words of the lead (or the only part), as line boxes, not the box that wraps them.
+      const words = document.createTreeWalker(main, NodeFilter.SHOW_TEXT, { acceptNode: (text) => text.textContent!.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP }).nextNode();
       const range = document.createRange();
-      range.selectNodeContents(main.firstElementChild ?? main);
+      range.selectNodeContents(words ?? main);
       const first = [...range.getClientRects()].find((rect) => rect.height > 4)!;
       const mark = slot!.querySelector("svg")!.getBoundingClientRect();
       const list = node.closest("ul")!.getBoundingClientRect();
@@ -167,4 +168,97 @@ test("who did it is a glyph with its sentence, and only values that open somethi
   await work.click();
   await expect(page.locator('[data-tars-side-view="brief"]')).toBeVisible();
   expect(id).toBeTruthy();
+});
+
+for (const [width, theme, lang] of [[390, "dark", "ko"], [1440, "light", "en"]] as const) {
+  test(`a record keeps its outcome on the lead line; narrow, only the values wrap under it (${width}px ${theme} ${lang})`, async ({ page }) => {
+    await openGallery(page, "", { width, theme, lang });
+    await scrollTo(page, "g-i");
+    const rows = page.locator('[data-tars-message="g-i"]').locator("xpath=following-sibling::ul[1]").locator("[data-tars-record-state]");
+    const geometry = await rows.evaluateAll((nodes) => nodes.filter((node) => node.querySelector("[data-tars-record-status]") && node.querySelector("[data-tars-record-work]"))
+      .map((node) => {
+        const box = (selector: string) => node.querySelector(selector)!.getBoundingClientRect();
+        const center = (rect: DOMRect) => (rect.top + rect.bottom) / 2;
+        const [actor, status, work] = [box("[data-tars-record-actor]"), box("[data-tars-record-status]"), box("[data-tars-record-work]")];
+        return { statusOnLead: Math.abs(center(status) - center(actor)) <= 3, workOnLead: Math.abs(center(work) - center(actor)) <= 3,
+          workBelow: work.top >= status.bottom - 0.5, workInside: work.right <= node.getBoundingClientRect().right + 0.5 };
+      }));
+    expect(geometry.length).toBeGreaterThan(5);
+    for (const row of geometry) {
+      expect(row.statusOnLead).toBe(true);
+      expect(row.workInside).toBe(true);
+      // Wide, the work chip follows the lead on its line; narrow, it takes the next row whole.
+      expect(width === 390 ? row.workBelow : row.workOnLead).toBe(true);
+    }
+  });
+}
+
+test("an automatic follow-up's line heads its reply on the rail; a superseded one is one compact item", async ({ page }) => {
+  await openGallery(page, "");
+  const thread = page.locator('[data-tars-message="g-h-waitExpired"] [data-tars-record-thread]');
+  await thread.scrollIntoViewIfNeeded();
+  await expect(thread).toHaveAttribute("role", "group");
+  const tie = await thread.evaluate((node) => {
+    const head = node.querySelector("[data-tars-follow-up]")!;
+    const [slot, body] = [...head.children] as HTMLElement[];
+    const mark = slot!.getBoundingClientRect();
+    const rail = node.querySelector(":scope > [aria-hidden='true']")!.getBoundingClientRect();
+    const reply = node.querySelector("[data-tars-reply]")!.getBoundingClientRect();
+    const box = node.getBoundingClientRect();
+    return {
+      // The reply starts on the line's text column, and the rail runs from under the line's mark to the end of the reply.
+      replyOnText: Math.abs(reply.left - body!.getBoundingClientRect().left) <= 1,
+      railOnMark: Math.abs((rail.left + rail.right) / 2 - (mark.left + mark.right) / 2) <= 1,
+      railSpan: rail.top >= mark.bottom - 1 && Math.abs(rail.bottom - box.bottom) <= 1 && reply.bottom <= rail.bottom + 1,
+    };
+  });
+  expect(tie).toEqual({ replyOnText: true, railOnMark: true, railSpan: true });
+  // The follow-up the work outran: its line and why it did not happen, no Cancelled status and no rail running on.
+  const superseded = page.locator('[data-tars-message^="g-h-blocked-"]:has([data-tars-follow-up-superseded])');
+  await expect(superseded).toHaveCount(1);
+  await expect(superseded.locator("[data-tars-follow-up-superseded]")).toBeVisible();
+  await expect(superseded.locator("[data-tars-message-state]")).toHaveCount(0);
+  await expect(superseded.locator("[data-tars-record-thread-body]")).toHaveCount(0);
+});
+
+test("every entry between messages pads like an exchange, so the transcript has one gap between entries", async ({ page }) => {
+  await openGallery(page, "");
+  const entries = await page.getByTestId("tars-transcript").evaluate((root) => {
+    let column: Element = root;
+    while (column.children.length === 1) column = column.children[0]!;
+    return { gap: getComputedStyle(column).rowGap, pads: [...column.children].filter((child) => !child.hasAttribute("data-tars-day-separator"))
+      .map((child) => { const style = getComputedStyle(child); return `${style.paddingTop} ${style.paddingBottom}`; }) };
+  });
+  expect(entries.pads.length).toBeGreaterThan(40);
+  expect(new Set(entries.pads)).toEqual(new Set([entries.pads[0]!]));
+  expect(entries.pads[0]).not.toBe("0px 0px");
+});
+
+test("card text follows the chat font size: the title and effect at the messages' size, secondary lines one step under", async ({ page }) => {
+  for (const size of [12, 16, 20]) {
+    await openGallery(page, `messageFontSize=${size}`);
+    const card = page.locator('[data-tars-message="g-f1"] [data-tars-decision]');
+    await card.scrollIntoViewIfNeeded();
+    const sizes = await card.evaluate((node) => {
+      const px = (element: Element) => parseFloat(getComputedStyle(element).fontSize);
+      return { title: px(node.querySelector("p")!), effect: px(node.querySelector("[data-tars-decision-effect]")!),
+        work: px(node.querySelector("[data-tars-record-work]")!), details: px(node.querySelector("[data-tars-decision-details-toggle]")!) };
+    });
+    // Secondary lines are the rail's size: 0.875 of the messages, never under the 12px caption tier.
+    const secondary = Math.max(12, size * 0.875);
+    expect(sizes).toEqual({ title: size, effect: size, work: secondary, details: secondary });
+  }
+});
+
+test("Enter on a card's Details opens it and confirms nothing, even on a card whose action takes Enter", async ({ page }) => {
+  await openGallery(page, "");
+  const card = page.locator('[data-tars-message="g-f1"] [data-tars-decision]');
+  await card.scrollIntoViewIfNeeded();
+  await expect(card.locator("[data-tars-decision-option='0']")).toHaveAttribute("aria-keyshortcuts", "1 Enter");
+  const details = card.locator("[data-tars-decision-details-toggle]");
+  await details.focus();
+  await page.keyboard.press("Enter");
+  await expect(details).toHaveAttribute("aria-expanded", "true");
+  await expect(card.locator('[data-tars-decision-row="revision"]')).toBeVisible();
+  await expect(card).toHaveAttribute("data-tars-decision-state", "waiting");
 });

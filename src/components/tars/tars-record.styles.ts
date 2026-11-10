@@ -2,9 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
-/** Each row is its own container: in a narrow column (a phone, the side view, the pinned tray) the outcome takes its own line under the text. */
-const NARROW = "@container (max-width: 30rem)";
-
 /**
  * Record text takes the conversation scale's secondary step
  * (`chat-type.stylex.ts`, set by the conversation column from the chat font
@@ -14,6 +11,8 @@ const NARROW = "@container (max-width: 30rem)";
 const RECORD_TEXT = chatType["--chat-type-secondary"];
 /** Times: the scale's meta step, 12px beside 16px messages, the same as a message's own time. */
 const RECORD_TIME = chatType["--chat-type-meta"];
+/** Each row is its own container: in a narrow column the values take their own row under what was done, beside the outcome. */
+const NARROW = "@container (max-width: 30rem)";
 /** A relative line height, so a larger chat font keeps its leading. */
 const RECORD_LEADING = "1.5";
 
@@ -39,6 +38,8 @@ export const tarsRecordStyles = stylex.create({
     display: "grid", minWidth: 0, margin: 0, padding: 0, listStyle: "none",
     fontSize: RECORD_TEXT, lineHeight: RECORD_LEADING,
   },
+  /** A run that stands between exchanges pads like an exchange (`tarsMessageStyles.exchange`), so the transcript has one gap between entries. */
+  listStandalone: { paddingBlock: vars["--aui-space-8"] },
   item: { position: "relative", minWidth: 0 },
   /**
    * Mark, then the text, then the outcome at the trailing edge. Narrow, the
@@ -70,12 +71,32 @@ export const tarsRecordStyles = stylex.create({
     inlineSize: vars["--aui-border-width-hairline"], backgroundColor: vars["--aui-color-border-strong"], pointerEvents: "none",
   },
   body: { display: "flex", flexDirection: "column", rowGap: vars["--aui-space-2"], flex: 1, minWidth: 0 },
-  /** What was done and to what; the outcome follows on the same line while it fits. */
-  line: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], minWidth: 0 },
-  /** Who did it, what was done, then its values as chips; a long sentence wraps word by word, a chip wraps whole. */
+  /**
+   * What was done and to what; the outcome follows on the same line while it
+   * fits. In a narrow column (a phone, the side view) the line becomes two
+   * rows: what was done with the outcome at its trailing edge, then the
+   * values across the whole width. Only the chips wrap; the outcome never
+   * drops to a line of its own.
+   */
+  line: {
+    display: { default: "flex", [NARROW]: "grid" }, flexWrap: "wrap", alignItems: "baseline",
+    gridTemplateColumns: { default: null, [NARROW]: "minmax(0, 1fr) auto" },
+    columnGap: vars["--aui-space-8"], rowGap: { default: vars["--aui-space-2"], [NARROW]: vars["--aui-space-4"] }, minWidth: 0,
+  },
+  /** Who did it, what was done, then its values as chips; a long sentence wraps word by word, a chip wraps whole. Narrow, its two parts become the line's own rows. */
   main: {
-    display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
-    flex: { default: "1 1 14rem", [NARROW]: "1 1 100%" }, minWidth: 0,
+    display: { default: "flex", [NARROW]: "contents" }, flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
+    flex: "1 1 14rem", minWidth: 0,
+  },
+  /** Who did it and what was done: part of the main run when wide, the narrow line's first cell. */
+  text: {
+    display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"],
+    minWidth: 0, gridColumn: { default: null, [NARROW]: "1" }, gridRow: { default: null, [NARROW]: "1" },
+  },
+  /** The values: chips in the main run when wide, the narrow line's full-width second row. */
+  values: {
+    display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
+    minWidth: 0, gridColumn: { default: null, [NARROW]: "1 / -1" }, gridRow: { default: null, [NARROW]: "2" },
   },
   lead: { minWidth: 0, color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
   subject: { minWidth: 0, color: vars["--aui-color-text"], overflowWrap: "anywhere" },
@@ -86,10 +107,10 @@ export const tarsRecordStyles = stylex.create({
   },
   actorTars: { color: vars["--aui-color-accent"] },
   actorIcon: { inlineSize: "100%", blockSize: "100%" },
-  /** The outcome and the time at the trailing edge. */
+  /** The outcome and the time at the trailing edge; narrow, the first row's second cell. */
   trail: {
-    display: "inline-flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], flexShrink: 0, minWidth: 0,
-    marginInlineStart: { default: "auto", [NARROW]: 0 },
+    display: "inline-flex", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], flexShrink: 0, minWidth: 0,
+    marginInlineStart: { default: "auto", [NARROW]: 0 }, gridColumn: { default: null, [NARROW]: "2" }, gridRow: { default: null, [NARROW]: "1" },
   },
   status: { fontWeight: vars["--aui-font-weight-medium"], whiteSpace: "nowrap" },
   /** Applied is the expected outcome: the check carries it, so its word stays quiet and the exceptions are what the eye catches. */
@@ -112,6 +133,24 @@ export const tarsRecordStyles = stylex.create({
   sub: { display: "flex", alignItems: "flex-start", columnGap: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"] },
   subMark: { display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, blockSize: "1lh" },
   subText: { display: "inline-flex", flexWrap: "wrap", columnGap: vars["--aui-space-4"], minWidth: 0, overflowWrap: "anywhere" },
+  /**
+   * A record that heads what follows from it (an automatic follow-up and the
+   * reply Tars wrote for it): the head row is the reply's origin label, and
+   * the rail runs on from its mark down the length of the reply, which sits
+   * on the rail's text column. So the two read as one item, never as a record
+   * and a separate message.
+   */
+  thread: { position: "relative", display: "flex", flexDirection: "column", rowGap: vars["--aui-space-2"], minWidth: 0 },
+  threadRail: {
+    position: "absolute", insetInlineStart: `calc(${MARK_SLOT} / 2 - ${vars["--aui-border-width-hairline"]} / 2)`,
+    insetBlockStart: `calc(${MARK_CENTER} + ${MARK_CLEARANCE})`, insetBlockEnd: 0,
+    inlineSize: vars["--aui-border-width-hairline"], backgroundColor: vars["--aui-color-border-strong"], pointerEvents: "none",
+  },
+  /** What the head led to, on the rail's text column, items as close as one exchange's. */
+  threadBody: {
+    display: "flex", flexDirection: "column", rowGap: vars["--aui-space-8"], minWidth: 0,
+    paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`,
+  },
   /** A diagnostic in the tool's own words, shown as written. */
   diagnostic: { display: "block", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: "0.875em", color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
   /** Controls ride the outcome's place at the trailing edge, centred on the line so a button does not drop the row's baseline. */
@@ -140,4 +179,21 @@ export const tarsRecordStyles = stylex.create({
     color: vars["--aui-color-text"], cursor: "pointer",
     fontSize: "inherit", lineHeight: vars["--aui-line-height-tight"], fontWeight: vars["--aui-font-weight-medium"],
   },
+});
+
+/**
+ * A delegation's folded flow (`TarsFlowBlock`) on the same rail as the
+ * records beside it: its glyph in the mark column, its words at the record
+ * size on the rail's text column, and its live line on that column too. The
+ * trigger keeps its hover fill by reaching that fill's padding past the
+ * column's edge instead of moving the glyph.
+ */
+export const tarsFlowRailStyles = stylex.create({
+  root: { marginBlockStart: 0, fontSize: RECORD_TEXT, lineHeight: RECORD_LEADING },
+  trigger: {
+    marginInlineStart: `calc(${vars["--aui-space-8"]} * -1)`, paddingBlock: vars["--aui-space-4"], minBlockSize: 0,
+    fontSize: "inherit", lineHeight: "inherit",
+  },
+  summaryState: { fontSize: "inherit" },
+  live: { paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`, paddingInlineEnd: 0 },
 });

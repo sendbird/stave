@@ -16,6 +16,11 @@
       "sourcePath": "packages/design-system/src/components/Accordion.tsx"
     },
     {
+      "integrity": "sha256-f7864f62084a32efcb0e537abfbddef2dc1362c0d399faff33b404f690cd6692",
+      "path": "src/components/aui/components/Alert.tsx",
+      "sourcePath": "packages/design-system/src/components/Alert.tsx"
+    },
+    {
       "integrity": "sha256-4dc24dec0c9279f4dab56f9d1fa0939c526dce5898e33a93c4957c41e02c86d8",
       "path": "src/components/aui/components/Approval.scoped.tsx",
       "sourcePath": "packages/design-system/src/components/Approval.scoped.tsx"
@@ -626,6 +631,11 @@
       "sourcePath": "packages/design-system/src/headless/accordion.tsx"
     },
     {
+      "integrity": "sha256-2ae3273aaf1419efdf3bd4fe1eb1f684b88806f862a7f74241204746f8ca021c",
+      "path": "src/components/aui/headless/alert.tsx",
+      "sourcePath": "packages/design-system/src/headless/alert.tsx"
+    },
+    {
       "integrity": "sha256-4465ce2e4231cb215d7360c9b9f0464fe812b367cceaf13179b5342f8db5c54e",
       "path": "src/components/aui/headless/autocomplete.tsx",
       "sourcePath": "packages/design-system/src/headless/autocomplete.tsx"
@@ -1105,6 +1115,10 @@
     },
     {
       "id": "run-recap",
+      "kind": "component"
+    },
+    {
+      "id": "alert",
       "kind": "component"
     }
   ],

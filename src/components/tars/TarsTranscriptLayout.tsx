@@ -56,7 +56,7 @@ const isRecord = (node: TarsTranscriptEntry["node"]): node is { record: ReactEle
 export function groupTarsRecordRuns(entries: Array<TarsTranscriptEntry["node"]>): ReactNode[] {
   const out: ReactNode[] = [];
   let run: ReactElement[] = [];
-  const flush = () => { if (run.length) out.push(<TarsRecordList key={`records:${run[0]!.key}`}>{run}</TarsRecordList>); run = []; };
+  const flush = () => { if (run.length) out.push(<TarsRecordList key={`records:${run[0]!.key}`} standalone>{run}</TarsRecordList>); run = []; };
   for (const entry of entries) {
     if (isRecord(entry)) { run.push(entry.record); continue; }
     flush();

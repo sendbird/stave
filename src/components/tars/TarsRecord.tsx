@@ -142,11 +142,13 @@ export function TarsRecordRow({ state, icon, actor, lead, subject, values, statu
     <div className={sx(styles.body)}>
       <div className={sx(styles.line)}>
         <span className={sx(styles.main)}>
-          {/* The actor's glyph opens the first text, inside it, so a long sentence wraps after the glyph instead of leaving it alone on a line. */}
-          {lead ? <span className={sx(styles.lead)}>{actor ? <TarsRecordActorMark actor={actor} /> : null}{lead}</span> : null}
-          {subject ? <span className={sx(styles.subject)}>{!lead && actor ? <TarsRecordActorMark actor={actor} /> : null}{subject}</span> : null}
-          {!lead && !subject && actor ? <TarsRecordActorMark actor={actor} /> : null}
-          {values}
+          <span className={sx(styles.text)}>
+            {/* The actor's glyph opens the first text, inside it, so a long sentence wraps after the glyph instead of leaving it alone on a line. */}
+            {lead ? <span className={sx(styles.lead)}>{actor ? <TarsRecordActorMark actor={actor} /> : null}{lead}</span> : null}
+            {subject ? <span className={sx(styles.subject)}>{!lead && actor ? <TarsRecordActorMark actor={actor} /> : null}{subject}</span> : null}
+            {!lead && !subject && actor ? <TarsRecordActorMark actor={actor} /> : null}
+          </span>
+          {values ? <span className={sx(styles.values)}>{values}</span> : null}
         </span>
         {status || actions || time ? <span className={sx(styles.trail)}>
           {status ? <span className={sx(styles.status, STATUS_STYLE[state])} data-tars-record-status="">{status}</span> : null}
@@ -156,6 +158,22 @@ export function TarsRecordRow({ state, icon, actor, lead, subject, values, statu
       </div>
       {detail}
     </div>
+  </div>;
+}
+
+/**
+ * A record that heads what came of it: an automatic follow-up (or a re-ask)
+ * and the reply Tars wrote for it. `head` is one `TarsRecordRow`, the reply's
+ * origin label; `children` hang from its mark on the rail's text column, with
+ * the rail running on beside them, so the head is never read as a separate
+ * record. Without children it is the head alone, one compact item.
+ */
+export function TarsRecordThread({ head, children, ...rest }: { head: ReactNode; children?: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, "children">) {
+  const body = Children.toArray(children);
+  return <div {...rest} className={sx(styles.thread)} data-tars-record-thread="">
+    {body.length ? <span aria-hidden="true" className={sx(styles.threadRail)} /> : null}
+    {head}
+    {body.length ? <div className={sx(styles.threadBody)} data-tars-record-thread-body="">{body}</div> : null}
   </div>;
 }
 
@@ -181,10 +199,14 @@ export function TarsRecordDiagnostic({ children, title }: { children: ReactNode;
  * A run of records on one stretch of the rail. Each child is one row; empty
  * children are dropped, and an empty run renders nothing.
  */
-export function TarsRecordList({ children, ...rest }: { children: ReactNode } & Omit<HTMLAttributes<HTMLUListElement>, "children">) {
+export function TarsRecordList({ children, standalone = false, ...rest }: {
+  children: ReactNode;
+  /** A run between exchanges in the transcript: it takes an exchange's block padding, so every gap between two entries is the same. */
+  standalone?: boolean;
+} & Omit<HTMLAttributes<HTMLUListElement>, "children">) {
   const items = Children.toArray(children);
   if (!items.length) return null;
-  return <ul {...rest} className={sx(styles.list)} data-tars-records="">
+  return <ul {...rest} className={sx(styles.list, standalone && styles.listStandalone)} data-tars-records="">
     {items.map((child, index) => <li key={isValidElement(child) && child.key != null ? child.key : index} className={sx(styles.item)}>
       {/* The rail joins one row's mark to the next; it starts at the first mark and ends at the last. */}
       {index > 0 ? <span aria-hidden="true" className={sx(styles.railAbove)} /> : null}

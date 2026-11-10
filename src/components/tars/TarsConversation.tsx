@@ -2,7 +2,6 @@ import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type 
 import { FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
 import { useTranslation } from "@/i18n";
-import { Badge } from "@/components/aui/components/Badge";
 import { Toggle } from "@/components/aui/components/Toggle";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
@@ -32,7 +31,7 @@ import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
 import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsPublishRecordLine } from "./TarsPublishRecordLine";
-import { TarsRecordList, TarsRecordOpenWorkContext, TarsRecordRow, TarsWorkChip } from "./TarsRecord";
+import { TarsRecordDetail, TarsRecordList, TarsRecordOpenWorkContext, TarsRecordRow, TarsRecordThread, TarsWorkChip } from "./TarsRecord";
 import { TarsReceiptRow } from "./TarsReceiptRow";
 import type { TarsPublishContext } from "./use-tars-publish";
 import type { TarsBridgeApi } from "@/lib/tars/types";
@@ -135,37 +134,48 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const origin = message.origin;
   const userWords = !origin;
   const bubble = message.text ? <div className={sx(chrome.userBubble)} data-tars-user-bubble=""><MessageContent><p className={sx(chrome.messageText)}>{message.text}</p></MessageContent></div> : null;
-  return <div className={sx(chrome.exchange)} data-tars-message={message.id} data-tars-message-origin={origin?.kind}>
-    {/* A chosen option is recorded on its card; an automatic follow-up says why it exists, with its time on the rail. Neither is shown as the user's words. */}
-    {origin?.kind === "reask" ? <TarsRecordList><TarsRecordRow state="info" icon={MessageCircleQuestion} subject={t(`shell:tars.decision.reaskLine.${origin.reason}`)} data-tars-reask=""
-      at={message.createdAt} /></TarsRecordList>
-      : origin?.kind === "followUp" ? <TarsRecordList><TarsRecordRow state="info" icon={RefreshCw} data-tars-follow-up={origin.reason} at={message.createdAt}
-        subject={t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })} /></TarsRecordList>
-      : origin?.kind === "answer" ? null
-        // The user's words sit on the trailing side in a bubble no wider than they need, under what came with them; Tars's reply reads full-width.
-        : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(chrome.userColumn)}>
-          <TarsMessageAttachments attachments={message.attachments ?? []} workingChanges={Boolean(message.includeWorkingChanges)} />
-          {/* The time sits beside the bubble on its last line, shown on hover or focus. */}
-          {bubble ? <div className={sx(transcriptStyles.bubbleRow)}><TarsEdgeTime at={message.createdAt} />{bubble}</div> : null}
-        </div></Message>}
-    {message.reply !== null ? <Message from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
+  // An automatic follow-up the work outran was never sent: its line says so itself, as one item, with no "Cancelled" status under it.
+  const superseded = origin?.kind === "followUp" && message.state === "cancelled";
+  // A chosen option is recorded on its card; an automatic follow-up (or a re-ask) says why it exists, with its time on the rail. Neither is shown as the user's words.
+  const originLine = origin?.kind === "reask" ? t(`shell:tars.decision.reaskLine.${origin.reason}`)
+    : origin?.kind === "followUp" ? t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })
+      : null;
+  const head = origin?.kind === "reask" ? <TarsRecordRow state="info" icon={MessageCircleQuestion} subject={originLine} data-tars-reask="" at={message.createdAt} />
+    : origin?.kind === "followUp" ? <TarsRecordRow state={superseded ? "skipped" : "info"} icon={RefreshCw} data-tars-follow-up={origin.reason} at={message.createdAt} subject={originLine}
+      detail={superseded ? <TarsRecordDetail data-tars-follow-up-superseded="">{t("shell:tars.followUp.superseded")}</TarsRecordDetail> : null} />
+      : null;
+  const outcome = [
+    message.reply !== null ? <Message key="reply" from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
       {/* A wide table may claim the transcript's wide measure; prose, code and cards keep the reading column. */}
       <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
-      : message.state === "failed" ? <TarsMessageFailure message={message} onResend={userWords && onResend ? onResend : undefined} />
-        : message.state !== "answered" ? <TarsMessageStatus state={message.state} busy={busy} onCancel={onCancel} /> : null}
-    {origin?.kind === "followUp" && message.state === "cancelled"
-      ? <p className={sx(styles.text)} data-tars-follow-up-superseded="">{t("shell:tars.followUp.superseded")}</p> : null}
-    {lines.length ? <TarsRecordList aria-label={t("shell:tars.conversation.actions")}>
+      : message.state === "failed" ? <TarsMessageFailure key="failure" message={message} onResend={userWords && onResend ? onResend : undefined} />
+        : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} /> : null,
+    lines.length ? <TarsRecordList key="lines" aria-label={t("shell:tars.conversation.actions")}>
       {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} />)}
-    </TarsRecordList> : null}
-    {flowed.map(({ receipt, card }) => card
+    </TarsRecordList> : null,
+    ...flowed.map(({ receipt, card }) => card
       ? <TarsDecisionCard key={`decision:${receipt.actionIndex}`} decision={card} titleOf={titleOf} {...context} busy={busy} error={answerErrors?.get(card.id)}
-        onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null)}
-    {publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf} />) : null}
-    {clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : null}
-    {flowed.map(({ receipt, flow }) => flow
+        onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null),
+    ...(publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf} />) : []),
+    ...(clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : []),
+    ...flowed.map(({ receipt, flow }) => flow
       ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide}
-        live={flows?.liveFor?.(flow.responsibilityId)} /> : null)}
+        live={flows?.liveFor?.(flow.responsibilityId)} /> : null),
+  ];
+  return <div className={sx(chrome.exchange)} data-tars-message={message.id} data-tars-message-origin={origin?.kind}>
+    {head
+      // The origin line heads everything the follow-up led to, so its reply reads as Tars's own and never as a separate record and message.
+      ? <TarsRecordThread head={head} role="group" aria-label={originLine ?? undefined}>{outcome}</TarsRecordThread>
+      : <>
+        {origin?.kind === "answer" ? null
+          // The user's words sit on the trailing side in a bubble no wider than they need, under what came with them; Tars's reply reads full-width.
+          : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(chrome.userColumn)}>
+            <TarsMessageAttachments attachments={message.attachments ?? []} workingChanges={Boolean(message.includeWorkingChanges)} />
+            {/* The time sits beside the bubble on its last line, shown on hover or focus. */}
+            {bubble ? <div className={sx(transcriptStyles.bubbleRow)}><TarsEdgeTime at={message.createdAt} />{bubble}</div> : null}
+          </div></Message>}
+        {outcome}
+      </>}
   </div>;
 }
 
@@ -353,7 +363,9 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       subject={t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
     // Stave's unverified-completion choice is a decision card where its blocked notice would be.
     const card = item.value.activity.detailCode === "unverifiedCompletion" ? unverifiedCard(item.value.activity) : undefined;
-    return card ? <TarsDecisionCard key={item.id} decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} />
+    // It pads like an exchange, so the gap above and below it is the transcript's one gap between entries.
+    return card ? <div key={item.id} className={sx(chrome.exchange)}>
+      <TarsDecisionCard decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} /></div>
       : { record: <TarsActivityNoticeLine key={item.id} notice={item.value} /> };
   };
   // The transcript and the composer take the same width step, measured on this column.

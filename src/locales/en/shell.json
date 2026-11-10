@@ -1796,7 +1796,29 @@
         "escKey": "Esc",
         "answer": "Answer",
         "about": "About {{title}}",
-        "optionsLabel": "Answers to choose from"
+        "optionsLabel": "Answers to choose from",
+        "action": {
+          "pause": "Pause",
+          "resume": "Resume",
+          "cancel": "Cancel work",
+          "takeover": "Take over",
+          "handBack": "Hand back",
+          "acceptCompletion": "Accept as done",
+          "startNow": "Start now",
+          "extend": "Add turns",
+          "retryStage": "Retry step",
+          "skipStage": "Skip step",
+          "signOff": "Sign off",
+          "approve": "Approve",
+          "deny": "Deny",
+          "answer": "Send answer",
+          "message": "Send to task",
+          "requestChanges": "Request changes"
+        },
+        "showDetails": "Details",
+        "requestFrom": "Request from {{tool}}",
+        "checking": "Checking the work",
+        "attemptRefused": "Not applied: {{option}}"
       },
       "outcome": {
         "pending": "Applying",
@@ -2022,6 +2044,11 @@
         "escKey": "Esc",
         "keysHint": "Enter opens the draft pull request. Esc declines.",
         "bodyHint": "Built by Stave from the frozen report and sent as shown.",
+        "bodyView": {
+          "label": "Show the pull request body as",
+          "preview": "Preview",
+          "raw": "Raw text"
+        },
         "required": "Write a commit message and a pull request title.",
         "resumeStep": {
           "commit": "Commit",

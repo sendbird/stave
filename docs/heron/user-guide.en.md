@@ -622,7 +622,8 @@ Completed work that Stave verified can become a draft pull request. Choose
 ("open a draft PR for it"). A confirmation card shows the repository, the base
 and head branch, the changed files, the commit message and pull request title
 (you can edit both and change the commit type) and the body built from the
-report. **Open draft PR** or Enter publishes; **Decline** or Esc publishes
+report, rendered as markdown; **Raw text** shows exactly what is sent. **Open
+draft PR** or Enter publishes; **Decline** or Esc publishes
 nothing. Stave then commits, pushes the work's branch and opens a draft pull
 request; it never merges, deploys or force-pushes, and it asks again every
 time. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
@@ -657,7 +658,7 @@ command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Pause ·
 Verified result · Fleet · Applied" or "… · task view · Applied". Once Tars has paused the work, **Stop** ends only your
 own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
-decision card with **Confirm**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or it ended first. Words confirmed while earlier ones for the same work still wait are said after them, in order, and are not said after you hand the work back. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
+decision card whose button says what it does, such as **Resume** or **Cancel work**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or it ended first. Words confirmed while earlier ones for the same work still wait are said after them, in order, and are not said after you hand the work back. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
 saw a check pass on the current revision in the final stage, or its
@@ -668,12 +669,15 @@ for new verification work**, which only drafts that request in the message box.
 When Tars needs you to choose, it shows a decision card in the conversation:
 a question with two to four options, each with a short reason, and a
 recommended option when Tars has one. A confirmation (a control Tars proposed,
-or a completion Stave could not verify) leads with what it does, such as
-"Cancel this work?", and the work it is about, then rows for the repository,
-workspace, revision and effect when Stave knows them. Effects that cannot be
-undone, cancelling and accepting as done, carry a **Can't be undone** tag. Its
-footer shows **Not now** (Esc), which leaves the decision waiting and returns
-you to the message box, and **Confirm** with its key. A question's options are
+or a completion Stave could not verify) leads with what will happen: what it
+does, such as "Cancel this work?", the work it is about, and the effect in one
+sentence. A tool request it approves shows as a code block; the repository
+and workspace are under a collapsed **Details**. An action that
+cannot be undone, such as cancelling, accepting as done or approving a tool
+request, says **Can't be undone** once, and its button is red. Its footer
+shows **Not now** (Esc), which leaves the decision waiting and returns you to
+the message box, and the card's button, named by what it does (**Resume**,
+**Cancel work**, **Approve**), with its key. A question's options are
 a radio group: each shows its label, its reason on the line under it and its
 number key, and the recommended one is marked and starts chosen; **Answer**
 sends the chosen option. While it waits, the card has an attention outline.
@@ -722,7 +726,8 @@ its run or one of its helpers stopped its stage (followed up at once), its compl
 it waited an hour without change (a run you paused, a usage-limit pause, or
 an approval or question you answer in its task), or a question Tars asked
 became invalid. The message
-reads **Tars follow-up ·** with its reason and the work's title. A stage
+reads **Tars follow-up ·** with its reason and the work's title, and
+heads Tars's reply to it, so the two read as one item Tars wrote by itself. A stage
 whose agent asks for your input or permission, or that waits for your
 sign-off, reads **Needs your answer or approval**, and Tars gets the agent's question
 and suggested action. A stage that one of Stave's own checks stopped (a
