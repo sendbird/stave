@@ -2165,6 +2165,108 @@
         "label": "{{title}} 진행 상황",
         "prompt": "“{{title}}” 진행 상황 알려 줘. 지금 뭘 하고 있고 뭐가 남았어?"
       }
+    },
+    "knows": {
+      "menu": "아는 것과 사용량",
+      "open": "Tars가 아는 것",
+      "title": "Tars가 아는 것",
+      "description": "Tars가 메시지와 메시지 사이에 계속 가지고 있는 내용과 그 출처입니다.",
+      "edit": "편집",
+      "source": {
+        "you": "직접 작성함",
+        "default": "Stave 기본값",
+        "none": "설정 안 됨",
+        "repository": "저장소 설정에서 지정함",
+        "tarsSettings": "Tars 설정에서 선택함"
+      },
+      "savedAt": "마지막 저장 {{time}}",
+      "neverSaved": "저장한 적 없음",
+      "everywhere": {
+        "title": "모든 곳",
+        "hint": "모든 메시지와 모든 작업에 적용됩니다."
+      },
+      "instructions": {
+        "title": "상시 지침",
+        "use": "Tars는 메시지마다 이 지침을 읽고, 시작하는 에이전트에게도 전달합니다.",
+        "empty": "설정된 상시 지침이 없습니다.",
+        "edit": "Tars 설정에서 상시 지침 편집"
+      },
+      "agents": {
+        "title": "Tars가 작업을 맡길 수 있는 에이전트",
+        "builtins": "내장 에이전트는 항상 사용할 수 있습니다.",
+        "none": "허용한 저장 에이전트가 없습니다.",
+        "missing_other": "허용한 에이전트 {{count}}개가 더 이상 없습니다.",
+        "edit": "Tars 설정에서 허용 에이전트 편집"
+      },
+      "repositories": {
+        "title": "저장소별",
+        "hint": "해당 저장소의 작업에만 적용됩니다.",
+        "empty": "등록된 저장소가 없습니다.",
+        "omitted_other": "저장소 {{count}}개가 더 등록되어 있습니다. Tars에게는 처음 {{max}}개만 보입니다."
+      },
+      "branchRule": {
+        "title": "브랜치 이름 규칙",
+        "use": "Tars는 새 작업 브랜치의 이름을 이 규칙에 맞춰 짓습니다.",
+        "edit": "저장소 설정에서 {{name}}의 브랜치 이름 규칙 편집"
+      },
+      "memory": {
+        "title": "저장소 메모리",
+        "use": "Tars가 직접 읽지는 않습니다. Tars가 이 저장소에서 시작한 Task가 턴마다 관련 있는 메모리를 최대 {{max}}개 받습니다.",
+        "empty": "이 저장소에 저장된 메모리가 없습니다.",
+        "off": "이 저장소는 메모리 사용이 꺼져 있어 Task가 메모리를 받지 않습니다.",
+        "used_other": "사용 중인 메모리 {{count}}개",
+        "unused": "아직 사용하지 않음",
+        "unusedHint": "검토를 기다리는 후보와 오랫동안 확인되지 않은 메모리입니다.",
+        "showMore_other": "{{count}}개 더 보기",
+        "loading": "메모리를 읽는 중…",
+        "loadFailed": "메모리를 읽지 못했습니다.",
+        "unavailable": "여기서는 저장소 메모리를 읽을 수 없습니다.",
+        "editHint": "각 행에서 메모리를 편집하거나 삭제할 수 있습니다."
+      },
+      "forgets": {
+        "title": "Tars가 기억하지 않는 것",
+        "body_other": "Tars는 메시지마다 이 대화의 최근 메시지 {{count}}개와 작업의 현재 상태만 다시 읽습니다. 그보다 오래된 메시지는 화면에 남아 있어도 다시 읽지 않으며, 대화 내용을 메모리로 저장하지 않습니다."
+      }
+    },
+    "usage": {
+      "open": "사용량",
+      "title": "사용량",
+      "description": "Tars가 시작한 작업이 쓴 양을 프로바이더가 보고한 그대로 보여 줍니다. 추정한 값은 없습니다.",
+      "period": {
+        "label": "기간",
+        "today": "오늘",
+        "sevenDays": "7일",
+        "thirtyDays": "30일",
+        "localTime": "날짜는 사용자의 현지 시간 기준입니다."
+      },
+      "totals": {
+        "label": "합계",
+        "tokens": "토큰",
+        "cost": "보고된 비용",
+        "turns": "턴",
+        "time": "작업 시간"
+      },
+      "notReported": "보고되지 않음",
+      "unmeasured_other": "턴 {{total}}개 중 {{count}}개는 토큰 수가 보고되지 않았습니다.",
+      "costPartial": "턴 {{total}}개 중 {{count}}개에만 비용이 보고되었고, 나머지는 비용 정보가 없습니다.",
+      "byWork": "작업별",
+      "byModel": "모델별",
+      "openWork": "{{title}} 열기",
+      "share": "{{name}}: 이 기간에서 차지하는 비율",
+      "tokens": "토큰 {{value}}",
+      "turns_other": "턴 {{count}}개",
+      "modelNotRecorded": "모델 기록 없음",
+      "empty": "이 기간에 실행된 턴이 없습니다.",
+      "replies_other": "이 기간에 Tars가 직접 답한 횟수는 {{count}}회입니다. Tars 자신의 답변에 쓰인 토큰은 기록되지 않습니다.",
+      "repliesUnread": "Tars 자신의 답변 횟수를 세지 못했습니다. 답변에 쓰인 토큰은 기록되지 않습니다.",
+      "helpers": "실행 중에 시작된 보조 Task의 턴은 포함되지 않습니다.",
+      "truncated": "한 번에 읽는 양보다 턴이 많아 이 합계는 실제보다 적을 수 있습니다.",
+      "omittedWorks_other": "오래된 작업 {{count}}개는 읽지 않았습니다.",
+      "unavailable": "여기서는 사용량을 읽을 수 없습니다.",
+      "loadFailed": "사용량을 읽지 못했습니다.",
+      "loading": "사용량을 읽는 중…",
+      "asOf": "{{time}} 기준",
+      "refresh": "새로 고침"
     }
   }
 }
