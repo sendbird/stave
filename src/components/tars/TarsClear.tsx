@@ -3,7 +3,7 @@ import { Eraser } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { formatList } from "@/i18n/format";
 import { Button } from "@/components/ui";
-import { Badge } from "@/components/aui/components/Badge";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
 import { Kbd } from "@/components/aui/components/Kbd";
 import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
@@ -51,8 +51,10 @@ export function TarsClearRecordLine({ record, busy, error, onUndo }: { record: T
 /**
  * Tars's proposal to clear, waiting for the user. It says what each scope
  * would hide now and what always stays; Clear (Enter) applies it through the
- * same path as the buttons, Not now (Esc) leaves everything as it is. Clearing
- * can be undone, so Clear may be the filled default.
+ * same path as the buttons, Not now (Esc) leaves everything as it is. Like
+ * every confirmation card it leads with the effect and its main action is the
+ * primary button; clearing can be undone, so Clear keeps Enter and the
+ * neutral tone.
  */
 export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfirm, onDecline }: {
   id: string;
@@ -81,10 +83,9 @@ export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfi
       <IconTile size="sm" xstyle={styles.icon}><Eraser aria-hidden size={iconTileGlyphSizes.sm} /></IconTile>
       <div className={sx(styles.heading)}>
         <p id={titleId} className={sx(styles.title)}>{t("shell:tars.clear.card.title")}</p>
-        <p className={sx(styles.subtitle)}>{t("shell:tars.clear.card.subtitle")}</p>
       </div>
-      <div className={sx(styles.tags)}><Badge size="md" tone="warning">{t("shell:tars.conversation.receipts.proposed")}</Badge></div>
     </div>
+    <p className={sx(styles.effect)} data-tars-clear-effect="">{t("shell:tars.clear.card.subtitle")}</p>
     <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.clear.card.details")}>
       {scopes.map((scope) => <div key={scope} className={sx(styles.row)} data-tars-clear-row={scope}>
         <dt className={sx(styles.rowLabel)}>{t(`shell:tars.clear.scope.${scope}`)}</dt>
@@ -99,9 +100,10 @@ export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfi
         <Button type="button" size="2xs" variant="ghost" aria-keyshortcuts="Escape" disabled={busy} data-tars-clear-decline="" onClick={onDecline}>
           {t("shell:tars.clear.card.decline")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.escKey")}</Kbd></span>
         </Button>
-        <Button type="button" size="xs" variant="default" aria-keyshortcuts="Enter" disabled={busy || nothing} data-tars-clear-confirm="" onClick={() => confirmClear("click")}>
+        <AuiButton type="button" size="xs" variant="primary" tone="neutral" aria-keyshortcuts="Enter" disabled={busy || nothing} data-tars-clear-confirm=""
+          data-tars-decision-tone="neutral" onClick={() => confirmClear("click")}>
           {t("shell:tars.clear.card.confirm")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.enterKey")}</Kbd></span>
-        </Button>
+        </AuiButton>
       </div>
     </div>
     {error ? <p className={sx(styles.error)} role="alert">{error}</p> : null}

@@ -81,6 +81,25 @@ describe("schedule card", () => {
     expect(html).toContain('aria-keyshortcuts="Enter"');
   });
 
+  test("it follows the confirmation card: the effect first, the workspace behind Details, a verb-named primary button", () => {
+    const { html } = card(CREATE);
+    // Title, the schedule's name as a chip, the effect, what runs and when; then Details and the buttons.
+    const order = ["Create this schedule?", "data-tars-schedule-title", "data-tars-schedule-effect", 'data-tars-schedule-row="what"', 'data-tars-schedule-row="when"',
+      "data-tars-decision-details", "data-tars-schedule-confirm"].map((part) => html.indexOf(part));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((x, y) => x - y)).toEqual(order);
+    expect(html).toMatch(/data-tars-schedule-effect="">Nothing is created until you confirm\.</);
+    // The name and the workspace wait in the closed Details; no waiting badge.
+    expect(html).toContain('data-tars-decision-details="closed"');
+    expect(html).toContain('data-tars-schedule-rows="name,where"');
+    expect(html).not.toContain(">Proposed<");
+    // Create is the neutral primary with Enter; Create and turn on stays the secondary beside it.
+    expect(html).toMatch(/<button[^>]*data-tars-schedule-confirm="paused"[^>]*>/);
+    const primary = html.match(/<button[^>]*data-tars-schedule-confirm="paused"[^>]*>/)![0];
+    for (const attribute of ['data-variant="primary"', 'data-tone="default"', 'aria-keyshortcuts="Enter"']) expect(primary).toContain(attribute);
+    expect(html.match(/<button[^>]*data-tars-schedule-confirm="enabled"[^>]*>/)![0]).not.toContain('data-variant="primary"');
+  });
+
   test("Create and turn on is offered only when the service allows it", () => {
     expect(card(CREATE, { preview: preview({ canEnableOnCreate: false }) }).html).not.toContain('data-tars-schedule-confirm="enabled"');
   });
@@ -101,6 +120,10 @@ describe("schedule card", () => {
     expect(text(html)).toContain("Can't be undone");
     expect(text(html)).not.toContain("Next runs");
     expect(html).not.toContain('aria-keyshortcuts="Enter"');
+    // "Can't be undone" once, and the primary button in the danger tone.
+    expect(html.match(/data-tars-decision-risk-tag/g)).toHaveLength(1);
+    const confirm = html.match(/<button[^>]*data-tars-schedule-confirm="remove"[^>]*>/)![0];
+    for (const attribute of ['data-variant="primary"', 'data-tone="danger"']) expect(confirm).toContain(attribute);
     root.onKeyDown(press("Enter"));
     expect(calls.confirm).toEqual([]);
     root.onKeyDown(press("Escape"));

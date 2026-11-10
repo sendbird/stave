@@ -2,6 +2,7 @@ import { useId, type KeyboardEvent } from "react";
 import { CalendarClock } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
+import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Badge } from "@/components/aui/components/Badge";
 import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
 import { Kbd } from "@/components/aui/components/Kbd";
@@ -16,6 +17,7 @@ import type {
   TarsScheduleFacts, TarsSchedulePreview, TarsScheduleProposalView, TarsScheduleRecord, TarsScheduleRun, TarsScheduleSource,
 } from "@/lib/tars/schedules";
 import { useTarsDirectActor } from "./TarsActionRecordLine";
+import { TarsCardDetails } from "./TarsDecisionCard";
 import { tarsPublishCardKey } from "./TarsPublishCard";
 import { TarsRecordChip, TarsRecordDetail, TarsRecordDiagnostic, TarsRecordList, TarsRecordRow, type TarsRecordState } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
@@ -65,7 +67,11 @@ export function TarsScheduleRunLine({ run, onOpenTask }: { run: TarsScheduleRun;
     detail={diagnostic ? <TarsRecordDetail><TarsRecordDiagnostic title={diagnostic}>{diagnostic.split("\n")[0]!.slice(0, 200)}</TarsRecordDiagnostic></TarsRecordDetail> : null} />;
 }
 
-/** The facts a card states: label left, value right, in the card's one well. */
+/**
+ * The facts a card states. What runs leads, as the words a run starts with;
+ * when it runs and its next runs follow in the card's one well; the name and
+ * the workspace wait behind Details, as on every confirmation card.
+ */
 function ScheduleRows({ preview, state }: { preview: TarsSchedulePreview | null; state: TarsSchedulePreviewState }) {
   const { t } = useTranslation(["shell"]);
   if (!preview) return <p className={sx(styles.detail)} data-tars-schedule-preview={state}>
@@ -81,28 +87,40 @@ function ScheduleRows({ preview, state }: { preview: TarsSchedulePreview | null;
     return changed ? <span className={sx(styles.detail)} data-tars-schedule-was={key}> {t("shell:tars.schedule.card.rows.was")}: {value}</span> : null;
   };
   const rows = [
-    { key: "name", label: t("shell:tars.schedule.card.rows.name"), value: shown.title, was: was("title", current?.title ?? "") },
-    { key: "what", label: t("shell:tars.schedule.card.rows.what"), value: shown.request, lines: true, was: was("request", current?.request ?? "") },
-    { key: "where", label: t("shell:tars.schedule.card.rows.where"), value: describeTarsScheduleWorkspace(shown.workspace), was: was("workspace", describeTarsScheduleWorkspace(current?.workspace ?? null)) },
     { key: "when", label: t("shell:tars.schedule.card.rows.when"), value: describeTarsScheduleRule(shown.rule), was: current ? was("rule", describeTarsScheduleRule(current.rule)) : null },
     ...(operation === "pause" || operation === "remove" ? [] : [{ key: "next", was: null, label: t("shell:tars.schedule.card.rows.next"),
       value: describeTarsScheduleNextRuns(preview.nextRuns, preview.timezone) }]),
   ];
-  return <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.schedule.card.details")} data-tars-schedule-preview="ready">
-    {rows.map((row) => <div key={row.key} className={sx(styles.row)} data-tars-schedule-row={row.key}>
-      <dt className={sx(styles.rowLabel)}>{row.label}</dt>
-      <dd className={sx(styles.rowValue, "lines" in row && row.lines ? styles.rowValueLines : null)}>{row.value}{row.was}</dd>
-    </div>)}
-  </dl>;
+  const folded = [
+    { key: "name", label: t("shell:tars.schedule.card.rows.name"), value: <>{shown.title}{was("title", current?.title ?? "")}</> },
+    { key: "where", label: t("shell:tars.schedule.card.rows.where"),
+      value: <>{describeTarsScheduleWorkspace(shown.workspace)}{was("workspace", describeTarsScheduleWorkspace(current?.workspace ?? null))}</> },
+  ];
+  return <>
+    <dl className={sx(styles.payload)} data-tars-schedule-row="what">
+      <dt className={sx(styles.payloadLabel)}>{t("shell:tars.schedule.card.rows.what")}</dt>
+      <dd className={sx(styles.payloadText)}>{shown.request}{was("request", current?.request ?? "")}</dd>
+    </dl>
+    <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.schedule.card.details")} data-tars-schedule-preview="ready">
+      {rows.map((row) => <div key={row.key} className={sx(styles.row)} data-tars-schedule-row={row.key}>
+        <dt className={sx(styles.rowLabel)}>{row.label}</dt>
+        <dd className={sx(styles.rowValue)}>{row.value}{row.was}</dd>
+      </div>)}
+    </dl>
+    <TarsCardDetails rows={folded} kind="schedule" />
+  </>;
 }
 
 /**
  * Tars's proposal to create, change, pause, turn on or remove a schedule,
- * waiting for the user. It states what runs, where and when next, in local
- * time with the zone; nothing exists or changes until a button is pressed.
- * A new schedule is saved paused (Create, Enter) unless the user chooses
- * Create and turn on. Removing cannot be undone, so it is never the filled
- * default and has no Enter. Not now (Esc) leaves everything as it is.
+ * waiting for the user. Like every confirmation card it leads with what will
+ * happen (the title, the schedule's name, the effect), then what runs and
+ * when next, in local time with the zone, with the workspace behind Details;
+ * nothing exists or changes until a button is pressed. Its main action is the
+ * primary button, named by what it does. A new schedule is saved paused
+ * (Create, Enter) unless the user chooses Create and turn on. Removing cannot
+ * be undone, so its button wears the danger tone and has no Enter. Not now
+ * (Esc) leaves everything as it is.
  */
 export function TarsScheduleCard({ view, preview, previewState, busy = false, error, onConfirm, onDecline, onRetry }: {
   view: TarsScheduleProposalView;
@@ -132,6 +150,7 @@ export function TarsScheduleCard({ view, preview, previewState, busy = false, er
     // Enter takes the safe default: a new schedule is saved paused. Removing has no shortcut.
     else if (!remove) submit("key");
   };
+  const name = (preview?.next ?? preview?.current)?.title ?? view.action.title;
   const hint = t(remove ? "shell:tars.schedule.card.keysHintRemove" : operation === "create" ? "shell:tars.schedule.card.keysHintCreate" : "shell:tars.schedule.card.keysHint");
   return <section role="group" tabIndex={-1} aria-labelledby={titleId} aria-describedby={hintId} aria-busy={busy || undefined}
     className={sx(styles.card, focusRing.ring)} onKeyDown={onKeyDown} data-tars-schedule-card={view.requestId} data-tars-schedule-operation={operation}>
@@ -139,13 +158,13 @@ export function TarsScheduleCard({ view, preview, previewState, busy = false, er
       <IconTile size="sm" tone={remove ? "danger" : "warning"} xstyle={styles.icon}><CalendarClock aria-hidden size={iconTileGlyphSizes.sm} /></IconTile>
       <div className={sx(styles.heading)}>
         <p id={titleId} className={sx(styles.title)}>{t(`shell:tars.schedule.card.title.${operation}`)}</p>
-        <p className={sx(styles.subtitle)}>{t(`shell:tars.schedule.card.subtitle.${operation}`)}</p>
+        {/* The schedule, as the chip the record rail names it with. */}
+        {name ? <div className={sx(styles.subtitle)}><TarsRecordChip icon={CalendarClock} hint={name} data-tars-schedule-title="">{name}</TarsRecordChip></div> : null}
       </div>
-      <div className={sx(styles.tags)}>
-        <Badge size="md" tone="warning">{t("shell:tars.conversation.receipts.proposed")}</Badge>
-        {remove ? <Badge size="md" tone="danger" variant="outlined">{t("shell:tars.decision.card.risk")}</Badge> : null}
-      </div>
+      {/* The buttons say the card waits; a tag says only what they do not: that removing can't be undone. */}
+      {remove ? <div className={sx(styles.tags)}><Badge size="md" tone="danger" variant="outlined" data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge></div> : null}
     </div>
+    <p className={sx(styles.effect)} data-tars-schedule-effect="">{t(`shell:tars.schedule.card.subtitle.${operation}`)}</p>
     <ScheduleRows preview={preview} state={previewState} />
     {operation === "create" && preview ? <p className={sx(styles.detail)} data-tars-schedule-paused-note="">{t("shell:tars.schedule.card.startsPaused")}</p> : null}
     {operation === "update" && preview?.current && !preview.enabledAfter ? <p className={sx(styles.detail)} data-tars-schedule-paused-note="">{t("shell:tars.schedule.card.pausedNote")}</p> : null}
@@ -160,11 +179,12 @@ export function TarsScheduleCard({ view, preview, previewState, busy = false, er
         {!preview && previewState === "failed" && onRetry ? <Button type="button" size="xs" variant="outline" data-tars-schedule-retry="" onClick={onRetry}>{t("shell:tars.schedule.card.retry")}</Button> : null}
         {operation === "create" && preview?.canEnableOnCreate ? <Button type="button" size="xs" variant="outline" disabled={busy || blocked} data-tars-schedule-confirm="enabled"
           onClick={() => submit("click", true)}>{t("shell:tars.schedule.card.confirm.createEnabled")}</Button> : null}
-        <Button type="button" size="xs" variant={remove ? "destructive" : "default"} aria-keyshortcuts={remove ? undefined : "Enter"} disabled={busy || blocked}
-          data-tars-schedule-confirm={operation === "create" ? "paused" : operation} onClick={() => submit("click")}>
+        {/* The card's main action, so the primary button; removing can't be undone, so it wears the danger tone and takes no Enter. */}
+        <AuiButton type="button" size="xs" variant="primary" tone={remove ? "danger" : "neutral"} aria-keyshortcuts={remove ? undefined : "Enter"} disabled={busy || blocked}
+          data-tars-schedule-confirm={operation === "create" ? "paused" : operation} data-tars-decision-tone={remove ? "danger" : "neutral"} onClick={() => submit("click")}>
           {t(`shell:tars.schedule.card.confirm.${operation}`)}
           {remove ? null : <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.enterKey")}</Kbd></span>}
-        </Button>
+        </AuiButton>
       </div>
     </div>
     {error ? <p className={sx(styles.error)} role="alert">{error}</p> : null}

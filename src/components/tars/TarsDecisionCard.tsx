@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, Info, MessageCircleQuestion, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
@@ -28,7 +28,7 @@ import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
 
 type TitleOf = (responsibilityId: string) => string | undefined;
 /** One row of a confirmation's details: label, value and, for the repository, its full path on hover. */
-type DetailRow = { key: string; label: string; value: string; title?: string };
+type DetailRow = { key: string; label: string; value: ReactNode; title?: string };
 
 /** A held work proposal's saved action; null for every other decision. */
 function proposalOf(decision: TarsDecisionView) {
@@ -359,10 +359,11 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     {truncation}
   </div> : null;
   // The revision the decision is bound to stays an attribute, not a row: it means nothing to people.
-  const rows = [
+  const candidates: Array<DetailRow | null> = [
     target.repository ? { key: "repository", label: t("shell:tars.decision.card.rows.repository"), value: target.repository, title: target.repositoryPath ?? undefined } : null,
     target.workspace ? { key: "workspace", label: t("shell:tars.decision.card.rows.workspace"), value: target.workspace } : null,
-  ].filter((entry): entry is DetailRow => entry !== null);
+  ];
+  const rows = candidates.filter((entry): entry is DetailRow => entry !== null);
   return <section ref={cardRef} {...common} role="group" tabIndex={0} aria-labelledby={`${questionId} ${subtitleId}`} aria-describedby={hintId}
     className={sx(styles.card, focusRing.ring)} onKeyDown={onKeyDown} data-tars-decision-risk={irreversible ? "irreversible" : undefined}
     data-tars-decision-revision={target.revision ?? undefined}>
@@ -385,14 +386,17 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     <TarsNeverRuleNotice matches={decision.matchedRules} />
     {options}
     {failureLine}
-    {rows.length ? <TarsDecisionDetails rows={rows} /> : null}
+    {rows.length ? <TarsCardDetails rows={rows} /> : null}
     {footer}
     {errorLine}
   </section>;
 }
 
-/** Where a confirmation runs (repository, workspace, revision), folded behind Details: it is there to check, not to read first. */
-function TarsDecisionDetails({ rows }: { rows: DetailRow[] }) {
+/**
+ * Where a confirmation runs (repository, workspace), folded behind Details: it is there to check, not to read first.
+ * Every confirmation card in the conversation folds its details this way; `kind` names the card in the rows' test ids.
+ */
+export function TarsCardDetails({ rows, kind = "decision" }: { rows: readonly DetailRow[]; kind?: "decision" | "schedule" }) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(false);
   return <CollapsibleRoot className={sx(inlineDisclosure.root, styles.details)} open={open} onOpenChange={setOpen} data-tars-decision-details={open ? "open" : "closed"}>
@@ -404,8 +408,8 @@ function TarsDecisionDetails({ rows }: { rows: DetailRow[] }) {
     {/* Mounted while closed (AUI's eager panel), so in-page find still reaches the rows. */}
     <CollapsiblePanel keepMounted className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
       <div className={cx(sx(inlineDisclosure.body), "atelier-motion-panel-inner")}>
-        <dl className={sx(styles.rows)} aria-label={t("shell:tars.decision.card.details")} data-tars-decision-rows={rows.map((entry) => entry.key).join(",")}>
-          {rows.map((entry) => <div key={entry.key} className={sx(styles.row)} data-tars-decision-row={entry.key}>
+        <dl className={sx(styles.rows)} aria-label={t("shell:tars.decision.card.details")} {...{ [`data-tars-${kind}-rows`]: rows.map((entry) => entry.key).join(",") }}>
+          {rows.map((entry) => <div key={entry.key} className={sx(styles.row)} {...{ [`data-tars-${kind}-row`]: entry.key }}>
             <dt className={sx(styles.rowLabel)}>{entry.label}</dt>
             <dd className={sx(styles.rowValue)} title={entry.title}>{entry.value}</dd>
           </div>)}
