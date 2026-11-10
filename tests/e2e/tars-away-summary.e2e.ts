@@ -152,11 +152,11 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
       expect(Math.abs(geometry.left)).toBeLessThan(1);
       expect(Math.abs(geometry.right)).toBeLessThan(1);
       for (const offset of geometry.marks) expect(offset).toBeLessThan(1.5);
-      // The title at the message size, the lines one step under it (the record rail's size), the time at the caption step.
+      // The title at the message size, the lines one step under it (the record rail's size), the time at the meta step (the conversation's type scale, whole pixels).
       expect(geometry.title).toBeCloseTo(fontSize, 1);
-      expect(geometry.count).toBeCloseTo(fontSize * 0.875, 1);
+      expect(geometry.count).toBe(Math.round(fontSize * 0.875));
       expect(geometry.count).toBeCloseTo(geometry.record, 1);
-      expect(geometry.time).toBeCloseTo(fontSize * 0.75, 1);
+      expect(geometry.time).toBe(Math.round(fontSize * 0.75));
       // Each load is a new session for the next size.
       await page.evaluate(() => sessionStorage.clear());
     }

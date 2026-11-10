@@ -1,15 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
 /**
- * The summary's text follows the chat font size the conversation column
- * publishes (`--tars-text-size`), on the record rail's steps: its lines one
- * step under the messages (14px beside 16px ones), its title at the message
- * size and its time at the caption step. Never under the caption tier.
+ * The summary's text reads the conversation's type scale
+ * (`chat-type.stylex.ts`), on the record rail's steps: its title at `body`,
+ * its lines at `secondary` (14px beside 16px messages) and its time at `meta`.
  */
-const TEXT = `var(--tars-text-size, ${vars["--aui-font-size-lead"]})`;
-const LINE_TEXT = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
-const TIME_TEXT = `max(${vars["--aui-font-size-micro"]}, calc(${TEXT} * 0.75))`;
+const TEXT = chatType["--chat-type-body"];
+const LINE_TEXT = chatType["--chat-type-secondary"];
+const LINE_LEADING = chatType["--chat-type-secondary-leading"];
+const TIME_TEXT = chatType["--chat-type-meta"];
+const TIME_LEADING = chatType["--chat-type-meta-leading"];
 /** The mark's column, as wide as the record rail's, so the summary's marks line up with the records under it. */
 const MARK_SLOT = vars["--aui-space-16"];
 
@@ -26,13 +28,13 @@ export const tarsAwaySummaryStyles = stylex.create({
     scrollMarginBlockStart: vars["--aui-space-12"],
     backgroundColor: vars["--aui-color-surface-raised"], borderRadius: vars["--aui-radius-panel"],
     borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border"],
-    color: vars["--aui-color-text"], fontSize: LINE_TEXT, lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text"], fontSize: LINE_TEXT, lineHeight: LINE_LEADING,
   },
   /** The title and its time on the start side, Dismiss on the end; narrow, Dismiss keeps the first line. */
   header: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: vars["--aui-space-8"], minWidth: 0 },
   heading: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], flex: "1 1 auto", minWidth: 0 },
   title: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: TEXT, fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"], overflowWrap: "anywhere" },
-  since: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: TIME_TEXT, lineHeight: vars["--aui-line-height-caption"] },
+  since: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: TIME_TEXT, lineHeight: TIME_LEADING },
   dismiss: { flexShrink: 0 },
   groups: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
   /** The mark in its own column; the count and the work it names share the text column. */
