@@ -573,7 +573,7 @@ const markdownComponents: Components = {
   },
   table: ({ children }: { children?: ReactNode }) => (
     <TranscriptWideBlock>
-      <Table className={sx(styles.table)}>
+      <Table xstyle={styles.table}>
         {children}
       </Table>
     </TranscriptWideBlock>

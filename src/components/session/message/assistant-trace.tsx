@@ -15,7 +15,6 @@ import {
   MessageResponse,
 } from "@/components/ai-elements";
 import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
-import { TranscriptWideBlock } from "@/components/ai-elements/transcript-wide";
 import {
   ChangedFilesBlock,
   FileChangeSummaryBlock,
@@ -809,15 +808,13 @@ export function AssistantMessageBody(args: {
 
       {showDiffResults ? (
         <div className={sx(styles.spacedTop)}>
-          <TranscriptWideBlock>
-            <ChangedFilesBlock
-              parts={allDiffParts}
-              taskId={taskId}
-              messageId={messageId}
-              readOnly={readOnly}
-              offerTurnReview
-            />
-          </TranscriptWideBlock>
+          <ChangedFilesBlock
+            parts={allDiffParts}
+            taskId={taskId}
+            messageId={messageId}
+            readOnly={readOnly}
+            offerTurnReview
+          />
         </div>
       ) : null}
 

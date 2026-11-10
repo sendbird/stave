@@ -7,15 +7,19 @@ import * as stylex from "@stylexjs/stylex";
  * user bubble capped against a 72rem row, a centred 1152px composer), the three
  * drifted apart by up to 160px at a normal window size.
  *
- * - `column` — the centred column itself (760px). Prose, the turn trace, user
- *   bubbles and the composer frame end on its edges.
- * - `wide` — the most a top-level code block, table or diff may claim, centred
- *   on the same axis (880px), so dense content is not squeezed into the prose
- *   measure.
+ * - `column` — the centred column itself. Prose, code blocks, cards, the turn
+ *   trace, user bubbles and the composer frame end on its edges.
+ * - `wide` — the most a top-level table or diagram may claim when its content
+ *   needs more than the column, centred on the same axis.
+ *
+ * These are the fallbacks for a transcript outside a conversation surface.
+ * The task chat and Tars set both per width tier and per the reader's chosen
+ * conversation width (`transcript-width.ts`), so the defaults here equal that
+ * scale's narrowest default step.
  *
  * Variables rather than constants so the breakout `calc()` can read them.
  */
 export const transcriptMeasure = stylex.defineVars({
-  "--stave-transcript-column": "47.5rem",
-  "--stave-transcript-wide": "55rem",
+  "--stave-transcript-column": "48rem",
+  "--stave-transcript-wide": "56rem",
 });

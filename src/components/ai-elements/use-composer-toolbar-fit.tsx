@@ -1,4 +1,3 @@
-import { i18n } from "@/i18n";
 import {
   useCallback,
   useLayoutEffect,
@@ -25,9 +24,6 @@ import type { ComposerControlMenuItem } from "./composer-control-menu";
 const UNMEASURED_CONTROL_PX = 96;
 /** The `⋯` trigger before it has been measured: an `icon` button. */
 const UNMEASURED_TRAY_PX = 36;
-/** The side question as a bare glyph before it has been measured. */
-const UNMEASURED_COMPACT_PX = 40;
-const COMPACT_KEY = (id: string) => `${id}:compact`;
 
 const slotStyles = stylex.create({
   // A measuring hook, not a box: the lane rules still reach the control.
@@ -80,7 +76,8 @@ function gapOf(element: Element | null): number {
  * Keeps the classic composer's control row on one line by moving the controls
  * that do not fit into the `⋯` menu (see `fitComposerToolbar`). Returns the row
  * ref, the toolbar controls that left the row, the menu items for them, and
- * the side question action while it still fits beside Attach and Send.
+ * the side question action, an icon button that always stays beside Attach
+ * and Send.
  */
 export function useComposerToolbarFit(args: {
   /** Only the classic in-card row folds; the framed wings have their own room. */
@@ -93,11 +90,9 @@ export function useComposerToolbarFit(args: {
 }) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const widthsRef = useRef(new Map<string, number>());
-  // "collapsed ids|compacted ids": one state, so a fit lands in one render.
-  const [fitKey, setFitKey] = useState("|");
-  const [collapsedKey, compactedKey] = fitKey.split("|") as [string, string];
-  const sideQuestionCompact = compactedKey.split(" ").includes(COMPOSER_SIDE_QUESTION_SLOT);
-  const sideQuestion = useSideQuestionComposerControl({ iconOnly: sideQuestionCompact });
+  // The collapsed ids, space-separated: one string, so a fit lands in one render.
+  const [collapsedKey, setCollapsedKey] = useState("");
+  const sideQuestion = useSideQuestionComposerControl();
   const itemIds = useMemo(
     () => [
       ...args.toolbarIds.filter((id) => Boolean(args.nodes[id])),
@@ -124,9 +119,7 @@ export function useComposerToolbarFit(args: {
     for (const id of [...ids, "model"]) {
       const width = slotWidth(row, id);
       if (width != null && width > 0) {
-        // A control drawn without its label marks itself `data-compact`.
-        const compact = findSlot(row, id)?.querySelector('[data-compact="true"]') != null;
-        widths.set(compact ? COMPACT_KEY(id) : id, width);
+        widths.set(id, width);
       }
     }
     const tray = row.querySelector<HTMLElement>('[data-composer-tray-trigger="true"]');
@@ -144,29 +137,23 @@ export function useComposerToolbarFit(args: {
       availableWidth,
       fixedWidth: (widths.get("model") ?? 0) + gapOf(row) + actionsWidth,
       gap: laneGap,
-      items: ids.map((id) => ({
-        id,
-        width: widths.get(id) ?? UNMEASURED_CONTROL_PX,
-        ...(id === COMPOSER_SIDE_QUESTION_SLOT
-          ? { compactWidth: widths.get(COMPACT_KEY(id)) ?? UNMEASURED_COMPACT_PX }
-          : {}),
-      })),
+      items: ids.map((id) => ({ id, width: widths.get(id) ?? UNMEASURED_CONTROL_PX })),
       trayWidth: widths.get("tray") ?? UNMEASURED_TRAY_PX,
       trayAlwaysShown: demotedCount > 0,
       activeIds,
     });
-    const next = `${fit.collapsed.join(" ")}|${fit.compacted.join(" ")}`;
-    setFitKey((current) => (current === next ? current : next));
+    const next = fit.collapsed.join(" ");
+    setCollapsedKey((current) => (current === next ? current : next));
   }, []);
 
   // Before paint, so a narrow column never shows the wrapped or clipped row.
   useLayoutEffect(() => {
     if (!args.enabled) {
-      setFitKey("|");
+      setCollapsedKey("");
       return;
     }
     measure();
-  }, [args.enabled, itemKey, activeKey, args.demotedCount, fitKey, measure]);
+  }, [args.enabled, itemKey, activeKey, args.demotedCount, collapsedKey, measure]);
 
   useLayoutEffect(() => {
     const row = rowRef.current;
@@ -183,35 +170,31 @@ export function useComposerToolbarFit(args: {
       observer.observe(element);
     }
     return () => observer.disconnect();
-  }, [args.enabled, itemKey, fitKey, measure]);
+  }, [args.enabled, itemKey, collapsedKey, measure]);
 
   const collapsedIds = useMemo(
     () => new Set(collapsedKey ? collapsedKey.split(" ") : []),
     [collapsedKey],
   );
-  const sideQuestionCollapsed = collapsedIds.has(COMPOSER_SIDE_QUESTION_SLOT);
+  // The side question never leaves the row (it is not in the drop order), so
+  // only toolbar controls reach the menu.
   const overflowItems = useMemo<ComposerControlMenuItem[]>(
     () =>
-      itemIds
-        .filter((id) => collapsedIds.has(id))
-        .map((id) =>
-          id === COMPOSER_SIDE_QUESTION_SLOT
-            ? { id, label: i18n.t("session:sideChat.title"), node: sideQuestion }
-            : {
-                id,
-                label: COMPOSER_CONTROL_LABELS[id as ComposerControlId],
-                node: args.nodes[id as ComposerControlId],
-                iconOnly: composerControlIsIconOnly(id as ComposerControlId),
-              },
-        ),
-    [itemIds, collapsedIds, sideQuestion, args.nodes],
+      args.toolbarIds
+        .filter((id) => collapsedIds.has(id) && Boolean(args.nodes[id]))
+        .map((id) => ({
+          id,
+          label: COMPOSER_CONTROL_LABELS[id],
+          node: args.nodes[id],
+          iconOnly: composerControlIsIconOnly(id),
+        })),
+    [args.toolbarIds, collapsedIds, args.nodes],
   );
 
   return {
     rowRef,
     collapsedIds: collapsedIds as ReadonlySet<string>,
     overflowItems,
-    sideQuestion: sideQuestionCollapsed ? null : sideQuestion,
-    sideQuestionCompact,
+    sideQuestion,
   };
 }

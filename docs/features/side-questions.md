@@ -23,7 +23,7 @@
 
 ## Quick Start
 
-1. Choose **Side question** in the composer toolbar, type your question and
+1. Choose the **Side question** icon beside Attach in the composer, type your question and
    press `Enter`. Or type `/aside` followed by your question in
    the composer and press `Enter`.
 2. The side question panel opens above the composer's right edge, or at the
@@ -35,10 +35,12 @@
 
 ### Entry Points
 
-- **Side question** in the composer toolbar. It opens the panel and leaves
-  your draft alone, and it stays available while a turn runs. It is a fixed
-  toolbar action beside Attach and Send, so it cannot be hidden or moved into
-  the overflow tray. On a narrow composer it shows only its icon.
+- The **Side question** icon in the composer toolbar (a speech bubble with a
+  question mark). It opens the panel and leaves your draft alone, and it stays
+  available while a turn runs. It is a fixed icon button beside Attach and
+  Send at every width, so it cannot be hidden or moved into the overflow tray.
+  Its tooltip names it and says what it does, and screen readers announce it
+  as **Side question**.
 - The composer's slash command `/aside` (listed under **Stave commands** when
   you type `/`). `/aside` alone opens the panel with an empty question.
 - `Cmd/Ctrl+K` then `Q` opens the panel for the active task, bringing the task

@@ -4,6 +4,7 @@ import { TarsView } from "@/components/tars/TarsView";
 import { tarsSnapshotForWindow, type TarsBridgeApi, type TarsSnapshot } from "@/lib/tars/types";
 import { buildTarsBrief } from "@/lib/tars/brief";
 import { useAppStore } from "@/store/app.store";
+import { normalizeConversationWidth } from "@/store/app-settings";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { isTarsAnswerRetryable, tarsMessageView, type TarsActInput, type TarsAnswerResult, type TarsConversation, type TarsDecision, type TarsDecisionAnswer, type TarsMessage,
   type TarsReprioritizeInput } from "@/lib/tars/conversation";
@@ -22,6 +23,7 @@ import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
 import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
+import { TRANSCRIPT_OVERFLOW_REPLY } from "@/dev/fixtures/transcript-overflow-fixture";
 import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 
@@ -35,6 +37,8 @@ export function TarsPreview() {
     document.documentElement.dataset.uiDensity = params.get("density") === "compact" ? "compact" : "regular";
     // `messageFontSize=20`: the chat font size setting the conversation's text follows (default 16).
     if (params.has("messageFontSize")) useAppStore.setState((state) => ({ settings: { ...state.settings, messageFontSize: Number(params.get("messageFontSize")) || 16 } }));
+    // `conversationWidth=narrow|wide`: the conversation width setting the column and composer follow (default `default`).
+    if (params.has("conversationWidth")) useAppStore.setState((state) => ({ settings: { ...state.settings, conversationWidth: normalizeConversationWidth(params.get("conversationWidth")) } }));
     const now = "2026-11-05T00:00:00.000Z";
     // `gallery=true`: every conversation case on one screen for design review (`tars-gallery-fixtures.ts`). Its cards need real work
     // to point at, so it always brings the tray and side-view work; the switches built on them (`live`, `queue`, `recap`...) still apply.
@@ -301,6 +305,8 @@ export function TarsPreview() {
           const decision: TarsDecision = { reply: "The saved conversation continues across restarts.\n\n**Next:** check the review and keep the current plan.", actions: [] };
           if (params.get("fileLinks") === "true") decision.reply = "[Source](src/example.ts) and `src/example.ts`. [Documentation](https://example.com/docs).";
           if (params.get("richReply") === "true") decision.reply = TARS_PREVIEW_RICH_REPLY;
+          // `overflowReply=true`: every block that can be wider than the column (`transcript-overflow-fixture.ts`).
+          if (params.get("overflowReply") === "true") decision.reply = TRANSCRIPT_OVERFLOW_REPLY;
           // With side-view fixtures, asking for the report opens it: a view-only show action the host admitted.
           if (side && /report|보고서/i.test(input.text)) {
             decision.reply = params.get("lang") === "ko" ? "결제 화면 작업의 결과 보고서를 옆에 열었습니다." : "I opened the checkout work's result report beside the conversation.";
