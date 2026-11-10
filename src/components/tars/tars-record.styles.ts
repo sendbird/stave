@@ -166,7 +166,7 @@ export const tarsRecordStyles = stylex.create({
     paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`,
   },
   /** A diagnostic in the tool's own words, shown as written. */
-  diagnostic: { display: "block", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: "0.875em", color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
+  diagnostic: { display: "block", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: RECORD_TIME, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
   /** Controls ride the outcome's place at the trailing edge, centred on the line in a box no taller than it, so a button never moves the line (it reaches into the row's own padding). */
   actions: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", alignSelf: "center", gap: vars["--aui-space-4"], minWidth: 0, maxBlockSize: LINE },
   /**
@@ -209,5 +209,9 @@ export const tarsFlowRailStyles = stylex.create({
     fontSize: "inherit", lineHeight: "inherit",
   },
   summaryState: { fontSize: "inherit" },
-  live: { paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`, paddingInlineEnd: 0 },
+  // The live line under the summary reads the record's size too (`tarsLiveStyles.line` takes these two).
+  live: {
+    paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`, paddingInlineEnd: 0,
+    "--tars-live-size": RECORD_TEXT, "--tars-live-leading": chatType["--chat-type-secondary-leading"],
+  },
 });
