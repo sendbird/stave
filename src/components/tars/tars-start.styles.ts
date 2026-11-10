@@ -1,15 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
 /**
- * The start screen's text follows the chat font size the conversation column
- * publishes (`--tars-text-size`): the greeting reads one step over a message,
- * and everything else one step under it (14px beside 16px messages), never
- * under the caption tier.
+ * The start screen's text reads the conversation's type scale
+ * (`chat-type.stylex.ts`), set by the conversation column from the chat font
+ * size: the greeting is the scale's second heading step (1.25 × `body`), and
+ * everything else takes `secondary` (14px beside 16px messages).
  */
-const TEXT = `var(--tars-text-size, ${vars["--aui-font-size-lead"]})`;
-const GREETING = `calc(${TEXT} * 1.25)`;
-const SECONDARY = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
+const GREETING = `calc(${chatType["--chat-type-body"]} * 1.25)`;
+const SECONDARY = chatType["--chat-type-secondary"];
+const SECONDARY_LEADING = chatType["--chat-type-secondary-leading"];
 /**
  * The start screen is its own container. Wide, it reads as a table: a name on
  * the start side, what belongs to it beside it. Narrow, a name sits over its
@@ -21,7 +22,7 @@ const COLUMNS = "minmax(0, 11rem) minmax(0, 1fr)";
 export const tarsStartStyles = stylex.create({
   root: {
     display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, containerType: "inline-size",
-    paddingBlock: vars["--aui-space-8"], fontSize: SECONDARY, lineHeight: "1.5", color: vars["--aui-color-text"], textAlign: "start",
+    paddingBlock: vars["--aui-space-8"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING, color: vars["--aui-color-text"], textAlign: "start",
   },
   intro: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0 },
   greeting: { margin: 0, fontSize: GREETING, fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"], overflowWrap: "anywhere" },
@@ -32,7 +33,7 @@ export const tarsStartStyles = stylex.create({
     alignItems: "start", minWidth: 0,
   },
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
-  heading: { margin: 0, fontSize: SECONDARY, fontWeight: vars["--aui-font-weight-medium"], lineHeight: "1.5" },
+  heading: { margin: 0, fontSize: SECONDARY, fontWeight: vars["--aui-font-weight-medium"], lineHeight: SECONDARY_LEADING },
   /** Beside a row of controls, a name's line is as tall as a control, so it centres on the first row. */
   besideControls: { lineHeight: { default: "1.5", [WIDE]: vars["--aui-control-height-xs"] } },
   /** Controls in a wrapping row; each keeps to the column and cuts its own label. */

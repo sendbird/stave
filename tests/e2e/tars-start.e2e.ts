@@ -170,10 +170,10 @@ test.describe("Tars start screen", () => {
         expect(box.text).toBe(14);
         expect(box.greeting).toBe(20);
       }
-      // A larger chat font size scales the start screen with it.
+      // A larger chat font size scales the start screen with it, on the type scale's whole-pixel secondary step.
       await open(page, `start=true&messageFontSize=20&lang=${look.lang}&theme=${look.theme}`);
-      expect(await start(page).evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(17.5);
-      expect(await example(page, "pause").evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(17.5);
+      expect(await start(page).evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(18);
+      expect(await example(page, "pause").evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(18);
     });
   }
 });
