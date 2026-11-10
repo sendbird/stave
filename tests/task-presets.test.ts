@@ -144,6 +144,26 @@ describe("normalizeTaskPreset", () => {
     expect(preset.model).toBe("claude-opus-5-5");
     expect(preset.label).toBe("Opus 5.5");
   });
+
+  test("moves a persisted Fable 5.1 preset onto Fable 5.2", () => {
+    const named = normalizeTaskPreset({
+      id: "frontier",
+      kind: "task",
+      provider: "claude-code",
+      model: "claude-fable-5-1",
+      label: "Fable 5.1",
+    });
+    expect(named).toMatchObject({ id: "frontier", model: "claude-fable-5-2", label: "Fable 5.2" });
+
+    const custom = normalizeTaskPreset({
+      id: "deep",
+      kind: "task",
+      provider: "claude-code",
+      model: "claude-fable-5-1",
+      label: "Deep review",
+    });
+    expect(custom).toMatchObject({ model: "claude-fable-5-2", label: "Deep review" });
+  });
 });
 
 describe("describeTaskPresetModelEffort", () => {

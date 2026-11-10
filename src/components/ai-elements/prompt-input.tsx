@@ -95,7 +95,7 @@ export function PromptInput(args: PromptInputProps) {
     modelShortcutKeys,
     modelShortcutEfforts,
     windowShortcutsEnabled: requestedWindowShortcutsEnabled = true,
-    attachedFilePaths,
+    attachedFilePaths, attachmentsRow,
     plainText = false,
     attachments,
     promptHistoryEntries,
@@ -791,7 +791,7 @@ export function PromptInput(args: PromptInputProps) {
               removeLensAnnotation={removeLensAnnotation}
             />
           ) : null}
-          {attachedFilePaths.length > 0 ||
+          {attachmentsRow ?? (attachedFilePaths.length > 0 ||
           standaloneImageAttachments.length > 0 ||
           referenceAttachments.length > 0 ? (
             <PromptInputAttachmentsRow
@@ -809,7 +809,7 @@ export function PromptInput(args: PromptInputProps) {
               onOpenAttachedFile={onOpenAttachedFile}
               setImagePreviewSrc={setImagePreviewSrc}
             />
-          ) : null}
+          ) : null)}
           <div
             ref={toolbarFit.rowRef}
             className={sx(

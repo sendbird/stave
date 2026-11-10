@@ -6,6 +6,7 @@ import { Accordion } from "@/components/aui/components/Accordion";
 import { Badge } from "@/components/aui/components/Badge";
 import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
 import { Popover } from "@/components/aui/components/Popover";
+import { runStyles } from "@/components/aui/components/RunMonitor";
 import { StatusDot } from "@/components/aui/components/StatusDot";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { transition } from "@/components/aui/recipes/transition";
@@ -197,37 +198,43 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const staged = progress && progress.total > 0;
   const { primary, more } = tarsCardActions(card);
   const hasActions = Boolean(primary || row.taskId || more.length || grip);
+  // A blocked row in the attention well already says the block's reason; the card does not say it twice.
+  const blockedEntry = card.attention.find((entry) => entry.item.kind === "tars-blocked");
+  const detailInAttention = Boolean(blockedEntry);
+  // A blocked card leads to what is unmet: from the end of the well's Blocked line when there is one, else under the card's lines.
+  const report = row.state === "blocked" && actions.onOpenSide ? <Button variant="ghost" size="2xs" data-tars-open-report={row.id}
+    onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
+    <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
+  // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
   const body = [
     row.state === "queued" ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{describeTarsQueueWait(row)}</p> : null,
     !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
     tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
-    !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title /> : null,
-    detail ? <p key="detail" className={sx(styles.meta)}>{detail}</p> : null,
+    !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title compact /> : null,
+    detail && !detailInAttention ? <p key="detail" className={sx(styles.meta)}>{detail}</p> : null,
     row.reverifyAfter && !terminal ? <p key="reverify" className={sx(styles.meta)}>{t("shell:tars.reverify")}</p> : null,
-    card.branch ? <p key="branch" className={sx(styles.meta, styles.branch)} data-tars-branch={card.branch} title={card.branch}>
-      <GitBranch aria-hidden className={sx(styles.branchIcon)} /><span className={sx(agentRunStyles.visuallyHidden)}>{t("shell:tars.tray.branch")}</span>
-      <span className={sx(styles.branchName)}>{card.branch}</span></p> : null,
     workingChanges ? <p key="workingChanges" className={sx(styles.meta)} data-tars-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null,
     card.followUp ? <p key="followUp" className={sx(styles.meta)} data-tars-follow-up-state={card.followUp.status}>
       {t(`shell:tars.tray.followUp.${card.followUp.status}`, { time: card.followUp.at ? formatDateTime(card.followUp.at) : "" })}</p> : null,
-    card.attention.length ? <ul key="attention" className={sx(styles.attention)}>
+    // What the work waits on is "now", so it sits in the run object's recessed well (AUI RunMonitor's decision well):
+    // each item says what kind of wait it is on a short label line, then its text across the card's full width.
+    card.attention.length ? <ul key="attention" className={sx(runStyles.well, styles.attention)} data-tars-attention-list={card.attention.length}>
       {card.attention.map((entry) => {
         const { label, text } = describeAttention(row, entry);
-        // One state tag per card: what needs the user reads as a marked line, not a second tag.
+        // One state tag per card: what needs the user reads as a marked label, not a second tag.
         return <li key={entry.item.id} className={sx(styles.attentionRow)} data-tars-attention={entry.item.kind}>
-          <StatusDot tone="warning" size="sm" xstyle={monitorStyles.attentionMark} />
-          <span className={sx(monitorStyles.attentionLabel)}>{label}</span>
+          <span className={sx(styles.attentionHead)}>
+            <StatusDot tone="warning" size="sm" xstyle={monitorStyles.attentionMark} />
+            <span className={sx(monitorStyles.attentionLabel)}>{label}</span>
+            {entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
+              ? <Badge size="sm" tone="danger" variant="outlined" xstyle={styles.attentionEnd} data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null}
+            {report && entry === blockedEntry ? <span className={sx(styles.attentionEnd)}>{report}</span> : null}
+          </span>
           {text ? <span className={sx(styles.attentionText)}>{text}</span> : null}
-          {entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
-            ? <Badge size="sm" tone="danger" variant="outlined" data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null}
         </li>;
       })}
     </ul> : null,
-    // A blocked card leads to what is unmet, under the reason it shows.
-    row.state === "blocked" && actions.onOpenSide ? <div key="report" className={sx(styles.actions)}>
-      <Button variant="ghost" size="2xs" data-tars-open-report={row.id} onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
-        <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button>
-    </div> : null,
+    report && !blockedEntry ? <div key="report" className={sx(styles.actions)}>{report}</div> : null,
     // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
     row.state === "completed" && (row.publication || (actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
       <TarsPublishEntry row={row} onPublish={actions.onPublish} />
@@ -236,7 +243,13 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   // The card is the design system's run object; its footer holds the card's actions, the step count and the timeline link.
   return <TarsRunMonitor row={row} progress={progress} onOpenSide={actions.onOpenSide} data-tars-card={row.id} data-tars-lane={card.lane}
     data-tars-progress={staged ? `${progress.finished}/${progress.total}` : undefined}
-    meta={<span data-tars-facts="">{facts.join(" · ")}</span>} actions={hasActions ? <TarsCardActions card={card} actions={actions} grip={grip} /> : undefined}>
+    meta={<>
+      <span data-tars-facts="">{facts.join(" · ")}</span>
+      {/* Where the work happens is identity, so it sits with the owner: an identifier in the mono face at the meta line's size. */}
+      {card.branch ? <span className={sx(styles.branch)} data-tars-branch={card.branch} title={card.branch}>
+        <GitBranch aria-hidden className={sx(styles.branchIcon)} /><span className={sx(agentRunStyles.visuallyHidden)}>{t("shell:tars.tray.branch")}</span>
+        <span className={sx(styles.branchName)}>{card.branch}</span></span> : null}
+    </>} actions={hasActions ? <TarsCardActions card={card} actions={actions} grip={grip} /> : undefined}>
     {body.length ? body : null}
   </TarsRunMonitor>;
 }

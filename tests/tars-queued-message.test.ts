@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { tarsRecordText } from "./tars-record-text";
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -441,13 +442,13 @@ describe("the conversation shows where the words stand", () => {
     const render = (value: ReturnType<typeof delivery>) => renderToStaticMarkup(createElement(TarsActionRecordLine, { record: { ...base, delivery: value } }));
     try {
       for (const [locale, waiting, said, notSaid, pending] of [
-        ["en", "Waiting for the run&#x27;s current turn to end", "Said in the task after its turn ended", "Not said: the work was taken over", "Send to task pending · Fleet"],
-        ["ko", "실행의 현재 턴이 끝나기를 기다리는 중입니다", "턴이 끝난 뒤 Task에 전달했습니다", "전달하지 않았습니다", "Task에 전달 처리 중 · Fleet"]] as const) {
+        ["en", "Waiting for the run&#x27;s current turn to end", "Said in the task after its turn ended", "Not said: the work was taken over", "Send to task Fleet Pending"],
+        ["ko", "실행의 현재 턴이 끝나기를 기다리는 중입니다", "턴이 끝난 뒤 Task에 전달했습니다", "전달하지 않았습니다", "Task에 전달 Fleet 처리 중"]] as const) {
         applyAppLocale(locale); await i18n.changeLanguage(locale);
         const queued = render(delivery("queued"));
         expect(queued).toContain(waiting);
         // Admitted but not said yet: the line never claims it was sent.
-        expect(queued).toContain(pending);
+        expect(tarsRecordText(queued)).toContain(pending);
         expect(render(delivery("delivered"))).toContain(said);
         const cancelled = render(delivery("cancelled", "takenOver"));
         expect(cancelled).toContain(notSaid);

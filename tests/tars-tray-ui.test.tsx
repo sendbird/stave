@@ -349,3 +349,42 @@ test("queued cards show capacity evidence or an explicitly unknown cause in both
   }
   applyAppLocale("en"); await i18n.changeLanguage("en");
 });
+
+describe("Tars tray card hierarchy", () => {
+  test("a decision sits in the card's well: its label line, then its text across the full width, after the run's status lines", () => {
+    const f = fixtures();
+    const card = trayOf(f).lanes.needsYou[0]!;
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
+    // The text is a sibling under the label line, never a second column beside it.
+    expect(html).toMatch(/<li[^>]*data-tars-attention="tars-decision"[^>]*><span[^>]*>(?:(?!<\/li>).)*Tars decision waiting<\/span><\/span><span[^>]*>Tars proposes to resume this work\.<\/span><\/li>/);
+    expect(html).toContain('data-tars-attention-list="1"');
+    // What the work waits on comes after what it is doing, right above the actions that answer it.
+    expect(html.indexOf("Paused by you")).toBeLessThan(html.indexOf("data-tars-attention-list"));
+    expect(html.indexOf("data-tars-attention-list")).toBeLessThan(html.indexOf("data-tars-card-actions"));
+  });
+
+  test("the branch is the header's second meta line, under the owner and facts, never a body row", () => {
+    const f = fixtures();
+    const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
+    const facts = html.indexOf("data-tars-facts");
+    const branch = html.indexOf(`data-tars-branch="${card.branch}"`);
+    expect(card.branch).toBeTruthy();
+    expect(facts).toBeGreaterThan(-1);
+    expect(branch).toBeGreaterThan(facts);
+    // Still in the header: before the current-step well and the body.
+    expect(branch).toBeLessThan(html.indexOf("data-tars-monitor-step"));
+    expect(html).toContain(`title="${card.branch}"`);
+  });
+
+  test("the footer's request and timeline are named icon buttons in one group at its end", () => {
+    const f = fixtures();
+    const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: { ...noActions, onOpenSide() {} } }));
+    const group = html.slice(html.indexOf("data-tars-monitor-views"));
+    expect(group).toContain('aria-label="Open the request and instruction for Fix the billing export on empty invoice lists"');
+    expect(group).toContain('aria-label="Open the timeline for Fix the billing export on empty invoice lists"');
+    // Icon-only: the visible words live in the tooltip, not in the button.
+    expect(group).not.toMatch(/data-tars-monitor-brief="billing"[^>]*>(?:(?!<\/button>).)*Request/);
+  });
+});

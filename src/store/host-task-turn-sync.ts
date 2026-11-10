@@ -235,8 +235,13 @@ export function applyHostTaskTurnSync(args: {
     args.state.activeWorkspaceId === args.update.workspaceId
       ? createWorkspaceSessionStateFromAppState(args.state)
       : (args.state.workspaceRuntimeCacheById[args.update.workspaceId] ?? null);
+  // Without a live or cached session the renderer has no baseline to call a
+  // task new against, and the persisted shell already holds the host's tab
+  // decision (`mergeTaskTurnDeltaPayload` opens a host-created task there).
+  // Treating every task of an uncached workspace as new reopened tabs the user
+  // had closed as soon as one of them, typically a managed run, got an event.
   const isNewToRenderer =
-    !liveOrCache ||
+    liveOrCache !== null &&
     !liveOrCache.tasks.some((task) => task.id === args.update.taskId);
   const merged = mergePersistedTaskIntoSession({
     currentSession: liveOrCache ?? args.loaded.persistedSession,

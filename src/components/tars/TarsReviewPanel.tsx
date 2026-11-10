@@ -19,17 +19,21 @@ import { tarsSideViewStyles as styles } from "./tars-side-view.styles";
 export function TarsReviewPanel({ review }: { review: TarsReviewModel | null }) {
   const { t } = useTranslation(["shell"]);
   const findingsId = useId();
+  const evidenceId = useId();
   if (!review) return <p className={sx(styles.meta)} role="status" data-tars-review="none">{t("shell:tars.side.review.none")}</p>;
   const verdictTone = review.verdict === "passed" ? "success" : review.verdict === "changes-requested" ? "warning" : "neutral";
-  return <div className={sx(styles.section)} data-tars-review={review.verdict ?? "pending"}>
-    <div className={sx(styles.row)}>
-      <Badge size="md" tone={verdictTone}>{t(`shell:tars.side.review.verdict.${REVIEW_VERDICT_KEY[review.verdict ?? "none"]}`)}</Badge>
-      <span className={sx(styles.meta)}>{STAGE_STATUS_PRESENTATION[review.status].label}
-        {review.attempts > 1 ? ` · ${t("shell:tars.flow.attempt", { attempt: review.attempts })}` : ""}</span>
+  // The verdict and what the reviewer said lead; the findings and the evidence follow on the section rhythm.
+  return <div className={sx(styles.stack)} data-tars-review={review.verdict ?? "pending"}>
+    <div className={sx(styles.summary)} data-tars-review-summary="">
+      <div className={sx(styles.row)}>
+        <Badge size="md" tone={verdictTone}>{t(`shell:tars.side.review.verdict.${REVIEW_VERDICT_KEY[review.verdict ?? "none"]}`)}</Badge>
+        <span className={sx(styles.meta)}>{STAGE_STATUS_PRESENTATION[review.status].label}
+          {review.attempts > 1 ? ` · ${t("shell:tars.flow.attempt", { attempt: review.attempts })}` : ""}</span>
+      </div>
+      {review.blocked ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.review.blocked")}.</strong> {review.blocked}</span></p> : null}
+      {review.summary ? <p className={sx(styles.text)}>{review.summary}</p> : null}
+      <p className={sx(styles.meta)} data-tars-review-revision={review.freshness}>{describeTarsEvidenceRevision(review.revision, review.freshness)}</p>
     </div>
-    <p className={sx(styles.meta)} data-tars-review-revision={review.freshness}>{describeTarsEvidenceRevision(review.revision, review.freshness)}</p>
-    {review.blocked ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.review.blocked")}.</strong> {review.blocked}</span></p> : null}
-    {review.summary ? <p className={sx(styles.text)}>{review.summary}</p> : null}
     <section className={sx(styles.section)} aria-labelledby={findingsId}>
       <h3 id={findingsId} className={sx(styles.sectionTitle)}>{t("shell:tars.side.review.findings", { count: review.findings.length })}</h3>
       {review.findings.length ? <ul className={sx(raisedPanel.panel, styles.panelList)}>
@@ -39,7 +43,11 @@ export function TarsReviewPanel({ review }: { review: TarsReviewModel | null }) 
         </li>)}
       </ul> : <p className={sx(styles.meta)}>{t("shell:tars.side.review.noFindings")}</p>}
     </section>
-    {review.evidence.length ? <EvidenceList evidence={review.evidence.map((item) => item.evidence)}
-      revisions={review.evidence.map((item) => describeTarsEvidenceRevision(item.revision, item.freshness))} /> : null}
+    {review.evidence.length ? <section className={sx(styles.section)} aria-labelledby={evidenceId} data-tars-review-evidence="">
+      <h3 id={evidenceId} className={sx(styles.sectionTitle)}>{t("shell:tars.side.review.evidence")}</h3>
+      <div className={sx(raisedPanel.panel, styles.evidencePanel)}>
+        <EvidenceList evidence={review.evidence.map((item) => item.evidence)}
+          revisions={review.evidence.map((item) => describeTarsEvidenceRevision(item.revision, item.freshness))} /></div>
+    </section> : null}
   </div>;
 }

@@ -1309,7 +1309,7 @@ model; smaller models are not handed a deeper budget to compensate:
 
 | Rung     | Claude         | Codex         | Default effort |
 | -------- | -------------- | ------------- | -------------- |
-| frontier | Fable 5.1      | GPT-6 Astra   | `medium`       |
+| frontier | Fable 5.2      | GPT-6 Astra   | `medium`       |
 | flagship | Opus 5.5 (+1M) | GPT-6.1 Sol   | Opus `medium`; Sol 6.1 `high` |
 | balanced | Sonnet 5.5 (+1M) | GPT-6.1 Terra | Sonnet `high`; Terra 6.1 `xhigh` |
 | light    | Haiku 5.5      | GPT-6 Luna    | Haiku `medium`; Luna `xhigh` |
@@ -1349,6 +1349,15 @@ is configured, so Claude Code switches to it when Haiku 5.5 is unavailable,
 including on a CLI older than 2.1.293. The same runtime default carries Opus
 5.5 to Opus 4.8. The Claude API rejects `effort` outright for Haiku 4.5, so
 Stave drops the field rather than clamping it.
+
+Claude Fable 5.2 holds the Claude frontier rung ($8 / $40 per million tokens).
+It runs adaptive thinking only, like Opus 5.5, keeps Stave's frontier `medium`
+default, and needs Claude Code 2.1.321 or newer. A pinned Fable 5.1 id moves
+onto Fable 5.2 in the composer default, shortcut slots, task presets and Auto's
+allowed-model lists. Fable 5.1 remains the automatic fallback: a Claude call on
+Fable 5.2 passes `fallbackModel: claude-fable-5-1` unless a fallback is
+configured, so an older CLI or an outage keeps the frontier rung. Claude Mythos
+5.2 is limited to verified organizations and is not in the catalog.
 Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
 
 One knock-on effect worth knowing:

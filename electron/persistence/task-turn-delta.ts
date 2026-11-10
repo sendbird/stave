@@ -94,6 +94,64 @@ export function mergeTaskTurnDeltaPayload(args: {
 }
 
 /**
+ * Renderer-owned shell fields that host-service's whole-snapshot write has no
+ * copy of, so it must carry them over from disk instead of omitting them.
+ */
+export type HostSnapshotCarriedShellFields = Pick<
+  PersistedWorkspaceShellPayload,
+  | "reviewCommentsByTask"
+  | "openTaskTabIds"
+  | "lensTabs"
+  | "paneTabMeta"
+  | "dockLayout"
+>;
+
+/**
+ * Carry renderer-owned pane fields into host-service's whole-snapshot write.
+ *
+ * Host-service still writes a whole snapshot when no task turn scopes the
+ * write (Information edits, idle-task creation, managed stop, approval
+ * answers, delegation release) or when `persistTaskTurnDelta` declines. That
+ * snapshot used to omit these fields. A missing `openTaskTabIds` reads as a
+ * legacy snapshot, which opens every live task, so a task the user had closed
+ * (a managed run included) came back as a tab the next time the workspace
+ * opened; a missing `reviewCommentsByTask` was saved as empty.
+ *
+ * The persisted shell is the source of truth for these fields. A top-level
+ * task the host adds in this same write still gets a tab, as in
+ * `mergeTaskTurnDeltaPayload`. Without a persisted shell there is nothing to
+ * carry, and the fields stay omitted.
+ */
+export function carryRendererOwnedShellFields(args: {
+  persistedShell:
+    | (HostSnapshotCarriedShellFields & { tasks: Array<{ id: string }> })
+    | null;
+  tasks: ReadonlyArray<PersistenceTaskRow>;
+}): HostSnapshotCarriedShellFields {
+  const shell = args.persistedShell;
+  if (!shell) {
+    return {};
+  }
+  const persistedTaskIds = new Set(shell.tasks.map((task) => task.id));
+  let openTaskTabIds = shell.openTaskTabIds;
+  for (const task of args.tasks) {
+    if (!persistedTaskIds.has(task.id)) {
+      openTaskTabIds = appendOpenTaskTabForHostCreatedTask({
+        openTaskTabIds,
+        task,
+      });
+    }
+  }
+  return {
+    reviewCommentsByTask: shell.reviewCommentsByTask,
+    openTaskTabIds,
+    lensTabs: shell.lensTabs,
+    paneTabMeta: shell.paneTabMeta,
+    dockLayout: shell.dockLayout,
+  };
+}
+
+/**
  * The subset of a payload needed to rebuild the `workspace_meta` lite and
  * summary projections after a delta write.
  */

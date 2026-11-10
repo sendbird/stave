@@ -7,7 +7,7 @@ import {
   shouldOpenModelSelector,
 } from "@/components/ai-elements/model-selector.utils";
 
-const CLAUDE_FABLE_MODEL_ID = "claude-fable-5-1";
+const CLAUDE_FABLE_MODEL_ID = "claude-fable-5-2";
 
 describe("model selector utils", () => {
   test("only authenticated providers contribute options, including static fallbacks", () => {
@@ -122,7 +122,7 @@ describe("model selector utils", () => {
     ).toEqual([
       "claude-code:claude-opus-5-5",
       "codex:gpt-6.1-sol",
-      "claude-code:claude-fable-5-1",
+      "claude-code:claude-fable-5-2",
       "codex:gpt-6-astra",
     ]);
   });
@@ -220,7 +220,7 @@ describe("model selector utils", () => {
   });
 });
 
-test("Opus 5.5 variants advertise their CLI requirement alongside runtime descriptions", () => {
+test("Opus 5.5 and Fable 5.2 variants advertise their CLI requirement alongside runtime descriptions", () => {
   const options = buildModelSelectorOptions({ providerIds: ["claude-code"], enrichmentByModel: new Map([["claude-opus-5-5", { description: "Runtime catalog" }]]) });
   for (const model of ["claude-opus-5-5", "claude-opus-5-5[1m]"]) {
     expect(options.find(option => option.model === model)?.description).toContain("2.1.280");
@@ -231,5 +231,6 @@ test("Opus 5.5 variants advertise their CLI requirement alongside runtime descri
   }
   expect(options.find(option => option.model === "claude-haiku-5-5")?.description).toContain("2.1.293");
   expect(options.find(option => option.model === "claude-haiku-4-5")).toBeUndefined();
-  expect(options.find(option => option.model === CLAUDE_FABLE_MODEL_ID)?.description).toBeUndefined();
+  expect(options.find(option => option.model === CLAUDE_FABLE_MODEL_ID)?.description).toContain("2.1.321");
+  expect(options.find(option => option.model === "claude-fable-5-1")).toBeUndefined();
 });

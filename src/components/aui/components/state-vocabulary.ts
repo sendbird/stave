@@ -7,11 +7,11 @@ import {
   CircleHelp,
   CirclePause,
   CircleMinus,
+  CircleStop,
   CircleX,
   Clock,
   Hand,
   ShieldQuestion,
-  Square,
   type LucideIcon,
 } from "lucide-react";
 import type { StatusDotTone } from "./StatusDot";
@@ -85,7 +85,8 @@ export const WORK_STATE: Readonly<Record<WorkState, WorkStateVisual>> = {
   halted: { get label() { return i18n.t("ui:stateVocabulary.halted"); }, icon: CircleAlert, tone: "warning", color: "halted", pulses: false },
   ready: { get label() { return i18n.t("ui:stateVocabulary.ready"); }, icon: CircleCheck, tone: "success", color: "completed", pulses: false },
   failed: { get label() { return i18n.t("ui:stateVocabulary.failed"); }, icon: CircleX, tone: "danger", color: "failed", pulses: false },
-  stopped: { get label() { return i18n.t("ui:stateVocabulary.stopped"); }, icon: Square, tone: "neutral", color: "stopped", pulses: false },
+  // A stop inside the ring every settled state shares: a bare square at mark size reads as an empty checkbox, not a state.
+  stopped: { get label() { return i18n.t("ui:stateVocabulary.stopped"); }, icon: CircleStop, tone: "neutral", color: "stopped", pulses: false },
   queued: { get label() { return i18n.t("ui:stateVocabulary.queued"); }, icon: CircleDashed, tone: "neutral", color: "subtle", pulses: false },
   idle: { get label() { return i18n.t("ui:stateVocabulary.idle"); }, icon: CircleDashed, tone: "muted", color: "muted", pulses: false },
   skipped: { get label() { return i18n.t("ui:stateVocabulary.skipped"); }, icon: CircleMinus, tone: "neutral", color: "subtle", pulses: false },

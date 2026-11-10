@@ -911,19 +911,6 @@ export const promptInputStyles = stylex.create({
     fontSize: vars["--aui-font-size-body"],
     fontWeight: vars["--aui-font-weight-semibold"],
   },
-  attachButtonMinimal: {
-    height: 32,
-    width: 32,
-    borderRadius: vars["--aui-radius-control"],
-    borderWidth: vars["--aui-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 60%, transparent)`,
-    backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--aui-color-canvas"]} 50%, transparent)`,
-      ":hover": `color-mix(in oklch, ${vars["--aui-color-surface-tint"]} 40%, transparent)`,
-    },
-    color: vars["--aui-color-text"],
-  },
   stopButton: {
     color: {
       default: vars["--aui-color-danger"],
@@ -944,18 +931,6 @@ export const promptInputStyles = stylex.create({
   },
   inlineGap1: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"] },
   roundedMd: { borderRadius: vars["--aui-radius-control"] },
-  sendButtonMinimal: {
-    height: 32,
-    width: 32,
-    borderWidth: vars["--aui-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--aui-color-accent"]} 40%, transparent)`,
-    backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--aui-color-accent"]} 10%, transparent)`,
-      ":hover": `color-mix(in oklch, ${vars["--aui-color-accent"]} 15%, transparent)`,
-    },
-    color: vars["--aui-color-accent"],
-  },
   tooltipColStart: {
     flexDirection: "column",
     alignItems: "flex-start",

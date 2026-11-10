@@ -6,6 +6,7 @@ import { sx } from "@/components/aui/utils/stylex";
 import { RightRail } from "@/components/layout/RightRail";
 import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { TopBar } from "@/components/layout/TopBar";
+import { topBarStyles } from "@/components/layout/top-bar.styles";
 import { resolveKeybindingDisplay } from "@/lib/keybindings/keybinding-settings";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
@@ -56,6 +57,16 @@ function groupMarkup(html: string, label: string) {
 }
 
 describe("top bar groups", () => {
+  test("a global surface keeps its location for screen readers without a second visible title", () => {
+    const html = renderWithState({ activeAppSurface: { kind: "tars" } } as Partial<AppState>, createElement(TopBar));
+    const location = groupMarkup(html, "Location");
+    expect(location).toContain("Tars");
+    // The page header titles a global surface; the top bar names it only for screen readers.
+    expect(location.startsWith('role="group"')).toBe(true);
+    expect(html).toMatch(/<span role="group" aria-label="Location" class="[^"]+">Tars<\/span>/);
+    expect(location).not.toContain(`class="${sx(topBarStyles.locationGroup)}"`);
+  });
+
   test("reads as location, search, views and app, keeping every control", () => {
     const html = renderWithState(REPOSITORY_STATE, createElement(TopBar));
     const order = ["Location", "Search", "Views", "App"].map((label) =>

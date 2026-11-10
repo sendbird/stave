@@ -40,6 +40,7 @@ import { readTeamProviderUsage } from "./provider-usage-context";
 import { selectAdaptiveRoute, type AgentRunReplyComposer, type AgentRunReplyRouteNote } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
 import { prepareRunTurn } from "./turn-preparation";
+import { createRunOperationQueues } from "./run-operation-queues";
 import { DelegatedAgentRunAuthoritySchema, type DelegatedAgentRunAuthority, type DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
 import { isReadOnlyDelegationPolicy } from "../../../src/lib/runs/delegation-policy";
@@ -174,7 +175,7 @@ const DETAIL_EVENT_LIMIT = 200;
  */
 const EVENT_WAIT_READ_DEADLINE_MS = 5 * 60_000;
 
-/** A pull request read a waiting run started outside the chain; a later tick applies it. */
+/** A pull request read a waiting run started outside its queue; a later tick applies it. */
 interface PendingPullRequestRead {
   waitId: string;
   controller: AbortController;
@@ -205,6 +206,7 @@ type AgentRunStorePort = Pick<
   | "listRecentAgentRuns"
   | "listRecentEvents"
   | "listEventsByKind"
+  | "latestEventSequence"
 > & Partial<Pick<AgentRunStore, "resourceConfig" | "readResources" | "reserveChildResources" | "consumeResourceTurn" | "releaseResourceReservation" | "helperTurnRefusal">>;
 
 export interface AgentRunTurnRow {
@@ -345,7 +347,7 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   readObservedTurnEnding?: (turnId: string) => AgentRunRouteTurnFacts["ending"];
   /**
    * The wake-up runtime's pull request watch reader, for a run waiting on a
-   * pull request's checks or review. It runs outside the tick chain; Pause,
+   * pull request's checks or review. It runs outside the run's queue; Pause,
    * Stop and Cancel abort `signal`. Absent: such a wait is refused.
    */
   readPullRequestWatch?: (args: {
@@ -398,13 +400,15 @@ export interface AgentRunRuntime {
   start: () => void;
   stop: () => void;
   /**
-   * Evaluates active agent runs now instead of at the next interval. Resolves
-   * when that tick has run; a tick already queued is shared.
+   * Evaluates every active agent run now, each on its own queue, instead of at
+   * the next interval. Resolves once each run's evaluation has run; a run whose
+   * evaluation is already queued shares it.
    */
   requestTick: () => Promise<void>;
   /**
-   * Resolves once the pull request reads of waiting runs have landed and the
-   * ticks they asked for have run. For tests and shutdown; a tick never waits on it.
+   * Resolves once the pull request reads of waiting runs have landed and every
+   * run's queued operations, the ticks they asked for included, have run. For
+   * tests and shutdown; a tick never waits on it.
    */
   whenIdle: () => Promise<void>;
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
@@ -501,8 +505,13 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   const clearIntervalImpl = deps.clearInterval ?? globalThis.clearInterval;
   const { store } = deps;
   let intervalHandle: ReturnType<typeof globalThis.setInterval> | null = null;
-  let operationChain = Promise.resolve();
-  let queuedTick: Promise<void> | null = null;
+  const queues = createRunOperationQueues();
+  /** Each run's next evaluation while it waits in that run's queue; a tick then shares it. */
+  const queuedEvaluations = new Map<string, Promise<void>>();
+  /** Helpers a root that ended is ending, each on its own queue, per root run. */
+  const helperEndings = new Map<string, Promise<void>>();
+  /** Helpers with an end already queued, so repeated ticks do not pile more. */
+  const endingHelpers = new Set<string>();
   /** Turns this runtime started, per agent run; hydrated from `turn-linked`. */
   const agentRunTurnIds = new Map<string, Set<string>>();
   /** Agent run turns Stave stopped in the middle of; hydrated from `turn-interrupted`. */
@@ -618,18 +627,73 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   /**
-   * Every tick and command runs in this one chain, as in the wake-up runtime:
-   * two ticks never interleave, and a report never lands between a tick's
-   * read and its write.
+   * Every tick evaluation, command, reply and report of a run runs in that
+   * run's own queue: two evaluations of one run never interleave, and a report
+   * never lands between its run's read and write. Different runs never wait on
+   * each other, so one run's slow task read, routing, start or action delays
+   * only that run.
+   *
+   * What is shared between runs, and how it stays consistent without a
+   * host-wide queue:
+   * - A task's admission (start, delegated preparation, an end for its task)
+   *   queues on the task and on its current run (`enqueueTask`): one active run
+   *   per task, in the order those were asked. Other tasks are not involved.
+   * - A root's helpers: budget entries (reserve, spend, release) are each one
+   *   SQLite savepoint that checks the budget again, so they need no queue; a
+   *   helper the root ends, or whose execution ended, is cancelled on the
+   *   helper's own queue (`endHelper`), never written from another run's.
+   * - The boot sweep closes every active run's interrupted turns in one
+   *   operation that holds all their queues. It is the one host-wide section
+   *   left: synchronous, no I/O, once per start (`reconcileInterruptedStarts`).
    */
-  function enqueue<T>(operation: () => Promise<T> | T): Promise<T> {
-    const next = operationChain.then(operation, operation);
-    operationChain = next.then(
-      () => undefined,
-      () => undefined,
+  const runKey = (agentRunId: string) => `run:${agentRunId}`;
+  const taskKey = (taskId: string) => `task:${taskId}`;
+
+  /** Settles once the helpers a run ended are cancelled; never rejects. */
+  const helpersEnded = (agentRunId: string) => helperEndings.get(agentRunId) ?? Promise.resolve();
+
+  /** Queues on one run. The result also waits for helpers that operation ended, outside the queue. */
+  function enqueueRun<T>(agentRunId: string, operation: () => Promise<T> | T): Promise<T> {
+    return queues.enqueue(runKey(agentRunId), operation).then(
+      (value) => helpersEnded(agentRunId).then(() => value),
+      (error: unknown) => helpersEnded(agentRunId).then(() => { throw error; }),
     );
-    return next;
   }
+
+  /**
+   * Queues a task's admission on the task and on its current run, if it has
+   * one. A start also holds the run it creates (`newRunId`), so that run's
+   * first evaluation, and anything else asked of it, waits for its creation.
+   */
+  function enqueueTask<T>(taskId: unknown, operation: () => Promise<T> | T, newRunId?: string): Promise<T> {
+    const created = newRunId ? [runKey(newRunId)] : [];
+    // An invalid id still queues, on a key of its own, so its parse refuses inside as before.
+    if (typeof taskId !== "string") return queues.enqueue([taskKey(""), ...created], operation);
+    const active = store.getActiveAgentRunForTask(taskId);
+    if (!active) return queues.enqueue([taskKey(taskId), ...created], operation);
+    return queues.enqueue([taskKey(taskId), runKey(active.id), ...created], operation).then(
+      (value) => helpersEnded(active.id).then(() => value),
+      (error: unknown) => helpersEnded(active.id).then(() => { throw error; }),
+    );
+  }
+
+  /** Queues on the run a stage grant names; an unknown grant is refused inside, as before. */
+  function enqueueGrant<T>(agentRunKey: string, operation: () => Promise<T> | T): Promise<T> {
+    let agentRunId: string | undefined;
+    try {
+      agentRunId = deps.resolveAgentRunGrant(agentRunKey)?.agentRunId;
+    } catch {
+      agentRunId = undefined;
+    }
+    return agentRunId ? enqueueRun(agentRunId, operation) : queues.enqueue(`grant:${agentRunKey}`, operation);
+  }
+
+  /**
+   * The run's own newest event. A helper's turn or end writes a budget entry
+   * on its root's log from the helper's queue; that never makes the root's
+   * turn preparation stale, since the turn's budget is checked again when spent.
+   */
+  const ownEventSequence = (agentRunId: string) => store.latestEventSequence(agentRunId, ["resource-budget"]);
 
   function emit(agentRun: AgentRun) {
     try {
@@ -721,22 +785,56 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const config = store.resourceConfig?.(change.agentRun.id);
       if (config?.link) store.releaseResourceReservation?.(config.link, now());
       else if (config) {
-        for (const reservation of store.readResources?.(change.agentRun.id)?.reservations ?? []) {
-          if (reservation.released) continue;
-          const child = store.getAggregate(reservation.childRunId);
-          if (child && isActiveAgentRunState(child.agentRun.state)) {
-            preparationControllers.get(child.agentRun.id)?.abort();
-            applyChange(cancelAgentRun({ aggregate: child, now: now() }));
-            void deps.stopResourceTask?.({ workspaceId: child.agentRun.workspaceId, taskId: child.agentRun.leadTaskId }).catch((error) => {
-              console.error("[agent-runs] resource child stop failed", { agentRunId: child.agentRun.id, detail: describeError(error, "Stop failed") });
-            });
-          } else store.releaseResourceReservation?.({ rootRunId: change.agentRun.id, reservationId: reservation.reservationId, executionId: reservation.executionId }, now());
+        const rootRunId = change.agentRun.id;
+        const endings = (store.readResources?.(rootRunId)?.reservations ?? [])
+          .filter((reservation) => !reservation.released)
+          .map((reservation) => endHelper(rootRunId, reservation, "root-ended"));
+        if (endings.length > 0) {
+          const all = Promise.all([helpersEnded(rootRunId), ...endings]).then(() => undefined);
+          helperEndings.set(rootRunId, all);
+          void all.then(() => { if (helperEndings.get(rootRunId) === all) helperEndings.delete(rootRunId); });
         }
       }
       forgetEndedRun(change.agentRun.id);
     }
     emit(change.agentRun);
     return requireAggregate(change.agentRun.id);
+  }
+
+  /**
+   * Ends one helper of a root on the helper's own queue: the helper's in-flight
+   * work is aborted at once, and the cancel lands after it, so no write from
+   * the root's queue ever races the helper's own read and write. A helper that
+   * already ended only has its unused reservation released. `execution-ended`
+   * (the tick's recovery) acts only once the helper's exact execution is gone.
+   * Settles once done; never rejects.
+   */
+  function endHelper(
+    rootRunId: string,
+    reservation: { childRunId: string; reservationId: string; executionId: string },
+    cause: "root-ended" | "execution-ended",
+  ): Promise<void> {
+    const { childRunId } = reservation;
+    // Every tick looks again; one recovery per helper is enough while it waits for the helper's queue.
+    const recovery = cause === "execution-ended";
+    if (recovery && endingHelpers.has(childRunId)) return Promise.resolve();
+    if (recovery) endingHelpers.add(childRunId);
+    const releaseInterruption = interruptRun(childRunId);
+    return queues.enqueue(runKey(childRunId), () => {
+      if (cause === "execution-ended" && deps.resourceExecutionLive?.(childRunId, reservation.executionId)) return;
+      const child = store.getAggregate(childRunId);
+      if (child && isActiveAgentRunState(child.agentRun.state)) {
+        applyChange(cancelAgentRun({ aggregate: child, now: now() }));
+        if (cause === "root-ended") void deps.stopResourceTask?.({ workspaceId: child.agentRun.workspaceId, taskId: child.agentRun.leadTaskId }).catch((error) => {
+          console.error("[agent-runs] resource child stop failed", { agentRunId: childRunId, detail: describeError(error, "Stop failed") });
+        });
+      } else store.releaseResourceReservation?.({ rootRunId, reservationId: reservation.reservationId, executionId: reservation.executionId }, now());
+    }).catch((error: unknown) => {
+      console.error("[agent-runs] resource child end failed", { agentRunId: childRunId, detail: describeError(error, "Invalid resource state") });
+    }).finally(() => {
+      if (recovery) endingHelpers.delete(childRunId);
+      releaseInterruption();
+    });
   }
 
   /**
@@ -1112,8 +1210,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   /**
-   * A waiting run's pull request read runs outside the chain, so a slow or
-   * hung `gh` never holds another run's tick, Pause or Stop. A tick takes the
+   * A waiting run's pull request read runs outside the run's queue, so a slow
+   * or hung `gh` never holds that run's own tick, Pause or Stop. A tick takes the
    * result a read brought back for this same wait, or starts one when the
    * watch is due and none is out; the read asks for a tick when it lands. A
    * read past `EVENT_WAIT_READ_DEADLINE_MS` is dropped and counts as failed.
@@ -1375,7 +1473,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       applyChange(cancelAgentRun({ aggregate, now: now() }));
       return;
     }
-    const preparedSequence = store.listRecentEvents(agentRun.id, 1).at(-1)?.sequence ?? 0;
+    const preparedSequence = ownEventSequence(agentRun.id);
     const controller = new AbortController();
     const resources = store.resourceConfig?.(agentRun.id);
     if (resources?.link) {
@@ -1446,10 +1544,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
     const latest = requireAggregate(agentRun.id);
     // Preparation is read-only: a changed run/attempt cannot authorize its old result.
-    if ((store.listRecentEvents(agentRun.id, 1).at(-1)?.sequence ?? 0) !== preparedSequence ||
+    if (ownEventSequence(agentRun.id) !== preparedSequence ||
         latest.agentRun.state !== "running" || latest.agentRun.updatedAt !== agentRun.updatedAt ||
         latest.agentRun.turnCount !== agentRun.turnCount ||
         currentStageRecord(latest).attempt !== before.attempt || currentStageRecord(latest).stageId !== before.stageId) return;
+    // The root runs on its own queue, so it may pause or end while its helper prepares: the helper then starts nothing now.
+    if (resources?.link && store.getAggregate(resources.link.rootRunId)?.agentRun.state !== "running") return;
     const change = applyAgentRunDecision({ aggregate, decision, now: now() });
     if (delegation && !deps.delegatedExecutionCurrent?.(agentRun.id, agentRun.leadTaskId, delegation)) {
       applyChange(cancelAgentRun({ aggregate, now: now() }));
@@ -1821,43 +1921,61 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
   }
 
-  async function tick() {
-    const generation = stopGeneration;
-    // Release only reservations whose exact persisted execution ended. Missing evidence retains capacity.
-    if (deps.resourceExecutionLive) for (const root of store.listActiveAgentRuns()) {
+  /**
+   * Releases reservations whose exact persisted execution ended; missing
+   * evidence retains capacity. A helper still active is ended on its own
+   * queue (`endHelper`), so this never waits on any run.
+   */
+  function recoverResourceReservations(): Promise<void>[] {
+    if (!deps.resourceExecutionLive) return [];
+    const recoveries: Promise<void>[] = [];
+    for (const root of store.listActiveAgentRuns()) {
       try {
-      const config = store.resourceConfig?.(root.id);
-      if (!config || config.link) continue;
-      for (const row of store.readResources?.(root.id)?.reservations ?? []) {
-        if (!row.released && !deps.resourceExecutionLive(row.childRunId, row.executionId)) {
-          const child = store.getAggregate(row.childRunId);
-          if (child && isActiveAgentRunState(child.agentRun.state)) applyChange(cancelAgentRun({ aggregate: child, now: now() }));
-          else store.releaseResourceReservation?.({ rootRunId: root.id, reservationId: row.reservationId, executionId: row.executionId }, now());
+        const config = store.resourceConfig?.(root.id);
+        if (!config || config.link) continue;
+        for (const row of store.readResources?.(root.id)?.reservations ?? []) {
+          if (!row.released && !deps.resourceExecutionLive(row.childRunId, row.executionId))
+            recoveries.push(endHelper(root.id, row, "execution-ended"));
         }
-      }
       } catch (error) {
         console.error("[agent-runs] resource recovery failed", { agentRunId: root.id, detail: describeError(error, "Invalid resource state") });
       }
     }
-    for (const agentRun of store.listActiveAgentRuns()) {
-      if (generation !== stopGeneration) return;
-      try {
-        await evaluate(agentRun.id);
-      } catch (error) {
-        console.error("[agent-runs] run evaluation failed", error, { agentRunId: agentRun.id });
-      }
-    }
+    return recoveries;
   }
 
-  function requestTick(): Promise<void> {
-    if (queuedTick) return queuedTick;
-    queuedTick = enqueue(async () => {
-      queuedTick = null;
-      await tick();
-    }).catch((error) => {
-      console.error("[agent-runs] tick failed", error);
+  /**
+   * Queues one evaluation of a run on its own queue, or shares the one already
+   * waiting there. An evaluation that has started does not absorb a later
+   * request: the run may have changed since it read. Never rejects.
+   */
+  function requestEvaluation(agentRunId: string): Promise<void> {
+    const queued = queuedEvaluations.get(agentRunId);
+    if (queued) return queued;
+    const generation = stopGeneration;
+    const evaluation: Promise<void> = enqueueRun(agentRunId, async () => {
+      if (queuedEvaluations.get(agentRunId) === evaluation) queuedEvaluations.delete(agentRunId);
+      if (generation !== stopGeneration) return;
+      try {
+        await evaluate(agentRunId);
+      } catch (error) {
+        console.error("[agent-runs] run evaluation failed", error, { agentRunId });
+      }
     });
-    return queuedTick;
+    queuedEvaluations.set(agentRunId, evaluation);
+    return evaluation;
+  }
+
+  /** Every active run is evaluated on its own queue; one slow run delays only itself. */
+  function requestTick(): Promise<void> {
+    try {
+      const recoveries = recoverResourceReservations();
+      const evaluations = store.listActiveAgentRuns().map((agentRun) => requestEvaluation(agentRun.id));
+      return Promise.all([...recoveries, ...evaluations]).then(() => undefined);
+    } catch (error) {
+      console.error("[agent-runs] tick failed", error);
+      return Promise.resolve();
+    }
   }
 
   async function whenIdle() {
@@ -1867,8 +1985,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         await Promise.all(out);
         continue;
       }
-      // A landed read has asked for its tick; wait for it, then for any read it started.
-      await enqueue(() => undefined);
+      // A landed read has asked for its tick; wait for it and every queued operation, then for any read it started.
+      await queues.drain();
       if (![...pullRequestReads.values()].some((read) => !read.result)) return;
     }
   }
@@ -1969,42 +2087,53 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * replayed. Every agent run's turns are closed before anyone is notified: a
    * notification loads the workspace session, which would otherwise keep a
    * turn another agent run has not closed yet as running.
+   *
+   * The closes are the one operation that holds every active run's queue: it
+   * is synchronous and does no I/O, so it holds them only for that moment.
+   * Each run then reports its own interrupted starts on its own queue, queued
+   * here before the first tick can evaluate it, so a start is never replayed.
    */
-  async function reconcileInterruptedStarts() {
-    const interrupted: Array<{ agentRun: AgentRun; orphans: AgentRunEvent[] }> = [];
-    for (const agentRun of store.listActiveAgentRuns()) {
-      try {
-        // Before this sweep records anything at the boot's time.
-        recordHostStarted(agentRun);
-      } catch (error) {
-        console.error("[agent-runs] failed to record the host start", error, { agentRunId: agentRun.id });
+  function reconcileInterruptedStarts(): Promise<void> {
+    const agentRuns = store.listActiveAgentRuns();
+    const closed = queues.enqueue(agentRuns.map((agentRun) => runKey(agentRun.id)), () => {
+      const interrupted = new Map<string, AgentRunEvent[]>();
+      for (const agentRun of agentRuns) {
+        try {
+          // Before this sweep records anything at the boot's time.
+          recordHostStarted(agentRun);
+        } catch (error) {
+          console.error("[agent-runs] failed to record the host start", error, { agentRunId: agentRun.id });
+        }
+        try {
+          const orphans = closeInterruptedTurns(agentRun);
+          if (orphans.length > 0) interrupted.set(agentRun.id, orphans);
+        } catch (error) {
+          console.error("[agent-runs] failed to close an interrupted run turn", error, {
+            agentRunId: agentRun.id,
+          });
+        }
       }
-      try {
-        const orphans = closeInterruptedTurns(agentRun);
-        if (orphans.length > 0) interrupted.push({ agentRun, orphans });
-      } catch (error) {
-        console.error("[agent-runs] failed to close an interrupted run turn", error, {
-          agentRunId: agentRun.id,
-        });
-      }
-    }
-    for (const { agentRun, orphans } of interrupted) {
-      try {
-        await reportInterruptedStarts(agentRun, orphans);
-      } catch (error) {
-        console.error("[agent-runs] failed to reconcile an interrupted run", error, {
-          agentRunId: agentRun.id,
-        });
-      }
-    }
+      return interrupted;
+    });
+    return Promise.all(agentRuns.map((agentRun) => enqueueRun(agentRun.id, async () => {
+      // Settled already: this run's queue reaches here only after the closes.
+      const orphans = (await closed).get(agentRun.id);
+      if (orphans) await reportInterruptedStarts(agentRun, orphans);
+    }).catch((error: unknown) => {
+      console.error("[agent-runs] failed to reconcile an interrupted run", error, {
+        agentRunId: agentRun.id,
+      });
+    }))).then(() => undefined);
   }
 
   function start() {
     if (intervalHandle) return;
     hostStarted = true;
-    void enqueue(reconcileInterruptedStarts).catch((error) => {
+    try {
+      void reconcileInterruptedStarts();
+    } catch (error) {
       console.error("[agent-runs] boot reconciliation failed", error);
-    });
+    }
     intervalHandle = setIntervalImpl(() => void requestTick(), AGENT_RUN_TICK_INTERVAL_MS);
     void requestTick();
   }
@@ -2062,7 +2191,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     agentRunId: string,
     build: (aggregate: AgentRunAggregate) => AgentRunChange | Promise<AgentRunChange>,
   ): Promise<AgentRunDetail> {
-    return enqueue(async () => {
+    return enqueueRun(agentRunId, async () => {
       const aggregate = requireAggregate(agentRunId);
       const change = await build(aggregate);
       if (hasEffect(change, aggregate)) applyChange(change);
@@ -2096,7 +2225,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     };
   }
 
-  const scriptRunner = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange,
+  const scriptRunner = createStageScriptRunner({ ...deps, enqueue: (operation, agentRunKey) => enqueueGrant(agentRunKey, operation), requireGrant, applyChange,
     isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null,
     isChecksRepairTurn: (grant) => {
       const events = store.listEventsByKind(grant.agentRunId, ["turn-started", "turn-linked"])
@@ -2110,7 +2239,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     runWorkspaceScript: scriptRunner.run,
     reserveChildResources: (args) => store.reserveChildResources?.({ ...args, now: now() }) ?? null,
     releaseChildResources: (link) => { store.releaseResourceReservation?.(link, now()); },
-    requestResources: ({ agentRunKey, request }) => enqueue(() => {
+    requestResources: ({ agentRunKey, request }) => enqueueGrant(agentRunKey, () => {
       const { grant, aggregate } = requireGrant(agentRunKey);
       const config = store.resourceConfig?.(aggregate.agentRun.id);
       if (!config) refuse("Adaptive resources are not enabled for this Run.");
@@ -2133,7 +2262,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     notifyTaskTurnFinished: ({ taskId }) => {
       if (store.getActiveAgentRunForTask(taskId)) void requestTick();
     },
-    answerQuestion: (args) => enqueue(async () => {
+    answerQuestion: (args) => enqueueRun(args.stage.agentRunId, async () => {
       const aggregate = requireAggregate(args.stage.agentRunId);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
       // The question is moot once its run ended or its stage attempt moved on; a paused run only waits.
@@ -2249,7 +2378,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const current = store.getActiveAgentRunForTask(taskId);
       const releaseInterruption = current && hasAgentOrigin(current) && (!delegatedOnly || delegatedAuthority(current))
         ? interruptRun(current.id) : () => {};
-      return enqueue(() => {
+      return enqueueTask(taskId, () => {
         const active = store.getActiveAgentRunForTask(taskId);
         const aggregate = active && hasAgentOrigin(active) ? store.getAggregate(active.id) : null;
         if (!aggregate || !isActiveAgentRunState(aggregate.agentRun.state)) return false;
@@ -2259,7 +2388,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }).finally(releaseInterruption);
     },
     prepareDelegatedAgentRun: ({ agentRunId, model, input: rawInput, authority: rawAuthority, resourceLink }) =>
-      enqueue(async () => {
+      enqueueTask((rawInput as { leadTaskId?: unknown } | null)?.leadTaskId, async () => {
         const input = AgentRunStartInputSchema.parse(rawInput);
         if (input.workflow.stages.some((stage) => stage.kind === "ai" && stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check")))
           refuse(i18n.t("agentRuns:workspaceCheck.delegated"));
@@ -2299,9 +2428,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         if (!created.ok) refuse(created.message);
         emit(change.agentRun);
         return detailOf(agentRunId);
-      }),
+      }, agentRunId),
     activateDelegatedAgentRun: ({ agentRunId, executionId }) =>
-      enqueue(() => {
+      enqueueRun(agentRunId, () => {
         const aggregate = requireAggregate(agentRunId);
         const authority = delegatedAuthority(aggregate.agentRun);
         if (!authority || authority.executionId !== executionId) refuse("The delegated execution changed before activation.");
@@ -2315,8 +2444,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(agentRunId);
       }),
-    startAgentRun: (rawInput, guard) =>
-      enqueue(async () => {
+    startAgentRun: (rawInput, guard) => {
+      const agentRunId = randomUUID();
+      return enqueueTask((rawInput as { leadTaskId?: unknown } | null)?.leadTaskId, async () => {
         guard?.();
         const input = AgentRunStartInputSchema.parse(rawInput);
         // Binding reads only the workspace's script configuration; no git snapshot here.
@@ -2352,7 +2482,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const accountPool = normalizeAgentRunAccountPool({ pool: requestedPool,
           currentAccountId: selectedProviderAccount(snapshot.providerId, input.accounts), subscriptionAccountIds: subscriptionAccountIds(snapshot.providerId) });
         const change = createAgentRun({
-          id: randomUUID(),
+          id: agentRunId,
           input: { ...rest, ...(accountPool ? { accountPool } : {}) },
           repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: snapshot.providerId, model: snapshot.model },
@@ -2372,7 +2502,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         emit(change.agentRun);
         void requestTick();
         return detailOf(change.agentRun.id);
-      }),
+      }, agentRunId);
+    },
     list: async (args = {}) => {
       const recent = args.workspaceId
         ? store.listAgentRunsForWorkspace(args.workspaceId, args.limit)
@@ -2424,7 +2555,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       return { prUrl: result.url };
     },
     shareReport: ({ agentRunId, threadUrl }) =>
-      enqueue(async () => {
+      enqueueRun(agentRunId, async () => {
         if (!SLACK_THREAD_URL.test(threadUrl)) refuse("Paste a Slack thread link, such as https://acme.slack.com/archives/C123/p456.");
         const detail = await getDetail({ agentRunId });
         if (!detail.report) refuse("The report is ready once the run ends.");
@@ -2461,7 +2592,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           now: now(),
         });
       }),
-    replyAsUser: ({ agentRunId, prompt, turnId }, guard) => enqueue(async () => {
+    replyAsUser: ({ agentRunId, prompt, turnId }, guard) => enqueueRun(agentRunId, async () => {
       const aggregate = requireAggregate(agentRunId);
       guard?.(aggregate.agentRun);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
@@ -2484,7 +2615,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),
-    reply: (args) => enqueue(async () => {
+    reply: (args) => enqueueRun(args.agentRunId, async () => {
       const aggregate = requireAggregate(args.agentRunId);
       const { agentRun } = aggregate, record = currentStageRecord(aggregate);
       if (record.stageId !== args.stageId || record.attempt !== args.attempt)
@@ -2600,7 +2731,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }).finally(releaseInterruption);
     },
     getForGrant: ({ agentRunKey }) =>
-      enqueue(() => {
+      enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const record = currentStageRecord(aggregate);
         if (record.stageId !== grant.stageId || record.attempt !== grant.attempt) {
@@ -2612,7 +2743,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return { ...buildAgentRunBriefing(aggregate), ...(store.readResources?.(aggregate.agentRun.id) ? { resources: store.readResources!(aggregate.agentRun.id)!, stageTurnIds: store.listEventsByKind(aggregate.agentRun.id, ["turn-linked"]).filter((event) => event.detail.stageId === grant.stageId && event.detail.attempt === grant.attempt).map((event) => String(event.detail.turnId)) } : {}) };
       }),
     reportStage: ({ agentRunKey, report }) =>
-      enqueue(async () => {
+      enqueueGrant(agentRunKey, async () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageCompleteReportInputSchema.parse(report);
         const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
@@ -2645,7 +2776,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         );
       }),
     blockStage: ({ agentRunKey, block }) =>
-      enqueue(() => {
+      enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageBlockInputSchema.parse(block);
         if (workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
@@ -2664,7 +2795,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         );
       }),
     waitForEvent: ({ agentRunKey, request }) =>
-      enqueue(() => {
+      enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const { agentRun } = aggregate;
         const record = currentStageRecord(aggregate);

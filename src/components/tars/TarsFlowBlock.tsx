@@ -22,7 +22,7 @@ import { describeTarsResponsibilityDetail } from "@/lib/tars/detail";
 import type { TarsActivityNotice, TarsFlow, TarsFlowStage } from "@/lib/tars/flow-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
-import { tarsStyles } from "./tars.styles";
+import { TarsRecordDetail, TarsRecordRow, type TarsRecordState } from "./TarsRecord";
 import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
 
@@ -197,18 +197,18 @@ export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, de
   </CollapsibleRoot>;
 }
 
+/** A notice's state in the record states: the same glyph its state tag wears. */
+const NOTICE_STATE: Record<TarsActivityNotice["kind"], TarsRecordState> = { completed: "applied", blocked: "halted", cancelled: "stopped" };
+
 /**
- * Completion, a block, or an unasked end: one line, never a live progress row.
- * It says the state in the same word and mark as the state tag, so a block is
- * never read as plain "needs you" and a completion never as a stop.
+ * Completion, a block, or an unasked end: one record row, never a live
+ * progress row. It says the state in the same word and glyph as the state tag,
+ * so a block is never read as plain "needs you" and a completion never as a
+ * stop; why it stopped is its own line.
  */
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
-  return <p className={sx(styles.notice)} data-tars-activity={notice.kind}>
-    <span aria-hidden="true" className={sx(tarsStyles.glyph)}>↳</span>
-    <span className={sx(styles.noticeState)}><TarsWorkMark state={notice.kind} />{t(`shell:tars.states.${notice.kind}`)}</span>
-    <span className={sx(styles.noticeTitle)}>{notice.activity.title}</span>
-    {detail ? <span>{detail}</span> : null}
-  </p>;
+  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} subject={notice.activity.title}
+    data-tars-activity={notice.kind} detail={detail ? <TarsRecordDetail>{detail}</TarsRecordDetail> : null} />;
 }

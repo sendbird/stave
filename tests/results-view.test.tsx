@@ -41,7 +41,7 @@ describe("results page", () => {
     // Shapes carry the meaning, not only color.
     expect(html).toContain("lucide-circle-check");
     expect(html).toContain("lucide-circle-x");
-    expect(html).toContain("lucide-square");
+    expect(html).toContain("lucide-circle-stop");
   });
 
   test("time and spend disclose reporting coverage without activity counts", () => {

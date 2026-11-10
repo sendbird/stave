@@ -32,6 +32,7 @@ import {
 } from "./delegated-attention";
 import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
+import { carryRendererOwnedShellFields } from "../persistence/task-turn-delta";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
 import type { PersistenceTurnUsage } from "../persistence/types";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
@@ -402,18 +403,26 @@ async function persistWorkspaceSession(args: {
   const persistedShell = store.loadWorkspaceShell({ workspaceId: args.workspaceId });
   const delegatedShell = args.taskId && args.session.tasks.find(task => task.id === args.taskId)?.parentTaskId
     ? persistedShell : null;
+  const tasks = reconcileTasksWithPersistedTitles({
+    tasks: reconciledTasks,
+    persistedTasks: persistedShell?.tasks ?? [],
+  });
+  // Tab and pane state is renderer-owned and this session has no current copy:
+  // omitting it made the next load reopen every live task the user had closed.
+  const carried = carryRendererOwnedShellFields({
+    persistedShell: persistedShell as never,
+    tasks: tasks as never,
+  });
   store.upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
     snapshot: createWorkspaceSnapshot({
       // Delegated progress never owns foreground selection, including legacy fallback writes.
       activeTaskId: delegatedShell ? delegatedShell.activeTaskId : args.session.activeTaskId,
-      tasks: reconcileTasksWithPersistedTitles({
-        tasks: reconciledTasks,
-        persistedTasks: persistedShell?.tasks ?? [],
-      }),
+      tasks,
       messagesByTask: args.changedMessagesByTask ?? args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
+      reviewCommentsByTask: carried.reviewCommentsByTask as never,
       workspaceInformation: args.session.workspaceInformation,
       editorTabs: args.session.editorTabs,
       activeEditorTabId: args.session.activeEditorTabId,
@@ -423,6 +432,10 @@ async function persistWorkspaceSession(args: {
       cliSessionTabs: args.session.cliSessionTabs,
       activeCliSessionTabId: args.session.activeCliSessionTabId,
       activeSurface: args.session.activeSurface,
+      openTaskTabIds: carried.openTaskTabIds,
+      lensTabs: carried.lensTabs as never,
+      paneTabMeta: carried.paneTabMeta as never,
+      dockLayout: carried.dockLayout as never,
       providerSessionByTask: args.session.providerSessionByTask,
     }) as never,
   });
@@ -549,7 +562,10 @@ async function loadWorkspaceSession(workspaceId: string, refresh = false) {
     workspaceSessionCacheById.set(workspaceId, cached);
     return cached;
   }
+  return cacheWorkspaceSession(workspaceId, buildSavedWorkspaceSession(workspaceId, cached));
+}
 
+function buildSavedWorkspaceSession(workspaceId: string, cached = workspaceSessionCacheById.get(workspaceId)) {
   const store = ensureHostServicePersistenceReady();
   const shell = store.loadWorkspaceShell({ workspaceId });
   if (!shell) {
@@ -559,14 +575,57 @@ async function loadWorkspaceSession(workspaceId: string, refresh = false) {
     workspaceId,
     limit: 200,
   });
-  const session = buildWorkspaceSessionStateFromShell({
+  return buildWorkspaceSessionStateFromShell({
     shell: shell as never,
     latestTurns: latestTurns as never,
     // Refresh task metadata without dropping bounded resident message windows,
     // except those of tasks the shell no longer lists.
     ...(cached ? { messagesByTask: residentMessagesForShellTasks(cached.messagesByTask, shell.tasks) } : {}),
   });
-  return cacheWorkspaceSession(workspaceId, session);
+}
+
+/**
+ * A read's refresh from the saved rows. While a writer holds the workspace's
+ * session (`holdWorkspaceSession`) the cache is ahead of those rows, a start's
+ * pending turn and new task included, so the refresh answers this read without
+ * replacing the cache.
+ */
+async function readSavedWorkspaceSession(workspaceId: string) {
+  return heldWorkspaceSessions.has(workspaceId)
+    ? buildSavedWorkspaceSession(workspaceId)
+    : loadWorkspaceSession(workspaceId, true);
+}
+
+/** Workspaces whose cached session a writer is changing ahead of the saved rows. */
+const heldWorkspaceSessions = new Set<string>();
+
+/**
+ * Holds one workspace's cached session for one writer, from `enter` until
+ * `leave`. The hold queues with that workspace's provider events, steers, stops
+ * and approval answers, which replace the same cached object, so no writer puts
+ * back a copy it read before another wrote. A turn start holds it only while it
+ * reads and changes the session and saves its prompt and turn row: other
+ * workspaces never wait, and neither does the start's slower work.
+ */
+function holdWorkspaceSession(workspaceId: string) {
+  let leave = () => {};
+  let entered: Promise<void> | null = null;
+  return {
+    enter: () => (entered ??= new Promise<void>((resolve) => {
+      void workspaceProviderEventQueue.enqueue(workspaceId, () => new Promise<void>((done) => {
+        heldWorkspaceSessions.add(workspaceId);
+        leave = () => { leave = () => {}; heldWorkspaceSessions.delete(workspaceId); done(); };
+        resolve();
+      }));
+    })),
+    leave: () => leave(),
+  };
+}
+
+async function withHeldWorkspaceSession<T>(workspaceId: string, write: () => Promise<T>) {
+  const hold = holdWorkspaceSession(workspaceId);
+  await hold.enter();
+  try { return await write(); } finally { hold.leave(); }
 }
 
 /**
@@ -1628,7 +1687,8 @@ export async function createWorkspace(args: {
 
 export async function runTask(args: Parameters<typeof runTaskImpl>[0]) {
   const release = taskControlGate.acquireStart(args.taskId);
-  try { return await runTaskImpl(args); } finally { release(); }
+  const session = holdWorkspaceSession(args.workspaceId);
+  try { return await runTaskImpl(args, session); } finally { session.leave(); release(); }
 }
 
 async function runTaskImpl(args: {
@@ -1660,7 +1720,7 @@ async function runTaskImpl(args: {
   questionAnswer?: RunQuestionAnswer; // host-owned Run reply only
   freshSession?: boolean; // agent run supervisor only: an account-pool switch starts a new conversation on that account
   turnId?: string; // host-owned run reply only: the turn ID its caller saved first, to find this turn again after a restart
-}) {
+}, sessionHold: ReturnType<typeof holdWorkspaceSession>) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
@@ -1673,6 +1733,9 @@ async function runTaskImpl(args: {
 
   const workspacePath = registration.workspacePath;
   const workspaceName = registration.workspace.name;
+  // From this read until the turn row is saved, the cached session holds this
+  // start's changes ahead of the saved rows; no other writer may replace it.
+  await sessionHold.enter();
   let session = refreshWorkspaceInformationFromPersistence({
     workspaceId: args.workspaceId,
     session: await loadWorkspaceSession(args.workspaceId, true),
@@ -1962,6 +2025,8 @@ async function runTaskImpl(args: {
       ? (provider === "codex" ? args.runtimeOptions?.codexAccountProfileId : args.runtimeOptions?.claudeAccountProfileId) ?? currentProviderAccountId(provider) : "system-default",
     modelId: model,
   });
+  // A refresh from the saved rows now keeps this turn; the slower start runs unheld.
+  sessionHold.leave();
 
   taskControlGate.assertCurrent(task.id, controlGeneration);
   // Edits made since the last turn are not this turn's work.
@@ -2225,7 +2290,7 @@ export async function getTaskSupervisionSnapshot(args: {
     return missing;
   }
 
-  const session = await loadWorkspaceSession(args.workspaceId, true);
+  const session = await readSavedWorkspaceSession(args.workspaceId);
   const task = session.tasks.find((item) => item.id === args.taskId);
   if (!task) {
     return { ...missing, repositoryPath: registration.project.repositoryPath };
@@ -2267,11 +2332,13 @@ export async function createIdleTask(args: { workspaceId: string; title: string;
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
   if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);
-  const session = await loadWorkspaceSession(args.workspaceId, true);
-  const added = addIdleTask(session, args);
-  const next = cacheWorkspaceSession(args.workspaceId, added.session);
-  await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
-  return { taskId: added.taskId };
+  // Held until saved: a refresh before then would drop the new task.
+  return withHeldWorkspaceSession(args.workspaceId, async () => {
+    const added = addIdleTask(await loadWorkspaceSession(args.workspaceId, true), args);
+    const next = cacheWorkspaceSession(args.workspaceId, added.session);
+    await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
+    return { taskId: added.taskId };
+  });
 }
 
 export async function notifySupervisorProblem(args: {

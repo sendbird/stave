@@ -579,6 +579,15 @@ export class AgentRunStore {
     return parseEach(rows, parseEventRow, "run event");
   }
 
+  /** The newest event sequence of one agent run, leaving out `excludedKinds`; 0 when there is none. */
+  latestEventSequence(agentRunId: string, excludedKinds: readonly AgentRunEventKind[] = []): number {
+    const excluded = excludedKinds.length ? ` AND kind NOT IN (${excludedKinds.map(() => "?").join(", ")})` : "";
+    const row = this.db
+      .prepare(`SELECT MAX(sequence) AS sequence FROM agent_run_events WHERE agent_run_id = ?${excluded}`)
+      .get(agentRunId, ...excludedKinds) as { sequence: number | null } | undefined;
+    return row?.sequence ?? 0;
+  }
+
   /** The newest events of one agent run, oldest first. */
   listRecentEvents(agentRunId: string, limit = 200): AgentRunEvent[] {
     const rows = this.db

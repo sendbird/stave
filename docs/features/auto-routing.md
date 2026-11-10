@@ -15,8 +15,8 @@ Deterministic rules then map each level to one model rung and an effort range:
 | Simple | A bounded, obvious step: a typo, rename, small config edit, direct answer | Haiku 5.5 | GPT-6 Luna | Low – Medium |
 | Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.1 Sol | Medium – High |
 | Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.1 Sol | High – Extra high |
-| Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.1 | GPT-6 Astra | Low – Medium |
-| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.1 | GPT-6 Astra | Medium – High |
+| Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.2 | GPT-6 Astra | Low – Medium |
+| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.2 | GPT-6 Astra | Medium – High |
 
 The frontier levels stop at high effort by default: Fable and Astra at extra
 high cost far more than they add for most work. Each level is editable (see

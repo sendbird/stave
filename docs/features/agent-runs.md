@@ -693,8 +693,8 @@ Without a known reset time, the Run halts until you act: it reads
 it with **Resume now** once usage is available. Manual resume also keeps the
 account, model, effort and accumulated counters.
 
-The reservation survives an app restart. A due reservation is processed once
-through the host's serialized supervisor tick. Resume starts a continuation
+The reservation survives an app restart. A due reservation is processed once,
+on the Run's own supervisor queue. Resume starts a continuation
 that checks existing work before finishing what remains; it does not replay
 the original prompt or fall back to API billing. It moves to another account
 only when the Run's account pool is on (below).

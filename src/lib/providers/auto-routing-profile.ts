@@ -13,6 +13,7 @@ import {
   getProviderLabel,
   getSdkModelOptions,
   isAutoModelId,
+  LEGACY_CLAUDE_FABLE_MODEL,
   LEGACY_CLAUDE_HAIKU_MODEL,
   listProviderIds,
   resolveDefaultClaudeEffortForModel,
@@ -20,6 +21,7 @@ import {
   toHumanModelName,
   type ModelTier,
   upgradePinnedCodexTerraModel,
+  upgradePinnedFableModel,
   upgradePinnedHaikuModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -206,6 +208,7 @@ export interface AutoRoutingProfile {
 
 const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   [CLAUDE_FABLE_MODEL]: "frontier",
+  [LEGACY_CLAUDE_FABLE_MODEL]: "frontier",
   "claude-fable-5": "frontier",
   [DEFAULT_CLAUDE_OPUS_MODEL]: "flagship",
   [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "flagship",
@@ -504,7 +507,7 @@ export interface RouteLevel {
  *   Simple    light (Haiku 5.5 / GPT-6 Luna)             low – medium
  *   Standard  flagship (Opus 5.5 / GPT-6.1 Sol)          medium – high
  *   Complex   flagship                                   high – xhigh
- *   Expert    frontier (Fable 5.1 / GPT-6 Astra)         low – medium
+ *   Expert    frontier (Fable 5.2 / GPT-6 Astra)         low – medium
  *   Extreme   frontier                                   medium – high
  *
  * Most work is Standard. The frontier rungs need explicit evidence from the
@@ -865,13 +868,16 @@ function normalizeStringList(value: unknown): string[] {
 }
 
 /**
- * A stored allow-list can predate Haiku 5.5 or GPT-6.1 Terra; a pinned Haiku
- * 4.5 or GPT-5.6 Terra moves onto its successor on the same rung.
+ * A stored allow-list can predate Haiku 5.5, Fable 5.2 or GPT-6.1 Terra; a
+ * pinned Haiku 4.5, Fable 5.1 or GPT-5.6 Terra moves onto its successor on the
+ * same rung.
  */
 function normalizeEligibleModelList(value: unknown): string[] {
   return normalizeStringList(
     normalizeStringList(value).map((model) =>
-      upgradePinnedCodexTerraModel(upgradePinnedHaikuModel(model))),
+      upgradePinnedCodexTerraModel(
+        upgradePinnedFableModel(upgradePinnedHaikuModel(model)),
+      )),
   );
 }
 

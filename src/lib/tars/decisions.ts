@@ -335,6 +335,22 @@ export function tarsDecisionKeyChoice(key: string, decision: Pick<TarsDecisionVi
   return null;
 }
 
+/**
+ * A question card's keys (an ask, or Stave's own choice for a completion it
+ * could not verify): its options are a radio group, so 1–4 choose that option
+ * without answering, and Enter answers the chosen one. The recommended option
+ * starts chosen, so Enter alone still answers with it; nothing is chosen when
+ * there is no recommendation, and Enter then does nothing.
+ */
+export function tarsQuestionKeyAction(key: string, decision: Pick<TarsDecisionView, "options">, selected: number | null):
+  { kind: "select" | "answer"; index: number } | null {
+  if (/^[1-4]$/.test(key)) {
+    const index = Number(key) - 1;
+    return index < decision.options.length ? { kind: "select", index } : null;
+  }
+  return key === "Enter" && selected !== null && selected < decision.options.length ? { kind: "answer", index: selected } : null;
+}
+
 /** Model-facing summary of a decision, for the automatic follow-up's context. */
 export function describeTarsDecisionForModel(view: TarsDecisionView): string {
   // i18n-ignore: model-facing context

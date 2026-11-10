@@ -1,4 +1,5 @@
 import {
+  CLAUDE_FABLE_MODEL,
   CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
@@ -7,6 +8,7 @@ import {
   getDefaultModelForProvider,
   getModelCapability,
   getProviderLabel,
+  LEGACY_CLAUDE_FABLE_MODEL,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
   toHumanModelName,
@@ -276,11 +278,19 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
     input.id?.trim() === "default-claude-opus-4-8-task" &&
     rawCandidateModel.toLowerCase() === DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL &&
     trimmedLabel === "Opus 4.8";
+  // A preset label that still names the retired Fable 5.1 follows its model
+  // onto Fable 5.2, like the GPT-5.6 Terra preset migration.
+  const isRetiredFablePreset =
+    provider === "claude-code" &&
+    rawCandidateModel.toLowerCase() === LEGACY_CLAUDE_FABLE_MODEL &&
+    model === CLAUDE_FABLE_MODEL;
   const label = isLegacyDefaultOpusPreset
     ? "Opus 5.5"
-    : trimmedLabel.length > 0
-      ? trimmedLabel
-      : buildDefaultPresetLabel({ kind, provider, model });
+    : isRetiredFablePreset && /^(?:Claude )?Fable 5\.1$/.test(trimmedLabel)
+      ? trimmedLabel.replace("5.1", "5.2")
+      : trimmedLabel.length > 0
+        ? trimmedLabel
+        : buildDefaultPresetLabel({ kind, provider, model });
 
   return {
     id: isLegacyDefaultOpusPreset

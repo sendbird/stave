@@ -5,7 +5,7 @@ import { tarsSnapshotForWindow, type TarsBridgeApi, type TarsSnapshot } from "@/
 import { buildTarsBrief } from "@/lib/tars/brief";
 import { useAppStore } from "@/store/app.store";
 import { applyThemeClass } from "@/lib/themes/apply";
-import { tarsMessageView, type TarsActInput, type TarsAnswerResult, type TarsConversation, type TarsDecision, type TarsDecisionAnswer, type TarsMessage,
+import { isTarsAnswerRetryable, tarsMessageView, type TarsActInput, type TarsAnswerResult, type TarsConversation, type TarsDecision, type TarsDecisionAnswer, type TarsMessage,
   type TarsReprioritizeInput } from "@/lib/tars/conversation";
 import { planTarsQueueMove, tarsQueueOf } from "@/lib/tars/queue-order";
 import { parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
@@ -22,6 +22,7 @@ import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
 import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
+import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
@@ -32,9 +33,14 @@ export function TarsPreview() {
     applyAppLocale(params.get("lang") === "ko" ? "ko" : "en");
     applyThemeClass({ enabled: params.get("theme") === "dark" });
     document.documentElement.dataset.uiDensity = params.get("density") === "compact" ? "compact" : "regular";
+    // `messageFontSize=20`: the chat font size setting the conversation's text follows (default 16).
+    if (params.has("messageFontSize")) useAppStore.setState((state) => ({ settings: { ...state.settings, messageFontSize: Number(params.get("messageFontSize")) || 16 } }));
     const now = "2026-11-05T00:00:00.000Z";
+    // `gallery=true`: every conversation case on one screen for design review (`tars-gallery-fixtures.ts`). Its cards need real work
+    // to point at, so it always brings the tray and side-view work; the switches built on them (`live`, `queue`, `recap`...) still apply.
+    const galleryMode = params.get("gallery") === "true";
     // `tray=true`: work in every tray lane, Fleet rows and agent runs for it, and a delegated flow in the conversation.
-    const fixtures = params.get("tray") === "true" ? buildTarsTrayFixtures(new Date(now)) : null;
+    const fixtures = params.get("tray") === "true" || galleryMode ? buildTarsTrayFixtures(new Date(now)) : null;
     // The run monitor's clock is live: the running stage started a few minutes before this page opened, not on the fixed fixture day.
     if (fixtures) for (const run of Object.values(fixtures.runs)) for (const stage of run.stages) {
       if (stage.status === "running" && !stage.endedAt) stage.startedAt = new Date(Date.now() - 4 * 60_000).toISOString();
@@ -94,27 +100,30 @@ export function TarsPreview() {
     // `outputs=true`: ended work with a frozen report, a review, changes and a link, plus work blocked on unmet criteria (the side view).
     // `publish=true|failed` builds on the same ended work: the completed checkout work is what Tars publishes.
     const publishMode = params.get("publish");
-    const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" ? buildTarsSideViewFixtures(new Date(now)) : null;
+    const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" || galleryMode ? buildTarsSideViewFixtures(new Date(now)) : null;
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
     const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
-    let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem("stave-preview-identity") ?? "null") ?? {
-      runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: now }, pendingDecisions: fixtures?.pendingDecisions ?? [],
-      followUps: followUp?.followUps ?? [],
-      responsibilities: followUp?.responsibilities ?? side?.responsibilities ?? fixtures?.responsibilities ?? [{ id: "preview-responsibility", requestId: "preview-request", title: "Verify the release candidate across two repositories", instruction: "Inspect the actual result.", acceptanceCriteria: ["The required checks pass on the reviewed revision."], repositoryPath: "/tmp/preview", workspaceId: "preview-workspace", executionWorkspaceId: null, providerId: "codex", model: null, agentId: null, priority: 50, maxTurns: 30, revision: 1, state: "running", detail: "Waiting for the independent review result.", taskId: null, agentRunId: null, reverifyAfter: null, createdAt: now, updatedAt: now }],
+    const gallery = galleryMode && fixtures && side ? buildTarsGalleryFixtures({ start: new Date(now), korean: params.get("lang") === "ko", tray: fixtures, side }) : null;
+    // The gallery keeps its own saved state per language, so another preview's or language's conversation never replaces it.
+    const identityKey = gallery ? `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}-identity` : "stave-preview-identity";
+    let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem(identityKey) ?? "null") ?? {
+      runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: now }, pendingDecisions: gallery?.pendingDecisions ?? fixtures?.pendingDecisions ?? [],
+      followUps: gallery?.followUps ?? followUp?.followUps ?? [],
+      responsibilities: gallery?.responsibilities ?? followUp?.responsibilities ?? side?.responsibilities ?? fixtures?.responsibilities ?? [{ id: "preview-responsibility", requestId: "preview-request", title: "Verify the release candidate across two repositories", instruction: "Inspect the actual result.", acceptanceCriteria: ["The required checks pass on the reviewed revision."], repositoryPath: "/tmp/preview", workspaceId: "preview-workspace", executionWorkspaceId: null, providerId: "codex", model: null, agentId: null, priority: 50, maxTurns: 30, revision: 1, state: "running", detail: "Waiting for the independent review result.", taskId: null, agentRunId: null, reverifyAfter: null, createdAt: now, updatedAt: now }],
     };
     // `decision=unverified`: the run reported success Stave could not verify, so Stave's own decision waits.
-    if (params.get("decision") === "unverified" && !sessionStorage.getItem("stave-preview-identity")) {
+    if (params.get("decision") === "unverified" && !sessionStorage.getItem(identityKey)) {
       snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.id !== "preview-responsibility" ? row
         : { ...row, state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", taskId: "preview-task" }),
       pendingDecisions: [...(snapshot.pendingDecisions ?? []), { kind: "unverifiedCompletion", responsibilityId: "preview-responsibility", messageId: null,
         actionIndex: null, operation: null, expectedRevision: 1, proposedAt: now, optionCount: 3 }] };
     }
     let sendFailed = false;
-    const conversationKey = "stave-preview-conversation";
+    const conversationKey = gallery ? `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
     // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
     type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
-    const conversation: PreviewConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (followUp
+    const conversation: PreviewConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (gallery ? structuredClone(gallery.conversation) : followUp
       ? { settings: null, messages: [followUp.message], receipts: [], activity: [], records: [], events: followUp.events }
       : side
       ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
@@ -133,7 +142,7 @@ export function TarsPreview() {
     }
     conversation.answers ??= [];
     conversation.publications ??= [];
-    if (side && (publishMode === "true" || publishMode === "failed") && !conversation.messages.some((message) => message.id === "message-publish")) {
+    if (side && !gallery && (publishMode === "true" || publishMode === "failed") && !conversation.messages.some((message) => message.id === "message-publish")) {
       const checkout = snapshot.responsibilities.find((row) => row.id === side.ids.checkout)!;
       const fixture = buildTarsPublishFixtures(new Date(now), { responsibilityId: checkout.id, revision: checkout.revision, korean: params.get("lang") === "ko" });
       conversation.messages.push(fixture.message);
@@ -214,30 +223,36 @@ export function TarsPreview() {
         if (!row) throw new Error("The responsibility was not found.");
         return buildTarsBrief(row);
       },
-      updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem("stave-preview-identity", JSON.stringify(snapshot)); return structuredClone(snapshot); },
+      updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem(identityKey, JSON.stringify(snapshot)); return structuredClone(snapshot); },
       create: async () => { throw new Error("Use the global conversation."); },
       act: async (input) => act(input),
       answer: async ({ decisionId, optionIndex, source }): Promise<TarsAnswerResult> => {
         const existing = conversation.answers!.find((answer) => answer.decisionId === decisionId);
-        if (existing) return existing.optionIndex === optionIndex ? { answer: structuredClone(existing), refusal: null } : { answer: structuredClone(existing), refusal: "alreadyAnswered" };
+        // As the host: an answer is final, except a refusal that leaves the decision open, which takes a new attempt under its own act request id.
+        if (existing && !isTarsAnswerRetryable(existing))
+          return existing.optionIndex === optionIndex ? { answer: structuredClone(existing), refusal: null } : { answer: structuredClone(existing), refusal: "alreadyAnswered" };
+        const attempt = existing ? (existing.attempt ?? 1) + 1 : undefined;
         const parsed = parseTarsDecisionId(decisionId);
         const receipt = parsed && parsed.kind !== "unverifiedCompletion"
           ? conversation.receipts.find((entry) => entry.messageId === parsed.messageId && entry.actionIndex === parsed.actionIndex) : undefined;
-        const row = snapshot.responsibilities.find((candidate) => candidate.id === "preview-responsibility");
+        // Stave's own decision names its work; the gallery's is not the default preview row.
+        const unverifiedId = parsed?.kind === "unverifiedCompletion" ? parsed.responsibilityId : "preview-responsibility";
+        const row = snapshot.responsibilities.find((candidate) => candidate.id === unverifiedId);
         const effect = parsed?.kind === "unverifiedCompletion" ? [{ kind: "control" as const, responsibilityId: parsed.responsibilityId, expectedRevision: parsed.revision, operation: "acceptCompletion" as const },
           { kind: "control" as const, responsibilityId: parsed.responsibilityId, expectedRevision: parsed.revision, operation: "cancel" as const }][optionIndex]
           : receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]?.effect
             : receipt?.action.kind === "control" && optionIndex === 0 ? receipt.action : undefined;
         if (!effect) return { answer: null, refusal: "invalidOption" };
-        if (parsed?.kind === "unverifiedCompletion" && tarsUnverifiedDecisionId("preview-responsibility", row?.revision ?? 0) !== decisionId) return { answer: null, refusal: "notWaiting" };
+        if (parsed?.kind === "unverifiedCompletion" && tarsUnverifiedDecisionId(unverifiedId, row?.revision ?? 0) !== decisionId) return { answer: null, refusal: "notWaiting" };
         const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
         const label = receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]!.label : null;
         const answer: TarsDecisionAnswer = { decisionId, optionIndex, source, effect, label, status: "pending", reason: null, error: null,
-          actRequestId: effect.kind === "control" ? tarsAnswerActRequestId(decisionId) : null, messageId: null, revision: 1, createdAt, updatedAt: createdAt };
-        conversation.answers!.push(answer);
+          actRequestId: effect.kind === "control" ? `${tarsAnswerActRequestId(decisionId)}${attempt ? `:${attempt}` : ""}` : null, ...(attempt ? { attempt } : {}),
+          messageId: null, revision: (existing?.revision ?? 0) + 1, createdAt, updatedAt: createdAt };
+        if (existing) conversation.answers!.splice(conversation.answers!.indexOf(existing), 1, answer); else conversation.answers!.push(answer);
         if (effect.kind === "control") {
           const { record } = await act({ requestId: answer.actRequestId!, responsibilityId: effect.responsibilityId, expectedRevision: effect.expectedRevision, operation: effect.operation, source });
-          Object.assign(answer, record.status === "rejected" ? { status: "rejected", reason: record.reason, error: record.error } : { status: "applied" }, { revision: 2 });
+          Object.assign(answer, record.status === "rejected" ? { status: "rejected", reason: record.reason, error: record.error } : { status: "applied" }, { revision: answer.revision + 1 });
         } else {
           // The chosen option goes back to Tars as the user's answer; the preview answers it at once.
           const reply = "Understood. I will keep the plan and report back when the check finishes.";
@@ -246,7 +261,7 @@ export function TarsPreview() {
               question: receipt?.action.kind === "ask" ? receipt.action.question : "", rationale: receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]!.rationale : "" },
             createdAt, updatedAt: createdAt };
           conversation.messages.push(message);
-          Object.assign(answer, { status: "applied", messageId: message.id, revision: 2 });
+          Object.assign(answer, { status: "applied", messageId: message.id, revision: answer.revision + 1 });
         }
         snapshot = { ...snapshot, pendingDecisions: (snapshot.pendingDecisions ?? []).filter((decision) => !(decision.messageId === receipt?.messageId && decision.actionIndex === receipt?.actionIndex)
           && !(decision.kind === "unverifiedCompletion" && parsed?.kind === "unverifiedCompletion")) };
@@ -363,7 +378,8 @@ export function TarsPreview() {
     useAppStore.getState().openTars();
     useAppStore.setState({ providerAvailability: { ...useAppStore.getState().providerAvailability, codex: true, "claude-code": true }, repositoryPath: empty ? null : "/tmp/preview", activeWorkspaceId: params.get("workspace") ?? "preview-workspace",
       // Named so a confirmation card can say where the work runs.
-      workspaces: empty ? [] : [{ id: "preview-workspace", name: "Release check", updatedAt: now }], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
+      workspaces: empty ? [] : [{ id: "preview-workspace", name: "Release check", updatedAt: now },
+        ...Object.entries(gallery?.workspaceNames ?? {}).map(([id, name]) => ({ id, name, updatedAt: now }))], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
     setReady(true);
   }, []);
   // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.

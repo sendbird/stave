@@ -1,5 +1,5 @@
-import { useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
-import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, type LucideIcon } from "lucide-react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, MessageCircleQuestion, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/aui/components/Badge";
@@ -9,12 +9,13 @@ import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { agentSurface } from "@/components/aui/recipes/agent-surface";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { sx } from "@/components/aui/utils/stylex";
-import type { TarsAnswerSource } from "@/lib/tars/conversation";
+import type { TarsAnswerSource, TarsDecisionAnswer } from "@/lib/tars/conversation";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
-import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
+import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, tarsQuestionKeyAction, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
-import { TarsActionRecordLine, TarsMessageDeliveryLine } from "./TarsActionRecordLine";
-import { tarsStyles } from "./tars.styles";
+import { QuestionOptionRow, questionOptionRowStyles } from "@/components/ai-elements/question-option-row";
+import { TARS_RECORD_STATE, TarsActionRecordLine, TarsMessageDeliveryLine } from "./TarsActionRecordLine";
+import { TarsRecordDetail, TarsRecordList, TarsRecordRow } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 
 type TitleOf = (responsibilityId: string) => string | undefined;
@@ -120,19 +121,48 @@ export interface TarsDecisionCardProps extends TarsDecisionCardContext {
   error?: string | null;
 }
 
+/** A folded record's outcome word: a proposal is confirmed, a question answered. */
+function outcomeKey(decision: TarsDecisionView, status: TarsDecisionAnswer["status"]) {
+  if (status === "rejected") return "shell:tars.decision.outcome.rejected" as const;
+  if (status === "pending") return "shell:tars.decision.outcome.pending" as const;
+  return decision.kind === "confirm" ? "shell:tars.decision.outcome.confirmed" as const : "shell:tars.decision.outcome.answered" as const;
+}
+
 /**
- * One decision in the conversation. Waiting, it offers its options with their
- * key hints (1–4, Enter for the recommended one) and answers by click or key;
- * answered, invalid or retired, it folds to its one-line record.
+ * A question card's keys, scoped to the card like `handleTarsDecisionKey`:
+ * 1–4 choose that option (and move focus to it), Enter answers the chosen
+ * one. Enter on one of the card's buttons stays that button's own press.
+ */
+export function handleTarsQuestionKey(event: Pick<KeyboardEvent<HTMLElement>, "key" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey" | "target" | "preventDefault"> & { nativeEvent?: { isComposing?: boolean } },
+  decision: TarsDecisionView, selected: number | null, handlers: { select: (index: number) => void; answer: (index: number) => void }) {
+  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.nativeEvent?.isComposing) return;
+  const target = event.target as { closest?: (selector: string) => unknown } | null;
+  if (event.key === "Enter" && target?.closest?.("button, a")) return;
+  const action = tarsQuestionKeyAction(event.key, decision, selected);
+  if (!action) return;
+  event.preventDefault();
+  if (action.kind === "select") handlers.select(action.index); else handlers.answer(action.index);
+}
+
+/**
+ * One decision in the conversation. A confirmation offers its one control
+ * with its key hints (1, and Enter when it is recommended); a question (an
+ * ask, or Stave's own choice for a completion it could not verify) offers its
+ * options as a radio group, each with its label, why on its own line and its
+ * number key, and answers the chosen one with Answer or Enter. Answered,
+ * invalid or retired, it folds to its record row.
  */
 export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss, onOpenTask }: TarsDecisionCardProps) {
   const { t } = useTranslation(["shell"]);
   const questionId = useId();
   const subtitleId = useId();
   const hintId = useId();
+  const optionsName = useId();
   const cardRef = useRef<HTMLElement>(null);
-  const lineRef = useRef<HTMLParagraphElement>(null);
+  const lineRef = useRef<HTMLDivElement>(null);
   const hadFocus = useRef(false);
+  // The option the user chose; until they choose, the recommended one (never an irreversible one) is.
+  const [picked, setPicked] = useState<number | null>(null);
   const waiting = decision.state === "waiting";
   // When the focused card folds after an answer, focus stays on its record instead of falling to the page.
   useLayoutEffect(() => {
@@ -143,28 +173,25 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const common = { "data-tars-decision": decision.id, "data-tars-decision-kind": decision.kind, "data-tars-decision-state": decision.state };
   if (!waiting) {
     if (decision.state === "answered" && !decision.answer && decision.record) {
-      return <div {...common}><TarsActionRecordLine record={decision.record} title={titleFor(decision, titleOf)} />{errorLine}</div>;
+      return <div {...common}><TarsRecordList><TarsActionRecordLine record={decision.record} title={titleFor(decision, titleOf)} /></TarsRecordList>{errorLine}</div>;
     }
-    const answer = decision.answer;
-    const sentence = decision.state === "answered" && answer
-      ? t(`shell:tars.decision.record.${answer.status}`, { option: answeredOption(decision, titleOf), source: t(`shell:tars.decision.source.${answer.source}`) })
-      : decision.state === "invalid"
-        ? t(`shell:tars.decision.invalid.${decision.why === "targetEnded" ? "targetEnded" : "targetMoved"}`)
-        : decision.why === "superseded" ? t("shell:tars.tray.proposalSuperseded")
-          : t(`shell:tars.decision.retired.${decision.why === "movedOn" ? "movedOn" : "settled"}`);
+    const answer = decision.state === "answered" ? decision.answer : null;
     const followUp = decision.state !== "invalid" ? null
       : decision.reasked ? t("shell:tars.decision.reask.done") : decision.reask ? t("shell:tars.decision.reask.pending") : null;
-    return <div {...common}>
-      <p ref={lineRef} tabIndex={-1} className={sx(styles.record, focusRing.ring)}>
-        <span aria-hidden="true" className={sx(tarsStyles.glyph)}>↳</span>
-        <span>{sentence}</span>
-        {decision.kind === "confirm" && answer ? null : <span className={sx(styles.recordSubject)}>{subject}</span>}
-        {followUp ? <span>{followUp}</span> : null}
-        {answer?.status === "rejected" ? <span className={sx(styles.error)} data-tars-reason={answer.reason ?? undefined}>{t(tarsControlReasonKey(answer.reason))}</span> : null}
-      </p>
-      {decision.state === "answered" && decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} /> : null}
-      {errorLine}
-    </div>;
+    const row = answer
+      ? <TarsRecordRow ref={lineRef} focusable state={TARS_RECORD_STATE[answer.status]} lead={answeredOption(decision, titleOf, answer)}
+        subject={decision.kind === "confirm" ? undefined : subject} meta={t(`shell:tars.record.source.${answer.source}`)} status={t(outcomeKey(decision, answer.status))}
+        detail={<>
+          {answer.status === "rejected" ? <TarsRecordDetail data-tars-reason={answer.reason ?? undefined}>{t(tarsControlReasonKey(answer.reason))}</TarsRecordDetail> : null}
+          {decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} /> : null}
+        </>} />
+      // No longer open: what was asked leads, and why it stopped waiting (and whether Tars asks again) is the line under it.
+      : <TarsRecordRow ref={lineRef} focusable state="skipped" lead={subject} detail={<TarsRecordDetail>
+        {decision.state === "invalid" ? t(`shell:tars.decision.invalid.${decision.why === "targetEnded" ? "targetEnded" : "targetMoved"}`)
+          : decision.why === "superseded" ? t("shell:tars.tray.proposalSuperseded") : t(`shell:tars.decision.retired.${decision.why === "movedOn" ? "movedOn" : "settled"}`)}
+        {followUp ? <> {followUp}</> : null}
+      </TarsRecordDetail>} />;
+    return <div {...common}><TarsRecordList>{row}</TarsRecordList>{errorLine}</div>;
   }
   const answerable = Boolean(onAnswer) && decision.checked && !busy;
   const choose = (index: number, source: "click" | "key") => {
@@ -172,10 +199,16 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     hadFocus.current = Boolean(cardRef.current?.contains(document.activeElement));
     onAnswer!(decision, index, source);
   };
-  const hint = decision.options.length === 1
-    ? t(decision.recommended === null ? "shell:tars.decision.keysHint.singleExplicit" : "shell:tars.decision.keysHint.single")
-    : decision.recommended !== null ? t("shell:tars.decision.keysHint.withRecommended", { count: decision.options.length })
-      : t("shell:tars.decision.keysHint.plain", { count: decision.options.length });
+  const question = decision.kind !== "confirm";
+  const selected = picked ?? decision.recommended;
+  const count = decision.options.length;
+  const hint = question
+    ? t(decision.recommended !== null ? "shell:tars.decision.keysHint.questionWithRecommended" : "shell:tars.decision.keysHint.question", { count })
+    : t(decision.recommended === null ? "shell:tars.decision.keysHint.singleExplicit" : "shell:tars.decision.keysHint.single");
+  const select = (index: number) => {
+    setPicked(index);
+    cardRef.current?.querySelector<HTMLInputElement>(`input[name="${CSS.escape(optionsName)}"][value="${index}"]`)?.focus();
+  };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (onDismiss && isTarsDecisionDismissKey(event)) {
       // Also keeps the view's own Esc (closing the side view) from acting on the same press.
@@ -183,44 +216,67 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
       onDismiss();
       return;
     }
-    handleTarsDecisionKey(event, decision, (index) => choose(index, "key"));
+    if (question) handleTarsQuestionKey(event, decision, selected, { select, answer: (index) => choose(index, "key") });
+    else handleTarsDecisionKey(event, decision, (index) => choose(index, "key"));
   };
-  const optionItem = (option: TarsDecisionOption, index: number, withRationale: boolean) => {
+  // A confirmation's one control: a button with its keys; recommended, it is the filled primary.
+  const confirmButton = (option: TarsDecisionOption, index: number) => {
     const recommended = decision.recommended === index;
-    const rationale = withRationale ? optionRationale(option) : null;
-    const rationaleId = `${questionId}-option-${index}`;
     return <li key={index} className={sx(styles.option)}>
       <Button type="button" size="xs" variant={recommended ? "default" : "outline"} xstyle={styles.optionButton}
         disabled={!answerable} data-tars-decision-option={index} aria-keyshortcuts={recommended ? `${index + 1} Enter` : `${index + 1}`}
-        aria-describedby={rationale ? rationaleId : undefined} onClick={() => choose(index, "click")}>
+        onClick={() => choose(index, "click")}>
         <span className={sx(styles.optionLabel)}>{describeTarsDecisionOption(decision, option)}</span>
         <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{index + 1}</Kbd>{recommended ? <Kbd size="sm">{t("shell:tars.decision.enterKey")}</Kbd> : null}</span>
       </Button>
-      {rationale || (withRationale && recommended) ? <p id={rationaleId} className={sx(styles.rationale)}>
-        {recommended ? t("shell:tars.decision.recommended", { rationale: rationale ?? "" }) : rationale}</p> : null}
     </li>;
   };
-  const failureLine = decision.failure ? <p className={sx(styles.record)} data-tars-decision-attempt="rejected">
-    <span aria-hidden="true" className={sx(tarsStyles.glyph)}>↳</span>
-    <span>{t("shell:tars.decision.record.rejected", { option: answeredOption(decision, titleOf, decision.failure), source: t(`shell:tars.decision.source.${decision.failure.source}`) })}</span>
-    <span className={sx(styles.error)} data-tars-reason={decision.failure.reason ?? undefined}>{t(tarsControlReasonKey(decision.failure.reason))}</span>
-  </p> : null;
-  const dismissButton = onDismiss ? <Button type="button" size="2xs" variant="ghost" aria-keyshortcuts="Escape" title={t("shell:tars.decision.card.notNowHint")}
+  // A question's options: one radio row each (label, why on its own line, its number key), like every other question in Stave.
+  // The card already carries the key hint as its description; the group is named by the question alone.
+  const options = question ? <div role="radiogroup" aria-labelledby={questionId}
+    className={sx(questionOptionRowStyles.list)} data-tars-decision-options="">
+    {decision.options.map((option, index) => <QuestionOptionRow key={index} kind="radio" name={optionsName} divided={index > 0} disabled={!answerable}
+      row={{ value: String(index), label: describeTarsDecisionOption(decision, option), description: optionRationale(option), recommended: decision.recommended === index,
+        selected: selected === index, shortcut: index < 4 ? index + 1 : null, preview: null }}
+      tag={isIrreversibleOption(option) ? <Badge size="sm" tone="danger" variant="outlined">{t("shell:tars.decision.card.risk")}</Badge> : null}
+      onChange={() => setPicked(index)} />)}
+  </div> : null;
+  const failureLine = decision.failure ? <TarsRecordList><TarsRecordRow state="refused" data-tars-decision-attempt="rejected"
+    lead={answeredOption(decision, titleOf, decision.failure)} meta={t(`shell:tars.record.source.${decision.failure.source}`)} status={t("shell:tars.decision.outcome.rejected")}
+    detail={<TarsRecordDetail data-tars-reason={decision.failure.reason ?? undefined}>{t(tarsControlReasonKey(decision.failure.reason))}</TarsRecordDetail>} /></TarsRecordList> : null;
+  const dismissButton = onDismiss ? <Button type="button" size="xs" variant="ghost" aria-keyshortcuts="Escape" title={t("shell:tars.decision.card.notNowHint")}
     data-tars-decision-dismiss="" onClick={onDismiss}>{t("shell:tars.decision.card.notNow")}
     <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.decision.card.escKey")}</Kbd></span></Button> : null;
+  // Answer is the primary action, except when the chosen option cannot be undone: then it carries the danger tone and is never the filled primary.
+  const chosen = selected === null ? null : decision.options[selected] ?? null;
+  const answerButton = question ? <Button type="button" size="xs" variant={chosen && isIrreversibleOption(chosen) ? "destructive" : "default"}
+    disabled={!answerable || selected === null} aria-keyshortcuts="Enter" data-tars-decision-submit="" onClick={() => { if (selected !== null) choose(selected, "click"); }}>
+    {t("shell:tars.decision.card.answer")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.decision.enterKey")}</Kbd></span>
+  </Button> : null;
+  const footer = <div className={sx(styles.footer)}>
+    {/* The key choices are on the keycaps; the sentence stays the card's accessible description. */}
+    <VisuallyHidden id={hintId}>{hint}</VisuallyHidden>
+    <div className={sx(styles.footerActions)}>
+      {dismissButton}
+      {question ? answerButton : <ul className={sx(styles.footerOptions)}>{decision.options.map((value, index) => confirmButton(value, index))}</ul>}
+    </div>
+  </div>;
   const status = t(decision.kind === "confirm" ? "shell:tars.conversation.receipts.proposed" : "shell:tars.decision.waiting");
   if (decision.kind === "ask") {
+    const about = decision.targets[0] ? titleFor(decision, titleOf) : null;
     return <section ref={cardRef} {...common} role="group" tabIndex={0} aria-labelledby={questionId} aria-describedby={hintId}
       className={sx(styles.card, focusRing.ring)} onKeyDown={onKeyDown}>
-      <div className={sx(styles.header)}>
-        <p id={questionId} className={sx(styles.question)}>{subject}</p>
-        <Badge size="md" tone="warning" xstyle={styles.status}>{status}</Badge>
+      <div className={sx(styles.confirmHeader)}>
+        <IconTile size="sm" tone="warning" xstyle={styles.icon}><MessageCircleQuestion aria-hidden size={iconTileGlyphSizes.sm} /></IconTile>
+        <div className={sx(styles.heading)}>
+          <p id={questionId} className={sx(styles.title)}>{subject}</p>
+          {about ? <p className={sx(styles.subtitle)}>{t("shell:tars.decision.card.about", { title: about })}</p> : null}
+        </div>
+        <div className={sx(styles.tags)}><Badge size="md" tone="warning">{status}</Badge></div>
       </div>
-      <ul className={sx(styles.options)}>{decision.options.map((option, index) => optionItem(option, index, true))}</ul>
+      {options}
       {failureLine}
-      {/* The key choices are on the buttons' keycaps; the sentence stays the card's accessible description. */}
-      <VisuallyHidden id={hintId}>{hint}</VisuallyHidden>
-      {dismissButton ? <div className={sx(styles.footer)}><div className={sx(styles.footerActions)}>{dismissButton}</div></div> : null}
+      {footer}
       {errorLine}
     </section>;
   }
@@ -268,15 +324,9 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         <dd className={sx(styles.rowValue, row.key === "request" && styles.rowValueLines)} title={row.title}>{row.value}{row.note}</dd>
       </div>)}
     </dl>
-    {decision.kind === "unverifiedCompletion" ? <ul className={sx(styles.options)}>{decision.options.map((value, index) => optionItem(value, index, true))}</ul> : null}
+    {options}
     {failureLine}
-    <div className={sx(styles.footer)}>
-      <VisuallyHidden id={hintId}>{hint}</VisuallyHidden>
-      <div className={sx(styles.footerActions)}>
-        {dismissButton}
-        {decision.kind === "confirm" ? <ul className={sx(styles.footerOptions)}>{decision.options.map((value, index) => optionItem(value, index, false))}</ul> : null}
-      </div>
-    </div>
+    {footer}
     {errorLine}
   </section>;
 }

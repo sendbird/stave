@@ -6,6 +6,7 @@ import { Button } from "@/components/ui";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { RunMonitor, type RunMonitorSegment } from "@/components/aui/components/RunMonitor";
 import { StateMark } from "@/components/aui/components/StateMark";
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { AgentTextSwap } from "@/components/aui/components/agent-motion";
 import type { AgentStepState } from "@/components/aui/components/agent-state";
 import type { WorkState } from "@/components/aui/components/state-vocabulary";
@@ -93,13 +94,17 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
     ? current.attempt > 1 ? t("shell:tars.tray.monitor.currentAttempt", { title: current.title, attempt: current.attempt }) : t("shell:tars.tray.monitor.current", { title: current.title })
     : null;
   const segments = staged ? tarsStageSegments(staged) : [];
+  // The work's views close the footer as icon buttons named by their tooltip, so a card's actions keep to one line
+  // beside a confirmation, Open task, the menu and the step count, in either language. Each keeps its full accessible name.
   // What the work was handed is readable in every state, before its run exists too.
-  const brief = onOpenSide ? <Button variant="ghost" size="2xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
-    onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}>
-    <ScrollText aria-hidden />{t("shell:tars.tray.monitor.brief")}</Button> : null;
-  const timeline = onOpenSide && staged ? <Button variant="ghost" size="2xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
-    onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}>
-    <ChartNoAxesGantt aria-hidden />{t("shell:tars.tray.monitor.timeline")}</Button> : null;
+  const brief = onOpenSide ? <Tooltip content={t("shell:tars.tray.monitor.brief")}>
+    <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
+      onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}><ScrollText aria-hidden /></Button>
+  </Tooltip> : null;
+  const timeline = onOpenSide && staged ? <Tooltip content={t("shell:tars.tray.monitor.timeline")}>
+    <Button variant="ghost" size="icon-2xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
+      onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}><ChartNoAxesGantt aria-hidden /></Button>
+  </Tooltip> : null;
   return <RunMonitor {...data} data-tars-monitor={staged ? row.id : undefined} title={row.title} meta={meta}
     status={RUN_STATE_OF[row.state]} workState={WORK_STATE_OF[row.state]} statusLabel={t(`shell:tars.states.${row.state}`)} statusTag={<TarsStateTag state={row.state} />}
     current={step ? {
@@ -118,7 +123,7 @@ export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenS
         {t("shell:tars.tray.monitor.stepCount", count)}</span>
         : t("shell:tars.tray.stagesDone", { finished: staged.finished, total: staged.total }),
     } : undefined}
-    actions={actions} trailingActions={brief || timeline ? <>{brief}{timeline}</> : undefined}>
+    actions={actions} trailingActions={brief || timeline ? <span className={sx(styles.views)} data-tars-monitor-views="">{brief}{timeline}</span> : undefined}>
     {children}
   </RunMonitor>;
 }

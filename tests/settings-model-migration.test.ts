@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_MODEL_SHORTCUT_KEYS } from "@/lib/providers/model-shortcuts";
+import {
+  DEFAULT_MODEL_SHORTCUT_KEYS,
+  normalizeModelShortcutKeys,
+} from "@/lib/providers/model-shortcuts";
 import {
   migrateSettingsModelDefaults,
   SETTINGS_MODEL_MIGRATION_VERSION,
@@ -66,7 +69,7 @@ describe("settings model default migration", () => {
     expect(result.modelShortcutKeys.slice(0, 4)).toEqual([
       "claude-code:claude-opus-5-5",
       "codex:gpt-6.1-sol",
-      "claude-code:claude-fable-5-1",
+      "claude-code:claude-fable-5-2",
       "codex:gpt-6-astra",
     ]);
   });
@@ -548,5 +551,73 @@ describe("GPT-6.1 Terra migration", () => {
     });
     expect(result.changed).toBe(false);
     expect(result.modelCodex).toBe("gpt-6-sol");
+  });
+});
+
+describe("Fable 5.2 adoption", () => {
+  // Persistence normalizes shortcut slots before migrating, which moves a
+  // Fable 5.1 slot onto Fable 5.2. Frozen seeds must still be recognized.
+  test("a normalized pre-Sol-6.1 seed still moves to the current defaults", () => {
+    const sol6Seed = [
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-astra",
+      "", "", "", "", "", "",
+    ];
+    const normalized = normalizeModelShortcutKeys(sol6Seed);
+    expect(normalized[2]).toBe("claude-code:claude-fable-5-2");
+
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 5,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6.1-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: normalized,
+      taskPresets: [],
+    });
+    expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
+    expect(result.modelShortcutKeys[2]).toBe("claude-code:claude-fable-5-2");
+  });
+
+  test("a normalized v1 seed still moves to the current defaults", () => {
+    const v1Seed = [
+      "claude-code:claude-opus-5",
+      "codex:gpt-5.6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-astra",
+      "", "", "", "", "", "",
+    ];
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 1,
+      modelClaude: "claude-opus-5",
+      modelCodex: "gpt-5.6-sol",
+      claudeEffort: "high",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: normalizeModelShortcutKeys(v1Seed),
+      taskPresets: [],
+    });
+    expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
+  });
+
+  test("an edited seed is left alone", () => {
+    const edited = normalizeModelShortcutKeys([
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-luna",
+    ]);
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 5,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6.1-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: edited,
+      taskPresets: [],
+    });
+    expect(result.modelShortcutKeys[1]).toBe("codex:gpt-6-sol");
+    expect(result.modelShortcutKeys[3]).toBe("codex:gpt-6-luna");
   });
 });
