@@ -73,17 +73,22 @@ export function describeTarsLiveStage(stage: TarsLiveStage) {
 
 const ENTRY_TONE = { done: "success", attention: "warning", neutral: "neutral" } as const satisfies Record<TarsProgressEntry["tone"], "success" | "warning" | "neutral">;
 
-/** The run's recent progress, newest first, each with how long ago it happened. */
-export function TarsRecentProgress({ entries, now, title }: { entries: readonly TarsProgressEntry[]; now: number; title?: boolean }) {
+/**
+ * The run's recent progress, newest first, each with how long ago it happened.
+ * `compact` is the tray card's history: muted rows (still the 13px live-text
+ * row) under the live line, so what happened never outweighs what needs the
+ * user below it.
+ */
+export function TarsRecentProgress({ entries, now, title, compact }: { entries: readonly TarsProgressEntry[]; now: number; title?: boolean; compact?: boolean }) {
   const { t } = useTranslation(["shell"]);
   if (!entries.length) return null;
   const label = t("shell:tars.live.recent");
-  return <div className={sx(styles.recent)} data-tars-recent-progress="">
+  return <div className={sx(styles.recent)} data-tars-recent-progress={compact ? "compact" : ""}>
     {title ? <p className={sx(styles.recentTitle)}>{label}</p> : null}
     <ol className={sx(styles.recent)} aria-label={label}>
       {entries.map((entry) => <li key={entry.id} className={sx(styles.recentRow)} data-tars-recent-entry={entry.tone}>
         <StatusDot tone={ENTRY_TONE[entry.tone]} size="sm" xstyle={styles.recentDot} />
-        <span className={sx(styles.recentText)}>{entry.text}</span>
+        <span className={sx(styles.recentText, compact && styles.recentTextCompact)}>{entry.text}</span>
         <time className={sx(styles.recentAge)} dateTime={entry.at}>{formatTimeAgo(entry.at, now)}</time>
       </li>)}
     </ol>

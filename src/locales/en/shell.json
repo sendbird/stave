@@ -1207,7 +1207,7 @@
       "empty": "Ask about progress, work through a decision, or describe what you want done.",
       "unavailable": "Conversation requires a desktop version with the resident conversation service.",
       "failed": "The conversation request failed. Your draft and saved messages are preserved.",
-      "failedHint": "This message will not run again automatically. Send a new message to try again.",
+      "failedHint": "It will not run again automatically.",
       "actions": "Action results",
       "control": {
         "pause": "Pause {{title}}",
@@ -1249,10 +1249,24 @@
       "attachments": {
         "select": "Select files",
         "sent": "Attached files",
-        "failed": "Could not attach files. Use up to 8 text files (32 KB total) or PNG, JPEG, GIF or WebP images (4 MB each, 6 MB total)."
+        "failed": "Could not attach files. Use up to 8 text files (32 KB total) or PNG, JPEG, GIF or WebP images (4 MB each, 6 MB total).",
+        "remove": "Remove attached file {{name}}",
+        "draft": "Files to send",
+        "meta": "{{size}} · {{type}}"
       },
       "you": "Your message",
-      "replyFrom": "Reply from {{name}}"
+      "replyFrom": "Reply from {{name}}",
+      "failure": {
+        "title": "Tars could not answer",
+        "interruptedTitle": "The answer was interrupted",
+        "resend": "Edit and resend",
+        "reattach": "Attach its files again before sending.",
+        "hintWithResend": "It will not run again automatically. Edit and resend puts your words back in the message box."
+      },
+      "sendFailed": {
+        "title": "Message not sent",
+        "kept": "Your words are still in the message box."
+      }
     },
     "record": {
       "status": {
@@ -1625,8 +1639,8 @@
       "workingChangesUnavailable": "The snapshot of your working changes is no longer in the repository, so Tars could not create this work's workspace. Cancel it and ask again."
     },
     "messageFailure": {
-      "interrupted": "Reasoning was interrupted before its answer was saved. Send a new message to try again.",
-      "reasoningFailed": "Tars could not finish this message. Check its state, then send it again."
+      "interrupted": "Reasoning stopped before its answer was saved.",
+      "reasoningFailed": "Check the state of your work before sending it again."
     },
     "acceptCompletion": "Accept as done",
     "decision": {
@@ -1846,7 +1860,8 @@
         "blocked": "The reviewer could not review",
         "findings_one": "{{count}} finding",
         "findings_other": "{{count}} findings",
-        "noFindings": "The reviewer reported no findings."
+        "noFindings": "The reviewer reported no findings.",
+        "evidence": "Evidence the reviewer cited"
       },
       "timeline": {
         "none": "The run's details are not loaded yet.",

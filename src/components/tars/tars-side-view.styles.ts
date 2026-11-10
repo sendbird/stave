@@ -40,11 +40,21 @@ export const tarsSideViewStyles = stylex.create({
    */
   body: {
     position: "relative", display: "flex", flexDirection: "column", gap: vars["--aui-space-16"], flex: 1, minHeight: 0, minWidth: 0, overflowY: "auto",
-    paddingInline: vars["--aui-space-16"], paddingBlock: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"], paddingBlockStart: vars["--aui-space-16"], paddingBlockEnd: vars["--aui-space-24"],
   },
+  /**
+   * A view's root: its sections on the AUI section rhythm (`space.24`), so a
+   * heading starts a visibly new part instead of running on from the panel
+   * above it. Inside a section, lines keep the compact 8px stack.
+   */
+  stack: { display: "flex", flexDirection: "column", gap: vars["--aui-space-24"], minWidth: 0 },
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
   /** The AUI #809 in-surface section title: 15/500. */
   sectionTitle: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"] },
+  /** A view's lead: the state it reports and why, before the parts that explain it. */
+  summary: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  /** An evidence list inside one raised panel, as the criteria above it, on the panel rows' own pad, instead of loose lines on the canvas. */
+  evidencePanel: { display: "flex", flexDirection: "column", minWidth: 0, paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"] },
   meta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
   text: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
   list: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], margin: 0, padding: 0, listStyle: "none", minWidth: 0 },

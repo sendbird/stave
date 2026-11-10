@@ -116,7 +116,8 @@ export function TarsChangesPanel({ detail, cwd, onQuote }: { detail: AgentRunDet
   const [read, setRead] = useState<string[]>([]);
   const [reads, setReads] = useState(0);
   if (!detail) return <p className={sx(styles.meta)} role="status" data-tars-changes="none">{t("shell:tars.side.changes.noRun")}</p>;
-  return <div className={sx(styles.section)} data-tars-changes={detail.agentRun.id}>
+  // The live note, the file list and the selected file's diff are separate parts on the section rhythm.
+  return <div className={sx(styles.stack)} data-tars-changes={detail.agentRun.id}>
     {/* Unlike the report, this is the workspace as it is now; it can move after the run ended. */}
     <div className={sx(styles.diffHeader)}>
       <p className={sx(styles.meta)} data-tars-changes-live="">{t("shell:tars.side.changes.live")}</p>

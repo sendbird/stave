@@ -64,13 +64,35 @@ export const tarsTrayStyles = stylex.create({
     borderTopStyle: "solid", borderTopColor: vars["--aui-color-border-subtle"],
   },
   meta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
-  /** The work's branch: a git glyph, then the name in the mono face so it reads as an identifier. */
-  branch: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"] },
-  branchIcon: { flexShrink: 0, width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
-  branchName: { minWidth: 0, fontFamily: vars["--aui-font-mono"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  attention: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
-  attentionRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
-  attentionText: { flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  /**
+   * The work's branch, the header's second meta line: a git glyph, then the
+   * name in the mono face at the meta line's own caption size (the mono face
+   * reads larger than the sans at one size, so it never steps above it).
+   * One line; the full name is its title. Its inline size is contained, so an
+   * unbroken name never widens the header's title column (which would push
+   * the title under the state tag); it takes the column's width and ellipsizes.
+   */
+  branch: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0, contain: "inline-size" },
+  branchIcon: { flexShrink: 0, width: vars["--aui-control-icon-size-xs"], height: vars["--aui-control-icon-size-xs"] },
+  branchName: {
+    minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"],
+    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+  },
+  /**
+   * What needs the user, in the card's recessed well (`runStyles.well`): one
+   * item per row, hairlines between them. Rows stack a label line over text
+   * that runs the card's full width, so a long proposal never folds into a
+   * narrow column beside its label.
+   */
+  attention: { display: "flex", flexDirection: "column", minWidth: 0, margin: 0, paddingBlock: 0, paddingInline: vars["--aui-space-12"], listStyle: "none" },
+  attentionRow: {
+    display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0, paddingBlock: vars["--aui-space-8"],
+    borderTopWidth: { default: vars["--aui-border-width-hairline"], ":first-child": 0 }, borderTopStyle: "solid", borderTopColor: vars["--aui-color-border-subtle"],
+  },
+  /** The label line: the warning mark centred on the label; an irreversible decision's tag or the Blocked line's report link at the end. */
+  attentionHead: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
+  attentionEnd: { flexShrink: 0, marginInlineStart: "auto" },
+  attentionText: { minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], color: vars["--aui-color-text"], overflowWrap: "anywhere" },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   /** One output: what it is (the opener), then whose work it came from. */
   output: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], paddingBlock: vars["--aui-space-8"] },

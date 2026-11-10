@@ -94,18 +94,22 @@ export function TarsTimelinePanel({ detail, records, title, focusStageId, row }:
   }, [focusStageId, rows.length]);
   // No run: say whether one has not started yet, never existed, or is not loaded in this window.
   const empty = !row?.agentRunId ? row && isTarsResponsibilityTerminal(row) ? "noRun" : "notStarted" : "none";
-  if (!detail) return <div className={sx(styles.section)}>
+  if (!detail) return <div className={sx(styles.stack)}>
     {row ? <TarsTimelineNow row={row} detail={undefined} /> : null}
     <p className={sx(styles.meta)} role="status" data-tars-timeline={empty}>{t(`shell:tars.side.timeline.${row ? empty : "none"}`)}</p>
   </div>;
   const commandCount = runRecords.reduce((sum, entry) => sum + entry.commands.length + entry.toolCalls.length, 0);
-  return <div ref={rootRef} className={sx(styles.section)} data-tars-timeline={detail.agentRun.id}>
+  // Now, the stages, the hand-offs, the run's decisions and its commands: each a part of its own on the section rhythm.
+  return <div ref={rootRef} className={sx(styles.stack)} data-tars-timeline={detail.agentRun.id}>
     {row ? <TarsTimelineNow row={row} detail={detail} /> : null}
-    <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.timeline.stages")}</h3>
-    <StepRail density="compact" role="list" aria-label={t("shell:tars.side.timeline.stages")}>
-      {rows.map((row, index) => <StageCard key={`${row.stage.id}:${focusStageId === row.stage.id ? "focus" : ""}`} row={row}
-        last={index === rows.length - 1} defaultExpanded={focusStageId ? focusStageId === row.stage.id : undefined} />)}
-    </StepRail>
+    {/* A grouping only: the stage list below already carries the "Stages" name. */}
+    <div className={sx(styles.section)} data-tars-timeline-stages={rows.length}>
+      <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.timeline.stages")}</h3>
+      <StepRail density="compact" role="list" aria-label={t("shell:tars.side.timeline.stages")}>
+        {rows.map((row, index) => <StageCard key={`${row.stage.id}:${focusStageId === row.stage.id ? "focus" : ""}`} row={row}
+          last={index === rows.length - 1} defaultExpanded={focusStageId ? focusStageId === row.stage.id : undefined} />)}
+      </StepRail>
+    </div>
     {records.length ? <section className={sx(styles.section)} aria-label={t("shell:tars.side.timeline.handOffs")} data-tars-timeline-records="">
       <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.timeline.handOffs")}</h3>
       <ul className={sx(raisedPanel.panel, styles.panelList)}>

@@ -97,8 +97,8 @@ Files with the same name stay separate; a number distinguishes their attachment 
 Stave saves the selected contents with the message and passes them to the
 conversation model. A retry uses the same snapshot; switching workspaces or
 reopening Stave preserves the attachment names in the conversation. The
-conversation itself shows only each attachment's name (and keeps its type and
-size): the saved contents, such as an image's data, are not loaded again every
+conversation itself shows each attachment as a chip with its name, type and
+size, never its contents: the saved contents, such as an image's data, are not loaded again every
 time the conversation refreshes, and Stave reads them only for Tars's own
 reasoning turn on that message and for the first turn of the work it delegates. Attached
 material supplies context and does not authorize delegated work on its own.
@@ -348,8 +348,8 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Conversation**: a flow block for each delegated unit, with the state's mark
   and the work's observation line visible while folded, one-line status and
   control records, and **Automatic follow-up** turns. A message sent with
-  **Working changes** on carries that tag; a reply Tars is still
-  writing reads **Thinking** with the moving mark.
+  **Working changes** on carries that chip; where a reply Tars is still
+  writing will appear, **Thinking** shimmers beside the moving mark.
 - **Composer**: while work runs, the band above the message box names each
   running piece of work (two at most, then a count), its stage and what Stave
   last observed, with **Timeline**.
@@ -471,18 +471,29 @@ Answering a decision with a short word clears the word only once the answer
 is taken.
 
 **Reading the conversation.** Your messages sit on the right in a bubble only
-as wide as their words, with their time and state under them. Tars's replies
-start on the left under its name and mark. Prose keeps a readable line length;
+as wide as their words, with their files (name, type and size) and the
+**Includes working changes** chip above it. Tars's replies start on the left,
+without a bubble or a name line; screen readers announce each side by name. A
+message's time ("5m ago") shows above it while you hover or focus the
+message, so it never moves the text; focus or hover the time for the full date.
+Until Tars replies, its place shows the message's state: **Thinking**,
+**Queued** or **Cancelled**, with **Cancel message** as an icon button beside
+a message in progress. Text follows the chat font size setting, as in a task.
+Prose keeps a readable line length;
 code blocks and tables may use a wider measure when the window has room, and a
 long code line scrolls sideways inside its block instead of widening the view.
 **Include my working changes** is an icon button at every width, like
 **Attach files** and **Send**; hover or focus it to see its name and what it
 does. It looks pressed while it is on.
 
-Messages, answers and action outcomes survive restart. If sending loses its
-response, retry the unchanged draft to recover the same message. An
-interrupted reasoning request is marked failed rather than run again: inspect
-its saved state and send a new message. Reads and unchanged execution
+Messages, answers and action outcomes survive restart. If a send fails, a
+notice at the end of the conversation says so and **Retry** sends the
+unchanged draft again as the same message, so a send whose response was lost
+is recovered rather than duplicated. A message Tars could not answer shows a
+notice in place of its reply with the reason; an interrupted reasoning request
+is marked failed rather than run again. **Edit and resend** puts the message's
+words (and its working-changes choice, but not its files) back in the message
+box to send as a new message. Reads and unchanged execution
 observations do not start model calls.
 
 ## Delegation and execution
@@ -610,11 +621,12 @@ candidate · click · Applied"; it is not shown as a message from you.
 - Tars prepares, observes and controls each responsibility on its own queue, so
   slow worktree or task preparation, a denied scope or an unavailable provider
   for one responsibility does not hold back another's preparation. The runs
-  underneath still start, advance and take pause or cancel through one host-wide
-  run queue, one operation at a time: a slow start or update of one run can
-  delay another responsibility's run start or control until it finishes.
-  Task/run identity checks, SQLite write transactions, native provider/account
-  limits and same-task duplicate protection remain in force.
+  underneath do the same: each run starts, advances, takes a reply and takes
+  pause or cancel on its own queue, so a slow task read, start or update of one
+  run never delays another responsibility's run start, words or control. Two
+  operations on the same run still happen one after the other, in the order
+  they were asked. Task/run identity checks, SQLite write transactions, native
+  provider/account limits and same-task duplicate protection remain in force.
 - Queued cards display the scheduler's observed active count and configured
   cap, or an observed database lock with automatic retry. Before observation,
   the reason is explicitly unconfirmed. A different running task alone is never
@@ -655,7 +667,12 @@ one segment per workflow stage (done, in progress, not started, or stopped
 short), the step count such as "2/3", and **Timeline**, which opens the side
 view's timeline at that stage. Every card, queued work included, also has
 **Request**, which opens what the work was handed (see
-[Results, changes and the side view](#results-changes-and-the-side-view)). Each card wears the same state tag (the state
+[Results, changes and the side view](#results-changes-and-the-side-view)). **Request** and **Timeline** are icon
+buttons at the end of the card's footer, named by their tooltips, so the card's
+actions keep to one line. The work's branch is the line under the owner, in the
+code face at the same small size. What waits on you sits in a shaded area right
+above the actions: each item's kind (such as **Tars decision waiting**) on a
+short line, then its text across the card's width. Each card wears the same state tag (the state
 mark and the state's word) as the run panel and Agents. Values the run
 did not record, such as a start time, are left out rather than shown as zero.
 
@@ -787,7 +804,8 @@ opens the report. A blocked or stuck
 stage shows its reason and opens the report on its unmet criteria. **Show in
 Fleet** stays in each stage's menu and the tray card's menu.
 
-A blocked card in the tray shows its reason and **Open report**, which opens
+A blocked card in the tray shows its reason and **Open report** (at the end of
+its **Blocked** line when the card lists the block among what waits on you), which opens
 the report on its unmet criteria with the next steps the work admits, through
 the same host check as the tray: **Resume**, **Take over** and **Cancel
 responsibility**, or, for a completion Stave could not verify, its decision

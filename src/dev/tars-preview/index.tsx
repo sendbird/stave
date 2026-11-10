@@ -33,6 +33,8 @@ export function TarsPreview() {
     applyAppLocale(params.get("lang") === "ko" ? "ko" : "en");
     applyThemeClass({ enabled: params.get("theme") === "dark" });
     document.documentElement.dataset.uiDensity = params.get("density") === "compact" ? "compact" : "regular";
+    // `messageFontSize=20`: the chat font size setting the conversation's text follows (default 16).
+    if (params.has("messageFontSize")) useAppStore.setState((state) => ({ settings: { ...state.settings, messageFontSize: Number(params.get("messageFontSize")) || 16 } }));
     const now = "2026-11-05T00:00:00.000Z";
     // `gallery=true`: every conversation case on one screen for design review (`tars-gallery-fixtures.ts`). Its cards need real work
     // to point at, so it always brings the tray and side-view work; the switches built on them (`live`, `queue`, `recap`...) still apply.

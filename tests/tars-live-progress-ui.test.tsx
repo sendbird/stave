@@ -134,7 +134,7 @@ describe("Tars live progress UI", () => {
     }));
     expect(message("reasoning")).toContain('data-tars-message-state="reasoning"');
     expect(message("reasoning")).toContain('data-motion="moving"');
-    expect(message("reasoning")).toContain('data-tone="info"');
+    expect(message("reasoning")).toContain('data-state="working"');
     expect(message("queued")).toContain('data-state="queued"');
     expect(message("queued")).not.toContain('data-motion="moving"');
   });

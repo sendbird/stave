@@ -62,7 +62,8 @@ export function TarsBriefPanel({ row, state, onRetry }: {
   const criteriaId = useId();
   const brief = state.status === "ready" ? state.brief : null;
   const request = brief?.request ?? null;
-  return <div className={sx(styles.section)} data-tars-brief={state.status}>
+  // Each saved text is its own section on the section rhythm.
+  return <div className={sx(styles.stack)} data-tars-brief={state.status}>
     {brief ? <>
       {request
         ? <SavedText part="request" title={t("shell:tars.side.brief.request")} text={request.text} copyLabel={t("shell:tars.side.brief.copyRequest")}
