@@ -6,6 +6,7 @@ import { extractJsonObject } from "../../src/lib/workspace-turn-summary";
 import type { TarsSnapshot } from "../../src/lib/tars/types";
 import { buildTarsRuntimeHints } from "../../src/lib/tars/runtime-hints";
 import { TARS_BRANCH_NAME_MAX_CHARS } from "../../src/lib/tars/branch-name";
+import { TARS_PLANNER_HISTORY_MESSAGES } from "../../src/lib/tars/knowledge";
 import type { TarsPlannerObservation } from "./tars-context";
 import type { TarsPlannerAgent } from "../../src/lib/tars/agents";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -88,7 +89,7 @@ export function buildTarsPlannerPrompt(message: TarsMessage, context: TarsPlanne
   const data = {
     representative: context.snapshot.identity.name, preferences: context.snapshot.identity.instructions,
     currentMessage: { text: message.text, attachments: message.attachments?.map((part) => part.type === "file_context" ? part.filePath : part.label), maxTurns: message.maxTurns, ...originContext(message) },
-    history: history.filter((entry) => entry.id !== message.id).slice(-8)
+    history: history.filter((entry) => entry.id !== message.id).slice(-TARS_PLANNER_HISTORY_MESSAGES)
       .map((entry) => ({ textExcerpt: entry.text.slice(0, 1000), replyExcerpt: entry.reply?.slice(0, 1000), state: entry.state,
         ...(entry.origin ? { origin: entry.origin.kind } : {}) })),
     waitingDecisions: (context.snapshot.pendingDecisions ?? []).slice(0, 12).map((decision) => ({ kind: decision.kind ?? "confirm",
@@ -209,7 +210,7 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
     const input = { providerId: message.providerId, model: message.model,
       ...(message.attachments?.length ? { attachments: message.attachments } : {}),
       cwd: context.cwd, toolsDisabled: true as const, runtimeHints: buildTarsRuntimeHints(message.providerId, message.runtimeHints ?? {}),
-      prompt: buildTarsPlannerPrompt(message, context, ports.conversations.listBefore(message.id, 8, ports.historyAfter?.() ?? null)) };
+      prompt: buildTarsPlannerPrompt(message, context, ports.conversations.listBefore(message.id, TARS_PLANNER_HISTORY_MESSAGES, ports.historyAfter?.() ?? null)) };
     phase = "admission";
     const claim = await ports.coordinator.claim({
       run: { id: runId, kind: "secondary-provider", origin: { kind: "advisor", id },
