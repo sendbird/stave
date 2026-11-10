@@ -81,6 +81,8 @@ export interface PromptInputProps {
   modelShortcutEfforts?: readonly ModelShortcutEffort[];
   windowShortcutsEnabled?: boolean;
   attachedFilePaths: string[];
+  /** Draws the attached files in place of the default file chips (they still count as the draft's payload). */
+  attachmentsRow?: ReactNode;
   /** Plain global chat: no task token palettes, model shortcuts or task-context hints. Attachments are opt-in. */
   plainText?: boolean;
   /** Allow file snapshots while keeping task token palettes disabled. */

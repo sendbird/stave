@@ -303,28 +303,41 @@ for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
     await page.evaluate(() => document.fonts.ready);
     await expect(user).toHaveAccessibleName(lang === "ko" ? "내 메시지" : "Your message");
     await expect(reply).toHaveAccessibleName(lang === "ko" ? "Tars의 답변" : "Reply from Tars");
-    await expect(reply.locator("[data-tars-mark]")).toBeVisible();
+    // No name line over the reply: its side and its accessible name say it is Tars's.
+    await expect(reply.locator("[data-tars-mark]")).toHaveCount(0);
+    // The time waits out of sight until the exchange is hovered or focused, and showing it moves nothing.
+    const time = view.locator("[data-tars-message-time]");
+    const offset = () => reply.evaluate((node) => node.getBoundingClientRect().top - node.closest("[data-tars-message]")!.getBoundingClientRect().top);
+    await user.scrollIntoViewIfNeeded();
+    await page.mouse.move(0, 0);
+    await expect.poll(() => time.evaluate((node) => parseFloat(getComputedStyle(node).opacity))).toBe(0);
+    const before = await offset();
+    await user.hover();
+    await expect.poll(() => time.evaluate((node) => parseFloat(getComputedStyle(node).opacity))).toBeGreaterThan(0.99);
+    expect(await offset()).toBe(before);
     const geometry = await view.evaluate((node) => {
       const box = (selector: string) => node.querySelector(selector)!.getBoundingClientRect();
       const row = box("[data-tars-user-message]");
-      const bubble = node.querySelector("[data-tars-user-message] > div")!.getBoundingClientRect();
-      const meta = box("[data-tars-message-meta]");
+      const bubble = box("[data-tars-user-bubble]");
+      const meta = box("[data-tars-message-time]");
       const reply = box("[data-tars-reply]");
       const pre = node.querySelector<HTMLElement>("[data-tars-reply] pre")!;
       const table = box("[data-tars-reply] table");
       const paragraph = box("[data-tars-reply] p:not(:first-child)");
       return { view: [node.clientWidth, node.scrollWidth], row: [row.left, row.right, row.width], bubble: [bubble.left, bubble.right, bubble.width], metaRight: meta.right,
+        metaBottom: meta.bottom, bubbleTop: bubble.top,
         reply: [reply.left, reply.right], pre: [pre.clientWidth, pre.scrollWidth, getComputedStyle(pre).overflowX], table: [table.left, table.right], paragraph: [paragraph.left, paragraph.right] };
     });
     // Nothing widens the view; the code block scrolls inside itself instead.
     expect(geometry.view[1]).toBeLessThanOrEqual(geometry.view[0] + 1);
     expect(geometry.pre[1]).toBeGreaterThan(geometry.pre[0]);
     expect(geometry.pre[2]).toBe("auto");
-    // Your words end on the trailing edge in a bubble that leaves the leading side open; their time follows them there.
+    // Your words end on the trailing edge in a bubble that leaves the leading side open; their time sits above them there.
     expect(Math.abs(geometry.bubble[1] - geometry.row[1])).toBeLessThanOrEqual(1);
     expect(geometry.bubble[2]).toBeLessThanOrEqual(geometry.row[2] * 0.88 + 1);
     expect(geometry.bubble[0]).toBeGreaterThan(geometry.row[0] + 8);
     expect(Math.abs(geometry.metaRight - geometry.row[1])).toBeLessThanOrEqual(1);
+    expect(geometry.metaBottom).toBeLessThanOrEqual(geometry.bubbleTop + 1);
     // Tars's reply starts on the leading edge of the same column.
     expect(Math.abs(geometry.reply[0] - geometry.row[0])).toBeLessThanOrEqual(1);
     // Prose keeps the reading column; a table may take the wider measure when there is room, centred on the same axis.
