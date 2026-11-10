@@ -61,6 +61,26 @@ describe("Tars tray UI", () => {
     await inKorean(() => expect(describeTarsTrayCounts(counts({ inProgress: 2, needsYou: 1, done: 3 }), "ready", 7)).toBe("확인 필요 1 · 진행 중 2 · 끝남 3 · 산출물 7"));
   });
 
+  test("the indicator and every lane header say the same number for the same lane, under the lane's own name", async () => {
+    const f = fixtures();
+    const model = trayOf(f);
+    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const header = (lane: string) => Number(new RegExp(`data-tars-lane-head="${lane}"(?:(?!data-tars-lane-head=).)*?data-tars-lane-count="(\\d+)"`).exec(html)?.[1]);
+    const chip = describeTarsTrayCounts(model.counts);
+    for (const [lane, word] of [["needsYou", "need"], ["running", "in progress"], ["done", "done"]] as const) {
+      const shown = header(lane);
+      if (shown > 0) expect(chip).toMatch(new RegExp(`\\b${shown} ${word}`));
+      else expect(chip).not.toContain(word);
+    }
+    await inKorean(() => {
+      const ko = describeTarsTrayCounts(model.counts);
+      for (const lane of ["needsYou", "running", "done"] as const) {
+        const name = i18n.t(`shell:tars.tray.lanes.${lane}`);
+        if (header(lane) > 0) expect(ko).toContain(`${name} ${header(lane)}`);
+      }
+    });
+  });
+
   test("before a successful read the indicator and body say checking or unavailable, never no work", async () => {
     const none = { running: 0, waiting: 0, yours: 0, needsYou: 0, done: 0 };
     expect(describeTarsTrayCounts(none, "checking")).toBe("Checking work…");
@@ -385,4 +405,37 @@ describe("Tars tray card hierarchy", () => {
     // Icon-only: the visible words live in the tooltip, not in the button.
     expect(group).not.toMatch(/data-tars-monitor-brief="billing"[^>]*>(?:(?!<\/button>).)*Request/);
   });
+});
+
+describe("Tars tray lanes and card actions", () => {
+  const laneHeads = (html: string) => [...html.matchAll(/data-tars-lane-head="(\w+)"(?:(?!data-tars-lane-head=).)*?aria-expanded="(true|false)"(?:(?!data-tars-lane-head=).)*?data-tars-lane-chevron="(open|closed)"/g)]
+    .map(([, lane, expanded, chevron]) => ({ lane, expanded, chevron }));
+
+  test("each lane's chevron says open or closed as its trigger's aria-expanded does, leading the label", () => {
+    const html = renderToStaticMarkup(createElement(TarsTray, { model: trayOf(fixtures()), actions: noActions, outputs: [] }));
+    const heads = laneHeads(html);
+    expect(heads.map((head) => head.lane)).toEqual(["needsYou", "running", "done", "outputs"]);
+    for (const head of heads) expect(head.chevron).toBe(head.expanded === "true" ? "open" : "closed");
+    expect(heads.find((head) => head.lane === "done")!.expanded).toBe("false");
+    // The chevron sits before the lane's name, not across the row from it.
+    const needs = html.slice(html.indexOf('data-tars-lane-head="needsYou"'));
+    expect(needs.indexOf("data-tars-lane-chevron")).toBeLessThan(needs.indexOf("Needs you"));
+  });
+
+  test("an empty lane folds to its muted header with a zero count, its sentence kept in the panel for when it opens", () => {
+    const f = fixtures();
+    const model = buildTarsTray({ responsibilities: f.responsibilities.filter((row) => row.id !== f.ids.billing && row.id !== f.ids.migration), attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
+    expect(model.lanes.running).toHaveLength(0);
+    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const running = laneHeads(html).find((head) => head.lane === "running")!;
+    expect(running).toEqual({ lane: "running", expanded: "false", chevron: "closed" });
+    const lane = html.slice(html.indexOf('data-tars-tray-lane="running"'), html.indexOf('data-tars-tray-lane="done"'));
+    expect(lane).toContain('data-tars-lane-empty=""');
+    expect(lane).toContain('data-tars-lane-count="0"');
+    expect(lane).toContain("Nothing is running.");
+    // A lane holding work opens as before.
+    expect(laneHeads(html).find((head) => head.lane === "needsYou")!.expanded).toBe("true");
+  });
+
+
 });

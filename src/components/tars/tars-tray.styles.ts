@@ -34,19 +34,60 @@ export const tarsTrayStyles = stylex.create({
     borderBottomWidth: vars["--aui-border-width-hairline"], borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border-subtle"],
   },
   panelTitle: { flex: 1, minWidth: 0, margin: 0 },
-  panelBody: { flex: 1, minHeight: 0, overflowY: "auto", paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"] },
+  /**
+   * The tray's scroll container. Its inline pad is the focus ring's bleed
+   * gutter (`space.4`), so a lane's chevron and its cards start on the panel
+   * bar's icon edge (`space.16` with the trigger's and the cards' own pad), as
+   * the side view's body does. It has no top pad: a sticky lane header pins
+   * to the scroll container's content edge, so a pad there would leave a strip
+   * above the pinned header for cards to scroll through; the header's own
+   * block pad spaces the first lane from the panel bar.
+   */
+  panelBody: { flex: 1, minHeight: 0, overflowY: "auto", paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-4"] },
   /** The narrow tray: anchored to its indicator, wider and taller than a default popover so a card fits. */
   popover: {
     inlineSize: `min(${TRAY_WIDTH}, calc(100dvw - 2 * ${vars["--aui-space-16"]}))`,
     maxBlockSize: `min(calc(100dvh - ${vars["--aui-space-64"]}), var(--available-height, calc(100dvh - ${vars["--aui-space-32"]})))`,
   },
   /** Portaled outside the view, so it restates the view's Korean line-break policy (`textWrap.keepAll`, applied with this body). */
-  popoverBody: { paddingInline: vars["--aui-space-8"], paddingBlockEnd: vars["--aui-space-8"] },
+  popoverBody: { paddingInline: vars["--aui-space-4"], paddingBlockEnd: vars["--aui-space-8"] },
   indicator: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" },
+  /**
+   * A lane's header row, pinned to the top of the tray's scroll container
+   * while its lane scrolls under it: the disclosure trigger, then the lane's
+   * own controls (Clear, Undo) on the end. It paints the tray's surface
+   * (`laneHeadOn`), so cards never show through it, and sits on the
+   * in-surface sticky layer.
+   */
+  laneHead: {
+    position: "sticky", insetBlockStart: 0, zIndex: vars["--aui-z-index-sticky"],
+    display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0, paddingInlineEnd: vars["--aui-space-12"],
+  },
+  /** The surface the tray sits on: the view's canvas when pinned, the popover's raised surface when it opens over the conversation. */
+  laneHeadOnCanvas: { backgroundColor: vars["--aui-color-canvas"] },
+  laneHeadOnRaised: { backgroundColor: vars["--aui-color-surface-raised"] },
+  laneHeader: { flex: 1, minWidth: 0 },
+  /**
+   * The AUI disclosure row with the chevron leading and the count trailing the
+   * label: the whole row is the hit target, hover lays the quiet-control wash
+   * (the ink stays put) and keyboard focus keeps the trigger's own ring.
+   */
+  laneTrigger: {
+    display: "flex", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"],
+    color: vars["--aui-color-text"],
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover) and (pointer: fine)": { default: "transparent", ":hover": vars["--aui-color-overlay-hover"], ":active": vars["--aui-color-overlay-pressed"] },
+    },
+  },
   /** The AUI #809 in-surface section title: 15/500. */
-  sectionTitle: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"], color: vars["--aui-color-text"] },
+  sectionTitle: { display: "flex", alignItems: "baseline", gap: vars["--aui-space-8"], minWidth: 0, fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"], color: vars["--aui-color-text"] },
   sectionCount: { color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums", fontWeight: vars["--aui-font-weight-regular"] },
+  /** A lane with nothing in it: its title steps down to the muted ink, so the lanes that hold work lead. */
+  sectionTitleEmpty: { color: vars["--aui-color-text-muted"] },
   chevron: { flexShrink: 0, color: vars["--aui-color-text-muted"], width: vars["--aui-control-icon-size-md"], height: vars["--aui-control-icon-size-md"] },
+  /** Open, the leading chevron turns to point down at its lane (timing from `transition.transform`). */
+  chevronOpen: { transform: "rotate(90deg)" },
   /**
    * Each card is a lifted run object (AUI `RunMonitor`), so the lane stacks
    * them on a gap instead of hairline rows. Cards share the section trigger's
