@@ -1,8 +1,13 @@
 import { auiStylex } from "./scripts/vite-aui-stylex.mjs";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { createWorkspaceWatchIgnore } from "./config/workspace-watch";
+
+const require = createRequire(import.meta.url);
+const fontAssetRoots = ["@fontsource-variable/geist", "@fontsource-variable/inter", "@fontsource-variable/jetbrains-mono", "pretendard"]
+  .map((name) => path.dirname(require.resolve(`${name}/package.json`)));
 
 export default defineConfig({
   plugins: [
@@ -19,6 +24,8 @@ export default defineConfig({
     react(),
   ],
   server: {
+    // Worktrees may resolve fonts from shared dependencies outside their own root.
+    fs: { allow: [searchForWorkspaceRoot(__dirname), ...fontAssetRoots] },
     watch: {
       ignored: createWorkspaceWatchIgnore(__dirname),
     },
