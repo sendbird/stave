@@ -293,14 +293,23 @@ short form at any time.
 
 ### 2. Answer decisions
 
-A decision waiting on you is one card in the conversation. Answer it in
-whichever way is handy:
+Waiting decisions and publish confirmations appear one at a time above the
+message box, with their position and total count. **Previous waiting item** and
+**Next waiting item** move between them without submitting; your selected option
+and edited publish words stay with each card. Answering advances to the next
+waiting item. A failure or refused attempt stays on its card. History keeps the
+question and **Review above message box** while it waits, then the settled record.
+Long cards scroll inside the dock so the message box remains reachable.
+
+Answer whichever way is handy:
 
 - **Click** an option to choose it, then **Answer**.
 - **Keys**, while the card or one of its options has focus: **1** to **4** or
   the arrow keys choose an option, and **Enter** answers with it. The
   recommended option starts chosen, so Enter alone answers with it. A
-  confirmation's single button answers with **1**. **Esc** chooses **Not now**.
+  confirmation's single button answers with **1**. **Esc** chooses **Not now**:
+  it leaves the item waiting and moves to the next item, or back to the message
+  box when it is the only one.
 - **Words**: reply "1" to "4", or "yes", "ok", "네" and similar to pick the
   recommended option, when exactly one decision waits in Tars's newest message.
 
@@ -1107,7 +1116,7 @@ in the report. Stave never merges, marks it ready or deploys.
 
 ### Decisions
 
-A decision waiting on you is one card in the conversation, whatever asked it:
+One waiting decision at a time appears above the message box, whatever asked it:
 
 - a control Tars proposed that waits for your confirmation (resume, hand back,
   cancel, accept as done),
@@ -1158,7 +1167,8 @@ collapsed **Details**. A single action that cannot be undone (cancelling,
 accepting as done, approving a tool request, skipping a step) says **Can't be
 undone** once, in the card's header; in a choice it is on each option it
 applies to. Its footer offers **Not now** (Esc while the card has focus),
-which leaves the decision waiting and moves focus to the message box, next to
+which leaves the decision waiting and opens the next queued item (or focuses the
+message box when it is the only one), next to
 the card's button and its key. Card text follows the chat font size: the
 title and effect at the messages' size, the other lines one step under it, as
 records are.

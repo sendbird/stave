@@ -745,7 +745,16 @@ independent review passed on that same revision. Otherwise a decision card
 asks what to do: **Accept as done**, **Cancel responsibility**, or **Ask Tars
 for new verification work**, which only drafts that request in the message box.
 
-When Tars needs you to choose, it shows a decision card in the conversation:
+Waiting decisions and publish confirmations appear one at a time above the
+message box. The count and **Previous waiting item** / **Next waiting item**
+buttons let you review the queue without answering. Choices and edited publish
+words stay with each card. Answering advances; a failed or refused answer stays
+on its card. **Not now** (Esc) leaves the item waiting and moves to the next, or
+returns to the message box when it is the only item. History keeps the question
+with **Review above message box**, then its settled record. Long cards scroll
+inside the dock while the message box stays reachable.
+
+When Tars needs you to choose, it shows a decision card above the message box:
 a question with two to four options, each with a short reason, and a
 recommended option when Tars has one. A confirmation (a control Tars proposed,
 or a completion Stave could not verify) leads with what will happen: what it
@@ -754,8 +763,7 @@ sentence. A tool request it approves shows as a code block; the repository
 and workspace are under a collapsed **Details**. An action that
 cannot be undone, such as cancelling, accepting as done or approving a tool
 request, says **Can't be undone** once, and its button is red. Its footer
-shows **Not now** (Esc), which leaves the decision waiting and returns you to
-the message box, and the card's button, named by what it does (**Resume**,
+shows **Not now** (Esc), which leaves the decision waiting, and the card's button, named by what it does (**Resume**,
 **Cancel work**, **Approve**), with its key. A question's options are
 a radio group: each shows its label, its reason on the line under it and its
 number key, and the recommended one is marked and starts chosen; **Answer**

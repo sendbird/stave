@@ -28,7 +28,9 @@ import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import { TarsActivityNoticeLine, TarsFlowBlock } from "./TarsFlowBlock";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
-import { TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
+import { describeTarsDecisionSubject, TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
+import { tarsDockStyles as dockStyles } from "./tars-decision-dock.styles";
+import { TarsDecisionDock, TarsWaitingRecord, type TarsDecisionDockController, type TarsDockItem } from "./TarsDecisionDock";
 import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
 import { TarsPublishRecordLine } from "./TarsPublishRecordLine";
@@ -109,7 +111,7 @@ function TarsPublishProposal({ view, publish, titleOf, matchedRules }: { view: T
     onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
 }
 
-export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, schedule }: {
+export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, schedule, onOpenWaiting }: {
   message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   /** Puts a failed message's words back in the message box; absent, its failure offers no action. */
   onResend?: () => void;
@@ -130,6 +132,8 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   clear?: TarsClearContext;
   /** Schedule proposals and their cards; absent, a schedule proposal stays a receipt line. */
   schedule?: TarsScheduleContext;
+  /** Waiting forms live in the dock; their history entries open that queue item. */
+  onOpenWaiting?: (id: string) => void;
 }) {
   const { t } = useTranslation(["shell"]);
   const cards = new Map((decisions ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
@@ -163,9 +167,12 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} />)}
     </TarsRecordList> : null,
     ...flowed.map(({ receipt, card }) => card
-      ? <TarsDecisionCard key={`decision:${receipt.actionIndex}`} decision={card} titleOf={titleOf} {...context} busy={busy} error={answerErrors?.get(card.id)}
+      ? card.state === "waiting" && onOpenWaiting ? <TarsWaitingRecord key={`decision:${receipt.actionIndex}`} id={card.id} subject={describeTarsDecisionSubject(card, titleOf)} onOpen={() => onOpenWaiting(card.id)} />
+      : <TarsDecisionCard key={`decision:${receipt.actionIndex}`} decision={card} titleOf={titleOf} {...context} busy={busy} error={answerErrors?.get(card.id)}
         onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null),
-    ...(publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf}
+    ...(publish ? [...publishViews.values()].map((view) => view.state === "waiting" && !publish.declined.has(view.requestId) && onOpenWaiting
+      ? <TarsWaitingRecord key={`publish:${view.actionIndex}`} id={view.requestId} subject={t("shell:tars.publish.card.title")} onOpen={() => onOpenWaiting(view.requestId)} />
+      : <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf}
       matchedRules={receipts.find((receipt) => receipt.actionIndex === view.actionIndex)?.matchedRules} />) : []),
     ...(clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : []),
     ...(schedule ? [...scheduleViews.values()].map((view) => <TarsScheduleProposal key={`schedule:${view.actionIndex}`} view={view} schedule={schedule} />) : []),
@@ -262,6 +269,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   const textScale = useTarsTextScale();
   const [answering, setAnswering] = useState(false);
   const composerRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<TarsDecisionDockController>(null);
+  const openWaiting = (id: string) => dockRef.current?.show(id);
   const composerErrorId = useId();
   const settings = state.conversation?.settings ?? initialSettings;
   const decisions = useMemo(() => state.conversation ? projectTarsDecisions({ messages: state.conversation.messages, receipts: state.conversation.receipts,
@@ -371,7 +380,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   const nodeOf = (item: (typeof timeline)[number]): TarsTranscriptEntry["node"] => {
     if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
       onResend={() => resend(item.value)}
-      titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} />;
+      titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} onOpenWaiting={openWaiting} />;
     if (item.kind === "schedule") return { record: <TarsScheduleRecordLine key={item.id} record={item.value} /> };
     if (item.kind === "scheduleRun") return { record: <TarsScheduleRunLine key={item.id} run={item.value.run} onOpenTask={onOpenScheduleRun} /> };
     if (item.kind === "clear") return { record: <TarsClearRecordLine key={item.id} record={item.value} busy={clear?.busy} error={clear?.errors.get(item.value.requestId)}
@@ -385,8 +394,31 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     const card = item.value.activity.detailCode === "unverifiedCompletion" ? unverifiedCard(item.value.activity) : undefined;
     // It pads like an exchange, so the gap above and below it is the transcript's one gap between entries.
     return card ? <div key={item.id} className={sx(chrome.exchange)}>
-      <TarsDecisionCard decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} /></div>
+      {card.state === "waiting" ? <TarsWaitingRecord id={card.id} subject={describeTarsDecisionSubject(card, titleOf)} onOpen={() => openWaiting(card.id)} /> : <TarsDecisionCard decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} />}</div>
       : { record: <TarsActivityNoticeLine key={item.id} notice={item.value} /> };
+  };
+  const dockItems: TarsDockItem[] = decisions.filter((view) => view.state === "waiting").map((decision) => ({
+    id: decision.id, node: <TarsDecisionCard decision={decision} titleOf={titleOf} {...cardContext}
+      onDismiss={() => dockRef.current?.skip()} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(decision.id)} />,
+  }));
+  if (publish) {
+    for (const view of publish.proposals) {
+      if (view.state !== "waiting" || publish.declined.has(view.requestId)) continue;
+      dockItems.push({ id: view.requestId, node: <TarsPublishProposal view={view} publish={publish} titleOf={titleOf}
+        matchedRules={state.conversation?.receipts.find((receipt) => receipt.messageId === view.messageId && receipt.actionIndex === view.actionIndex)?.matchedRules} /> });
+    }
+    const open = publish.open;
+    const row = open ? publish.rowOf(open.responsibilityId) : null;
+    if (open && row) {
+      const { preview, state: previewState } = publish.previewOf(row.id);
+      dockItems.push({ id: open.id, node: <TarsPublishCard id={open.id} row={row} preview={preview} previewState={previewState} initial={open.initial}
+        busy={publish.busyId === open.id} error={publish.errors.get(open.id)} onDecline={() => publish.onDecline(open.id)}
+        onPublish={(words, source) => publish.onPublish({ id: open.id, responsibilityId: row.id, expectedRevision: null }, words, source)} /> });
+    }
+  }
+  const focusSettled = (id: string) => {
+    const record = composerRef.current?.closest("[data-tars-chat]")?.querySelector<HTMLElement>(`[data-tars-decision="${CSS.escape(id)}"] [tabindex="-1"]`);
+    if (record) record.focus({ preventScroll: true }); else focusComposer();
   };
   // The transcript and the composer take the same width step, measured on this column.
   return <div className={sx(styles.chat, transcriptWidthStyles.surface, floor && trayStyles.conversationFloor)} style={textScale} data-tars-chat="">
@@ -404,16 +436,6 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         {/* The transcript, with the "while you were away" summary where the user left. */}
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
           decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} />
-        {publish?.open ? (() => {
-          const open = publish.open;
-          const row = publish.rowOf(open.responsibilityId);
-          if (!row) return null;
-          const { preview, state: previewState } = publish.previewOf(row.id);
-          // A card the user opened is theirs to answer now, so it takes focus on its commit message.
-          return <TarsPublishCard key={open.id} id={open.id} row={row} preview={preview} previewState={previewState} initial={open.initial} autoFocus
-            busy={publish.busyId === open.id} error={publish.errors.get(open.id)} onDecline={() => publish.onDecline(open.id)}
-            onPublish={(words, source) => publish.onPublish({ id: open.id, responsibilityId: row.id, expectedRevision: null }, words, source)} />;
-        })() : null}
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}
@@ -423,10 +445,14 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     </Conversation>
     {sidePanel}
     {/* The AUI #809 tray composer: a tinted band around the raised input; its one quiet line appears only for the over-limit error. */}
-    <div ref={composerRef} className={sx(styles.composer, widthTheme)} data-tars-composer="">
+    <div ref={composerRef} className={sx(styles.composer, widthTheme, dockItems.length > 0 && dockStyles.composer, dockItems.length > 0 && Boolean(sidePanel) && dockStyles.composerWithSide)} data-tars-composer="">
+      <TarsRecordOpenWorkContext value={openWork}>
+        <TarsDecisionDock items={dockItems} controller={dockRef} preferredId={publish?.open?.id} busy={state.busy || answering || Boolean(publish?.busyId)}
+          onEmptyFocus={focusSettled} onDismiss={focusComposer} />
+      </TarsRecordOpenWorkContext>
       {/* Suggestions only fill an empty message box; they never send. */}
       {suggestions?.length && !text.trim() && !composerDisabled ? <TarsSuggestionChips items={suggestions} onPick={(words) => { setTarsDraftText(words); focusComposer(); }} /> : null}
-      <div className={sx(composerTray.tray)}>
+      <div className={sx(composerTray.tray, dockStyles.tray)}>
       {composerStatus}
       <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />
       <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setTarsDraftText} disabled={composerDisabled}

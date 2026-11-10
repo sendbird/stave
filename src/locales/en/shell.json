@@ -2721,6 +2721,12 @@
         "timezone": "Times are in {{timezone}}.",
         "switchFailed": "The switch did not go through. Try again."
       }
+    },
+    "dock": {
+      "review": "Review above message box",
+      "position": "Waiting · {{position}} of {{count}}",
+      "previous": "Previous waiting item",
+      "next": "Next waiting item"
     }
   }
 }

@@ -2663,6 +2663,12 @@
         "timezone": "시각은 {{timezone}} 기준입니다.",
         "switchFailed": "전환이 적용되지 않았습니다. 다시 시도해 주세요."
       }
+    },
+    "dock": {
+      "review": "입력창 위에서 확인",
+      "position": "답변 대기 · {{count}}개 중 {{position}}번째",
+      "previous": "이전 대기 항목",
+      "next": "다음 대기 항목"
     }
   }
 }

@@ -433,7 +433,7 @@ test("a proposed cancel waits as a decision card, and the confirmed proposal fol
   const view = page.getByTestId("tars-view");
   await send(page, "Cancel the release check");
   const message = view.locator("[data-tars-message]");
-  const card = message.locator('[data-tars-decision-state="waiting"]');
+  const card = view.locator('[data-tars-decision-dock] [data-tars-decision-state="waiting"]');
   // The button says what it does and that the card waits; there is no waiting badge.
   await expect(card).not.toContainText("Awaiting your confirmation");
   await card.getByRole("button", { name: "Cancel work", exact: true }).click();
