@@ -50,6 +50,12 @@ function delegatedInLastReply(messages: readonly TarsMessageView[], receipts: re
   return receipts.filter((receipt) => receipt.messageId === last.id && isAppliedDelegateReceipt(receipt)).map((receipt) => receipt.responsibilityId!);
 }
 
+/** Work that completed in the day before `now`, newest first. */
+export function tarsFinishedSince(rows: readonly TarsResponsibility[], now: string) {
+  const since = Date.parse(now) - DAY_MS;
+  return rows.filter((row) => row.state === "completed" && Date.parse(row.updatedAt) >= since).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
 /**
  * Suggested requests from what Stave observed now, most useful first, at most
  * `limit` and one per piece of work. Each only fills the message box; the user
@@ -88,9 +94,7 @@ export function buildTarsSuggestions(args: {
   const queued = tarsQueueOf(rows);
   if (queued.length === 1) add("startNow", queued[0]!);
   else if (queued.length > 1) add("startQueued", null, queued.length);
-  const since = Date.parse(args.now) - DAY_MS;
-  const finished = tray.lanes.done.map((card) => card.row).filter((row) => row.state === "completed" && Date.parse(row.updatedAt) >= since)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const finished = tarsFinishedSince(tray.lanes.done.map((card) => card.row), args.now);
   if (finished.length > 1) add("finishedToday", null, finished.length);
   const newest = finished[0];
   if (newest) add(isTarsPublishable(newest) && !newest.publication ? "publish" : "report", newest);

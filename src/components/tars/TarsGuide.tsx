@@ -1,9 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
-import { ChevronDown, CircleHelp } from "lucide-react";
-import { useId, useState } from "react";
+import { CircleHelp } from "lucide-react";
+import { useId } from "react";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
-import { transition } from "@/components/aui/recipes/transition";
-import { TarsMark } from "./TarsMark";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
@@ -28,7 +26,7 @@ function TarsGuideExamples({ onExample }: { onExample: (text: string) => void })
   </section>;
 }
 
-/** What Tars does and what it will not do, with optional examples: the header's help popover and the welcome's disclosure. */
+/** What Tars does and what it will not do, with optional examples: the header's help popover. */
 export function TarsGuide({ onExample }: { onExample?: (text: string) => void }) {
   const { t } = useTranslation(["shell"]);
   const id = useId();
@@ -44,31 +42,6 @@ export function TarsGuide({ onExample }: { onExample?: (text: string) => void })
         <h3 id={`${id}-limits`} className={sx(styles.heading)}>{t("shell:tars.guide.limitsTitle")}</h3>
         <ul className={sx(styles.list)}>{LIMITS.map((n) => <li key={n}>{t(`shell:tars.guide.limit${n}`)}</li>)}</ul>
       </section>
-    </div>
-  </div>;
-}
-
-/**
- * The empty conversation: who Tars is, a few requests to start from, and the
- * full guide one press away. Kept short so the welcome stays in view while
- * the transcript holds to its end.
- */
-export function TarsWelcome({ name, onExample }: { name: string; onExample: (text: string) => void }) {
-  const { t } = useTranslation(["shell"]);
-  const [open, setOpen] = useState(false);
-  const guideId = useId();
-  return <div className={sx(styles.welcome)} data-tars-welcome="">
-    <div className={sx(styles.intro)}>
-      <TarsMark className={sx(styles.mark)} />
-      <p className={sx(styles.title)}>{t("shell:tars.conversation.welcome", { name })}</p>
-      <p className={sx(styles.description)}>{t("shell:tars.conversation.empty")}</p>
-    </div>
-    <TarsGuideExamples onExample={onExample} />
-    <div className={sx(styles.section)}>
-      <Button type="button" variant="ghost" size="xs" xstyle={styles.disclosure} aria-expanded={open} aria-controls={guideId} onClick={() => setOpen((value) => !value)} data-tars-guide-toggle="">
-        {t("shell:tars.guide.help")}<ChevronDown aria-hidden="true" className={sx(styles.chevron, transition.transform, open && styles.chevronOpen)} />
-      </Button>
-      <div id={guideId} hidden={!open}>{open ? <TarsGuide /> : null}</div>
     </div>
   </div>;
 }
@@ -99,14 +72,5 @@ const styles = stylex.create({
   /** Upstream Suggestions layout (#809 R3): short xs chips in a wrapping row; the full request goes into the composer. */
   examples: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   exampleItem: { maxWidth: "100%", minWidth: 0 },
-  welcome: { display: "flex", flexDirection: "column", gap: vars["--aui-space-20"], paddingBlock: vars["--aui-space-24"], minWidth: 0 },
-  intro: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: vars["--aui-space-4"], minWidth: 0 },
-  mark: { width: vars["--aui-control-icon-size-lg"], height: vars["--aui-control-icon-size-lg"], marginBottom: vars["--aui-space-8"], color: vars["--aui-color-text-muted"] },
-  title: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-title"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-tight"] },
-  description: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-body"], lineHeight: vars["--aui-line-height-prose"] },
-  /** Optically on the column edge: the ghost xs padding (space-8) hangs outside, as the hover fill does. */
-  disclosure: { alignSelf: "flex-start", marginInlineStart: `calc(-1 * ${vars["--aui-space-8"]})` },
-  chevron: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
-  chevronOpen: { transform: "rotate(180deg)" },
   popover: { width: "min(36rem, calc(100vw - 2rem))", maxHeight: "min(32rem, calc(100vh - 6rem))", overflowY: "auto" },
 });

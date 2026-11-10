@@ -57,6 +57,8 @@ import { buildTarsSuggestions } from "@/lib/tars/suggestions";
 import { TarsClearConversationButton, type TarsClearCounts } from "./TarsClear";
 import { useTarsClear } from "./use-tars-clear";
 import type { TarsTrayClearing } from "./TarsTray";
+import { focusTarsTrayLane, TarsStartContext, type TarsStartInfo } from "./TarsStart";
+import { buildTarsStartCounts, listTarsStartRepositories } from "@/lib/tars/start";
 
 const NO_RESPONSIBILITIES: TarsResponsibility[] = [];
 
@@ -304,6 +306,12 @@ export function TarsView() {
   // Suggested requests from the work as it is now; none before the work was read.
   const suggestions = useMemo(() => buildTarsSuggestions({ tray: snapshot ? tray : null, messages: conversation.conversation?.messages ?? [],
     receipts: conversation.conversation?.receipts ?? [], now: followUpNow }), [conversation.conversation?.messages, conversation.conversation?.receipts, followUpNow, snapshot, tray]);
+  // The start screen's facts: the tray's own counts, and the repositories the app has registered.
+  const registered = useAppStore((state) => state.recentRepositories);
+  const repositoryPath = useAppStore((state) => state.repositoryPath);
+  const repositoryName = useAppStore((state) => state.repositoryName);
+  const startCounts = useMemo(() => buildTarsStartCounts({ tray: snapshot ? tray : null, now: followUpNow }), [followUpNow, snapshot, tray]);
+  const startRepositories = useMemo(() => listTarsStartRepositories({ registered, current: { repositoryPath, repositoryName } }), [registered, repositoryName, repositoryPath]);
   // A profile that never used Tars starts with the default standing instructions, once; anyone else is offered them in settings.
   const seeded = useRef(false);
   const settingsRead = conversation.conversation ? conversation.conversation.settings : undefined;
@@ -328,6 +336,13 @@ export function TarsView() {
     if (!pinned) { setTrayPopoverOpen(next); return; }
     if (side) { closeSide(); setPinnedTrayOpen(true); } else setPinnedTrayOpen(next);
   };
+  // The newest opener, for a handler that outlives this render.
+  const openTray = useRef(() => onTrayOpenChange(true));
+  openTray.current = () => onTrayOpenChange(true);
+  // A start-screen count shows its lane in the tray, as the tray's own indicator would, and moves focus there.
+  const startInfo = useMemo<TarsStartInfo>(() => ({ counts: startCounts, repositories: startRepositories, canPublish: publishing.available, canClear: clearing.available,
+    onOpenCount: (count) => { openTray.current(); focusTarsTrayLane(count.lane, count.responsibilityId); } }),
+  [clearing.available, publishing.available, startCounts, startRepositories]);
   const placement = tarsSideViewPlacement(size ?? { width: 0, height: 0 });
   // The bridge object never changes, so the request view reads again only when its work changes.
   const loadBrief = useMemo<TarsBriefLoader | undefined>(() => api?.getBrief ? (input) => api.getBrief!(input) : undefined, [api]);
@@ -363,11 +378,11 @@ export function TarsView() {
       {/* A notice for ended work reads the work, its run and the tray's handlers from here, to show its result card. */}
       <TarsResultProvider responsibilities={responsibilities} runs={runs} activity={conversation.conversation?.activity} records={records} actions={trayActions}
         agentNameOf={(id) => agentNames.get(id)}>
-      <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
+      <TarsStartContext value={startInfo}><TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
-        composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} />
+        composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} /></TarsStartContext>
       </TarsResultProvider>
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}

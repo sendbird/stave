@@ -506,7 +506,7 @@ in the tray's **Done** and **Outputs** sections, or ask, such as "clear the
 chat" or "done 정리해줘"; Tars then shows a card, and only your **Clear**
 (Enter) applies it. Clearing hides and never deletes: every clear leaves a
 record with **Undo** (**Restore** for the conversation) and stays after a
-restart. A cleared conversation shows the welcome again and Tars's recent
+restart. A cleared conversation shows the start screen again and Tars's recent
 conversation memory starts fresh, but a message still being answered, a
 decision or clear card still waiting for you and words waiting for a task stay
 in view, and **Done** and **Outputs** keep their **Undo**. Only
@@ -518,6 +518,13 @@ While the message box is empty, up to four suggestions sit above it, drawn
 from your work, such as **What needs me?**, **Resume …** or **Show the report
 for …**. A suggestion only fills the message box; nothing is sent until you
 send it.
+
+An empty or cleared conversation shows a start screen: a greeting, **Right
+now** (how many pieces of work need you, are running and finished in the last
+day; each count opens its section of the work list), **Try asking** (example
+requests grouped by what Tars can do, which also only fill the message box)
+and **Where Tars can work** (your registered repositories, or how to add one
+with **Open repository** in the sidebar).
 
 Built-in agents are always available to Tars. Allow a saved agent under
 **Agents Tars may use** before Tars can hand it work. Agents that publish,

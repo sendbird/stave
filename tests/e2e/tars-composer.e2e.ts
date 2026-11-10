@@ -17,9 +17,12 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       // Suggestions (shown above the composer while the message box is empty), then the folded running-work summary, come before the editor in keyboard order; the summary's rows stay out of it until unfolded.
-      await page.locator("[data-tars-guide-toggle]").focus();
+      // Keyboard order starts at the first suggestion: what precedes it (the start screen, and the transcript's scroll button when it overflows) is the transcript's.
+      // While the box holds words there are no suggestions, and the start screen's last example is what precedes the composer.
       const chips = composer.locator("[data-tars-suggestion]");
-      for (let index = 0, count = await chips.count(); index < count; index++) {
+      const count = await chips.count();
+      await (count ? chips.first() : page.locator("[data-tars-start-example]").last()).focus();
+      for (let index = 1; index < count; index++) {
         await page.keyboard.press("Tab");
         await expect(chips.nth(index)).toBeFocused();
       }
@@ -48,7 +51,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
       });
       expect(geometry.focused).toBe(true);
       expect(geometry.borders.every((color) => color === geometry.borders[0])).toBe(true);
-      const unfocused = await page.locator("[data-tars-guide-toggle]").evaluate((node) => { (node as HTMLElement).focus(); return getComputedStyle(document.querySelector('[data-tars-composer] form')!).borderTopColor; });
+      const unfocused = await page.locator("[data-tars-start-example]").last().evaluate((node) => { (node as HTMLElement).focus(); return getComputedStyle(document.querySelector('[data-tars-composer] form')!).borderTopColor; });
       expect(geometry.borders[0]).not.toBe(unfocused);
       expect(geometry.font).toBeGreaterThanOrEqual(16);
       expect(geometry.padding).toBe(geometry.tokenPadding);
@@ -303,7 +306,7 @@ for (const theme of ["light", "dark"]) {
     })).toEqual([danger, danger, danger, danger]);
     await expect(editor).toHaveAttribute("aria-invalid", "true");
     await checkEdges();
-    await page.locator("[data-tars-guide-toggle]").focus();
+    await page.locator("[data-tars-start-example]").last().focus();
     await page.mouse.move(0, 0);
     await checkEdges();
     await form.hover();

@@ -29,6 +29,7 @@ import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 import { createPreviewClearBridge } from "./tars-clear-fixtures";
 import { buildTarsInsightsFixtures } from "./tars-insights-fixtures";
+import { buildTarsStartRepositoryFixtures } from "./tars-start-fixtures";
 import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
 import { buildTarsAwayFixtures, createPreviewAwayBridge, syncTarsAwayPreview, TARS_AWAY_PREVIEW_GAP_MS } from "./tars-away-fixtures";
 
@@ -130,6 +131,11 @@ export function TarsPreview() {
       const ended = new Date(Date.parse(now) - Number(params.get("endedDaysAgo")) * 86_400_000).toISOString();
       snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.state === "completed" || row.state === "cancelled" ? { ...row, updatedAt: ended } : row) };
     }
+    // `start=true`: completed work ended just now by the real clock (the view counts "finished today" from it), so the start screen has some.
+    if (params.get("start") === "true" && !sessionStorage.getItem(identityKey)) {
+      const ended = new Date().toISOString();
+      snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.state === "completed" ? { ...row, updatedAt: ended } : row) };
+    }
     // `decision=unverified`: the run reported success Stave could not verify, so Stave's own decision waits.
     if (params.get("decision") === "unverified" && !sessionStorage.getItem(identityKey)) {
       snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.id !== "preview-responsibility" ? row
@@ -156,7 +162,9 @@ export function TarsPreview() {
     const draftKey = "stave-preview-draft";
     // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
     type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
-    const conversation: PreviewConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (gallery ? structuredClone(gallery.conversation) : followUp
+    const conversation: PreviewConversation = JSON.parse(sessionStorage.getItem(conversationKey) ?? "null") ?? (
+      // `start=true` keeps the conversation empty whatever work the tray holds, so the start screen shows beside it.
+      params.get("start") === "true" ? { settings: null, messages: [], receipts: [], activity: [], records: [] } : gallery ? structuredClone(gallery.conversation) : followUp
       ? { settings: null, messages: [followUp.message], receipts: [], activity: [], records: [], events: followUp.events }
       : side
       ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
@@ -448,7 +456,9 @@ export function TarsPreview() {
     useAppStore.setState({ providerAvailability: { ...useAppStore.getState().providerAvailability, codex: true, "claude-code": true }, repositoryPath: empty ? null : "/tmp/preview", activeWorkspaceId: params.get("workspace") ?? "preview-workspace",
       // Named so a confirmation card can say where the work runs.
       workspaces: empty ? [] : [{ id: "preview-workspace", name: "Release check", updatedAt: now },
-        ...Object.entries(gallery?.workspaceNames ?? {}).map(([id, name]) => ({ id, name, updatedAt: now }))], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: insights?.repositories ?? [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
+        ...Object.entries(gallery?.workspaceNames ?? {}).map(([id, name]) => ({ id, name, updatedAt: now }))], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"],
+      // `insights=true` registers the repositories its views list; `start=true` registers more than the start screen lists.
+      recentRepositories: insights?.repositories ?? (!empty && params.get("start") === "true" ? buildTarsStartRepositoryFixtures(now) : []), openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
     setReady(true);
   }, []);
   // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.
