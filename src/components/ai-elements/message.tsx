@@ -39,6 +39,7 @@ import {
 } from "./code-block";
 import { MarkdownMessage, MessageFileLink } from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
+import { codeBlockLanguageLabel } from "./code-block-language";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
   scaleMessageCodeFontSize,
@@ -342,7 +343,7 @@ export function MessageResponse({
                     }
                   />
                 ) : null}
-                <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
+                <span className={sx(styles.codeLanguage)}>{language ? codeBlockLanguageLabel(language) : i18n.t("composer:message.copy")}</span>
               </CodeBlockTitle>
               <CodeBlockActions>
                 <CodeBlockCopyButton />

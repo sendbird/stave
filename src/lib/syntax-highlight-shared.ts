@@ -74,10 +74,28 @@ function withThemeReplacements(style: string): string {
   );
 }
 
+/** What a unified diff line is, by its first characters; file headers and context lines are neither. */
+export function codeBlockDiffLineKind(text: string): "add" | "remove" | null {
+  if (text.startsWith("+++") || text.startsWith("---")) return null;
+  if (text.startsWith("+")) return "add";
+  if (text.startsWith("-")) return "remove";
+  return null;
+}
+
+/** The fence languages whose lines are a unified diff (after `resolveCodeBlockLanguage`). */
+const DIFF_LANGUAGES = new Set(["diff"]);
+
+interface CodeBlockTransformerContext {
+  options: { lang?: string };
+  source: string;
+}
+
 // Shiki emits its own `<pre>`; style it via a transformer so the layout lives
 // with the component instead of a descendant selector. The body is painted
 // with the app's code surface so custom themes apply to it, and each token's
-// colors go through the theme's replacements.
+// colors go through the theme's replacements. Tabs are 4 columns wide. A
+// diff's added and removed lines are marked (`data-diff`) so `globals.css`
+// can give each row the diff viewer's added/removed wash.
 export const CODE_BLOCK_PRE_TRANSFORMER = {
   name: "stave-codeblock-pre",
   span(node: { properties: Record<string, unknown> }) {
@@ -85,16 +103,25 @@ export const CODE_BLOCK_PRE_TRANSFORMER = {
     if (typeof style !== "string") return;
     node.properties.style = withThemeReplacements(style);
   },
-  pre(node: { properties: Record<string, unknown> }) {
+  line(this: CodeBlockTransformerContext, node: { properties: Record<string, unknown> }, line: number) {
+    if (!DIFF_LANGUAGES.has(this.options.lang ?? "")) return;
+    const kind = codeBlockDiffLineKind(this.source.split("\n")[line - 1] ?? "");
+    if (kind) node.properties["data-diff"] = kind;
+  },
+  pre(this: CodeBlockTransformerContext, node: { properties: Record<string, unknown> }) {
     const existingStyle =
       typeof node.properties.style === "string"
         ? withThemeReplacements(node.properties.style)
         : "";
-    node.properties.style = `margin:0;overflow-x:auto;padding:0.75rem 1rem;${existingStyle};background-color:var(--editor);color:var(--editor-foreground)`;
+    const diff = DIFF_LANGUAGES.has(this.options.lang ?? "");
+    // A diff's rows carry their own inline padding so their wash reaches both edges.
+    const padding = diff ? "0.75rem 0" : "0.75rem 1rem";
+    node.properties.style = `margin:0;overflow-x:auto;padding:${padding};tab-size:4;${existingStyle};background-color:var(--editor);color:var(--editor-foreground)`;
     node.properties.class = [
       ...classList(node.properties.class),
       CODE_BLOCK_PRE_CLASS,
     ].join(" ");
+    if (diff) node.properties["data-diff-block"] = "";
   },
 } as const;
 
