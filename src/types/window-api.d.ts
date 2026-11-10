@@ -3126,6 +3126,8 @@ interface WindowApi {
    * `tars:undo-clear`) hide and restore the conversation view, the tray's
    * Done cards or its outputs, and `configureView` (`tars:configure-view`)
    * saves how long ended work stays in the tray; nothing is deleted.
+   * `getUsage` (`tars:get-usage`) reads what Tars's work spent in a period
+   * from saved turn rows; it changes nothing.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
