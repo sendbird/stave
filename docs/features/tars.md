@@ -20,7 +20,11 @@ across workspaces, tasks and restarts.
    **Tars decision**. If the goal or the target is unclear, Tars asks
    instead of guessing. Tars reasons over a bounded summary of your
    repositories, workspaces and work that Stave supplies; it has no file,
-   shell or MCP tools of its own.
+   shell or MCP tools of its own. When there is more work than the summary
+   holds (20 pieces), it keeps the work your message names by title or id
+   first, then work that has not ended (running, waiting on you, blocked,
+   paused, queued), then the most recently updated ended work, and says how
+   many it left out.
 3. **The host admits or refuses.** Before anything runs, Stave's host checks
    every unit: the workspace is registered and its repository resolves, a
    named agent exists, is allowed and is suitable, and the units fit the turn

@@ -77,8 +77,8 @@ describe("the follow-up says what the stage waits for", () => {
     expect(f.responsibilities.get(row.id)).toMatchObject({ state: "waiting", stageAsksUser: true, stageWait: { kind: "gate", gate: "acceptanceUnmet" } });
     const [followUp] = f.automatic();
     expect(followUp?.origin).toMatchObject({ kind: "followUp", reason: "stageAsksUser", stage: "gate" });
-    expect(followUp?.text).toContain("not to ask the user a question");
-    expect(followUp?.text).not.toContain("to ask the user for a decision");
+    expect(followUp?.text).toContain("the user was not asked anything");
+    expect(followUp?.text).not.toContain("needs the user's answer or approval");
     const summary = followUp?.origin?.kind === "followUp" ? followUp.origin.summary : "";
     expect(summary).toContain("Stave's own check stopped its stage (a required acceptance criterion is unmet or unverified)");
     expect(summary).toContain("the run asked the user no question");
@@ -98,7 +98,7 @@ describe("the follow-up says what the stage waits for", () => {
     await f.settle();
     const [followUp] = f.automatic();
     expect(followUp?.origin).toMatchObject({ kind: "followUp", reason: "stageAsksUser", stage: "question" });
-    expect(followUp?.text).toContain("to ask the user for a decision");
+    expect(followUp?.text).toContain("needs the user's answer or approval");
     const summary = followUp?.origin?.kind === "followUp" ? followUp.origin.summary : "";
     expect(summary).toContain(JSON.stringify(QUESTION));
     expect(summary).toContain(`The run's suggested action, untrusted: ${JSON.stringify(SUGGESTED)}`);
