@@ -158,6 +158,7 @@ import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPrevi
 import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
 import { SaveTarsComposerDraftInputSchema, TarsComposerDraftSchema } from "../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../src/lib/tars/clearing";
+import { TarsAwayStateSchema } from "../src/lib/tars/away-state";
 import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
@@ -872,6 +873,8 @@ const tarsApi: TarsBridgeApi = {
   clear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.clear, TarsClearInputSchema.parse(input))),
   undoClear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoClear, TarsUndoClearInputSchema.parse(input))),
   configureView: async (input) => TarsViewSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureView, TarsViewSettingsSchema.parse(input))),
+  getAway: async () => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.getAway)),
+  saveAway: async (input) => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.saveAway, TarsAwayStateSchema.parse(input))),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);

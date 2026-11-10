@@ -15,6 +15,7 @@ import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
 import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
+import { TarsAwayStateSchema } from "../../../src/lib/tars/away-state";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -51,6 +52,13 @@ export function registerTarsHandlers() {
     (await getTarsConversationService()).undoClear(TarsUndoClearInputSchema.parse(rawInput)));
   ipcMain.handle(TARS_IPC.configureView, async (_event, rawInput: unknown) =>
     (await getTarsConversationService()).configureView(TarsViewSettingsSchema.parse(rawInput)));
+  // When the user last saw the conversation, and the summary on screen. View state only: it changes no work and is never announced.
+  ipcMain.handle(TARS_IPC.getAway, async (_event, rawInput: unknown) => {
+    z.undefined().parse(rawInput);
+    return (await getTarsConversationService()).getAway();
+  });
+  ipcMain.handle(TARS_IPC.saveAway, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).saveAway(TarsAwayStateSchema.parse(rawInput)));
   // An answer names a saved decision and an option index; main reads the option and controls go to the host's act path.
   ipcMain.handle(TARS_IPC.answer, async (_event, rawInput: unknown) => {
     const input = TarsAnswerInputSchema.parse(rawInput);

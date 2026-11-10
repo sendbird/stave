@@ -4,6 +4,7 @@ import {
   tarsTrayCleared,
   type TarsClearInput, type TarsClearRecord, type TarsTrayCleared, type TarsViewSettings,
 } from "../../src/lib/tars/clearing";
+import { TARS_AWAY_INITIAL_STATE, TarsAwayStateSchema, mergeTarsAwayState, type TarsAwayState } from "../../src/lib/tars/away-state";
 import type { TarsResponsibility } from "../../src/lib/tars/types";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 
@@ -42,14 +43,32 @@ export function readTarsOpenPublish(db: ViewDatabase): Set<string> {
   return ids;
 }
 
+/**
+ * The one saved view row: the settings the user chose and what is remembered
+ * about their absence (`away`). Each part is read by itself, so an unreadable
+ * part keeps its default without taking the other with it.
+ */
+function readRow(db: ViewDatabase): Record<string, unknown> {
+  if (!tableExists(db, "tars_view_settings")) return {};
+  const row = db.prepare("SELECT body_json FROM tars_view_settings WHERE id = 'personal'").get() as Pick<StoredRow, "body_json"> | undefined;
+  if (!row) return {};
+  try {
+    const body: unknown = JSON.parse(row.body_json);
+    return body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
+  } catch { return {}; }
+}
+
 /** The view settings saved on this connection; the defaults when none were saved or the table is missing. */
 function readSettings(db: ViewDatabase): TarsViewSettings {
-  if (!tableExists(db, "tars_view_settings")) return TARS_DEFAULT_VIEW_SETTINGS;
-  const row = db.prepare("SELECT body_json FROM tars_view_settings WHERE id = 'personal'").get() as Pick<StoredRow, "body_json"> | undefined;
-  if (!row) return TARS_DEFAULT_VIEW_SETTINGS;
-  // An unreadable row keeps the defaults rather than hiding or showing work on a guess.
-  const parsed = TarsViewSettingsSchema.safeParse(JSON.parse(row.body_json));
+  // Unreadable settings keep the defaults rather than hiding or showing work on a guess.
+  const parsed = TarsViewSettingsSchema.safeParse({ retentionDays: readRow(db).retentionDays });
   return parsed.success ? parsed.data : TARS_DEFAULT_VIEW_SETTINGS;
+}
+
+/** What is saved about the user's absence; nothing seen and no summary when none was saved or it is unreadable. */
+function readAway(db: ViewDatabase): TarsAwayState {
+  const parsed = TarsAwayStateSchema.safeParse(readRow(db).away);
+  return parsed.success ? parsed.data : TARS_AWAY_INITIAL_STATE;
 }
 
 function readArchived(db: ViewDatabase): { done: Set<string>; outputs: Set<string> } {
@@ -117,12 +136,43 @@ export class TarsViewStore {
     return readSettings(this.db);
   }
 
+  /** Writes the row's parts together: saving one never drops the other. */
+  private saveRow(parts: { settings?: TarsViewSettings; away?: TarsAwayState }) {
+    const row = readRow(this.db);
+    const body = { ...(row.retentionDays === undefined ? {} : { retentionDays: row.retentionDays }), ...(row.away === undefined ? {} : { away: row.away }),
+      ...parts.settings, ...(parts.away ? { away: parts.away } : {}) };
+    this.db.prepare(`INSERT INTO tars_view_settings (id, body_json) VALUES ('personal', ?)
+      ON CONFLICT(id) DO UPDATE SET body_json = excluded.body_json`).run(JSON.stringify(body));
+  }
+
   configure(raw: unknown): TarsViewSettings {
     const settings = TarsViewSettingsSchema.parse(raw);
-    this.db.prepare(`INSERT INTO tars_view_settings (id, body_json) VALUES ('personal', ?)
-      ON CONFLICT(id) DO UPDATE SET body_json = excluded.body_json`).run(JSON.stringify(settings));
-    this.changes.emit("conversation", "snapshot");
-    return settings;
+    return this.write(() => {
+      this.saveRow({ settings });
+      this.changes.emit("conversation", "snapshot");
+      return settings;
+    });
+  }
+
+  /** When the user last saw the end of the conversation, and the "while you were away" summary on screen, if any. */
+  getAway(): TarsAwayState {
+    return readAway(this.db);
+  }
+
+  /**
+   * Saves what the window knows about the user's absence, merged with what is
+   * saved (`mergeTarsAwayState`): the seen time never moves backward and a
+   * dismissed summary stays dismissed. The same state again writes nothing,
+   * and nothing is announced: no other surface reads it.
+   */
+  saveAway(raw: unknown): TarsAwayState {
+    const incoming = TarsAwayStateSchema.parse(raw);
+    return this.write(() => {
+      const saved = readAway(this.db);
+      const next = mergeTarsAwayState(saved, incoming);
+      if (next !== saved) this.saveRow({ away: next });
+      return next;
+    });
   }
 
   private read(row: unknown): TarsClearRecord | null {

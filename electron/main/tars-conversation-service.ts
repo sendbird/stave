@@ -16,6 +16,7 @@ import { processTarsMessage, tarsMessageRunIdentity, type TarsPlannerContext } f
 import { isTarsAgentCatalogPending, TarsAgentCatalogPendingError } from "../../src/lib/tars/agents";
 import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema, parseTarsClearProposalRequestId } from "../../src/lib/tars/clearing";
 import { filterTarsConversationView, tarsClearKeeps } from "../../src/lib/tars/clear-view";
+import { TarsAwayStateSchema } from "../../src/lib/tars/away-state";
 
 type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
 interface ConversationPorts {
@@ -360,6 +361,13 @@ export function createTarsConversationService(ports: ConversationPorts) {
     configureView(rawInput: unknown) {
       if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
       return ports.responsibilities.view.configure(TarsViewSettingsSchema.parse(rawInput));
+    },
+    /** When the user last saw the conversation and the summary on screen: view state, readable and writable while the service is stopped. */
+    getAway() {
+      return ports.responsibilities.view.getAway();
+    },
+    saveAway(rawInput: unknown) {
+      return ports.responsibilities.view.saveAway(TarsAwayStateSchema.parse(rawInput));
     },
     /** The composer draft is the user's words, not reasoning work: it stays readable and writable while the service is stopped. */
     getDraft() {
