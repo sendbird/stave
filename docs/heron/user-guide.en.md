@@ -498,12 +498,13 @@ work retains its account and execution choice. A reply is a proposal; action
 outcomes show whether work was admitted, and saved status changes appear back
 in the conversation.
 
-The header shows where your work stands, such as "1 running · 2 waiting ·
-1 needs you · 3 done". **Running** counts only work that is actually running;
-queued, paused and waiting work counts as **waiting**, and work you took over
-as **yours**. Select it to open the work tray; on a wide window the tray stays open
+The header shows where your work stands, such as "1 needs you · 2 in progress ·
+3 done", in the tray's own lane names and with the same numbers its lane
+headers show; running work that needs you is counted under **Needs you**.
+Select it to open the work tray; on a wide window the tray stays open
 beside the conversation. The tray lists **Needs you**, **In progress** and **Done**
-(folded). Each card shows its title, a state tag, the owner, the turns left and
+(folded). A lane header stays at the top of the tray while you scroll its
+cards, and an empty lane stays folded to its header with 0. Each card shows its title, a state tag, the owner, the turns left and
 helpers working when Stave knows them, and what waits on you. State tags never
 share a color: running work alone is blue with the only moving mark, blocked
 work is amber, completed work green, and queued, waiting, paused and taken-over
@@ -559,7 +560,8 @@ word. Updates arrive as soon as Tars saves them, without waiting for a refresh.
 The tray's fourth section, **Outputs**, lists what work produced: the
 **Result report** once a run ended, **Changes** when it changed files, the
 **Review** once the reviewer reported, and links the report recorded, such as a
-pull request (which opens in the browser). The header adds the outputs count,
+pull request (which opens in the browser). Each output shows its kind's icon,
+and at its end whether it opens beside the conversation or in the browser. The header adds the outputs count,
 such as "1 done · 4 outputs", only when there are some. An output, or
 the **Request** icon at the bottom of any work card, opens the side view beside the
 conversation; on a wide window it takes the tray's place at the tray's width, so

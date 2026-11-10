@@ -356,7 +356,7 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Composer**: while work runs, the band above the message box names each
   running piece of work (two at most, then a count), its stage and what Stave
   last observed, with **Timeline**.
-- **Work** tray: the header indicator ("1 running · 2 waiting · 1 needs you")
+- **Work** tray: the header indicator ("1 needs you · 2 in progress · 3 done")
   opens lanes **Needs you**, **In progress**, **Done** and **Outputs**, each card
   with a live run monitor, what Stave observed and its recent progress, and,
   once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
@@ -726,8 +726,14 @@ view's timeline at that stage. Every card, queued work included, also has
 buttons at the end of the card's footer, named by their tooltips, so the card's
 actions keep to one line. The work's branch is the line under the owner, in the
 code face at the same small size. What waits on you sits in a shaded area right
-above the actions: each item's kind (such as **Tars decision waiting**) on a
-short line, then its text across the card's width. Each card wears the same state tag (the state
+above the actions. A Tars decision is one line: an amber mark (read aloud as
+"Tars decision waiting") and the proposal's own text, with **Can't be undone**
+at its end when it applies; other items (such as **Blocked**) put their kind on
+a short line, then their text across the card's width. A card has at most one
+primary action, the Confirm of a waiting Tars proposal, in the danger tone
+when it cannot be undone; the state's own control (**Pause**, **Resume**,
+**Hand back**) and **Open task** are smaller secondary actions of one weight,
+and the rest is in the **More actions** menu. Each card wears the same state tag (the state
 mark and the state's word) as the run panel and Agents. Values the run
 did not record, such as a start time, are left out rather than shown as zero.
 
@@ -735,9 +741,13 @@ did not record, such as a start time, are left out rather than shown as zero.
 the one moving mark (reduced motion settles it); blocked work wears the
 warning tone, completed work the success tone, and queued, waiting, paused and
 taken-over work stays neutral, told apart by its glyph and word. The header
-counts work as **running** only while its run is active (running, or
-preparing with its run created); the rest of **In progress** counts as
-**waiting**, or **yours** once you took it over. The conversation's one-line
+indicator uses the lanes' own names and the numbers their headers show
+("16 need you · 2 in progress · 4 done · 7 outputs"), so the two never
+disagree: running work that needs you is in **Needs you** and counted there.
+The sidebar's Tars entry still counts what is actually running. Each lane
+header keeps its place at the top of the tray while you scroll through it,
+with the chevron beside its name turned down while it is open; an empty lane
+stays folded to its muted header with a zero count until you open it. The conversation's one-line
 notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
 
 **Live progress is observed, never inferred.** Under the monitor, in the flow
@@ -782,7 +792,9 @@ The tray's **Outputs** section lists what each responsibility produced: its
 **Result report** once the run ended, its **Changes** when the run recorded
 changed files, its **Review** once the independent reviewer reported, the
 draft pull request Stave opened after you confirmed it, and the links the
-run's report recorded, which open in the browser. The header indicator adds the outputs count only when there is at
+run's report recorded, which open in the browser. Each row shows its kind's
+icon, and at its end where it opens: a side-panel icon for the side view, an
+arrow for the browser. The header indicator adds the outputs count only when there is at
 least one; **Needs you** keeps counting Fleet's rows.
 
 An output or a card's **Request** opens the side view: one panel about one
