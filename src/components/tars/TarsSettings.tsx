@@ -18,11 +18,13 @@ import { TarsAgentAllowlist } from "./TarsAgentAllowlist";
 import { TARS_RETENTION_DAYS, type TarsViewSettings } from "@/lib/tars/clearing";
 import { isTarsDefaultInstructions } from "@/lib/tars/default-instructions";
 import { tarsClearStyles as clearStyles } from "./tars-clear.styles";
+import { TarsAutonomySettings } from "./TarsAutonomySettings";
+import { TARS_DEFAULT_AUTONOMY } from "@/lib/tars/autonomy";
 
 const PROVIDERS = TARS_EXECUTION_PROVIDERS;
 
 /** Settings without an optional key, so an absent choice keeps its default instead of saving `undefined`. */
-function withoutKey(settings: TarsConversationSettings, key: "executionModel" | "allowedAgentIds"): TarsConversationSettings {
+function withoutKey(settings: TarsConversationSettings, key: "executionModel" | "allowedAgentIds" | "neverDo"): TarsConversationSettings {
   const next = { ...settings };
   delete next[key];
   return next;
@@ -80,6 +82,10 @@ export function TarsSettings({ identity, initial, busy, view: initialView = null
     </div>
     {empty ? <p className={sx(styles.text)}>{t("shell:tars.instructionsEmptyHint")}</p> : null}
     <p className={sx(styles.text)}>{t("shell:tars.instructionsHint")}</p>
+    {/* One choice for how independently Tars acts, with the user's own "never do" rules; saved with the rest of the form. */}
+    <TarsAutonomySettings level={settings.autonomy ?? TARS_DEFAULT_AUTONOMY} rules={settings.neverDo ?? []} disabled={busy}
+      onLevelChange={(autonomy) => setSettings({ ...settings, autonomy })}
+      onRulesChange={(neverDo) => setSettings(neverDo.length ? { ...settings, neverDo } : withoutKey(settings, "neverDo"))} />
     {view ? <div className={sx(styles.field)}>
       <label htmlFor={retentionId}>{t("shell:tars.retention.label")}</label>
       <NativeSelect id={retentionId} controlOnly size="sm" value={String(view.retentionDays)} disabled={busy} data-tars-retention=""
