@@ -11,6 +11,26 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const POPOVER_BELOW = 1088;
 
+/**
+ * The gallery's code blocks load the syntax highlighter's themes in a worker
+ * after the first paint. On a cold dev server those are new dependencies, so
+ * Vite optimizes them and reloads every open page once, possibly mid-test.
+ * Each worker loads the gallery once first and waits for that to pass.
+ */
+test.beforeAll(async ({ browser }) => {
+  test.setTimeout(60_000);
+  const page = await browser.newPage();
+  try {
+    const themes = page.waitForResponse((response) => /github-(light|dark)/.test(response.url()), { timeout: 30_000 }).catch(() => null);
+    await page.goto("/?stavePreview=tars&gallery=true");
+    await themes;
+    await page.waitForEvent("load", { timeout: 5_000 }).catch(() => null);
+    await page.waitForLoadState("networkidle");
+  } finally {
+    await page.close();
+  }
+});
+
 async function tokenPx(page: Page, token: string) {
   return page.evaluate(async (token) => {
     const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
