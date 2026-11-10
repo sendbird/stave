@@ -49,7 +49,7 @@ export function TarsActionRecordLine({ record, title }: { record: TarsActionReco
     : t(`shell:tars.record.operation.${action.operation}`);
   const meta = [t(`shell:tars.record.source.${source}`), record.priority !== undefined ? t("shell:tars.record.priority", { priority: record.priority }) : null]
     .filter(Boolean).join(" · ");
-  return <TarsRecordRow state={TARS_RECORD_STATE[status]} lead={lead} subject={title} meta={meta} status={t(`shell:tars.record.status.${status}`)}
+  return <TarsRecordRow state={TARS_RECORD_STATE[status]} lead={lead} subject={title} meta={meta} status={t(`shell:tars.record.status.${status}`)} at={record.createdAt}
     data-tars-action-record={record.status} data-tars-record-kind={action.kind} data-tars-record-priority={record.priority}
     detail={<>
       {record.status === "rejected" ? <TarsRecordDetail data-tars-reason={record.reason}>{t(tarsControlReasonKey(record.reason))}</TarsRecordDetail> : null}

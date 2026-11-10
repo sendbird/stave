@@ -34,7 +34,7 @@ export function TarsPublishRecordLine({ record, row, title, onRetry }: {
   const link = record.status === "applied" && record.url
     ? <ExternalAnchor href={record.url} className={sx(publishStyles.link)} data-tars-publish-url={record.url}>{t("shell:tars.publish.record.view")}</ExternalAnchor> : null;
   const retry = onRetry ? <Button type="button" size="2xs" variant="ghost" data-tars-publish-retry={record.requestId} onClick={onRetry}>{t("shell:tars.publish.record.retry")}</Button> : null;
-  return <TarsRecordRow state={state} lead={lead} subject={title} meta={t(`shell:tars.record.source.${record.source}`)}
+  return <TarsRecordRow state={state} lead={lead} subject={title} meta={t(`shell:tars.record.source.${record.source}`)} at={record.createdAt}
     data-tars-publish-record={record.status} data-tars-publish-request={record.requestId} aria-live={record.status === "pending" ? "polite" : undefined}
     detail={record.status === "rejected" ? <TarsRecordDetail data-tars-reason={record.reason ?? undefined}>
       {t(`shell:tars.publish.reason.${record.reason ?? "unknown"}`)}

@@ -1266,6 +1266,9 @@
       "sendFailed": {
         "title": "Message not sent",
         "kept": "Your words are still in the message box."
+      },
+      "time": {
+        "yesterdayAt": "Yesterday, {{time}}"
       }
     },
     "record": {

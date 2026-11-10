@@ -35,7 +35,7 @@ export function TarsReceiptRow({ receipt, titleOf, agentNameOf }: {
             : [t("shell:tars.record.reprioritize", { priority: action.priority }), title(action.responsibilityId)];
   const agent = action.kind === "delegate" && action.agentId ? action.agentId : null;
   const refusal = receipt.error ? (() => { const key = tarsReceiptRefusalKey(receipt); return key ? t(key) : receipt.error; })() : null;
-  return <TarsRecordRow state={RECEIPT_STATE[receipt.status]} lead={lead} subject={subject} status={t(`shell:tars.conversation.receipts.${receipt.status}`)}
+  return <TarsRecordRow state={RECEIPT_STATE[receipt.status]} lead={lead} subject={subject} status={t(`shell:tars.conversation.receipts.${receipt.status}`)} at={receipt.createdAt}
     data-tars-receipt={receipt.status} data-tars-receipt-kind={action.kind}
     meta={agent ? <span data-tars-delegate-agent={agent}>{t("shell:tars.conversation.delegateAgent", { name: agentNameOf?.(agent) ?? agent })}</span> : null}
     detail={refusal ? <TarsRecordDetail data-tars-reason={receipt.reason ?? undefined}>{refusal}</TarsRecordDetail> : null} />;

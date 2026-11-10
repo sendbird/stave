@@ -1,4 +1,4 @@
-import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactElement, type ReactNode, type Ref } from "react";
+import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
 import { useTranslation } from "@/i18n";
@@ -42,6 +42,9 @@ import {
   TarsComposerAttachments, TarsConversationError, TarsMessageAttachments, TarsMessageFailure, TarsMessageStatus, TarsMessageTime, useTarsTextScale,
 } from "./TarsMessageChrome";
 import { tarsMessageStyles as chrome } from "./tars-message.styles";
+import { TarsRecordStyleContext, useTarsTranscriptLayout } from "./tars-transcript-layout-context";
+import { layoutTarsTranscript, TarsEdgeTime, type TarsTranscriptEntry } from "./TarsTranscriptLayout";
+import { tarsTranscriptStyles as transcriptStyles } from "./tars-transcript.styles";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -112,18 +115,23 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex)).map((entry) => entry.receipt);
   const origin = message.origin;
   const userWords = !origin;
+  const { timeStyle, daySeparator } = useTarsTranscriptLayout();
+  // `edge`: the time beside the bubble, or at the end of a follow-up's line; without day breaks it names its day.
+  const edgeTime = timeStyle === "edge" ? <TarsEdgeTime at={message.createdAt} withDay={daySeparator === "none"} /> : null;
+  const bubble = message.text ? <div className={sx(chrome.userBubble)} data-tars-user-bubble=""><MessageContent><p className={sx(chrome.messageText)}>{message.text}</p></MessageContent></div> : null;
   return <div className={sx(chrome.exchange)} data-tars-message={message.id} data-tars-message-origin={origin?.kind}>
     {/* Shown on hover or focus, above the message on the side of whoever started the exchange. */}
-    <TarsMessageTime at={message.createdAt} side={userWords ? "end" : "start"} />
+    {timeStyle === "hover" ? <TarsMessageTime at={message.createdAt} side={userWords ? "end" : "start"} /> : null}
     {/* A chosen option is recorded on its card; an automatic follow-up says why it exists. Neither is shown as the user's words. */}
-    {origin?.kind === "reask" ? <TarsRecordList><TarsRecordRow state="info" icon={MessageCircleQuestion} subject={t(`shell:tars.decision.reaskLine.${origin.reason}`)} data-tars-reask="" /></TarsRecordList>
-      : origin?.kind === "followUp" ? <TarsRecordList><TarsRecordRow state="info" icon={RefreshCw} data-tars-follow-up={origin.reason}
+    {origin?.kind === "reask" ? <TarsRecordList><TarsRecordRow state="info" icon={MessageCircleQuestion} subject={t(`shell:tars.decision.reaskLine.${origin.reason}`)} data-tars-reask=""
+      at={message.createdAt} meta={edgeTime} /></TarsRecordList>
+      : origin?.kind === "followUp" ? <TarsRecordList><TarsRecordRow state="info" icon={RefreshCw} data-tars-follow-up={origin.reason} at={message.createdAt} meta={edgeTime}
         subject={t(`shell:tars.followUp.line.${origin.reason === "stageAsksUser" && origin.stage === "gate" ? "stageGate" : origin.reason}`, { title: titleOf?.(origin.responsibilityId) ?? origin.responsibilityId })} /></TarsRecordList>
       : origin?.kind === "answer" ? null
         // The user's words sit on the trailing side in a bubble no wider than they need, under what came with them; Tars's reply reads full-width.
         : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(chrome.userColumn)}>
           <TarsMessageAttachments attachments={message.attachments ?? []} workingChanges={Boolean(message.includeWorkingChanges)} />
-          {message.text ? <div className={sx(chrome.userBubble)} data-tars-user-bubble=""><MessageContent><p className={sx(chrome.messageText)}>{message.text}</p></MessageContent></div> : null}
+          {bubble && edgeTime ? <div className={sx(transcriptStyles.bubbleRow)}>{edgeTime}{bubble}</div> : bubble}
         </div></Message>}
     {message.reply !== null ? <Message from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
       {/* Code, tables and diffs may claim the transcript's wide measure; prose keeps the reading column. */}
@@ -168,24 +176,6 @@ function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pres
   </>;
 }
 
-/**
- * Records that follow each other in the timeline (controls, publish outcomes,
- * notices) share one record list, so a run of them reads as one log block
- * between messages instead of a column of separate lines.
- */
-function groupTarsRecordRuns(entries: Array<ReactNode | { record: ReactElement }>): ReactNode[] {
-  const out: ReactNode[] = [];
-  let run: ReactElement[] = [];
-  const flush = () => { if (run.length) out.push(<TarsRecordList key={`records:${run[0]!.key}`}>{run}</TarsRecordList>); run = []; };
-  for (const entry of entries) {
-    if (entry && typeof entry === "object" && "record" in entry) { run.push(entry.record); continue; }
-    flush();
-    out.push(entry);
-  }
-  flush();
-  return out;
-}
-
 export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
@@ -210,6 +200,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   draftBridge?: Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
 }) {
   const { t } = useTranslation(["shell"]);
+  const layout = useTarsTranscriptLayout();
   // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again. Its files stay for this window.
   const text = useTarsDraftStore((draft) => draft.text);
   const attached = useTarsAttachments();
@@ -322,26 +313,29 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   };
   const unverifiedCard = (activity: { responsibilityId: string; revision: number }) =>
     decisions.find((view) => view.id === tarsUnverifiedDecisionId(activity.responsibilityId, activity.revision));
+  /** One timeline entry: a message's exchange or a card in the flow, or a record that joins its neighbours' list. */
+  const nodeOf = (item: (typeof timeline)[number]): TarsTranscriptEntry["node"] => {
+    if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
+      onResend={() => resend(item.value)}
+      titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} />;
+    if (item.kind === "publish") return { record: <TarsPublishRecordLine key={item.id} record={item.value} row={publish?.rowOf(item.value.responsibilityId)}
+      title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} /> };
+    if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.(item.value.action.responsibilityId)} /> };
+    if (item.kind === "event") return { record: <TarsRecordRow key={item.id} state="halted" data-tars-follow-up-exhausted={item.value.responsibilityId} at={item.at}
+      subject={t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
+    // Stave's unverified-completion choice is a decision card where its blocked notice would be.
+    const card = item.value.activity.detailCode === "unverifiedCompletion" ? unverifiedCard(item.value.activity) : undefined;
+    return card ? <TarsDecisionCard key={item.id} decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} />
+      : { record: <TarsActivityNoticeLine key={item.id} notice={item.value} /> };
+  };
   return <div className={sx(styles.chat, floor && trayStyles.conversationFloor)} style={textScale}>
     <Conversation>
       <ConversationContent scrollScopeKey="personal-representative" autoScrollKey={`${scrollKey}|error:${state.error ?? ""}`} data-testid="tars-transcript">
         {!state.available ? <p role="status">{t("shell:tars.conversation.unavailable")}</p> : null}
         {!state.conversation && state.available && !state.error ? <p role="status">{t("shell:tars.conversation.loading")}</p> : null}
         {state.conversation && !timeline.length ? <TarsWelcome name={name} onExample={insertDraft} /> : null}
-        {groupTarsRecordRuns(timeline.map((item) => {
-          if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
-            onResend={() => resend(item.value)}
-            titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} />;
-          if (item.kind === "publish") return { record: <TarsPublishRecordLine key={item.id} record={item.value} row={publish?.rowOf(item.value.responsibilityId)}
-            title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} /> };
-          if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.(item.value.action.responsibilityId)} /> };
-          if (item.kind === "event") return { record: <TarsRecordRow key={item.id} state="halted" data-tars-follow-up-exhausted={item.value.responsibilityId}
-            subject={t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
-          // Stave's unverified-completion choice is a decision card where its blocked notice would be.
-          const card = item.value.activity.detailCode === "unverifiedCompletion" ? unverifiedCard(item.value.activity) : undefined;
-          return card ? <TarsDecisionCard key={item.id} decision={card} titleOf={titleOf} {...cardContext} busy={state.busy || answering} onAnswer={cardHandler} error={answerErrors.get(card.id)} />
-            : { record: <TarsActivityNoticeLine key={item.id} notice={item.value} /> };
-        }))}
+        <TarsRecordStyleContext value={layout.recordStyle}>
+        {layoutTarsTranscript(timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) })), layout)}
         {publish?.open ? (() => {
           const open = publish.open;
           const row = publish.rowOf(open.responsibilityId);
@@ -355,6 +349,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}
+        </TarsRecordStyleContext>
       </ConversationContent>
       <ConversationScrollButton />
     </Conversation>

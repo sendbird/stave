@@ -209,6 +209,6 @@ const NOTICE_STATE: Record<TarsActivityNotice["kind"], TarsRecordState> = { comp
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
-  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} subject={notice.activity.title}
+  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} subject={notice.activity.title} at={notice.activity.createdAt}
     data-tars-activity={notice.kind} detail={detail ? <TarsRecordDetail>{detail}</TarsRecordDetail> : null} />;
 }

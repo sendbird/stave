@@ -24,10 +24,14 @@ import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-pub
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
 import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
+import { parseTarsTranscriptLayout } from "@/lib/tars/transcript-layout";
+import { TarsTranscriptLayoutContext } from "@/components/tars/tars-transcript-layout-context";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
   const [ready, setReady] = useState(false);
+  // `recordStyle=a|b|c`, `timeStyle=edge|run|grouped`, `daySeparator=rule|pill`: the transcript design options under review; absent, what ships today.
+  const [layout] = useState(() => parseTarsTranscriptLayout(new URLSearchParams(window.location.search)));
   useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
     applyAppLocale(params.get("lang") === "ko" ? "ko" : "en");
@@ -103,9 +107,13 @@ export function TarsPreview() {
     const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" || galleryMode ? buildTarsSideViewFixtures(new Date(now)) : null;
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
     const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
-    const gallery = galleryMode && fixtures && side ? buildTarsGalleryFixtures({ start: new Date(now), korean: params.get("lang") === "ko", tray: fixtures, side }) : null;
-    // The gallery keeps its own saved state per language, so another preview's or language's conversation never replaces it.
-    const identityKey = gallery ? `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}-identity` : "stave-preview-identity";
+    // `days=true` (implied by `timeStyle` and `daySeparator`): the gallery's cases spread over the last week up to now, so day breaks and time runs show.
+    const spread = galleryMode && (params.get("days") === "true" || params.has("timeStyle") || params.has("daySeparator"));
+    const gallery = galleryMode && fixtures && side ? buildTarsGalleryFixtures({ start: new Date(now), korean: params.get("lang") === "ko", tray: fixtures, side,
+      ...(spread ? { spreadUntil: new Date() } : {}) }) : null;
+    // The gallery keeps its own saved state per language (and per spread), so another preview's or language's conversation never replaces it.
+    const galleryKey = `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}${spread ? "-days" : ""}`;
+    const identityKey = gallery ? `${galleryKey}-identity` : "stave-preview-identity";
     let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem(identityKey) ?? "null") ?? {
       runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: now }, pendingDecisions: gallery?.pendingDecisions ?? fixtures?.pendingDecisions ?? [],
       followUps: gallery?.followUps ?? followUp?.followUps ?? [],
@@ -119,7 +127,7 @@ export function TarsPreview() {
         actionIndex: null, operation: null, expectedRevision: 1, proposedAt: now, optionCount: 3 }] };
     }
     let sendFailed = false;
-    const conversationKey = gallery ? `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}-conversation` : "stave-preview-conversation";
+    const conversationKey = gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
     // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
     type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
@@ -385,5 +393,6 @@ export function TarsPreview() {
   // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.
   const closed = useAppStore((state) => state.activeAppSurface.kind === "workspace");
   if (!ready) return null;
-  return closed ? <button type="button" data-preview-reopen-tars="" onClick={() => useAppStore.getState().openTars()}>Open Tars</button> : <TarsView />;
+  return closed ? <button type="button" data-preview-reopen-tars="" onClick={() => useAppStore.getState().openTars()}>Open Tars</button>
+    : <TarsTranscriptLayoutContext value={layout}><TarsView /></TarsTranscriptLayoutContext>;
 }
