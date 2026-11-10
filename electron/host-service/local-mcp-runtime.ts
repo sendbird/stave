@@ -32,6 +32,7 @@ import {
 } from "./delegated-attention";
 import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
+import { carryRendererOwnedShellFields } from "../persistence/task-turn-delta";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
 import type { PersistenceTurnUsage } from "../persistence/types";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
@@ -402,18 +403,26 @@ async function persistWorkspaceSession(args: {
   const persistedShell = store.loadWorkspaceShell({ workspaceId: args.workspaceId });
   const delegatedShell = args.taskId && args.session.tasks.find(task => task.id === args.taskId)?.parentTaskId
     ? persistedShell : null;
+  const tasks = reconcileTasksWithPersistedTitles({
+    tasks: reconciledTasks,
+    persistedTasks: persistedShell?.tasks ?? [],
+  });
+  // Tab and pane state is renderer-owned and this session has no current copy:
+  // omitting it made the next load reopen every live task the user had closed.
+  const carried = carryRendererOwnedShellFields({
+    persistedShell: persistedShell as never,
+    tasks: tasks as never,
+  });
   store.upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
     snapshot: createWorkspaceSnapshot({
       // Delegated progress never owns foreground selection, including legacy fallback writes.
       activeTaskId: delegatedShell ? delegatedShell.activeTaskId : args.session.activeTaskId,
-      tasks: reconcileTasksWithPersistedTitles({
-        tasks: reconciledTasks,
-        persistedTasks: persistedShell?.tasks ?? [],
-      }),
+      tasks,
       messagesByTask: args.changedMessagesByTask ?? args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
+      reviewCommentsByTask: carried.reviewCommentsByTask as never,
       workspaceInformation: args.session.workspaceInformation,
       editorTabs: args.session.editorTabs,
       activeEditorTabId: args.session.activeEditorTabId,
@@ -423,6 +432,10 @@ async function persistWorkspaceSession(args: {
       cliSessionTabs: args.session.cliSessionTabs,
       activeCliSessionTabId: args.session.activeCliSessionTabId,
       activeSurface: args.session.activeSurface,
+      openTaskTabIds: carried.openTaskTabIds,
+      lensTabs: carried.lensTabs as never,
+      paneTabMeta: carried.paneTabMeta as never,
+      dockLayout: carried.dockLayout as never,
       providerSessionByTask: args.session.providerSessionByTask,
     }) as never,
   });

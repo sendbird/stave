@@ -520,6 +520,12 @@ Rules:
   is additive and never deletes omitted rows
 - a host write must not route through `upsertWorkspace` unless
   `persistTaskTurnDelta` declined (missing row or legacy inline payload)
+- a host whole-snapshot write (no task turn to scope it, or a declined delta)
+  takes `openTaskTabIds`, `lensTabs`, `paneTabMeta`, `dockLayout` and
+  `reviewCommentsByTask` from the persisted shell through
+  `carryRendererOwnedShellFields`; it opens a tab only for a top-level task it
+  adds in that write. Omitting `openTaskTabIds` reads as a legacy snapshot and
+  reopens every live task the user had closed
 - there is no synchronous renderer→main persistence IPC; quit asks the
   renderer to flush and waits behind a bounded timeout
 - the renderer keeps at most `MAX_CACHED_WORKSPACE_SESSIONS` inactive
