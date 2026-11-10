@@ -136,9 +136,9 @@ test("record text follows the chat font size, one step under the messages", asyn
         time: font(`${transcript}[data-tars-record-time]`),
       };
     });
-    for (const key of ["lead", "status", "chip", "reason", "sub"] as const) expect(sizes[key], key).toBeCloseTo(size * 0.875, 1);
-    expect(sizes.time).toBeCloseTo(size * 0.75, 1);
-    expect(sizes.day).toBeCloseTo(size * 0.75, 1);
+    for (const key of ["lead", "status", "chip", "reason", "sub"] as const) expect(sizes[key], key).toBe(Math.round(size * 0.875));
+    expect(sizes.time).toBe(Math.round(size * 0.75));
+    expect(sizes.day).toBe(Math.round(size * 0.75));
   }
 });
 

@@ -33,7 +33,7 @@ export function tarsClockLabel(at: string | Date): string {
 export function TarsEdgeTime({ at }: { at: string }) {
   useTranslation();
   return <span className={sx(styles.edgeTime)} data-tars-message-time="edge">
-    <RelativeTime date={at} locale={getIntlLocale()} utcLabel={i18n.t("common:time.utc")} formatRelative={(date) => tarsClockLabel(date)} />
+    <RelativeTime date={at} locale={getIntlLocale()} utcLabel={i18n.t("common:time.utc")} formatRelative={(date) => tarsClockLabel(date)} triggerXstyle={styles.edgeTimeTrigger} />
   </span>;
 }
 

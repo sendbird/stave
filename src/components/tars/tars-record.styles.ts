@@ -1,20 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
 /** Each row is its own container: in a narrow column (a phone, the side view, the pinned tray) the outcome takes its own line under the text. */
 const NARROW = "@container (max-width: 30rem)";
 
 /**
- * Record text follows the chat font size the conversation column publishes
- * (`--tars-text-size`, from the chat font size setting), one step under the
- * messages: 14px beside 16px messages, 17.5px beside 20px ones. Outside the
- * column (the side view) the setting's default, 16px, applies. Never under the
- * caption tier.
+ * Record text takes the conversation scale's secondary step
+ * (`chat-type.stylex.ts`, set by the conversation column from the chat font
+ * size setting): 14px beside 16px messages, 18px beside 20px ones. Outside the
+ * column (the side view) the scale's default, 16px messages, applies.
  */
-const TEXT = `var(--tars-text-size, ${vars["--aui-font-size-lead"]})`;
-const RECORD_TEXT = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
-/** Times: 12px beside 16px messages, the same as a message's own time. */
-const RECORD_TIME = `max(${vars["--aui-font-size-micro"]}, calc(${TEXT} * 0.75))`;
+const RECORD_TEXT = chatType["--chat-type-secondary"];
+/** Times: the scale's meta step, 12px beside 16px messages, the same as a message's own time. */
+const RECORD_TIME = chatType["--chat-type-meta"];
 /** A relative line height, so a larger chat font keeps its leading. */
 const RECORD_LEADING = "1.5";
 
