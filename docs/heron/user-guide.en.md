@@ -516,13 +516,13 @@ progress, not started or stopped), the step count such as "2/3", and
 **Request** are icon buttons at the end of the card, named by their tooltips; the
 work's branch is the line under the owner. Under it the card
 says what Stave observed: what the run's turn is doing now (such as "Running
-the tests · seen just now"), that no turn is running or that no turn activity
+the tests · updated just now"), that no turn is running or that no turn activity
 has reached this window yet, with when the run last changed, or, when nothing
-was observed for five minutes while the work runs, "Nothing observed for 7m ·
+was observed for five minutes while the work runs, "No update for 7m ·
 progress may be out of date" in amber. **Recent
 progress** lists the run's three latest changes with how long ago they
 happened. A value Stave does not know is left out, never shown as zero, and
-work whose run Stave has not observed says "No run observation yet". The card keeps two buttons in view,
+work whose run Stave has not observed says "No progress information yet". When work stops or its step could not start, the card says so in your language and keeps the tool's own message under **Technical details**. The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
 responsibility** are under the card's more-actions menu. Queued work follows
 the work that started, in the order it will start; its main action is **Start now**, which starts it at once beside running work, and its menu adds **Do first**
@@ -546,7 +546,7 @@ the work was handed, a stage to see it on the run timeline, the review stage to
 see the review, or completion to see the result report; **Show in Fleet** is in
 each stage's more menu.
 While work runs, the band above the message box names it, its stage (such as
-"Stage 2 of 3 · Cause, attempt 2") and what Stave last observed, with
+"Phase 2 of 3 · Cause, attempt 2") and what Stave last observed, with
 **Timeline**; beyond two running pieces of work it counts the rest. Where a
 reply Tars is still writing will appear, **Thinking** shimmers beside the moving
 mark. Replies have no name line; a message's time shows above it only while you
@@ -719,12 +719,12 @@ its run or one of its helpers stopped its stage (followed up at once), its compl
 it waited an hour without change (a run you paused, a usage-limit pause, or
 an approval or question you answer in its task), or a question Tars asked
 became invalid. The message
-reads **Automatic follow-up ·** with its reason and the work's title. A stage
+reads **Tars follow-up ·** with its reason and the work's title. A stage
 whose agent asks for your input or permission, or that waits for your
-sign-off, reads **Needs your decision**, and Tars gets the agent's question
+sign-off, reads **Needs your answer or approval**, and Tars gets the agent's question
 and suggested action. A stage that one of Stave's own checks stopped (a
 criterion not met or not verified, no report, a failed action) or that is
-blocked on its environment reads **Needs verification or a next step**, and
+blocked on its environment reads **A Stave check stopped progress**, and
 Tars says what to verify or do next instead of saying it asked you. It can
 ask, propose a resume or cancel that waits for your **Confirm**, change a
 queued priority or open a view. It never starts work by itself (it asks you

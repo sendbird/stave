@@ -197,7 +197,9 @@ describe("binding and invalidation", () => {
     expect(reasks()[0]).toMatchObject({ requestId: `reask:${tarsAskDecisionId(message.id, 0)}`, state: "answered",
       origin: { kind: "reask", decisionId: tarsAskDecisionId(message.id, 0), reason: "targetMoved" } });
     expect(f.requests.at(-1)!.input.prompt).toContain("\"automaticFollowUp\":{\"reason\":\"targetMoved\"");
-    expect(f.conversations.listReceipts(reasks()[0]!.id)).toEqual([expect.objectContaining({ status: "rejected", error: expect.stringContaining("can only ask") })]);
+    expect(f.conversations.listReceipts(reasks()[0]!.id)).toEqual([expect.objectContaining({ status: "rejected", error: expect.stringContaining("can only ask"),
+      // The refusal carries a code, so the conversation shows a translated reason instead of the English diagnostic.
+      reason: "notByFollowUp" })]);
     expect(f.responsibilities.get(row.id)!.state).toBe("takenOver");
     const view = f.decisions().find((entry) => entry.id === tarsAskDecisionId(message.id, 0))!;
     expect(view).toMatchObject({ state: "invalid", why: "targetMoved", reasked: true });

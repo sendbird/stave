@@ -17,6 +17,13 @@ export function tarsReceiptRefusalKey(receipt: TarsActionReceipt) {
 
 const RECEIPT_STATE: Record<TarsActionReceipt["status"], TarsRecordState> = { applied: "applied", pending: "pending", rejected: "refused", proposed: "proposed" };
 
+/** What an applied action did, in its own words ("Work added", "Paused"); other statuses read the same for every action. */
+export function tarsReceiptStatusKey(receipt: Pick<TarsActionReceipt, "status" | "action">) {
+  if (receipt.status !== "applied") return `shell:tars.conversation.receipts.${receipt.status}` as const;
+  const { action } = receipt;
+  return `shell:tars.conversation.receipts.appliedAction.${action.kind === "control" ? action.operation : action.kind}` as const;
+}
+
 /**
  * One action Tars took from a message, as a record row with Tars's mark: what
  * it was asked to do, the work it was done to as a chip (a question as text),
@@ -45,7 +52,7 @@ export function TarsReceiptRow({ receipt, titleOf, agentNameOf }: {
   const agentName = agent ? agentNameOf?.(agent) ?? agent : null;
   const refusal = receipt.error ? (() => { const key = tarsReceiptRefusalKey(receipt); return key ? t(key) : receipt.error; })() : null;
   return <TarsRecordRow state={RECEIPT_STATE[receipt.status]} actor={{ by: "tars", hint: t("shell:tars.record.by.tars") }} lead={lead} subject={subject}
-    status={t(`shell:tars.conversation.receipts.${receipt.status}`)} at={receipt.createdAt}
+    status={t(tarsReceiptStatusKey(receipt))} at={receipt.createdAt}
     data-tars-receipt={receipt.status} data-tars-receipt-kind={action.kind}
     values={<>
       {chip}

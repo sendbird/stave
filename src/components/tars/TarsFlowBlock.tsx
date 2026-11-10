@@ -18,10 +18,11 @@ import type { StageStatus } from "@/lib/agent-runs/domain";
 import { STAGE_STATUS_PRESENTATION } from "@/lib/agent-runs/agent-run-view";
 import { StageStatusIcon } from "@/components/agent-runs/StageStatusIcon";
 import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
-import { describeTarsResponsibilityDetail } from "@/lib/tars/detail";
+import { describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic } from "@/lib/tars/detail";
 import type { TarsActivityNotice, TarsFlow, TarsFlowStage } from "@/lib/tars/flow-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
+import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
 import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
@@ -47,7 +48,7 @@ function NodeMarker({ state }: { state: WorkState }) {
 
 /** "1 of 3 stages done · Running"; the state alone while the run is unread. */
 export function describeTarsFlowSummary(flow: TarsFlow) {
-  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.applied");
+  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.appliedAction.delegate");
   return flow.progress && flow.progress.total > 0
     ? i18n.t("shell:tars.flow.summary", { finished: flow.progress.finished, total: flow.progress.total, state })
     : state;
@@ -209,7 +210,11 @@ const NOTICE_STATE: Record<TarsActivityNotice["kind"], TarsRecordState> = { comp
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
+  const diagnostic = notice.kind === "completed" ? null : describeTarsResponsibilityDiagnostic(notice.activity);
   return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} at={notice.activity.createdAt}
     values={<TarsWorkChip title={notice.activity.title} responsibilityId={notice.activity.responsibilityId} />}
-    data-tars-activity={notice.kind} detail={detail ? <TarsRecordDetail>{detail}</TarsRecordDetail> : null} />;
+    data-tars-activity={notice.kind} detail={detail ? <>
+      <TarsRecordDetail>{detail}</TarsRecordDetail>
+      {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
+    </> : null} />;
 }

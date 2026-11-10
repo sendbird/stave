@@ -137,7 +137,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
       // A follow-up Tars started by itself carries no user mandate: it may only ask.
       if (message.origin?.kind === "reask" && action.kind !== "ask") {
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
-          { status: "rejected", error: "An automatic follow-up can only ask the user; it cannot act." }, now()));
+          { status: "rejected", error: "An automatic follow-up can only ask the user; it cannot act.", reason: "notByFollowUp" }, now()));
         continue;
       }
       // Checked at admission, so work taken over, paused or ended while the planner ran is refused too.
