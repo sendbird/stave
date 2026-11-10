@@ -126,11 +126,11 @@ test("a blocked run gets exactly one automatic follow-up planner turn", async ({
     const fakeCli = path.join(import.meta.dirname, "harness", "fake-claude-cli.cjs");
     const wrapper = path.join(fakeDir, "claude");
     const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=${quote("currentMessage,became blocked")} exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
+    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=${quote("currentMessage,delegated work cannot continue")} exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
     await chmod(wrapper, 0o755);
-    // Only the follow-up message's own text says "became blocked"; the planner's instructions never do.
+    // Only the follow-up message's own text says "delegated work cannot continue"; the planner's instructions never do.
     const followUpCalls = async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean)
-      .map((line) => JSON.parse(line)).filter((entry) => entry.markers?.currentMessage && entry.markers?.["became blocked"]).length;
+      .map((line) => JSON.parse(line)).filter((entry) => entry.markers?.currentMessage && entry.markers?.["delegated work cannot continue"]).length;
     stave = await launchStave({ userDataDir: profileDir, env: { STAVE_CLAUDE_CLI_PATH: wrapper } });
     await seedRepository(stave.page, { repositoryPath, settings: { autoRoutingEnabled: false } });
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input),

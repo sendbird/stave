@@ -7,17 +7,17 @@ import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types
 import type { TarsMessage } from "../../src/lib/tars/conversation";
 
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
-export const TARS_REASK_TEXT = "Automatic follow-up: an earlier decision is no longer valid because its work changed. Ask again only if a choice is still needed.";
+export const TARS_REASK_TEXT = "Automatic follow-up: the work behind an earlier question changed. Review whether the earlier question is still needed after the work changed, and ask again only if a choice is still needed.";
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
 const FOLLOW_UP_TEXT: Readonly<Record<TarsFollowUpReason, string>> = Object.freeze({
-  blocked: "Automatic follow-up: a responsibility became blocked. Judge what it needs next.",
-  unverifiedCompletion: "Automatic follow-up: a responsibility reported completion that Stave could not verify. Judge what it needs next.",
-  verificationFailed: "Automatic follow-up: a responsibility ended with its required criteria unmet or its verification out of date. Judge what it needs next.",
-  stageAsksUser: "Automatic follow-up: a responsibility's run stopped its own stage to ask the user for a decision. Help the user decide what it needs; do not decide for them.",
-  waitExpired: "Automatic follow-up: a responsibility has waited without any change. Judge whether it needs the user or other work.",
+  blocked: "Automatic follow-up: delegated work cannot continue. Judge what it needs next.",
+  unverifiedCompletion: "Automatic follow-up: delegated work reported it was done, but Stave could not confirm it. Judge what it needs next.",
+  verificationFailed: "Automatic follow-up: delegated work ended, but its completion checks are incomplete or need to be repeated. Judge what it needs next.",
+  stageAsksUser: "Automatic follow-up: delegated work needs the user's answer or approval before it can continue. Help the user decide what it needs; do not decide for them.",
+  waitExpired: "Automatic follow-up: delegated work is waiting, and no update arrived during the waiting period. Judge whether it needs the user or other work.",
 });
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
-const STAGE_GATE_TEXT = "Automatic follow-up: a responsibility's run stopped at one of Stave's own checks, not to ask the user a question. Say what needs verification or which next step fits; do not say the run asked the user something.";
+const STAGE_GATE_TEXT = "Automatic follow-up: a Stave check prevented delegated work from progressing; the user was not asked anything. Explain the missing check or the next action that fits. Do not imply the user was asked a question.";
 
 /** Model-facing: why Stave's own check stopped the stage. */
 // i18n-ignore: model-facing context
