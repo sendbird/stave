@@ -55,7 +55,7 @@ describe("Tars preview gallery", () => {
 
   test("notices and publish proposals take their case's state", () => {
     const { conversation, responsibilities } = gallery(false);
-    expect(selectTarsActivityNotices(conversation.activity, conversation.records).map((notice) => notice.kind)).toEqual(["completed", "blocked", "cancelled", "blocked"]);
+    expect(selectTarsActivityNotices(conversation.activity, conversation.records).map((notice) => notice.kind)).toEqual(["completed", "blocked", "cancelled", "blocked", "completed", "completed", "completed", "blocked", "blocked"]);
     const proposals = projectTarsPublishProposals({ receipts: conversation.receipts, publications: conversation.publications ?? [], responsibilities });
     expect(proposals.map((view) => [view.messageId, view.state])).toEqual([["g-l1", "waiting"], ["g-l2", "invalid"], ["g-l4", "settled"]]);
   });

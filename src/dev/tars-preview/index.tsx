@@ -154,7 +154,7 @@ export function TarsPreview() {
       ...collectFleetTarsAttentionItems(collectTarsAttention(snapshot))] } });
     publishAttention();
     if (fixtures || side) {
-      useFleetAgentRunsStore.setState({ details: { ...fixtures?.runs, ...side?.runs }, loaded: true });
+      useFleetAgentRunsStore.setState({ details: { ...fixtures?.runs, ...side?.runs, ...gallery?.runs }, loaded: true });
     }
     conversation.answers ??= [];
     conversation.publications ??= [];
