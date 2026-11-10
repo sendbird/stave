@@ -1,7 +1,8 @@
+import { ArrowDownUp } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import type { TarsActionRecord, TarsMessageDelivery } from "@/lib/tars/conversation";
+import type { TarsActionRecord, TarsActionRecordSource, TarsMessageDelivery } from "@/lib/tars/conversation";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
-import { TarsRecordDetail, TarsRecordRow, TarsRecordSub, type TarsRecordState } from "./TarsRecord";
+import { TarsRecordChip, TarsRecordDetail, TarsRecordRow, TarsRecordSub, TarsWorkChip, type TarsRecordActor, type TarsRecordState } from "./TarsRecord";
 
 /**
  * A record's status as its row reads it. A message kept for a busy task is
@@ -36,21 +37,35 @@ export function TarsMessageDeliveryLine({ delivery }: { delivery: TarsMessageDel
 }
 
 /**
+ * The user did it directly: in Tars by pointer or key, by a short answer in
+ * the conversation, from Fleet, from the task view, or by a drag in the queue.
+ * The record shows a person glyph; the sentence says where.
+ */
+export function useTarsDirectActor(): (source: TarsActionRecordSource) => TarsRecordActor {
+  const { t } = useTranslation(["shell"]);
+  return (source) => ({ by: "you", hint: t(`shell:tars.record.by.you.${source}`) });
+}
+
+/**
  * A click, key, drag or other direct control: one record row, never a user
- * message. What was done (the control or the queue move) and to which work,
- * where it came from and how it came out; a refusal says why on its own line.
+ * message. Who did it (you, and where on hover), what was done (the control
+ * or the queue move), the work as a chip and its new priority, and how it
+ * came out; a refusal says why on its own line.
  */
 export function TarsActionRecordLine({ record, title }: { record: TarsActionRecord; title?: string }) {
   const { t } = useTranslation(["shell"]);
+  const actorOf = useTarsDirectActor();
   const { action, source } = record;
   const status = lineStatus(record);
   const lead = action.kind === "move"
     ? t(`shell:tars.record.move.${source === "drag" ? "drag" : "click"}.${action.move.direction}`)
     : t(`shell:tars.record.operation.${action.operation}`);
-  const meta = [t(`shell:tars.record.source.${source}`), record.priority !== undefined ? t("shell:tars.record.priority", { priority: record.priority }) : null]
-    .filter(Boolean).join(" · ");
-  return <TarsRecordRow state={TARS_RECORD_STATE[status]} lead={lead} subject={title} meta={meta} status={t(`shell:tars.record.status.${status}`)}
-    data-tars-action-record={record.status} data-tars-record-kind={action.kind} data-tars-record-priority={record.priority}
+  const values = <>
+    {title ? <TarsWorkChip title={title} responsibilityId={action.responsibilityId} /> : null}
+    {record.priority !== undefined ? <TarsRecordChip icon={ArrowDownUp} data-tars-record-priority-value="">{t("shell:tars.record.priority", { priority: record.priority })}</TarsRecordChip> : null}
+  </>;
+  return <TarsRecordRow state={TARS_RECORD_STATE[status]} actor={actorOf(source)} lead={lead} values={values} status={t(`shell:tars.record.status.${status}`)} at={record.createdAt}
+    data-tars-action-record={record.status} data-tars-record-kind={action.kind} data-tars-record-priority={record.priority} data-tars-record-source={source}
     detail={<>
       {record.status === "rejected" ? <TarsRecordDetail data-tars-reason={record.reason}>{t(tarsControlReasonKey(record.reason))}</TarsRecordDetail> : null}
       {record.delivery ? <TarsMessageDeliveryLine delivery={record.delivery} /> : null}

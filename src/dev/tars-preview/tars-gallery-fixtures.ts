@@ -16,6 +16,20 @@ type ReceiptOutcome = { status: "applied"; responsibilityId: string } | { status
 /** The host keeps full attachment snapshots; a window reads summaries (`tarsMessageView`). */
 type GalleryConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
 
+/**
+ * `spreadUntil`: each family of cases is one run of two-minute slots on its
+ * own day and hour, so the transcript shows several days (one of them more
+ * than two days back, which names its date) and several runs within a day.
+ * Today's runs count back from that moment, so nothing lands in the future;
+ * opened in the small hours, they fall on yesterday instead.
+ */
+const GALLERY_DAYS = [
+  { match: /^A/, daysAgo: 6, clock: [9, 30] }, { match: /^B/, daysAgo: 6, clock: [14, 10] },
+  { match: /^C/, daysAgo: 2, clock: [10, 0] }, { match: /^D/, daysAgo: 2, clock: [16, 20] },
+  { match: /^E/, daysAgo: 1, clock: [9, 5] }, { match: /^F/, daysAgo: 1, clock: [13, 40] }, { match: /^G/, daysAgo: 1, clock: [18, 15] },
+  { match: /^[HIJ]$/, minutesBefore: 240 }, { match: /^K/, minutesBefore: 120 }, { match: /^[LM]/, minutesBefore: 40 },
+] as const satisfies ReadonlyArray<{ match: RegExp } & ({ daysAgo: number; clock: readonly [number, number] } | { minutesBefore: number })>;
+
 /** A 1×1 PNG: the transcript shows an attachment's name, never its pixels. */
 const PIXEL_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const DIAGNOSTIC = "Preview diagnostic: the host refused this.";
@@ -32,13 +46,16 @@ const DIAGNOSTIC = "Preview diagnostic: the host refused this.";
  *   control for, and the folded outcomes come before the waiting cards.
  * Work comes from the tray and side-view fixtures plus a few rows of its own,
  * so the tray beside the conversation shows the work each card names.
- * Times count from an hour after `start`, two minutes per case.
+ * Times count from an hour after `start`, two minutes per case; with
+ * `spreadUntil` they spread over the week before it instead (`GALLERY_DAYS`).
  */
-export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
+export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUntil }: {
   start: Date;
   korean: boolean;
   tray: ReturnType<typeof buildTarsTrayFixtures>;
   side: ReturnType<typeof buildTarsSideViewFixtures>;
+  /** Spread the cases over the days before this moment, so the transcript's day rules show. */
+  spreadUntil?: Date;
 }) {
   const l = (en: string, ko: string) => korean ? ko : en;
   const history = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();
@@ -95,11 +112,24 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
   const publications: TarsPublishRecord[] = [];
   const pendingDecisions: TarsPendingDecision[] = [];
   let section = 0;
+  const spreadCount = new Map<(typeof GALLERY_DAYS)[number], number>();
+  /** Where a case starts: its two-minute slot after the last, or with `spreadUntil` the next slot in its family's run. */
+  function slotOf(code: string) {
+    const group = spreadUntil ? GALLERY_DAYS.find((entry) => entry.match.test(code)) : undefined;
+    if (!spreadUntil || !group) return galleryStart + section * 120_000;
+    const nth = spreadCount.get(group) ?? 0;
+    spreadCount.set(group, nth + 1);
+    const day = new Date(spreadUntil);
+    if ("minutesBefore" in group) return spreadUntil.getTime() - (group.minutesBefore - nth * 2) * 60_000;
+    day.setDate(day.getDate() - group.daysAgo);
+    day.setHours(group.clock[0], group.clock[1] + nth * 2, 0, 0);
+    return day.getTime();
+  }
   /** The next case: its two-minute slot and the label its user message starts with. */
   function begin(code: string, en: string, ko: string) {
     section += 1;
     cases.push(`${code} · ${en}`);
-    const slot = galleryStart + section * 120_000;
+    const slot = slotOf(code);
     return { at: (second = 0) => new Date(slot + second * 1000).toISOString(), label: `${code} · ${l(en, ko)}` };
   }
   function said(id: string, at: string, text: string, reply: string, actions: TarsDecisionAction[] = [], extra: Partial<TarsMessage> = {}) {

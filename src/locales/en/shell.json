@@ -1274,14 +1274,18 @@
         "pending": "Pending",
         "rejected": "Not applied"
       },
-      "source": {
-        "click": "click",
-        "key": "key",
-        "words": "words",
-        "fleet": "Fleet",
-        "task": "task view",
-        "drag": "drag"
+      "by": {
+        "you": {
+          "click": "You did this in Tars",
+          "key": "You did this in Tars with the keyboard",
+          "words": "You answered in the conversation",
+          "fleet": "You did this in Fleet",
+          "task": "You did this in the task view",
+          "drag": "You dragged this in the queue"
+        },
+        "tars": "Tars did this from your message"
       },
+      "openWork": "Open {{title}}",
       "operation": {
         "pause": "Pause",
         "resume": "Resume",
@@ -2027,7 +2031,8 @@
           "existing": "Draft PR #{{number}} was already open",
           "existingUnnumbered": "A draft PR was already open",
           "rejected": "Not published"
-        }
+        },
+        "pullRequest": "PR #{{number}}"
       },
       "proposal": {
         "invalid": "This publish proposal is no longer valid: the work changed. Ask Tars again or use Create draft PR.",

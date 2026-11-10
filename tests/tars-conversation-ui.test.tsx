@@ -46,9 +46,9 @@ describe("persistent conversation UI", () => {
     expect(html).not.toContain("data-tars-mark");
     expect(html).not.toContain(">My representative<");
   });
-  test("the time is one short relative stamp, out of the flow, that the keyboard can reach", () => {
+  test("the time is the clock beside the user's bubble, before it, as a button the keyboard can reach", () => {
     const html = render({ ...message, state: "answered", reply: "Done.", decision: { reply: "Done.", actions: [] } });
-    expect(html).toMatch(/data-tars-message-time=""><button type="button"[^>]*><time dateTime="2026-11-05T00:00:00.000Z">[^<]+<\/time><\/button>/);
+    expect(html).toMatch(/data-tars-message-time="edge"><button type="button"[^>]*><time dateTime="2026-11-05T00:00:00.000Z">\d{1,2}:\d{2}\s[AP]M<\/time><\/button><\/span><div[^>]*data-tars-user-bubble=""/);
     // No full date line under the bubble any more: the card behind the stamp gives it.
     expect(html).not.toContain("Nov 5, 2026");
     expect(html).not.toContain("data-tars-message-meta");

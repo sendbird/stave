@@ -1268,14 +1268,18 @@
         "pending": "처리 중",
         "rejected": "적용하지 않음"
       },
-      "source": {
-        "click": "클릭",
-        "key": "키보드",
-        "words": "대화",
-        "fleet": "Fleet",
-        "task": "작업 화면",
-        "drag": "드래그"
+      "by": {
+        "you": {
+          "click": "Tars에서 직접 한 일입니다",
+          "key": "Tars에서 키보드로 직접 한 일입니다",
+          "words": "대화에서 직접 답한 일입니다",
+          "fleet": "Fleet에서 직접 한 일입니다",
+          "task": "작업 화면에서 직접 한 일입니다",
+          "drag": "대기열에서 직접 끌어 옮긴 일입니다"
+        },
+        "tars": "내 메시지를 보고 Tars가 한 일입니다"
       },
+      "openWork": "{{title}} 열기",
       "operation": {
         "pause": "일시 정지",
         "resume": "재개",
@@ -1998,7 +2002,8 @@
           "existing": "Draft PR #{{number}} 이미 열려 있음",
           "existingUnnumbered": "Draft PR 이미 열려 있음",
           "rejected": "게시하지 않음"
-        }
+        },
+        "pullRequest": "PR #{{number}}"
       },
       "proposal": {
         "invalid": "작업이 바뀌어 이 게시 제안은 더 이상 유효하지 않습니다. Tars에게 다시 요청하거나 Draft PR 만들기를 눌러 주세요.",

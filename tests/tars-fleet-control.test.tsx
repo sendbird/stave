@@ -202,10 +202,11 @@ describe("Fleet controls on Tars-owned work", () => {
       const state = { conversation, error: null, busy: false, available: true, refresh: async () => {} } as unknown as TarsConversationState;
       const render = () => renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", titleOf: () => "Verified result",
         initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }));
-      expect(tarsRecordText(render())).toContain("Pause Verified result Fleet Applied");
-      expect(tarsRecordText(render())).toContain("Take over Verified result Fleet Applied");
+      expect(tarsRecordText(render())).toContain("Pause Verified result Applied");
+      expect(tarsRecordText(render())).toContain("Take over Verified result Applied");
+      expect(render()).toContain('aria-label="You did this in Fleet"');
       applyAppLocale("ko"); await i18n.changeLanguage("ko");
-      try { expect(tarsRecordText(render())).toContain("일시 정지 Verified result Fleet 적용됨"); } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
+      try { expect(tarsRecordText(render())).toContain("일시 정지 Verified result 적용됨"); } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     } finally { host.close(); }
   });
 
@@ -377,8 +378,9 @@ describe("task view run controls on Tars-owned work", () => {
       const state = { conversation, error: null, busy: false, available: true, refresh: async () => {} } as unknown as TarsConversationState;
       applyAppLocale("ko"); await i18n.changeLanguage("ko");
       try {
-        expect(tarsRecordText(renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }))))
-          .toContain("직접 맡기 작업 화면 적용됨");
+        const html = renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }));
+        expect(tarsRecordText(html)).toContain("직접 맡기 적용됨");
+        expect(html).toContain('aria-label="작업 화면에서 직접 한 일입니다"');
       } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     } finally { host.close(); }
   });

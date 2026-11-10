@@ -117,7 +117,8 @@ describe("Tars settings agent allowlist", () => {
       error: "Host diagnostic text.", reason: "agentNotAllowed", revision: 2, createdAt: NOW, updatedAt: NOW };
     const html = () => renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [receipt], name: "Tars", busy: false, onCancel() {},
       agentNameOf: (id) => id === "release-notes" ? "Release notes" : undefined }));
-    expect(html()).toContain("Agent: Release notes");
+    // The agent is a value chip with its name; "Agent: …" is its tooltip.
+    expect(html()).toMatch(/data-tars-delegate-agent="release-notes"[^>]*>.*Release notes/);
     expect(html()).toContain("This saved agent is not allowed for Tars.");
     expect(html()).not.toContain("Host diagnostic text.");
     applyAppLocale("ko"); await i18n.changeLanguage("ko");

@@ -130,7 +130,10 @@ describe("decision card states", () => {
     const answer: TarsDecisionAnswer = { decisionId: "ask:message:0", optionIndex: 1, source: "words", effect: { kind: "reply" }, label: "Keep it running",
       status: "applied", reason: null, error: null, actRequestId: null, messageId: "answer", revision: 2, createdAt: NOW, updatedAt: NOW };
     const answered = rendered(ask({ state: "answered", answer })).html;
-    expect(tarsRecordText(answered)).toContain("Keep it running Should I pause the release check? words Answered");
+    // Who answered and how is the person glyph's sentence, not a source word in the line.
+    expect(tarsRecordText(answered)).toContain("Keep it running Should I pause the release check? Answered");
+    expect(answered).toContain('data-tars-record-actor="you"');
+    expect(answered).toContain('aria-label="You answered in the conversation"');
     expect(answered).not.toContain("<button");
     const invalid = rendered(ask({ state: "invalid", why: "targetMoved", reask: true })).html;
     expect(invalid).toContain("No longer valid: the work changed after this was asked.");
@@ -138,7 +141,7 @@ describe("decision card states", () => {
     expect(invalid).not.toContain("<button");
     expect(rendered(ask({ state: "invalid", why: "targetEnded", reasked: true })).html).toContain("Tars asked again below.");
     const rejected = rendered(ask({ state: "answered", answer: { ...answer, optionIndex: 0, label: "Pause it now", source: "click", status: "rejected", reason: "stale", error: "Stale." } })).html;
-    expect(tarsRecordText(rejected)).toContain("Pause it now Should I pause the release check? click Not applied");
+    expect(tarsRecordText(rejected)).toContain("Pause it now Should I pause the release check? Not applied");
     expect(rejected).toContain("This work changed after you last saw it.");
   });
 
@@ -165,7 +168,8 @@ describe("decision card states", () => {
       label: null, status: "rejected", reason: "unknown", error: "Unreachable.", actRequestId: "answer:unverified:goal:4", messageId: null, revision: 2, createdAt: NOW, updatedAt: NOW };
     const html = rendered(unverified({ failure })).html;
     expect(html).toContain('data-tars-decision-attempt="rejected"');
-    expect(tarsRecordText(html)).toContain("Cancel responsibility click Not applied");
+    expect(tarsRecordText(html)).toContain("Cancel responsibility Not applied");
+    expect(html).toContain('aria-label="You did this in Tars"');
     // The options are radios; Answer is the card's one button here.
     expect((html.match(/<button/g) ?? []).length).toBe(1);
     expect((html.match(/type="radio"/g) ?? []).length).toBe(3);
