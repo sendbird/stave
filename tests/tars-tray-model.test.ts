@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildTarsRecap, buildTarsTray, tarsCardActions, tarsControlsFor, tarsPendingProposalKeys, tarsStageSegments, tarsStepCount, tarsTrayStatus } from "../src/lib/tars/tray-model";
+import { buildTarsTray, tarsCardActions, tarsControlsFor, tarsPendingProposalKeys, tarsStageSegments, tarsStepCount, tarsTrayStatus } from "../src/lib/tars/tray-model";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 
@@ -145,37 +145,5 @@ describe("Tars run monitor model", () => {
     expect(tarsStepCount(ended)).toEqual({ position: 1, total: 3 });
     // No stages is an unknown count, not "0/0".
     expect(tarsStepCount({ stages: [], current: null, finished: 0, total: 0 })).toBeNull();
-  });
-});
-
-describe("while you were away", () => {
-  const at = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();
-  const recapOf = (patch: Partial<Parameters<typeof buildTarsRecap>[0]> = {}) => {
-    const f = fixtures();
-    const failed: TarsResponsibility = { ...f.responsibilities[3]!, id: "queue", title: "Migrate the export queue", state: "cancelled", updatedAt: at(20) };
-    const model = buildTarsTray({ responsibilities: [...f.responsibilities, failed], attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
-    return buildTarsRecap({ model, since: at(-60), until: at(60), pendingDecisions: f.pendingDecisions, ...patch });
-  };
-
-  test("counts what came to need you, ended unfinished or finished between the last visit and this one, needs you first", () => {
-    const recap = recapOf()!;
-    expect(recap.counts).toEqual({ needsYou: 1, failed: 1, done: 1 });
-    expect(recap.items.map((item) => [item.kind, item.responsibilityId])).toEqual([["needsYou", "release"], ["failed", "queue"], ["done", "docs"]]);
-    // Each opens its place in the side view: a result report for finished work, the timeline otherwise.
-    expect(recap.items.map((item) => item.side.kind)).toEqual(["timeline", "timeline", "report"]);
-    // A proposal made while away is when the work came to need you.
-    expect(recap.items[0]!.at).toBe(at(6));
-    expect(recap.more).toBe(0);
-  });
-
-  test("nothing on a first visit, nothing outside the away span, and a cancel the user applied is not a failure", () => {
-    expect(recapOf({ since: null })).toBeNull();
-    expect(recapOf({ since: at(60), until: at(30) })).toBeNull();
-    // Changes made while the view was open belong to the visit, not the time away.
-    expect(recapOf({ since: at(-60), until: at(-1) })).toBeNull();
-    expect(recapOf({ cancelledByYou: new Set(["queue"]) })!.counts).toEqual({ needsYou: 1, failed: 0, done: 1 });
-    const limited = recapOf({ limit: 2 })!;
-    expect(limited.items).toHaveLength(2);
-    expect(limited.more).toBe(1);
   });
 });

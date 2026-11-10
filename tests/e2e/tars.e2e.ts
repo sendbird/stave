@@ -805,41 +805,6 @@ test("a running card is a run monitor: current stage with a live clock, one segm
   await expect(timeline).toBeFocused();
 });
 
-for (const width of [1280, 420]) {
-  test(`after time away the tray opens with a recap that links into the side view and can be dismissed (${width})`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 900 });
-    await page.goto("/?stavePreview=tars&tray=true&recap=true");
-    const view = page.getByTestId("tars-view");
-    if (width < 1088) await view.locator("[data-tars-tray-indicator]").click();
-    const recap = page.locator("[data-tars-recap]");
-    await expect(recap).toContainText("While you were away");
-    await expect(recap.locator("[data-tars-recap-counts]")).toContainText("1 needs you");
-    await expect(recap.locator("[data-tars-recap-counts]")).toContainText("1 failed");
-    await expect(recap.locator("[data-tars-recap-counts]")).toContainText("1 done");
-    await expect(recap.locator("[data-tars-recap-item]")).toHaveCount(3);
-    const geometry = await recap.evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
-    expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
-    await recap.getByRole("button", { name: "Open Update the setup guide: Done", exact: true }).click();
-    await expect(view.locator('[data-tars-side-view="report"]')).toBeVisible();
-    await page.keyboard.press("Escape");
-    if (width < 1088) await view.locator("[data-tars-tray-indicator]").click();
-    await page.locator("[data-tars-recap-dismiss]").click();
-    await expect(page.locator("[data-tars-recap]")).toHaveCount(0);
-  });
-}
-
-test("the recap is hidden on a first visit and when nothing changed since the last one", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/?stavePreview=tars&tray=true");
-  await expect(page.getByRole("complementary").locator("[data-tars-card]").first()).toBeVisible();
-  await expect(page.locator("[data-tars-recap]")).toHaveCount(0);
-  // The view was visible until now, and the fixtures changed before that.
-  expect(await page.evaluate(() => localStorage.getItem("stave:tars:lastVisibleAt"))).not.toBeNull();
-  await page.reload();
-  await expect(page.getByRole("complementary").locator("[data-tars-card]").first()).toBeVisible();
-  await expect(page.locator("[data-tars-recap]")).toHaveCount(0);
-});
-
 test("a confirmation card names its effect, marks what cannot be undone, and Esc leaves it waiting for the message box", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?stavePreview=tars&proposal=cancel");

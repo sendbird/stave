@@ -6,7 +6,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
 import { TarsCardActions, TarsTray, TarsTrayCard, TarsTrayStatusNote, TarsTrayToggle, describeTarsTrayCounts, type TarsTrayActions } from "../src/components/tars/TarsTray";
 import { TarsRunMonitor } from "../src/components/tars/TarsRunMonitor";
-import { TarsAwayRecap } from "../src/components/tars/TarsAwayRecap";
 import type { TarsSideViewTarget } from "../src/lib/tars/side-view";
 import { TarsFlowBlock, TarsFlowNodes, TarsFlowStageNode } from "../src/components/tars/TarsFlowBlock";
 import { TarsConversation, TarsConversationMessage, type TarsFlowContext } from "../src/components/tars/TarsConversation";
@@ -38,7 +37,7 @@ function capture(render: () => ReactNode) {
     // A "More actions" menu's items act like buttons once it is open.
     for (const item of props.groups?.flatMap((group) => group.items) ?? []) handlers.push({ label: item.label, onClick: item.onSelect });
     visit(props.children);
-    // The run objects (AUI RunMonitor card and recap) take their controls through slots.
+    // The run objects (AUI RunMonitor card) take their controls through slots.
     visit(props.actions);
     visit(props.trailingActions);
   };
@@ -273,7 +272,7 @@ describe("Tars flow block", () => {
   });
 });
 
-describe("run monitor and away recap", () => {
+describe("run monitor", () => {
   test("the timeline link opens the run's timeline at the stage it is on; no start time means no clock", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
@@ -287,31 +286,6 @@ describe("run monitor and away recap", () => {
     const quiet = renderToStaticMarkup(createElement(TarsRunMonitor, { row: card.row, progress: unstarted }));
     expect(quiet).not.toContain("data-tars-monitor-elapsed");
     expect(quiet).toContain("Now: Cause, attempt 2");
-  });
-
-  test("the recap shows only counts that happened, lists its changes as side view links and dismisses as a view-only action", async () => {
-    const recap = { since: "2026-11-05T00:00:00.000Z", counts: { needsYou: 1, failed: 0, done: 2 }, more: 1,
-      items: [{ responsibilityId: "release", title: "Verify the release candidate", kind: "needsYou" as const, at: "2026-11-05T00:06:00.000Z", side: { responsibilityId: "release", kind: "timeline" as const } },
-        { responsibilityId: "docs", title: "Update the setup guide", kind: "done" as const, at: "2026-11-05T00:03:00.000Z", side: { responsibilityId: "docs", kind: "report" as const } }] };
-    let dismissed = 0;
-    const opened: TarsSideViewTarget[] = [];
-    const { html, press } = capture(() => TarsAwayRecap({ recap, onOpenSide: (target) => opened.push(target), onDismiss: () => { dismissed++; } }));
-    expect(html).toContain("While you were away");
-    expect(html).toContain('data-tars-recap-count="needsYou"');
-    expect(html).toContain('data-tars-recap-count="done"');
-    expect(html).not.toContain('data-tars-recap-count="failed"');
-    expect(html).toContain("1 needs you");
-    expect(html).toContain("2 done");
-    expect(html).toContain("And 1 more in the lanes below.");
-    expect(html).toContain('aria-label="Open Update the setup guide: Done"');
-    press("Open Update the setup guide: Done");
-    expect(opened).toEqual([{ responsibilityId: "docs", kind: "report" }]);
-    press("Dismiss the summary of changes while you were away");
-    expect(dismissed).toBe(1);
-    applyAppLocale("ko"); await i18n.changeLanguage("ko");
-    const korean = renderToStaticMarkup(createElement(TarsAwayRecap, { recap, onDismiss() {} }));
-    for (const text of ["자리를 비운 사이", "확인 필요 1", "끝남 2"]) expect(korean).toContain(text);
-    applyAppLocale("en"); await i18n.changeLanguage("en");
   });
 });
 

@@ -23,7 +23,7 @@ import {
 import { tarsQueueOf } from "@/lib/tars/queue-order";
 import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { buildTarsFlow, isAppliedDelegateReceipt, tarsRunOf } from "@/lib/tars/flow-model";
-import { buildTarsRecap, buildTarsTray, tarsTrayNextFollowUpChange, tarsTrayStatus, type TarsTrayDecision } from "@/lib/tars/tray-model";
+import { buildTarsTray, tarsTrayNextFollowUpChange, tarsTrayStatus, type TarsTrayDecision } from "@/lib/tars/tray-model";
 import { buildTarsRuntimeHints } from "@/lib/tars/runtime-hints";
 import { buildTarsOutputs } from "@/lib/tars/outputs-model";
 import { projectTarsDecisions, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
@@ -41,8 +41,6 @@ import { TarsResultProvider } from "./TarsResultCard";
 import { useTarsExecutionPath, useTarsRunDetails } from "./use-tars-run-details";
 import { TarsSettings } from "./TarsSettings";
 import { TarsTray, TarsTrayStatusNote, TarsTrayToggle, type TarsTrayActions } from "./TarsTray";
-import { TarsAwayRecap } from "./TarsAwayRecap";
-import { useTarsAwayWindow } from "./use-tars-away";
 import { useTarsPublish } from "./use-tars-publish";
 import { TarsPublishEntry } from "./TarsPublishEntry";
 import { TarsLiveLineFor, TarsRunningStrip } from "./TarsLiveProgress";
@@ -136,12 +134,7 @@ export function TarsView() {
     [attentionItems, cleared?.done, responsibilities, runs, snapshot?.pendingDecisions, snapshot?.followUps, followUpNow]);
   const trayStatus = tarsTrayStatus({ bridge: Boolean(api), snapshot, error });
   const workspaces = useAppStore((state) => state.workspaces);
-  const away = useTarsAwayWindow();
   const records = conversation.conversation?.records;
-  // A cancel the user applied is theirs, not work that failed while they were away.
-  const recap = useMemo(() => buildTarsRecap({ model: tray, since: away.since, until: away.until, pendingDecisions: snapshot?.pendingDecisions,
-    cancelledByYou: new Set((records ?? []).filter((record) => record.status === "applied" && record.action.kind === "control" && record.action.operation === "cancel").map((record) => record.action.responsibilityId)) }),
-  [away.since, away.until, records, snapshot?.pendingDecisions, tray]);
   const rowOf = useCallback((id: string) => responsibilities.find((row) => row.id === id), [responsibilities]);
   const workspaceNameOf = useCallback((id: string) => workspaces.find((workspace) => workspace.id === id)?.name, [workspaces]);
   /** Opens the side view and remembers what opened it, so closing returns focus there. */
@@ -344,7 +337,6 @@ export function TarsView() {
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
     : <>{responsibilities.length ? <>
-      {recap && !away.dismissed ? <TarsAwayRecap recap={recap} onOpenSide={openSide} onDismiss={away.dismiss} /> : null}
       <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} surface={pinned ? "canvas" : "raised"} />
     </> : <p className={sx(styles.text)}>{t("shell:tars.conversation.noWork")}</p>}{schedulesSection}</>;
   // Wide, the side view takes the tray's column and the tray folds to its indicator until the side view closes.

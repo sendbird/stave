@@ -2087,26 +2087,6 @@
       "exhausted": "Tars stopped checking on {{title}} automatically because it reached its limit for automatic follow-ups. Send a message to continue.",
       "superseded": "Tars skipped this follow-up because the work changed first."
     },
-    "recap": {
-      "title": "While you were away",
-      "since": "Since {{time}}",
-      "needsYou_one": "{{count}} needs you",
-      "needsYou_other": "{{count}} need you",
-      "failed_one": "{{count}} failed",
-      "failed_other": "{{count}} failed",
-      "done_one": "{{count}} done",
-      "done_other": "{{count}} done",
-      "kind": {
-        "needsYou": "Needs you",
-        "failed": "Failed",
-        "done": "Done"
-      },
-      "open": "Open {{title}}: {{kind}}",
-      "openAction": "Open",
-      "more_one": "And {{count}} more in the lanes below.",
-      "more_other": "And {{count}} more in the lanes below.",
-      "dismiss": "Dismiss the summary of changes while you were away"
-    },
     "away": {
       "title": "While you were away",
       "since": "Since {{time}}",

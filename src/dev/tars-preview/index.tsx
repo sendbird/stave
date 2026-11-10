@@ -19,7 +19,6 @@ import { useFleetFocusStore } from "@/store/fleet-focus-store";
 import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
 import { buildTarsTrayFixtures } from "./tars-fixtures";
 import { buildTarsBriefFixtures } from "./tars-brief-fixtures";
-import { TARS_LAST_VISIBLE_KEY } from "@/components/tars/use-tars-away";
 import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
 import { buildTarsPublishFixtures, createPreviewPublishBridge } from "./tars-publish-fixtures";
@@ -48,7 +47,7 @@ export function TarsPreview() {
     if (params.has("conversationWidth")) useAppStore.setState((state) => ({ settings: { ...state.settings, conversationWidth: normalizeConversationWidth(params.get("conversationWidth")) } }));
     const now = "2026-11-05T00:00:00.000Z";
     // `gallery=true`: every conversation case on one screen for design review (`tars-gallery-fixtures.ts`). Its cards need real work
-    // to point at, so it always brings the tray and side-view work; the switches built on them (`live`, `queue`, `recap`...) still apply.
+    // to point at, so it always brings the tray and side-view work; the switches built on them (`live`, `queue`...) still apply.
     const galleryMode = params.get("gallery") === "true";
     // `tray=true`: work in every tray lane, Fleet rows and agent runs for it, and a delegated flow in the conversation.
     const fixtures = params.get("tray") === "true" || galleryMode ? buildTarsTrayFixtures(new Date(now)) : null;
@@ -82,12 +81,6 @@ export function TarsPreview() {
           workGraph: { nodes: {}, rootIds: [] } as never,
         } } });
       }
-    }
-    // `recap=true`: the view was last visible an hour before the fixtures changed, and one more piece of work ended unfinished.
-    if (fixtures && params.get("recap") === "true") {
-      window.localStorage.setItem(TARS_LAST_VISIBLE_KEY, new Date(Date.parse(now) - 60 * 60_000).toISOString());
-      fixtures.responsibilities.push({ ...fixtures.responsibilities[3]!, id: "export-queue", requestId: "request-export-queue", title: "Migrate the export queue to the new worker",
-        state: "cancelled", detail: "The worker image was not available.", taskId: null, agentRunId: null, executionWorkspaceId: null });
     }
     // `queued=true`: one more piece of work waits at an explicitly configured admission limit.
     if (fixtures && params.get("queued") === "true") fixtures.responsibilities.push({ ...fixtures.responsibilities[1]!, id: "search-index", requestId: "request-search-index",

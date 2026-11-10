@@ -48,6 +48,8 @@ test("leaving, work going on and coming back shows one summary where the user le
   await stepAway(page, 30);
   await expect(card(page)).toBeVisible();
   await expect(card(page)).toHaveCount(1);
+  // The conversation's summary is the only one: the work tray has no recap of its own.
+  await expect(page.getByRole("heading", { name: "While you were away" })).toHaveCount(1);
   for (const [kind, count] of [["waiting", 1], ["blocked", 2], ["finished", 4], ["pullRequests", 1]] as const)
     await expect(card(page).locator(`[data-tars-away-group="${kind}"]`)).toHaveAttribute("data-tars-away-count", String(count));
   await expect(card(page)).toContainText("1 decision is waiting for you");
