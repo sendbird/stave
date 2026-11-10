@@ -1465,7 +1465,9 @@
           "changesRequested": "리뷰 · 수정 요청",
           "none": "리뷰"
         },
-        "open": "{{title}}의 {{label}} 열기"
+        "open": "{{title}}의 {{label}} 열기",
+        "opensSide": "대화 옆에서 열림",
+        "opensExternal": "브라우저에서 열림"
       },
       "openReport": "보고서 열기",
       "followUp": {

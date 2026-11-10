@@ -144,21 +144,29 @@ export const tarsTrayStyles = stylex.create({
   attentionMarkBox: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"] },
   attentionInlineText: { flex: 1 },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
-  /** One output: what it is (the opener), then whose work it came from. */
-  output: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], paddingBlock: vars["--aui-space-8"] },
-  outputButton: {
-    display: "flex", alignItems: "center", justifyContent: "flex-start", width: "100%", minWidth: 0,
-    minHeight: vars["--aui-control-height-sm"], paddingInline: vars["--aui-space-4"],
-    borderRadius: vars["--aui-radius-control"], textAlign: "start", whiteSpace: "normal",
+  /** One output: a single row that opens it, on the hairline rhythm. */
+  output: { paddingBlock: vars["--aui-space-4"] },
+  /**
+   * The output's row, a side-view button or an external link drawn alike: its
+   * kind's glyph, what it is over whose work it came from, then where it opens
+   * (the side view or the browser). Hover lays the quiet-control wash and
+   * keyboard focus draws the AUI ring.
+   */
+  outputRow: {
+    display: "flex", alignItems: "flex-start", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0,
+    minHeight: vars["--aui-control-height-sm"], paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"],
+    borderRadius: vars["--aui-radius-control"], textAlign: "start", whiteSpace: "normal", color: vars["--aui-color-text"], textDecorationLine: "none",
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover) and (pointer: fine)": { default: "transparent", ":hover": vars["--aui-color-overlay-hover"], ":active": vars["--aui-color-overlay-pressed"] },
+    },
   },
-  /** The opener's own inline pad, so the label and the work it came from start on one edge. */
-  outputMeta: { paddingInline: vars["--aui-space-4"] },
-  outputLink: {
-    display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0, minHeight: vars["--aui-control-height-sm"], paddingInline: vars["--aui-space-4"],
-    color: vars["--aui-color-accent"], fontSize: vars["--aui-font-size-body"], textDecoration: { default: "none", ":hover": "underline" },
-  },
-  outputLabel: { minWidth: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
+  /** The glyph's box is the label's line, so it centres on the first line however the text wraps. */
+  outputGlyph: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"], color: vars["--aui-color-text-muted"] },
   outputIcon: { flexShrink: 0, width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"] },
+  outputText: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], flex: 1, minWidth: 0 },
+  outputLabel: { minWidth: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  outputMeta: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
   empty: { margin: 0, paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"] },
 });
 

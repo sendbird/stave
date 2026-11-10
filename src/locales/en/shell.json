@@ -1479,7 +1479,9 @@
           "changesRequested": "Review · changes requested",
           "none": "Review"
         },
-        "open": "Open {{label}} for {{title}}"
+        "open": "Open {{label}} for {{title}}",
+        "opensSide": "Opens beside the conversation",
+        "opensExternal": "Opens in your browser"
       },
       "openReport": "Open report",
       "followUp": {

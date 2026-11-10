@@ -143,8 +143,9 @@ describe("tray outputs", () => {
     const opened: TarsSideViewTarget[] = [];
     const view = capture(() => TarsOutputList({ outputs, onOpenSide: (target) => opened.push(target) }));
     expect(view.html).toContain('href="https://example.com/acme/shop/pull/42"');
-    view.press("Changes · 2 files");
-    view.press("Review · passed");
+    // A row reads as what it is, then whose work it came from.
+    view.press(view.labels.find((label) => label.startsWith("Changes · 2 files"))!);
+    view.press(view.labels.find((label) => label.startsWith("Review · passed"))!);
     expect(opened).toEqual([{ responsibilityId: "checkout", kind: "changes" }, { responsibilityId: "checkout", kind: "review" }]);
     expect(renderToStaticMarkup(createElement(TarsOutputList, { outputs: [] }))).toContain("Nothing has been produced yet.");
   });
@@ -248,5 +249,26 @@ describe("side-view panels", () => {
       titleOf: () => "Show the saved card first at checkout" }));
     expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout Accepted for execution");
     expect(i18n.language).toBe("en");
+  });
+});
+
+describe("tray output rows", () => {
+  test("every output row states its kind with a glyph and whether it opens the side view or the browser", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const outputs = buildTarsOutputs({ responsibilities: f.responsibilities, runs: f.runs });
+    const html = renderToStaticMarkup(createElement(TarsOutputList, { outputs, onOpenSide() {} }));
+    const rows = [...html.matchAll(/<li[^>]*data-tars-output="(\w+)" data-tars-output-opens="(side|external)">(.*?)<\/li>/g)];
+    expect(rows.length).toBe(outputs.length);
+    const glyph = { report: "lucide-file-text", changes: "lucide-file-diff", review: "lucide-search-check", pullRequest: "lucide-git-pull-request", link: "lucide-link" } as const;
+    for (const [, kind, opens, row] of rows) {
+      expect(row).toContain(glyph[kind as keyof typeof glyph]);
+      const external = kind === "link" || kind === "pullRequest";
+      expect(opens).toBe(external ? "external" : "side");
+      // The row itself is the opener, and its end glyph says where it opens.
+      expect(row).toMatch(external ? /^<a [^>]*href=/ : /^<button /);
+      expect(row).toContain(external ? "lucide-arrow-up-right" : "lucide-panel-right");
+      if (external) expect(row).toContain("Opens in your browser");
+    }
   });
 });

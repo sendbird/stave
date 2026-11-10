@@ -1,7 +1,7 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUpRight, ChevronRight, Ellipsis, FileText, GitBranch, GripVertical } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
-import { Button } from "@/components/ui";
+import { Button, ExternalAnchor } from "@/components/ui";
 import { Accordion } from "@/components/aui/components/Accordion";
 import { Badge } from "@/components/aui/components/Badge";
 import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
@@ -9,6 +9,8 @@ import { Popover } from "@/components/aui/components/Popover";
 import { runStyles } from "@/components/aui/components/RunMonitor";
 import { StatusDot } from "@/components/aui/components/StatusDot";
 import { Tooltip } from "@/components/aui/components/Tooltip";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
@@ -364,22 +366,43 @@ function outputLabel(output: TarsOutput) {
   }
 }
 
-/** What finished or running work produced; each opens the side view, a recorded link opens where it points. */
+/** Each output's kind as a glyph; a side-view output wears the side view's own glyph for it. */
+const OUTPUT_ICON: Record<TarsOutput["kind"], LucideIcon> = { report: FileText, changes: FileDiff, review: SearchCheck, pullRequest: GitPullRequest, link: Link2 };
+
+/**
+ * What finished or running work produced. Every row says its kind with a
+ * glyph, then where it opens on the end: the side view beside the
+ * conversation, or the browser for a recorded link or pull request. The whole
+ * row is the opener, with the quiet hover and the focus ring.
+ */
 export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly TarsOutput[]; onOpenSide?: (target: TarsSideViewTarget) => void }) {
   const { t } = useTranslation(["shell"]);
   if (!outputs.length) return <p className={sx(styles.empty)}>{t("shell:tars.tray.emptyLane.outputs")}</p>;
   return <ul className={sx(styles.cards, styles.outputList)} data-tars-outputs="">
     {outputs.map((output, index) => {
       const label = outputLabel(output);
-      return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}>
-        {output.kind === "link" || output.kind === "pullRequest"
-          ? <a className={sx(styles.outputLink)} href={output.url} target="_blank" rel="noreferrer">
-            <span className={sx(styles.outputLabel)}>{label}</span><ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /></a>
-          : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputButton} disabled={!onOpenSide}
+      const KindIcon = OUTPUT_ICON[output.kind];
+      const external = output.kind === "link" || output.kind === "pullRequest";
+      const opens = t(external ? "shell:tars.tray.outputs.opensExternal" : "shell:tars.tray.outputs.opensSide");
+      const content = <>
+        <span className={sx(styles.outputGlyph)}><KindIcon aria-hidden className={sx(styles.outputIcon)} /></span>
+        <span className={sx(styles.outputText)}>
+          <span className={sx(styles.outputLabel)}>{label}</span>
+          <span className={sx(styles.outputMeta)}>{output.title}</span>
+        </span>
+        <span className={sx(styles.outputGlyph)} title={opens}>
+          {external ? <ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /> : <PanelRight aria-hidden className={sx(styles.outputIcon)} />}
+        </span>
+        {/* The side-view button is named by its label; a link reads its text, so it says where it opens in words. */}
+        {external ? <VisuallyHidden>{opens}</VisuallyHidden> : null}
+      </>;
+      return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}
+        data-tars-output-opens={external ? "external" : "side"}>
+        {external
+          ? <ExternalAnchor href={output.url} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ExternalAnchor>
+          : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputRow} disabled={!onOpenSide}
             aria-label={t("shell:tars.tray.outputs.open", { label, title: output.title })}
-            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, kind: OUTPUT_KIND[output.kind] })}>
-            <span className={sx(styles.outputLabel)}>{label}</span></Button>}
-        <span className={sx(styles.meta, styles.outputMeta)}>{output.title}</span>
+            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, kind: OUTPUT_KIND[output.kind] })}>{content}</Button>}
       </li>;
     })}
   </ul>;

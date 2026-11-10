@@ -284,6 +284,29 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
   });
 }
 
+for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (const width of [1440, 390]) {
+  test(`tray outputs: every row says its kind and where it opens, and hovers as one opener (${lang}/${theme}/${width})`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await openGallery(page, { lang, theme, width });
+    const secondary = await tokenPx(page, "--aui-control-height-2xs");
+    const rows = page.locator("[data-tars-output]");
+    const rowsSeen = await rows.count();
+    expect(rowsSeen).toBeGreaterThan(0);
+    for (let index = 0; index < rowsSeen; index += 1) {
+      const row = rows.nth(index);
+      const opener = row.locator(":scope > a, :scope > button");
+      await opener.scrollIntoViewIfNeeded();
+      const kind = await row.getAttribute("data-tars-output-opens");
+      expect(await opener.evaluate((node) => node.tagName)).toBe(kind === "external" ? "A" : "BUTTON");
+      expect(await opener.locator("svg").count()).toBe(2);
+      const before = await opener.evaluate((node) => getComputedStyle(node).backgroundColor);
+      await opener.hover();
+      await expect.poll(() => opener.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(before);
+      expect((await opener.boundingBox())!.height).toBeGreaterThanOrEqual(secondary);
+    }
+  });
+}
+
 test("the tray keeps its own type sizes whatever the conversation's text size", async ({ page }) => {
   const view = await openGallery(page, { lang: "en", theme: "light", width: 1440 });
   const sizes = () => page.locator("[data-tars-tray]").evaluate((tray) => [...tray.querySelectorAll("h3, p, span, button")].slice(0, 200)
