@@ -75,3 +75,17 @@ describe("message-owned subagent results", () => {
     expect(row?.timing).toMatchObject({ observed: false, elapsedMs: 14_000 });
   });
 });
+
+describe("in-turn subagent model", () => {
+  test("a row rebuilt from saved parts shows the model the subagent reported", () => {
+    const saved: SubagentMessage = { role: "assistant", providerId: "claude-code", turnId: "turn-1", parts: [{
+      type: "tool_use", toolName: "Agent", toolUseId: "toolu_1", reportedModel: "claude-haiku-5-5",
+      input: JSON.stringify({ description: "Scan callers", subagent_type: "Explore", model: "sonnet" }),
+      state: "output-available", output: "Found 3 callers.",
+    }] };
+    const [row] = selectMessageSubagents({ message: saved, taskId: "parent" });
+    expect(row?.identity).toMatchObject({ providerId: "claude-code", model: "claude-haiku-5-5", modelEvidence: "reported" });
+    const [requested] = selectMessageSubagents({ message: { ...saved, parts: saved.parts.map((part) => ({ ...part, reportedModel: undefined })) }, taskId: "parent" });
+    expect(requested?.identity).toMatchObject({ model: "sonnet", modelEvidence: "requested" });
+  });
+});

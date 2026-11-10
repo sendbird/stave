@@ -333,6 +333,12 @@ const SubagentProgressEventSchema = z.object({
   binding: z.enum(["authoritative", "guess"]).optional(),
 });
 
+const SubagentModelEventSchema = z.object({
+  type: z.literal("subagent_model"),
+  toolUseId: z.string().min(1),
+  model: z.string().min(1),
+});
+
 export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   thinking: ThinkingEventSchema,
   text: TextEventSchema,
@@ -360,6 +366,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   done: DoneEventSchema,
   model_resolved: ModelResolvedEventSchema,
   subagent_progress: SubagentProgressEventSchema,
+  subagent_model: SubagentModelEventSchema,
 } as const satisfies Record<NormalizedProviderEvent["type"], z.ZodTypeAny>;
 
 export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
@@ -389,6 +396,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.done,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.model_resolved,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.subagent_progress,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.subagent_model,
 ]);
 
 export type ParsedNormalizedProviderEvent = z.infer<

@@ -1,7 +1,7 @@
 {
   "delegateRoute": {
-    "routed": "→ 실행: {{model}}",
-    "title": "요청: {{requested}} · 라우팅 후 실행: {{routed}}"
+    "requested": "요청: {{model}}",
+    "title": "요청: {{requested}}"
   },
   "workspaceCheck": {
     "progressPassed": "Stave 검사: {{total}}개 중 {{passed}}개 통과({{names}})",
@@ -267,7 +267,17 @@
     "explicit": "명시됨",
     "providerDefault": "기본값",
     "nameLabel": "결정되지 않음",
-    "title": "{{value1}}에서 선택한 모델"
+    "title": "{{value1}}에서 선택한 모델",
+    "evidence": {
+      "requested": "요청",
+      "configured": "설정",
+      "reported": "실행"
+    },
+    "evidenceTitle": {
+      "requested": "요청한 모델입니다. 실제로 실행된 모델은 아직 보고되지 않았습니다",
+      "configured": "설정된 모델입니다. 이 제공사는 실제 실행 모델을 보고하지 않습니다",
+      "reported": "에이전트 응답에서 제공사가 보고한 실제 실행 모델입니다"
+    }
   },
   "delegationsBlock": {
     "ariaLabel": "에이전트",
