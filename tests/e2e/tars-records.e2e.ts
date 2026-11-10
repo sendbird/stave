@@ -18,8 +18,10 @@ async function recordGeometry(row: Locator) {
     const [slot, body] = [...node.children] as HTMLElement[];
     const line = body!.firstElementChild as HTMLElement;
     const main = line.firstElementChild as HTMLElement;
+    // The first words of the line, as line boxes, not the box that wraps them.
+    const words = document.createTreeWalker(main, NodeFilter.SHOW_TEXT, { acceptNode: (text) => text.textContent!.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP }).nextNode();
     const range = document.createRange();
-    range.selectNodeContents(main);
+    range.selectNodeContents(words ?? main);
     const first = range.getClientRects()[0]!;
     const mark = slot!.querySelector("svg")!.getBoundingClientRect();
     const detail = body!.children[1] as HTMLElement | undefined;

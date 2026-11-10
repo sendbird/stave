@@ -71,6 +71,8 @@ export const tarsMessageStyles = stylex.create({
     display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, minHeight: vars["--aui-control-height-2xs"],
     margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: vars["--aui-line-height-control"],
   },
+  /** The rail's 16px mark slot (`tarsRecordStyles.markSlot`): the words start on the records' text column. */
+  statusMark: { display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, inlineSize: vars["--aui-space-16"] },
   statusLabel: { minWidth: 0, overflowWrap: "anywhere" },
   cancelIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
   /** A failure in the conversation: the AUI notice at the conversation's secondary size, compact enough to sit between messages. */

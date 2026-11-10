@@ -25,6 +25,7 @@ import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
 import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
+import { tarsFlowRailStyles as rail } from "./tars-record.styles";
 
 const STAGE_TONE: Record<StageStatus, BadgeTone> = {
   pending: "neutral", "awaiting-sign-off": "warning", running: "info", blocked: "warning", stuck: "warning",
@@ -177,18 +178,19 @@ export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, de
 }) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(defaultOpen);
-  return <CollapsibleRoot className={sx(inlineDisclosure.root, styles.root)} open={open} onOpenChange={setOpen}
+  // On the rail: the glyph in the records' mark column, the words at the record size on their text column.
+  return <CollapsibleRoot className={sx(inlineDisclosure.root, styles.root, rail.root)} open={open} onOpenChange={setOpen}
     data-tars-flow={flow.responsibilityId} aria-label={t("shell:tars.flow.label", { title: flow.title })}>
     <CollapsibleTrigger className={cx(sx(inlineDisclosure.trigger, inlineDisclosure.triggerIntrinsic, open && inlineDisclosure.triggerOpen,
-      transition.colors, focusRing.ring), "atelier-inline-disclosure-trigger")}>
+      transition.colors, focusRing.ring, rail.trigger), "atelier-inline-disclosure-trigger")}>
       <InlineDisclosureIcon open={open}><Workflow size={controlIconSizes.md} /></InlineDisclosureIcon>
       <span className={sx(styles.summary)}>
         <span className={sx(styles.summaryTitle)}>{flow.title}</span>
-        <span className={sx(styles.summaryState)} data-tars-flow-summary="" data-tars-flow-state={flow.state ?? undefined}>
+        <span className={sx(styles.summaryState, rail.summaryState)} data-tars-flow-summary="" data-tars-flow-state={flow.state ?? undefined}>
           {flow.state ? <TarsWorkMark state={flow.state} /> : null}{describeTarsFlowSummary(flow)}</span>
       </span>
     </CollapsibleTrigger>
-    {live ? <div className={sx(styles.live)} data-tars-flow-live="">{live}</div> : null}
+    {live ? <div className={sx(styles.live, rail.live)} data-tars-flow-live="">{live}</div> : null}
     <CollapsiblePanel className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
       <div className={cx(sx(inlineDisclosure.body), "atelier-motion-panel-inner")}>
         <TarsFlowNodes flow={flow} agentNameOf={agentNameOf} onShowInFleet={onShowInFleet} onOpenSide={onOpenSide} />
