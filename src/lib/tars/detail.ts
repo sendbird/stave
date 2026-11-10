@@ -1,5 +1,6 @@
 import { i18n, type I18nKey } from "@/i18n/runtime";
 import type { AgentRunPauseReason, AgentRunStopReason } from "@/lib/agent-runs/domain";
+import { parseAgentRunTurnStartFailure } from "@/lib/agent-runs/turn-start-failure";
 import { TARS_MESSAGE_FAILURE_TEXT, TarsMessageFailureCodeSchema, type TarsMessage, type TarsMessageFailureCode } from "./conversation";
 import { TarsDetailCodeSchema, type TarsDetailCode, type TarsResponsibility } from "./types";
 
@@ -27,6 +28,8 @@ const DETAIL_KEYS = {
   unverifiedCompletion: "shell:tars.detail.unverifiedCompletion",
   acceptedWithoutVerification: "shell:tars.detail.acceptedWithoutVerification",
   workingChangesUnavailable: "shell:tars.detail.workingChangesUnavailable",
+  runCancelled: "shell:tars.detail.runCancelled",
+  turnStartFailed: "shell:tars.detail.turnStartFailed",
 } as const satisfies Record<TarsDetailCode, I18nKey>;
 
 /** A run's own pause reason, more specific than the generic "paused" sentence. */
@@ -64,6 +67,23 @@ export function describeTarsResponsibilityDetail(row: TarsDetailFields): string 
   const specific = code.data === "runPaused" ? reasonKey(PAUSE_REASON_KEYS, reason)
     : code.data === "runStopped" ? reasonKey(STOP_REASON_KEYS, reason) : null;
   return i18n.t(specific ?? DETAIL_KEYS[code.data]);
+}
+
+/** Codes whose `detail` holds the run's or provider's own words rather than Tars's fixed sentence. */
+const DIAGNOSTIC_CODES: ReadonlySet<TarsDetailCode> = new Set(["runStopped", "runCancelled", "turnStartFailed"]);
+// i18n-ignore: the fixed diagnostic Tars saves for a stop with no reason; it adds nothing to the translated line
+const BARE_STOP_DETAIL = "The run stopped.";
+
+/**
+ * The run's or provider's own words behind a coded detail line, untranslated,
+ * for an expandable "technical details" disclosure. Null when the line has
+ * no such words, or they only repeat the code.
+ */
+export function describeTarsResponsibilityDiagnostic(row: TarsDetailFields): string | null {
+  const code = TarsDetailCodeSchema.safeParse(row.detailCode);
+  if (!code.success || !DIAGNOSTIC_CODES.has(code.data) || !row.detail) return null;
+  const words = code.data === "turnStartFailed" ? parseAgentRunTurnStartFailure(row.detail) : row.detail.trim();
+  return words && words !== row.detailParams?.reason && words !== BARE_STOP_DETAIL ? words : null;
 }
 
 const FAILURE_KEYS = {

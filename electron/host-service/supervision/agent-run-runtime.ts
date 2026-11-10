@@ -159,6 +159,7 @@ import type { AgentRunStore } from "../../persistence/agent-run-store";
 import type { AgentRunStageGrant } from "../../providers/agent-run-grants";
 import type { TaskSupervisionSnapshot } from "../local-mcp-runtime";
 import type { HostAgentRunAction } from "../protocol";
+import { agentRunTurnStartFailureDetail } from "../../../src/lib/agent-runs/turn-start-failure";
 
 /** Faster than wake-ups: an agent run is actively waiting on its own turns. */
 const AGENT_RUN_TICK_INTERVAL_MS = 5_000;
@@ -1364,7 +1365,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         aggregate,
         decision: {
           action: "mark-stuck",
-          detail: `The stage's turn could not start: ${detail}`,
+          detail: agentRunTurnStartFailureDetail(detail),
         },
         now: now(),
       }),

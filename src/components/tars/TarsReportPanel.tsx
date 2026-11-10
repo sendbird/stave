@@ -7,10 +7,11 @@ import { raisedPanel } from "@/components/aui/recipes/raised-panel";
 import { sx } from "@/components/aui/utils/stylex";
 import { EvidenceList } from "@/components/agent-runs/EvidenceList";
 import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
-import { describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
+import { describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { describeUsageLong } from "@/lib/agent-runs/usage";
 import type { TarsCriterionSource, TarsCriterionStatus, TarsReportEvidence, TarsReportModel, TarsRevisionFreshness } from "@/lib/tars/report-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
+import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { tarsSideViewStyles as styles } from "./tars-side-view.styles";
 
 const STATUS_TONE: Record<TarsCriterionStatus, BadgeTone> = { met: "success", unmet: "danger", unverified: "warning", notReported: "neutral" };
@@ -61,6 +62,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
     if (focusUnmet) unmetRef.current?.scrollIntoView({ block: "start" });
   }, [focusUnmet, row.id]);
   const reason = blocked ? describeTarsResponsibilityDetail(row) ?? t("shell:tars.tray.blockedDetail") : null;
+  const diagnostic = blocked ? describeTarsResponsibilityDiagnostic(row) : null;
   const spent = describeUsageLong(model.usage);
   const workingChanges = describeTarsWorkingChanges(row);
   // Sections sit on the section rhythm; the lead says how the run ended and why, then when the report was taken.
@@ -82,6 +84,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
     {/* Only blocked work has a reason and next steps; nothing else gets this landmark. */}
     {blocked ? <section className={sx(styles.section)} aria-label={t("shell:tars.side.report.blockedTitle")} data-tars-report-blocked="">
       {reason ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.report.blockedTitle")}.</strong> {reason}</span></p> : null}
+      {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
       {actions}
     </section> : null}
     {/* What is still owed leads; met work needs no heading of its own. */}

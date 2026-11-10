@@ -4,7 +4,8 @@ import { i18n } from "@/i18n/runtime";
 import { resources } from "@/i18n/resources";
 import { AGENT_RUN_PAUSE_REASONS, AGENT_RUN_STOP_REASONS } from "@/lib/agent-runs/domain";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { describeTarsMessageFailure, describeTarsResponsibilityDetail } from "@/lib/tars/detail";
+import { describeTarsMessageFailure, describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, type TarsDetailFields } from "@/lib/tars/detail";
+import { agentRunTurnStartFailureDetail, parseAgentRunTurnStartFailure } from "@/lib/agent-runs/turn-start-failure";
 import { TARS_MESSAGE_FAILURE_TEXT, TarsMessageFailureCodeSchema } from "@/lib/tars/conversation";
 import { TarsDetailCodeSchema } from "@/lib/tars/types";
 import { TarsStore } from "../electron/persistence/tars-store";
@@ -107,13 +108,46 @@ describe("Tars detail producers", () => {
   test("observations code the sentences Tars writes and keep a run's own words as free text", () => {
     expect(tarsObservation(run({ state: "stopped", stopReason: "turn-cap-reached", reasonDetail: null })))
       .toEqual({ state: "blocked", detail: "turn-cap-reached", detailCode: "runStopped", detailParams: { reason: "turn-cap-reached" } });
-    expect(tarsObservation(run({ state: "stopped", reasonDetail: "The reviewer stopped it." })))
-      .toEqual({ state: "blocked", detail: "The reviewer stopped it." });
+    // A run's own stop or cancel reason is a diagnostic: the code says what happened, the words stay in detail.
+    expect(tarsObservation(run({ state: "stopped", stopReason: null, reasonDetail: "The reviewer stopped it." })))
+      .toEqual({ state: "blocked", detail: "The reviewer stopped it.", detailCode: "runStopped", detailParams: null });
+    expect(tarsObservation(run({ state: "cancelled", reasonDetail: "Provider process exited." })))
+      .toEqual({ state: "cancelled", detail: "Provider process exited.", detailCode: "runCancelled", detailParams: null });
+    expect(tarsObservation(run({ state: "cancelled", reasonDetail: null }))).toEqual({ state: "cancelled", detail: null });
     expect(tarsObservation(run({ state: "completed" }))).toMatchObject({ state: "blocked", detailCode: "incompleteReport" });
     expect(tarsObservation(run({ state: "paused", pauseReason: "usage-limit", reasonDetail: null }, [])))
       .toEqual({ state: "waiting", detail: "usage-limit", detailCode: "runPaused", detailParams: { reason: "usage-limit" }, runTurns: base.agentRun.turnCount });
     expect(tarsObservation(run({ state: "paused", pauseReason: "paused-by-user", reasonDetail: "Paused from Fleet." }, [])))
       .toEqual({ state: "waiting", detail: "Paused from Fleet.", runTurns: base.agentRun.turnCount });
+  });
+
+  test("a stage turn that could not start is said by code, with the provider's words as an expandable diagnostic", () => {
+    const stuck = { ...base.stages[0]!, status: "stuck" as const, blockReason: null, detail: agentRunTurnStartFailureDetail("spawn ENOENT: codex") };
+    const observed = tarsObservation(run({ state: "running", currentStageIndex: 0 }, [stuck]));
+    expect(observed).toMatchObject({ state: "waiting", detailCode: "turnStartFailed", detailParams: null, stageAsksUser: true,
+      stageWait: { kind: "gate", gate: "stuck" } });
+    // The model keeps the whole English sentence; people read the translated line and can expand the provider's words.
+    expect(observed.detail).toBe("The stage's turn could not start: spawn ENOENT: codex");
+    expect(describeTarsResponsibilityDetail(observed as TarsDetailFields)).toBe(i18n.t("shell:tars.detail.turnStartFailed"));
+    expect(describeTarsResponsibilityDiagnostic(observed as TarsDetailFields)).toBe("spawn ENOENT: codex");
+    // Any other stuck sentence stays free text.
+    const other = tarsObservation(run({ state: "running", currentStageIndex: 0 }, [{ ...stuck, detail: "No progress for 20 minutes." }]));
+    expect(other.detailCode).toBeUndefined();
+    expect(parseAgentRunTurnStartFailure("No progress for 20 minutes.")).toBeNull();
+  });
+
+  test("the diagnostic shows a run's own words, never a repeat of the translated code", () => {
+    expect(describeTarsResponsibilityDiagnostic({ detail: "The reviewer stopped it.", detailCode: "runStopped", detailParams: null }))
+      .toBe("The reviewer stopped it.");
+    expect(describeTarsResponsibilityDiagnostic({ detail: "turn-cap-reached", detailCode: "runStopped", detailParams: { reason: "turn-cap-reached" } })).toBeNull();
+    expect(describeTarsResponsibilityDiagnostic({ detail: "The run stopped.", detailCode: "runStopped", detailParams: null })).toBeNull();
+    expect(describeTarsResponsibilityDiagnostic({ detail: "Provider process exited.", detailCode: "runCancelled", detailParams: null })).toBe("Provider process exited.");
+    // Tars's own fixed sentences and free text have no diagnostic.
+    expect(describeTarsResponsibilityDiagnostic({ detail: "The run is paused.", detailCode: "runPaused", detailParams: null })).toBeNull();
+    expect(describeTarsResponsibilityDiagnostic({ detail: "Free text.", detailCode: null, detailParams: null })).toBeNull();
+    // The translated line for a coded stop with the run's words is the localized sentence, not the English words.
+    expect(describeTarsResponsibilityDetail({ detail: "The reviewer stopped it.", detailCode: "runStopped", detailParams: null }))
+      .toBe(i18n.t("shell:tars.detail.runStopped"));
   });
 
   test("errors keep their English message and carry a code only when Tars wrote it", () => {

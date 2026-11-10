@@ -160,14 +160,18 @@ export function isTarsRunCommandOperation(operation: TarsControlOperation): oper
  * Stable codes for the status sentences Tars itself writes into a
  * responsibility's detail. Surfaces translate the code
  * (`describeTarsResponsibilityDetail`); `detail` keeps the English sentence
- * for the model's context and diagnostics. A run's own words (its reason or a
- * stage's detail) and other subsystems' errors carry no code.
+ * for the model's context and diagnostics. A run's stop or cancel reason and a
+ * stage turn that could not start carry a code too, with the run's own words
+ * kept in `detail` as an expandable diagnostic
+ * (`describeTarsResponsibilityDiagnostic`). Other stage details and other
+ * subsystems' errors carry no code.
  */
 export const TarsDetailCodeSchema = z.enum([
   "waitingForUser", "runPaused", "runStopped", "incompleteReport", "staleVerification",
   "scopeUnregistered", "taskIdentityChanged", "taskInUse", "executionAgentUnavailable", "assignmentUnavailable",
   "executionExists", "ownershipUnverified", "ownershipChanged", "taskUnavailable", "takenOverInTask",
   "admissionWithdrawn", "observationFailed", "unverifiedCompletion", "acceptedWithoutVerification", "workingChangesUnavailable",
+  "runCancelled", "turnStartFailed",
 ]);
 export type TarsDetailCode = z.infer<typeof TarsDetailCodeSchema>;
 

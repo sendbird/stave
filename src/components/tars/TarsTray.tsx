@@ -13,7 +13,7 @@ import { transition } from "@/components/aui/recipes/transition";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { TarsLane } from "@/lib/tars/attention";
-import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsWorkingChanges } from "@/lib/tars/detail";
+import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { TARS_IRREVERSIBLE_OPERATIONS, type TarsQueueMove, type TarsQueueMoveSource } from "@/lib/tars/conversation";
 import { tarsQueueDropMove } from "@/lib/tars/queue-order";
@@ -25,6 +25,7 @@ import type { TarsOutput } from "@/lib/tars/outputs-model";
 import type { TarsSideViewKind, TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
+import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { tarsTrayStyles as styles } from "./tars-tray.styles";
 import { tarsMonitorStyles as monitorStyles } from "./tars-monitor.styles";
 import { TarsRunMonitor } from "./TarsRunMonitor";
@@ -187,6 +188,8 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   // What Stave observed: the turn's activity, how current it is, and the run's last few changes.
   const { live, now } = useTarsLiveProgress(row, card.run, { recentLimit: CARD_RECENT_LIMIT });
   const detail = describeTarsResponsibilityDetail(row);
+  // The run's own words behind a translated line, folded; the report keeps them for blocked work too.
+  const diagnostic = describeTarsResponsibilityDiagnostic(row);
   const workingChanges = describeTarsWorkingChanges(row);
   // Who holds it, then what the run reported; an unknown budget or helper count is left out, never "0".
   const facts = [
@@ -212,6 +215,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
     !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title compact /> : null,
     detail && !detailInAttention ? <p key="detail" className={sx(styles.meta)}>{detail}</p> : null,
+    diagnostic ? <TarsDiagnosticDetail key="diagnostic" text={diagnostic} /> : null,
     row.reverifyAfter && !terminal ? <p key="reverify" className={sx(styles.meta)}>{t("shell:tars.reverify")}</p> : null,
     workingChanges ? <p key="workingChanges" className={sx(styles.meta)} data-tars-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null,
     card.followUp ? <p key="followUp" className={sx(styles.meta)} data-tars-follow-up-state={card.followUp.status}>

@@ -1659,7 +1659,10 @@
       },
       "unverifiedCompletion": "The agent reported it is done, but no check or review has confirmed it yet. Accept it as done, or ask Tars to verify it.",
       "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check.",
-      "workingChangesUnavailable": "The saved copy of your working changes is no longer in the repository, so Tars could not set up this work. Cancel it and ask again."
+      "workingChangesUnavailable": "The saved copy of your working changes is no longer in the repository, so Tars could not set up this work. Cancel it and ask again.",
+      "runCancelled": "This work was cancelled. Changes already made stay.",
+      "turnStartFailed": "The current phase could not start. Ask Tars to retry it, or open its task to check.",
+      "diagnostic": "Technical details"
     },
     "messageFailure": {
       "interrupted": "Tars stopped before its reply was saved. Send the message again.",

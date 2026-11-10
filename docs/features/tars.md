@@ -558,8 +558,11 @@ required criteria, status and any waiting or failure detail. Tars, Fleet and
 the owner labels update as soon as Tars saves a change; nothing polls, and the
 conversation also reads again when the window regains focus. Status sentences
 Tars writes itself (such as "waiting for your answer or approval") appear in
-the app's language; a reason the run gave in its own words is shown as
-written. **Open task** leads to its execution conversation, where you answer
+the app's language. When a run stops or is cancelled with a reason in its
+own words, or a stage's turn could not start, the card says so in the app's
+language and keeps the run's or provider's own words, untranslated, under
+**Technical details**. Other reasons the run gave in its own words are shown
+as written. **Open task** leads to its execution conversation, where you answer
 questions and approvals, give further direction and inspect the run's review,
 report and check evidence.
 

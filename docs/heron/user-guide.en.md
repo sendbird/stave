@@ -495,7 +495,7 @@ was observed for five minutes while the work runs, "No update for 7m ·
 progress may be out of date" in amber. **Recent
 progress** lists the run's three latest changes with how long ago they
 happened. A value Stave does not know is left out, never shown as zero, and
-work whose run Stave has not observed says "No progress information yet". The card keeps two buttons in view,
+work whose run Stave has not observed says "No progress information yet". When work stops or its step could not start, the card says so in your language and keeps the tool's own message under **Technical details**. The card keeps two buttons in view,
 the main action (such as **Pause** or **Resume**) and **Open task**; **Take over**, **Show in Fleet** and **Cancel
 responsibility** are under the card's more-actions menu. Queued work follows
 the work that started, in the order it will start; its main action is **Start now**, which starts it at once beside running work, and its menu adds **Do first**
