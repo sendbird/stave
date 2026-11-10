@@ -100,24 +100,27 @@ const CONTROL_LABEL = {
 } as const satisfies Record<TarsControlOperation, string>;
 
 /**
- * "1 running · 2 waiting · 1 needs you · 3 done": each part only when it
- * counts, as Fleet says its counts. Running counts only work that actually
- * runs; queued, paused and waiting work is "waiting", work the user took over
- * is "yours". Before a successful read the indicator says so instead of
- * claiming there is no work.
+ * "16 need you · 2 in progress · 4 done · 7 outputs": the lanes' own names and
+ * the numbers their headers show (`tarsTrayLaneCount`), each part only when it
+ * counts, so the indicator and the tray never disagree. Running work that
+ * needs the user is in Needs you, and counted there. Before a successful read
+ * the indicator says so instead of claiming there is no work.
  */
 export function describeTarsTrayCounts(counts: TarsTrayModel["counts"], status: TarsTrayStatus = "ready", outputs = 0) {
   if (status !== "ready") return i18n.t(`shell:tars.tray.indicator.${status}`);
   const parts = [
-    counts.running > 0 ? i18n.t("shell:tars.tray.indicator.running", { count: counts.running }) : null,
-    counts.waiting > 0 ? i18n.t("shell:tars.tray.indicator.waiting", { count: counts.waiting }) : null,
-    counts.yours > 0 ? i18n.t("shell:tars.tray.indicator.yours", { count: counts.yours }) : null,
     counts.needsYou > 0 ? i18n.t("shell:tars.tray.indicator.needsYou", { count: counts.needsYou }) : null,
+    counts.inProgress > 0 ? i18n.t("shell:tars.tray.indicator.inProgress", { count: counts.inProgress }) : null,
     counts.done > 0 ? i18n.t("shell:tars.tray.indicator.done", { count: counts.done }) : null,
     // Outputs are what work produced, not work: counted only when there are some.
     outputs > 0 ? i18n.t("shell:tars.tray.indicator.outputs", { count: outputs }) : null,
   ].filter((part): part is string => Boolean(part));
   return parts.length ? parts.join(" · ") : i18n.t("shell:tars.tray.indicator.empty");
+}
+
+/** The number a lane's header shows, the same number the indicator says for it. */
+export function tarsTrayLaneCount(counts: TarsTrayModel["counts"], lane: TarsLane) {
+  return lane === "needsYou" ? counts.needsYou : lane === "running" ? counts.inProgress : counts.done;
 }
 
 function IndicatorLabel({ counts, status, outputs }: { counts: TarsTrayModel["counts"]; status: TarsTrayStatus; outputs: number }) {

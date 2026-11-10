@@ -249,7 +249,7 @@ test("Tars body, supporting copy, report and settings remain readable across lay
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      if (width === 390) await page.getByRole('button', { name: lang === 'ko' ? '확인 1 · 끝남 1 · 산출물 6' : '1 needs you · 1 done · 6 outputs', exact: true }).click();
+      if (width === 390) await page.getByRole('button', { name: lang === 'ko' ? '확인 필요 1 · 끝남 1 · 산출물 6' : '1 needs you · 1 done · 6 outputs', exact: true }).click();
       await page.locator('[data-tars-output="report"]').filter({ hasText: 'saved card' }).getByRole('button').click();
       const report = page.locator('[data-tars-side-view="report"]');
       await expect(report).toBeVisible();

@@ -32,7 +32,8 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
       const message = await view.locator("[data-tars-message]").evaluate((node) => ({ client: node.clientWidth, scroll: node.scrollWidth }));
       expect(message.scroll).toBeLessThanOrEqual(message.client + 1);
       // The indicator: a popover anchored under it when narrow, the pinned tray beside the conversation when wide.
-      const indicator = view.getByRole("button", { name: lang === "ko" ? "실행 1" : "1 running", exact: true });
+      // The indicator says the lane's own name and number, so the In progress lane's header reads the same; the indicator is the one holding its label.
+      const indicator = view.getByRole("button", { name: lang === "ko" ? "진행 중 1" : "1 in progress", exact: true }).filter({ has: page.locator("[data-tars-tray-indicator]") });
       if (width < 1088) {
         await indicator.click();
         await expect(page.getByRole("dialog").locator("[data-tars-card]").first()).toBeVisible();
@@ -444,8 +445,8 @@ test("a decision card answered by click leaves one record line and Tars's reply,
   await send(page, "What should happen with the release check?");
   const card = view.locator('[data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Should I pause the release check until the staging deploy finishes?");
-  // The question waits in Fleet's projection, so the tray counts it like a proposed control; the work itself still runs.
-  await expect(view.getByRole("button", { name: "1 running · 1 needs you", exact: true })).toBeVisible();
+  // The question waits in Fleet's projection, so the tray counts it like a proposed control; the running work moves to Needs you and is counted there.
+  await expect(view.getByRole("button", { name: "1 needs you", exact: true })).toBeVisible();
   // The options are a radio group: the recommended one starts chosen, a click chooses another, and Answer sends the choice.
   const keep = card.getByRole("radio", { name: /^Keep it running/ });
   await expect(keep).toBeChecked();
@@ -458,7 +459,8 @@ test("a decision card answered by click leaves one record line and Tars's reply,
   const answer = view.locator('[data-tars-message-origin="answer"]');
   await expect(answer).toContainText("Understood.");
   await expect(answer.locator('[data-role="user"], .is-user')).toHaveCount(0);
-  await expect(view.getByRole("button", { name: "1 running", exact: true })).toBeVisible();
+  // Answered, the running work leaves Needs you and is counted in progress again.
+  await expect(view.getByRole("button", { name: "1 in progress", exact: true }).filter({ has: page.locator("[data-tars-tray-indicator]") })).toBeVisible();
 });
 
 test("decision keys answer only while the card has focus; the composer keeps its keys", async ({ page }) => {
@@ -543,8 +545,8 @@ test("the tray and a delegated flow show where work stands without adding transc
   await page.goto("/?stavePreview=tars&tray=true");
   const view = page.getByTestId("tars-view");
   const tray = page.getByRole("complementary");
-  // Only the fix runs; the work the user took over is theirs, not running.
-  await expect(view.getByRole("button", { name: "1 running · 1 yours · 1 needs you · 1 done", exact: true })).toBeVisible();
+  // The indicator says each lane's own number: the running fix and the work the user took over are both in progress.
+  await expect(view.getByRole("button", { name: "1 needs you · 2 in progress · 1 done", exact: true })).toBeVisible();
   await expect(tray.locator('[data-tars-card="billing"]')).toContainText("18 turns left · 2 helpers working");
   const flow = view.locator('[data-tars-flow="billing"]');
   await expect(flow).toContainText("1 of 3 stages done · Running");
@@ -565,8 +567,8 @@ test("the tray and a delegated flow show where work stands without adding transc
   await expect(release.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
   await release.getByRole("button", { name: "Confirm resume", exact: true }).click();
   await expect(view.locator("[data-tars-action-record]")).toContainText(/Resume.*click.*Applied/);
-  // Resumed work waits for the one active slot behind the running fix: it is waiting, never counted as running.
-  await expect(view.getByRole("button", { name: "1 running · 1 waiting · 1 yours · 1 done", exact: true })).toBeVisible();
+  // Resumed work leaves Needs you and waits in progress for the one active slot behind the running fix.
+  await expect(view.getByRole("button", { name: "3 in progress · 1 done", exact: true })).toBeVisible();
 });
 
 for (const lang of ["en", "ko"]) for (const width of [1280, 420]) {

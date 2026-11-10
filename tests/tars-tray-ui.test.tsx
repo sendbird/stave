@@ -52,15 +52,13 @@ async function inKorean(run: () => void) {
 }
 
 describe("Tars tray UI", () => {
-  test("the header indicator names only the lanes that count, in both languages", async () => {
-    const counts = (patch: Partial<TarsTrayModel["counts"]>) => ({ running: 0, waiting: 0, yours: 0, needsYou: 0, done: 0, ...patch });
-    expect(describeTarsTrayCounts(counts({ running: 2, needsYou: 1, done: 3 }))).toBe("2 running · 1 needs you · 3 done");
-    expect(describeTarsTrayCounts(counts({ running: 1, needsYou: 2 }))).toBe("1 running · 2 need you");
-    // Queued, paused and waiting work is never called running; work the user took over is theirs.
-    expect(describeTarsTrayCounts(counts({ running: 1, waiting: 2, yours: 1 }))).toBe("1 running · 2 waiting · 1 yours");
-    expect(describeTarsTrayCounts(counts({ waiting: 1 }))).toBe("1 waiting");
+  test("the header indicator names only the lanes that count, by the lanes' own names, in both languages", async () => {
+    const counts = (patch: Partial<TarsTrayModel["counts"]>) => ({ needsYou: 0, inProgress: 0, done: 0, running: 0, ...patch });
+    expect(describeTarsTrayCounts(counts({ inProgress: 2, needsYou: 1, done: 3 }))).toBe("1 needs you · 2 in progress · 3 done");
+    // Running work that needs the user is counted in Needs you, where its card is, never as a second "running" number.
+    expect(describeTarsTrayCounts(counts({ running: 3, needsYou: 16, done: 4 }), "ready", 7)).toBe("16 need you · 4 done · 7 outputs");
     expect(describeTarsTrayCounts(counts({}))).toBe("No work yet");
-    await inKorean(() => expect(describeTarsTrayCounts(counts({ running: 2, waiting: 1, yours: 1, needsYou: 1, done: 3 }))).toBe("실행 2 · 대기 1 · 직접 1 · 확인 1 · 끝남 3"));
+    await inKorean(() => expect(describeTarsTrayCounts(counts({ inProgress: 2, needsYou: 1, done: 3 }), "ready", 7)).toBe("확인 필요 1 · 진행 중 2 · 끝남 3 · 산출물 7"));
   });
 
   test("before a successful read the indicator and body say checking or unavailable, never no work", async () => {
