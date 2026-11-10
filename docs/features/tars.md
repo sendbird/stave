@@ -607,11 +607,12 @@ conversation; it is not shown as a message from you.
 - Tars prepares, observes and controls each responsibility on its own queue, so
   slow worktree or task preparation, a denied scope or an unavailable provider
   for one responsibility does not hold back another's preparation. The runs
-  underneath still start, advance and take pause or cancel through one host-wide
-  run queue, one operation at a time: a slow start or update of one run can
-  delay another responsibility's run start or control until it finishes.
-  Task/run identity checks, SQLite write transactions, native provider/account
-  limits and same-task duplicate protection remain in force.
+  underneath do the same: each run starts, advances, takes a reply and takes
+  pause or cancel on its own queue, so a slow task read, start or update of one
+  run never delays another responsibility's run start, words or control. Two
+  operations on the same run still happen one after the other, in the order
+  they were asked. Task/run identity checks, SQLite write transactions, native
+  provider/account limits and same-task duplicate protection remain in force.
 - Queued cards display the scheduler's observed active count and configured
   cap, or an observed database lock with automatic retry. Before observation,
   the reason is explicitly unconfirmed. A different running task alone is never

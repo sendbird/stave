@@ -24,10 +24,11 @@ export interface WorkspaceCheckDependencies {
   }>;
 }
 
-/** Process execution stays outside the supervisor queue. Abort also fences late
+/** Process execution stays outside the run's queue. Abort also fences late
  * results, including a runner that returns after its reservation was released. */
 export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
-  enqueue: <T>(operation: () => T | Promise<T>) => Promise<T>;
+  /** Queues on the run the stage grant `agentRunKey` names. */
+  enqueue: <T>(operation: () => T | Promise<T>, agentRunKey: string) => Promise<T>;
   requireGrant: (key: string) => { grant: AgentRunStageGrant; aggregate: AgentRunAggregate };
   isDelegated: (aggregate: AgentRunAggregate) => boolean;
   /** Checks persisted host turn identity, never a caller-supplied repair flag. */
@@ -88,7 +89,7 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
         if (running.get(current.aggregate.agentRun.id) === owned) running.delete(current.aggregate.agentRun.id);
         throw error;
       }
-    });
+    }, agentRunKey);
     const { controller } = admitted.owned;
     const { signal } = controller;
     const timer = (deps.setTimeout ?? globalThis.setTimeout)(() => controller.abort(new Error("The workspace script was stopped after 30 minutes.")), WORKSPACE_SCRIPT_TIMEOUT_MS);
@@ -127,7 +128,7 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
           workspaceScripts: results.filter((_, index) => keep.has(index)),
           workspaceRevision: check.verification.completedRevision,
         } }] });
-      });
+      }, agentRunKey);
       const reason = scriptVerificationProblem(check.verification) ?? (check.exitCode !== 0 ? i18n.t("agentRuns:workspaceCheck.failed", { exitCode: check.exitCode }) : undefined);
       return { exitCode: check.exitCode, verified: !reason, ...check.verification, outputTail: check.outputTail, ...(reason ? { reason } : {}) };
     } finally {

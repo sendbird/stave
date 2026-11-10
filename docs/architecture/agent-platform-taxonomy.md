@@ -218,10 +218,13 @@ age. It reconciles task and run observations without asking a model on every
 unchanged tick. Independent responsibilities start concurrently by default. A saved positive
 portfolio limit bounds admissions (0 or absent adds no cap); a waiting
 responsibility yields its slot, and admitted runs may resume concurrently.
-Tars serializes preparation, observation and controls per responsibility, but
-the AgentRun runtime beneath applies run starts, ticks and controls in one
-host-wide order, so one run's slow start can delay another's start or control;
-unknown execution retains only that responsibility's reservation. Worktree
+Tars serializes preparation, observation and controls per responsibility, and
+the AgentRun runtime beneath applies each run's ticks, commands, replies and
+reports on that run's own queue (`run-operation-queues.ts`), so one run's slow
+start or task read never delays another's start, words or control. A task's
+admission queues on that task and its current run; the boot sweep that closes
+interrupted turns is the only operation holding every run's queue, and it does
+no I/O. Unknown execution retains only that responsibility's reservation. Worktree
 registrations merge inside SQLite transactions so concurrent additions survive. A manual pause persists, and a
 failed observation stays visible as blocked. Terminal completion requires the
 owned run and its required acceptance report, not only an ended worker turn.

@@ -1725,3 +1725,42 @@ describe("delegation provider from the agent", () => {
     expect(other.child!.delegatedTaskId).not.toBe(first.child!.delegatedTaskId);
   });
 });
+
+describe("restart reconciliation never makes independent delegations wait on each other", () => {
+  test("one parent's held child read delays neither another parent's list nor its own other children", async () => {
+    const OTHER_PARENT = "parent-task-2";
+    // Read-only children may share the parent's workspace.
+    const harness = createHarness({ readOnly: true, runTask: () => new Promise<{ turnId: string }>(() => {}) });
+    harness.statusByTaskId.set(OTHER_PARENT, IDLE_STATUS);
+    const held = await harness.coordinator.delegate(delegateArgs({ delegationKey: "held-child" }));
+    const done = await harness.coordinator.delegate(delegateArgs({ delegationKey: "done-child" }));
+    const other = await harness.coordinator.delegate(delegateArgs({ parentTaskId: OTHER_PARENT, delegationKey: "other-child" }));
+    expect([held, done, other].map((response) => response.accepted)).toEqual([true, true, true]);
+    // After the restart, one child's task read does not come back; one finished while Stave was down; one still runs.
+    const heldTaskId = held.child!.delegatedTaskId;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const read = harness.host.getTaskStatus;
+    harness.host.getTaskStatus = async (args) => { if (args.taskId === heldTaskId) await gate; return read(args); };
+    harness.statusByTaskId.set(done.child!.delegatedTaskId, { ok: true, activeTurnId: null, latestTurnId: "turn-done",
+      latestTurnCompletedAt: "2026-08-10T01:00:00.000Z", latestTurnError: null });
+    harness.statusByTaskId.set(other.child!.delegatedTaskId, { ...IDLE_STATUS, activeTurnId: "turn-live" });
+    const restarted = harness.restart();
+
+    // The other parent lists its children at once, its running child still running.
+    let listed = false;
+    const otherList = restarted.list({ parentTaskId: OTHER_PARENT }).then((rows) => { listed = true; return rows; });
+    for (let attempt = 0; attempt < 100 && !listed; attempt += 1) await Bun.sleep(5);
+    expect(listed).toBe(true);
+    expect((await otherList).map((row) => [row.delegationKey, row.phase])).toEqual([["other-child", "running"]]);
+    // The held parent's other child settles while its sibling's read is still out.
+    const ownList = restarted.list({ parentTaskId: PARENT_TASK });
+    const doneStep = () => harness.store.getAggregate({ runId: done.child!.runId, stepId: done.child!.stepId })?.step.status;
+    for (let attempt = 0; attempt < 100 && doneStep() !== "completed"; attempt += 1) await Bun.sleep(5);
+    expect(doneStep()).toBe("completed");
+
+    release();
+    harness.statusByTaskId.set(heldTaskId, { ...IDLE_STATUS, activeTurnId: "turn-held" });
+    expect((await ownList).map((row) => [row.delegationKey, row.phase]).sort()).toEqual([["done-child", "completed"], ["held-child", "running"]]);
+  });
+});
