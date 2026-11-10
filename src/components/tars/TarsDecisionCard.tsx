@@ -14,7 +14,7 @@ import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, tarsQuestionKeyAction, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
 import { QuestionOptionRow, questionOptionRowStyles } from "@/components/ai-elements/question-option-row";
-import { TARS_RECORD_STATE, TarsActionRecordLine, TarsMessageDeliveryLine } from "./TarsActionRecordLine";
+import { TARS_RECORD_STATE, TarsActionRecordLine, TarsMessageDeliveryLine, useTarsDirectActor } from "./TarsActionRecordLine";
 import { TarsRecordDetail, TarsRecordList, TarsRecordRow } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 
@@ -154,6 +154,7 @@ export function handleTarsQuestionKey(event: Pick<KeyboardEvent<HTMLElement>, "k
  */
 export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss, onOpenTask }: TarsDecisionCardProps) {
   const { t } = useTranslation(["shell"]);
+  const actorOf = useTarsDirectActor();
   const questionId = useId();
   const subtitleId = useId();
   const hintId = useId();
@@ -180,7 +181,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
       : decision.reasked ? t("shell:tars.decision.reask.done") : decision.reask ? t("shell:tars.decision.reask.pending") : null;
     const row = answer
       ? <TarsRecordRow ref={lineRef} focusable state={TARS_RECORD_STATE[answer.status]} lead={answeredOption(decision, titleOf, answer)}
-        subject={decision.kind === "confirm" ? undefined : subject} meta={t(`shell:tars.record.source.${answer.source}`)} status={t(outcomeKey(decision, answer.status))}
+        subject={decision.kind === "confirm" ? undefined : subject} actor={actorOf(answer.source)} data-tars-record-source={answer.source} status={t(outcomeKey(decision, answer.status))}
         detail={<>
           {answer.status === "rejected" ? <TarsRecordDetail data-tars-reason={answer.reason ?? undefined}>{t(tarsControlReasonKey(answer.reason))}</TarsRecordDetail> : null}
           {decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} /> : null}
@@ -242,7 +243,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
       onChange={() => setPicked(index)} />)}
   </div> : null;
   const failureLine = decision.failure ? <TarsRecordList><TarsRecordRow state="refused" data-tars-decision-attempt="rejected"
-    lead={answeredOption(decision, titleOf, decision.failure)} meta={t(`shell:tars.record.source.${decision.failure.source}`)} status={t("shell:tars.decision.outcome.rejected")}
+    lead={answeredOption(decision, titleOf, decision.failure)} actor={actorOf(decision.failure.source)} data-tars-record-source={decision.failure.source} status={t("shell:tars.decision.outcome.rejected")}
     detail={<TarsRecordDetail data-tars-reason={decision.failure.reason ?? undefined}>{t(tarsControlReasonKey(decision.failure.reason))}</TarsRecordDetail>} /></TarsRecordList> : null;
   const dismissButton = onDismiss ? <Button type="button" size="xs" variant="ghost" aria-keyshortcuts="Escape" title={t("shell:tars.decision.card.notNowHint")}
     data-tars-decision-dismiss="" onClick={onDismiss}>{t("shell:tars.decision.card.notNow")}

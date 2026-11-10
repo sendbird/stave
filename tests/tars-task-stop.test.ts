@@ -84,8 +84,8 @@ describe("Stop on a task whose run Tars holds", () => {
       expect(records.map((record) => [record.source, record.status, record.action.operation])).toEqual([["task", "applied", "pause"]]);
       applyAppLocale("ko"); await i18n.changeLanguage("ko");
       try {
-        expect([i18n.t("shell:tars.record.operation.pause"), i18n.t(`shell:tars.record.source.${records[0]!.source}`), i18n.t("shell:tars.record.status.applied")])
-          .toEqual(["일시 정지", "작업 화면", "적용됨"]);
+        expect([i18n.t("shell:tars.record.operation.pause"), i18n.t(`shell:tars.record.by.you.${records[0]!.source}`), i18n.t("shell:tars.record.status.applied")])
+          .toEqual(["일시 정지", "작업 화면에서 직접 한 일입니다", "적용됨"]);
       } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     } finally { host.close(); }
   });

@@ -442,8 +442,8 @@ describe("the conversation shows where the words stand", () => {
     const render = (value: ReturnType<typeof delivery>) => renderToStaticMarkup(createElement(TarsActionRecordLine, { record: { ...base, delivery: value } }));
     try {
       for (const [locale, waiting, said, notSaid, pending] of [
-        ["en", "Waiting for the run&#x27;s current turn to end", "Said in the task after its turn ended", "Not said: the work was taken over", "Send to task Fleet Pending"],
-        ["ko", "실행의 현재 턴이 끝나기를 기다리는 중입니다", "턴이 끝난 뒤 Task에 전달했습니다", "전달하지 않았습니다", "Task에 전달 Fleet 처리 중"]] as const) {
+        ["en", "Waiting for the run&#x27;s current turn to end", "Said in the task after its turn ended", "Not said: the work was taken over", "Send to task Pending"],
+        ["ko", "실행의 현재 턴이 끝나기를 기다리는 중입니다", "턴이 끝난 뒤 Task에 전달했습니다", "전달하지 않았습니다", "Task에 전달 처리 중"]] as const) {
         applyAppLocale(locale); await i18n.changeLanguage(locale);
         const queued = render(delivery("queued"));
         expect(queued).toContain(waiting);

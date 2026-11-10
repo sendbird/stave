@@ -8,7 +8,6 @@ import { StateMark } from "@/components/aui/components/StateMark";
 import { TextShimmer } from "@/components/aui/components/TextShimmer";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
-import { RelativeTime } from "@/components/system/RelativeTime";
 import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import type { AttachmentContext } from "@/lib/providers/attachment-context";
 import { tarsAttachmentSummary, type TarsAttachmentSummary, type TarsMessageView } from "@/lib/tars/conversation";
@@ -24,17 +23,6 @@ import { TARS_TEXT_SIZE, tarsMessageStyles as styles } from "./tars-message.styl
 export function useTarsTextScale(): CSSProperties {
   const size = useAppStore((state) => state.settings.messageFontSize);
   return { [TARS_TEXT_SIZE]: `${size}px` } as CSSProperties;
-}
-
-/**
- * When the message was sent, in the short relative form ("5m ago"), shown
- * only while its exchange is hovered or holds focus. It is a button, so the
- * keyboard reaches it and its card gives the full date and time.
- */
-export function TarsMessageTime({ at, side }: { at: string; side: "start" | "end" }) {
-  return <span className={sx(styles.time, side === "end" ? styles.timeEnd : styles.timeStart)} data-tars-message-time="">
-    <RelativeTime past date={at} />
-  </span>;
 }
 
 /** Code and structured text read as code; prose and logs as a document. */

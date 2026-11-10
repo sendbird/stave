@@ -117,7 +117,8 @@ describe("Tars UI", () => {
     const html = renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", titleOf: () => owned.title,
       initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }));
     expect(html).toContain('data-tars-action-record="applied"');
-    expect(tarsRecordText(html)).toContain("Pause Verified result click Applied");
+    expect(tarsRecordText(html)).toContain("Pause Verified result Applied");
+    expect(html).toContain('aria-label="You did this in Tars"');
     expect(html).toContain("Verified result");
     expect(html).not.toContain("data-tars-message");
     expect(conversation.messages).toEqual([]);
@@ -138,7 +139,8 @@ describe("Tars UI", () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     try {
       expect(line("takenOver")).toContain("직접 맡은 작업입니다. Tars가 처리하려면 먼저 다시 맡기세요.");
-      expect(tarsRecordText(line("takenOver"))).toContain("재개 클릭 적용하지 않음");
+      expect(tarsRecordText(line("takenOver"))).toContain("재개 적용하지 않음");
+      expect(line("takenOver")).toContain('aria-label="Tars에서 직접 한 일입니다"');
       expect(line("stale")).toContain("마지막으로 확인한 뒤 작업이 바뀌었습니다.");
       // A code this build does not know, or none, falls back to the generic translated reason.
       expect(line("futureReason")).toContain("Tars가 이 조작을 적용하지 못했습니다.");
@@ -182,7 +184,7 @@ describe("Tars UI", () => {
     const answer: TarsDecisionAnswer = { decisionId: "confirm:message:0", optionIndex: 0, source: "click", effect: { kind: "control", ...action }, label: null,
       status: "applied", reason: null, error: null, actRequestId: "confirm:message:0", messageId: null, revision: 2, createdAt: at, updatedAt: at };
     const folded = renderToStaticMarkup(createElement(TarsConversationMessage, { ...props, decisions: views([answer]) }));
-    expect(tarsRecordText(folded)).toContain("Hand back Verified result click Confirmed");
+    expect(tarsRecordText(folded)).toContain("Hand back Verified result Confirmed");
     expect(folded).not.toContain(">Confirm<");
   });
 });

@@ -54,7 +54,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   korean: boolean;
   tray: ReturnType<typeof buildTarsTrayFixtures>;
   side: ReturnType<typeof buildTarsSideViewFixtures>;
-  /** Spread the cases over the days before this moment, so the transcript's day breaks and time runs show. */
+  /** Spread the cases over the days before this moment, so the transcript's day rules show. */
   spreadUntil?: Date;
 }) {
   const l = (en: string, ko: string) => korean ? ko : en;

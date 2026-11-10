@@ -22,7 +22,7 @@ import { describeTarsResponsibilityDetail } from "@/lib/tars/detail";
 import type { TarsActivityNotice, TarsFlow, TarsFlowStage } from "@/lib/tars/flow-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
-import { TarsRecordDetail, TarsRecordRow, type TarsRecordState } from "./TarsRecord";
+import { TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
 import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
 
@@ -209,6 +209,7 @@ const NOTICE_STATE: Record<TarsActivityNotice["kind"], TarsRecordState> = { comp
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
-  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} subject={notice.activity.title} at={notice.activity.createdAt}
+  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} at={notice.activity.createdAt}
+    values={<TarsWorkChip title={notice.activity.title} responsibilityId={notice.activity.responsibilityId} />}
     data-tars-activity={notice.kind} detail={detail ? <TarsRecordDetail>{detail}</TarsRecordDetail> : null} />;
 }

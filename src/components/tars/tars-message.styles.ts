@@ -11,16 +11,15 @@ export const TARS_TEXT_SIZE = "--tars-text-size";
 const TEXT = `var(${TARS_TEXT_SIZE}, ${vars["--aui-font-size-lead"]})`;
 /** Status lines and failure text: 14px beside 16px messages, never under the caption tier. */
 const SECONDARY = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
-/** Times and file details: 12px beside 16px messages, never under the micro tier. */
-const CAPTION = `max(${vars["--aui-font-size-micro"]}, calc(${TEXT} * 0.75))`;
 
 /**
- * An exchange publishes whether it is hovered or holds focus, so its time can
- * appear without a descendant selector StyleX cannot express. A touch screen
- * has no hover, so there the time always shows.
+ * An exchange publishes whether it is hovered or holds focus, so the time
+ * beside its bubble (`tarsTranscriptStyles.edgeTime`) can appear without a
+ * descendant selector StyleX cannot express. A touch screen has no hover, so
+ * there the time always shows.
  */
 const REVEAL = "--tars-message-reveal";
-/** An exchange's top padding; its time sits in it, just above the message it belongs to. */
+/** An exchange's block padding. */
 const EXCHANGE_PAD = vars["--aui-space-8"];
 
 export const tarsMessageStyles = stylex.create({
@@ -43,26 +42,6 @@ export const tarsMessageStyles = stylex.create({
       "@media (hover: none)": 1,
     },
   },
-  /**
-   * The exchange's time, out of the flow so showing it never moves a line:
-   * it sits in the gap above the message, on the side of whoever wrote it.
-   */
-  time: {
-    position: "absolute",
-    insetBlockEnd: `calc(100% - ${EXCHANGE_PAD})`,
-    maxWidth: "100%",
-    paddingBlockEnd: vars["--aui-space-2"],
-    color: vars["--aui-color-text-muted"],
-    fontSize: CAPTION,
-    lineHeight: vars["--aui-line-height-caption"],
-    whiteSpace: "nowrap",
-    opacity: `var(${REVEAL}, 1)`,
-    transitionProperty: { default: "opacity", "@media (prefers-reduced-motion: reduce)": "none" },
-    transitionDuration: vars["--aui-motion-duration-quick"],
-    transitionTimingFunction: vars["--aui-motion-ease-standard"],
-  },
-  timeEnd: { insetInlineEnd: 0 },
-  timeStart: { insetInlineStart: 0 },
   /**
    * The user's bubble ends on the column's trailing edge and is only as wide
    * as its words, up to most of the row, so a long message still leaves the
