@@ -11,7 +11,7 @@ import { i18n } from "@/i18n/runtime";
  * Used by `src/components/layout/automation-center/` and `tests/schedule-rows.test.ts`.
  */
 import type { AutomationRun, AutomationSpec } from "./automations";
-import { formatAutomationSchedule } from "./automation-presentation";
+import { formatAutomationCadence, formatAutomationSchedule } from "./automation-presentation";
 import type { WakeUp, WakeUpSummary } from "./supervision/wake-up-policy";
 import type { PullRequestWatchEvent } from "./supervision/pull-request-watch";
 import {
@@ -103,7 +103,7 @@ export function automationScheduleRow(
     name: automation.name,
     detail: automation.environment.label,
     agent: automation.runtime.model,
-    cadence: automation.enabled ? formatScheduleCadence(automation.schedule) : null,
+    cadence: automation.enabled ? formatAutomationCadence(automation, undefined, { compact: true }) : null,
     state: automation.enabled ? "on" : "off",
     lastResult: latestRun
       ? { ...(result ?? RUN_RESULT.running), at: latestRun.completedAt ?? latestRun.startedAt }

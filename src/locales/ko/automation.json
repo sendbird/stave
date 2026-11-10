@@ -128,7 +128,9 @@
     "selectARepositoryBeforeAttachingInformation": "정보를 첨부하기 전에 저장소를 선택합니다.",
     "refreshingInformationResources": "정보 리소스 새로 고치는 중…",
     "noInformationAttachedYetAddAResource": "첨부된 정보가 없습니다. 위에서 리소스를 추가해 기본 워크스페이스 항목을 만들고 첨부합니다.",
-    "injectsValueIntoEachRun": "매 실행마다 {{value1}} 리소스를 주입합니다."
+    "injectsValueIntoEachRun": "매 실행마다 {{value1}} 리소스를 주입합니다.",
+    "runsOnce": "{{when}}, 실행한 뒤에는 스스로 꺼집니다. Stave가 열려 있을 때만 실행되며, 닫혀 있는 동안 놓친 실행은 다시 열 때 한 번 실행됩니다.",
+    "repeatInstead": "주기적으로 반복하기"
   },
   "automationLatestRun": {
     "latestRun": "최신 실행",
@@ -284,7 +286,8 @@
       "everyDay": "매일",
       "workweek": "평일",
       "weekend": "주말"
-    }
+    },
+    "once": "{{when}}에 한 번"
   },
   "editor": {
     "cadence": {

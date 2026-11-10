@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import {
   computeNextAutomationRunAt,
+  resolveNextAutomationRunAt,
   normalizeAutomationState,
   pruneAutomationRuns,
   automationRuntimeToProviderOptions,
@@ -113,6 +114,12 @@ interface AutomationRuntimeDependencies {
    * is gone fails before it starts a task. Without it (tests), neither check runs.
    */
   findWorkspace?: (workspaceId: string) => Promise<AutomationWorkspaceLocation | null>;
+  /**
+   * Called after every committed state change with the saved state, so an
+   * owner of some schedules (Tars) can record their runs. It must not throw
+   * into the scheduler; a failure is logged and the tick continues.
+   */
+  onStateSaved?: (state: AutomationState) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
@@ -122,7 +129,12 @@ export interface AutomationRuntime {
   start: () => void;
   stop: () => void;
   list: () => Promise<AutomationSnapshot>;
-  create: (input: AutomationUpsertInput) => Promise<AutomationSpec>;
+  /**
+   * `options.id` names the schedule to create. A schedule that already has
+   * that id is returned as it is, so a caller that retries a create it saved
+   * an id for never makes a second schedule.
+   */
+  create: (input: AutomationUpsertInput, options?: { id?: string }) => Promise<AutomationSpec>;
   update: (args: {
     id: string;
     input: AutomationUpsertInput;
@@ -188,6 +200,8 @@ function createAutomationConfigHash(automation: AutomationSpec) {
     prompt: automation.prompt,
     runtime: automation.runtime,
     schedule: automation.schedule,
+    // Only a one-time schedule adds a key, so every repeating schedule keeps the hash it had.
+    ...(automation.runOnceAt !== undefined ? { runOnceAt: automation.runOnceAt } : {}),
     trustPolicy: automation.trustPolicy,
   };
   return createHash("sha256")
@@ -337,6 +351,11 @@ export function createAutomationRuntime(
       }
     }
     publishUnattendedAutomations(normalized);
+    try {
+      dependencies.onStateSaved?.(normalized);
+    } catch (error) {
+      console.error("[automations] state listener failed", error);
+    }
     return normalized;
   }
 
@@ -376,16 +395,22 @@ export function createAutomationRuntime(
   }) {
     const startedAtDate = now();
     const startedAt = startedAtDate.toISOString();
-    const nextRunAt = !args.automation.enabled
+    // A one-time schedule's scheduled run is its only one: it turns itself off.
+    const once = args.automation.runOnceAt !== undefined;
+    const finishedOnce = once && args.trigger === "scheduled";
+    const enabled = args.automation.enabled && !finishedOnce;
+    const nextRunAt = !enabled
       ? null
-      : args.trigger === "scheduled" ||
-          !args.automation.nextRunAt ||
-          Date.parse(args.automation.nextRunAt) <= startedAtDate.getTime()
-        ? computeNextAutomationRunAt({
-            schedule: args.automation.schedule,
-            after: startedAtDate,
-          })
-        : args.automation.nextRunAt;
+      : once
+        ? args.automation.nextRunAt
+        : args.trigger === "scheduled" ||
+            !args.automation.nextRunAt ||
+            Date.parse(args.automation.nextRunAt) <= startedAtDate.getTime()
+          ? computeNextAutomationRunAt({
+              schedule: args.automation.schedule,
+              after: startedAtDate,
+            })
+          : args.automation.nextRunAt;
     const run: AutomationRun = {
       id: randomUUID(),
       automationId: args.automation.id,
@@ -419,6 +444,7 @@ export function createAutomationRuntime(
         automation.id === args.automation.id
           ? {
               ...automation,
+              enabled,
               lastRunAt: startedAt,
               nextRunAt,
             }
@@ -621,13 +647,16 @@ export function createAutomationRuntime(
           ...state,
           automations: state.automations.map((candidate) =>
             candidate.id === automation.id
-              ? {
-                  ...candidate,
-                  nextRunAt: computeNextAutomationRunAt({
-                    schedule: candidate.schedule,
-                    after: tickNow,
-                  }),
-                }
+              ? candidate.runOnceAt !== undefined
+                // A skipped one-time run is not tried again on every tick: it turns off, and its skipped run says why.
+                ? { ...candidate, enabled: false, nextRunAt: null }
+                : {
+                    ...candidate,
+                    nextRunAt: computeNextAutomationRunAt({
+                      schedule: candidate.schedule,
+                      after: tickNow,
+                    }),
+                  }
               : candidate,
           ),
           runs: [skippedRun, ...state.runs],
@@ -709,19 +738,27 @@ export function createAutomationRuntime(
     // Read the last committed state while execution is waiting on a provider.
     // A snapshot is not a barrier for the mutation queue.
     list: async () => toSnapshot(loadState()),
-    create: (rawInput) =>
+    create: (rawInput, options) =>
       enqueue(async () => {
+        const named = options?.id?.trim();
+        const existing = named
+          ? loadState().automations.find((automation) => automation.id === named)
+          : undefined;
+        if (existing) {
+          return existing;
+        }
         const input = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
         const createdAt = now();
         const automation: AutomationSpec = {
           ...input,
-          id: randomUUID(),
+          id: named || randomUUID(),
           createdAt: createdAt.toISOString(),
           updatedAt: createdAt.toISOString(),
           lastRunAt: null,
           nextRunAt: input.enabled
-            ? computeNextAutomationRunAt({
+            ? resolveNextAutomationRunAt({
                 schedule: input.schedule,
+                runOnceAt: input.runOnceAt,
                 after: createdAt,
               })
             : null,
@@ -749,8 +786,9 @@ export function createAutomationRuntime(
           updatedAt: updatedAt.toISOString(),
           lastRunAt: current.lastRunAt,
           nextRunAt: input.enabled
-            ? computeNextAutomationRunAt({
+            ? resolveNextAutomationRunAt({
                 schedule: input.schedule,
+                runOnceAt: input.runOnceAt,
                 after: updatedAt,
               })
             : null,
@@ -794,8 +832,9 @@ export function createAutomationRuntime(
           enabled,
           updatedAt: updatedAt.toISOString(),
           nextRunAt: enabled
-            ? computeNextAutomationRunAt({
+            ? resolveNextAutomationRunAt({
                 schedule: current.schedule,
+                runOnceAt: current.runOnceAt,
                 after: updatedAt,
               })
             : null,
