@@ -545,9 +545,12 @@ as the card under it, and updates in place. Select the request to see what
 the work was handed, a stage to see it on the run timeline, the review stage to
 see the review, or completion to see the result report; **Show in Fleet** is in
 each stage's more menu.
-While work runs, the band above the message box names it, its stage (such as
-"Phase 2 of 3 · Cause, attempt 2") and what Stave last observed, with
-**Timeline**; beyond two running pieces of work it counts the rest. Where a
+While work runs, the band above the message box is one line, "2 running now",
+which adds "1 not updated recently" when Stave has observed nothing from a
+piece of work for a while. Select it to unfold one row per running piece of
+work: its name, its stage (such as "Phase 2 of 3 · Cause, attempt 2") and what
+Stave last observed, with **Timeline**; beyond two running pieces of work it
+counts the rest. Where a
 reply Tars is still writing will appear, **Thinking** shimmers beside the moving
 mark. Replies have no name line; a message's time shows above it only while you
 hover or focus it, and the conversation's text follows the chat font size setting. The sidebar's **Tars**

@@ -39,9 +39,11 @@ import {
 } from "./code-block";
 import { MarkdownMessage, MessageFileLink } from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
+import { codeBlockLanguageLabel } from "./code-block-language";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
   scaleMessageCodeFontSize,
+  chatTypeScaleVars,
   scaleMessageFontSize,
   useMessageTextScale,
 } from "./message-text-scale";
@@ -138,6 +140,7 @@ export function MessageContent({
     <div
       className={cx(sx(styles.content), className)}
       style={{
+        ...chatTypeScaleVars(messageFontSize),
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
       }}
@@ -257,6 +260,7 @@ export function MessageResponse({
       <div
         className={cx(sx(styles.responseBody), className)}
         style={{
+          ...chatTypeScaleVars(messageFontSize),
           fontSize: `${messageFontSize}px`,
           lineHeight: MESSAGE_BODY_LINE_HEIGHT,
           ...style,
@@ -339,7 +343,7 @@ export function MessageResponse({
                     }
                   />
                 ) : null}
-                <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
+                <span className={sx(styles.codeLanguage)}>{language ? codeBlockLanguageLabel(language) : i18n.t("composer:message.copy")}</span>
               </CodeBlockTitle>
               <CodeBlockActions>
                 <CodeBlockCopyButton />

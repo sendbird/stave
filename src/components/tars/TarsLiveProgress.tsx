@@ -1,9 +1,15 @@
+import { useCallback, useEffect, useState } from "react";
 import { ChartNoAxesGantt, CircleAlert } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration, formatTimeAgo } from "@/i18n/format";
 import { Button } from "@/components/ui";
 import { StatusDot } from "@/components/aui/components/StatusDot";
-import { sx } from "@/components/aui/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
+import { InlineDisclosureIcon } from "@/components/aui/components/inline-disclosure-icon";
+import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/aui/headless/collapsible";
+import { inlineDisclosure } from "@/components/aui/recipes/inline-disclosure";
+import { focusRing } from "@/components/aui/recipes/focus-ring";
+import { transition } from "@/components/aui/recipes/transition";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
 import type { TarsLiveProgress, TarsLiveStage, TarsProgressEntry } from "@/lib/tars/live-progress";
@@ -101,9 +107,16 @@ export function TarsLiveLineFor({ row, run }: { row: LiveRow; run: AgentRunDetai
   return <TarsLiveLine row={row} live={live} now={now} />;
 }
 
-function TarsRunningStripRow({ row, run, onOpenSide }: { row: LiveRow; run: AgentRunDetail | null | undefined; onOpenSide?: (target: TarsSideViewTarget) => void }) {
+function TarsRunningStripRow({ row, run, onOpenSide, onStale }: {
+  row: LiveRow; run: AgentRunDetail | null | undefined; onOpenSide?: (target: TarsSideViewTarget) => void;
+  /** Tells the strip whether this work's progress has gone quiet, for its folded summary. */
+  onStale: (id: string, stale: boolean) => void;
+}) {
   const { t } = useTranslation(["shell"]);
   const { live, now } = useTarsLiveProgress(row, run, { recentLimit: 0 });
+  const stale = live.running && live.freshness === "stale";
+  useEffect(() => { onStale(row.id, stale); }, [onStale, row.id, stale]);
+  useEffect(() => () => onStale(row.id, false), [onStale, row.id]);
   const stage = live.stage ? describeTarsLiveStage(live.stage) : null;
   const open = onOpenSide ? () => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(live.stage ? { focus: { stageId: live.stage.id } } : {}) }) : undefined;
   return <li className={sx(styles.stripRow)} data-tars-running={row.id} data-tars-live-stage={live.stage ? `${live.stage.position}/${live.stage.total}` : undefined}>
@@ -126,9 +139,11 @@ function TarsRunningStripRow({ row, run, onOpenSide }: { row: LiveRow; run: Agen
 export const TARS_RUNNING_STRIP_LIMIT = 2;
 
 /**
- * The composer band's running work, above the message field: each piece of
- * work that is actually running, its stage and what Stave observed, with its
- * timeline one click away. Nothing shows while nothing runs.
+ * The composer band's running work, above the message field. Folded, it is one
+ * line: how much work runs, and how many of those have gone quiet (nothing
+ * observed for a while). Unfolded, each running piece of work shows its stage
+ * and what Stave observed, with its timeline one click away. Folding is
+ * view-only and lasts while the view is open. Nothing shows while nothing runs.
  */
 export function TarsRunningStrip({ items, onOpenSide, onShowAll }: {
   items: ReadonlyArray<{ row: LiveRow; run: AgentRunDetail | null | undefined }>;
@@ -137,16 +152,44 @@ export function TarsRunningStrip({ items, onOpenSide, onShowAll }: {
   onShowAll?: () => void;
 }) {
   const { t } = useTranslation(["shell"]);
+  const [expanded, setExpanded] = useState(false);
+  const [staleIds, setStaleIds] = useState<ReadonlySet<string>>(() => new Set());
+  // Rows stay mounted while folded, so each keeps reading its own progress and reports when it goes quiet.
+  const onStale = useCallback((id: string, stale: boolean) => setStaleIds((current) => {
+    if (current.has(id) === stale) return current;
+    const next = new Set(current);
+    if (stale) next.add(id); else next.delete(id);
+    return next;
+  }), []);
   if (!items.length) return null;
   const shown = items.slice(0, TARS_RUNNING_STRIP_LIMIT);
   const more = items.length - shown.length;
-  return <section aria-label={t("shell:tars.live.stripLabel", { count: items.length })} data-tars-running-strip={items.length}>
-    <ul className={sx(styles.strip)}>
-      {shown.map((item) => <TarsRunningStripRow key={item.row.id} row={item.row} run={item.run} onOpenSide={onOpenSide} />)}
-      {more > 0 ? <li className={sx(styles.stripRow)}>
-        {onShowAll ? <Button variant="ghost" size="2xs" onClick={onShowAll} data-tars-running-more={more}>{t("shell:tars.live.more", { count: more })}</Button>
-          : <p className={sx(styles.stripMore)} data-tars-running-more={more}>{t("shell:tars.live.more", { count: more })}</p>}
-      </li> : null}
-    </ul>
+  const stale = items.filter((item) => staleIds.has(item.row.id)).length;
+  return <section aria-label={t("shell:tars.live.stripLabel", { count: items.length })} data-tars-running-strip={items.length}
+    data-tars-running-expanded={expanded ? "true" : "false"} className={sx(styles.stripSection)}>
+    <CollapsibleRoot open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger data-tars-running-toggle=""
+        aria-label={stale ? t("shell:tars.live.stripSummaryWithStale", { count: items.length, stale }) : undefined}
+        className={cx(sx(inlineDisclosure.trigger, inlineDisclosure.triggerIntrinsic, expanded && inlineDisclosure.triggerOpen, transition.colors,
+          focusRing.ring, focusRing.ringInset, styles.stripToggle), "atelier-inline-disclosure-trigger")}>
+        <InlineDisclosureIcon open={expanded}><TarsWorkMark state="running" /></InlineDisclosureIcon>
+        <span className={sx(styles.stripSummary)}>
+          <span className={sx(styles.stripCount)}>{t("shell:tars.live.stripSummary", { count: items.length })}</span>
+          {stale ? <><span aria-hidden>·</span>
+            <span className={sx(styles.stripAttention)} data-tars-running-stale={stale}>
+              <CircleAlert aria-hidden className={sx(styles.lineIcon)} />{t("shell:tars.live.stripStale", { count: stale })}</span></> : null}
+        </span>
+      </CollapsibleTrigger>
+      {/* Mounted while folded, so each row keeps reading its progress for the summary's attention note. */}
+      <CollapsiblePanel keepMounted>
+        <ul className={sx(styles.strip)}>
+          {shown.map((item) => <TarsRunningStripRow key={item.row.id} row={item.row} run={item.run} onOpenSide={onOpenSide} onStale={onStale} />)}
+          {more > 0 ? <li className={sx(styles.stripRow)}>
+            {onShowAll ? <Button variant="ghost" size="2xs" onClick={onShowAll} data-tars-running-more={more}>{t("shell:tars.live.more", { count: more })}</Button>
+              : <p className={sx(styles.stripMore)} data-tars-running-more={more}>{t("shell:tars.live.more", { count: more })}</p>}
+          </li> : null}
+        </ul>
+      </CollapsiblePanel>
+    </CollapsibleRoot>
   </section>;
 }

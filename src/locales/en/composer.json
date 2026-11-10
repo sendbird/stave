@@ -157,7 +157,8 @@
     "copy": "code",
     "alt": "attachment",
     "messageAttachment": "attachment",
-    "removeAttachment": "Remove attachment"
+    "removeAttachment": "Remove attachment",
+    "codeScrollRegion": "Code, scrolls sideways"
   },
   "modelEffortGrid": {
     "getEffortShortLabel": "Med",

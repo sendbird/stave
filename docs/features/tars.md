@@ -747,6 +747,13 @@ preparing with its run created); the rest of **In progress** counts as
 **waiting**, or **yours** once you took it over. The conversation's one-line
 notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
 
+**The composer band starts folded.** Above the message box, running work is
+one summary line: how many pieces run now, and how many of them Stave has not
+observed for a while ("2 running now · 1 not updated recently"). The line is
+an inline disclosure; selecting it (or Enter/Space) unfolds one row per
+running piece of work with its stage, live line and **Timeline**, and folds
+them again. Folding is view-only and lasts while Tars stays open.
+
 **Live progress is observed, never inferred.** Under the monitor, in the flow
 block, in the composer band and at the top of the timeline, Tars says what it
 observed about running work, from two sources only: the run Stave read (its

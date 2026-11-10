@@ -1,7 +1,7 @@
 {
   "version": 2,
   "description": "Existing literal spacing declarations. New or changed declarations must use AUI space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
-  "total": 710,
+  "total": 708,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
       "styles.identityText.gap = 2": 1,
@@ -96,10 +96,8 @@
     "src/components/ai-elements/message-markdown.styles.ts": {
       "markdownStyles.externalChip.gap = \"0.35em\"": 1,
       "markdownStyles.externalChip.paddingInline = \"0.5em\"": 1,
-      "markdownStyles.externalChip.paddingBlock = \"0.14em\"": 1,
       "markdownStyles.fileLink.gap = \"0.3em\"": 1,
       "markdownStyles.fileLink.paddingInline = \"0.45em\"": 1,
-      "markdownStyles.fileLink.paddingBlock = \"0.1em\"": 1,
       "markdownStyles.fileLinkLocation.paddingInline = \"0.4em\"": 1,
       "markdownStyles.inlineCode.paddingInline = 6": 1
     },
