@@ -3131,6 +3131,11 @@ interface WindowApi {
    * on screen (`TarsAwayState`); saving is idempotent and never announced.
    * `getUsage` (`tars:get-usage`) reads what Tars's work spent in a period
    * from saved turn rows; it changes nothing.
+   * `previewSchedule` / `confirmSchedule` (`tars:schedule-preview` /
+   * `tars:schedule`) read and confirm a schedule card, `toggleSchedule`
+   * (`tars:schedule-toggle`) is the pause switch of a schedule Tars created
+   * and `listSchedules` (`tars:schedules`) lists those schedules; they are
+   * records of Stave's Schedules service, which stores and runs them.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */

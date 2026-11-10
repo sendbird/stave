@@ -134,6 +134,10 @@ reports on the work.
 - Clear this conversation, or the ended work in the panel's **Done** and
   **Outputs**, when you ask; it shows a card first and only your **Clear**
   hides anything. See [Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
+- Set up work that runs later or repeats, when you ask: "every weekday at 9,
+  check the release branch", "tomorrow at 3 pm look at this again". It shows a
+  card first, and only your confirmation creates, changes, pauses or removes
+  a schedule. See [Schedule work](#schedule-work).
 - Turn an explicit request into one or more work units in registered
   workspaces, each with acceptance criteria and a priority, from a single
   message, starting from the branch or, when you ask, from your uncommitted
@@ -181,7 +185,12 @@ reports on the work.
   publishing agents and by authorizing no publishing stage; it is not a shell
   sandbox, so the task's provider permissions and safety controls still apply.
 - **Only while Stave is open.** Nothing executes while Stave is closed or the
-  computer is asleep, and Tars does not schedule wake-ups of its own.
+  computer is asleep. Tars runs no scheduler of its own: scheduled work is a
+  schedule in Stave's Schedules, which runs only while Stave is open and runs
+  a missed occurrence once when it opens.
+- **Scheduled runs are tasks, not Tars work.** A run a schedule starts is a
+  normal task in the workspace you named, in the Guided permission mode. It
+  gets no new branch, no Tars review or verification and no Tars report.
 - **Independent work runs concurrently.** There is no cap unless you set
   **Settings → Concurrent responsibilities** to a positive number; then work
   beyond it waits in the queue, and a queued card says only the reason Stave
@@ -569,6 +578,71 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
   judged each time the tray is read and needs no background job; work a clear
   never hides is never aged out either. Choosing **Until I clear it** shows such
   work again.
+
+## Schedule work
+
+Ask Tars for work that should run later or repeat, and it sets up a schedule
+in Stave's [Schedules](automations.md). Tars does not run a scheduler of its
+own: the schedule is an ordinary start-a-task schedule that Schedules stores,
+fires and shows, and each run is a normal task in the workspace you named.
+
+- **By asking.** "Every weekday at 9, check the release branch", "tomorrow at
+  3 pm look at this again", "매주 월요일 아침 9시에 의존성 업데이트 확인해줘".
+  Tars proposes a schedule card. Nothing is created until you confirm it.
+- **The card** states what will run (a name and the request each run gets, in
+  plain words), where (the workspace, its branch and repository) and when: the
+  rule, and the next two runs in this computer's local time with the time
+  zone's name. A new schedule is saved **paused**, as every schedule an agent
+  proposes is: **Create** (Enter) keeps it paused until you turn it on, and
+  **Create and turn on** starts it now. **Not now** (Esc) leaves everything as
+  it is. The same request confirmed twice (a retry, a double click) creates
+  one schedule.
+- **What a run does.** At its time the Schedules service starts a new task in
+  that workspace with the saved request, in the **Guided** permission mode
+  (the run asks you before a risky action) and one run at a time: a run due
+  while the previous one is still going is skipped and says so. The run is a
+  task of that workspace, not Tars work: it does not get a new branch, Tars's
+  review and verification stages or a Tars report, and it is not counted
+  against **Concurrent responsibilities**. The run uses the execution model
+  you chose for Tars, or the conversation's provider on its default model.
+- **In the conversation.** Each run a Tars schedule starts leaves a record
+  whose actor is the schedule (a calendar mark, "A schedule started this, not
+  you"), which follows the run to finished, failed or skipped and opens its
+  task. Your confirmation of a card, and the pause switch, are recorded as
+  your own actions.
+- **Change, pause, turn on, remove.** "Pause the release check", "move it to
+  10:30", "remove that schedule". Each shows its own card with what the
+  schedule is now and what it will be; removing cannot be undone (its run
+  history in Schedules goes with it), so it is never the Enter default.
+- **Only schedules Tars created.** A schedule you made in Schedules is yours:
+  Tars refuses to change, pause, turn on or remove it and says so. A schedule
+  Tars created that you later edited in Schedules (its name, request, where or
+  when it runs, or its permission mode) is yours too; turning it on or off
+  there is not an edit. A schedule removed in Schedules is refused as removed.
+- **The list.** Under the tray's lanes, **Schedules** lists the ones Tars
+  created with their rule, where they run, the next run, the last outcome and
+  a switch that pauses or turns one on. **Open Schedules** opens Stave's
+  Schedules screen, where every schedule, its editor and its run history
+  live. "Show my schedules" opens the list.
+- **Refused with a reason.** A one-time time that has passed, a date or time
+  that cannot be read or does not exist on this computer's clock (such as
+  inside a daylight-saving jump), a repeat rule Schedules cannot run, an
+  interval under one minute, and a workspace that is not registered are
+  refused when proposed, and again when you confirm, with the reason.
+- **Never on its own.** Tars proposes a schedule only when your own message
+  asks for one. An automatic follow-up can never propose, change or list one.
+
+**Times.** A repeating rule is a local wall-clock rule ("every weekday at
+09:00"). Schedules resolves it in this computer's time zone on every run, so
+it keeps 09:00 across daylight-saving changes, and follows the computer if its
+zone changes. A one-time run is saved as one instant in UTC and shown in local
+time. The supported repeat rules are those of Schedules: every N minutes,
+hours, days or weeks, with a time of day for days and weeks and chosen
+weekdays for weeks. "The first Monday of the month" or "the last day of the
+month" cannot be expressed.
+
+**Only while Stave is open.** A run missed while Stave was closed happens
+once when it opens.
 
 ## Delegation and execution
 

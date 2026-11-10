@@ -1153,6 +1153,7 @@
         "title": "Try asking",
         "groups": {
           "delegate": "Hand off work",
+          "schedule": "Schedule work",
           "steer": "Check or steer work",
           "answer": "Decide and answer",
           "show": "Open results",
@@ -1162,6 +1163,10 @@
         "delegate": {
           "label": "Fix a flaky test in a new workspace",
           "prompt": "In the web workspace, fix the flaky date-picker test. Done means its test passes."
+        },
+        "schedule": {
+          "label": "Check a branch every weekday morning",
+          "prompt": "Every weekday at 9, check the release branch in the web workspace."
         },
         "status": {
           "label": "What's running, and what needs me?",
@@ -1337,7 +1342,9 @@
           "answer": "Answer sent",
           "message": "Message accepted",
           "requestChanges": "Changes requested",
-          "clear": "Cleared"
+          "clear": "Cleared",
+          "schedule": "Applied",
+          "scheduleList": "List opened"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -1383,7 +1390,8 @@
           "task": "You did this in the task view",
           "drag": "You dragged this in the queue"
         },
-        "tars": "Tars did this from your message"
+        "tars": "Tars did this from your message",
+        "schedule": "A schedule started this, not you"
       },
       "openWork": "Open {{title}}",
       "operation": {
@@ -2598,6 +2606,127 @@
       "loading": "Reading usage…",
       "asOf": "As of {{time}}",
       "refresh": "Refresh"
+    },
+    "schedule": {
+      "operation": {
+        "create": "New schedule",
+        "update": "Change schedule",
+        "pause": "Pause schedule",
+        "resume": "Turn on schedule",
+        "remove": "Remove schedule",
+        "list": "Show schedules"
+      },
+      "rule": {
+        "once": "Once, {{when}}"
+      },
+      "where": "{{workspace}} · {{repository}}",
+      "whereBranch": "{{workspace}} ({{branch}}) · {{repository}}",
+      "whereMissing": "The workspace is no longer available",
+      "nextRuns": "{{times}} ({{timezone}})",
+      "nextNone": "No upcoming run",
+      "card": {
+        "title": {
+          "create": "Create this schedule?",
+          "update": "Change this schedule?",
+          "pause": "Pause this schedule?",
+          "resume": "Turn this schedule on?",
+          "remove": "Remove this schedule?"
+        },
+        "subtitle": {
+          "create": "Nothing is created until you confirm.",
+          "update": "Nothing changes until you confirm.",
+          "pause": "It stays saved and does not run until you turn it on again.",
+          "resume": "It runs on its schedule again.",
+          "remove": "The schedule and its run history in Schedules are removed. Tasks it already started stay."
+        },
+        "details": "What runs, where and when",
+        "rows": {
+          "name": "Name",
+          "what": "What runs",
+          "where": "Where",
+          "when": "When",
+          "next": "Next runs",
+          "was": "Now"
+        },
+        "startsPaused": "A new schedule is saved paused, so these runs happen only once it is on. Create keeps it paused until you turn it on; Create and turn on starts it now.",
+        "pausedNote": "This schedule is paused. It runs at these times once you turn it on.",
+        "runNote": "Each run starts a new task in this workspace and asks you before risky actions. Schedules run only while Stave is open; a run missed while it was closed happens once when it opens.",
+        "loading": "Reading the schedule…",
+        "unavailable": "The schedule could not be read. Try again.",
+        "retry": "Try again",
+        "keysHint": "Enter confirms; Esc leaves everything as it is.",
+        "keysHintCreate": "Enter creates it paused; Esc leaves everything as it is.",
+        "keysHintRemove": "Removing has no shortcut; Esc leaves everything as it is.",
+        "decline": "Not now",
+        "confirm": {
+          "create": "Create",
+          "createEnabled": "Create and turn on",
+          "update": "Change",
+          "pause": "Pause",
+          "resume": "Turn on",
+          "remove": "Remove"
+        },
+        "declined": "Declined. No schedule was changed.",
+        "failed": "The schedule change did not go through. Try again."
+      },
+      "outcome": {
+        "pending": "Saving the schedule…",
+        "create": "Schedule created and turned on",
+        "createPaused": "Schedule created, paused",
+        "update": "Schedule changed",
+        "pause": "Schedule paused",
+        "resume": "Schedule turned on",
+        "remove": "Schedule removed",
+        "rejected": "Schedule not changed"
+      },
+      "run": {
+        "running": "Scheduled run started",
+        "waiting": "Scheduled run is waiting for you",
+        "completed": "Scheduled run finished",
+        "failed": "Scheduled run failed",
+        "skipped": "Scheduled run skipped",
+        "openTask": "Open task"
+      },
+      "reason": {
+        "invalidRule": "Schedules cannot run this repeat rule. Use every N minutes, hours, days or weeks, with a time of day for chosen weekdays.",
+        "invalidTime": "That date or time could not be read, or does not exist on this computer's clock.",
+        "pastTime": "That time has already passed. Ask again with a time in the future.",
+        "tooFrequent": "That is more often than Schedules can run. The shortest interval is 1 minute.",
+        "unknownWorkspace": "That workspace is not registered in Stave, or its folder is gone.",
+        "notTarsSchedule": "Tars did not create this schedule, so it does not change it. Change it in Schedules.",
+        "scheduleGone": "This schedule was removed. Ask for a new one if you still want it.",
+        "editedElsewhere": "This schedule was changed in Schedules after Tars set it. Change it there.",
+        "alreadyPaused": "The schedule is already paused.",
+        "alreadyOn": "The schedule is already on.",
+        "runActive": "A run of this schedule is still going. Remove it after the run ends.",
+        "notByFollowUp": "An automatic follow-up cannot set up or change a schedule. Ask for it yourself.",
+        "notWaiting": "This proposal no longer waits for a confirmation.",
+        "unknown": "The schedule could not be changed. Check Schedules, then ask again."
+      },
+      "section": {
+        "title": "Schedules",
+        "empty": "Nothing is scheduled yet. Ask Tars, for example “every weekday at 9, check the release branch”.",
+        "unavailable": "The schedules could not be read.",
+        "retry": "Try again",
+        "open": "Open Schedules",
+        "next": "Next: {{when}}",
+        "paused": "Paused",
+        "finished": "Finished",
+        "notRunYet": "Not run yet",
+        "last": {
+          "running": "Last run: running",
+          "waiting": "Last run: waiting for you",
+          "completed": "Last run: finished {{when}}",
+          "failed": "Last run: failed {{when}}",
+          "skipped": "Last run: skipped {{when}}"
+        },
+        "switch": "Run “{{title}}” on its schedule",
+        "editedElsewhere": "Changed in Schedules. Manage it there.",
+        "omitted_one": "{{count}} more in Schedules",
+        "omitted_other": "{{count}} more in Schedules",
+        "timezone": "Times are in {{timezone}}.",
+        "switchFailed": "The switch did not go through. Try again."
+      }
     }
   }
 }

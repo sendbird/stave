@@ -514,6 +514,22 @@ ended work leaves **Done** and **Outputs**; running, waiting, blocked and
 taken-over work, and work whose draft PR is unfinished or waits for your
 confirmation, stay. Hidden work stays in Fleet and in its task.
 
+Ask Tars for work that should run later or repeat, such as "every weekday at
+9, check the release branch" or "tomorrow at 3 pm look at this again". Tars
+shows a schedule card with what will run, where, and the next two runs in
+local time with the time zone; nothing is created until you confirm. A new
+schedule is saved paused: **Create** (Enter) keeps it paused, **Create and
+turn on** starts it now. It is a normal schedule in **Schedules**: each run
+starts a new task in that workspace in the Guided permission mode, one run at
+a time, and only while Stave is open. Each run leaves a record in the
+conversation marked as started by the schedule, and **Schedules** under the
+tray's lanes lists the ones Tars created with their next run, last outcome
+and a pause switch, plus **Open Schedules**. Tars changes, pauses, turns on
+or removes only schedules it created, each on its own card; one you made or
+edited in Schedules is yours, and Tars says so. A time that has passed, an
+interval under one minute and an unregistered workspace are refused with the
+reason.
+
 While the message box is empty, up to four suggestions sit above it, drawn
 from your work, such as **What needs me?**, **Resume …** or **Show the report
 for …**. A suggestion only fills the message box; nothing is sent until you
@@ -860,7 +876,7 @@ Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/scr
 | States       | On, Off (runs only from **Run now**)              | On, Paused, Stopped                                             |
 | Limits       | 1 to 8 concurrent runs (default 1)                | One per task. Claude and Codex only. Pauses while that task has an active agent run |
 
-Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**.
+Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**. A schedule set up by asking Tars is listed here too; it can also run once at a date and time, shown as **Once on …**, after which it turns itself off.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
 ## Fleet View

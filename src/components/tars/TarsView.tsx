@@ -59,6 +59,8 @@ import { useTarsClear } from "./use-tars-clear";
 import type { TarsTrayClearing } from "./TarsTray";
 import { focusTarsTrayLane, TarsStartContext, type TarsStartInfo } from "./TarsStart";
 import { buildTarsStartCounts, listTarsStartRepositories } from "@/lib/tars/start";
+import { useTarsSchedules } from "./use-tars-schedules";
+import { TarsSchedulesSection } from "./TarsSchedulesSection";
 
 const NO_RESPONSIBILITIES: TarsResponsibility[] = [];
 
@@ -195,7 +197,7 @@ export function TarsView() {
     receipts: conversation.conversation.receipts, records: conversation.conversation.records, answers: conversation.conversation.answers ?? [],
     activity: conversation.conversation.activity, responsibilities }) : [], [conversation.conversation, responsibilities, snapshot]);
   /** Opens a task of the work: its own, or the one a request waits in (a helper's), in the work's repository. */
-  async function openTask(row: TarsResponsibility, taskId: string, workspaceId: string) {
+  async function openTask(row: Pick<TarsResponsibility, "repositoryPath">, taskId: string, workspaceId: string) {
     try {
       await focusTaskAttention({ taskId, workspaceId, repositoryPath: row.repositoryPath, refreshFromPersistence: true });
       if (!useAppStore.getState().tasks.some((task) => task.id === taskId)) throw new Error();
@@ -277,6 +279,21 @@ export function TarsView() {
   const publishing = useTarsPublish({ bridge: api, conversation: conversation.conversation, responsibilities: snapshot ? responsibilities : null,
     refresh: () => { void refresh(); void conversation.refresh(); }, focusComposer: () => controller.current?.focusComposer() });
   const openPublish = publishing.available ? (row: TarsResponsibility) => { setTrayPopoverOpen(false); publishing.openCard(row); } : undefined;
+  // Schedules Tars set up: their cards and records in the conversation, and their list under the tray's lanes.
+  const scheduling = useTarsSchedules({ bridge: api, conversation: conversation.conversation, refresh: () => { void conversation.refresh(); },
+    focusComposer: () => controller.current?.focusComposer() });
+  const schedulesSection = scheduling.available ? <TarsSchedulesSection context={scheduling.context} onOpenSchedules={() => useAppStore.getState().openAutomationCenter()} /> : null;
+  // "Show my schedules" opens the tray the list is in; the section itself unfolds and scrolls into view.
+  const listRequests = scheduling.context.listRequests;
+  const seenListRequests = useRef<number | null>(null);
+  useEffect(() => {
+    const previous = seenListRequests.current;
+    if (!conversation.conversation) return;
+    seenListRequests.current = listRequests;
+    if (previous === null || listRequests <= previous) return;
+    setSide(null);
+    if (pinned) setPinnedTrayOpen(true); else setTrayPopoverOpen(true);
+  }, [conversation.conversation, listRequests, pinned]);
   // What a clear would hide now: settled messages, and ended work that is not waiting on a draft PR.
   const waitingPublish = useMemo(() => new Set(publishing.context.proposals.filter((view) => view.state === "waiting").map((view) => view.responsibilityId)),
     [publishing.context.proposals]);
@@ -326,10 +343,10 @@ export function TarsView() {
     ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
-    : responsibilities.length ? <>
+    : <>{responsibilities.length ? <>
       {recap && !away.dismissed ? <TarsAwayRecap recap={recap} onOpenSide={openSide} onDismiss={away.dismiss} /> : null}
       <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} surface={pinned ? "canvas" : "raised"} />
-    </> : <p className={sx(styles.text)}>{t("shell:tars.conversation.noWork")}</p>;
+    </> : <p className={sx(styles.text)}>{t("shell:tars.conversation.noWork")}</p>}{schedulesSection}</>;
   // Wide, the side view takes the tray's column and the tray folds to its indicator until the side view closes.
   const trayOpen = pinned ? pinnedTrayOpen && !side : trayPopoverOpen;
   const onTrayOpenChange = (next: boolean) => {
@@ -340,9 +357,9 @@ export function TarsView() {
   const openTray = useRef(() => onTrayOpenChange(true));
   openTray.current = () => onTrayOpenChange(true);
   // A start-screen count shows its lane in the tray, as the tray's own indicator would, and moves focus there.
-  const startInfo = useMemo<TarsStartInfo>(() => ({ counts: startCounts, repositories: startRepositories, canPublish: publishing.available, canClear: clearing.available,
+  const startInfo = useMemo<TarsStartInfo>(() => ({ counts: startCounts, repositories: startRepositories, canPublish: publishing.available, canClear: clearing.available, canSchedule: scheduling.available,
     onOpenCount: (count) => { openTray.current(); focusTarsTrayLane(count.lane, count.responsibilityId); } }),
-  [clearing.available, publishing.available, startCounts, startRepositories]);
+  [clearing.available, publishing.available, scheduling.available, startCounts, startRepositories]);
   const placement = tarsSideViewPlacement(size ?? { width: 0, height: 0 });
   // The bridge object never changes, so the request view reads again only when its work changes.
   const loadBrief = useMemo<TarsBriefLoader | undefined>(() => api?.getBrief ? (input) => api.getBrief!(input) : undefined, [api]);
@@ -382,6 +399,7 @@ export function TarsView() {
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
+        schedule={scheduling.available ? scheduling.context : undefined} onOpenScheduleRun={(run) => { if (run.taskId) void openTask(run, run.taskId, run.workspaceId); }}
         composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} /></TarsStartContext>
       </TarsResultProvider>
       {pinned ? sideView : null}

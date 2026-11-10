@@ -12,6 +12,7 @@ import { TarsClearActionSchema, TarsClearRecordSchema, TarsConversationViewSchem
 import {
   TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, TarsAutonomyLevelSchema, TarsNeverRuleMatchSchema, TarsNeverRulesSchema, tarsActionKey,
 } from "./autonomy";
+import { TarsScheduleActionSchema, TarsScheduleReasonSchema, TarsScheduleRecordSchema, TarsScheduleRunSchema } from "./schedules";
 
 const IdSchema = z.string().trim().min(1).max(256);
 const RevisionSchema = z.number().int().min(1);
@@ -126,8 +127,8 @@ export const TarsDelegateReasonSchema = z.enum([
   "attachmentUnknown",
 ]);
 export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
-/** A publish proposal refused when it was made carries a `TarsPublishReason`. */
-export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema, TarsPublishReasonSchema]);
+/** A publish proposal refused when it was made carries a `TarsPublishReason`, a schedule proposal a `TarsScheduleReason`. */
+export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema, TarsPublishReasonSchema, TarsScheduleReasonSchema]);
 export type TarsActionReason = z.infer<typeof TarsActionReasonSchema>;
 
 /** Fixed across the host boundary: a saved agent cannot be judged until the renderer syncs the catalog. */
@@ -274,6 +275,7 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   TarsShowActionSchema,
   TarsPublishActionSchema,
   TarsClearActionSchema,
+  TarsScheduleActionSchema,
 ]);
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
 
@@ -434,16 +436,18 @@ export const TarsActionReceiptSchema = z.object({
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 }).strict().superRefine((receipt, context) => {
-  // An ask always waits for the user's answer, and a publish or a clear for the user's confirmation on its card; none applies anything itself.
-  // Any other act can wait where an autonomy level or one of the user's rules holds it; a view and the reducing controls never do.
-  const proposable = receipt.action.kind === "ask" || isTarsHoldableAction(receipt.action);
-  // A clear belongs to no responsibility, so its applied receipt names none.
-  const unbound = receipt.action.kind === "clear";
+  // An ask always waits for the user's answer, and a publish, a clear or a schedule change for the user's confirmation on its card; none applies anything itself.
+  // Any other act can wait where an autonomy level or one of the user's rules holds it; a view, the reducing controls and listing schedules never do.
+  const proposable = receipt.action.kind === "ask"
+    || (receipt.action.kind === "schedule" ? receipt.action.operation !== "list" : isTarsHoldableAction(receipt.action));
+  // A clear or a schedule belongs to no responsibility, so its applied receipt names none.
+  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule";
   // An automatic follow-up's refusal carries its one code on any kind of action.
   const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
     : receipt.action.kind === "publish" ? TarsPublishReasonSchema.safeParse(receipt.reason).success
-      : receipt.action.kind === "delegate" && TarsDelegateReasonSchema.safeParse(receipt.reason).success)));
+      : receipt.action.kind === "schedule" ? TarsScheduleReasonSchema.safeParse(receipt.reason).success
+        : receipt.action.kind === "delegate" && TarsDelegateReasonSchema.safeParse(receipt.reason).success)));
   const valid = coded &&
     (receipt.status === "proposed" || receipt.status === "pending" ? receipt.responsibilityId === null && receipt.error === null &&
       (receipt.status === "pending" || proposable)
@@ -455,7 +459,8 @@ export const TarsActionReceiptSchema = z.object({
 export type TarsActionReceipt = z.infer<typeof TarsActionReceiptSchema>;
 
 export const TarsReceiptOutcomeSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("applied"), responsibilityId: IdSchema }).strict(),
+  // Null only for an action that belongs to no responsibility (`TarsActionReceiptSchema` checks which).
+  z.object({ status: z.literal("applied"), responsibilityId: IdSchema.nullable() }).strict(),
   z.object({ status: z.literal("proposed"), matchedRules: z.array(TarsNeverRuleMatchSchema).max(12).optional() }).strict(),
   z.object({ status: z.literal("rejected"), error: ErrorSchema, reason: TarsActionReasonSchema.optional() }).strict(),
 ]);
@@ -710,6 +715,10 @@ export const TarsConversationSchema = z.object({
   clears: z.array(TarsClearRecordSchema).max(1_000).optional(),
   /** The newest applied clear of each tray lane (Done, Outputs) that hid something, whatever the conversation clear's time, for the lane's Undo. */
   trayClears: z.array(TarsClearRecordSchema).max(2).optional(),
+  /** Schedule confirmations and switches with their outcomes; optional so older hosts' conversations still parse. */
+  schedules: z.array(TarsScheduleRecordSchema).max(1_000).optional(),
+  /** Runs that Tars's schedules started: records whose actor is the schedule, not the user. */
+  scheduleRuns: z.array(TarsScheduleRunSchema).max(1_000).optional(),
   /** Retention and the active conversation clear; absent from older hosts. */
   view: TarsConversationViewSchema.optional(),
 }).strict();
