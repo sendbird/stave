@@ -827,6 +827,33 @@ and now, and up to four of them, each opening its report or timeline. It is
 dismissible, never shown on a first visit or when nothing changed, and the
 last-visible time is kept in this device's local storage only.
 
+The conversation has its own **While you were away** summary, so coming back
+does not mean reading every record row. Stave notes when you last saw the end
+of the conversation: the window visible and focused, Tars open and the
+transcript scrolled to its end. When you come back ten minutes or more later
+(`TARS_AWAY_MIN_GAP_MS`) and something happened meanwhile, one card sits in the
+transcript where you left, and the view scrolls to it:
+
+- **Decisions waiting for you**: questions and confirmations Tars raised.
+- **Blocked or failed**: work that is blocked, ended without finishing, that
+  Tars stopped following up, or whose draft PR did not open.
+- **Finished** work, and **draft PRs opened**.
+
+Each group says its count and names up to three pieces of work, newest first,
+then "And N more". A work chip opens the work's request; the link beside it
+opens its report or timeline, or goes to its decision card or its record in
+the conversation. Work is listed as it stands now: work that was blocked and
+then went on is not listed as blocked. **Jump to first new item** moves to the
+first entry after the card, and **Dismiss** removes the card for good; the
+records under it are unchanged either way. A card you did not dismiss is still
+there after a restart, and a later absence replaces it once you have seen the
+end of the conversation. Nothing shows after a shorter absence, when nothing
+happened, or on a profile that never opened the conversation. The summary is
+read from the conversation already on screen (no model call), and the seen
+time and the dismissal are saved with the Tars view settings in Stave's
+database (`tars:get-away`, `tars:save-away`): saved at most once a minute while
+you stay and when you leave, never per scroll.
+
 ### Results, changes and the side view
 
 The tray's **Outputs** section lists what each responsibility produced: its

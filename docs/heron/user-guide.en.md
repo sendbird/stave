@@ -536,7 +536,14 @@ closed or the window was hidden), a **While you were away** summary sits at the
 top of the tray: how much came to need you, failed or finished since you last
 saw Tars, and the latest of them, each opening its report or timeline. Close it
 with its X; it does not appear on a first visit or when nothing changed. Stave
-remembers when you last saw Tars on this device only. Before the first read the tray says it is checking, and it
+remembers when you last saw Tars on this device only. The conversation has its own **While you were away** card: when you
+come back ten minutes or more after you last saw the end of the conversation and
+something happened meanwhile, one card sits where you left. It counts and names
+the decisions waiting for you, work that is blocked or failed, work that
+finished and draft PRs that opened, each with a link to its report, timeline or
+decision. **Jump to first new item** moves to the first new entry, and
+**Dismiss** removes the card for good, also after a restart; the records under
+it stay as they are. Before the first read the tray says it is checking, and it
 never reports "no work" unless the read succeeded. The tray counts
 the same rows Fleet View shows for Tars work, so the two always agree. When Tars
 delegates work, its message carries a work flow: request, Tars's decision,

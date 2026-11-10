@@ -10,6 +10,7 @@ import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { AGENT_RUN_LIMITS, STAGE_BLOCK_KINDS } from "../agent-runs/domain";
 import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-name";
 import { TarsPublicationSchema } from "./publication";
+import type { TarsAwayState } from "./away-state";
 import { TarsTrayClearedSchema, type TarsClearInput, type TarsClearRecord, type TarsUndoClearInput, type TarsViewSettings } from "./clearing";
 
 /** The longest message the user can send Tars. */
@@ -47,6 +48,10 @@ export const TARS_IPC = Object.freeze({
   undoClear: "tars:undo-clear",
   /** Saves the view settings (`TarsViewSettings`: how long ended work stays in the tray). */
   configureView: "tars:configure-view",
+  /** Reads when the user last saw the conversation and the "while you were away" summary on screen (`TarsAwayState`). */
+  getAway: "tars:get-away",
+  /** Saves that state. Idempotent, and never announced through `changed`. */
+  saveAway: "tars:save-away",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -563,6 +568,10 @@ export interface TarsBridgeApi {
   clear?(input: TarsClearInput): Promise<TarsClearRecord>;
   undoClear?(input: TarsUndoClearInput): Promise<TarsClearRecord>;
   configureView?(input: TarsViewSettings): Promise<TarsViewSettings>;
+  /** When the user last saw the conversation and the summary on screen; absent on bridges that predate it, which show no summary. */
+  getAway?(): Promise<TarsAwayState>;
+  /** Saves it and returns what is saved now: the seen time never moves backward and a dismissed summary stays dismissed. */
+  saveAway?(input: TarsAwayState): Promise<TarsAwayState>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

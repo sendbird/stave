@@ -1990,6 +1990,37 @@
       "more_other": "아래 목록에 {{count}}건이 더 있습니다.",
       "dismiss": "자리를 비운 사이 요약 닫기"
     },
+    "away": {
+      "title": "자리를 비운 사이",
+      "since": "{{time}} 이후",
+      "group": {
+        "waiting_other": "결정을 기다리는 일 {{count}}건",
+        "blocked_other": "진행할 수 없거나 실패한 작업 {{count}}건",
+        "finished_other": "끝난 작업 {{count}}건",
+        "pullRequests_other": "새로 열린 Draft PR {{count}}건"
+      },
+      "trouble": {
+        "blocked": "진행 불가",
+        "cancelled": "끝내지 못하고 종료됨",
+        "followUpLimit": "Tars가 후속 확인을 멈춤",
+        "publishFailed": "Draft PR을 열지 못함"
+      },
+      "link": {
+        "report": "결과 보고서 열기",
+        "timeline": "실행 기록 열기",
+        "decision": "결정으로 이동",
+        "conversation": "대화에서 보기"
+      },
+      "linkFor": {
+        "report": "{{title}} 결과 보고서 열기",
+        "timeline": "{{title}} 실행 기록 열기",
+        "decision": "{{title}} 결정으로 이동",
+        "conversation": "대화에서 {{title}} 보기"
+      },
+      "more_other": "외 {{count}}건",
+      "jump": "첫 새 항목으로 이동",
+      "dismiss": "닫기"
+    },
     "guide": {
       "help": "Tars 사용 안내",
       "canDoTitle": "Tars가 할 수 있는 일",

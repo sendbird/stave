@@ -2022,6 +2022,42 @@
       "more_other": "And {{count}} more in the lanes below.",
       "dismiss": "Dismiss the summary of changes while you were away"
     },
+    "away": {
+      "title": "While you were away",
+      "since": "Since {{time}}",
+      "group": {
+        "waiting_one": "{{count}} decision is waiting for you",
+        "waiting_other": "{{count}} decisions are waiting for you",
+        "blocked_one": "{{count}} piece of work is blocked or failed",
+        "blocked_other": "{{count}} pieces of work are blocked or failed",
+        "finished_one": "{{count}} piece of work finished",
+        "finished_other": "{{count}} pieces of work finished",
+        "pullRequests_one": "{{count}} draft PR opened",
+        "pullRequests_other": "{{count}} draft PRs opened"
+      },
+      "trouble": {
+        "blocked": "Blocked",
+        "cancelled": "Ended without finishing",
+        "followUpLimit": "Tars stopped following up",
+        "publishFailed": "Draft PR not opened"
+      },
+      "link": {
+        "report": "Open report",
+        "timeline": "Open timeline",
+        "decision": "Go to decision",
+        "conversation": "Show in conversation"
+      },
+      "linkFor": {
+        "report": "Open the result report for {{title}}",
+        "timeline": "Open the run timeline for {{title}}",
+        "decision": "Go to the decision for {{title}}",
+        "conversation": "Show {{title}} in the conversation"
+      },
+      "more_one": "And {{count}} more",
+      "more_other": "And {{count}} more",
+      "jump": "Jump to first new item",
+      "dismiss": "Dismiss"
+    },
     "guide": {
       "help": "How Tars works",
       "canDoTitle": "What Tars can do",

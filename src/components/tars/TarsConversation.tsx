@@ -42,7 +42,8 @@ import {
   TarsComposerAttachments, TarsConversationError, TarsMessageAttachments, TarsMessageFailure, TarsMessageStatus, useTarsTextScale,
 } from "./TarsMessageChrome";
 import { tarsMessageStyles as chrome } from "./tars-message.styles";
-import { layoutTarsTranscript, TarsEdgeTime, type TarsTranscriptEntry } from "./TarsTranscriptLayout";
+import { TarsEdgeTime, type TarsTranscriptEntry } from "./TarsTranscriptLayout";
+import { TarsAwayTranscript } from "./TarsAwaySummary";
 import { tarsTranscriptStyles as transcriptStyles } from "./tars-transcript.styles";
 import { TarsClearCard, TarsClearProposalRecord, TarsClearRecordLine, TarsSuggestionChips } from "./TarsClear";
 import type { TarsClearContext } from "./use-tars-clear";
@@ -379,7 +380,9 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           onUndo={() => void clear.undo(clear.active!.requestId)} /></TarsRecordList> : null}
         {state.conversation && !timeline.some((item) => item.kind !== "clear") ? <TarsWelcome name={name} onExample={insertDraft} /> : null}
         <TarsRecordOpenWorkContext value={openWork}>
-        {layoutTarsTranscript(timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) })))}
+        {/* The transcript, with the "while you were away" summary where the user left. */}
+        <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
+          decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} />
         {publish?.open ? (() => {
           const open = publish.open;
           const row = publish.rowOf(open.responsibilityId);
