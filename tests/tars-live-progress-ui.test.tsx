@@ -125,6 +125,25 @@ describe("Tars live progress UI", () => {
     } finally { await applyAppLocale("en"); }
   });
 
+  test("a stop the run explained reads as a translated line, with the run's own words folded under Technical details", async () => {
+    await applyAppLocale("en");
+    const activity: TarsActivity = { id: "a-stopped", responsibilityId: "r", revision: 3, title: "Fix export", state: "blocked",
+      detail: "Codex exited with code 137.", detailCode: "runStopped", createdAt: start.toISOString() };
+    const html = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity, kind: "blocked" } }));
+    expect(html).toContain("This work stopped. Open its task to see why.");
+    expect(html).toContain('data-tars-diagnostic=""');
+    expect(html).toContain("Technical details");
+    await applyAppLocale("ko");
+    try {
+      const ko = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity, kind: "blocked" } }));
+      expect(ko).toContain("작업이 멈췄습니다. Task를 열어 이유를 확인하세요.");
+      expect(ko).toContain("기술 정보");
+    } finally { await applyAppLocale("en"); }
+    // Tars's own fixed sentence has nothing to expand.
+    const plain = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity: { ...activity, detail: "The run stopped." }, kind: "blocked" } }));
+    expect(plain).not.toContain("data-tars-diagnostic");
+  });
+
   test("a message Tars is still writing reads as running; a queued one as queued", async () => {
     await applyAppLocale("en");
     const message = (state: "queued" | "reasoning") => renderToStaticMarkup(createElement(TarsConversationMessage, {

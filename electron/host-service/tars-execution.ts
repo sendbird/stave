@@ -8,6 +8,7 @@ import type { TarsExecutionObservation } from "./tars-runtime";
 import { classifyStageEvidence, isVerifiedEvidence } from "../../src/lib/agent-runs/evidence";
 import { revisionsMatch } from "../../src/lib/agent-runs/verification-contract";
 import { currentStageRecord } from "../../src/lib/agent-runs/domain";
+import { parseAgentRunTurnStartFailure } from "../../src/lib/agent-runs/turn-start-failure";
 import { activeAgentRunAttentionKind } from "../../src/lib/fleet/agent-run-attention";
 
 // i18n-ignore: model-facing instructions, not user interface copy
@@ -157,11 +158,11 @@ export function tarsStageWait(record: Pick<AgentRunStageRecord, "status" | "bloc
 export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: readonly string[],
   reverifyAfter?: string | null): TarsExecutionObservation {
   const run = detail.agentRun;
-  if (run.state === "cancelled") return { state: "cancelled", detail: run.reasonDetail ?? null };
-  // The run's own reason is free text; without one Tars names the stop by code.
-  if (run.state === "stopped") return run.reasonDetail ? { state: "blocked", detail: run.reasonDetail }
-    : { state: "blocked", detail: run.stopReason ?? "The run stopped.", detailCode: "runStopped",
-      detailParams: run.stopReason ? { reason: run.stopReason } : null };
+  // The run's own reason is a diagnostic: surfaces say the stop or cancel by code and keep the words expandable.
+  if (run.state === "cancelled") return run.reasonDetail ? { state: "cancelled", detail: run.reasonDetail, detailCode: "runCancelled", detailParams: null }
+    : { state: "cancelled", detail: null };
+  if (run.state === "stopped") return { state: "blocked", detail: run.reasonDetail ?? run.stopReason ?? "The run stopped.", detailCode: "runStopped",
+    detailParams: run.stopReason ? { reason: run.stopReason } : null };
   if (run.state === "completed") {
     const report = detail.report;
     const required = report?.acceptanceCriteria.filter((item) => item.required !== false) ?? [];
@@ -197,6 +198,7 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
     // The turn count lets a turn taken between two looks restart the quiet wait.
     const turns = { runTurns: run.turnCount, ...(current ? { runStage: `${current.stageId}#${current.attempt}` } : {}) };
     // A bare pause reason is a code, never words to show as written.
+    if (parseAgentRunTurnStartFailure(words)) return { state: "waiting", detail: words, detailCode: "turnStartFailed", detailParams: null, ...asks, ...turns };
     return words || !run.pauseReason ? { state: "waiting", detail: words, ...asks, ...turns }
       : { state: "waiting", detail: run.pauseReason, detailCode: "runPaused", detailParams: { reason: run.pauseReason }, ...turns };
   }
@@ -244,11 +246,13 @@ export function tarsHelperObservation(helpers: readonly TarsHelperRead[]): TarsE
     // The helper's own turn and stage attempt identify the ask: a new turn or attempt there is a new ask.
     const at = { waitingTaskId: run.leadTaskId, runTurns: run.turnCount, runStage: `${run.id}/${stage.stageId}#${stage.attempt}`.slice(0, 300) };
     const wait = tarsStageWait(stage);
-    if (kind && run.state === "running") return [{ asks: true, observation: { state: "waiting" as const, detail: stage.detail ?? null, stageAsksUser: true,
+    // A helper's turn that could not start is said by code, like the run's own.
+    const failed = parseAgentRunTurnStartFailure(stage.detail) ? { detailCode: "turnStartFailed" as const, detailParams: null } : {};
+    if (kind && run.state === "running") return [{ asks: true, observation: { state: "waiting" as const, detail: stage.detail ?? null, ...failed, stageAsksUser: true,
       ...(wait ? { stageWait: wait } : {}), ...at } }];
     if (kind) {
       const words = stage.detail ?? run.reasonDetail ?? null;
-      return [{ asks: false, observation: words || !run.pauseReason ? { state: "waiting" as const, detail: words, ...at }
+      return [{ asks: false, observation: words || !run.pauseReason ? { state: "waiting" as const, detail: words, ...(words === stage.detail ? failed : {}), ...at }
         : { state: "waiting" as const, detail: run.pauseReason, detailCode: "runPaused" as const, detailParams: { reason: run.pauseReason }, ...at } }];
     }
     return [{ asks: false, observation: { state: "waiting" as const, detail: "A helper task is waiting for your input or approval.",
