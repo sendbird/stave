@@ -10,8 +10,8 @@ restart — and the child's answer comes back to the parent on its own.
 
 ## Results in the conversation
 
-The message that launched a subagent shows **Subagent results** outside its collapsed
-trace summary. Its heading shows the number of subagents. Each subagent is an Atelier UI
+Once its turn ends, the message that launched a subagent shows **Subagent results** outside
+its collapsed trace summary; while the turn runs, the subagents appear as steps in the trace. Its heading shows the number of subagents. Each subagent is an Atelier UI
 run monitor card, and several cards sit side by side, wrapping into rows when the column is
 narrow. A live card shows its identity, current work with its observed duration, and reported
 history. A returned result or failure shows a preview with any observed duration. Select

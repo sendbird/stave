@@ -581,11 +581,30 @@ export function AssistantMessageBody(args: {
     [categoryCounts, isStreaming, trace.responseParts, t],
   );
 
-  // Human decisions remain visible when work history is collapsed.
-  const historyEntries = useMemo(
-    () => trace.entries.filter((entry) => entry.kind !== "user_input"),
-    [trace.entries],
-  );
+  /*
+   * Once the turn ends, answers and subagent results are pinned outside the
+   * work history so they stay visible when it collapses. While the turn runs
+   * they stay in their place in the history instead: a reply streamed below a
+   * pinned card moves into the history as soon as a later step starts, so it
+   * would vanish from under the card and the card would jump. A question
+   * still waiting for its answer stays pinned: the turn is blocked on it.
+   */
+  const pinsDecisions = !isActivelyStreaming;
+  const { historyEntries, pinnedDecisionEntries } = useMemo(() => {
+    const history: AssistantTraceEntry[] = [];
+    const pinned: Extract<AssistantTraceEntry, { kind: "user_input" }>[] = [];
+    for (const entry of trace.entries) {
+      if (
+        entry.kind === "user_input" &&
+        (pinsDecisions || entry.part.state === "input-requested")
+      ) {
+        pinned.push(entry);
+      } else {
+        history.push(entry);
+      }
+    }
+    return { historyEntries: history, pinnedDecisionEntries: pinned };
+  }, [pinsDecisions, trace.entries]);
   /* Once the turn ends: the web sources its searches and fetches returned. */
   const turnSources = useMemo(
     () => (isStreaming ? [] : collectTurnWebSources(message.parts)),
@@ -726,8 +745,10 @@ export function AssistantMessageBody(args: {
         </ChainOfThought>
       ) : null}
 
-      <MessageSubagents message={message} taskId={taskId} readOnly={readOnly} />
-      {trace.entries.filter((entry) => entry.kind === "user_input").map((entry) => (
+      {pinsDecisions ? (
+        <MessageSubagents message={message} taskId={taskId} readOnly={readOnly} />
+      ) : null}
+      {pinnedDecisionEntries.map((entry) => (
         <TraceClarification readOnly={readOnly} key={entry.id} part={entry.part} taskId={taskId} messageId={messageId} />
       ))}
 

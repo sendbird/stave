@@ -100,6 +100,44 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain('aria-expanded="false"');
   });
 
+  const answeredQuestion = {
+    type: "user_input" as const, requestId: "question-2", toolName: "request_user_input", state: "input-responded" as const,
+    questions: [{ key: "deps", header: "Dependencies", question: "Install the formatter?", options: [] }],
+    answers: { deps: "I installed it myself." },
+  };
+
+  test("while the turn runs, an answer keeps its place in the history so a later step cannot move the reply above it", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const render = (parts: ChatMessage["parts"]) => renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ isStreaming: true, parts }),
+      taskId: "parent", messageId: "reply", streamingEnabled: true, traceExpansionMode: "auto", showInterimMessages: true,
+    }));
+    const head: ChatMessage["parts"] = [
+      { type: "tool_use", toolName: "Bash", input: "git commit", state: "output-available", output: "hook failed" },
+      answeredQuestion,
+      { type: "text", text: "Commit done. Rebasing on main." },
+    ];
+    // The reply streams below the answer, then a later step turns it into history.
+    for (const html of [render(head), render([...head, { type: "tool_use", toolName: "Bash", input: "git rebase", state: "input-available" }])]) {
+      expect(html.split("Install the formatter?")).toHaveLength(2);
+      expect(html.indexOf("Install the formatter?")).toBeLessThan(html.indexOf("Commit done. Rebasing on main."));
+    }
+  });
+
+  test("once the turn ends, an answer is pinned outside the collapsed history", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ isStreaming: false, content: "Pushed.", parts: [
+        { type: "tool_use", toolName: "Bash", input: "git push", state: "output-available", output: "ok" },
+        answeredQuestion,
+        { type: "tool_use", toolName: "Bash", input: "git push", state: "output-available", output: "ok" },
+        { type: "text", text: "Pushed." },
+      ] }), taskId: "parent", messageId: "reply", streamingEnabled: true, traceExpansionMode: "manual",
+    }));
+    expect(html.split("Install the formatter?")).toHaveLength(2);
+    expect(html).toContain('aria-expanded="false"');
+  });
+
   test("read-only past questions cannot submit or deny an answer", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

@@ -158,6 +158,11 @@ Durable results are matched by parent, run, step, child task, attempt and record
 One transcript-level ledger subscription supplies live updates; read-only message views use
 recorded receipts. Native results reuse the task projection and only the matching turn graph.
 Structured questions stay outside history, retaining the same answer and focus handling.
+Both are pinned only once the turn ends. While the turn runs, answered questions keep their
+chronological place in history and the subagent section is not drawn (the trace's subagent
+steps cover it): a reply streamed below a pinned card moves into history as soon as a later
+step starts, so it would vanish from under the card. A question still waiting for its answer
+stays pinned while the turn runs.
 
 ### Inline code & file links
 
