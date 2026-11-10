@@ -414,7 +414,7 @@ describe("Tars tray lanes and card actions", () => {
     expect(laneHeads(html).find((head) => head.lane === "needsYou")!.expanded).toBe("true");
   });
 
-  test("a card offers at most one primary action, a decision on the 28px rung; everything else is a 24px secondary action", () => {
+  test("a card offers at most one primary action, a decision on the 32px rung; everything else is a 28px secondary action", () => {
     const f = fixtures();
     const model = trayOf(f);
     for (const card of Object.values(model.lanes).flat()) {
@@ -422,7 +422,7 @@ describe("Tars tray lanes and card actions", () => {
       const primaries = html.match(/data-tars-card-primary=""/g) ?? [];
       expect(primaries.length).toBeLessThanOrEqual(1);
       const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
-      for (const tag of buttons) expect(tag).toContain(tag.includes("data-tars-card-primary") ? 'data-size="xs"' : 'data-size="2xs"');
+      for (const tag of buttons) expect(tag).toContain(tag.includes("data-tars-card-primary") ? 'data-size="sm"' : 'data-size="xs"');
     }
     // The paused card's proposal is its primary; its state control is not a second one.
     const release = renderToStaticMarkup(createElement(TarsCardActions, { card: model.lanes.needsYou[0]!, actions: noActions }));
@@ -430,7 +430,7 @@ describe("Tars tray lanes and card actions", () => {
     // Running work without a proposal keeps Pause as a secondary action, beside Open task and in the same weight.
     const billing = renderToStaticMarkup(createElement(TarsCardActions, { card: model.lanes.running.find((value) => value.row.id === f.ids.billing)!, actions: noActions }));
     expect(billing).not.toContain("data-tars-card-primary");
-    expect(billing).toMatch(/data-tars-action="pause"[^>]*data-size="2xs"[^>]*data-variant="quiet"/);
+    expect(billing).toMatch(/data-tars-action="pause"[^>]*data-size="xs"[^>]*data-variant="quiet"/);
     // The menu trigger is named and hinted.
     expect(release).toContain('aria-label="More actions for Verify the release candidate"');
     expect(release).toContain("data-base-ui-tooltip-trigger");
@@ -442,7 +442,7 @@ describe("Tars tray lanes and card actions", () => {
     const entry = card.attention.find((value) => value.decision)!;
     const cancel = { ...card, attention: [{ ...entry, decision: { ...entry.decision!, operation: "cancel" as const } }] };
     const actionsHtml = renderToStaticMarkup(createElement(TarsCardActions, { card: cancel, actions: noActions }));
-    expect(actionsHtml).toMatch(/data-tars-card-primary=""[^>]*data-size="xs"[^>]*data-tone="danger"/);
+    expect(actionsHtml).toMatch(/data-tars-card-primary=""[^>]*data-size="sm"[^>]*data-tone="danger"/);
     const cardHtml = renderToStaticMarkup(createElement(TarsTrayCard, { card: cancel, actions: noActions }));
     expect(cardHtml).toContain("data-tars-decision-risk-tag");
     expect(cardHtml).toContain("Can&#x27;t be undone");

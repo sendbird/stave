@@ -140,6 +140,9 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {
     test(`publish fields share control height and label alignment: ${theme} ${lang} ${density} ${width}`, async ({ page }) => {
       await open(page, `&theme=${theme}&lang=${lang}&density=${density}`, width);
       const publish = page.locator('[data-tars-publish-card]:has([data-tars-publish-type])').first();
+      const id = await publish.getAttribute('data-tars-publish-card');
+      await page.locator(`[data-tars-waiting-record="${id}"] button`).click();
+      await expect(publish).toBeVisible();
       await publish.scrollIntoViewIfNeeded();
       const fields = await publish.evaluate((node) => {
         return ['[data-tars-publish-type]', '[data-tars-publish-message]', '[data-tars-publish-title]'].map((selector) => {
