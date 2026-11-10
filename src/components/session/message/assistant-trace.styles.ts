@@ -114,4 +114,7 @@ export const assistantTraceStyles = stylex.create({
   spacedTop: {
     marginTop: vars["--aui-space-12"],
   },
+  spacedBottom: {
+    marginBottom: vars["--aui-space-12"],
+  },
 });
