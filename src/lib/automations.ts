@@ -320,6 +320,13 @@ export const AutomationUpsertInputSchema = z
     prompt: z.string().trim().min(1).max(100_000),
     enabled: z.boolean(),
     schedule: AutomationScheduleSchema,
+    /**
+     * A one-time schedule: it runs once at this instant (UTC) instead of on
+     * `schedule`'s cadence, then turns itself off. `schedule` stays as the
+     * cadence to fall back to when this is removed. Absent on every repeating
+     * schedule, and on every schedule saved before one-time runs existed.
+     */
+    runOnceAt: z.string().datetime().optional(),
     environment: AutomationEnvironmentInputSchema,
     runtime: AutomationRuntimeConfigSchema,
     trustPolicy: AutomationTrustPolicySchema.default("review-required"),
@@ -493,6 +500,31 @@ export function computeNextAutomationRunAt(args: {
     .map((weekday) => computeForWeekday(weekday))
     .reduce((left, right) => (right.getTime() < left.getTime() ? right : left));
   return earliest.toISOString();
+}
+
+// i18n-ignore: host save error and MCP text; the window explains a passed one-time run itself
+export const AUTOMATION_RUN_ONCE_PASSED_MESSAGE =
+  "This one-time schedule's time has already passed. Edit the schedule to choose a new time.";
+
+/**
+ * When a schedule that is on runs next: a one-time schedule at its instant, a
+ * repeating one at its cadence's next instant after `after`. Throws for a
+ * one-time schedule whose instant is not after `after`, so turning one on
+ * never fires a run the user planned for the past.
+ */
+export function resolveNextAutomationRunAt(args: {
+  schedule: AutomationSchedule;
+  runOnceAt?: string | undefined;
+  after: Date | string | number;
+}) {
+  if (args.runOnceAt === undefined) {
+    return computeNextAutomationRunAt({ schedule: args.schedule, after: args.after });
+  }
+  const after = args.after instanceof Date ? args.after : new Date(args.after);
+  if (Date.parse(args.runOnceAt) <= after.getTime()) {
+    throw new Error(AUTOMATION_RUN_ONCE_PASSED_MESSAGE);
+  }
+  return new Date(args.runOnceAt).toISOString();
 }
 
 /** `HH:MM`, the value an `<input type="time">` reads and writes. */
