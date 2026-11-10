@@ -168,6 +168,8 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   followUps?: readonly TarsFollowUpState[];
   /** The time follow-up lines are judged at; times already past show nothing. */
   now?: string;
+  /** Ended work whose Done card was cleared or passed retention (`TarsSnapshot.cleared.done`); it leaves the Done lane. */
+  clearedDone?: readonly string[];
 }): TarsTrayModel<T> {
   const { responsibilities, attentionItems, runs } = args;
   const { rows, responsibilityIds } = selectTarsAttentionRows(attentionItems, responsibilities);
@@ -192,8 +194,10 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   }
   const lanes: Record<TarsLane, TarsTrayCard<T>[]> = { needsYou: [], running: [], done: [] };
   const queued = tarsQueueOf(responsibilities).map((row) => row.id);
+  const cleared = new Set(args.clearedDone ?? []);
   for (const row of responsibilities) {
     const lane = tarsLaneOf(row, responsibilityIds);
+    if (lane === "done" && cleared.has(row.id)) continue;
     const run = tarsRunOf(row, runs);
     const live = run && !isTarsResponsibilityTerminal(row) && isActiveAgentRunState(run.agentRun.state) ? run : undefined;
     lanes[lane].push({

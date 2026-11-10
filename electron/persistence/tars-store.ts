@@ -21,6 +21,8 @@ import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { TarsEventInbox } from "./tars-event-inbox";
 import { classifyTarsTransition, type TarsEvent, type TarsEventInput } from "../../src/lib/tars/events";
+import { readTarsTrayCleared, TarsViewStore } from "./tars-view-store";
+import { TARS_IDENTITY_UNSAVED_AT } from "../../src/lib/tars/default-instructions";
 
 interface TarsDatabase {
   exec(sql: string): unknown;
@@ -47,6 +49,8 @@ export class TarsStore {
   private hasDecisionTables = false;
   /** The event inbox on this same connection; a responsibility change and its event commit together. */
   readonly events: TarsEventInbox;
+  /** Clears and view settings on this same connection; they report through this store's changes. */
+  readonly view: TarsViewStore;
   /** The clock the snapshot reads the follow-up window with; tests pass their own. */
   private readonly now: () => string;
 
@@ -75,8 +79,9 @@ export class TarsStore {
         ON tars_responsibilities(priority DESC, created_at ASC, id ASC);
     `);
     this.db.prepare("INSERT OR IGNORE INTO tars_identity (id, body_json) VALUES ('personal', ?)")
-      .run(JSON.stringify({ id: "personal", name: "Tars", instructions: "", updatedAt: "1970-01-01T00:00:00.000Z" }));
+      .run(JSON.stringify({ id: "personal", name: "Tars", instructions: "", updatedAt: TARS_IDENTITY_UNSAVED_AT }));
     this.events = new TarsEventInbox(this.db, this.changes);
+    this.view = new TarsViewStore(this.db, this.changes);
   }
 
   /** Records an observation that is not a saved change (an expired wait); idempotent by its key. */
@@ -133,6 +138,7 @@ export class TarsStore {
       responsibilities,
       pendingDecisions: this.pendingDecisions(responsibilities),
       followUps: this.events.followUpStates(responsibilities.filter((entry) => !isTarsResponsibilityTerminal(entry)), this.now()),
+      cleared: readTarsTrayCleared(this.db, responsibilities, this.now()),
       runtime: "desktop",
     };
   }

@@ -125,3 +125,41 @@ describe("Tars settings agent allowlist", () => {
     expect(html()).toContain("Tars에 허용하지 않은 저장 에이전트입니다.");
   });
 });
+
+describe("Tars settings standing instructions and retention", () => {
+  const initial = { providerId: "codex" as const, model: "gpt-6.1-sol", maxTurns: 30 };
+  const identity = (instructions: string) => ({ id: "personal" as const, name: "Tars", instructions, updatedAt: NOW });
+  const settings = (instructions: string, view: { retentionDays: number } | null = { retentionDays: 7 }) =>
+    renderToStaticMarkup(createElement(TarsSettings, { identity: identity(instructions), busy: false, onSave: async () => true, initial, view: view as never }));
+
+  test("offers the default without forcing it: a placeholder and Use default when empty, Reset to default when edited, nothing when it is the default", () => {
+    const empty = settings("");
+    expect(empty).toContain("placeholder=\"- Lead with the answer or the decision you need from me");
+    expect(empty).toContain('data-tars-instructions-default="use"');
+    expect(empty).toContain("Use default");
+    expect(empty).toContain("Without standing instructions, Tars follows only its built-in rules.");
+    const edited = settings("Answer in one line.");
+    expect(edited).toContain('data-tars-instructions-default="reset"');
+    expect(edited).toContain("Reset to default");
+    expect(settings(i18n.t("shell:tars.instructionsDefault"))).not.toContain("data-tars-instructions-default");
+  });
+
+  test("shows the retention choice with every offered period, and hides it on bridges without view settings", () => {
+    const html = settings("", { retentionDays: 14 });
+    expect(html).toContain("Keep ended work in the panel");
+    for (const label of ["Until I clear it", "1 day", "3 days", "7 days", "14 days", "30 days"]) expect(html).toContain(`>${label}</option>`);
+    expect(html).toMatch(/<option value="14" selected="">/);
+    expect(settings("", null)).not.toContain("Keep ended work in the panel");
+  });
+
+  test("speaks Korean, where the Korean default counts as the default", async () => {
+    applyAppLocale("ko"); await i18n.changeLanguage("ko");
+    const html = settings("");
+    expect(html).toContain("끝난 작업을 패널에 두는 기간");
+    expect(html).toContain("기본값 사용");
+    expect(html).toContain("직접 정리할 때까지");
+    expect(settings(i18n.t("shell:tars.instructionsDefault", { lng: "ko" }))).not.toContain("data-tars-instructions-default");
+    // The English default is also the default, so switching languages offers no needless reset.
+    expect(settings(i18n.t("shell:tars.instructionsDefault", { lng: "en" }))).not.toContain("data-tars-instructions-default");
+  });
+});

@@ -1324,7 +1324,8 @@
         "review": "Open the review"
       },
       "publish": "Publish as a draft PR",
-      "reprioritize": "Set priority {{priority}}"
+      "reprioritize": "Set priority {{priority}}",
+      "clear": "Clear"
     },
     "execution": {
       "model": "Execution model",
@@ -2067,6 +2068,114 @@
     "deny": "Deny request",
     "answer": "Answer question",
     "message": "Send to task",
-    "requestChanges": "Request changes"
+    "requestChanges": "Request changes",
+    "instructionsDefault": "- Lead with the answer or the decision you need from me, and keep replies short.\n- Before delegating, restate the goal and how we will know it is done; ask first when the goal or the target workspace is unclear.\n- Prefer small work that is easy to review, and never lower the acceptance criteria to finish.\n- When work blocks or needs me, say what happened, what you recommend and what I need to decide.\n- When an observation is stale or unknown, say so instead of guessing.",
+    "instructionsUseDefault": "Use default",
+    "instructionsResetDefault": "Reset to default",
+    "instructionsEmptyHint": "Without standing instructions, Tars follows only its built-in rules. The default is a starting point you can edit.",
+    "retention": {
+      "label": "Keep ended work in the panel",
+      "hint": "Done cards and outputs of ended work leave the panel after this period. Nothing is deleted: Fleet and the work’s task keep it, and work whose draft PR is not finished stays.",
+      "never": "Until I clear it",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
+    "clear": {
+      "scope": {
+        "conversation": "Conversation",
+        "done": "Done",
+        "outputs": "Outputs"
+      },
+      "hidden": {
+        "conversation_one": "{{count}} message",
+        "conversation_other": "{{count}} messages",
+        "done_one": "{{count}} ended work item",
+        "done_other": "{{count}} ended work items",
+        "outputs_one": "outputs of {{count}} ended work item",
+        "outputs_other": "outputs of {{count}} ended work items"
+      },
+      "record": {
+        "applied": "Cleared",
+        "undone": "Restored",
+        "fromTars": "from Tars"
+      },
+      "restore": "Restore",
+      "undo": "Undo",
+      "failed": "The clear did not go through. Try again.",
+      "announce": {
+        "cleared": "Cleared from view.",
+        "restored": "Restored."
+      },
+      "card": {
+        "title": "Clear from view?",
+        "subtitle": "Nothing is deleted. The record this leaves can restore it.",
+        "details": "What would be cleared",
+        "kept": "Work that is running or waiting, decisions waiting for you and words waiting for a task always stay.",
+        "nothing": "There is nothing to clear right now.",
+        "keysHint": "Enter clears; Esc leaves everything as it is.",
+        "decline": "Not now",
+        "confirm": "Clear",
+        "declined": "Not cleared"
+      },
+      "conversation": {
+        "button": "Clear conversation",
+        "title": "Clear the conversation?",
+        "description_one": "{{count}} message leaves this view, and Tars starts its recent memory fresh. Nothing is deleted: your work, decisions waiting for you and records stay, and Restore brings the conversation back.",
+        "description_other": "{{count}} messages leave this view, and Tars starts its recent memory fresh. Nothing is deleted: your work, decisions waiting for you and records stay, and Restore brings the conversation back.",
+        "confirm": "Clear conversation"
+      },
+      "lane": {
+        "clear": "Clear",
+        "clearDone": "Clear ended work from Done",
+        "clearOutputs": "Clear outputs of ended work",
+        "hidden_one": "{{count}} ended work item hidden (cleared or past the retention period)",
+        "hidden_other": "{{count}} ended work items hidden (cleared or past the retention period)"
+      }
+    },
+    "suggestions": {
+      "label": "Suggested requests",
+      "needsYou": {
+        "label": "What needs me?",
+        "prompt": "What needs me right now, and what do you recommend for each?"
+      },
+      "followUp": {
+        "label": "How is {{title}} going?",
+        "prompt": "How is “{{title}}” going? Tell me what it is doing now and what is left."
+      },
+      "blocked": {
+        "label": "Why is {{title}} blocked?",
+        "prompt": "Why is “{{title}}” blocked, and what do you recommend?"
+      },
+      "resume": {
+        "label": "Resume {{title}}",
+        "prompt": "Resume “{{title}}”."
+      },
+      "startNow": {
+        "label": "Start {{title}} now",
+        "prompt": "Start “{{title}}” now."
+      },
+      "startQueued": {
+        "label_one": "Start {{count}} queued now",
+        "label_other": "Start {{count}} queued now",
+        "prompt_one": "Start the {{count}} queued work item now.",
+        "prompt_other": "Start all {{count}} queued work items now."
+      },
+      "publish": {
+        "label": "Open a draft PR for {{title}}",
+        "prompt": "Open a draft PR for “{{title}}”."
+      },
+      "report": {
+        "label": "Show the report for {{title}}",
+        "prompt": "Show me the report for “{{title}}”."
+      },
+      "finishedToday": {
+        "label": "What finished today?",
+        "prompt": "What finished in the last day? Summarize the results and anything I should check."
+      },
+      "progress": {
+        "label": "How is {{title}} going?",
+        "prompt": "How is “{{title}}” going? Tell me what it is doing now and what is left."
+      }
+    }
   }
 }

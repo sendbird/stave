@@ -10,6 +10,7 @@ import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { AGENT_RUN_LIMITS, STAGE_BLOCK_KINDS } from "../agent-runs/domain";
 import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-name";
 import { TarsPublicationSchema } from "./publication";
+import { TarsTrayClearedSchema, type TarsClearInput, type TarsClearRecord, type TarsUndoClearInput, type TarsViewSettings } from "./clearing";
 
 /** The longest message the user can send Tars. */
 export const TARS_MESSAGE_MAX_CHARS = 32_000;
@@ -40,6 +41,12 @@ export const TARS_IPC = Object.freeze({
   getDraft: "tars:get-draft",
   /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
   saveDraft: "tars:save-draft",
+  /** Clears the conversation view, the tray's Done cards or its outputs (`TarsClearInput`); hides, never deletes. */
+  clear: "tars:clear",
+  /** Restores what one clear hid. */
+  undoClear: "tars:undo-clear",
+  /** Saves the view settings (`TarsViewSettings`: how long ended work stays in the tray). */
+  configureView: "tars:configure-view",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -517,6 +524,8 @@ export const TarsSnapshotSchema = z.object({
   pendingDecisions: z.array(TarsPendingDecisionSchema).default([]),
   /** Tars's next automatic look at each responsibility, from the event inbox; absent from older hosts. */
   followUps: z.array(TarsFollowUpStateSchema).max(200).default([]),
+  /** Ended work the tray leaves out (cleared or past retention); absent from older hosts, which leave out nothing. */
+  cleared: TarsTrayClearedSchema.optional(),
   runtime: z.literal("desktop"),
 }).strict();
 export type TarsSnapshot = z.infer<typeof TarsSnapshotSchema>;
@@ -546,6 +555,10 @@ export interface TarsBridgeApi {
   /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */
   getDraft?(): Promise<TarsComposerDraft | null>;
   saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;
+  /** Clears and restores; absent on bridges that predate clearing, which offer no Clear. */
+  clear?(input: TarsClearInput): Promise<TarsClearRecord>;
+  undoClear?(input: TarsUndoClearInput): Promise<TarsClearRecord>;
+  configureView?(input: TarsViewSettings): Promise<TarsViewSettings>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;

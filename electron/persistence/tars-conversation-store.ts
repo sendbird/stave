@@ -194,12 +194,28 @@ export class TarsConversationStore {
   /**
    * Admit history before this request, independent of queue depth or
    * equal/shifted clocks. History is words only: attachments are summaries.
+   * `after` (a conversation clear) keeps only messages saved or answered after
+   * its time, plus the ones it saved as under way (`keep`), as the
+   * conversation view shows them.
    */
-  listBefore(messageId: string, limit = 8): TarsMessageView[] {
+  listBefore(messageId: string, limit = 8, after: { at: string; keep: readonly string[] } | null = null): TarsMessageView[] {
     this.requireLimit(limit);
+    const at = after?.at ?? null;
     return this.readViews(this.db.prepare(`SELECT id, json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
       WHERE rowid < (SELECT rowid FROM tars_messages WHERE id = ?)
-      ORDER BY rowid DESC LIMIT ?`).all(messageId, limit) as ViewRow[]).reverse();
+        AND (? IS NULL OR created_at > ? OR json_extract(body_json, '$.updatedAt') > ? OR id IN (SELECT value FROM json_each(?)))
+      ORDER BY rowid DESC LIMIT ?`).all(messageId, at, at, at, JSON.stringify(after?.keep ?? []), limit) as ViewRow[]).reverse();
+  }
+
+  /** Messages still queued or being answered: what a conversation clear saved now keeps in view whenever their replies land. */
+  listInProgressIds(): string[] {
+    return (this.db.prepare("SELECT id FROM tars_messages WHERE state IN ('queued', 'reasoning') ORDER BY rowid").all() as Array<{ id: string }>).map((row) => row.id);
+  }
+
+  /** Settled messages saved after `after` (any time when null) and at or before `through`: what a conversation clear at `through` hides. */
+  countSettledBetween(after: string | null, through: string): number {
+    return (this.db.prepare(`SELECT COUNT(*) AS count FROM tars_messages WHERE state NOT IN ('queued', 'reasoning')
+      AND created_at <= ? AND (? IS NULL OR created_at > ?)`).get(through, after, after) as { count: number }).count;
   }
 
   /**
@@ -701,6 +717,23 @@ export class TarsConversationStore {
       if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
       return record;
     });
+  }
+
+  /**
+   * The clear proposal a confirmation applies, settled with the clear in the
+   * caller's transaction. Throws unless it is that exact proposal and still waits.
+   */
+  settleClearProposal(ref: TarsProposalRef, scopes: readonly string[], now: string): TarsActionReceipt {
+    const current = this.getReceipt(ref.messageId, ref.actionIndex);
+    if (current?.action.kind !== "clear" || current.status !== "proposed") throw new Error("The clear proposal is not awaiting confirmation.");
+    if ([...current.action.scopes].sort().join() !== [...scopes].sort().join()) throw new Error("The confirmation names other scopes than the proposal.");
+    const next = TarsActionReceiptSchema.parse({ ...current, status: "applied", responsibilityId: null, error: null, reason: null,
+      revision: current.revision + 1, updatedAt: now });
+    const result = this.db.prepare(`UPDATE tars_action_receipts SET revision = ?, body_json = ?
+      WHERE message_id = ? AND action_index = ? AND revision = ?`).run(next.revision, JSON.stringify(next), ref.messageId, ref.actionIndex, current.revision);
+    if (Number(result.changes ?? 0) !== 1) throw new Error("The action receipt changed. Refresh before trying again.");
+    this.changes.emit("conversation");
+    return next;
   }
 
   /** Only the confirming click moves a proposal on; it is never applied by the conversation itself. */

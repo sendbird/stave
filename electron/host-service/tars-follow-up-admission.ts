@@ -13,7 +13,7 @@ const OUT_OF_REACH = new Set(["paused", "takenOver", "cancelled", "completed"]);
  * only the user's answer can lead to a delegation. It may ask, show and
  * propose resume or cancel, which wait for the user's Confirm. It never
  * reprioritizes: a priority change applies at once, so it needs the user's words.
- * It never proposes publishing, which needs the user's own words.
+ * It never proposes publishing or clearing, which need the user's own words.
  * It never pauses, takes over, hands back or starts queued work now (those apply
  * at once or return authority), never proposes acceptCompletion or cancel where Stave's own
  * unverified-completion card already asks it, and never touches work the user
@@ -24,6 +24,8 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowU
   if (action.kind === "reprioritize") return "An automatic follow-up cannot change a priority; it can ask whether the user wants it.";
   // Publishing needs the user's own words; a follow-up may only ask whether they want it.
   if (action.kind === "publish") return "An automatic follow-up cannot propose publishing; only the user's own request can.";
+  // Clearing hides what the user may want to read; only their own words propose it.
+  if (action.kind === "clear") return "An automatic follow-up cannot propose clearing; only the user's own request can.";
   const row = (id: string) => responsibilities.get(id);
   const outOfReach = (id: string) => OUT_OF_REACH.has(row(id)?.state ?? "cancelled");
   // Stave's unverified-completion card already offers accept and cancel for this work.

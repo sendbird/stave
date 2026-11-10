@@ -13,6 +13,7 @@ import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { openFleetAt } from "@/store/fleet-focus-store";
+import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
 import type { TarsFollowUpState, TarsResponsibility } from "@/lib/tars/types";
 import {
   tarsConfirmationRequestId, type TarsActInput, type TarsActResult, type TarsAnswerInput, type TarsControlOperation, type TarsConversationSettings, type TarsQueueMove,
@@ -48,6 +49,12 @@ import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
 import { tarsControlFailureKey, tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { listAgents } from "@/lib/agents/library";
 import { getAgentDisplayName } from "@/lib/agents/display";
+import { isTarsTrayPinned, type TarsViewSettings } from "@/lib/tars/clearing";
+import { isTarsNewProfile } from "@/lib/tars/default-instructions";
+import { buildTarsSuggestions } from "@/lib/tars/suggestions";
+import { TarsClearConversationButton, type TarsClearCounts } from "./TarsClear";
+import { useTarsClear } from "./use-tars-clear";
+import type { TarsTrayClearing } from "./TarsTray";
 
 const NO_RESPONSIBILITIES: TarsResponsibility[] = [];
 
@@ -113,13 +120,14 @@ export function TarsView() {
   }, [appSettings, availability]);
   const responsibilities = snapshot?.responsibilities ?? NO_RESPONSIBILITIES;
   const runs = useTarsRunDetails(responsibilities, fleetRuns);
-  const outputs = useMemo(() => buildTarsOutputs({ responsibilities, runs }), [responsibilities, runs]);
+  const cleared = snapshot?.cleared;
+  const outputs = useMemo(() => buildTarsOutputs({ responsibilities, runs, cleared: cleared?.outputs }), [cleared?.outputs, responsibilities, runs]);
   const sideRow = side ? responsibilities.find((row) => row.id === side.target.responsibilityId) : undefined;
   const sideCwd = useTarsExecutionPath(sideRow);
   const followUpNow = useFollowUpClock(snapshot?.followUps);
   const tray = useMemo(() => buildTarsTray({ responsibilities, attentionItems, runs, pendingDecisions: snapshot?.pendingDecisions,
-    followUps: snapshot?.followUps, now: followUpNow }),
-    [attentionItems, responsibilities, runs, snapshot?.pendingDecisions, snapshot?.followUps, followUpNow]);
+    followUps: snapshot?.followUps, now: followUpNow, clearedDone: cleared?.done }),
+    [attentionItems, cleared?.done, responsibilities, runs, snapshot?.pendingDecisions, snapshot?.followUps, followUpNow]);
   const trayStatus = tarsTrayStatus({ bridge: Boolean(api), snapshot, error });
   const workspaces = useAppStore((state) => state.workspaces);
   const away = useTarsAwayWindow();
@@ -265,6 +273,44 @@ export function TarsView() {
   const publishing = useTarsPublish({ bridge: api, conversation: conversation.conversation, responsibilities: snapshot ? responsibilities : null,
     refresh: () => { void refresh(); void conversation.refresh(); }, focusComposer: () => controller.current?.focusComposer() });
   const openPublish = publishing.available ? (row: TarsResponsibility) => { setTrayPopoverOpen(false); publishing.openCard(row); } : undefined;
+  // What a clear would hide now: settled messages, and ended work that is not waiting on a draft PR.
+  const waitingPublish = useMemo(() => new Set(publishing.context.proposals.filter((view) => view.state === "waiting").map((view) => view.responsibilityId)),
+    [publishing.context.proposals]);
+  const clearCounts = useMemo<TarsClearCounts>(() => {
+    const clearable = (row: TarsResponsibility) => isTarsResponsibilityTerminal(row) && !isTarsTrayPinned(row, waitingPublish);
+    return {
+      conversation: (conversation.conversation?.messages ?? []).filter((message) => message.state !== "queued" && message.state !== "reasoning").length,
+      done: tray.lanes.done.filter((card) => clearable(card.row)).length,
+      outputs: new Set(outputs.filter((output) => { const row = rowOf(output.responsibilityId); return row && clearable(row); }).map((output) => output.responsibilityId)).size,
+    };
+  }, [conversation.conversation?.messages, outputs, rowOf, tray.lanes.done, waitingPublish]);
+  const announce = useCallback((text: string) => setQueueNotice((current) => current === text ? `${text}\u00a0` : text), []);
+  const clearing = useTarsClear({ bridge: api, conversation: conversation.conversation, counts: clearCounts, announce,
+    refresh: () => { void refresh(); void conversation.refresh(); } });
+  // Hidden outputs count only ended work that produced some: a clear also archives ended work with none, which hides nothing.
+  const hiddenOutputs = useMemo(() => {
+    const ids = new Set(cleared?.outputs ?? []);
+    return new Set(buildTarsOutputs({ responsibilities: responsibilities.filter((row) => ids.has(row.id)), runs }).map((output) => output.responsibilityId)).size;
+  }, [cleared?.outputs, responsibilities, runs]);
+  const laneClearing = (scope: "done" | "outputs") => {
+    const latest = clearing.latest(scope);
+    return { clearable: clearCounts[scope], hidden: scope === "done" ? cleared?.done.length ?? 0 : hiddenOutputs,
+      onUndo: latest ? () => void clearing.undo(latest.requestId) : null, error: clearing.errors.get(scope) ?? (latest ? clearing.errors.get(latest.requestId) : null) ?? null };
+  };
+  const trayClearing: TarsTrayClearing | undefined = clearing.available ? { busy: clearing.busy, done: laneClearing("done"), outputs: laneClearing("outputs"),
+    onClear: (scope) => void clearing.clear([scope], "click") } : undefined;
+  // Suggested requests from the work as it is now; none before the work was read.
+  const suggestions = useMemo(() => buildTarsSuggestions({ tray: snapshot ? tray : null, messages: conversation.conversation?.messages ?? [],
+    receipts: conversation.conversation?.receipts ?? [], now: followUpNow }), [conversation.conversation?.messages, conversation.conversation?.receipts, followUpNow, snapshot, tray]);
+  // A profile that never used Tars starts with the default standing instructions, once; anyone else is offered them in settings.
+  const seeded = useRef(false);
+  const settingsRead = conversation.conversation ? conversation.conversation.settings : undefined;
+  useEffect(() => {
+    if (seeded.current || !api || !snapshot || settingsRead === undefined || !isTarsNewProfile(snapshot.identity, settingsRead)) return;
+    seeded.current = true;
+    // The saved identity is the new snapshot; a read already under way could otherwise leave the old one on screen.
+    void api.updateIdentity({ name: snapshot.identity.name, instructions: t("shell:tars.instructionsDefault") }).then(publishTarsSnapshot).catch(() => undefined);
+  }, [api, settingsRead, snapshot, t]);
   const trayActions: TarsTrayActions = { busy, onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
     onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
     ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
@@ -272,7 +318,7 @@ export function TarsView() {
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
     : responsibilities.length ? <>
       {recap && !away.dismissed ? <TarsAwayRecap recap={recap} onOpenSide={openSide} onDismiss={away.dismiss} /> : null}
-      <TarsTray model={tray} actions={trayActions} outputs={outputs} />
+      <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} />
     </> : <p className={sx(styles.text)}>{t("shell:tars.conversation.noWork")}</p>;
   // Wide, the side view takes the tray's column and the tray folds to its indicator until the side view closes.
   const trayOpen = pinned ? pinnedTrayOpen && !side : trayPopoverOpen;
@@ -303,6 +349,8 @@ export function TarsView() {
     <GlobalPageHeader title={snapshot?.identity.name ?? t("shell:tars.title")} titleIcon={<TarsMark />} actions={<div className={sx(styles.actions)}>
       <TarsTrayToggle pinned={pinned} counts={tray.counts} status={trayStatus} outputs={outputs.length} open={trayOpen} onOpenChange={onTrayOpenChange} panelId={trayId}>{trayBody}</TarsTrayToggle>
       <TarsGuideButton onExample={(text) => controller.current?.insert(text)} />
+      {clearing.available ? <TarsClearConversationButton count={clearCounts.conversation} busy={clearing.busy}
+        error={clearing.errors.get("conversation") ?? null} onClear={() => clearing.clear(["conversation"], "click")} /> : null}
       <Button variant="ghost" size="icon-sm" disabled={!snapshot} aria-label={t("shell:tars.conversation.settings")} title={t("shell:tars.conversation.settings")} onClick={() => setSettingsOpen(true)}><Settings /></Button>
       <Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.close")} onClick={close}><X /></Button>
     </div>} />
@@ -311,7 +359,7 @@ export function TarsView() {
       <TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
-        publish={publishing.available ? publishing.context : undefined} draftBridge={api}
+        publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
         composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} />
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
@@ -323,9 +371,13 @@ export function TarsView() {
     </div>
     <VisuallyHidden aria-live="polite" role="status" data-tars-queue-notice="">{queueNotice}</VisuallyHidden>
     <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}><SheetContent><SheetHeader><SheetTitle>{t("shell:tars.conversation.settings")}</SheetTitle><SheetDescription>{t("shell:tars.conversation.settingsDescription")}</SheetDescription></SheetHeader>
-      {snapshot && settingsOpen ? <TarsSettings identity={snapshot.identity} initial={conversation.conversation?.settings ?? initialSettings} busy={busy || conversation.busy} onSave={async (identity, settings) => {
+      {snapshot && settingsOpen ? <TarsSettings identity={snapshot.identity} initial={conversation.conversation?.settings ?? initialSettings} busy={busy || conversation.busy}
+        view={api?.configureView && conversation.conversation?.view ? { retentionDays: conversation.conversation.view.retentionDays } : null} onSave={async (identity, settings, view: TarsViewSettings | null) => {
         const saved = await conversation.configure(settings);
         if (!saved) return false;
+        if (view && view.retentionDays !== conversation.conversation?.view?.retentionDays) {
+          try { await api!.configureView!(view); } catch { return false; }
+        }
         const success = await command((bridge) => bridge.updateIdentity(identity));
         if (success) setSettingsOpen(false);
         return success;

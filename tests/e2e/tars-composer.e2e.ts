@@ -9,8 +9,13 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      // The running-work timeline control comes before the editor in keyboard order.
+      // Suggestions (shown above the composer while the message box is empty), then the running-work timeline control, come before the editor in keyboard order.
       await page.locator("[data-tars-guide-toggle]").focus();
+      const chips = composer.locator("[data-tars-suggestion]");
+      for (let index = 0, count = await chips.count(); index < count; index++) {
+        await page.keyboard.press("Tab");
+        await expect(chips.nth(index)).toBeFocused();
+      }
       await page.keyboard.press("Tab");
       await expect(composer.locator("[data-tars-running-timeline]")).toBeFocused();
       await page.keyboard.press("Tab");
