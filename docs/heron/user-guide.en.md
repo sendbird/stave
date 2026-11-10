@@ -659,9 +659,9 @@ new message and is not run again automatically.
 
 Higher numeric priorities start first, with oldest first on a tie. Independent
 responsibilities start concurrently, including work in separate worktrees of
-the same repository. Each is prepared on its own, but Stave starts, pauses and
-cancels their runs one at a time, so a slow start can delay another work's
-start or pause until it finishes. **Settings → Concurrent responsibilities** defaults to
+the same repository. Each is prepared on its own, and each run starts, takes
+your words, pauses and cancels on its own, so a work whose start or task read
+is slow never delays another work's start, words or pause. **Settings → Concurrent responsibilities** defaults to
 **0**, which adds no limit. Set a positive number to bound admissions; lowering
 it leaves existing runs running. **Start now** explicitly bypasses this admission
 limit for the selected queued work. Waiting work yields its slot and admitted runs
