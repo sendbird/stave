@@ -5,7 +5,6 @@ import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttentionRows, tarsLaneOf, type TarsAttentionRowLike, type TarsLane } from "./attention";
 import { projectTarsRunProgress, tarsFleetTarget, tarsRunOf, type TarsRunProgress } from "./flow-model";
 import { tarsConfirmationRequestId } from "./conversation";
-import type { TarsSideViewTarget } from "./side-view";
 import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState, type TarsPendingDecision, type TarsResponsibility, type TarsSnapshot } from "./types";
 import { tarsQueueOf } from "./queue-order";
 import { isTarsWorkRunning } from "./live-progress";

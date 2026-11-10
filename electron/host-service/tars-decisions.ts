@@ -136,7 +136,8 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
     return { repository: tarsRepositoryName(row?.repositoryPath), branches: [row?.branchName] };
   };
   return (action: TarsDecisionAction): { confirm: boolean; matches: TarsNeverRuleMatch[] } => {
-    const key = tarsActionKey(action);
+    // A schedule change is outside the level's table: it always waits for the user's confirmation on its card.
+    const key = action.kind === "schedule" ? null : tarsActionKey(action);
     if (!key) return { confirm: true, matches: [] };
     const matches = rules.length ? matchTarsNeverRules(rules, { key, ...subject(action) }) : [];
     return { confirm: tarsActionDisposition({ key, level, origin, matches }) === "confirm", matches };
