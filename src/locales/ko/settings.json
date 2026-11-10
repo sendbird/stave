@@ -120,6 +120,17 @@
         "description": "고정폭·한국어 글꼴 패밀리와 정보 패널 배율입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
       }
     },
+    "layout": {
+      "title": "레이아웃",
+      "description": "작업과 Tars에서 대화를 얼마나 넓게 보여줄지 정합니다.",
+      "conversationWidth": {
+        "title": "대화 폭",
+        "description": "작업과 Tars에서 메시지와 입력창이 넓어질 수 있는 최대 폭입니다. 대화 영역이 넓어질수록 단계적으로 넓어지며, 좁은 영역에서는 항상 전체 폭을 씁니다.",
+        "narrow": "좁게",
+        "default": "기본",
+        "wide": "넓게"
+      }
+    },
     "behavior": {
       "title": "동작",
       "description": "채팅 기능과 표시 방식을 설정합니다.",

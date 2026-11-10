@@ -112,7 +112,7 @@ Screens: [Settings > Providers](https://github.com/sendbird/stave/blob/main/docs
 
 | Group    | Pages                                                                   | What you do there                                                                |
 | -------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| App      | General, Appearance, Chat, Editor & Terminal, Keyboard & Commands, Browser | Language, theme, chat display, shortcuts, Lens and `@web` scope                |
+| App      | General, Appearance, Chat, Editor & Terminal, Keyboard & Commands, Browser | Language, theme, chat display and conversation width, shortcuts, Lens and `@web` scope |
 | Projects | Projects (Repository, Workspace Tools, Memory)                          | Repository instructions, post-create command, saved commands and processes, repository memory |
 | Agents   | Accounts, Providers, Models, Presets & Macros, Prompts & Skills, MCP, Integrations, Secrets | Sign-in accounts, permission presets, default models and Auto, skills, MCP servers, Jira and Crane, secrets |
 | System   | Developer (Developer mode only), Changelog                              | Diagnostics and release notes                                                    |
@@ -302,7 +302,8 @@ The Information panel, task context and the latest turn summary are attached to 
 
 ## Features that keep you in flow
 
-- **Side question**: **Side question** in the composer toolbar, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
+- **Side question**: the **Side question** icon (a speech bubble with a question mark) beside Attach in the composer, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
+- **Conversation width**: **Settings > Chat > Layout > Conversation width** picks **Narrow**, **Default** or **Wide** for the messages and the message box in tasks and Tars. Each choice widens in steps as the conversation area gets wider, and a narrow area uses its full width. Code blocks keep to the message column and scroll sideways inside it; only a table whose columns need more room grows past the column, centred on it.
 - **Welcome back**: after you have been away for more than 15 minutes, a card summarizes what happened and the last decision.
 - **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
 - **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.

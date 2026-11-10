@@ -13,10 +13,9 @@
  * row, so the answer does not depend on which controls are currently out — the
  * row cannot oscillate between two layouts.
  *
- * Before anything leaves, a control that can drop its label does
- * (`compactWidth`). The side question only ever does that: it is a direct
- * action beside Attach and Send whatever the placement, so it keeps its glyph,
- * tooltip and name on the row.
+ * The side question never leaves: it is an icon button beside Attach and Send
+ * whatever the placement, so its width only counts against the room the
+ * other controls have.
  */
 
 /** The side question action, which lives with Attach and Send. */
@@ -44,19 +43,15 @@ export interface ComposerToolbarFitItem {
   id: string;
   /** Natural width in px, measured while the control was on the row. */
   width: number;
-  /** Width without its label, for a control that can drop it. */
-  compactWidth?: number;
 }
 
 export interface ComposerToolbarFit {
-  /** Controls that keep their place but drop their label. */
-  compacted: string[];
   /** Controls that leave the row for the `⋯` menu, in drop order. */
   collapsed: string[];
 }
 
 /**
- * Which controls drop their label and which leave the row.
+ * Which controls leave the row.
  *
  * `fixedWidth` is everything that always stays (the model picker, the gap to
  * the actions and the actions without the side question). Each kept item adds
@@ -64,7 +59,6 @@ export interface ComposerToolbarFit {
  * whenever it is shown — always when `trayAlwaysShown` (the user demoted a
  * control), otherwise as soon as one control leaves. `activeIds` are holding a
  * deliberate state and leave last, so the row keeps saying what is set.
- * Compacting comes first, for every item that offers it.
  */
 export function fitComposerToolbar(args: {
   availableWidth: number;
@@ -84,37 +78,23 @@ export function fitComposerToolbar(args: {
     ...droppable.filter((id) => !active.has(id)),
     ...droppable.filter((id) => active.has(id)),
   ];
-  const compacted: string[] = [];
   const collapsed: string[] = [];
-  const widthOf = (item: ComposerToolbarFitItem) =>
-    compacted.includes(item.id) && item.compactWidth != null ? item.compactWidth : item.width;
   const total = () => {
     const kept = args.items.filter((item) => !collapsed.includes(item.id));
     const trayShown = args.trayAlwaysShown || collapsed.length > 0;
     return (
       args.fixedWidth +
-      kept.reduce((sum, item) => sum + args.gap + widthOf(item), 0) +
+      kept.reduce((sum, item) => sum + args.gap + item.width, 0) +
       (trayShown ? args.gap + args.trayWidth : 0)
     );
   };
   // Sub-pixel layout rounds both ways; a half pixel is not a reason to fold.
   const limit = args.availableWidth + 0.5;
-  const steps = [
-    ...args.items.filter((item) => item.compactWidth != null).map((item) => ({ id: item.id, fold: false })),
-    ...order.map((id) => ({ id, fold: true })),
-  ];
-  for (const step of steps) {
+  for (const id of order) {
     if (total() <= limit) {
       break;
     }
-    if (step.fold) {
-      collapsed.push(step.id);
-    } else {
-      compacted.push(step.id);
-    }
+    collapsed.push(id);
   }
-  return {
-    compacted: compacted.filter((id) => !collapsed.includes(id)),
-    collapsed,
-  };
+  return { collapsed };
 }

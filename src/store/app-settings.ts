@@ -168,6 +168,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   messageFontFamily: string;
   messageMonoFontFamily: string;
   messageKoreanFontFamily: string;
+  /**
+   * How wide the task chat's and Tars's message column and composer may grow.
+   * Each choice still steps up with the conversation surface's own width
+   * (`transcript-width.ts`); this picks the scale.
+   */
+  conversationWidth: ConversationWidth;
   /** Zoom scale for the workspace information panel (0.8 – 1.3, default 1). */
   infoPanelScale: number;
   /** Per-section visibility overrides for the workspace information panel. */
@@ -600,6 +606,14 @@ export const COMPOSER_LAYOUT_MODES: readonly ComposerLayoutMode[] = [
   "classic",
 ] as const;
 
+export type ConversationWidth = "narrow" | "default" | "wide";
+
+export const CONVERSATION_WIDTHS: readonly ConversationWidth[] = ["narrow", "default", "wide"] as const;
+
+export function normalizeConversationWidth(value: unknown): ConversationWidth {
+  return value === "narrow" || value === "wide" ? value : "default";
+}
+
 export type EditorHtmlViewMode = "preview" | "source";
 
 export function normalizeEditorHtmlViewMode(
@@ -716,6 +730,7 @@ export const defaultSettings: AppSettings = {
   messageFontFamily: "Geist Variable",
   messageMonoFontFamily: "JetBrains Mono",
   messageKoreanFontFamily: "Pretendard Variable",
+  conversationWidth: "default",
   infoPanelScale: 1,
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",

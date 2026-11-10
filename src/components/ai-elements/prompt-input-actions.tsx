@@ -30,7 +30,7 @@ import { COMPOSER_SIDE_QUESTION_SLOT } from "@/lib/composer-toolbar-fit";
 export function PromptInputActions(args: {
   /**
    * Side questions are always a direct toolbar action, independent of control
-   * placement; `null` while a narrow row has moved it into the `⋯` menu.
+   * placement: an icon button beside Attach. `null` when the task offers none.
    */
   sideQuestionControl: ReactNode;
   contextMeter: ReactNode;
