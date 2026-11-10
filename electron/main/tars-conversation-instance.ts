@@ -29,7 +29,7 @@ export function getTarsConversationService() {
       responsibilities: store.tars,
       context: async (message) => {
         const execution = tarsExecutionTarget(message);
-        return { ...observeTarsContext(store, new Date().toISOString()), cwd,
+        return { ...observeTarsContext(store, new Date().toISOString(), message), cwd,
           agents: tarsPlannerAgents({ agents: listAgents({ custom: getCustomAgents(), activeOnly: true }),
             allowedAgentIds: message.allowedAgentIds ?? [], executionProviderId: execution.providerId, executionModel: execution.model }) };
       },

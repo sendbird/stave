@@ -52,7 +52,7 @@ function renderRow(props: ReturnType<typeof rowProps>) {
 describe("Tars UI", () => {
   test("a missing bridge states desktop availability instead of faking empty work", () => {
     const html = renderToStaticMarkup(createElement(TarsView));
-    expect(html).toContain("resident conversation service");
+    expect(html).toContain("Talking with Tars needs a recent version of the Stave desktop app.");
     expect(html).not.toContain("Delegate and start");
   });
   test("terminal responsibility keeps its task and Fleet row without active controls", () => {
@@ -143,9 +143,9 @@ describe("Tars UI", () => {
       expect(line("takenOver")).toContain('aria-label="Tars에서 직접 한 일입니다"');
       expect(line("stale")).toContain("마지막으로 확인한 뒤 작업이 바뀌었습니다.");
       // A code this build does not know, or none, falls back to the generic translated reason.
-      expect(line("futureReason")).toContain("Tars가 이 조작을 적용하지 못했습니다.");
-      expect(spoken("ownershipLost")).toContain("이 Task의 담당이 바뀌어");
-      expect(spoken(null)).toContain("Tars가 이 조작을 적용하지 못했습니다.");
+      expect(line("futureReason")).toContain("Tars가 이 동작을 하지 못했습니다.");
+      expect(spoken("ownershipLost")).toContain("이 Task를 이제 다른 곳에서 맡고 있어");
+      expect(spoken(null)).toContain("Tars가 이 동작을 하지 못했습니다.");
       for (const html of [line("takenOver"), line("futureReason"), spoken("ownershipLost"), spoken(null)]) expect(html).not.toContain(diagnostic);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     expect(line("stale")).toContain("This work changed after you last saw it.");

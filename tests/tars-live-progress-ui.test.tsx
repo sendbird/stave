@@ -45,21 +45,21 @@ describe("Tars live progress UI", () => {
     const live = line(row, run, turn(9.9), msAt(10));
     expect(live).toContain('data-tars-live-freshness="live"');
     expect(live).toContain("Running the tests");
-    expect(live).toMatch(/seen (just now|\d+s ago)/);
+    expect(live).toMatch(/updated (just now|\d+s ago)/);
     // Between turns: no invented activity, only the last update.
     const between = line(row, run, turn(8, { completedAt: msAt(8.5) }), msAt(10));
     expect(between).toContain('data-tars-live-freshness="recent"');
-    expect(between).toContain("No turn running right now");
+    expect(between).toContain("Waiting to take the next step");
     expect(between).toContain("Last update 1m ago");
     expect(between).not.toContain("Running the tests");
     // No turn relayed yet (after a restart): unknown, never "no turn running".
     const unknown = line(row, run, null, msAt(10));
     expect(unknown).toContain('data-tars-live-turn="unknown"');
-    expect(unknown).toContain("No turn activity observed yet");
-    expect(unknown).not.toContain("No turn running right now");
+    expect(unknown).toContain("No activity reported yet");
+    expect(unknown).not.toContain("Waiting to take the next step");
     // An open turn that has not reported a step yet: said as such, never "Thinking · seen just now".
     const open = line(row, run, turn(0, { lastEventAt: msAt(10), orderedWorkItemIds: [], workItemsById: {} }), msAt(10));
-    expect(open).toContain("Turn in progress · no step observed yet");
+    expect(open).toContain("Working · no activity reported yet");
     expect(open).not.toContain("seen");
   });
 
@@ -69,7 +69,7 @@ describe("Tars live progress UI", () => {
     // A long command started at minute 9 and nothing came after it.
     const stale = line(row, run, turn(9), msAt(9) + TARS_PROGRESS_STALE_MS + 2 * 60_000);
     expect(stale).toContain('data-tars-live-freshness="stale"');
-    expect(stale).toContain("Last step: Running the tests, 7m ago · progress may be out of date");
+    expect(stale).toContain("Last activity: Running the tests, 7m ago · progress may be out of date");
   });
 
   test("progress observed too long ago is marked out of date in the warning ink, as a status", async () => {
@@ -78,18 +78,18 @@ describe("Tars live progress UI", () => {
     const stale = line(row, run, null, msAt(9) + TARS_PROGRESS_STALE_MS + 2 * 60_000);
     expect(stale).toContain('data-tars-live-freshness="stale"');
     expect(stale).toContain('role="status"');
-    expect(stale).toContain("Nothing observed for 7m · progress may be out of date");
+    expect(stale).toContain("No update for 7m · progress may be out of date");
     await applyAppLocale("ko");
     try {
-      expect(line(row, run, null, msAt(9) + TARS_PROGRESS_STALE_MS + 2 * 60_000)).toContain("7분 동안 관측 없음 · 진행 정보가 오래됐을 수 있습니다");
+      expect(line(row, run, null, msAt(9) + TARS_PROGRESS_STALE_MS + 2 * 60_000)).toContain("7분 동안 업데이트 없음 · 진행 정보가 오래됐을 수 있습니다");
     } finally { await applyAppLocale("en"); }
   });
 
   test("without an observed run the line says so: not started, or not observed, never a guess", async () => {
     await applyAppLocale("en");
     const { row } = fixture();
-    expect(line(row, undefined, turn(9.9), msAt(10))).toContain("No run observation yet");
-    expect(line({ ...row, state: "preparing", agentRunId: "run-new" }, undefined, null, msAt(10))).toContain("No run observation yet");
+    expect(line(row, undefined, turn(9.9), msAt(10))).toContain("No progress information yet");
+    expect(line({ ...row, state: "preparing", agentRunId: "run-new" }, undefined, null, msAt(10))).toContain("No progress information yet");
     // Waiting, paused, queued and ended work without a run shows no line at all.
     expect(line({ ...row, state: "queued", agentRunId: null }, undefined, null, msAt(10))).toBe("");
     expect(line({ ...row, state: "completed" }, fixture().run, null, msAt(10))).toBe("");
@@ -123,6 +123,25 @@ describe("Tars live progress UI", () => {
     try {
       expect(renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity: activity("blocked"), kind: "blocked" } }))).toContain(">진행 불가<");
     } finally { await applyAppLocale("en"); }
+  });
+
+  test("a stop the run explained reads as a translated line, with the run's own words folded under Technical details", async () => {
+    await applyAppLocale("en");
+    const activity: TarsActivity = { id: "a-stopped", responsibilityId: "r", revision: 3, title: "Fix export", state: "blocked",
+      detail: "Codex exited with code 137.", detailCode: "runStopped", createdAt: start.toISOString() };
+    const html = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity, kind: "blocked" } }));
+    expect(html).toContain("This work stopped. Open its task to see why.");
+    expect(html).toContain('data-tars-diagnostic=""');
+    expect(html).toContain("Technical details");
+    await applyAppLocale("ko");
+    try {
+      const ko = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity, kind: "blocked" } }));
+      expect(ko).toContain("작업이 멈췄습니다. Task를 열어 이유를 확인하세요.");
+      expect(ko).toContain("기술 정보");
+    } finally { await applyAppLocale("en"); }
+    // Tars's own fixed sentence has nothing to expand.
+    const plain = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity: { ...activity, detail: "The run stopped." }, kind: "blocked" } }));
+    expect(plain).not.toContain("data-tars-diagnostic");
   });
 
   test("a message Tars is still writing reads as running; a queued one as queued", async () => {
@@ -172,7 +191,7 @@ describe("Tars live progress UI", () => {
     const html = renderToStaticMarkup(element);
     expect(html).toContain('data-tars-running-strip="1"');
     expect(html).toContain("Fix the billing export on empty invoice lists");
-    expect(html).toMatch(/Stage 2 of 3 · [^<]+, attempt 2/);
+    expect(html).toMatch(/Phase 2 of 3 · [^<]+, attempt 2/);
     expect(html).toContain('data-tars-live-stage="2/3"');
     expect(html).toContain("data-tars-running-timeline");
     const three = [{ row, run }, { row: { ...row, id: "b" }, run }, { row: { ...row, id: "c" }, run }];
@@ -205,7 +224,7 @@ describe("Tars live progress UI", () => {
     expect(empty({ state: "queued", agentRunId: null })).toContain('data-tars-timeline="notStarted"');
     expect(empty({ state: "cancelled", agentRunId: null })).toContain('data-tars-timeline="noRun"');
     expect(empty({})).toContain('data-tars-timeline="none"');
-    expect(empty({})).toContain("No run observation yet");
+    expect(empty({})).toContain("No progress information yet");
   });
 
   test("the sidebar's Tars entry says what runs and what needs the user, in its name too", async () => {

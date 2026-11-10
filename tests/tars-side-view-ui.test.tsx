@@ -60,7 +60,7 @@ describe("blocked work navigation (A6)", () => {
     const card = tray.lanes.needsYou.concat(tray.lanes.running, tray.lanes.done).find((entry) => entry.row.id === "search")!;
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
-    expect(view.html).toContain("The run stopped with a required criterion unmet.");
+    expect(view.html).toContain("Stopped with some completion criteria unmet. Open the report to see what is missing.");
     view.press("Open report");
     expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
     // Without a side view (Fleet's own surfaces), the card has no report link.
@@ -76,7 +76,7 @@ describe("blocked work navigation (A6)", () => {
     const card = Object.values(tray.lanes).flat().find((entry) => entry.row.id === "search")!;
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
-    expect(view.html.split("The run stopped with a required criterion unmet.").length - 1).toBe(1);
+    expect(view.html.split("Stopped with some completion criteria unmet. Open the report to see what is missing.").length - 1).toBe(1);
     expect(view.html).toMatch(/data-tars-attention="tars-blocked"(?:(?!<\/li>).)*data-tars-open-report="search"/);
     expect(view.html.split("data-tars-open-report=").length - 1).toBe(1);
     view.press("Open report");
@@ -246,7 +246,7 @@ describe("side-view panels", () => {
     const receipt = { ...f.receipts[0]!, messageId: "message-show", action: { kind: "show" as const, responsibilityId: "checkout", view: "changes" as const } };
     const html = renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [receipt], name: "Tars", busy: false, onCancel() {},
       titleOf: () => "Show the saved card first at checkout" }));
-    expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout Accepted for execution");
+    expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout View opened");
     expect(i18n.language).toBe("en");
   });
 });
