@@ -337,9 +337,15 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
       const kind = await row.getAttribute("data-tars-output-opens");
       expect(await opener.evaluate((node) => node.tagName)).toBe(kind === "external" ? "A" : "BUTTON");
       expect(await opener.locator("svg").count()).toBe(2);
+      // Scrolling can place the next row under the pointer left on the previous one.
+      // Start outside the row and wait for its hover-out transition before comparing colors.
+      await page.mouse.move(0, 0);
+      await expect.poll(() => opener.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
       const before = await opener.evaluate((node) => getComputedStyle(node).backgroundColor);
       await opener.hover();
       await expect.poll(() => opener.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(before);
+      await page.mouse.move(0, 0);
+      await expect.poll(() => opener.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe(before);
       expect((await opener.boundingBox())!.height).toBeGreaterThanOrEqual(secondary);
     }
   });
