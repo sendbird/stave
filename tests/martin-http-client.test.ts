@@ -74,6 +74,33 @@ describe("AtelierConnectorHttpClient", () => {
     ).toEqual(["crane"]);
   });
 
+  test("strips additive exchange fields instead of stranding a committed pairing", async () => {
+    const client = new AtelierConnectorHttpClient({
+      baseUrl: "https://atelier.example.test",
+      fetch: (async () =>
+        jsonResponse({
+          connector: {
+            ...SERVER_CONNECTOR,
+            scopes: ["crane"],
+            futureConnectorField: "ignore-me",
+          },
+          secret: "stc_test-only-secret",
+          pollRetryMs: 15_000,
+          futureExchangeField: "ignore-me",
+        })) as typeof fetch,
+    });
+
+    const paired = await client.exchangePairingCode({
+      code: "stp_test-only-code",
+      name: "Personal Stave",
+      appVersion: "1.0.0",
+      requestedScopes: ["crane"],
+    });
+    expect(paired.secret).toBe("stc_test-only-secret");
+    expect(paired.scopes).toEqual(["crane"]);
+    expect(paired.connector).not.toHaveProperty("futureConnectorField");
+  });
+
   test("lists contract-valid projects and rejects response drift", async () => {
     const requests: Request[] = [];
     const fixture = await readFixture("valid-project-list.json");
