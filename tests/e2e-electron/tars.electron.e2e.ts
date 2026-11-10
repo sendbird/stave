@@ -150,8 +150,13 @@ test("a blocked run gets exactly one automatic follow-up planner turn", async ({
       return { state: row.state, run: Boolean(row.agentRunId) };
     }, { timeout: 90_000 }).toEqual({ state: "running", run: true });
     expect(await followUpCalls()).toBe(0);
+    // Admission precedes the host's first task write. Deleting before the
+    // provider starts lets that write recreate the task instead of blocking it.
+    await expect.poll(async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean)
+      .map((line) => JSON.parse(line)).filter((entry) => entry.runTurn).length, { timeout: 60_000 }).toBe(2);
     // The execution task disappears under the run: the host observes it blocked, an event that needs Tars's judgment.
-    await stave.page.evaluate((workspaceId) => window.api!.persistence!.closeWorkspace!({ workspaceId }), row.executionWorkspaceId!);
+    expect(await stave.page.evaluate((workspaceId) => window.api!.persistence!.closeWorkspace!({ workspaceId }), row.executionWorkspaceId!)).toEqual({ ok: true });
+    expect((await stave.page.evaluate((workspaceId) => window.api!.persistence!.loadWorkspace!({ workspaceId }), row.executionWorkspaceId!)).snapshot).toBeNull();
     await expect.poll(async () => (await stave!.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)?.state,
       { timeout: 30_000 }).toBe("blocked");
     await expect.poll(followUpCalls, { timeout: 60_000 }).toBe(1);
