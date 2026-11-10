@@ -66,6 +66,7 @@ const ToolUsePartSchema = z.object({
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   progressMessages: z.array(z.string()).optional(),
+  reportedModel: z.string().optional(),
   state: z.union([
     z.literal("input-streaming"),
     z.literal("input-available"),
@@ -568,6 +569,11 @@ const TaskSourceContextSchema = z
   .strict();
 
 const TaskSchema = z.object({
+  forkParent: z.object({
+    taskId: z.string().min(1).max(200),
+    workspaceId: z.string().min(1).max(200),
+    messageId: z.string().min(1).max(200),
+  }).strict().optional(),
   id: z.string(),
   title: z.string(),
   titleManuallySet: z.boolean().optional(),
@@ -575,6 +581,8 @@ const TaskSchema = z.object({
   provider: ProviderIdSchema,
   updatedAt: z.string(),
   unread: z.boolean(),
+  pinned: z.boolean().optional(),
+  historyOrderKey: z.number().finite().optional(),
   archivedAt: z
     .string()
     .nullable()
@@ -900,18 +908,6 @@ const WorkspaceTurnSummarySchema = z.object({
 const WorkspaceInformationSchema = z.object({
   resumeBrief: WorkspaceResumeBriefSchema.nullable().optional(),
   intentAnchorIds: z.array(z.string()).optional(),
-  martinProject: z
-    .object({
-      ref: z.string(),
-      slug: z.string(),
-      name: z.string(),
-      url: z.string(),
-      linkedAt: z.string(),
-      lastPulledAt: z.string().nullable(),
-      stale: z.boolean().optional(),
-    })
-    .nullable()
-    .optional(),
   jiraIssues: z.array(WorkspaceJiraIssueSchema).optional().default([]),
   craneIssues: z.array(WorkspaceCraneIssueSchema).optional().default([]),
   confluencePages: z

@@ -12,13 +12,13 @@ const ACCOUNT = "123e4567-e89b-42d3-a456-426614174000";
 test("execution defaults to automatic routing; only an explicit pin locks the model, and the conversation effort never leaks in", () => {
   expect(buildTarsExecutionResources({ providerId: "codex", model: null })).toEqual({ routingIntent: { autoRouting: true } });
   expect(buildTarsExecutionResources({ providerId: "claude-code", model: null, runtimeHints: {} }))
-    .toEqual({ accounts: { claudeAccountProfileId: "system-default" }, routingIntent: { autoRouting: true } });
+    .toEqual({ accounts: { claudeAccountProfileId: "system-default", codexAccountProfileId: "system-default" }, routingIntent: { autoRouting: true } });
   expect(buildTarsExecutionResources({ providerId: "codex", model: null, runtimeHints: { codexAccountProfileId: ACCOUNT, codexReasoningEffort: "high" } }))
-    .toEqual({ accounts: { codexAccountProfileId: ACCOUNT }, routingIntent: { autoRouting: true } });
+    .toEqual({ accounts: { codexAccountProfileId: ACCOUNT, claudeAccountProfileId: "system-default" }, routingIntent: { autoRouting: true } });
   expect(buildTarsExecutionResources({ providerId: "codex", model: "gpt-6.1-sol", runtimeHints: {
     codexAccountProfileId: ACCOUNT, codexReasoningEffort: "high", codexBinaryPath: "/tmp/provider",
     codexFastMode: true, claudeAccountProfileId: "system-default", claudeEffort: "low",
-  } })).toEqual({ accounts: { codexAccountProfileId: ACCOUNT }, routingIntent: {
+  } })).toEqual({ accounts: { codexAccountProfileId: ACCOUNT, claudeAccountProfileId: "system-default" }, routingIntent: {
     model: "gpt-6.1-sol", modelProviderId: "codex", autoRouting: false,
   } });
   // The conversation model is never the execution target; a pin may name the other provider.
@@ -31,15 +31,15 @@ test("automatic routing leaves the team free to review on the other provider; a 
   const freeze = (row: { providerId: "codex" | "claude-code"; model: string | null }, model: string) => {
     const resources = buildTarsExecutionResources(row);
     return freezeAdaptivePolicy({ providerId: row.providerId, model, agent: getBuiltinAgent("supervisor")!, settings: null, maxTurns: 20,
-      accounts: resources.accounts, draft: resources.routingIntent });
+      accounts: resources.accounts, draft: resources.routingIntent, autoRouting: resources.routingIntent?.autoRouting });
   };
   const automatic = freeze({ providerId: "codex", model: null }, "gpt-6.1-sol");
-  expect(automatic).toMatchObject({ modelLocked: false, effortLocked: false });
+  expect(automatic).toMatchObject({ modelLocked: false, effortLocked: false, autoRouting: true });
   expect(automatic.allowedModels.length).toBeGreaterThan(1);
   expect(helperKeepsParentProvider(automatic)).toBe(false);
   const reviewer = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-sonnet-5-5", agent: getBuiltinAgent("reviewer")!,
     settings: null, maxTurns: 20, delegated: true });
-  expect(constrainHelperResources(automatic, reviewer, "claude-sonnet-5-5").providerId).toBe("claude-code");
+  expect(constrainHelperResources(automatic, reviewer, "claude-sonnet-5-5")).toMatchObject({ providerId: "claude-code", autoRouting: true });
   const pinned = freeze({ providerId: "codex", model: "gpt-6.1-sol" }, "gpt-6.1-sol");
   expect(pinned).toMatchObject({ modelLocked: true, allowedModels: ["gpt-6.1-sol"] });
   expect(helperKeepsParentProvider(pinned)).toBe(true);
@@ -48,14 +48,14 @@ test("automatic routing leaves the team free to review on the other provider; a 
 
 test("execution instructions and the review stage restore cross-provider review guidance where the policy allows it", () => {
   const row = { id: "goal", model: null, agentId: null, acceptanceCriteria: ["Works"] } as unknown as Parameters<typeof tarsWorkflow>[0];
-  expect(tarsReviewGuidance({ model: null })).toContain("Run the review on the provider that did not write the change");
-  expect(tarsExecutionInstructions({ model: null, agentId: null })).toContain("Run the review on the provider that did not write the change");
+  expect(tarsReviewGuidance({ model: null })).toContain("the workflow reviews on the provider that did not write the change");
+  expect(tarsExecutionInstructions({ model: null, agentId: null })).toContain("the workflow reviews on the provider that did not write the change");
   const automatic = tarsWorkflow(row, "2026-11-05T00:00:00.000Z");
   expect(automatic.stages[1]).toMatchObject({ agentConfigId: "reviewer" });
-  expect(automatic.stages[1]?.kind === "ai" && automatic.stages[1].instruction).toContain("provider that did not write the change");
+  expect(automatic.stages[1]?.kind === "ai" && automatic.stages[1].instruction).not.toContain("provider that did not write the change");
   const pinned = tarsWorkflow({ ...row, model: "gpt-6.1-sol" }, "2026-11-05T00:00:00.000Z");
   const pinnedReview = pinned.stages[1]?.kind === "ai" ? pinned.stages[1].instruction : "";
-  expect(pinnedReview).toContain("stays on this provider and model");
+  expect(pinnedReview).not.toContain("stays on this provider and model");
   expect(pinnedReview).not.toContain("provider that did not write the change");
   expect(tarsExecutionInstructions({ model: "gpt-6.1-sol", agentId: null })).toContain("stays on this provider and model");
 });
@@ -140,7 +140,8 @@ test("actual host preparation and Run admission route automatically by default, 
     const { createHostTarsRuntime } = await import("./electron/host-service/tars-host");
     const observed = {};
     let current;
-    const runtime = createHostTarsRuntime({ assignments, agentRuns: { startAgentRun: async (raw, guard) => {
+    const runtime = createHostTarsRuntime({ assignments, agentRuns: { startAgentRun: async (raw, guard, admission) => {
+      if (admission?.tarsResponsibilityId !== current.id) throw new Error("Missing host-owned Tars admission");
       guard(); const input = AgentRunStartInputSchema.parse(raw);
       const agent = persistence.agentAssignments.getByRequestId("tars-" + current.id).agent;
       const startModel = current.model ?? getDefaultModelForProvider({ providerId: current.providerId });
@@ -176,18 +177,18 @@ test("actual host preparation and Run admission route automatically by default, 
     expect(row.routingIntent).not.toHaveProperty("model");
     expect(row.models).toBeGreaterThan(1);
     expect(row.idle).toMatchObject({ provider: row.providerId, model: null, autoRouting: true });
-    expect(row.instructions).toContain("Run the review on the provider that did not write the change");
-    expect(row.review).toContain("provider that did not write the change");
+    expect(row.instructions).toContain("the workflow reviews on the provider that did not write the change");
+    expect(row.review).not.toContain("provider that did not write the change");
   }
-  expect(rows["codex-auto"]).toMatchObject({ providerId: "codex", account: ACCOUNT, accounts: { codexAccountProfileId: ACCOUNT } });
+  expect(rows["codex-auto"]).toMatchObject({ providerId: "codex", account: ACCOUNT, accounts: { codexAccountProfileId: ACCOUNT, claudeAccountProfileId: "system-default" } });
   expect(rows["claude-auto"]).toMatchObject({ providerId: "claude-code", account: "system-default" });
   expect(rows["codex-pinned"]).toMatchObject({ providerId: "codex", model: "gpt-6.1-sol", locked: true, models: 1, helpersKeepProvider: true,
     account: ACCOUNT, routingIntent: { model: "gpt-6.1-sol", modelProviderId: "codex", autoRouting: false },
     idle: { model: "gpt-6.1-sol", autoRouting: false } });
-  expect(rows["codex-pinned"].review).toContain("stays on this provider and model");
+  expect(rows["codex-pinned"].review).not.toContain("stays on this provider and model");
   // A pin on the other provider runs there with that provider's System default account.
   expect(rows["cross-pinned"]).toMatchObject({ providerId: "claude-code", model: "claude-sonnet-5-5", locked: true,
-    account: "system-default", accounts: { claudeAccountProfileId: "system-default" } });
+    account: "system-default", accounts: { claudeAccountProfileId: "system-default", codexAccountProfileId: ACCOUNT } });
   for (const label of ["codex-auto", "claude-auto", "codex-pinned", "cross-pinned"]) {
     expect(rows[label]).toMatchObject({ agentId: null, workAgent: null });
     expect(rows[label].canCall).toEqual(builtinCallable);

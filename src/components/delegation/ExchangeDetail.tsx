@@ -14,8 +14,8 @@ import {
   describeDeadline,
   isExchangeStatusLive,
 } from "@/lib/delegation/format";
-import { AgentIdentity } from "./AgentIdentity";
-import { DelegateRoute } from "./DelegateRoute";
+import { ExchangeIdentityView, useExchangeIdentity } from "./ExchangeIdentity";
+import { describeModelEvidence } from "./AgentIdentity";
 import { ExchangeStatusBadge } from "./ExchangeStatusBadge";
 import { KeyValueGrid, type KeyValueItem } from "./KeyValueGrid";
 import { StageTimeline } from "./StageTimeline";
@@ -99,9 +99,10 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
   const primary = exchange.setup.primary;
   const errorText = exchange.outcome.error;
   const resultText = exchange.outcome.result;
+  const identity = useExchangeIdentity(exchange);
 
   const setupItems: KeyValueItem[] = [];
-  if (exchange.identity.modelEvidence) setupItems.push({ key: "modelEvidence", label: i18n.t("agentRuns:exchangeDetail.label"), value: exchange.identity.modelEvidence });
+  if (identity.modelEvidence) setupItems.push({ key: "modelEvidence", label: i18n.t("agentRuns:exchangeDetail.label"), value: describeModelEvidence(identity.modelEvidence).title });
   setupItems.push({ key: "effortEvidence", label: i18n.t("agentRuns:exchangeDetail.label2"), value: exchange.identity.effort ? i18n.t("agentRuns:exchangeDetail.extraCopy77") : i18n.t("agentRuns:exchangeDetail.extraCopy81") });
   if (exchange.setup.isolation) {
     setupItems.push({
@@ -228,15 +229,12 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
     >
       <div className={sx(styles.section)}>
         <div className={sx(styles.sectionRow)}>
-          <AgentIdentity
+          <ExchangeIdentityView
             role={exchange.identity.role}
-            providerId={exchange.identity.providerId}
-            model={exchange.identity.model}
-            effort={exchange.identity.effort}
+            identity={identity}
             source={exchange.identity.source}
             showSource
           />
-          <DelegateRoute exchange={exchange} />
           {primary ? (
             <span className={sx(styles.meta)}>{i18n.t("agentRuns:exchangeDetail.sentence34", { value1: " ", value2: describeAgentIdentity({
                 providerId: primary.providerId,

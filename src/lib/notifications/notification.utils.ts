@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppNotification } from "@/lib/notifications/notification.types";
+import { isTarsNotificationKind } from "@/lib/notifications/notification.types";
 
 const STOP_REASON_LABELS: Record<string, string> = {
   get end_turn() { return i18n.t("notifications:notificationUtils.completedNormally"); },
@@ -125,6 +126,17 @@ export function buildNotificationToastOptions(
     notification.workspaceName?.trim() ||
     i18n.t("notifications:notificationUtils.task");
   const description = buildNotificationDetail(notification) ?? undefined;
+
+  if (isTarsNotificationKind(notification.kind)) {
+    return {
+      tone: notification.kind === "tars.blocked" ? "error" : "warning",
+      title: notification.title ?? label,
+      description,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.agentRunAttention,
+      closeButton: true,
+      dismissible: true,
+    };
+  }
 
   if (notification.kind === "task.turn_completed") {
     return {

@@ -1,4 +1,5 @@
-import { i18n } from "@/i18n";
+import { Tooltip } from "./Tooltip";
+import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { Paperclip, TriangleAlert, X } from "lucide-react";
 import type * as React from "react";
@@ -90,6 +91,7 @@ export function Attachment({
   xstyle,
   ...props
 }: AttachmentProps) {
+  useTranslation();
   const bounded =
     progress == null ? undefined : Math.min(100, Math.max(0, progress));
   const statusMeta = status === "error" ? (meta ?? errorLabel) : meta;
@@ -151,19 +153,22 @@ export function Attachment({
         />
       ) : null}
       {onRemove ? (
-        <button
-          aria-label={removeLabel}
-          {...themeSlotProps("attachment", "remove")}
-          className={sx(
-            surfaceChrome.quietIconButton,
-            styles.remove,
-            focusRing.ring,
-          )}
-          onClick={onRemove}
-          type="button"
-        >
-          <X aria-hidden size={14} />
-        </button>
+        <Tooltip content={removeLabel}>
+          <button
+            aria-label={removeLabel}
+            title=""
+            {...themeSlotProps("attachment", "remove")}
+            className={sx(
+              surfaceChrome.quietIconButton,
+              styles.remove,
+              focusRing.ring,
+            )}
+            onClick={onRemove}
+            type="button"
+          >
+            <X aria-hidden size={14} />
+          </button>
+        </Tooltip>
       ) : null}
       {status === "uploading" ? (
         <span

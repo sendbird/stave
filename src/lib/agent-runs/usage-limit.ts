@@ -22,14 +22,14 @@ export function resolveAgentRunUsageLimitResumeAt(resetsAt: string | null, now: 
 
 /**
  * Whether a usage-limit pause resumes on its own: it holds a resume time.
- * Without one the reset time is unknown, the run needs the user, and the
- * user resumes it.
+ * Older rows without one are re-armed by the host before the next quota check.
  */
 export function awaitsUsageReset(run: Pick<AgentRun, "usageLimit">): boolean {
   return Boolean(run.usageLimit?.resumeAt);
 }
 
-export function describeAgentRunUsageLimit(run: Pick<AgentRun, "usageLimit"> & Partial<Pick<AgentRun, "accountPool">>): string {
+export function describeAgentRunUsageLimit(run: Pick<AgentRun, "usageLimit"> & Partial<Pick<AgentRun, "accountPool" | "dailyUsageLimit">>): string {
+  if (run.dailyUsageLimit) return i18n.t("usage:dailyLimit.reached");
   if (!awaitsUsageReset(run)) return i18n.t("agentRuns:usageLimit.unknownReset");
   // An unreadable usage window re-reads at the resume time; the reset stays unknown.
   const time = run.usageLimit!.resetsAt ?? run.usageLimit!.resumeAt!;

@@ -1,4 +1,7 @@
-import { applyAppLocale } from "@/i18n";
+import { TurnAdmissionPreview } from "./turn-admission-preview";
+import { WorkspaceCleanupHost } from "@/components/layout/WorkspaceCleanupDialog";
+import { installCleanupFixture } from "./cleanup-fixture";
+import { normalizeAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import type {
@@ -7,7 +10,6 @@ import type {
 } from "@/components/layout/command-palette-registry";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { useAppStore } from "@/store/app.store";
-import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { SearchTasksArgs, SearchTasksResponse, TaskSearchResult } from "@/lib/task-search/task-search-ipc";
 
@@ -25,7 +27,8 @@ const SEARCH_DELAY_MS = Number(params.get("searchDelay")) || 0;
 
 interface PalettePreviewProbe {
   openedTasks: string[];
-  settings: () => { customThemeId: string | null; themeMode: string };
+  openedMessages: string[];
+  settings: () => { customThemeId: string | null; themeMode: string; language: string };
 }
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
@@ -60,6 +63,14 @@ function installSearchStub() {
       ),
     };
   };
+  persistence.searchTaskContent = async (args: { query: string }) => {
+    if (SEARCH_DELAY_MS > 0) await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS));
+    const snippet = "We discussed the export retry. 내보내기 재시도는 잠시 후 진행합니다.";
+    return { ok: true, results: snippet.toLowerCase().includes(args.query.toLowerCase()) ? [{
+      ...RESULTS[0], taskId: "t-content", title: "Investigate delivery", state: "archived",
+      messageId: "m-export-retry", snippet, matchCount: 3, parentTaskId: "t-parent",
+    }] : [], nextOffset: null, indexing: { indexed: 200, total: 200, complete: true } };
+  };
   api.persistence = persistence;
 }
 
@@ -91,27 +102,35 @@ export function CommandPalettePreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
   const [ready, setReady] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(true);
   const context = useMemo(previewContext, []);
   useLayoutEffect(() => {
-    applyAppLocale(params.get("lang") ?? "en");
-    applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
-    applyCustomTheme({ theme: builtinTheme });
+    // Shared overlays also read settings; keep their locale and theme consistent.
+    useAppStore.getState().updateSettings({ patch: {
+      language: normalizeAppLocale(params.get("lang")),
+      themeMode: theme === "dark" || builtinTheme?.baseMode === "dark" ? "dark" : "light",
+      customThemeId: builtinTheme?.id ?? null,
+    } });
     installSearchStub();
+    installCleanupFixture();
     const probe: PalettePreviewProbe = {
       openedTasks: [],
+      openedMessages: [],
       settings: () => {
-        const { customThemeId, themeMode } = useAppStore.getState().settings;
-        return { customThemeId, themeMode };
+        const { customThemeId, themeMode, language } = useAppStore.getState().settings;
+        return { customThemeId, themeMode, language };
       },
     };
     (window as unknown as { __stavePalettePreview?: PalettePreviewProbe }).__stavePalettePreview = probe;
     // Opening a result records it instead of switching repositories.
     useAppStore.setState({
-      focusTaskAttention: async ({ taskId }) => {
+      focusTaskAttention: async ({ taskId, messageId }) => {
         probe.openedTasks.push(taskId);
+        if (messageId) probe.openedMessages.push(messageId);
       },
     } as Partial<ReturnType<typeof useAppStore.getState>>);
     setReady(true);
   }, [theme, builtinTheme]);
-  return ready ? <GlobalCommandPalette open onOpenChange={() => {}} runtimeContext={context} /> : null;
+  if (ready && params.has("turnCapPreview")) return <TurnAdmissionPreview />;
+  return ready ? <><GlobalCommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} runtimeContext={context} /><WorkspaceCleanupHost /></> : null;
 }

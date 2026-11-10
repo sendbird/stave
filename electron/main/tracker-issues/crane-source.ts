@@ -179,8 +179,8 @@ export function createCraneTrackerSource(
       if (!credential) {
         return "unpaired";
       }
-      // A pairing made for Martin alone carries no Crane scope. The task routes
-      // would answer 403, so treat it as not paired for this surface instead of
+      // A pairing Atelier granted without the Crane scope gets 403 from the
+      // task routes, so treat it as not paired for this surface instead of
       // polling into a guaranteed rejection.
       return hasCraneScope(credential) ? "ready" : "unpaired";
     },

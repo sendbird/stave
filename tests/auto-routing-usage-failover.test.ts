@@ -107,11 +107,11 @@ describe("Auto routing failover when an account is exhausted", () => {
   test("an exhausted account switches at once even while its model's cache is warm", async () => {
     const warmCodexTurn = [
       { id: "u1", role: "user", providerId: "user", model: "", content: "Start the refactor.", parts: [] },
-      { id: "a1", role: "assistant", providerId: "codex", model: "gpt-6.1-sol", content: "Started.",
+      { id: "a1", role: "assistant", providerId: "codex", model: "gpt-6.2-sol", content: "Started.",
         completedAt: new Date(Date.now() - 60_000).toISOString(), parts: [] },
     ];
     const stays = await routeWith(snapshot({ codex: codexUsage(40) }), warmCodexTurn);
-    expect(stays).toMatchObject({ providerId: "codex", model: "gpt-6.1-sol" });
+    expect(stays).toMatchObject({ providerId: "codex", model: "gpt-6.2-sol" });
     const decision = await routeWith(snapshot({ codex: codexUsage(100) }), warmCodexTurn);
     expect(decision?.providerId).toBe("claude-code");
     expect(decision?.ruleReason).not.toContain("deferred");

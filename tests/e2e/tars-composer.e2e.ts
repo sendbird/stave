@@ -1,4 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+/** The composer band starts folded to its summary; its rows (and their Timeline buttons) show once unfolded. */
+async function unfoldRunningStrip(view: Locator) {
+  const toggle = view.locator("[data-tars-running-toggle]");
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
 
 for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
   test(`Tars composer typography, keyboard focus and containment: ${theme} ${lang} ${density}`, async ({ page }) => {
@@ -6,13 +13,22 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     const composer = page.locator("[data-tars-composer]");
     const editor = composer.getByRole("textbox");
     await expect(editor).toBeEditable();
+    await expect(composer.locator("[data-tars-suggestion]")).not.toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      // The running-work timeline control comes before the editor in keyboard order.
-      await page.locator("[data-tars-guide-toggle]").focus();
+      // Suggestions (shown above the composer while the message box is empty), then the folded running-work summary, come before the editor in keyboard order; the summary's rows stay out of it until unfolded.
+      // Keyboard order starts at the first suggestion: what precedes it (the start screen, and the transcript's scroll button when it overflows) is the transcript's.
+      // While the box holds words there are no suggestions, and the start screen's last example is what precedes the composer.
+      const chips = composer.locator("[data-tars-suggestion]");
+      const count = await chips.count();
+      await (count ? chips.first() : page.locator("[data-tars-start-example]").last()).focus();
+      for (let index = 1; index < count; index++) {
+        await page.keyboard.press("Tab");
+        await expect(chips.nth(index)).toBeFocused();
+      }
       await page.keyboard.press("Tab");
-      await expect(composer.locator("[data-tars-running-timeline]")).toBeFocused();
+      await expect(composer.locator("[data-tars-running-toggle]")).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(editor).toBeFocused();
       await editor.fill(lang === "ko" ? "줄바꿈과 포커스를 확인하는 긴 메시지입니다. ".repeat(6) : "Verify wrapping and keyboard focus across the whole composer. ".repeat(6));
@@ -36,7 +52,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
       });
       expect(geometry.focused).toBe(true);
       expect(geometry.borders.every((color) => color === geometry.borders[0])).toBe(true);
-      const unfocused = await page.locator("[data-tars-guide-toggle]").evaluate((node) => { (node as HTMLElement).focus(); return getComputedStyle(document.querySelector('[data-tars-composer] form')!).borderTopColor; });
+      const unfocused = await page.locator("[data-tars-start-example]").last().evaluate((node) => { (node as HTMLElement).focus(); return getComputedStyle(document.querySelector('[data-tars-composer] form')!).borderTopColor; });
       expect(geometry.borders[0]).not.toBe(unfocused);
       expect(geometry.font).toBeGreaterThanOrEqual(16);
       expect(geometry.padding).toBe(geometry.tokenPadding);
@@ -58,7 +74,12 @@ test("select, remove, send attachments only, retry the same snapshot, and replay
   await (await chosen).setFiles([{ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Selection snapshot 첨부 내용") },
     { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==", "base64") }]);
   await expect(composer.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
-  await composer.getByRole("button", { name: "Remove attached file screen.png", exact: true }).click();
+  const remove = composer.getByRole("button", { name: "Remove attached file screen.png", exact: true });
+  // No filename title over the removal action: its tooltip names what it removes.
+  expect(await remove.getAttribute("title") ?? "").toBe("");
+  await remove.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Remove attached file screen.png");
+  await remove.click();
   await expect(composer.getByText("screen.png", { exact: true })).toHaveCount(0);
   await picker.setInputFiles({ name: "archive.zip", mimeType: "application/zip", buffer: Buffer.from("not text") });
   await expect(composer.getByRole("alert")).toContainText("Could not attach files");
@@ -184,6 +205,7 @@ for (const inputEvent of ["paste", "drop"]) {
     const composer = page.locator("[data-tars-composer]");
     const editor = composer.getByRole("textbox");
     await expect(editor).toBeEditable();
+    await expect(composer.locator("[data-tars-suggestion]")).not.toHaveCount(0);
     await editor.evaluate((node, eventType) => {
       const transfer = new DataTransfer();
       transfer.items.add(new File(["Pasted source content"], "source.txt", { type: "text/plain" }));
@@ -233,7 +255,46 @@ test("same-name selections and repeated image pastes keep separate snapshots", a
     { type: "file_context", filePath: "notes (3).txt", content: "third note", language: "txt" },
   ]);
   await page.reload();
-  await expect(page.locator("[data-tars-message-attachments]")).toContainText("image (2).png");
+  // A sent image is its preview, named for assistive technology and its tooltip.
+  await expect(page.locator("[data-tars-message-attachments]").getByRole("button", { name: "Open image (2).png full size", exact: true })).toBeVisible();
+});
+
+test("one pasted image attaches and sends once when every clipboard read hands out a new copy", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  const composer = page.locator("[data-tars-composer]");
+  const editor = composer.getByRole("textbox");
+  await expect(editor).toBeEditable();
+  const attached = composer.getByRole("button", { name: /^Remove attached file / });
+  // As Chromium does: each read of either clipboard list creates a new File stamped with the read time.
+  const paste = (images: number[][]) => editor.evaluate((node, contents) => {
+    let stamp = 1_000;
+    const read = (bytes: number[]) => new File([new Uint8Array(bytes)], "image.png", { type: "image/png", lastModified: stamp++ });
+    const clipboardData = { types: ["Files"], getData: () => "",
+      items: contents.map((bytes) => ({ kind: "file", type: "image/png", getAsFile: () => read(bytes) })),
+      get files() { return contents.map(read); } };
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: clipboardData });
+    node.dispatchEvent(event);
+  }, images);
+  await paste([[1, 2, 3]]);
+  await expect(composer.getByRole("button", { name: "Remove attached file image.png", exact: true })).toBeVisible();
+  await expect(attached).toHaveCount(1);
+  // Pasting the same image again attaches it again.
+  await paste([[1, 2, 3]]);
+  await expect(composer.getByRole("button", { name: "Remove attached file image (2).png", exact: true })).toBeVisible();
+  await expect(attached).toHaveCount(2);
+  // Two images in one paste stay two, even with the same name and size.
+  await paste([[4, 5, 6], [7, 8, 9]]);
+  await expect(composer.getByRole("button", { name: "Remove attached file image (4).png", exact: true })).toBeVisible();
+  await expect(attached).toHaveCount(4);
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const parts = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!).messages[0].attachments);
+  expect(parts).toEqual([
+    { type: "image_context", label: "image.png", dataUrl: "data:image/png;base64,AQID", mimeType: "image/png" },
+    { type: "image_context", label: "image (2).png", dataUrl: "data:image/png;base64,AQID", mimeType: "image/png" },
+    { type: "image_context", label: "image (3).png", dataUrl: "data:image/png;base64,BAUG", mimeType: "image/png" },
+    { type: "image_context", label: "image (4).png", dataUrl: "data:image/png;base64,BwgJ", mimeType: "image/png" },
+  ]);
 });
 
 test("Tars body, supporting copy, report and settings remain readable across layouts", async ({ page }, testInfo) => {
@@ -244,20 +305,50 @@ test("Tars body, supporting copy, report and settings remain readable across lay
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      if (width === 390) await page.getByRole('button', { name: lang === 'ko' ? '확인 1 · 끝남 1 · 산출물 6' : '1 needs you · 1 done · 6 outputs', exact: true }).click();
+      if (width === 390) await page.getByRole('button', { name: lang === 'ko' ? '확인 필요 1 · 끝남 1 · 산출물 6' : '1 needs you · 1 done · 6 outputs', exact: true }).click();
       await page.locator('[data-tars-output="report"]').filter({ hasText: 'saved card' }).getByRole('button').click();
       const report = page.locator('[data-tars-side-view="report"]');
       await expect(report).toBeVisible();
       await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });
       const typography = await page.locator('[data-testid="tars-view"]').evaluate(root => {
-        return [...root.querySelectorAll('[data-tars-message] article, [data-tars-side-view] p')].filter(e => e.getBoundingClientRect().width > 0).map(e => ({ font: parseFloat(getComputedStyle(e).fontSize), horizontal: e.scrollWidth - e.clientWidth, vertical: getComputedStyle(e).overflowY === 'hidden' ? e.scrollHeight - e.clientHeight : 0 }));
+        return [...root.querySelectorAll('[data-tars-message] article, [data-tars-side-view] p')].filter(e => e.getBoundingClientRect().width > 0).map(e => {
+          const style = getComputedStyle(e);
+          const box = e.getBoundingClientRect();
+          const owner = (e.closest('[data-tars-side-view]') ?? root).getBoundingClientRect();
+          return { font: parseFloat(style.fontSize), horizontal: e.scrollWidth - e.clientWidth,
+            vertical: style.overflowY === 'hidden' ? e.scrollHeight - e.clientHeight : 0,
+            contained: box.left >= owner.left - 1 && box.right <= owner.right + 1,
+            headline: e.matches('[data-tars-completion-summary], [data-tars-report-reason]'),
+            title: e.getAttribute('title'), text: e.textContent, overflow: style.overflowX,
+            whiteSpace: style.whiteSpace, ellipsis: style.textOverflow, height: box.height, lineHeight: parseFloat(style.lineHeight) };
+        });
       });
       expect(typography.length).toBeGreaterThan(4);
-      for (const item of typography) { expect(item.font).toBeGreaterThanOrEqual(13); expect(item.horizontal).toBeLessThanOrEqual(1); expect(item.vertical).toBeLessThanOrEqual(1); }
+      for (const item of typography) {
+        expect(item.font).toBeGreaterThanOrEqual(13);
+        expect(item.contained, item.text ?? '').toBe(true);
+        expect(item.vertical).toBeLessThanOrEqual(1);
+        if (item.headline) {
+          expect(item.title).toBeTruthy();
+          expect(item.overflow).toBe('hidden');
+          expect(item.whiteSpace).toBe('nowrap');
+          expect(item.ellipsis).toBe('ellipsis');
+          expect(item.height).toBeLessThanOrEqual(item.lineHeight + 1);
+          if (item.text) expect(item.title).toContain(item.text);
+        } else expect(item.horizontal, item.text ?? '').toBeLessThanOrEqual(1);
+      }
+      await report.locator('[data-tars-result-details] > button').click();
+      const complete = await report.locator('[data-tars-full-summary]').allTextContents();
+      const title = await report.locator('[data-tars-completion-summary]').getAttribute('title');
+      expect(complete).toContain(title);
+      for (const summary of await report.locator('[data-tars-full-summary]').all()) {
+        await expect(summary).toBeVisible();
+        expect(await summary.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+      }
       await page.screenshot({ path: testInfo.outputPath(`report-${lang}-${theme}-${width}.png`) });
       await page.keyboard.press('Escape');
     }
-    await page.getByRole('button', { name: lang === 'ko' ? '대화 설정' : 'Conversation settings', exact: true }).click();
+    await page.getByRole('button', { name: lang === 'ko' ? 'Tars 설정' : 'Tars settings', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });
@@ -278,6 +369,7 @@ for (const theme of ["light", "dark"]) {
     const editor = composer.getByRole("textbox");
     const form = composer.locator("form");
     await expect(editor).toBeEditable();
+    await expect(composer.locator("[data-tars-suggestion]")).not.toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     await editor.fill("x".repeat(32_001));
     await expect(composer.locator('[data-tars-composer-error="tooLong"]')).toBeVisible();
@@ -291,7 +383,7 @@ for (const theme of ["light", "dark"]) {
     })).toEqual([danger, danger, danger, danger]);
     await expect(editor).toHaveAttribute("aria-invalid", "true");
     await checkEdges();
-    await page.locator("[data-tars-guide-toggle]").focus();
+    await page.locator("[data-tars-start-example]").last().focus();
     await page.mouse.move(0, 0);
     await checkEdges();
     await form.hover();
@@ -321,6 +413,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
           bar: { top: bar.top, height: bar.height }, rem: parseFloat(getComputedStyle(document.documentElement).fontSize) };
       });
       expect(before.tray).toBe(26 * before.rem);
+      await unfoldRunningStrip(view);
       await view.locator("[data-tars-running-timeline]").first().click();
       const side = view.locator('[data-tars-side-view="timeline"]');
       await expect(side).toHaveAttribute("data-tars-side-placement", "column");
@@ -341,16 +434,22 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
       expect(after.titleSize).toBe(16);
       expect(after.subject).toBe(13);
       expect(after.switcherRight).toBeLessThanOrEqual(after.right);
-      // Live progress reads at the 13px interface row, in the composer band and in the timeline.
-      const sizes = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-live-line], [data-tars-recent-entry]")]
+      // Live progress reads at the 13px interface row in the timeline, and at the conversation's
+      // secondary step (14px beside 16px messages) in the composer band.
+      const sizes = await side.evaluate((root) => [...root.querySelectorAll("[data-tars-live-line], [data-tars-recent-entry]")]
         .map((element) => parseFloat(getComputedStyle(element).fontSize)));
-      expect(sizes.length).toBeGreaterThan(2);
+      expect(sizes.length).toBeGreaterThan(1);
       expect(new Set(sizes)).toEqual(new Set([13]));
+      const band = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-running-strip] [data-tars-live-line]")]
+        .map((element) => parseFloat(getComputedStyle(element).fontSize)));
+      expect(band.length).toBeGreaterThan(1);
+      expect(new Set(band)).toEqual(new Set([14]));
       await page.keyboard.press("Escape");
       await expect(side).toHaveCount(0);
     }
     // Narrow: the view sits above the composer under its own bar, and the page itself never scrolls to show it.
     await page.setViewportSize({ width: 390, height: 900 });
+    await unfoldRunningStrip(view);
     await view.locator("[data-tars-running-timeline]").first().click();
     const inline = view.locator('[data-tars-side-view="timeline"]');
     await expect(inline).toHaveAttribute("data-tars-side-placement", "inline");
@@ -365,3 +464,182 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
     expect(narrow.switcherRight).toBeLessThanOrEqual(narrow.right);
   });
 }
+
+// Image attachments: previews before and after send, the full-size viewer and its keyboard, and containment.
+/** Three images that look nothing alike (a wide screen, a square chart, a tall phone screen), drawn by the page as real PNGs. */
+async function drawImages(page: Page) {
+  const images = await page.evaluate(async () => {
+    const draw = (width: number, height: number, color: string) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#ffffff"; context.fillRect(0, 0, width, height);
+      context.fillStyle = color; context.fillRect(0, 0, width, Math.round(height / 4));
+      return canvas.toDataURL("image/png").slice("data:image/png;base64,".length);
+    };
+    return [draw(960, 600, "#dc2626"), draw(800, 800, "#0d9488"), draw(390, 844, "#4f46e5")];
+  });
+  return [
+    { name: "staging-login-error.png", mimeType: "image/png", buffer: Buffer.from(images[0]!, "base64") },
+    { name: "weekly-errors-chart-with-a-very-long-descriptive-file-name.png", mimeType: "image/png", buffer: Buffer.from(images[1]!, "base64") },
+    { name: "checkout-mobile.png", mimeType: "image/png", buffer: Buffer.from(images[2]!, "base64") },
+    { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Deploy notes") },
+  ];
+}
+
+/** Every attachment of a row stays inside the row, no two overlap, every image tile has its pixels, and a tile's remove button stays inside it. */
+async function expectContained(row: Locator, bounds: Locator) {
+  const geometry = await row.evaluate((node, boundsSelector) => {
+    const box = (element: Element) => element.getBoundingClientRect().toJSON() as DOMRect;
+    const limits = box(node.closest(boundsSelector) ?? node);
+    // The row's own children: a tile or a chip each (the sent list wraps each in its item).
+    const items = [...node.children].filter((element) => element.getBoundingClientRect().width > 0);
+    return {
+      limits,
+      items: items.map(box),
+      tiles: [...node.querySelectorAll("[data-tars-attachment-image=\"ready\"]")].map((tile) => ({
+        box: box(tile.querySelector("[data-tars-attachment-open]")!),
+        loaded: (tile.querySelector("img") as HTMLImageElement).complete && (tile.querySelector("img") as HTMLImageElement).naturalWidth > 0,
+        remove: tile.querySelector("[data-tars-attachment-remove]") ? box(tile.querySelector("[data-tars-attachment-remove]")!) : null,
+      })),
+    };
+  }, await bounds.evaluate((node) => node.hasAttribute("data-tars-composer") ? "[data-tars-composer] form" : "[data-tars-message]"));
+  for (const item of geometry.items) {
+    expect(item.left).toBeGreaterThanOrEqual(geometry.limits.left - 1);
+    expect(item.right).toBeLessThanOrEqual(geometry.limits.right + 1);
+  }
+  for (let a = 0; a < geometry.items.length; a++) for (let b = a + 1; b < geometry.items.length; b++) {
+    const [first, second] = [geometry.items[a]!, geometry.items[b]!];
+    const overlaps = first.left < second.right - 0.5 && second.left < first.right - 0.5 && first.top < second.bottom - 0.5 && second.top < first.bottom - 0.5;
+    expect(overlaps, `attachments ${a} and ${b} overlap`).toBe(false);
+  }
+  for (const tile of geometry.tiles) {
+    expect(tile.loaded).toBe(true);
+    expect(Math.round(tile.box.width)).toBe(112);
+    expect(Math.round(tile.box.height)).toBe(72);
+    if (tile.remove) {
+      expect(tile.remove.left).toBeGreaterThanOrEqual(tile.box.left);
+      expect(tile.remove.right).toBeLessThanOrEqual(tile.box.right);
+      expect(tile.remove.top).toBeGreaterThanOrEqual(tile.box.top);
+      expect(tile.remove.bottom).toBeLessThanOrEqual(tile.box.bottom);
+    }
+  }
+  return geometry.tiles.length;
+}
+
+/** Opens a tile with the keyboard, walks the viewer with the arrow keys and closes it with Escape; focus returns to the tile. */
+async function viewWithKeyboard(page: Page, tile: Locator, names: string[], start: number) {
+  await tile.focus();
+  await page.keyboard.press("Enter");
+  const viewer = page.getByTestId("tars-attachment-viewer");
+  await expect(viewer).toBeVisible();
+  await expect(viewer).toContainText(names[start]!);
+  await expect(viewer).toContainText(`${start + 1} / ${names.length}`);
+  await page.keyboard.press("ArrowRight");
+  await expect(viewer).toContainText(`${Math.min(start + 2, names.length)} / ${names.length}`);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(tile).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(viewer).toBeVisible();
+  await page.keyboard.press("Tab");
+  expect(await viewer.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(tile).toBeFocused();
+}
+
+const NAMES = ["staging-login-error.png", "weekly-errors-chart-with-a-very-long-descriptive-file-name.png", "checkout-mobile.png"];
+
+for (const { name, query, open } of [
+  { name: "light en regular", query: "", open: (file: string) => `Open ${file} full size` },
+  { name: "dark ko compact", query: "&theme=dark&lang=ko&density=compact", open: (file: string) => `${file} 크게 보기` },
+]) for (const width of [390, 1440]) {
+  test(`image attachments preview before and after send and open full size: ${name} ${width}px`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=tars&noRepositories=true${query}`);
+    const composer = page.locator("[data-tars-composer]");
+    await expect(composer.getByRole("textbox")).toBeEditable();
+    await page.evaluate(() => document.fonts.ready);
+    await composer.locator('input[type="file"]').setInputFiles(await drawImages(page));
+
+    // Before send: three image tiles in the order attached, then the text file's chip, all inside the composer.
+    const draft = composer.locator("[data-tars-composer-attachments]");
+    await expect(draft.locator('[data-tars-attachment-image="ready"]')).toHaveCount(3);
+    await expect(draft.getByText("notes.txt", { exact: true })).toBeVisible();
+    expect(await expectContained(draft, composer)).toBe(3);
+    const draftTiles = draft.locator("[data-tars-attachment-open]");
+    await expect(draftTiles.nth(1)).toHaveAccessibleName(open(NAMES[1]!));
+    await viewWithKeyboard(page, draftTiles.nth(1), NAMES, 1);
+    // The viewer also opens by click and closes with its own button.
+    await draftTiles.first().click();
+    const viewer = page.getByTestId("tars-attachment-viewer");
+    await expect(viewer).toContainText(`1 / 3`);
+    await viewer.getByRole("button", { name: query ? "미리 보기 닫기" : "Close preview", exact: true }).click();
+    await expect(viewer).toBeHidden();
+    await expect(draftTiles.first()).toBeFocused();
+
+    // Send: the same images become the sent message's previews, read back from the saved message; the file stays a chip.
+    await composer.getByRole("button", { name: query ? "보내기" : "Send", exact: true }).click();
+    await expect(draft).toHaveCount(0);
+    const sent = page.locator("[data-tars-message-attachments]");
+    await expect(sent.locator('[data-tars-attachment-image="ready"]')).toHaveCount(3);
+    await expect(sent.getByText("notes.txt", { exact: true })).toBeVisible();
+    const message = page.locator("[data-tars-message]").filter({ has: sent });
+    expect(await expectContained(sent, message)).toBe(3);
+    await viewWithKeyboard(page, sent.locator("[data-tars-attachment-open]").first(), NAMES, 0);
+    const view = page.getByTestId("tars-view");
+    expect(await view.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+
+    // The saved message still carries the images and the file exactly as attached, and replays them after a reload.
+    const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!).messages[0].attachments);
+    expect(saved.map((part: { type: string; label?: string; filePath?: string }) => `${part.type}:${part.label ?? part.filePath}`))
+      .toEqual([...NAMES.map((file) => `image_context:${file}`), "file_context:notes.txt"]);
+    await page.reload();
+    await expect(page.locator("[data-tars-message-attachments]").locator('[data-tars-attachment-image="ready"]')).toHaveCount(3);
+  });
+}
+
+test("a sent image the bridge cannot read stays a named file chip", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto("/?stavePreview=tars&noRepositories=true&imagePreview=missing");
+  const composer = page.locator("[data-tars-composer]");
+  await expect(composer.getByRole("textbox")).toBeEditable();
+  await composer.locator('input[type="file"]').setInputFiles((await drawImages(page)).slice(0, 1));
+  await expect(composer.locator('[data-tars-attachment-image="ready"]')).toHaveCount(1);
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const sent = page.locator("[data-tars-message-attachments]");
+  await expect(sent).toContainText(NAMES[0]!);
+  await expect(sent).toContainText("PNG");
+  await expect(sent.locator("[data-tars-attachment-image]")).toHaveCount(0);
+});
+
+test("an earlier image finishing its read keeps the viewer on the image the user opened", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&noRepositories=true");
+  const composer = page.locator("[data-tars-composer]");
+  await expect(composer.getByRole("textbox")).toBeEditable();
+  await page.evaluate(() => {
+    const read = window.api.tars.getAttachmentImage!;
+    window.api.tars.getAttachmentImage = (input) => input.index === 0
+      ? new Promise((resolve) => {
+        (window as unknown as { finishImageRead: () => void }).finishImageRead = () => { void read(input).then(resolve); };
+      })
+      : read(input);
+  });
+  await composer.locator('input[type="file"]').setInputFiles((await drawImages(page)).slice(0, 3));
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const sent = page.locator("[data-tars-message-attachments]");
+  await expect(sent.locator('[data-tars-attachment-image="loading"]')).toHaveCount(1);
+  await sent.getByRole("button", { name: `Open ${NAMES[1]} full size`, exact: true }).click();
+  const viewer = page.getByTestId("tars-attachment-viewer");
+  await expect(viewer).toHaveAccessibleName(NAMES[1]!);
+  await page.evaluate(() => (window as unknown as { finishImageRead: () => void }).finishImageRead());
+  await expect(viewer).toContainText("2 / 3");
+  await expect(viewer).toHaveAccessibleName(NAMES[1]!);
+  await page.keyboard.press("ArrowLeft");
+  await expect(viewer).toHaveAccessibleName(NAMES[0]!);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(sent.getByRole("button", { name: `Open ${NAMES[1]} full size`, exact: true })).toBeFocused();
+});

@@ -22,6 +22,9 @@ import {
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
+import { PullRequestStackNotice } from "./pull-request/PullRequestStackNotice";
+import { PullRequestStackRetargetDialog } from "./pull-request/PullRequestStackRetargetDialog";
+import { pullRequestStackRevision, usePullRequestStack } from "./pull-request/use-pull-request-stack";
 import { watchCreatedPullRequest } from "@/components/layout/pull-request/auto-pull-request-watch";
 import {
   FIELD_LABEL_CLASS,
@@ -104,10 +107,6 @@ import {
   buildReadOnlyAuxRuntimeOptions,
   resolveAuxLaneRuntime,
 } from "@/lib/providers/auxiliary-inference-policy";
-import {
-  collectMartinTriggerContext,
-  notifyMartinPrOpened,
-} from "@/lib/martin-sync/renderer-triggers";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -164,6 +163,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [prContextDialogOpen, setPrContextDialogOpen] = useState(false);
   const [continuingWorkspace, setContinuingWorkspace] = useState(false);
   const [targetBranch, setTargetBranch] = useState("");
+  const [createStackedPr, setCreateStackedPr] = useState(false);
   const [targetBranchOptions, setTargetBranchOptions] = useState<string[]>([]);
   const [loadingTargetBranches, setLoadingTargetBranches] = useState(false);
 
@@ -278,6 +278,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const prInfo = workspacePrInfoById[activeWorkspaceId];
   const prStatus: WorkspacePrStatus = prInfo?.derived ?? "no_pr";
   const actions = PR_STATUS_ACTIONS[prStatus];
+  // Re-read the stack only when the PR changed (number, state, base), not on every status poll.
+  const prStack = usePullRequestStack({ cwd: workspaceCwd, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
+  const [stackRetargetOpen, setStackRetargetOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const stackedParent = usePullRequestStack({ cwd: workspaceCwd, branch: targetBranch, enabled: dialogOpen && createStackedPr && Boolean(targetBranch) && targetBranch !== defaultBaseBranch });
+  const stackedParentPr = stackedParent.stack?.members.find((pr) => pr.number === stackedParent.stack?.current && pr.state === "OPEN");
 
   // -------------------------------------------------------------------------
   // Polling – fetch PR status for active workspace
@@ -330,6 +336,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setStep("idle");
       setActiveSubmitAction(null);
       setTargetBranch(defaultBaseBranch);
+      setCreateStackedPr(false);
       setTargetBranchOptions([]);
       setLoadingTargetBranches(false);
       setPrTitle("");
@@ -440,6 +447,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setPrTitle("");
     setPrBody("");
     setTargetBranch(defaultBaseBranch);
+    setCreateStackedPr(false);
     setTargetBranchOptions([defaultBaseBranch]);
     setLoadingTargetBranches(Boolean(listBranches));
     setActiveSubmitAction(null);
@@ -634,6 +642,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const openExternal = window.api?.shell?.openExternal;
     const runScriptHook = window.api?.scripts?.runHook;
     const selectedTargetBranch = targetBranch.trim() || defaultBaseBranch;
+    if (createStackedPr && (!stackedParentPr || stackedParentPr.headRefName !== selectedTargetBranch)) return;
     const submitWorkspaceId = activeWorkspaceId;
     const submitWorkspaceCwd = workspaceCwd;
     const submitWorkspaceInformation = workspaceInformation;
@@ -1216,7 +1225,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
         ].filter(Boolean).join(" "),
       });
-      if (prResult.prUrl && submitWorkspaceId) void watchCreatedPullRequest({ state: useAppStore.getState(), workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
+      if (prResult.prUrl && submitWorkspaceId) void watchCreatedPullRequest({ state: useAppStore.getState(), repositoryPath, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
       setStep("ready");
       return;
     }
@@ -1266,13 +1275,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (prResult.prUrl && submitWorkspaceId) {
       const state = useAppStore.getState();
-      notifyMartinPrOpened({
-        context: collectMartinTriggerContext(state, submitWorkspaceId),
-        settings: state.settings.martinSync,
-        prUrl: prResult.prUrl,
-        prTitle: title,
-      });
-      void watchCreatedPullRequest({ state, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
+      void watchCreatedPullRequest({ state, repositoryPath, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
     }
 
     // Refresh PR status to pick up the new PR
@@ -1805,7 +1808,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       ) : (
         /* Has PR – show status dropdown */
         <div className={sx(openPrStyles.triggerGroup)}>
-          <DropdownMenu>
+          {prStack.stack && prStack.stack.total > 1 ? <span className={sx(openPrStyles.statusMenuSubtitle)}>{i18n.t("sourceControl:prStack.position", { position: prStack.stack.position, total: prStack.stack.total })}</span> : null}
+          <DropdownMenu open={statusMenuOpen} onOpenChange={setStatusMenuOpen}>
             <TopBarPrStatusTrigger
               pr={prInfo?.pr}
               status={prStatus}
@@ -1832,6 +1836,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </span>
               </DropdownMenuLabel>
 
+              <PullRequestStackNotice stack={prStack.stack} showPosition={false} onRetarget={() => { setStatusMenuOpen(false); setStackRetargetOpen(true); }} />
               <DropdownMenuSeparator />
 
               {/* Primary action */}
@@ -1922,6 +1927,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         </div>
       )}
 
+      {/* Outside the status menu: closing the menu keeps the confirmation and its results. */}
+      <PullRequestStackRetargetDialog
+        key={workspaceCwd}
+        open={stackRetargetOpen}
+        onOpenChange={setStackRetargetOpen}
+        cwd={workspaceCwd}
+        plan={prStack.stack?.retarget ?? null}
+        longLivedBranchPatterns={prStack.patterns}
+        onSettled={() => { prStack.refresh(); fetchStatus(); }}
+      />
       <CreatePullRequestDialog
         dialog={{
           open: dialogOpen,
@@ -1937,6 +1952,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           options: targetBranchOptions,
           loading: loadingTargetBranches,
           onTargetBranchChange: setTargetBranch,
+          stacked: createStackedPr,
+          onStackedChange: setCreateStackedPr,
+          parentNumber: stackedParentPr?.number,
+          parentLoading: stackedParent.loading,
         }}
         merge={{
           method: dialogMergeMethod,
@@ -1975,7 +1994,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           onProceedAfterVerification: handleProceedAfterVerification,
         }}
         submit={{
-          canSubmit: canSubmitPr,
+          canSubmit: canSubmitPr && (!createStackedPr || Boolean(stackedParentPr && stackedParentPr.headRefName === effectiveTargetBranch)),
           submitting: isCreatePrSubmitting,
           onSubmit: handleFormSubmit,
         }}

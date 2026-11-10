@@ -1,12 +1,14 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
+import { RepositoriesSection } from "@/components/layout/settings-sections/settings-dialog-repositories-section";
 import { ChatPanel } from "@/components/session/ChatPanel";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
+import { useWakeUpsStore, type TaskWakeUp } from "@/store/wake-ups-store";
 import type { ChatMessage } from "@/types/chat";
 
 const styles = stylex.create({
@@ -72,6 +74,8 @@ export function TranscriptRowsPreview() {
   const [ready, setReady] = useState(false);
   const params = new URLSearchParams(window.location.search);
   const width = Number(params.get("width")) || 720;
+  const repositories = useAppStore((state) => state.recentRepositories);
+  const watchSettings = params.get("watchSettings") === "1";
   useLayoutEffect(() => {
     const theme = BUILTIN_CUSTOM_THEMES.find((item) => item.id === params.get("theme")) ?? null;
     applyThemeClass({ enabled: theme?.baseMode === "dark" || params.get("theme") === "dark" });
@@ -87,7 +91,27 @@ export function TranscriptRowsPreview() {
       taskWorkspaceIdById: { [TASK_ID]: "transcript-rows-preview" },
       settings: { ...useAppStore.getState().settings, messageFontSize: 14 },
     });
+    const prWatch = params.get("prWatch");
+    if (prWatch === "1" || prWatch === "user") {
+      // `prWatch=user` is a watch the user scheduled; `1` is one Stave added on its own.
+      const pullRequestWatch = { pullRequest: { number: 17, url: "https://example.test/pull/17", title: "Change 17" }, ...(prWatch === "1" ? { automatic: true } : {}) };
+      const entry = {
+        wakeUp: { id: "test-pr-watch", workspaceId: "transcript-rows-preview", taskId: TASK_ID, trigger: { kind: "pull_request", events: ["checks_failed", "merge_conflict"] }, state: "scheduled", pullRequestWatch },
+        summary: { wakeUpId: "test-pr-watch", taskId: TASK_ID, state: "scheduled", triggerKind: "pull_request", nextRunAt: null, reason: null, occurrenceCount: 0, skippedCount: 0 },
+      } as TaskWakeUp;
+      useWakeUpsStore.setState({
+        workspaceId: entry.wakeUp.workspaceId,
+        byTask: { [`${entry.wakeUp.workspaceId}:${TASK_ID}`]: entry },
+        remove: async () => { useWakeUpsStore.setState({ byTask: {} }); },
+      });
+    }
+    if (watchSettings) {
+      useAppStore.setState({
+        repositoryPath: null,
+        recentRepositories: [{ repositoryPath: "/tmp/pr-watch-settings", repositoryName: "Workspace", lastOpenedAt: at(12), defaultBranch: "main", workspaces: [], activeWorkspaceId: "", workspaceBranchById: {}, workspacePathById: {}, workspaceDefaultById: {} }],
+      });
+    }
     setReady(true);
   }, []);
-  return <div className={sx(styles.page)}><div className={sx(styles.column)} style={{ width }}>{ready ? <ChatPanel /> : null}</div></div>;
+  return <div className={sx(styles.page)}><div className={sx(styles.column)} style={{ width }}>{ready ? watchSettings ? <RepositoriesSection repositories={repositories} currentRepositoryPath="/tmp/pr-watch-settings" selectedRepositoryPath="/tmp/pr-watch-settings" /> : <ChatPanel /> : null}</div></div>;
 }

@@ -1,4 +1,6 @@
 import { i18n } from "@/i18n/runtime";
+import { readTarsNotificationTarget } from "@/lib/tars/notifications";
+import { requestTarsNotificationFocus } from "./tars-notification-focus-store";
 import { captureReviewCommentAnchor } from "@/lib/sent-review-comments";
 import { useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import { createProviderSupportActions } from "./app-store-provider-actions";
@@ -9,6 +11,7 @@ import { resolveNotificationOpenTarget } from "@/lib/notifications/delegated-att
 import {
   isNotificationAttentionKind,
   isNotificationUnread,
+  isTarsNotificationKind,
 } from "@/lib/notifications/notification.types";
 import {
   derivePrStatus,
@@ -119,6 +122,12 @@ export function createSupportActions(args: {
     source: AppNotification,
     options: { targetSurface?: "task" | "fleet" } = {},
   ): Promise<NotificationContextOpenResult> => {
+    const tarsTarget = readTarsNotificationTarget(source);
+    if (tarsTarget) {
+      requestTarsNotificationFocus(tarsTarget);
+      get().openTars();
+      return { status: "opened" };
+    }
     // A delegated child's request opens its root task, whose composer answers
     // it; the child's workspace is never switched to.
     const notification = resolveNotificationOpenTarget(source, get().taskWorkspaceIdById);
@@ -656,7 +665,7 @@ export function createSupportActions(args: {
       });
       if (
         isNotificationUnread(notification) &&
-        !isNotificationAttentionKind(notification.kind)
+        (!isNotificationAttentionKind(notification.kind) || isTarsNotificationKind(notification.kind))
       ) {
         await get().markNotificationRead({ id: notification.id });
       }

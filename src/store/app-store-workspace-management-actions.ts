@@ -1,9 +1,9 @@
+import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";
 import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
-import { maybeRefreshMartinContext } from "@/lib/martin-sync/renderer-triggers";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import {
@@ -34,8 +34,6 @@ import {
   type RecentRepositoryState,
 } from "@/store/repository.utils";
 import {
-  getLinkedWorktreePathSetForRepository,
-  startWorkspaceArchiveCleanup,
 } from "@/store/workspace-archive-cleanup";
 import {
   getCachedWorkspaceFiles,
@@ -203,7 +201,7 @@ export function createWorkspaceManagementActions(args: {
   } = args;
 
   return {
-    closeWorkspace: async ({ workspaceId, deleteBranch = true, onlyIfInactive = false }) => {
+    closeWorkspace: async ({ workspaceId, onlyIfInactive = false }) => {
       const state = get();
       const workspace = state.workspaces.find(
         (item) => item.id === workspaceId,
@@ -225,18 +223,19 @@ export function createWorkspaceManagementActions(args: {
       if (isProtectedDefault) {
         return;
       }
-      // Unresolved approvals/questions never expire on their own.
-      await get().purgeWorkspaceNotifications({
-        workspaceIds: [workspaceId],
-      });
-      assertCleanupTarget();
-      const workspacePath = state.workspacePathById[workspaceId];
-      const workspaceBranch = state.workspaceBranchById[workspaceId];
       const repositoryPath = state.repositoryPath;
-      const isLinkedWorktree = getLinkedWorktreePathSetForRepository({
-        repositoryPath,
-        recentRepositories: state.recentRepositories,
-      }).has(normalizeComparablePath(workspacePath));
+      const workspacePath = state.workspacePathById[workspaceId];
+      const cleanup = window.api?.workspaceCleanup;
+      if (!cleanup || !repositoryPath) throw new Error("Workspace cleanup is unavailable"); // i18n-ignore: diagnostic
+      await get().flushActiveWorkspaceSnapshot();
+      assertCleanupTarget();
+      if (get().activeWorkspaceId === workspaceId) {
+        const replacement = state.workspaces.find((item) => item.id !== workspaceId && state.workspaceDefaultById[item.id]);
+        if (!replacement) return;
+        await get().switchWorkspace({ workspaceId: replacement.id });
+      }
+      const result = await runWorkspaceCleanupAction(cleanup, { action: "archive", workspaceId, repositoryPath });
+      if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
       // Pick the replacement active workspace, ignoring the one being archived.
       const nextWorkspace =
         state.workspaces.find(
@@ -277,10 +276,6 @@ export function createWorkspaceManagementActions(args: {
               ...nextState.tasks.map((task) => task.id),
             ]),
           ];
-          const nextTaskCheckpointById = removeRecordEntries(
-            nextState.taskCheckpointById,
-            removedTaskIds,
-          );
           const nextTurnVerificationByWorkspace = removeRecordEntries(
             nextState.turnVerificationByWorkspace,
             [workspaceId],
@@ -321,15 +316,12 @@ export function createWorkspaceManagementActions(args: {
             workspaceRuntimeCacheById: nextRuntimeCacheById,
             taskWorkspaceIdById: nextTaskWorkspaceIdById,
             // Shed the closed workspace's per-task turn runtime snapshots and
-            // persisted checkpoint/verification entries; nothing else removes
+            // persisted verification entries; nothing else removes
             // them once the tasks are gone.
             ...removeTaskTurnRuntimeEntries({
               state: nextState,
               taskIds: removedTaskIds,
             }),
-            ...(nextTaskCheckpointById
-              ? { taskCheckpointById: nextTaskCheckpointById }
-              : {}),
             ...(nextTurnVerificationByWorkspace
               ? {
                   turnVerificationByWorkspace: nextTurnVerificationByWorkspace,
@@ -355,15 +347,6 @@ export function createWorkspaceManagementActions(args: {
               editorMarkdownPreviewMode: false,
             },
           };
-        });
-        startWorkspaceArchiveCleanup({
-          workspaceId,
-          workspaceName: workspace?.name,
-          workspacePath,
-          workspaceBranch,
-          repositoryPath,
-          isLinkedWorktree,
-          deleteBranch,
         });
         try {
           await get().flushRepositoryRegistry();
@@ -414,10 +397,6 @@ export function createWorkspaceManagementActions(args: {
             ).map((task) => task.id),
           ]),
         ];
-        const nextTaskCheckpointById = removeRecordEntries(
-          nextState.taskCheckpointById,
-          removedTaskIds,
-        );
         const nextTurnVerificationByWorkspace = removeRecordEntries(
           nextState.turnVerificationByWorkspace,
           [workspaceId],
@@ -452,15 +431,12 @@ export function createWorkspaceManagementActions(args: {
           workspaceRuntimeCacheById: nextRuntimeCacheById,
           taskWorkspaceIdById: nextTaskWorkspaceIdById,
           // Shed the closed workspace's per-task turn runtime snapshots and
-          // persisted checkpoint/verification entries; nothing else removes
+          // persisted verification entries; nothing else removes
           // them once the tasks are gone.
           ...removeTaskTurnRuntimeEntries({
             state: nextState,
             taskIds: removedTaskIds,
           }),
-          ...(nextTaskCheckpointById
-            ? { taskCheckpointById: nextTaskCheckpointById }
-            : {}),
           ...(nextTurnVerificationByWorkspace
             ? { turnVerificationByWorkspace: nextTurnVerificationByWorkspace }
             : {}),
@@ -471,15 +447,6 @@ export function createWorkspaceManagementActions(args: {
               }
             : {}),
         };
-      });
-      startWorkspaceArchiveCleanup({
-        workspaceId,
-        workspaceName: workspace?.name,
-        workspacePath,
-        workspaceBranch,
-        repositoryPath,
-        isLinkedWorktree,
-        deleteBranch,
       });
       try {
         await get().flushRepositoryRegistry();
@@ -726,10 +693,6 @@ export function createWorkspaceManagementActions(args: {
           switchMetricToken,
         });
       }
-      maybeRefreshMartinContext({
-        workspaceId,
-        martinProject: get().workspaceInformation.martinProject,
-      });
     },
     moveWorkspaceInRepositoryList: ({ repositoryPath, workspaceId, direction }) => {
       const normalizedRepositoryPath = repositoryPath.trim();

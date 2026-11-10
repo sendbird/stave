@@ -3,7 +3,7 @@ import { buildTerminalSessionSlotKey } from "@/lib/terminal/types";
 import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";
 import { workspaceCleanupRecommendation, workspaceCleanupBlocker, parseWorkspaceDiskBytes, cleanupWorktreeResultKey } from "@/lib/workspace-cleanup";
 import { useAppStore } from "@/store/app.store";
-import { getLinkedWorktreePathSetForRepository, waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
+import { getLinkedWorktreePathSetForRepository } from "@/store/workspace-archive-cleanup";
 import { listRepositoryWorktrees, normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { i18n } from "@/i18n";
 
@@ -108,8 +108,7 @@ export async function cleanWorkspace(repositoryPath: string, row: CleanupWorkspa
   const state = useAppStore.getState();
   const blocker = workspaceCleanupBlocker(state, repositoryPath, row.id, row.path);
   if (blocker) return { ...current, blocker };
-  await state.closeWorkspace({ workspaceId: row.id, deleteBranch: false, onlyIfInactive: true });
-  await waitForPendingWorkspaceArchiveCleanups();
+  await state.closeWorkspace({ workspaceId: row.id, onlyIfInactive: true });
   const archived = !useAppStore.getState().workspaces.some((w) => w.id === row.id);
   if (!archived) return { ...current, blocker: i18n.t("workspace:cleanupDialog.operations.notArchived") };
   const runner = window.api?.terminal?.runCommand;

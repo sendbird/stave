@@ -102,15 +102,17 @@ export function describePaneTabAccessibleName(args: {
   title: string;
   provider?: string | null;
   status?: PaneTabTaskStatus | null;
+  /** An unread task is announced as such, not only by its dot. */
+  unread?: boolean;
 }): string {
   const status = args.status ? i18n.t(`panes:paneTabChip.status.${args.status}`) : null;
+  let name = args.title;
   if (args.provider && status) {
-    return i18n.t("panes:paneTabChip.accessibleNameFull", { title: args.title, provider: args.provider, status });
+    name = i18n.t("panes:paneTabChip.accessibleNameFull", { title: args.title, provider: args.provider, status });
+  } else if (args.provider || status) {
+    name = i18n.t("panes:paneTabChip.accessibleNamePart", { title: args.title, detail: args.provider ?? status });
   }
-  if (args.provider || status) {
-    return i18n.t("panes:paneTabChip.accessibleNamePart", { title: args.title, detail: args.provider ?? status });
-  }
-  return args.title;
+  return args.unread ? i18n.t("panes:taskReading.unreadName", { name }) : name;
 }
 
 /**

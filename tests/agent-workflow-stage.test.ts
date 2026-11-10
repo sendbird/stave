@@ -34,7 +34,8 @@ describe("a stage another agent does", () => {
     expect(text).toContain('delegate it to the "Reviewer" agent with `stave_delegate_task`');
     expect(text).toContain('agentConfigId: "reviewer"');
     expect(text).toContain('lifecycle: "supervised"');
-    expect(text).toContain("Do not do the stage's work yourself");
+    expect(text).toContain("Do not replace the assigned agent's implementation or independent review yourself");
+    expect(text).toContain("Integrating accepted changes, committing and running final checks are the lead's job");
     expect(text).not.toContain("Do not start workers or delegated tasks");
     expect(text).not.toContain("expectedHead");
   });

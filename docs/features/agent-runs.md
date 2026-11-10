@@ -75,6 +75,16 @@ stages yourself, give the agent three stages (Agents → the agent →
    cannot, and its task halts.
 3. **Fix review findings**: fix each defect at its cause, run the workspace
    check, commit. Done when every defect is fixed and the check passes.
+   When the fix changed the reviewed commit, the run returns once to
+   **Review** (attempt 2), which checks only the fix commits against the
+   earlier findings. A passed re-review finishes the run and skips the second,
+   empty repair; findings get one more repair, then the run finishes without a
+   third review. The fix stage does not start its own review.
+
+A delegated run's earlier stage (a Debugger's reproduction, for example) may
+report a criterion its assignment names as unmet without halting: the
+criterion carries forward and the last stage must report it met. A criterion
+the stage adds itself must still be met where it is reported.
 
 The Reviewer runs on the other provider when it can and reports its findings
 as its result. An agent may always call the agents its own workflow names for
@@ -90,13 +100,20 @@ stage keeps the run waiting: open it from **Subagents** and answer or retry
 it there.
 
 For goals with separate parts, assign **Lead**, which splits the work across
-agents and checks each result before it reports. **Supervisor** goes one step
-further: it owns the goal from plan to verified result, picks each part's
-provider and model from what the work needs and how much account usage each
-provider has left, integrates the parts itself, and asks only about scope,
-undecided product or design choices, destructive actions and publishing. It
-runs on Auto with no preferred provider and a 60-turn shared budget; a fixed
-or pinned model would keep its helpers on its own provider.
+agents and checks each result before it reports. **Supervisor** works like
+Lead but owns one goal until it is really done: it plans, does small or tightly
+coupled work itself and delegates only independent or large parts, picking
+each part's provider and model from what the work needs and how much account
+usage each provider has left. It runs the narrowest checks while it works and
+the full checks once on the final revision, commits verified work on its own
+branch, and opens or updates a draft pull request through Shipper only when
+the goal asks for one. It never pushes to the default branch, merges or
+releases without your request, and asks only about scope, correctness or
+authority. Stave reviews its committed result on the other provider only when
+the work changed files (Review before done: behavior changes), and skips the
+fix stage when that review passes. It runs on Auto with no preferred provider
+and a 60-turn shared budget; a fixed or pinned model would keep its helpers on
+its own provider.
 
 ## When To Use It
 
@@ -682,19 +699,15 @@ The host checks that same account when the reservation is due. Available usage
 resumes work; an exhausted account with a later reset re-arms the reservation.
 A failed usage read keeps the Run waiting and retries after five minutes.
 
-When neither the limit nor the account's usage reports a reset time because
-the usage read itself failed, the Run keeps waiting and reads usage again five
-minutes later. Only a usage read that works but reports no reset time leaves
-the reset unknown.
+Without a known reset time, Stave checks the same account every five minutes
+and resumes only after confirmed headroom. Existing reservations without a
+resume time recover the same way after restart. Quota exhaustion detected
+before a turn starts also saves a reservation without spending a team turn.
+Manual pauses, takeovers and local daily limits still need the user's action.
+Manual resume keeps the account, model, effort and accumulated counters.
 
-Without a known reset time, the Run halts until you act: it reads
-**Halted · Usage limit** with the usage limit as the reason, moves the workspace to
-**Action required**, and sends one notification for that limited turn. Resume
-it with **Resume now** once usage is available. Manual resume also keeps the
-account, model, effort and accumulated counters.
-
-The reservation survives an app restart. A due reservation is processed once
-through the host's serialized supervisor tick. Resume starts a continuation
+The reservation survives an app restart. A due reservation is processed once,
+on the Run's own supervisor queue. Resume starts a continuation
 that checks existing work before finishing what remains; it does not replay
 the original prompt or fall back to API billing. It moves to another account
 only when the Run's account pool is on (below).
@@ -828,3 +841,28 @@ of pausing again. While the Run is active, the task's own
 [wake-ups](wake-ups.md) stay paused (`agent-run-active`): the Run owns the
 task's automatic turns, and anything to do after the Run ends belongs in a
 check-back or a start-a-task schedule.
+
+
+## Global turn limit
+
+In Settings → Providers, **Run at most N agent turns at once** is off by
+default. Enable it to choose 1–16 concurrent provider turns across all tasks.
+Manual messages have priority over automatic starts; starts of equal priority
+keep their arrival order. Existing helper and automation limits still apply.
+A queued task and Fleet show **Waiting for a free slot** and the number ahead.
+Stop or cancel removes its pending start. The host counts active turns from
+the current runtime.
+
+Pending starts get one try after a restart. A message you sent is never started
+on its own: it returns to its task's composer queue marked **Waiting to send
+(restored)**, and you send or discard it. Automatic starts (delegated children,
+Agent run stages, wake-ups, automations) start again only while their task and
+workspace still exist. A start that cannot come back, or that waited more than
+a day, is dropped with a notification on its task. A turn that had already
+run, including a parent taking its slot back, ends as interrupted.
+
+A parent waiting for delegated children releases its slot and acquires a slot
+again before continuing, so a limit of one does not block its children. Several
+waits of one parent give the slot back only when the last one ends, and the
+wait never holds the tool call past its documented limit. A turn that ends
+while taking its slot back drops that request.

@@ -122,7 +122,9 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   glyph: { flexShrink: 0 },
-  ring: { overflow: "visible" },
+  // The ring fits its box (radius 10 plus half the 2px stroke, in 24), so the glyph clips to it: the rotating arc's own box is wider than the
+  // glyph at some angles and must not add to the scroll width of a row that ends on a column's edge.
+  ring: { overflow: "hidden" },
   // A faint track while the arc moves; under reduced motion the full ring,
   // so the mark reads as the settled working glyph.
   ringTrack: {

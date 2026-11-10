@@ -45,6 +45,7 @@ import {
   createCraneTrackerSource,
   type CraneTrackerSource,
 } from "./crane-source";
+import { createGitHubTrackerSource } from "./github-source";
 import { createJiraTrackerSource } from "./jira-source";
 import { safeTrackerErrorMessage } from "./errors";
 import { kickoffTrackerIssue as runKickoff } from "./kickoff";
@@ -98,6 +99,10 @@ function buildCraneSource(): CraneTrackerSource {
   });
 }
 
+function buildGitHubSource(): TrackerSourceAdapter {
+  return createGitHubTrackerSource({ enabled: () => latestTasksSettings.sourceEnabled.github });
+}
+
 function buildJiraSource(): TrackerSourceAdapter {
   return createJiraTrackerSource({
     // Jira's only switch is the connector's own `enabled` (Settings →
@@ -116,7 +121,7 @@ export function getTrackerIssuesRuntime(): TrackerIssuesRuntime {
   craneSource = buildCraneSource();
   runtime = new TrackerIssuesRuntime({
     persistence: ensurePersistenceReadySync(),
-    sources: [buildJiraSource(), craneSource],
+    sources: [buildJiraSource(), craneSource, buildGitHubSource()],
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
     emitCacheUpdated: (payload) => sendToRenderer(CACHE_UPDATED_EVENT, payload),
     emitKickoffUpdated: (link) => sendToRenderer(KICKOFF_UPDATED_EVENT, link),
@@ -216,7 +221,8 @@ export async function configureTrackerIssues(
   const runtimeInstance = getTrackerIssuesRuntime();
   runtimeInstance.configure(settings);
   const sourcesChanged =
-    previous.sourceEnabled.crane !== settings.sourceEnabled.crane;
+    previous.sourceEnabled.crane !== settings.sourceEnabled.crane ||
+    previous.sourceEnabled.github !== settings.sourceEnabled.github;
   if (sourcesChanged) {
     return runtimeInstance.refreshAvailability();
   }
@@ -287,7 +293,7 @@ function buildAdapterFor(id: TrackerSourceId): TrackerSourceAdapter {
   if (id === "crane") {
     return requireCraneSource();
   }
-  return buildJiraSource();
+  return id === "github" ? buildGitHubSource() : buildJiraSource();
 }
 
 export { safeTrackerErrorMessage };

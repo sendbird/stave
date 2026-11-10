@@ -12,7 +12,8 @@ import { buildFleetInbox, countUnansweredInteractions, selectBellEntries } from 
 import { isFleetAnswerNeed } from "@/lib/fleet/task-rows";
 import { confirmFleetTarsDecision } from "@/lib/fleet/tars-decision-confirm";
 import { classifyWorkQueueLane } from "@/lib/fleet/work-attention-order";
-import { collectTarsAttention, selectTarsAttentionRows } from "@/lib/tars/attention";
+import { buildTarsTray } from "@/lib/tars/tray-model";
+import { collectTarsAttention, selectTarsAttentionRows, tarsLaneOf } from "@/lib/tars/attention";
 import { tarsConfirmationRequestId, type TarsActInput, type TarsActionRecord } from "@/lib/tars/conversation";
 import type { TarsBridgeApi, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "@/lib/tars/types";
 import { readTarsSnapshot, useTarsSnapshotStore } from "@/store/tars-snapshot-store";
@@ -265,4 +266,40 @@ describe("Confirm on a Tars decision row", () => {
     expect(await confirmFleetTarsDecision(item(), failed.api)).toEqual({ ok: false, reasonKey: "shell:tars.controlReasons.unknown" });
     expect(await confirmFleetTarsDecision(item(), undefined)).toEqual({ ok: false, reasonKey: "shell:tars.controlReasons.unknown" });
   });
+});
+
+
+test("a completed-work message confirmation remains actionable through Fleet and the tray", async () => {
+  const row = tarsResponsibility({ state: "completed" });
+  const tars = snapshot([row], [decision({ operation: "message" })]);
+  const projection = project({ tars });
+  expect(projection.blockingItems).toHaveLength(1);
+  const selected = selectTarsAttentionRows(projection.items, tars.responsibilities);
+  expect(selected.rows).toHaveLength(1);
+  expect(tarsLaneOf(row, selected.responsibilityIds)).toBe("needsYou");
+  const tray = buildTarsTray({ responsibilities: tars.responsibilities, attentionItems: projection.items,
+    pendingDecisions: tars.pendingDecisions, runs: {} });
+  expect(tray.counts.needsYou).toBe(1);
+  expect(tray.lanes.done).toHaveLength(0);
+  expect(tray.lanes.needsYou[0]?.attention[0]?.decision).toMatchObject({ operation: "message", responsibilityId: row.id });
+  const calls: TarsActInput[] = [];
+  const bridge = { get: async () => tars, act: async (input: TarsActInput) => {
+    calls.push(input); return { snapshot: snapshot([row]), record: { status: "applied" } };
+  } } as unknown as TarsBridgeApi;
+  expect(await confirmFleetTarsDecision(projection.blockingItems[0]!, bridge)).toEqual({ ok: true });
+  expect(calls[0]).toMatchObject({ responsibilityId: row.id, operation: "message", source: "fleet" });
+  expect(project({ tars: snapshot([row], [decision()]) }).items).toHaveLength(0);
+  expect(project({ tars: snapshot([row], [decision({ operation: "message", expectedRevision: 3 })]) }).items).toHaveLength(0);
+});
+
+
+test("a completed-work message option stays in Fleet and tray attention as a question", () => {
+  const row = tarsResponsibility({ state: "completed" });
+  const tars = snapshot([row], [decision({ kind: "ask", operation: null, question: "Continue this result?", optionCount: 2 })]);
+  const projection = project({ tars });
+  expect(projection.blockingItems).toHaveLength(1);
+  expect(collectTarsAttention(tars)[0]?.prompt).toEqual({ kind: "ask", question: "Continue this result?" });
+  expect(projection.blockingItems[0]?.tarsDecision).toBeUndefined();
+  const tray = buildTarsTray({ responsibilities: tars.responsibilities, attentionItems: projection.items, pendingDecisions: tars.pendingDecisions, runs: {} });
+  expect(tray.counts.needsYou).toBe(1); expect(tray.lanes.needsYou[0]?.row.id).toBe(row.id);
 });

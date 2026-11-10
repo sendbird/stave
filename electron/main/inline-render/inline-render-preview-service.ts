@@ -210,6 +210,7 @@ export async function previewInlineRenderHtml(input: {
         consoleMessages: consoleLog.list(),
         failedRequests: failedRequests.list(),
         blockedNavigations: blockedNavigations.list(),
+        ...(capture.style ? { style: capture.style } : {}),
       },
       capture.images,
     );

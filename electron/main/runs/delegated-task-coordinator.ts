@@ -251,6 +251,9 @@ export interface DelegateCaller {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  admissionWait?: (args: { taskId: string; waiting: boolean }) => Promise<unknown>;
+  canStopTask?: (args: { workspaceId: string; taskId: string }) => Promise<boolean>;
+  dailyUsageLimit?: (providerId: "claude-code" | "codex") => Promise<string | null>;
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
   resolveTurnRoute?: (input: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput) => Promise<import("../../../src/lib/routing/constrained-route").ConstrainedRouteResult>;
   getLedger: (() => DelegatedTaskLedgerPort) | (() => Promise<DelegatedTaskLedgerPort>);
@@ -542,11 +545,10 @@ export function createDelegatedTaskCoordinator(
    * then only while no other writing subagent is live there. Read-only
    * subagents run beside anything.
    */
-  const sameWorkspaceWriter = (ledger: DelegatedTaskLedgerPort, args: {
-    workspaceId: string; runId: string; policy?: DelegationPermissionPolicy; providerId: "claude-code" | "codex";
-  }) => {
-    if (isReadOnlyDelegationPolicy(args.providerId, args.policy)) return null;
-    return ledger.listActiveRunAggregatesByStepKind({ kind: DELEGATED_TASK_STEP_KIND }).find((aggregate) => {
+  type WriterRequest = { workspaceId: string; runId: string; policy?: DelegationPermissionPolicy; providerId: "claude-code" | "codex" };
+  const sameWorkspaceWriters = (ledger: DelegatedTaskLedgerPort, args: WriterRequest) => {
+    if (isReadOnlyDelegationPolicy(args.providerId, args.policy)) return [];
+    return ledger.listActiveRunAggregatesByStepKind({ kind: DELEGATED_TASK_STEP_KIND }).filter((aggregate) => {
       const target = aggregate.step.target;
       if (!target || aggregate.run.id === args.runId || target.workspaceId !== args.workspaceId) return false;
       // A parked detached subagent is not writing between its turns.
@@ -554,7 +556,22 @@ export function createDelegatedTaskCoordinator(
           !acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.agentRunId) return false;
       const policy = acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.permissionPolicy;
       return !isReadOnlyDelegationPolicy(target.providerId, policy);
-    }) ?? null;
+    });
+  };
+  const sameWorkspaceWriter = (ledger: DelegatedTaskLedgerPort, args: WriterRequest) =>
+    sameWorkspaceWriters(ledger, args)[0] ?? null;
+  /**
+   * A conflicting writer may be a row a restart left running whose own parent
+   * has not reconciled since: each parent reconciles only its own children. So
+   * before a writer is refused, only the rows that refuse it are reconciled;
+   * no other parent's pass is waited on. The `sameWorkspaceWriter` check that
+   * follows then sees whether they are still live.
+   */
+  const revalidateSameWorkspaceWriters = async (ledger: DelegatedTaskLedgerPort, args: WriterRequest) => {
+    const conflicts = sameWorkspaceWriters(ledger, args);
+    if (conflicts.length === 0) return;
+    await reconcile({ runIds: new Set(conflicts.map(({ run }) => run.id)) })
+      .catch((error) => reportError(error, { scope: "reconcile-writer", runId: args.runId }));
   };
 
   const writerBusy = (holder: { run: RunRecord; step: RunStepRecord }, child: DelegatedTaskSummary | null) =>
@@ -772,6 +789,8 @@ export function createDelegatedTaskCoordinator(
           settleAgentRun({ ...args, detail });
           return;
         }
+        const dailyRefusal = dependencies.dailyUsageLimit ? await dependencies.dailyUsageLimit(args.target.providerId) : null;
+        if (dailyRefusal) throw new Error(dailyRefusal);
         const result = await dependencies.host.runTask({
           workspaceId: args.target.workspaceId,
           taskId: args.target.taskId,
@@ -894,16 +913,21 @@ export function createDelegatedTaskCoordinator(
    * A delegation whose task machinery could not be reached is deferred, never
    * closed. `deferred > 0` means the pass has to run again before the ledger
    * matches reality.
+   *
+   * Delegations are checked concurrently: each touches only its own ledger
+   * row, through idempotent transitions, so one child's slow read never holds
+   * back another's. `parentTaskId` limits the pass to one parent's children,
+   * `runIds` to those delegations.
    */
-  const reconcile = async (scope?: { taskId: string; agentRunId: string }) => {
+  const reconcile = async (scope?: { taskId: string; agentRunId: string } | { parentTaskId: string } | { runIds: ReadonlySet<string> }) => {
     const ledger = await getLedger();
     const aggregates = ledger.listActiveRunAggregatesByStepKind({
       kind: DELEGATED_TASK_STEP_KIND,
-    }).filter(({ run, step }) => !scope || (step.target?.taskId === scope.taskId &&
+    }).filter(({ run, step }) => !scope || ("runIds" in scope ? scope.runIds.has(run.id) : "parentTaskId" in scope ? run.origin.id === scope.parentTaskId : step.target?.taskId === scope.taskId &&
       acceptedReceiptForRun(ledger, run.id, step.attempt)?.detail?.agentRunId === scope.agentRunId));
     let reconciled = 0;
     let deferred = 0;
-    for (const aggregate of aggregates) {
+    await Promise.all(aggregates.map(async (aggregate) => {
       const summary = summaryFromAggregate(ledger, aggregate);
       const target = aggregate.step.target;
       const executionId = aggregate.step.executionId;
@@ -916,12 +940,12 @@ export function createDelegatedTaskCoordinator(
           now: now(),
         });
         reconciled += transition.accepted ? 1 : 0;
-        continue;
+        return;
       }
       if (inFlightByStepId.has(aggregate.step.id) && !summary.agentRunId) {
         // This process is still running the turn; its own settlement is
         // authoritative.
-        continue;
+        return;
       }
       if (summary.agentRunId) {
         const observation = await dependencies.host.readAgentRun?.({ agentRunId: summary.agentRunId }).catch(() => null) ?? null;
@@ -929,10 +953,10 @@ export function createDelegatedTaskCoordinator(
           const transition = ledger.interruptRunStep({ runId: aggregate.run.id, stepId: aggregate.step.id,
             idempotencyKey: `child:${executionId}:missing-supervisor`, error: "Delegation preparation was interrupted before its supervisor was saved. Retry explicitly.", now: now() });
           if (transition.accepted) reconciled += 1;
-          continue;
+          return;
         }
         const detail = observation && !("missing" in observation) ? observation : null;
-        if (detail?.delegationActivated === false && inFlightByStepId.has(aggregate.step.id)) continue;
+        if (detail?.delegationActivated === false && inFlightByStepId.has(aggregate.step.id)) return;
         if (detail?.agentRun.id === summary.agentRunId && detail.agentRun.leadTaskId === target.taskId &&
             detail.agentRun.workspaceId === target.workspaceId && !inFlightByStepId.has(aggregate.step.id) &&
             detail.agentRun.state === "paused" && detail.agentRun.turnCount === 0 &&
@@ -942,13 +966,13 @@ export function createDelegatedTaskCoordinator(
             idempotencyKey: `child:${executionId}:unactivated`, error: "Delegation preparation was interrupted before activation. Retry explicitly.", now: now() });
           await dependencies.host.stopAgentRun?.({ agentRunId: summary.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId }).catch(() => undefined);
           if (interrupted.accepted) reconciled += 1;
-          continue;
+          return;
         }
         const transition = settleAgentRun({ ledger, runId: aggregate.run.id, stepId: aggregate.step.id,
           executionId, target, detail });
         if (transition?.accepted) reconciled += 1;
         else deferred += 1;
-        continue;
+        return;
       }
       const status = await dependencies.host
         .getTaskStatus({
@@ -960,7 +984,7 @@ export function createDelegatedTaskCoordinator(
       if (!status.ok) {
         if (status.reason === "unavailable") {
           deferred += 1;
-          continue;
+          return;
         }
         const transition = ledger.interruptRunStep({
           runId: aggregate.run.id,
@@ -970,12 +994,12 @@ export function createDelegatedTaskCoordinator(
           now: now(),
         });
         reconciled += transition.accepted ? 1 : 0;
-        continue;
+        return;
       }
       if (summary.lifecycle === "detached" && summary.phase === "waiting") {
         // Parked open on purpose; whatever the child does next belongs to its
         // own task surface, not to this delegation's receipts.
-        continue;
+        return;
       }
       if (
         status.activeTurnId &&
@@ -988,7 +1012,7 @@ export function createDelegatedTaskCoordinator(
         // records the turn's outcome instead of leaving a `running` row (and
         // its concurrency slot) occupied forever.
         deferred += 1;
-        continue;
+        return;
       }
       // A turn that finished before this attempt was claimed belongs to an
       // earlier attempt. Settling attempt N from attempt N-1's turn would
@@ -1012,7 +1036,7 @@ export function createDelegatedTaskCoordinator(
           now: now(),
         });
         reconciled += transition.accepted ? 1 : 0;
-        continue;
+        return;
       }
       if (!staleLatestTurn && status.latestTurnError) {
         const transition = ledger.failRunStep({
@@ -1028,7 +1052,7 @@ export function createDelegatedTaskCoordinator(
           now: now(),
         });
         reconciled += transition.accepted ? 1 : 0;
-        continue;
+        return;
       }
       if (
         !staleLatestTurn &&
@@ -1049,7 +1073,7 @@ export function createDelegatedTaskCoordinator(
           responseText: status.latestAssistantText,
         });
         reconciled += transition.accepted ? 1 : 0;
-        continue;
+        return;
       }
       const transition = ledger.interruptRunStep({
         runId: aggregate.run.id,
@@ -1059,7 +1083,7 @@ export function createDelegatedTaskCoordinator(
         now: now(),
       });
       reconciled += transition.accepted ? 1 : 0;
-    }
+    }));
     if (reconciled > 0) {
       for (const parentTaskId of new Set(
         aggregates.map((aggregate) => aggregate.run.origin.id),
@@ -1071,27 +1095,34 @@ export function createDelegatedTaskCoordinator(
   };
 
   /**
-   * Reconciliation is retried on the next delegation read or write until one
-   * pass completes with nothing deferred, so a host service that was still
-   * starting up at boot does not leave stale rows behind.
+   * A parent's delegations are reconciled again on its next delegation read or
+   * write until one pass over them completes with nothing deferred, so a host
+   * service that was still starting up at boot does not leave stale rows
+   * behind. Each parent passes over only its own children: a slow or still
+   * running child of one parent never holds back another parent's delegate,
+   * list or control.
    */
-  let reconcileSettled = false;
-  let reconcilePass: Promise<void> | null = null;
-  const ensureReconciled = async () => {
-    if (reconcileSettled) {
+  const settledParents = new Set<string>();
+  const reconcilePasses = new Map<string, Promise<void>>();
+  const ensureReconciled = async (parentTaskId: string) => {
+    if (settledParents.has(parentTaskId)) {
       return;
     }
-    reconcilePass ??= reconcile()
-      .then((result) => {
-        reconcileSettled = result.deferred === 0;
-      })
-      .catch((error) => {
-        reportError(error, { scope: "reconcile", runId: "*" });
-      })
-      .finally(() => {
-        reconcilePass = null;
-      });
-    await reconcilePass;
+    let pass = reconcilePasses.get(parentTaskId);
+    if (!pass) {
+      pass = reconcile({ parentTaskId })
+        .then((result) => {
+          if (result.deferred === 0) settledParents.add(parentTaskId);
+        })
+        .catch((error) => {
+          reportError(error, { scope: "reconcile", runId: "*" });
+        })
+        .finally(() => {
+          reconcilePasses.delete(parentTaskId);
+        });
+      reconcilePasses.set(parentTaskId, pass);
+    }
+    await pass;
   };
 
   const resolveChildWorkspace = async (args: {
@@ -1126,7 +1157,7 @@ export function createDelegatedTaskCoordinator(
     });
     const stepId = buildDelegatedTaskStepId(runId);
     const ledger = await getLedger();
-    await ensureReconciled();
+    await ensureReconciled(args.parentTaskId);
     const aggregate = ledger.getRunAggregate({ runId, stepId });
     const child = aggregate ? summaryFromAggregate(ledger, aggregate) : null;
     if (!child) {
@@ -1163,6 +1194,7 @@ export function createDelegatedTaskCoordinator(
    * checked the count that is claimed against. The map entry is removed once
    * its chain drains so an idle parent leaves no state behind.
    */
+  const stoppingTasks = new Set<string>();
   const delegationLocksByParent = new Map<string, Promise<void>>();
   const withParentDelegationLock = <T>(
     parentTaskId: string,
@@ -1193,6 +1225,7 @@ export function createDelegatedTaskCoordinator(
       return rejected("invalid-request", null, parsed.error.issues.map(issue => issue.message).join("; ").slice(0, 500));
     }
     let args = parsed.data;
+    if (stoppingTasks.has(args.parentTaskId)) return rejected("invalid-state", null, "parent-stopping");
     let agentContentHash: string | null = null;
     let agentAssignment: { snapshot: AgentSnapshot; standards?: string } | undefined;
     if (args.agentConfigId) {
@@ -1208,7 +1241,9 @@ export function createDelegatedTaskCoordinator(
     const resourceRootRunId = await dependencies.readResourceRoot?.(args.parentTaskId);
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
+      stoppingTasks.has(args.parentTaskId)
+        ? Promise.resolve(rejected("invalid-state", null, "parent-stopping"))
+        : admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
     );
   };
 
@@ -1263,7 +1298,7 @@ export function createDelegatedTaskCoordinator(
           : "workspace-unavailable",
       );
     }
-    await ensureReconciled();
+    await ensureReconciled(args.parentTaskId);
 
     const existing = ledger.getRunAggregate({ runId, stepId });
     const existingSummary = existing
@@ -1309,6 +1344,11 @@ export function createDelegatedTaskCoordinator(
       if (!admission.ok) return rejected("usage-limited", existingSummary, admission.message.slice(0, 500));
     }
 
+    if (dependencies.dailyUsageLimit && (!existingSummary || args.retry)) {
+      const dailyRefusal = await dependencies.dailyUsageLimit(args.providerId);
+      if (dailyRefusal) return rejected("usage-limited", existingSummary, dailyRefusal);
+    }
+
     // ── Pinned commit ───────────────────────────────────────────────────
     // Work meant for one commit never starts against another: a review that
     // ran on a later HEAD would report on code nobody asked about.
@@ -1340,7 +1380,9 @@ export function createDelegatedTaskCoordinator(
     if (args.lifecycle === "supervised" && (!agentAssignment || !permissionPolicy || !dependencies.host.runAgentRun))
       return rejected("agent-refused", existingSummary, "Supervised saved-Agent execution is unavailable. No one-turn fallback was started.");
     target = nextTurnTarget(target);
-    const writer = sameWorkspaceWriter(ledger, { workspaceId: delegatedWorkspaceId, runId, policy: permissionPolicy, providerId: args.providerId });
+    const writerRequest = { workspaceId: delegatedWorkspaceId, runId, policy: permissionPolicy, providerId: args.providerId };
+    await revalidateSameWorkspaceWriters(ledger, writerRequest);
+    const writer = sameWorkspaceWriter(ledger, writerRequest);
     if (writer) return writerBusy(writer, existingSummary);
     const timestamp = now();
     const executionId = createExecutionId();
@@ -1629,7 +1671,25 @@ export function createDelegatedTaskCoordinator(
     );
     const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
     if (!waitSeconds || !response.accepted || !response.child) return response;
-    return waitForAnswer(response, waitSeconds * 1_000);
+    const deadline = Date.now() + waitSeconds * 1_000;
+    // The parent gives its slot to its helper while it waits.
+    await Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: true })).catch((error) => {
+      console.warn("[delegation] could not lend the parent's turn slot", String(error));
+    });
+    try { return await waitForAnswer(response, waitSeconds * 1_000); }
+    finally {
+      // Taking the slot back never holds the tool call past the documented
+      // wait: at the deadline the call returns and the re-acquire continues.
+      // A parent turn that ends first drops its pending re-acquire.
+      const reacquired = Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: false })).catch((error) => {
+        console.warn("[delegation] could not take the parent's turn slot back", String(error));
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        reacquired,
+        new Promise<void>((resolve) => { timer = setTimeout(resolve, Math.max(0, deadline - Date.now())); timer.unref?.(); }),
+      ]).finally(() => clearTimeout(timer));
+    }
   };
 
   /**
@@ -1663,6 +1723,81 @@ export function createDelegatedTaskCoordinator(
         ? null
         : "The subagent is still working. Its answer arrives with this task's next turn under Subagent results.",
     });
+  };
+
+  const stopChild = async (rawArgs: unknown): Promise<DelegatedTaskActionResponse> => {
+      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return rejected("invalid-request");
+      }
+      const args = parsed.data;
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
+      }
+      const { ledger, runId, stepId } = resolved;
+      if (resolved.child.phase === "cancelled") return accepted({ duplicate: true, child: resolved.child });
+      if (!isActiveDelegatedTaskPhase(resolved.child.phase)) return rejected("invalid-state", resolved.child);
+      if (dependencies.canStopTask && !await dependencies.canStopTask({ workspaceId: resolved.child.delegatedWorkspaceId, taskId: resolved.child.delegatedTaskId })) {
+        return { ...rejected("invalid-ownership", resolved.child), message: "managed by Tars" };
+      }
+      const skippedDescendants: string[] = [];
+      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
+      const target = resolved.step.target;
+      const transition = ledger.cancelRunStep({
+        runId,
+        stepId,
+        idempotencyKey: `stop:${args.delegationKey}`,
+        detail: {
+          code: "delegated-task-stopped",
+          message: args.reason,
+          providerId: target?.providerId,
+        },
+        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
+        now: now(),
+      });
+      if (!transition.accepted) {
+        return rejected(
+          toRejectionReason(transition.reason),
+          summaryFromTransition(resolved.ledger, transition),
+        );
+      }
+      stoppingTasks.add(resolved.child.delegatedTaskId);
+      try {
+        if (!transition.duplicate && target) {
+          if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
+          // Cancelling the ledger row is the durable half; asking the delegated task
+          // to stop is best effort, because a child that already ended is a
+          // successful stop.
+          await (resolved.child.agentRunId && dependencies.host.stopAgentRun
+            ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
+            : dependencies.host.stopTask({
+              workspaceId: target.workspaceId,
+              taskId: target.taskId,
+            }))
+            .catch((error) => {
+              reportError(error, { scope: "stop-child", runId });
+              skippedDescendants.push(`${target.taskId}: ${String(error)}`);
+            });
+        }
+        const descendants = ledger.listRunAggregatesByOrigin({ originKind: "task", originId: resolved.child.delegatedTaskId, limit: DELEGATED_TASK_LIST_LIMIT });
+        for (const aggregate of descendants) {
+          const child = summaryFromAggregate(ledger, aggregate);
+          if (!child || !isActiveDelegatedTaskPhase(child.phase)) continue;
+          try {
+            const result = await stopChild({ parentTaskId: resolved.child.delegatedTaskId, delegationKey: child.delegationKey, reason: args.reason });
+            if (!result.accepted || result.message) skippedDescendants.push(`${child.delegatedTaskId}: ${result.message ?? result.reason ?? "refused"}`);
+          } catch (error) { skippedDescendants.push(`${child.delegatedTaskId}: ${String(error)}`); }
+        }
+        notifyChanged(args.parentTaskId);
+        return { ...accepted({
+          duplicate: transition.duplicate,
+          child: summaryFromTransition(resolved.ledger, transition),
+        }), message: skippedDescendants.length ? skippedDescendants.join("; ").slice(0, 500) : null };
+      } finally {
+        stoppingTasks.delete(resolved.child.delegatedTaskId);
+      }
+
   };
 
   return {
@@ -1780,6 +1915,8 @@ export function createDelegatedTaskCoordinator(
       const originalClaim = [...resolved.ledger.listRunReceipts({ runId: resolved.runId })]
         .reverse().find((receipt) => receipt.type === "accepted");
       const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId: target.taskId, providerId: target.providerId, permissionProfile: args.permissionProfile, agentConfigId: originalClaim?.detail?.agentConfigId });
+      // Before the checks below, which stay synchronous with the target update.
+      await revalidateSameWorkspaceWriters(resolved.ledger, { workspaceId: target.workspaceId, runId: resolved.runId, policy: permissionPolicy, providerId: target.providerId });
       if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
       const fresh = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
       if (!fresh || fresh.step.executionId !== executionId || fresh.step.status !== "waiting") return rejected("stale-execution", resolved.child);
@@ -1885,7 +2022,7 @@ export function createDelegatedTaskCoordinator(
         return DelegatedTaskListSchema.parse([]);
       }
       const ledger = await getLedger();
-      await ensureReconciled();
+      await ensureReconciled(parsed.data.parentTaskId);
       const summaries = ledger
         .listRunAggregatesByOrigin({
           originKind: "task",
@@ -1904,58 +2041,7 @@ export function createDelegatedTaskCoordinator(
       return DelegatedTaskListSchema.parse(summaries);
     },
 
-    async stop(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
-      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
-      if (!parsed.success) {
-        return rejected("invalid-request");
-      }
-      const args = parsed.data;
-      const resolved = await resolveForAction(args);
-      if (!resolved.ok) {
-        return resolved.rejection;
-      }
-      const { ledger, runId, stepId } = resolved;
-      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
-      const target = resolved.step.target;
-      const transition = ledger.cancelRunStep({
-        runId,
-        stepId,
-        idempotencyKey: `stop:${args.delegationKey}`,
-        detail: {
-          code: "delegated-task-stopped",
-          message: args.reason,
-          providerId: target?.providerId,
-        },
-        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
-        now: now(),
-      });
-      if (!transition.accepted) {
-        return rejected(
-          toRejectionReason(transition.reason),
-          summaryFromTransition(resolved.ledger, transition),
-        );
-      }
-      if (!transition.duplicate && target) {
-        if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
-        // Cancelling the ledger row is the durable half; asking the delegated task
-        // to stop is best effort, because a child that already ended is a
-        // successful stop.
-        await (resolved.child.agentRunId && dependencies.host.stopAgentRun
-          ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
-          : dependencies.host.stopTask({
-            workspaceId: target.workspaceId,
-            taskId: target.taskId,
-          }))
-          .catch((error) => {
-            reportError(error, { scope: "stop-child", runId });
-          });
-      }
-      notifyChanged(args.parentTaskId);
-      return accepted({
-        duplicate: transition.duplicate,
-        child: summaryFromTransition(resolved.ledger, transition),
-      });
-    },
+    stop: stopChild,
 
     reconcile,
 

@@ -139,7 +139,7 @@ describe("summarizeTrackerSource", () => {
 describe("describeTrackerSources", () => {
   it("returns every source in a stable order even when none is reported", () => {
     const summaries = describeTrackerSources({});
-    expect(summaries.map((entry) => entry.source)).toEqual(["jira", "crane"]);
+    expect(summaries.map((entry) => entry.source)).toEqual(["jira", "crane", "github"]);
   });
 
   it("mixes a working source with one that needs setup", () => {
@@ -150,6 +150,7 @@ describe("describeTrackerSources", () => {
     expect(summaries.map((entry) => entry.condition)).toEqual([
       "setup",
       "producing",
+      "unknown",
     ]);
     // The regression this whole module exists for: one healthy source must not
     // hide the other one's setup step.
@@ -194,4 +195,11 @@ describe("listActionableTrackerSources", () => {
       listActionableTrackerSources([summarizeTrackerSource("crane", status())]),
     ).toEqual([]);
   });
+});
+
+it("explains GitHub CLI setup instead of suggesting Jira credentials", () => {
+  const summary = summarizeTrackerSource("github", status({ source: "github", availability: "not_configured" }));
+  expect(summary.detail).toContain("gh auth login");
+  expect(summary.detail).not.toContain("account email");
+  expect(summary.fixInSettings).toBe(false);
 });

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { tarsRecordText } from "./tars-record-text";
 import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
@@ -59,11 +60,27 @@ describe("blocked work navigation (A6)", () => {
     const card = tray.lanes.needsYou.concat(tray.lanes.running, tray.lanes.done).find((entry) => entry.row.id === "search")!;
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
-    expect(view.html).toContain("The run stopped with a required criterion unmet.");
+    expect(view.html).toContain("Stopped with some completion criteria unmet. Open the report to see what is missing.");
     view.press("Open report");
     expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
     // Without a side view (Fleet's own surfaces), the card has no report link.
     expect(renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: { ...actions, onOpenSide: undefined } }))).not.toContain("data-tars-open-report");
+  });
+
+  test("with a Blocked row in its well, the card says the reason once and opens the report from the end of that row", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const search = f.responsibilities.find((row) => row.id === "search")!;
+    const blocked = { id: "tars:blocked:search", kind: "tars-blocked", taskId: search.taskId!, tarsResponsibilityId: search.id };
+    const tray = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [blocked], runs: f.runs });
+    const card = Object.values(tray.lanes).flat().find((entry) => entry.row.id === "search")!;
+    const { actions, opened } = actionsRecording();
+    const view = capture(() => TarsTrayCard({ card, actions }));
+    expect(view.html.split("Stopped with some completion criteria unmet. Open the report to see what is missing.").length - 1).toBe(1);
+    expect(view.html).toMatch(/data-tars-attention="tars-blocked"(?:(?!<\/li>).)*data-tars-open-report="search"/);
+    expect(view.html.split("data-tars-open-report=").length - 1).toBe(1);
+    view.press("Open report");
+    expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
   });
 
   test("its report offers only the controls its state admits, through the tray's host path; Fleet stays beside them", async () => {
@@ -72,7 +89,7 @@ describe("blocked work navigation (A6)", () => {
     const search = f.responsibilities.find((row) => row.id === "search")!;
     const { actions, acted, fleet } = actionsRecording();
     const view = capture(() => TarsBlockedNextSteps({ row: search, decision: undefined, actions }));
-    expect(view.labels).toEqual(["Resume", "Take over", "Cancel responsibility", "Open task", "Show in Fleet"]);
+    expect(view.labels).toEqual(["Resume", "Take over", "Cancel work", "Open task", "Show in Fleet"]);
     view.press("Resume");
     view.press("Show in Fleet");
     expect(acted).toEqual(["resume"]);
@@ -112,23 +129,25 @@ describe("blocked work navigation (A6)", () => {
 describe("tray outputs", () => {
   test("the indicator counts outputs only when there are some; needs you keeps its own count", async () => {
     await applyAppLocale("en");
-    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, waiting: 0, yours: 0, done: 1 }, "ready", 6)).toBe("1 needs you · 1 done · 6 outputs");
-    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, waiting: 0, yours: 0, done: 1 }, "ready", 0)).toBe("1 needs you · 1 done");
+    expect(describeTarsTrayCounts({ needsYou: 1, inProgress: 0, running: 0, done: 1 }, "ready", 6)).toBe("1 needs you · 1 done · 6 outputs");
+    expect(describeTarsTrayCounts({ needsYou: 1, inProgress: 0, running: 0, done: 1 }, "ready", 0)).toBe("1 needs you · 1 done");
     await applyAppLocale("ko");
-    expect(describeTarsTrayCounts({ needsYou: 0, running: 1, waiting: 0, yours: 0, done: 0 }, "ready", 2)).toBe("실행 1 · 산출물 2");
+    expect(describeTarsTrayCounts({ needsYou: 0, inProgress: 1, running: 1, done: 0 }, "ready", 2)).toBe("진행 중 1 · 산출물 2");
     await applyAppLocale("en");
   });
 
-  test("each output opens its side-view kind; a recorded link opens where it points", async () => {
+  test("each output opens its execution and side-view kind; a recorded link opens where it points", async () => {
     await applyAppLocale("en");
     const f = fixtures();
     const outputs = buildTarsOutputs({ responsibilities: f.responsibilities, runs: f.runs });
     const opened: TarsSideViewTarget[] = [];
     const view = capture(() => TarsOutputList({ outputs, onOpenSide: (target) => opened.push(target) }));
     expect(view.html).toContain('href="https://example.com/acme/shop/pull/42"');
-    view.press("Changes · 2 files");
-    view.press("Review · passed");
-    expect(opened).toEqual([{ responsibilityId: "checkout", kind: "changes" }, { responsibilityId: "checkout", kind: "review" }]);
+    // A row reads as what it is, then whose work it came from.
+    view.press(view.labels.find((label) => label.startsWith("Changes · 2 files"))!);
+    view.press(view.labels.find((label) => label.startsWith("Review · changes requested"))!);
+    expect(opened).toEqual([{ responsibilityId: "checkout", agentRunId: "run-checkout", kind: "changes" },
+      { responsibilityId: "checkout", agentRunId: "run-checkout", kind: "review" }]);
     expect(renderToStaticMarkup(createElement(TarsOutputList, { outputs: [] }))).toContain("Nothing has been produced yet.");
   });
 });
@@ -141,8 +160,8 @@ describe("side-view panels", () => {
     const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(checkout, f.runs["run-checkout"]), row: checkout }));
     expect(html).toContain("실행이 끝난");
     expect(html).toContain("최종 리비전 9e2b7c11");
-    expect(html).toContain("모든 기준을 충족했습니다.");
-    expect(html).toContain("Verify 단계에서 에이전트가 보고 · 9e2b7c11에서 확인 · 최종 리비전");
+    expect(html).toContain("완료 기준 2개 중 2개 충족");
+    expect(html).toContain("Fix review findings 단계에서 에이전트가 보고 · 9e2b7c11에서 확인 · 최종 리비전");
     expect(html).toContain("Stave에서 검증함");
     expect(html).toContain("Work 단계에서 보고한 근거");
     await applyAppLocale("en");
@@ -153,11 +172,24 @@ describe("side-view panels", () => {
     const f = fixtures();
     const checkout = f.responsibilities[0]!;
     const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(checkout, f.runs["run-checkout"]), row: checkout }));
-    // Two criteria, three stage groups: the Verify check appears once.
+    // Two criteria, three stage groups: the fix check appears once.
     expect(html.split("data-tars-criterion=").length - 1).toBe(2);
     expect(html.split("data-tars-evidence-group=").length - 1).toBe(3);
-    expect(html.split("Evidence reported in Verify").length - 1).toBe(2); // heading text and its aria-label
+    expect(html.split("Evidence reported in Fix review findings").length - 1).toBe(2); // heading text and its aria-label
     expect(html).not.toContain("No evidence was cited");
+  });
+
+  test("the report leads with how the run ended and why, then when it was taken, before its sections", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const search = f.responsibilities[1]!;
+    const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(search, f.runs["run-search"]), row: search }));
+    const summary = html.slice(html.indexOf("data-tars-report-summary"), html.indexOf("data-tars-result-details"));
+    const order = ["Run stopped", "data-tars-report-reason", "data-tars-completion-summary", "data-tars-report-frozen"].map((text) => summary.indexOf(text));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // Evidence sits in one raised panel like the criteria above it.
+    expect(html).toMatch(/data-tars-evidence-group="[^"]+"(?:(?!<\/section>).)*<div class="[^"]*"><ul/);
   });
 
   test("only blocked work gets the blocked landmark and next steps", async () => {
@@ -174,12 +206,12 @@ describe("side-view panels", () => {
 
   test("a criterion's source line names a Stave check's result; a known check on an unknown final revision says so", async () => {
     await applyAppLocale("en");
-    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Verify", name: "test", exitCode: 0, revision: "9e2b7c11", freshness: "current" }))
-      .toBe("Stave check test passed in Verify · Checked on 9e2b7c11 · the final revision");
-    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Verify", name: "test", exitCode: 2, revision: "9e2b7c11", freshness: "superseded" }))
-      .toBe("Stave check test failed with exit code 2 in Verify · Checked on 9e2b7c11 · not the final revision");
-    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Verify", name: "test", exitCode: null, revision: null, freshness: "unknown" }))
-      .toBe("Stave check test has not run in Verify");
+    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: 0, revision: "9e2b7c11", freshness: "current" }))
+      .toBe("Stave check test passed in Fix review findings · Checked on 9e2b7c11 · the final revision");
+    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: 2, revision: "9e2b7c11", freshness: "superseded" }))
+      .toBe("Stave check test failed with exit code 2 in Fix review findings · Checked on 9e2b7c11 · not the final revision");
+    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: null, revision: null, freshness: "unknown" }))
+      .toBe("Stave check test has not run in Fix review findings");
     expect(describeTarsEvidenceRevision("4f1c9a20", "finalUnknown")).toBe("Checked on 4f1c9a20 · final revision unknown");
   });
 
@@ -203,7 +235,7 @@ describe("side-view panels", () => {
     await applyAppLocale("en");
     const f = fixtures();
     const html = renderToStaticMarkup(createElement(TarsReviewPanel, { review: projectTarsReview(f.runs["run-checkout"]) }));
-    expect(html).toContain("Review passed");
+    expect(html).toContain("Changes requested");
     expect(html).toContain("2 findings");
     expect(html).toContain("Rename savedId to preferredCardId");
     expect(renderToStaticMarkup(createElement(TarsReviewPanel, { review: null }))).toContain("No independent review has reported yet.");
@@ -216,7 +248,28 @@ describe("side-view panels", () => {
     const receipt = { ...f.receipts[0]!, messageId: "message-show", action: { kind: "show" as const, responsibilityId: "checkout", view: "changes" as const } };
     const html = renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [receipt], name: "Tars", busy: false, onCancel() {},
       titleOf: () => "Show the saved card first at checkout" }));
-    expect(html).toContain("Opened the changes of Show the saved card first at checkout");
+    expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout View opened");
     expect(i18n.language).toBe("en");
+  });
+});
+
+describe("tray output rows", () => {
+  test("every output row states its kind with a glyph and whether it opens the side view or the browser", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const outputs = buildTarsOutputs({ responsibilities: f.responsibilities, runs: f.runs });
+    const html = renderToStaticMarkup(createElement(TarsOutputList, { outputs, onOpenSide() {} }));
+    const rows = [...html.matchAll(/<li[^>]*data-tars-output="(\w+)" data-tars-output-opens="(side|external)">(.*?)<\/li>/g)];
+    expect(rows.length).toBe(outputs.length);
+    const glyph = { report: "lucide-file-text", changes: "lucide-file-diff", review: "lucide-search-check", pullRequest: "lucide-git-pull-request", link: "lucide-link" } as const;
+    for (const [, kind, opens, row] of rows) {
+      expect(row).toContain(glyph[kind as keyof typeof glyph]);
+      const external = kind === "link" || kind === "pullRequest";
+      expect(opens).toBe(external ? "external" : "side");
+      // The row itself is the opener, and its end glyph says where it opens.
+      expect(row).toMatch(external ? /^<a [^>]*href=/ : /^<button /);
+      expect(row).toContain(external ? "lucide-arrow-up-right" : "lucide-panel-right");
+      if (external) expect(row).toContain("Opens in your browser");
+    }
   });
 });

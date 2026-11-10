@@ -1,3 +1,4 @@
+import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
 import { webContents } from "electron";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type { ApprovalRuleDecider } from "../../src/lib/approvals/approval-resolution";
@@ -77,16 +78,6 @@ export async function getWorkspaceInformation(args: { workspaceId: string }) {
     workspaceId: string;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("get-workspace-information", args);
-}
-
-export async function setWorkspaceMartinProject(args: {
-  workspaceId: string;
-  project: import("../../src/lib/workspace-information").WorkspaceMartinProjectLink | null;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("set-workspace-martin-project", args);
 }
 
 export async function replaceWorkspaceNotes(args: {
@@ -402,10 +393,11 @@ export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
   turnId?: string;
+  refresh?: boolean;
 }) {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").TaskStatusResult
-  >("get-task-status", args);
+  >("get-task-status", NotificationTaskStatusArgsSchema.parse(args));
 }
 
 /**
@@ -424,6 +416,7 @@ export async function respondApproval(args: {
   taskId: string;
   requestId: string;
   approved: boolean;
+  expectedMessageId?: string;
   decidedBy?: ApprovalRuleDecider;
 }) {
   return invokeLocalMcp<{
@@ -440,6 +433,7 @@ export async function respondUserInput(args: {
   taskId: string;
   requestId: string;
   answers?: Record<string, string>;
+  expectedMessageId?: string;
   denied?: boolean;
   /** Renderer IPC only: the async answer was already sent as a user message. */
   answerDelivered?: boolean;

@@ -685,6 +685,30 @@ export const KEYBINDING_REGISTRY = [
 
   // ── surfaces ────────────────────────────────────────────────────────────
   {
+    id: "fleet.selection-toggle", keys: ["x"], scope: "fleet", focus: true, editable: "block",
+    titleKey: "shell:keybindings.entries.fleetSelectionToggle.title",
+    descriptionKey: "shell:keybindings.entries.fleetSelectionToggle.description",
+    section: "surfaces", handledBy: ["src/components/layout/FleetSelection.tsx", "src/components/panes/TaskHistoryDrawer.tsx"],
+  },
+  {
+    id: "fleet.selection-extend", keys: ["shift+arrowup", "shift+arrowdown"], scope: "fleet", focus: true, editable: "block",
+    titleKey: "shell:keybindings.entries.fleetSelectionExtend.title",
+    descriptionKey: "shell:keybindings.entries.fleetSelectionExtend.description",
+    section: "surfaces", handledBy: ["src/components/layout/FleetSelection.tsx", "src/components/panes/TaskHistoryDrawer.tsx"],
+  },
+  {
+    id: "fleet.selection-all", keys: ["mod+a"], scope: "fleet", focus: true, editable: "block",
+    titleKey: "shell:keybindings.entries.fleetSelectionAll.title",
+    descriptionKey: "shell:keybindings.entries.fleetSelectionAll.description",
+    section: "surfaces", handledBy: ["src/components/layout/FleetSelection.tsx", "src/components/panes/TaskHistoryDrawer.tsx"],
+  },
+  {
+    id: "fleet.selection-clear", keys: ["escape"], scope: "fleet", focus: true, editable: "block",
+    titleKey: "shell:keybindings.entries.fleetSelectionClear.title",
+    descriptionKey: "shell:keybindings.entries.fleetSelectionClear.description",
+    section: "surfaces", handledBy: ["src/components/layout/FleetSelection.tsx", "src/components/panes/TaskHistoryDrawer.tsx"],
+  },
+  {
     id: "fleet.next-attention",
     keys: ["shift?+n"],
     scope: "fleet",

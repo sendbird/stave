@@ -105,10 +105,10 @@ and they are not pinned or kept in Recent.
 
 Default bindings:
 
-- `Alt+1` → `Claude Opus 5` (Claude default)
-- `Alt+2` → `GPT-5.6 Sol` (Codex default)
-- `Alt+3` → `Claude Fable 5.1` (Claude frontier)
-- `Alt+4` → `GPT-6 Astra` (Codex frontier)
+- `Alt+1` → `Claude Opus 5.5` (Claude default)
+- `Alt+2` → `GPT-6.2 Sol` (Codex default)
+- `Alt+3` → `Claude Fable 5.2` (Claude frontier)
+- `Alt+4` → `GPT-6.2 Astra` (Codex frontier)
 
 The same four bindings back the model picker's **Recommended** group.
 
@@ -134,9 +134,27 @@ reaches it once, the arrow keys change it, and clicking it keeps you typing):
 Each result shows its repository, workspace, branch and folder, so tasks with
 the same title are told apart, plus its state (Running, Done, Failed, Stopped,
 New) and its last activity. Opening one goes to its repository, then its
-workspace, then the task. Archived tasks, tasks another task delegated (open
-them from their parent), and repositories you removed are not searched. The other commands, Fleet View included, stay in the list in both
+workspace, then the task. The title group excludes archived and delegated tasks. Repositories you removed are not searched. The other commands, Fleet View included, stay in the list in both
 scopes.
+
+### Find Words In Messages
+
+Type at least two characters to see **In messages** below the task-title
+results. It searches local user messages, assistant replies and readable tool
+summaries across registered repositories. Korean and partial words match.
+Results show a highlighted snippet, match count, last activity and task state.
+Archived and delegated tasks are included and labelled; delegated results link
+to their parent. Enter opens the task at the matching message, loading an older
+history window when needed. Opening a result marks its notifications read. Archived results remain read-only with an **Archived · Restore** banner until restored. Search does not contact a provider.
+
+Existing history is indexed in short background batches. While indexing, a
+progress notice explains that results are still being built. Raw tool payloads,
+attachment bytes and secret metadata are excluded.
+
+In Fleet, turn on **Include message text** beside search to find the same
+content and open its matching message. In a conversation, **Cmd/Ctrl+F** searches
+loaded live text and local index hits for history outside the loaded window, with each message shown once. Use **Load newer
+messages** to return through newer history after jumping to an old match.
 
 ### Stave Slash Commands
 
@@ -187,3 +205,9 @@ press `Cmd/Ctrl+/` or run **Open keyboard shortcuts** from the palette.
 - [Integrated Terminal](integrated-terminal.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
 - [AgentRuns](agent-runs.md)
+
+Message search also includes archived workspaces. These hits show Archived and open a read-only history view. Restore restores the workspace through the cleanup center before returning to an editable task. Permanent workspace deletion removes its message-search index entries.
+
+## Discover existing tools
+
+Search for **Compare models**, **Schedules**, **Clean up workspaces**, **Fleet View**, **Agents**, **Performance**, **Resource Manager**, or **Secret requests**. Each entry explains its destination. Resource Manager is available without Developer mode; developer diagnostics keep their existing visibility rules.

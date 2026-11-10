@@ -1,3 +1,5 @@
+import { RestartContinuationNotice } from "@/components/layout/RestartContinuationNotice";
+import { useRestartContinuation } from "@/store/use-restart-continuation";
 import { useDelegationPermissionSync } from "@/lib/runs/useDelegationPermissionSync";
 import { useAgentRunSync } from "@/store/agent-runs-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
@@ -30,7 +32,6 @@ import {
 } from "@/lib/crane-connector/client-state";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { bootstrapTrackerIssuesClient } from "@/lib/tracker-issues/bootstrap";
-import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 import { refreshRegisteredWorkspaceDocumentActivity } from "@/store/workspace-documents-store";
 import { primeProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
@@ -50,6 +51,7 @@ function pushLensSecurityConfig(): void {
 }
 
 export default function App() {
+  useRestartContinuation();
   // Above the pane tree on purpose: Lens pages outlive the panels that show
   // them, and agent-opened sessions have no panel at all.
   useLensGuestHost();
@@ -154,35 +156,6 @@ export default function App() {
       timerByTaskTurn.clear();
       pendingByTaskTurn.clear();
     };
-  }, []);
-
-  useEffect(() => {
-    const syncApi = window.api?.martinSync;
-    if (!syncApi?.configure) return;
-
-    const pushConfig = (
-      settings: ReturnType<typeof useAppStore.getState>["settings"],
-    ) => {
-      void syncApi
-        .configure?.(normalizeMartinSyncSettings(settings.martinSync))
-        .catch(() => undefined);
-    };
-
-    pushConfig(useAppStore.getState().settings);
-    return useAppStore.subscribe((state, previous) => {
-      const current = normalizeMartinSyncSettings(state.settings.martinSync);
-      const prior = normalizeMartinSyncSettings(previous.settings.martinSync);
-      if (
-        current.enabled === prior.enabled &&
-        current.prOpened === prior.prOpened &&
-        current.taskCompleted === prior.taskCompleted &&
-        current.resourceLinks === prior.resourceLinks &&
-        current.turnSummaries === prior.turnSummaries
-      ) {
-        return;
-      }
-      pushConfig(state.settings);
-    });
   }, []);
 
   useEffect(() => {
@@ -521,6 +494,7 @@ export default function App() {
     <TooltipProvider>
       <AppShell />
       <WorkspaceSaveNotice />
+      <RestartContinuationNotice />
       <LensCdpApprovalDialog />
       <CraneDispatchApprovalDialog />
       <InlineRenderPreviewContextSync />

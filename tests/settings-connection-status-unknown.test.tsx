@@ -4,7 +4,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CodexPluginsCard } from "../src/components/layout/settings-dialog-codex-plugins-card";
 import { CraneConnectorSettingsSection } from "../src/components/layout/settings-dialog-crane-connector";
 import { JiraConnectorSettingsSection } from "../src/components/layout/settings-dialog-jira-connector";
-import { MartinSyncSettingsSection } from "../src/components/layout/settings-dialog-martin-sync";
 import { getMcpServerListState } from "../src/components/layout/settings-dialog-mcp-section";
 import type { McpServerOverview } from "../src/lib/providers/mcp-management";
 
@@ -20,8 +19,6 @@ function installPendingStatusReads() {
   (globalThis as { window?: unknown }).window = {
     ...(originalWindow ?? {}),
     api: {
-      martinSync: { getStatus: never },
-      atelierConnector: { getStatus: never },
       jiraConnector: { getStatus: never },
       craneConnector: { getStatus: never },
     },
@@ -29,15 +26,6 @@ function installPendingStatusReads() {
 }
 
 describe("connection status before its read answers", () => {
-  test("Martin sync says it is loading, not Disabled, Not paired or 0 pending", () => {
-    installPendingStatusReads();
-    const html = renderToStaticMarkup(createElement(MartinSyncSettingsSection));
-    expect(html).toContain("Loading…");
-    expect(html).not.toContain(">Disabled<");
-    expect(html).not.toContain("Not paired");
-    expect(html).not.toContain("0 pending");
-  });
-
   test("Jira says it is loading and holds the credential form back", () => {
     installPendingStatusReads();
     const html = renderToStaticMarkup(createElement(JiraConnectorSettingsSection));

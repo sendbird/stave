@@ -13,13 +13,15 @@ import {
   getProviderLabel,
   getSdkModelOptions,
   isAutoModelId,
+  LEGACY_CLAUDE_FABLE_MODEL,
   LEGACY_CLAUDE_HAIKU_MODEL,
   listProviderIds,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
   toHumanModelName,
   type ModelTier,
-  upgradePinnedCodexTerraModel,
+  upgradePinnedCodexModel,
+  upgradePinnedFableModel,
   upgradePinnedHaikuModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -206,6 +208,7 @@ export interface AutoRoutingProfile {
 
 const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   [CLAUDE_FABLE_MODEL]: "frontier",
+  [LEGACY_CLAUDE_FABLE_MODEL]: "frontier",
   "claude-fable-5": "frontier",
   [DEFAULT_CLAUDE_OPUS_MODEL]: "flagship",
   [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "flagship",
@@ -216,7 +219,9 @@ const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   "claude-sonnet-5[1m]": "balanced",
   [DEFAULT_CLAUDE_HAIKU_MODEL]: "light",
   [LEGACY_CLAUDE_HAIKU_MODEL]: "light",
+  "gpt-6.2-astra": "frontier",
   "gpt-6-astra": "frontier",
+  "gpt-6.2-sol": "flagship",
   "gpt-6.1-sol": "flagship",
   "gpt-6-sol": "flagship",
   "gpt-6-luna": "light",
@@ -502,9 +507,9 @@ export interface RouteLevel {
  * effort range; the preference picks a point inside the range.
  *
  *   Simple    light (Haiku 5.5 / GPT-6 Luna)             low – medium
- *   Standard  flagship (Opus 5.5 / GPT-6.1 Sol)          medium – high
+ *   Standard  flagship (Opus 5.5 / GPT-6.2 Sol)          medium – high
  *   Complex   flagship                                   high – xhigh
- *   Expert    frontier (Fable 5.1 / GPT-6 Astra)         low – medium
+ *   Expert    frontier (Fable 5.2 / GPT-6.2 Astra)       low – medium
  *   Extreme   frontier                                   medium – high
  *
  * Most work is Standard. The frontier rungs need explicit evidence from the
@@ -865,13 +870,16 @@ function normalizeStringList(value: unknown): string[] {
 }
 
 /**
- * A stored allow-list can predate Haiku 5.5 or GPT-6.1 Terra; a pinned Haiku
- * 4.5 or GPT-5.6 Terra moves onto its successor on the same rung.
+ * A stored allow-list can predate Haiku 5.5, Fable 5.2, GPT-6.1 Terra or the
+ * GPT-6.2 Sol and Astra models; a pinned Haiku 4.5, Fable 5.1, GPT-5.6 Terra,
+ * GPT-6.1 Sol or GPT-6 Astra moves onto its successor on the same rung.
  */
 function normalizeEligibleModelList(value: unknown): string[] {
   return normalizeStringList(
     normalizeStringList(value).map((model) =>
-      upgradePinnedCodexTerraModel(upgradePinnedHaikuModel(model))),
+      upgradePinnedCodexModel(
+        upgradePinnedFableModel(upgradePinnedHaikuModel(model)),
+      )),
   );
 }
 

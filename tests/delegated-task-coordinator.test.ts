@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import {
   createDelegatedTaskCoordinator,
   type DelegatedTaskHostPort,
@@ -149,8 +150,11 @@ function createHarness(
     resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
     readProviderUsage?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"];
+    dailyUsageLimit?: Parameters<typeof createDelegatedTaskCoordinator>[0]["dailyUsageLimit"];
+    canStopTask?: Parameters<typeof createDelegatedTaskCoordinator>[0]["canStopTask"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
+    admissionWait?: Parameters<typeof createDelegatedTaskCoordinator>[0]["admissionWait"];
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -172,6 +176,9 @@ function createHarness(
       ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
       ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
       ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
+      dailyUsageLimit: options.dailyUsageLimit,
+      canStopTask: options.canStopTask,
+      admissionWait: options.admissionWait,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -231,6 +238,13 @@ describe("account usage admission", () => {
     const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false, ...input }, caller);
     return { harness, response };
   };
+
+  test("a daily limit refuses a new helper without starting its task", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, dailyUsageLimit: async () => "Daily limit reached." });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false }, caller);
+    expect(response).toMatchObject({ accepted: false, reason: "usage-limited", message: "Daily limit reached." });
+    expect(harness.runTaskCalls).toHaveLength(0);
+  });
 
   test("a model's new subagent does not start where the account is exhausted, and the refusal names the other provider", async () => {
     const { harness, response } = await start(async () => usage({ status: "headroom", usedPercent: 20 }, { status: "exhausted", usedPercent: 100, resetsAt: RESET }));
@@ -1724,4 +1738,211 @@ describe("delegation provider from the agent", () => {
     expect(again.child!.delegatedTaskId).toBe(first.child!.delegatedTaskId);
     expect(other.child!.delegatedTaskId).not.toBe(first.child!.delegatedTaskId);
   });
+});
+
+describe("restart reconciliation never makes independent delegations wait on each other", () => {
+  test("one parent's held child read delays neither another parent's list nor its own other children", async () => {
+    const OTHER_PARENT = "parent-task-2";
+    // Read-only children may share the parent's workspace.
+    const harness = createHarness({ readOnly: true, runTask: () => new Promise<{ turnId: string }>(() => {}) });
+    harness.statusByTaskId.set(OTHER_PARENT, IDLE_STATUS);
+    const held = await harness.coordinator.delegate(delegateArgs({ delegationKey: "held-child" }));
+    const done = await harness.coordinator.delegate(delegateArgs({ delegationKey: "done-child" }));
+    const other = await harness.coordinator.delegate(delegateArgs({ parentTaskId: OTHER_PARENT, delegationKey: "other-child" }));
+    expect([held, done, other].map((response) => response.accepted)).toEqual([true, true, true]);
+    // After the restart, one child's task read does not come back; one finished while Stave was down; one still runs.
+    const heldTaskId = held.child!.delegatedTaskId;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const read = harness.host.getTaskStatus;
+    harness.host.getTaskStatus = async (args) => { if (args.taskId === heldTaskId) await gate; return read(args); };
+    harness.statusByTaskId.set(done.child!.delegatedTaskId, { ok: true, activeTurnId: null, latestTurnId: "turn-done",
+      latestTurnCompletedAt: "2026-08-10T01:00:00.000Z", latestTurnError: null });
+    harness.statusByTaskId.set(other.child!.delegatedTaskId, { ...IDLE_STATUS, activeTurnId: "turn-live" });
+    const restarted = harness.restart();
+
+    // The other parent lists its children at once, its running child still running.
+    let listed = false;
+    const otherList = restarted.list({ parentTaskId: OTHER_PARENT }).then((rows) => { listed = true; return rows; });
+    for (let attempt = 0; attempt < 100 && !listed; attempt += 1) await Bun.sleep(5);
+    expect(listed).toBe(true);
+    expect((await otherList).map((row) => [row.delegationKey, row.phase])).toEqual([["other-child", "running"]]);
+    // The held parent's other child settles while its sibling's read is still out.
+    const ownList = restarted.list({ parentTaskId: PARENT_TASK });
+    const doneStep = () => harness.store.getAggregate({ runId: done.child!.runId, stepId: done.child!.stepId })?.step.status;
+    for (let attempt = 0; attempt < 100 && doneStep() !== "completed"; attempt += 1) await Bun.sleep(5);
+    expect(doneStep()).toBe("completed");
+
+    release();
+    harness.statusByTaskId.set(heldTaskId, { ...IDLE_STATUS, activeTurnId: "turn-held" });
+    expect((await ownList).map((row) => [row.delegationKey, row.phase]).sort()).toEqual([["done-child", "completed"], ["held-child", "running"]]);
+  });
+
+  /**
+   * Parent A's same-workspace writer outlived a restart unread (its host was not
+   * up yet), then finished; A asks for nothing afterwards. Parent C's writer in
+   * its own worktree has a task read that never comes back.
+   */
+  const restartWithAnotherParentsWriter = async (writerStatus: TaskStatus) => {
+    const harness = createHarness({ realPolicy: true, runTask: () => new Promise<{ turnId: string }>(() => {}) });
+    for (const parent of ["parent-task-2", "parent-task-3"]) harness.statusByTaskId.set(parent, IDLE_STATUS);
+    const writer = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer-a" }));
+    const elsewhere = await harness.coordinator.delegate(delegateArgs({ parentTaskId: "parent-task-3", providerId: "claude-code",
+      delegationKey: "writer-c", workspace: { mode: "new-worktree", name: "writer-c" } }));
+    expect([writer.accepted, elsewhere.accepted]).toEqual([true, true]);
+    const restarted = harness.restart();
+    harness.setHostUnavailable(true);
+    expect(await restarted.reconcile()).toEqual({ reconciled: 0, deferred: 2 });
+    harness.setHostUnavailable(false);
+    harness.statusByTaskId.set(writer.child!.delegatedTaskId, writerStatus);
+    const read = harness.host.getTaskStatus;
+    harness.host.getTaskStatus = (args) => args.taskId === elsewhere.child!.delegatedTaskId ? new Promise(() => {}) : read(args);
+    const step = (child: typeof writer) => harness.store.getAggregate({ runId: child.child!.runId, stepId: child.child!.stepId })?.step.status;
+    return { harness, restarted, step: () => step(writer), elsewhereStep: () => step(elsewhere) };
+  };
+
+  test("another parent's writer that finished across a restart no longer refuses a writer in its workspace", async () => {
+    const { harness, restarted, step, elsewhereStep } = await restartWithAnotherParentsWriter({ ok: true, activeTurnId: null,
+      latestTurnId: "turn-a", latestTurnCompletedAt: "2026-08-10T01:00:00.000Z", latestTurnError: null });
+    const next = await restarted.delegate(delegateArgs({ parentTaskId: "parent-task-2", providerId: "claude-code", delegationKey: "writer-b" }));
+    expect(next).toMatchObject({ accepted: true, child: { delegatedWorkspaceId: PARENT_WORKSPACE } });
+    expect(step()).toBe("completed");
+    // Only the conflicting row was read again; parent C's unanswered child was left alone.
+    expect(elsewhereStep()).toBe("running");
+    expect(harness.runTaskCalls).toHaveLength(3);
+  });
+
+  test("another parent's writer still running across a restart keeps refusing one in its workspace", async () => {
+    const { restarted, step } = await restartWithAnotherParentsWriter({ ...IDLE_STATUS, activeTurnId: "turn-a" });
+    for (const attempt of [1, 2]) {
+      const refused = await restarted.delegate(delegateArgs({ parentTaskId: "parent-task-2", providerId: "claude-code", delegationKey: `writer-b-${attempt}` }));
+      expect(refused.reason).toBe("workspace-writer-busy");
+    }
+    expect(step()).toBe("running");
+  });
+});
+
+
+describe("cascading delegated task stop", () => {
+  test("stops each parent before descendants and leaves ended children untouched", async () => {
+    const harness = createHarness();
+    const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "nested", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const ended = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }));
+    await harness.coordinator.waitForInFlight();
+    expect(ended.child).not.toBeNull();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([parent.child!.delegatedTaskId, child.child!.delegatedTaskId]);
+    expect((await harness.coordinator.get({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }))?.phase).toBe("completed");
+  });
+  test("a refused descendant is reported while its sibling and parent still stop", async () => {
+    let refused = "";
+    const harness = createHarness({ canStopTask: async ({ taskId }) => taskId !== refused });
+    const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const first = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "first-child", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    refused = first.child!.delegatedTaskId;
+    const sibling = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "second-child", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(result.message).toContain("managed by Tars");
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([parent.child!.delegatedTaskId, sibling.child!.delegatedTaskId]);
+  });
+  test("a failed host stop is reported after the durable cancellation", async () => {
+    const harness = createHarness();
+    const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    harness.host.stopTask = async () => { throw new Error("host stop unavailable"); };
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(result.message).toContain(`${child.child!.delegatedTaskId}: Error: host stop unavailable`);
+    expect(result.child?.phase).toBe("cancelled");
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("cancelled");
+  });
+  test("a Tars-owned child refuses direct stop before changing its ledger", async () => {
+    const harness = createHarness({ canStopTask: async () => false });
+    const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(false);
+    expect(result.message).toBe("managed by Tars");
+    expect(harness.stopTaskCalls).toEqual([]);
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("waiting");
+    expect(child.child).not.toBeNull();
+  });
+});
+
+
+test("stopping a cancelled delegation is an accepted duplicate without stopping again", async () => {
+  const harness = createHarness();
+  await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  const args = { parentTaskId: PARENT_TASK, delegationKey: "review-docs" };
+  await harness.coordinator.stop(args);
+  const calls = harness.stopTaskCalls.length;
+  const result = await harness.coordinator.stop(args);
+  expect(result.accepted).toBe(true);
+  expect(result.duplicate).toBe(true);
+  expect(result.child?.phase).toBe("cancelled");
+  expect(harness.stopTaskCalls).toHaveLength(calls);
+});
+
+test("a stopping intermediate parent cannot delegate again while descendants stop", async () => {
+  const harness = createHarness();
+  const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  const parentId = parent.child!.delegatedTaskId;
+  await harness.coordinator.delegate(delegateArgs({ parentTaskId: parentId, delegationKey: "nested", lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  let attempted = false;
+  let lateResult: { accepted: boolean; reason?: string | null } | undefined;
+  harness.host.stopTask = async ({ taskId }) => {
+    if (taskId === parentId) {
+      attempted = true;
+      const result = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parentId, delegationKey: "late-child", lifecycle: "detached" }));
+      lateResult = result;
+    }
+  };
+  await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+  expect(attempted).toBe(true);
+  expect(lateResult?.accepted).toBe(false);
+  expect(lateResult?.reason).toBe("invalid-state");
+});
+
+describe("global turn admission during a delegate wait", () => {
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+
+  test("with one slot, the wait returns at its deadline and a parent that then times out leaves no slot held", async () => {
+    // The real host gate: one slot. The parent holds it until its wait suspends it.
+    const gate = createTurnAdmission({ limit: () => 1, save: () => {} });
+    await gate.acquire({ turnId: "parent-turn", taskId: PARENT_TASK, priority: "user" });
+    let child: Promise<void> | null = null;
+    const harness = createHarness({
+      parentDefaults: { providerId: "codex" },
+      // The child takes the freed slot and keeps it longer than the parent's wait.
+      runTask: () => { child = gate.acquire({ turnId: "child-turn", taskId: "child", priority: "automatic" }); return new Promise(() => {}); },
+      admissionWait: (args) => gate.wait(args.taskId, args.waiting),
+    });
+    const started = Date.now();
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: 1 }, caller);
+    const elapsed = Date.now() - started;
+    expect(response.accepted).toBe(true);
+    // The documented wait is one second; taking the slot back never holds the tool call past it.
+    expect(elapsed).toBeLessThan(2_500);
+    await child;
+    expect(gate.snapshot().running).toEqual(["child-turn"]);
+    expect(gate.snapshot().queued.map((row) => row.turnId)).toEqual(["parent-turn"]);
+    // The parent turn times out while its re-acquire still waits; its end releases that too.
+    gate.release("parent-turn");
+    expect(gate.snapshot().queued).toEqual([]);
+    gate.release("child-turn");
+    await gate.acquire({ turnId: "next-turn", taskId: "other", priority: "user" });
+    expect(gate.snapshot().running).toEqual(["next-turn"]);
+    gate.release("next-turn");
+  }, 10_000);
 });

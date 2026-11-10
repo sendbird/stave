@@ -4,6 +4,7 @@ import {
   DEFAULT_CLAUDE_SONNET_MODEL,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
+  upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_MODEL_SHORTCUT_KEYS } from "@/lib/providers/model-shortcuts";
 import type { TaskPreset } from "@/lib/task-presets";
@@ -17,7 +18,7 @@ import type { TaskPreset } from "@/lib/task-presets";
  * default") without re-firing later if the user deliberately picks that value
  * again.
  */
-export const SETTINGS_MODEL_MIGRATION_VERSION = 7;
+export const SETTINGS_MODEL_MIGRATION_VERSION = 8;
 
 /**
  * v1 (GPT-6 Astra release) — the per-provider defaults moved from Sonnet 5 to
@@ -253,6 +254,35 @@ const SOL_6_MODEL_SHORTCUT_KEYS = [
   "",
 ];
 
+/**
+ * Shortcut slots are normalized before the migration runs, and that
+ * normalization moves a retired Claude id (Fable 5.1, for example) onto its
+ * successor. An untouched frozen seed therefore arrives in either its raw or
+ * its upgraded form; both still mean the user never edited it.
+ */
+function matchesFrozenShortcutSeed(
+  keys: readonly string[],
+  seed: readonly string[],
+) {
+  const claudePrefix = "claude-code:";
+  return (
+    keys.length === seed.length &&
+    keys.every((key, index) => {
+      const seedKey = seed[index] ?? "";
+      if (key === seedKey) {
+        return true;
+      }
+      return (
+        seedKey.startsWith(claudePrefix) &&
+        key ===
+          `${claudePrefix}${upgradeSettingsScopedClaudeModel({
+            model: seedKey.slice(claudePrefix.length),
+          })}`
+      );
+    })
+  );
+}
+
 export function migrateSettingsModelDefaults(
   input: SettingsModelMigrationInput,
 ): SettingsModelMigrationResult {
@@ -277,10 +307,7 @@ export function migrateSettingsModelDefaults(
       result.changed = true;
     }
     if (
-      result.modelShortcutKeys.length === V1_MODEL_SHORTCUT_KEYS.length &&
-      result.modelShortcutKeys.every(
-        (key, index) => key === V1_MODEL_SHORTCUT_KEYS[index],
-      )
+      matchesFrozenShortcutSeed(result.modelShortcutKeys, V1_MODEL_SHORTCUT_KEYS)
     ) {
       result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
       result.changed = true;
@@ -315,7 +342,10 @@ export function migrateSettingsModelDefaults(
   if (fromVersion < 6) {
     applySol61Migration(result);
   }
-  applyTerra61Migration(result);
+  if (fromVersion < 7) {
+    applyTerra61Migration(result);
+  }
+  applyGpt62Migration(result);
   return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
 }
 
@@ -391,10 +421,7 @@ function applySol61Migration(result: SettingsModelMigrationResult) {
     result.changed = true;
   }
   if (
-    result.modelShortcutKeys.length === SOL_6_MODEL_SHORTCUT_KEYS.length &&
-    result.modelShortcutKeys.every(
-      (key, index) => key === SOL_6_MODEL_SHORTCUT_KEYS[index],
-    )
+    matchesFrozenShortcutSeed(result.modelShortcutKeys, SOL_6_MODEL_SHORTCUT_KEYS)
   ) {
     result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
     result.changed = true;
@@ -455,6 +482,69 @@ function applyTerra61Migration(result: SettingsModelMigrationResult) {
       model: TERRA_6_1_MODEL,
       // i18n-ignore: provider model display name
       ...(preset.label === "GPT-5.6 Terra" ? { label: "GPT-6.1 Terra" } : {}),
+    };
+  });
+}
+
+// Frozen literals: v8 must keep recognizing these ids after later releases.
+const GPT_62_UPGRADES: Readonly<
+  Record<string, { model: string; label: string; nextLabel: string }>
+> = {
+  "gpt-6.1-sol": {
+    model: "gpt-6.2-sol",
+    // i18n-ignore: provider model display name
+    label: "GPT-6.1 Sol",
+    // i18n-ignore: provider model display name
+    nextLabel: "GPT-6.2 Sol",
+  },
+  "gpt-6-astra": {
+    model: "gpt-6.2-astra",
+    // i18n-ignore: provider model display name
+    label: "GPT-6 Astra",
+    // i18n-ignore: provider model display name
+    nextLabel: "GPT-6.2 Astra",
+  },
+};
+
+/**
+ * v8 — GPT-6.2 Sol replaces GPT-6.1 Sol as the Codex default, and GPT-6.2
+ * Astra replaces GPT-6 Astra on the frontier rung. A selected previous model
+ * moves to its successor in the composer default, shortcut slots, and task
+ * presets. Effort stays: Sol 6.2 keeps `high` and Astra 6.2 keeps `medium`,
+ * the same Stave defaults as the models they replace. A preset label that
+ * still names the previous model follows it. Runs once, so a later deliberate
+ * GPT-6.1 Sol or GPT-6 Astra pin is left alone.
+ */
+function applyGpt62Migration(result: SettingsModelMigrationResult) {
+  const nextCodexModel = GPT_62_UPGRADES[result.modelCodex.trim()];
+  if (nextCodexModel) {
+    result.modelCodex = nextCodexModel.model;
+    result.changed = true;
+  }
+  result.modelShortcutKeys = result.modelShortcutKeys.map((key) => {
+    const trimmed = key.trim();
+    const upgrade = trimmed.startsWith("codex:")
+      ? GPT_62_UPGRADES[trimmed.slice("codex:".length)]
+      : undefined;
+    if (!upgrade) {
+      return key;
+    }
+    result.changed = true;
+    return `codex:${upgrade.model}`;
+  });
+  result.taskPresets = result.taskPresets.map((preset) => {
+    const upgrade =
+      preset.provider === "codex" && typeof preset.model === "string"
+        ? GPT_62_UPGRADES[preset.model.trim()]
+        : undefined;
+    if (!upgrade) {
+      return preset;
+    }
+    result.changed = true;
+    return {
+      ...preset,
+      model: upgrade.model,
+      ...(preset.label === upgrade.label ? { label: upgrade.nextLabel } : {}),
     };
   });
 }

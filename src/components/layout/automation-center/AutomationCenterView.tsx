@@ -1,5 +1,5 @@
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
-import { formatAutomationSchedule, formatAutomationTrustPolicy, describeAutomationDraftIssue } from "@/lib/automation-presentation";
+import { formatAutomationCadence, formatAutomationTrustPolicy, describeAutomationDraftIssue } from "@/lib/automation-presentation";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { i18n, useTranslation } from "@/i18n";
 import { sx } from "@/components/aui/utils/stylex";
@@ -1117,7 +1117,7 @@ export function AutomationCenterView() {
                       <>
                         <Detail
                           label={tI18n("automation:automationCenterView.cadence")}
-                          value={formatAutomationSchedule(selectedAutomation.schedule)}
+                          value={formatAutomationCadence(selectedAutomation)}
                         />
                         <Detail
                           label={tI18n("automation:automationCenterView.nextRun")}

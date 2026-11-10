@@ -195,3 +195,17 @@ test("account-pool switches read as one line each in the report and its Markdown
     applyRuntimeLocale("en");
   }
 });
+
+test("exported Markdown marks saved pages as app-local while preserving external links", async () => {
+  const report = { ...REPORT, links: [...REPORT.links, { label: "Comparison", source: "agent" as const, url: "stave-render://frame/0123456789abcdef-00000000-0000-4000-8000-000000000000?net=blocked" }] };
+  for (const locale of ["en", "ko"]) {
+    applyRuntimeLocale(locale);
+    const markdown = formatAgentRunReportMarkdown(report);
+    expect(markdown).not.toContain("stave-render://");
+    expect(markdown).toContain(locale === "en" ? "Saved locally in Stave" : "Stave에 로컬로 보관됨");
+    expect(markdown).toContain("https://github.com/acme/app/pull/612");
+    const html = renderToStaticMarkup(createElement(AgentRunReportView, { report }));
+    expect(html).toContain("data-saved-html-open");
+  }
+  applyRuntimeLocale("en");
+});

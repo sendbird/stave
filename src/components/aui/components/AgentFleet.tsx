@@ -1,3 +1,4 @@
+import { cancelFocusWhenMounted, focusWhenMounted, useWindowedList } from "@/hooks/use-windowed-list";
 import { useTranslation } from "@/i18n";
 import { formatCost, formatDuration } from "@/i18n/format";
 import { Wrench } from "lucide-react";
@@ -5,11 +6,14 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 
 import { focusRing } from "../recipes/focus-ring";
@@ -48,6 +52,15 @@ export * from "./AgentFleet.model";
 export interface AgentFleetProps extends XstyleProp {
   /** Main agents, in the order the list shows them. */
   agents: readonly AgentFleetAgent[];
+  /**
+   * Render only the main cards near the view of the nearest scrolling ancestor,
+   * for large task catalogs. The focused card stays mounted.
+   */
+  virtualize?: boolean;
+  /** A heading drawn above an agent that starts a group, inside the same list. */
+  renderGroupStart?: (agent: AgentFleetAgent, index: number) => ReactNode;
+  /** Scrolls the list to a main agent (the least distance; nothing when it is visible). */
+  handleRef?: Ref<AgentFleetHandle | null>;
   /** The main agent whose tree is open (controlled); null for none. */
   open?: string | null;
   /** The uncontrolled starting value. Defaults to the first agent. */
@@ -59,6 +72,8 @@ export interface AgentFleetProps extends XstyleProp {
   onResolve?: (agent: AgentFleetAgent) => void;
   /** Header actions of the open tree, e.g. a button that opens the agent's task. */
   renderTreeActions?: (agent: AgentFleetAgent) => ReactNode;
+  /** Compose a non-nested selection control beside a main card. */
+  renderMainCard?: (agent: AgentFleetAgent, card: ReactNode) => ReactNode;
   /** A tool's icon; a generic tool glyph stands in for a tool it returns nothing for. */
   renderToolIcon?: (tool: AgentFleetTool) => ReactNode;
   /** A fixed time for every running clock (tests, docs); clocks tick each second without it. */
@@ -69,6 +84,10 @@ export interface AgentFleetProps extends XstyleProp {
   /** Replaces the totals line. */
   summary?: ReactNode;
   className?: string;
+}
+
+export interface AgentFleetHandle {
+  revealAgent: (id: string) => void;
 }
 
 const defaultFormatCost = (amount: number) => formatCost(amount, "USD");
@@ -92,12 +111,16 @@ const defaultFormatCost = (amount: number) => formatCost(amount, "USD");
  */
 export function AgentFleet({
   agents,
+  virtualize = false,
+  renderGroupStart,
+  handleRef,
   open: openProp,
   defaultOpen,
   onOpenChange,
   onSelect,
   onResolve,
   renderTreeActions,
+  renderMainCard,
   renderToolIcon,
   now,
   formatCost: formatCostProp = defaultFormatCost,
@@ -130,16 +153,47 @@ export function AgentFleet({
   );
 
   // Roving focus over the main cards.
-  const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  // Cards by agent id; one stable ref callback reads the id from the card.
+  const cardsById = useRef(new Map<string, HTMLButtonElement>());
+  const cardRef = useCallback((element: HTMLButtonElement | null) => {
+    const id = element?.dataset.agentFleetCard;
+    if (!element || id === undefined) return;
+    cardsById.current.set(id, element);
+    return () => {
+      if (cardsById.current.get(id) === element) cardsById.current.delete(id);
+    };
+  }, []);
   const openIndex = openId === null ? -1 : agents.findIndex((agent) => agent.id === openId);
   const [focusIndex, setFocusIndex] = useState(Math.max(0, openIndex));
   const tabIndexOwner = Math.min(focusIndex, Math.max(0, agents.length - 1));
+  const agentIds = useMemo(() => agents.map((agent) => agent.id), [agents]);
+  // A large fleet renders only the cards near the scrolled view of its
+  // scrolling ancestor; the focused card stays mounted.
+  const windowed = useWindowedList({ keys: agentIds, estimateSize: 96, enabled: virtualize, overscan: 400 });
+  useImperativeHandle(handleRef, () => ({
+    revealAgent: (id: string) => {
+      const index = agentIds.indexOf(id);
+      if (index >= 0) windowed.scrollToIndex(index);
+    },
+  }), [agentIds, windowed]);
+  // Moves focus by agent id: at once when the card is mounted, or once it is
+  // after scrolling, unless focus moved anywhere else meanwhile.
+  const focusCard = (index: number) => {
+    const id = agentIds[index];
+    if (id === undefined) return;
+    setFocusIndex(index);
+    if (virtualize) windowed.scrollToIndex(index);
+    focusWhenMounted(() => cardsById.current.get(id) ?? null);
+  };
   const onCardKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const next = moveAgentFleetFocus(event.key, index, agents.length);
+    const next = moveAgentFleetFocus(event.key === "j" ? "ArrowDown" : event.key === "k" ? "ArrowUp" : event.key, index, agents.length);
     if (next === null) return;
     event.preventDefault();
-    setFocusIndex(next);
-    cardRefs.current[next]?.focus();
+    if (next === index) {
+      cancelFocusWhenMounted();
+      return;
+    }
+    focusCard(next);
   };
 
   // One steps window at a time; closing returns focus to the card that opened it.
@@ -147,6 +201,72 @@ export function AgentFleet({
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const totals = summarizeAgentFleet(agents);
+
+  const groupStarts = renderGroupStart ? agents.map((agent, index) => renderGroupStart(agent, index) ?? null) : null;
+  const groupStartCount = groupStarts?.filter((start) => start !== null).length ?? 0;
+
+  const renderAgent = (agent: AgentFleetAgent, index: number) => {
+    const isOpen = agent.id === openId;
+    const panelId = `${baseId}-tree-${index}`;
+    const groupStart = groupStarts?.[index] ?? null;
+    const card = <MainAgentCard
+          agent={agent}
+          idBase={`${baseId}-card-${index}`}
+          isOpen={isOpen}
+          panelId={panelId}
+          tabIndex={index === tabIndexOwner ? 0 : -1}
+          now={now}
+          formatCost={formatCostProp}
+          renderToolIcon={renderToolIcon}
+          buttonRef={cardRef}
+          onFocus={() => setFocusIndex(index)}
+          onKeyDown={(event) => onCardKeyDown(event, index)}
+          onToggle={() => setOpen(isOpen ? null : agent.id)}
+        />;
+    const content = (
+      <>
+        {renderMainCard ? renderMainCard(agent, card) : card}
+        {isOpen ? (
+          <SubagentTreePanel
+            agent={agent}
+            id={panelId}
+            now={now}
+            formatCost={formatCostProp}
+            actions={renderTreeActions?.(agent)}
+            onReturnFocus={() => {
+              setFocusIndex(index);
+              cardsById.current.get(agent.id)?.focus();
+            }}
+            onSelect={(child, trigger) => {
+              onSelect?.(child);
+              if (child.steps && child.steps.length > 0) {
+                returnFocusRef.current = trigger;
+                setStepsOf(child);
+              }
+            }}
+            onResolve={onResolve}
+          />
+        ) : null}
+      </>
+    );
+    const listItem = { role: "listitem", "aria-setsize": agents.length, "aria-posinset": index + 1 } as const;
+    if (virtualize) {
+      // A measured box: the group heading, then the card with its tree.
+      return (
+        <div key={agent.id} {...listItem} ref={windowed.measureRef} data-windowed-key={agent.id}
+          className={sx(styles.virtualSlot, groupStart !== null && index > 0 && styles.virtualGroupStart)}>
+          {groupStart !== null ? <div className={sx(styles.groupStart)}>{groupStart}</div> : null}
+          <div className={sx(styles.virtualItem)}>{content}</div>
+        </div>
+      );
+    }
+    return (
+      <div key={agent.id} {...listItem} className={sx(styles.item)}>
+        {groupStart !== null ? <div className={sx(styles.groupStart)}>{groupStart}</div> : null}
+        {content}
+      </div>
+    );
+  };
 
   return (
     <section
@@ -184,55 +304,16 @@ export function AgentFleet({
         <div
           role="list"
           aria-labelledby={headingId}
-          className={sx(styles.body)}
-          // The wide layout gives each card its own grid row (see the styles).
-          style={{ "--agent-fleet-rows": String(agents.length) } as CSSProperties}
+          ref={virtualize ? windowed.listRef : undefined}
+          className={sx(styles.body, virtualize && styles.virtualBody)}
+          // The wide layout gives each card (and group heading) its own grid row (see the styles).
+          style={{ "--agent-fleet-rows": String(agents.length + groupStartCount) } as CSSProperties}
         >
-          {agents.map((agent, index) => {
-            const isOpen = agent.id === openId;
-            const panelId = `${baseId}-tree-${index}`;
-            return (
-              <div key={agent.id} role="listitem" className={sx(styles.item)}>
-                <MainAgentCard
-                  agent={agent}
-                  idBase={`${baseId}-card-${index}`}
-                  isOpen={isOpen}
-                  panelId={panelId}
-                  tabIndex={index === tabIndexOwner ? 0 : -1}
-                  now={now}
-                  formatCost={formatCostProp}
-                  renderToolIcon={renderToolIcon}
-                  buttonRef={(element) => {
-                    cardRefs.current[index] = element;
-                  }}
-                  onFocus={() => setFocusIndex(index)}
-                  onKeyDown={(event) => onCardKeyDown(event, index)}
-                  onToggle={() => setOpen(isOpen ? null : agent.id)}
-                />
-                {isOpen ? (
-                  <SubagentTreePanel
-                    agent={agent}
-                    id={panelId}
-                    now={now}
-                    formatCost={formatCostProp}
-                    actions={renderTreeActions?.(agent)}
-                    onReturnFocus={() => {
-                      setFocusIndex(index);
-                      cardRefs.current[index]?.focus();
-                    }}
-                    onSelect={(child, trigger) => {
-                      onSelect?.(child);
-                      if (child.steps && child.steps.length > 0) {
-                        returnFocusRef.current = trigger;
-                        setStepsOf(child);
-                      }
-                    }}
-                    onResolve={onResolve}
-                  />
-                ) : null}
-              </div>
-            );
-          })}
+          {virtualize
+            ? windowed.slots.map((slot) => slot.kind === "gap"
+              ? <div key={slot.key} aria-hidden="true" style={{ blockSize: slot.size }} />
+              : renderAgent(agents[slot.index]!, slot.index))
+            : agents.map(renderAgent)}
         </div>
       )}
       <StepsWindow

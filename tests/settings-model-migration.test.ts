@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_MODEL_SHORTCUT_KEYS } from "@/lib/providers/model-shortcuts";
+import {
+  DEFAULT_MODEL_SHORTCUT_KEYS,
+  normalizeModelShortcutKeys,
+} from "@/lib/providers/model-shortcuts";
 import {
   migrateSettingsModelDefaults,
   SETTINGS_MODEL_MIGRATION_VERSION,
@@ -55,7 +58,7 @@ describe("settings model default migration", () => {
 
     expect(result.changed).toBe(true);
     expect(result.modelClaude).toBe("claude-opus-5-5");
-    expect(result.modelCodex).toBe("gpt-6.1-sol");
+    expect(result.modelCodex).toBe("gpt-6.2-sol");
     expect(result.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
   });
 
@@ -65,9 +68,9 @@ describe("settings model default migration", () => {
     expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
     expect(result.modelShortcutKeys.slice(0, 4)).toEqual([
       "claude-code:claude-opus-5-5",
-      "codex:gpt-6.1-sol",
-      "claude-code:claude-fable-5-1",
-      "codex:gpt-6-astra",
+      "codex:gpt-6.2-sol",
+      "claude-code:claude-fable-5-2",
+      "codex:gpt-6.2-astra",
     ]);
   });
 
@@ -76,7 +79,7 @@ describe("settings model default migration", () => {
 
     expect(result.taskPresets[0]).toMatchObject({
       id: "default-gpt-5-6-task",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
     });
   });
 
@@ -198,7 +201,7 @@ describe("settings model default migration", () => {
         }),
       );
 
-      expect(result.modelCodex).toBe("gpt-6-astra");
+      expect(result.modelCodex).toBe("gpt-6.2-astra");
       expect(result.codexReasoningEffort).toBe(effort);
     }
   });
@@ -212,7 +215,7 @@ describe("settings model default migration", () => {
       }),
     );
 
-    expect(result.modelCodex).toBe("gpt-6.1-sol");
+    expect(result.modelCodex).toBe("gpt-6.2-sol");
     expect(result.codexReasoningEffort).toBe("high");
   });
 
@@ -244,11 +247,11 @@ describe("September model migration", () => {
     };
     const result = migrateSettingsModelDefaults(input);
     expect(result.modelClaude).toBe("claude-opus-5-5");
-    expect(result.modelCodex).toBe("gpt-6.1-sol");
+    expect(result.modelCodex).toBe("gpt-6.2-sol");
     expect(result.claudeEffort).toBe("xhigh");
     expect(result.codexReasoningEffort).toBe("max");
     expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
-    expect(result.taskPresets[0]).toMatchObject({ model: "gpt-6.1-sol", label: "GPT-6.1 Sol" });
+    expect(result.taskPresets[0]).toMatchObject({ model: "gpt-6.2-sol", label: "GPT-6.2 Sol" });
     expect(result.taskPresets[1]).toEqual(input.taskPresets[1]);
     const again = migrateSettingsModelDefaults({ ...result, fromVersion: result.version,
       modelCodex: "gpt-5.6-sol", modelClaude: "claude-opus-5" });
@@ -315,7 +318,7 @@ describe("Sonnet 5.5 migration", () => {
       ...preMigrationSnapshot({
         modelClaude: "claude-opus-5-5",
         claudeEffort: "high",
-        modelCodex: "gpt-6.1-sol",
+        modelCodex: "gpt-6.2-sol",
         codexReasoningEffort: "high",
         modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
         taskPresets: [],
@@ -351,14 +354,14 @@ describe("GPT-6 Sol effort migration", () => {
     });
     expect(raised.changed).toBe(true);
     expect(raised.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
-    expect(raised.modelCodex).toBe("gpt-6.1-sol");
+    expect(raised.modelCodex).toBe("gpt-6.2-sol");
     expect(raised.codexReasoningEffort).toBe("high");
 
     const tuned = settled({
       modelCodex: "gpt-6-sol",
       codexReasoningEffort: "low",
     });
-    expect(tuned.modelCodex).toBe("gpt-6.1-sol");
+    expect(tuned.modelCodex).toBe("gpt-6.2-sol");
     expect(tuned.codexReasoningEffort).toBe("low");
     expect(tuned.changed).toBe(true);
 
@@ -366,9 +369,10 @@ describe("GPT-6 Sol effort migration", () => {
       modelCodex: "gpt-6-astra",
       codexReasoningEffort: "medium",
     });
-    expect(astra.modelCodex).toBe("gpt-6-astra");
+    expect(astra.modelCodex).toBe("gpt-6.2-astra");
     expect(astra.codexReasoningEffort).toBe("medium");
-    expect(astra.changed).toBe(false);
+    // Only the v8 model move; the medium effort is left alone.
+    expect(astra.changed).toBe(true);
   });
 });
 
@@ -459,12 +463,12 @@ describe("GPT-6.1 Sol migration", () => {
     });
     expect(moved.changed).toBe(true);
     expect(moved.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
-    expect(moved.modelCodex).toBe("gpt-6.1-sol");
+    expect(moved.modelCodex).toBe("gpt-6.2-sol");
     expect(moved.codexReasoningEffort).toBe("high");
-    expect(moved.modelShortcutKeys[1]).toBe("codex:gpt-6.1-sol");
+    expect(moved.modelShortcutKeys[1]).toBe("codex:gpt-6.2-sol");
     expect(moved.taskPresets[0]).toMatchObject({
-      model: "gpt-6.1-sol",
-      label: "GPT-6.1 Sol",
+      model: "gpt-6.2-sol",
+      label: "GPT-6.2 Sol",
     });
 
     const tuned = migrateSettingsModelDefaults({
@@ -476,7 +480,7 @@ describe("GPT-6.1 Sol migration", () => {
       modelShortcutKeys: ["codex:gpt-6-astra"],
       taskPresets: [],
     });
-    expect(tuned.modelCodex).toBe("gpt-6.1-sol");
+    expect(tuned.modelCodex).toBe("gpt-6.2-sol");
     expect(tuned.codexReasoningEffort).toBe("ultra");
 
     const again = migrateSettingsModelDefaults({
@@ -521,7 +525,8 @@ describe("GPT-6.1 Terra migration", () => {
     expect(moved.modelShortcutKeys.slice(0, 4)).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS.slice(0, 4)]);
     expect(moved.taskPresets[0]).toEqual({ ...customPreset, model: "gpt-6.1-terra", label: "GPT-6.1 Terra" });
     expect(moved.taskPresets[1]).toEqual({ ...renamedPreset, model: "gpt-6.1-terra" });
-    expect(moved.taskPresets[2]).toEqual(solPreset);
+    // v8 then moves the GPT-6.1 Sol preset to GPT-6.2 Sol; its custom label stays.
+    expect(moved.taskPresets[2]).toEqual({ ...solPreset, model: "gpt-6.2-sol" });
 
     const again = migrateSettingsModelDefaults({
       ...moved,
@@ -548,5 +553,183 @@ describe("GPT-6.1 Terra migration", () => {
     });
     expect(result.changed).toBe(false);
     expect(result.modelCodex).toBe("gpt-6-sol");
+  });
+});
+
+describe("GPT-6.2 Sol and Astra migration", () => {
+  const solPreset: TaskPreset = {
+    id: "default-gpt-5-6-task",
+    label: "GPT-6.1 Sol",
+    kind: "task",
+    provider: "codex",
+    model: "gpt-6.1-sol",
+  };
+  const astraPreset: TaskPreset = {
+    id: "astra-review",
+    label: "GPT-6 Astra",
+    kind: "task",
+    provider: "codex",
+    model: "gpt-6-astra",
+    effort: "xhigh",
+  };
+  const renamedAstraPreset: TaskPreset = { ...astraPreset, id: "deep", label: "Deep review" };
+  const claudePreset: TaskPreset = {
+    id: "claude",
+    label: "GPT-6.1 Sol",
+    kind: "task",
+    provider: "claude-code",
+    model: "gpt-6.1-sol",
+  };
+  const v7ShortcutKeys = [
+    "claude-code:claude-opus-5-5",
+    "codex:gpt-6.1-sol",
+    "claude-code:claude-fable-5-2",
+    "codex:gpt-6-astra",
+    "codex:gpt-6.1-terra",
+    "", "", "", "", "",
+  ];
+
+  test("moves GPT-6.1 Sol and GPT-6 Astra selections onto 6.2 once and keeps effort", () => {
+    const moved = migrateSettingsModelDefaults({
+      fromVersion: 7,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6.1-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "ultra",
+      modelShortcutKeys: v7ShortcutKeys,
+      taskPresets: [solPreset, astraPreset, renamedAstraPreset, claudePreset],
+    });
+    expect(moved.changed).toBe(true);
+    expect(moved.version).toBe(8);
+    expect(moved.modelCodex).toBe("gpt-6.2-sol");
+    expect(moved.codexReasoningEffort).toBe("ultra");
+    expect(moved.modelShortcutKeys).toEqual([
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6.2-sol",
+      "claude-code:claude-fable-5-2",
+      "codex:gpt-6.2-astra",
+      "codex:gpt-6.1-terra",
+      "", "", "", "", "",
+    ]);
+    expect(moved.modelShortcutKeys.slice(0, 4)).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS.slice(0, 4)]);
+    expect(moved.taskPresets).toEqual([
+      { ...solPreset, model: "gpt-6.2-sol", label: "GPT-6.2 Sol" },
+      { ...astraPreset, model: "gpt-6.2-astra", label: "GPT-6.2 Astra" },
+      { ...renamedAstraPreset, model: "gpt-6.2-astra" },
+      // Another provider's preset is never rewritten.
+      claudePreset,
+    ]);
+
+    const astra = migrateSettingsModelDefaults({
+      fromVersion: 7,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: " gpt-6-astra ",
+      claudeEffort: "medium",
+      codexReasoningEffort: "low",
+      modelShortcutKeys: [],
+      taskPresets: [],
+    });
+    expect(astra.modelCodex).toBe("gpt-6.2-astra");
+    expect(astra.codexReasoningEffort).toBe("low");
+  });
+
+  test("leaves a later deliberate GPT-6.1 Sol or GPT-6 Astra pin alone", () => {
+    const again = migrateSettingsModelDefaults({
+      fromVersion: 8,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6-astra",
+      claudeEffort: "medium",
+      codexReasoningEffort: "medium",
+      modelShortcutKeys: v7ShortcutKeys,
+      taskPresets: [solPreset],
+    });
+    expect(again.changed).toBe(false);
+    expect(again.modelCodex).toBe("gpt-6-astra");
+    expect(again.modelShortcutKeys).toEqual(v7ShortcutKeys);
+    expect(again.taskPresets).toEqual([solPreset]);
+  });
+
+  test("leaves Terra, Luna and the current models untouched", () => {
+    for (const model of ["gpt-6.1-terra", "gpt-6-luna", "gpt-6.2-sol", "gpt-6.2-astra", "gpt-6-sol"]) {
+      const result = migrateSettingsModelDefaults({
+        fromVersion: 7,
+        modelClaude: "claude-opus-5-5",
+        modelCodex: model,
+        claudeEffort: "medium",
+        codexReasoningEffort: "high",
+        modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+        taskPresets: [],
+      });
+      expect(result.changed).toBe(false);
+      expect(result.modelCodex).toBe(model);
+    }
+  });
+});
+
+describe("Fable 5.2 adoption", () => {
+  // Persistence normalizes shortcut slots before migrating, which moves a
+  // Fable 5.1 slot onto Fable 5.2. Frozen seeds must still be recognized.
+  test("a normalized pre-Sol-6.1 seed still moves to the current defaults", () => {
+    const sol6Seed = [
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-astra",
+      "", "", "", "", "", "",
+    ];
+    const normalized = normalizeModelShortcutKeys(sol6Seed);
+    expect(normalized[2]).toBe("claude-code:claude-fable-5-2");
+
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 5,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6.1-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: normalized,
+      taskPresets: [],
+    });
+    expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
+    expect(result.modelShortcutKeys[2]).toBe("claude-code:claude-fable-5-2");
+  });
+
+  test("a normalized v1 seed still moves to the current defaults", () => {
+    const v1Seed = [
+      "claude-code:claude-opus-5",
+      "codex:gpt-5.6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-astra",
+      "", "", "", "", "", "",
+    ];
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 1,
+      modelClaude: "claude-opus-5",
+      modelCodex: "gpt-5.6-sol",
+      claudeEffort: "high",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: normalizeModelShortcutKeys(v1Seed),
+      taskPresets: [],
+    });
+    expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
+  });
+
+  test("an edited seed is left alone", () => {
+    const edited = normalizeModelShortcutKeys([
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6-sol",
+      "claude-code:claude-fable-5-1",
+      "codex:gpt-6-luna",
+    ]);
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 5,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6.1-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: edited,
+      taskPresets: [],
+    });
+    expect(result.modelShortcutKeys[1]).toBe("codex:gpt-6-sol");
+    expect(result.modelShortcutKeys[3]).toBe("codex:gpt-6-luna");
   });
 });

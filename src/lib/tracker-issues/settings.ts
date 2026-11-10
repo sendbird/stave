@@ -34,16 +34,18 @@ const DefaultKickoffStartModeSchema = z.enum(TRACKER_ISSUE_START_MODES);
  * Sources whose Issues switch lives here. Jira has none: its only switch is
  * `jiraConnector.enabled` in Settings → Integrations.
  */
-export const TRACKER_SOURCES_WITH_ISSUES_SWITCH = ["crane"] as const satisfies readonly TrackerSourceId[];
+export const TRACKER_SOURCES_WITH_ISSUES_SWITCH = ["crane", "github"] as const satisfies readonly TrackerSourceId[];
 export type TrackerSourceWithIssuesSwitch = (typeof TRACKER_SOURCES_WITH_ISSUES_SWITCH)[number];
 
 export const DEFAULT_TRACKER_SOURCE_ENABLED = Object.freeze({
   crane: true,
+  github: false,
 }) satisfies Record<TrackerSourceWithIssuesSwitch, boolean>;
 
 const SourceEnabledSchema = z
   .object({
     crane: z.boolean(),
+    github: z.boolean().default(false),
   })
   .strict()
   .default({ ...DEFAULT_TRACKER_SOURCE_ENABLED });
@@ -63,6 +65,10 @@ export const TrackerIssuesSettingsSchema = z
      * Crane off here leaves pairing and dispatched jobs alone.
      */
     sourceEnabled: SourceEnabledSchema,
+    githubMappings: z.array(z.object({
+      repository: z.string().regex(/^[\w.-]+\/[\w.-]+$/).max(128),
+      staveProjectPath: z.string().trim().min(1).max(4_096),
+    }).strict()).max(100).default([]),
   })
   .strict();
 
@@ -73,6 +79,7 @@ export const DEFAULT_TRACKER_ISSUES_SETTINGS = Object.freeze({
   refreshIntervalSeconds: DEFAULT_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
   defaultKickoffStartMode: "run" as TrackerIssueStartMode,
   sourceEnabled: { ...DEFAULT_TRACKER_SOURCE_ENABLED },
+  githubMappings: [],
 }) satisfies TrackerIssuesSettings;
 
 /**
@@ -132,5 +139,6 @@ export function normalizeTrackerIssuesSettings(
       ? defaultKickoffStartMode.data
       : DEFAULT_TRACKER_ISSUES_SETTINGS.defaultKickoffStartMode,
     sourceEnabled,
+    githubMappings: TrackerIssuesSettingsSchema.shape.githubMappings.safeParse(record.githubMappings).data ?? [],
   };
 }

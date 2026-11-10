@@ -348,7 +348,6 @@ describe("createAppStorePersistenceOptions partialize", () => {
       workspaceDefaultById: { "ws-1": true },
       workspaceLastActiveAtById: {},
       workspaceSettlementById: {},
-      taskCheckpointById: {},
       compareRunsById: {},
       isDarkMode: true,
       draftProvider: "claude-code",

@@ -1,8 +1,8 @@
+import { ReportArtifactLink } from "./ReportArtifactLink";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { useState } from "react";
 import {
-  ArrowUpRight,
   BookmarkPlus,
   CircleCheck,
   CircleMinus,
@@ -150,12 +150,7 @@ export function AgentRunReportView({
       ) : null}
       {report.links.length > 0 ? (
         <div className={sx(styles.actions)}>
-          {report.links.map((link) => (
-            <a key={link.url} className={sx(styles.link)} href={link.url} target="_blank" rel="noreferrer">
-              {link.label}
-              <ArrowUpRight aria-hidden className={sx(styles.iconSm)} />
-            </a>
-          ))}
+          {report.links.map((link) => <ReportArtifactLink key={link.url} link={link} />)}
         </div>
       ) : null}
       {plan ? (

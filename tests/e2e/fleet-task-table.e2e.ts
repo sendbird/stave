@@ -188,7 +188,10 @@ test("the Fleet table lists 100 tasks of 30 workspaces with the oldest approval 
 
   const table = page.getByRole("region", { name: "Open tasks" });
   const rows = table.locator("[data-fleet-task-table-row]");
-  await expect(rows).toHaveCount(100);
+  // The table windows its rows: all 100 count as rows (plus the header row),
+  // while only those near the view are in the DOM.
+  await expect(table.locator("table")).toHaveAttribute("aria-rowcount", "101");
+  await expect.poll(() => rows.count()).toBeLessThan(100);
   // The oldest approval leads without expanding anything.
   await expect(rows.first()).toContainText("Task 29.1");
   await expect(rows.first()).toContainText("lane-29");

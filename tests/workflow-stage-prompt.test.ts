@@ -33,22 +33,22 @@ function input(overrides: Partial<StagePromptInput> = {}): StagePromptInput {
 }
 
 describe("stage prompt", () => {
-  test("orders purpose, stage, prior summaries, criteria, reporting, constraints and permissions", () => {
+  test("keeps reporting and permissions before changing stage context", () => {
     const prompt = compileStagePrompt(input());
     const markers = [
       "# Slack request → PR — Stage 3 of 8: Build",
       "## Purpose",
-      "## Assignment",
-      "## This stage: Build",
-      "**Done when:**",
-      "## Earlier stages",
-      "- **Create issue:** Created BILL-42.",
-      "## Acceptance criteria",
-      "- [unverified] The billing page has an Export CSV button.",
       "## Reporting",
       "## Working rules",
       "## Constraints",
       "Saved workflows grant no permissions.",
+      "## Assignment",
+      "## This stage: Build",
+      "**Done when:**",
+      "## Acceptance criteria",
+      "- [unverified] The billing page has an Export CSV button.",
+      "## Earlier stages",
+      "- **Create issue:** Created BILL-42.",
     ];
     const positions = markers.map((marker) => prompt.indexOf(marker));
     expect(positions.every((position) => position >= 0)).toBe(true);

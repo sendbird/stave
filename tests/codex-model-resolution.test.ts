@@ -24,6 +24,12 @@ test("an unavailable Sol 6.1 substitution names GPT-6 Sol", () => {
   expect(events[1]?.content).not.toContain("version");
 });
 
+test("an unavailable Astra 6.2 substitution names GPT-6 Astra", () => {
+  const track = createCodexModelResolutionTracker("gpt-6.2-astra");
+  const events = track.resolve("gpt-6-astra", "gpt-6.2-astra", "staveModelFallback");
+  expect(events[1]?.content).toContain("GPT-6.2 Astra is unavailable on this Codex runtime, so this turn continues on GPT-6 Astra.");
+});
+
 test("an unavailable Terra 6.1 substitution names GPT-5.6 Terra", () => {
   const track = createCodexModelResolutionTracker("gpt-6.1-terra");
   const events = track.resolve("gpt-5.6-terra", undefined, "staveModelFallback");
@@ -67,7 +73,7 @@ test("compatibility errors retain supplied minimum versions and provide installa
 });
 
 test("Codex selector explains availability without inventing a minimum version", () => {
-  const option = buildModelSelectorOptions({ providerIds: ["codex"] }).find(option => option.model === "gpt-6.1-sol");
+  const option = buildModelSelectorOptions({ providerIds: ["codex"] }).find(option => option.model === "gpt-6.2-sol");
   expect(option?.description).toContain("Runtime support unconfirmed");
   expect(option?.description).toContain("You can still select this model");
 });

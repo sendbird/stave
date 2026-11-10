@@ -19,7 +19,7 @@ import {
 } from "./assistant-trace.utils";
 import { CommandResult } from "./command-result";
 import { McpAppView } from "./mcp-app-view";
-import { ToolOutputImages } from "./tool-output-images";
+import { ToolOutputImages, useReplyImageNumber } from "./tool-output-images";
 import { planProgressCount, TracePlan } from "./turn-event-decisions";
 import {
   SubagentProgress,
@@ -87,6 +87,7 @@ export function TraceToolRun(args: {
   const streamingInput = part.state === "input-streaming";
   // Images come out of the text: a screenshot is a picture, not base64.
   const toolOutput = parseToolOutputImages(part.output);
+  const firstImageNumber = useReplyImageNumber(part.toolUseId);
   const rawOutput = toolOutput.text.trim();
   const output =
     inlineRender?.reference && !isError
@@ -132,6 +133,7 @@ export function TraceToolRun(args: {
             reference={mcpAppView}
             taskId={taskId}
             toolUseId={part.toolUseId}
+            textResult={rawOutput || undefined}
           />
         ) : !isError && !isCommand && output ? (
           <TraceOutput capped label={i18n.t("ui:toolrun.output")} linkify={!streamingInput} text={output} />
@@ -152,7 +154,7 @@ export function TraceToolRun(args: {
       ) : null}
       {isWeb && !isError ? <TraceCitations output={part.output} /> : null}
       {toolOutput.images.length > 0 ? (
-        <ToolOutputImages images={toolOutput.images} />
+        <ToolOutputImages images={toolOutput.images} firstNumber={firstImageNumber} />
       ) : null}
       {args.children}
     </ToolRun>

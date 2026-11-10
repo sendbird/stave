@@ -3,8 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { createClaudeMcpAppViewCapture } from "../electron/providers/claude-mcp-app-views";
+import {
+  createClaudeMcpAppViewCapture,
+  readClaudeMcpStructuredContent,
+} from "../electron/providers/claude-mcp-app-views";
 import type { BridgeEvent } from "../electron/providers/types";
+import { getMcpAppViewStore } from "../electron/main/mcp-app/mcp-app-view-store";
 import { MCP_APP_MIME_TYPE } from "@/lib/mcp-app/mcp-app-view";
 
 let userData = "";
@@ -48,7 +52,7 @@ function fakeQuery() {
   };
 }
 
-function run(capabilities: string[], events: BridgeEvent[]) {
+function run(capabilities: string[], events: BridgeEvent[], message: SDKMessage = other) {
   const emitted: BridgeEvent[] = [];
   const fake = fakeQuery();
   const capture = createClaudeMcpAppViewCapture({
@@ -59,14 +63,20 @@ function run(capabilities: string[], events: BridgeEvent[]) {
     emit: (event) => emitted.push(event),
   });
   capture.observe(init(capabilities), []);
-  capture.observe(other, events);
+  capture.observe(message, events);
   return { capture, emitted, reads: fake.reads };
 }
 
-const call = (toolName: string): BridgeEvent[] => [
+const call = (toolName: string, output = "Sunny"): BridgeEvent[] => [
   { type: "tool", toolUseId: "toolu_1", toolName, input: '{"city":"Seoul"}', state: "input-available" },
-  { type: "tool_result", tool_use_id: "toolu_1", output: "Sunny" },
+  { type: "tool_result", tool_use_id: "toolu_1", output },
 ];
+
+async function storedToolResult(event: BridgeEvent | undefined) {
+  const viewId = (event as { mcpAppView?: { viewId: string } } | undefined)?.mcpAppView?.viewId;
+  if (!viewId) throw new Error("no view captured");
+  return (await getMcpAppViewStore().read(viewId))?.record.toolResult;
+}
 
 describe("Claude MCP App view capture", () => {
   test("captures a declared view through the live query", async () => {
@@ -83,6 +93,61 @@ describe("Claude MCP App view capture", () => {
       output: "Sunny",
       mcpAppView: { provider: "claude-code", server: "weather app", tool: "forecast" },
     });
+    // Plain text stays text only.
+    expect(await storedToolResult(emitted[0])).toEqual({ content: [{ type: "text", text: "Sunny" }] });
+  });
+
+  test("offers a JSON object output to the view as structuredContent", async () => {
+    const output = '{"issues":{"nodes":[{"key":"DFE-1"}]}}';
+    const { capture, emitted } = run(
+      ["mcp_tool_ui_meta_v1", "mcp_read_resource_v1"],
+      call("mcp__weather_app__forecast", output),
+    );
+    await capture.settle();
+    expect(await storedToolResult(emitted[0])).toEqual({
+      content: [{ type: "text", text: output }],
+      structuredContent: { issues: { nodes: [{ key: "DFE-1" }] } },
+    });
+  });
+
+  test("hands the view the server's structuredContent the SDK message carries", async () => {
+    // The shape a live SDK 0.3.312 turn reported: the text the model read,
+    // here a large-result notice, next to the server's structuredContent.
+    const notice = "Error: result (309,412 characters) exceeds maximum allowed tokens.";
+    const message = {
+      type: "user",
+      message: { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: notice }] },
+      parent_tool_use_id: null,
+      tool_use_result: { content: notice, structuredContent: { issues: { nodes: [{ key: "DFE-9" }] } } },
+    } as unknown as SDKMessage;
+    const { capture, emitted } = run(
+      ["mcp_tool_ui_meta_v1", "mcp_read_resource_v1"],
+      call("mcp__weather_app__forecast", notice),
+      message,
+    );
+    await capture.settle();
+    expect(await storedToolResult(emitted[0])).toEqual({
+      content: [{ type: "text", text: notice }],
+      structuredContent: { issues: { nodes: [{ key: "DFE-9" }] } },
+    });
+  });
+
+  test("reads structuredContent only from a user message with exactly one tool result", () => {
+    const message = (content: unknown[], toolUseResult: unknown) =>
+      ({ type: "user", message: { role: "user", content }, tool_use_result: toolUseResult }) as unknown as SDKMessage;
+    const one = [{ type: "tool_result", tool_use_id: "toolu_1" }];
+    expect(readClaudeMcpStructuredContent(message(one, { structuredContent: { a: 1 } }))).toEqual({
+      toolUseId: "toolu_1",
+      structuredContent: { a: 1 },
+    });
+    expect(readClaudeMcpStructuredContent(message(one, "text"))).toBeNull();
+    expect(readClaudeMcpStructuredContent(message(one, { structuredContent: [1] }))).toBeNull();
+    expect(
+      readClaudeMcpStructuredContent(
+        message([...one, { type: "tool_result", tool_use_id: "toolu_2" }], { structuredContent: { a: 1 } }),
+      ),
+    ).toBeNull();
+    expect(readClaudeMcpStructuredContent(other)).toBeNull();
   });
 
   test("does nothing without both CLI capabilities, for tools without a view, or for errors", async () => {

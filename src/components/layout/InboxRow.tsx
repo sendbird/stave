@@ -1,3 +1,4 @@
+import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { useTranslation } from "@/i18n";
 import { formatAgeCompact, formatTimeAgo } from "@/i18n/format";
 import { AlertTriangle, CheckCircle2, GitMerge } from "lucide-react";
@@ -167,6 +168,8 @@ export function InboxRow(props: {
   /** Hide the detail line when the body already says it. */
   hideDetail?: boolean;
   supplement?: ReactNode;
+  leading?: ReactNode;
+  selectionKey?: string;
   body?: ReactNode;
   actions?: ReactNode;
   children?: ReactNode;
@@ -196,13 +199,15 @@ export function InboxRow(props: {
     return (
       <li
         ref={props.rowRef}
-        className={sx(styles.row, styles.rowCompact, props.selected && styles.rowSelected, props.rowStyle)}
+        className={sx(styles.row, styles.rowCompact, props.selected && styles.rowSelected, props.rowStyle, Boolean(props.selectionKey) && fleetSelectionRowMarker)}
+        data-fleet-select-key={props.selectionKey}
         data-fleet-attention-row={entry.item ? entry.id : undefined}
         data-inbox-entry={entry.id}
         data-unread={entry.unread ? "true" : undefined}
         onFocus={props.onFocus}
         onKeyDown={props.onKeyDown}
       >
+        {props.leading}
         <AuiButton
           layout="host"
           id={props.triggerId}
@@ -242,13 +247,15 @@ export function InboxRow(props: {
   return (
     <li
       ref={props.rowRef}
-      className={sx(styles.row, props.selected && styles.rowSelected, props.rowStyle)}
+      className={sx(styles.row, props.selected && styles.rowSelected, props.rowStyle, Boolean(props.selectionKey) && fleetSelectionRowMarker)}
+      data-fleet-select-key={props.selectionKey}
       data-fleet-attention-row={entry.item ? entry.id : undefined}
       data-inbox-entry={entry.id}
       data-unread={entry.unread ? "true" : undefined}
       onFocus={props.onFocus}
       onKeyDown={props.onKeyDown}
     >
+      {props.leading}
       <AuiButton
         layout="host"
         id={props.triggerId}

@@ -37,17 +37,22 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from "./code-block";
-import { MarkdownMessage, MessageFileLink } from "./message-markdown";
+import {
+  MarkdownMessage,
+  MessageFileLink,
+  type MarkdownLineBreaks,
+} from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
+import { codeBlockLanguageLabel } from "./code-block-language";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
   scaleMessageCodeFontSize,
+  chatTypeScaleVars,
   scaleMessageFontSize,
   useMessageTextScale,
 } from "./message-text-scale";
 import { PromptTokenChip } from "./prompt-token-chip";
 import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
-import { TranscriptWideBlock } from "./transcript-wide";
 
 interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
@@ -139,6 +144,7 @@ export function MessageContent({
     <div
       className={cx(sx(styles.content), className)}
       style={{
+        ...chatTypeScaleVars(messageFontSize),
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
       }}
@@ -152,12 +158,15 @@ interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   tokenizePromptTokens?: boolean;
   /** Global conversations have no owning workspace; local paths remain text. */
   fileLinkContext?: "active-workspace" | "none";
+  /** How one newline inside a paragraph renders (`MarkdownMessage`). */
+  lineBreaks?: MarkdownLineBreaks;
 }
 
 export function MessageResponse({
   isStreaming,
   tokenizePromptTokens,
   fileLinkContext = "active-workspace",
+  lineBreaks,
   children,
   className,
   style,
@@ -258,6 +267,7 @@ export function MessageResponse({
       <div
         className={cx(sx(styles.responseBody), className)}
         style={{
+          ...chatTypeScaleVars(messageFontSize),
           fontSize: `${messageFontSize}px`,
           lineHeight: MESSAGE_BODY_LINE_HEIGHT,
           ...style,
@@ -304,6 +314,7 @@ export function MessageResponse({
       content={content}
       disableLocalLinks={fileLinkContext === "none"}
       isStreaming={isStreaming}
+      lineBreaks={lineBreaks}
       messageFontSize={messageFontSize}
       messageCodeFontSize={messageCodeFontSize}
       resolveFileLink={resolveFileLink}
@@ -340,7 +351,7 @@ export function MessageResponse({
                     }
                   />
                 ) : null}
-                <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
+                <span className={sx(styles.codeLanguage)}>{language ? codeBlockLanguageLabel(language) : i18n.t("composer:message.copy")}</span>
               </CodeBlockTitle>
               <CodeBlockActions>
                 <CodeBlockCopyButton />
@@ -348,14 +359,13 @@ export function MessageResponse({
             </CodeBlockHeader>
           </CodeBlock>
         );
-        return (
-          <TranscriptWideBlock>
-            {language?.toLowerCase() === "mermaid" ? (
-              <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
-            ) : (
-              block
-            )}
-          </TranscriptWideBlock>
+        // Code and diagrams keep the column's edges: a long line scrolls
+        // inside the block and a diagram scales down, so neither sticks out
+        // past the prose around it.
+        return language?.toLowerCase() === "mermaid" ? (
+          <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
+        ) : (
+          block
         );
       }}
       className={className}

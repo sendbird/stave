@@ -1,10 +1,11 @@
 import {
   TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
-  tarsNextWaitCheck, isTarsStageAskingUser,
+  tarsNextWaitCheck, isTarsStageAskingUser, isTarsLimitReached,
   type TarsEvent, type TarsEventInput, type TarsEventStatus, type TarsFollowUpState,
 } from "../../src/lib/tars/events";
 import { TarsResponsibilitySchema, type TarsResponsibility } from "../../src/lib/tars/types";
 import type { TarsChangeSignal } from "./tars-changes";
+import { parseTarsDecisionId, tarsMessageTargets, TarsMessageTargetSchema } from "../../src/lib/tars/decisions";
 
 interface InboxDatabase {
   exec(sql: string): unknown;
@@ -16,7 +17,7 @@ interface InboxDatabase {
   transaction<T>(operation: () => T): { (): T; immediate(): T };
 }
 
-/** Messages Tars started by itself; both count against the window cap and the shared turn limit. */
+/** Messages Tars started by itself; both count against the window cap and the separate follow-up cap. */
 const AUTOMATIC_ORIGINS = "('followUp', 'reask')";
 
 /** When the follow-up window opens again (null: open now) and how many automatic turns ran since the user last spoke. */
@@ -82,7 +83,7 @@ export class TarsEventInbox {
       const stale = !current || (input.attempt !== null && current.agentRunId !== null && current.agentRunId !== input.attempt) ||
         (input.kind !== "decisionInvalidated" && current.revision !== input.observedRevision && !isTarsEventCurrent(input, current));
       // The quiet wait of an asking stage is only a fallback: none once its ask reached (or is about to reach) Tars.
-      const covered = input.kind === "waitExpired" && current !== null && isTarsStageAskingUser(current) && this.askCovered(input.responsibilityId);
+      const covered = input.kind === "waitExpired" && current !== null && (isTarsStageAskingUser(current) || isTarsLimitReached(current)) && this.askCovered(input.responsibilityId);
       const status: TarsEventStatus = stale ? "superseded" : TARS_JUDGMENT_EVENTS.has(input.kind) && !covered ? "pending" : "settled";
       const event = TarsEventSchema.parse({ ...input, key, status, messageId: null, createdAt: now, processedAt: status === "pending" ? null : now });
       this.db.prepare("INSERT INTO tars_events (event_key, responsibility_id, kind, status, created_at, body_json) VALUES (?, ?, ?, ?, ?, ?)")
@@ -100,7 +101,7 @@ export class TarsEventInbox {
    * is never left with neither rule.
    */
   askCovered(responsibilityId: string): boolean {
-    const latest = this.read(this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND kind = 'stageAsksUser'
+    const latest = this.read(this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND kind IN ('stageAsksUser', 'limitReached')
       ORDER BY rowid DESC LIMIT 1`).get(responsibilityId));
     // Only a follow-up that actually started counts; a merely queued one may still be cancelled.
     return latest?.status === "followedUp" && Boolean(latest.startedAt);
@@ -111,7 +112,7 @@ export class TarsEventInbox {
    * wait recorded as covered for the current revision may follow it up.
    */
   private reopenCoveredWaits(event: TarsEvent) {
-    if (event.kind !== "stageAsksUser") return;
+    if (event.kind !== "stageAsksUser" && event.kind !== "limitReached") return;
     this.db.prepare(`SELECT body_json FROM tars_events
       WHERE responsibility_id = ? AND kind = 'waitExpired' AND status = 'settled'`).all(event.responsibilityId)
       .map((row) => this.read(row)!).filter((wait) => wait.observedRevision === this.responsibility(wait.responsibilityId)?.revision)
@@ -213,13 +214,14 @@ export class TarsEventInbox {
 
   /**
    * When the user last acted toward Tars other than by typing: a decision
-   * answer, a Confirm or any control click (Tars, Fleet, task view). Every
-   * row of those tables is the user's own action. Null when there is none.
+   * answer, a Confirm or any control click (Tars, Fleet, task view).
+   * Automatic controls and Tars-authored closures never replenish the budget.
    */
   private lastUserClickAt(): string | null {
     const tables = new Set((this.db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table'
       AND name IN ('tars_action_records', 'tars_decision_answers')`).all() as Array<{ name: string }>).map((row) => row.name));
-    const times = [...tables].map((table) => (this.db.prepare(`SELECT MAX(created_at) AS at FROM ${table}`).get() as { at: string | null }).at);
+    const times = [...tables].map((table) => (this.db.prepare(`SELECT MAX(created_at) AS at FROM ${table}
+      WHERE json_extract(body_json, '$.source') IN ('click', 'fleet', 'task', 'key', 'words', 'drag')`).get() as { at: string | null }).at);
     return times.reduce<string | null>((latest, at) => at && (!latest || at > latest) ? at : latest, null);
   }
 
@@ -284,6 +286,26 @@ export class TarsEventInbox {
     if (!this.messagesReady()) return false;
     return Boolean(this.db.prepare(`SELECT 1 FROM tars_messages WHERE created_at > ?
       AND (json_extract(body_json, '$.origin.kind') IS NULL OR json_extract(body_json, '$.origin.kind') = 'answer') LIMIT 1`).get(at));
+  }
+
+  /** Only a saved user request or answer about this work supersedes its follow-up. */
+  userAddressedSince(responsibilityId: string, at: string): boolean {
+    if (!this.messagesReady()) return false;
+    const messages = this.db.prepare(`SELECT json_remove(body_json, '$.attachments') AS body_json FROM tars_messages WHERE created_at > ?
+      AND ((json_extract(body_json, '$.origin.kind') IS NULL AND json_array_length(body_json, '$.decision.actions') > 0)
+        OR json_extract(body_json, '$.origin.kind') = 'answer')`).all(at);
+    for (const stored of messages) {
+      const message = TarsMessageTargetSchema.parse(JSON.parse((stored as { body_json: string }).body_json));
+      if (tarsMessageTargets(message).includes(responsibilityId)) return true;
+      if (message.origin?.kind !== "answer") continue;
+      const source = parseTarsDecisionId(message.origin.decisionId);
+      if (!source || source.kind === "unverifiedCompletion") continue;
+      const row = this.db.prepare("SELECT body_json FROM tars_messages WHERE id = ?").get(source.messageId) as { body_json: string } | undefined;
+      if (row && tarsMessageTargets(TarsMessageTargetSchema.parse(JSON.parse(row.body_json))).includes(responsibilityId)) return true;
+    }
+    return Boolean(this.db.prepare(`SELECT 1 FROM tars_action_records WHERE created_at > ?
+      AND json_extract(body_json, '$.action.responsibilityId') = ?
+      AND json_extract(body_json, '$.source') IN ('click', 'fleet', 'task', 'key', 'words', 'drag') LIMIT 1`).get(at, responsibilityId));
   }
 
   /** Whether the user acted toward Tars in any way after this time; that restarts the automatic-turn count. */

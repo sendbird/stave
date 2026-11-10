@@ -29,13 +29,17 @@ import {
   registerDynamicDisplayNames,
   registerDynamicSupportedReasoningEfforts,
   toHumanModelName,
+  upgradePinnedFableModel,
   upgradePinnedHaikuModel,
   upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 
 describe("model catalog", () => {
-  test("includes Claude Fable 5.1 without making it the Claude default", () => {
+  test("includes Claude Fable 5.2 without making it the Claude default", () => {
+    expect(CLAUDE_FABLE_MODEL).toBe("claude-fable-5-2");
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
+    // The previous frontier id stays resolvable but leaves the picker.
+    expect(CLAUDE_SDK_MODEL_OPTIONS).not.toContain("claude-fable-5-1");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
       DEFAULT_CLAUDE_OPUS_MODEL,
     );
@@ -44,25 +48,50 @@ describe("model catalog", () => {
     );
   });
 
-  test("includes the verified Codex model set led by GPT-6 Astra", () => {
+  test("includes the verified Codex model set led by GPT-6.2 Astra", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
-      "gpt-6-astra",
-      "gpt-6.1-sol",
+      "gpt-6.2-astra",
+      "gpt-6.2-sol",
       "gpt-6.1-terra",
       "gpt-6-luna",
     ]);
   });
 
-  test("includes GPT-6 Astra without making it the Codex default", () => {
+  test("includes GPT-6.2 Astra without making it the Codex default", () => {
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-6.1-sol",
+      "gpt-6.2-sol",
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).not.toBe(
-      "gpt-6-astra",
+      "gpt-6.2-astra",
     );
+    // The previous Sol and Astra stay resolvable but leave the picker.
+    expect(CODEX_MODEL_OPTIONS).not.toContain("gpt-6.1-sol");
+    expect(CODEX_MODEL_OPTIONS).not.toContain("gpt-6-astra");
+    expect(toHumanModelName({ model: "gpt-6.2-sol" })).toBe("GPT-6.2 Sol");
+    expect(toHumanModelName({ model: "gpt-6.2-astra" })).toBe("GPT-6.2 Astra");
+    expect(toHumanModelName({ model: "gpt-6.1-sol" })).toBe("GPT-6.1 Sol");
+    expect(toHumanModelName({ model: "gpt-6-astra" })).toBe("GPT-6 Astra");
   });
 
-  test("includes Fable 5.1 and Sonnet 5.5 in the Claude SDK options", () => {
+  test("keeps GPT-6.2 Sol and Astra efforts on the models they replace", () => {
+    // The live catalog recommends medium for Sol 6.2 and low for Astra 6.2;
+    // Stave keeps Sol at high and Astra at medium, and a fetched catalog does
+    // not replace them.
+    registerDynamicDefaultReasoningEfforts(
+      new Map([
+        ["gpt-6.2-sol", "medium"],
+        ["gpt-6.2-astra", "low"],
+      ]),
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.2-sol" })).toBe("high");
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.1-sol" })).toBe("high");
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.2-astra" })).toBe("medium");
+    expect(getModelCapability({ model: "gpt-6.2-astra" })?.supportedCodexReasoningEfforts).toContain("ultra");
+    expect(MODEL_PRICING["gpt-6.2-astra"]).toMatchObject({ inputPerMTok: 8, outputPerMTok: 40 });
+    expect(MODEL_PRICING["gpt-6.2-sol"]).toMatchObject({ inputPerMTok: 2, outputPerMTok: 10 });
+  });
+
+  test("includes Fable 5.2 and Sonnet 5.5 in the Claude SDK options", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5-5");
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5-5[1m]");
@@ -85,6 +114,14 @@ describe("model catalog", () => {
     expect(getModelCapability({ model: DEFAULT_CLAUDE_HAIKU_MODEL })?.tier).toBe(
       getModelCapability({ model: "gpt-6-luna" })?.tier,
     );
+    expect(MODEL_PRICING[CLAUDE_FABLE_MODEL]).toMatchObject({
+      inputPerMTok: 8,
+      outputPerMTok: 40,
+    });
+    expect(MODEL_PRICING["claude-fable-5-1"]).toMatchObject({
+      inputPerMTok: 10,
+      outputPerMTok: 50,
+    });
     expect(MODEL_PRICING[DEFAULT_CLAUDE_HAIKU_MODEL]).toMatchObject({
       inputPerMTok: MODEL_PRICING["gpt-6-luna"]?.inputPerMTok,
       outputPerMTok: MODEL_PRICING["gpt-6-luna"]?.outputPerMTok,
@@ -97,6 +134,8 @@ describe("model catalog", () => {
   test("moves a pinned Haiku 4.5 id onto Haiku 5.5", () => {
     expect(upgradePinnedHaikuModel("claude-haiku-4-5")).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
     expect(upgradePinnedHaikuModel("gpt-6-luna")).toBe("gpt-6-luna");
+    expect(upgradePinnedFableModel("claude-fable-5-1")).toBe("claude-fable-5-2");
+    expect(upgradePinnedFableModel("claude-opus-5-5")).toBe("claude-opus-5-5");
     expect(upgradeSettingsScopedClaudeModel({ model: "claude-haiku-4-5" })).toBe(
       DEFAULT_CLAUDE_HAIKU_MODEL,
     );
@@ -132,6 +171,9 @@ describe("model catalog", () => {
 
   test("formats Claude Fable models with canonical labels", () => {
     expect(toHumanModelName({ model: CLAUDE_FABLE_MODEL })).toBe(
+      "Claude Fable 5.2",
+    );
+    expect(toHumanModelName({ model: "claude-fable-5-1" })).toBe(
       "Claude Fable 5.1",
     );
     // Historical records keep the retired id and still render a real name.
@@ -152,7 +194,7 @@ describe("model catalog", () => {
       DEFAULT_CLAUDE_OPUS_MODEL,
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-6.1-sol",
+      "gpt-6.2-sol",
     );
   });
 
@@ -352,8 +394,9 @@ describe("model catalog", () => {
       );
     }
     expect(listModelCapabilities({ providerId: "codex" }).length).toBe(
-      // Resolvable legacy entries: GPT-6 Sol, GPT-5.6 Sol/Terra/Luna, GPT-5.5.
-      CODEX_MODEL_OPTIONS.length + 5,
+      // Resolvable legacy entries: GPT-6.1 Sol, GPT-6 Astra, GPT-6 Sol,
+      // GPT-5.6 Sol/Terra/Luna, GPT-5.5.
+      CODEX_MODEL_OPTIONS.length + 7,
     );
   });
 
@@ -368,7 +411,7 @@ describe("model catalog", () => {
       "gpt-6-luna",
     );
     expect(resolveTierModel({ providerId: "codex", tier: "frontier" })).toBe(
-      "gpt-6-astra",
+      "gpt-6.2-astra",
     );
     expect(resolveTierModel({ providerId: "claude-code", tier: "light" })).toBe(
       "claude-haiku-5-5",
@@ -433,6 +476,9 @@ describe("model catalog", () => {
     expect(upgradeSettingsScopedClaudeModel({ model: "claude-fable-5" })).toBe(
       CLAUDE_FABLE_MODEL,
     );
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-fable-5-1" })).toBe(
+      "claude-fable-5-2",
+    );
     // Sonnet 5 stays put here so the one-time settings migration can still see
     // it. Sonnet 5.5 is already current.
     expect(upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" })).toBe(
@@ -458,6 +504,21 @@ describe("model catalog", () => {
     ).toBe("claude-haiku-4-5");
     expect(
       resolveDefaultClaudeFallbackModel({ model: "claude-haiku-4-5" }),
+    ).toBeUndefined();
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-fable-5-2" }),
+    ).toBe("claude-fable-5-1");
+    expect(
+      resolveDefaultClaudeFallbackModel({ model: "claude-fable-5-1" }),
+    ).toBeUndefined();
+    expect(resolveDefaultCodexFallbackModel({ model: "gpt-6.2-sol" })).toBe(
+      "gpt-6.1-sol",
+    );
+    expect(resolveDefaultCodexFallbackModel({ model: "gpt-6.2-astra" })).toBe(
+      "gpt-6-astra",
+    );
+    expect(
+      resolveDefaultCodexFallbackModel({ model: "gpt-6-astra" }),
     ).toBeUndefined();
     expect(resolveDefaultCodexFallbackModel({ model: "gpt-6.1-sol" })).toBe(
       "gpt-6-sol",

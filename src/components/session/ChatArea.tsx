@@ -1,3 +1,6 @@
+import { ARCHIVED_SEARCH_VIEW_MARKER, useArchivedSearchView } from "@/store/archived-search-view";
+import { Alert } from "@/components/aui/components/Alert";
+import { formatDate } from "@/i18n/format";
 import { setWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { i18n, useTranslation } from "@/i18n";
 import {
@@ -21,7 +24,6 @@ import {
 import { EmptySplash } from "@/components/session/EmptySplash";
 import { TurnActivity } from "@/components/session/TurnActivity";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
-import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
 import { SessionLoadingState } from "@/components/session/SessionLoadingState";
 import {
   Button,
@@ -34,6 +36,7 @@ import {
 } from "@/components/ui";
 import { isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { RenderProfiler } from "@/lib/render-profiler";
+import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
 import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -130,8 +133,20 @@ export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
  * shared `RenderProfiler` id keeps both paths on one profile rather than two
  * halves of the same measurement.
  */
-function ChatAreaComposerDock() {
+function ChatAreaComposerDock({archivedTaskId, archivedAt}: {archivedTaskId?: string; archivedAt?: string | null}) {
   useTranslation();
+  const restoreBusy = useArchivedSearchView((state) => state.busy);
+  const restoreFailed = useArchivedSearchView((state) => state.failed);
+  const workspaceArchivedAt = useArchivedSearchView((state) => state.archivedAt);
+  if(archivedTaskId) {
+    // The task's own archive time, else its archived workspace's; the read-only marker is neither.
+    const at = archivedAt && archivedAt !== ARCHIVED_SEARCH_VIEW_MARKER ? archivedAt : workspaceArchivedAt;
+    const date = at ? formatDate(at, { month: "short", day: "numeric", ...(new Date(at).getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) }) : "";
+    return <div className={sx(chatAreaStyles.dock)}>
+      <Alert title={date ? i18n.t("session:chatArea.archivedOn", { date }) : i18n.t("session:chatArea.archivedUndated")} role="status" data-testid="archived-task-banner"
+        action={<Button size="sm" variant="secondary" disabled={restoreBusy} onClick={()=>useAppStore.getState().restoreTask({taskId:archivedTaskId})}>{i18n.t("session:chatArea.restore")}</Button>}>{restoreFailed ? i18n.t("workspace:cleanupCenter.unavailable") : null}</Alert>
+    </div>;
+  }
   return (
     <div className={sx(chatAreaStyles.dock)}>
       <RenderProfiler id="ChatInput" thresholdMs={8}>
@@ -175,7 +190,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           (workspace) => workspace.id === state.activeWorkspaceId,
         ),
         state.tasks.some(
-          (task) => task.id === scopedTaskId && !isTaskArchived(task),
+          (task) => task.id === scopedTaskId,
         ),
         scopedTaskId,
         Math.max(
@@ -184,7 +199,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
         ),
         (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
         state.tasks.find(
-          (task) => task.id === scopedTaskId && !isTaskArchived(task),
+          (task) => task.id === scopedTaskId,
         ) ?? null,
         state.activeTurnIdsByTask[scopedTaskId],
         state.activeTaskId === scopedTaskId,
@@ -205,11 +220,13 @@ function ChatAreaImpl(props: ChatAreaProps) {
   const hasPendingSend = usePendingAutoRoutingStore((state) =>
     selectHasPendingSend(state, activeTaskId),
   );
+  const archivedView = useArchivedSearchView((state) => state.view);
+  const viewingArchive = archivedView?.workspaceId === useAppStore((state) => state.activeWorkspaceId);
   const viewMode = resolveChatAreaViewMode({
     repositoryPath,
     hasHydratedWorkspaces,
     hasAnyWorkspace,
-    hasSelectedWorkspace,
+    hasSelectedWorkspace: hasSelectedWorkspace || viewingArchive,
     hasSelectedTask,
     activeTaskMessageCount,
     hasUnsentPrompt: hasFailedSends || hasPendingSend,
@@ -294,6 +311,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
     [],
   );
 
+  // The transcript and the composer take the same width step: the session area is the surface they measure.
+  const widthTheme = useTranscriptWidthTheme();
   const sessionAreaProps = {
     ref: sessionAreaRef,
     tabIndex: -1,
@@ -302,7 +321,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     // Cmd/Ctrl+F from anywhere in this area (the composer included) finds in its transcript.
     "data-conversation-find-scope": "",
     onMouseDownCapture: handleSessionAreaMouseDownCapture,
-    className: sx(chatAreaStyles.sessionArea),
+    className: sx(chatAreaStyles.sessionArea, transcriptWidthStyles.surface),
   } as const;
 
   if (viewMode === "no_project") {
@@ -377,7 +396,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
   if (viewMode === "empty_task") {
     return (
       <div {...sessionAreaProps}>
-        <div className={sx(chatAreaStyles.surface)}>
+        <div className={sx(chatAreaStyles.surface, widthTheme)}>
           <div
             className={sx(
               chatAreaStyles.scrollColumn,
@@ -386,7 +405,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           >
             <TaskStartPanel onSelect={handleTaskStartOption} />
           </div>
-          <ChatAreaComposerDock />
+          <ChatAreaComposerDock archivedTaskId={activeTask && isTaskArchived(activeTask) ? activeTaskId : undefined} archivedAt={activeTask?.archivedAt} />
         </div>
       </div>
     );
@@ -394,7 +413,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
 
   return (
     <div {...sessionAreaProps}>
-      <div className={sx(chatAreaStyles.surface)}>
+      <div className={sx(chatAreaStyles.surface, widthTheme)}>
         <div className={sx(chatAreaStyles.surface)}>
           {/* The message pane must be a flex column so `ChatPanel`'s
               `Conversation` root (`flex min-h-0 flex-1`) can claim the
@@ -410,8 +429,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <RenderProfiler id="TurnActivityFloating">
               <TurnActivity host="floating" />
             </RenderProfiler>
-            {/* What changed while you were away, then a side question about the task. */}
-            <ReturnSummaryCard taskId={activeTaskId} />
+            {/* A side question about the task. What changed while you were
+                away is in the conversation itself, where you had left off. */}
             <SideChatPanel taskId={activeTaskId} host="conversation" />
           </div>
           {/* Outside the pointer-events-none overlay, and outside both of its
@@ -419,7 +438,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
               activity shelf is keyed per turn, so a dialog owned by either
               would disappear while it was being read. */}
         </div>
-        <ChatAreaComposerDock />
+        <ChatAreaComposerDock archivedTaskId={activeTask && isTaskArchived(activeTask) ? activeTaskId : undefined} archivedAt={activeTask?.archivedAt} />
       </div>
     </div>
   );

@@ -51,6 +51,37 @@ describe("collectClipboardFiles", () => {
 
     expect(files).toEqual([textFile]);
   });
+
+  // Chromium creates a new File on every clipboard read and stamps it with the read time,
+  // so the two lists can describe one pasted image with lastModified values 1ms apart.
+  test("matches one pasted image across lists when each read stamps a new lastModified", () => {
+    const fromItems = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png", lastModified: 1_000 });
+    const fromFiles = new File([new Uint8Array([1, 2, 3])], "image.png", { type: "image/png", lastModified: 1_001 });
+
+    const files = collectClipboardFiles({
+      items: [{ getAsFile: () => fromItems }],
+      files: [fromFiles],
+    });
+
+    expect(files).toHaveLength(1);
+    expect(files[0]).toBe(fromItems);
+  });
+
+  test("keeps every same-name image of one paste when each read stamps a new lastModified", () => {
+    const first = new File([new Uint8Array([1])], "image.png", { type: "image/png", lastModified: 1_000 });
+    const second = new File([new Uint8Array([2])], "image.png", { type: "image/png", lastModified: 1_000 });
+    const firstCopy = new File([new Uint8Array([1])], "image.png", { type: "image/png", lastModified: 1_001 });
+    const secondCopy = new File([new Uint8Array([2])], "image.png", { type: "image/png", lastModified: 1_001 });
+
+    const files = collectClipboardFiles({
+      items: [{ getAsFile: () => first }, { getAsFile: () => second }],
+      files: [firstCopy, secondCopy],
+    });
+
+    expect(files).toHaveLength(2);
+    expect(files[0]).toBe(first);
+    expect(files[1]).toBe(second);
+  });
 });
 
 describe("partitionClipboardFiles", () => {

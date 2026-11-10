@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { applyAppLocale, useTranslation } from "@/i18n";
+import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import { Button } from "@/components/aui/components/Button";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
@@ -101,7 +103,15 @@ const explorerFiles = [
 
 /** Real product controls with bounded synthetic data; no provider turn is started. */
 export function AuiRegressionPreview() {
-  const [dark, setDark] = useState(false);
+  useTranslation();
+  const [dark, setDark] = useState(() => new URLSearchParams(window.location.search).get("theme") === "dark");
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    applyAppLocale(params.get("lang") === "ko" ? "ko" : "en");
+    document.documentElement.dataset.uiDensity = params.get("density") === "compact" ? "compact" : "regular";
+  }, []);
+  const rowModels = [...models, { key: "compatibility", providerId: "claude-code" as const, model: "claude-fable-5-2", label: "Claude Fable 5.2",
+    description: getClaudeModelVersionGuidance("claude-fable-5-2"), available: true }];
   const [model, setModel] = useState(models[0]!);
   const [selected, setSelected] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
@@ -135,8 +145,8 @@ export function AuiRegressionPreview() {
           <TopBarNotifications noDragStyle={{}} />
           <ModelSelector
             value={model}
-            options={models}
-            recommendedOptions={models}
+            options={rowModels}
+            recommendedOptions={rowModels}
             onSelect={({ selection }) => setModel(selection)}
           />
         </header>

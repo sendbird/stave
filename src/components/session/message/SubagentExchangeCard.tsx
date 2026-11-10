@@ -6,8 +6,7 @@ import { Button } from "@/components/aui/components/Button";
 import { RunMonitor, runStyles } from "@/components/aui/components/RunMonitor";
 import type { AgentStepState } from "@/components/aui/components/agent-state";
 import { sx } from "@/components/aui/utils/stylex";
-import { AgentIdentity } from "@/components/delegation/AgentIdentity";
-import { DelegateRoute } from "@/components/delegation/DelegateRoute";
+import { ExchangeIdentity } from "@/components/delegation/ExchangeIdentity";
 import { ExchangeDetail } from "@/components/delegation/ExchangeDetail";
 import { isDelegationExchangeLive, resolveExchangeElapsedMs, type DelegationExchange } from "@/lib/delegation/exchange";
 import { exchangeStatusToWorkState, type ExchangeStatus } from "@/lib/delegation/format";
@@ -51,8 +50,7 @@ export function SubagentExchangeCard(props: {
   // The head names who ran it; measured figures sit in the footer readout, where
   // the monitor puts its own ("3 / 5"), so the meta line stays one line.
   const identity = <span className={sx(styles.meta)}>
-    <AgentIdentity compact size="caption" {...exchange.identity} role={undefined} />
-    <DelegateRoute exchange={exchange} />
+    <ExchangeIdentity compact size="caption" exchange={exchange} />
   </span>;
   const figures = [!live ? duration : null, cost !== undefined ? formatCost(cost, "USD") : null].filter((value) => value !== null);
   const disclosure = <Button size="2xs" variant="quiet" aria-expanded={expanded} aria-controls={detailId}

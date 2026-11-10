@@ -105,6 +105,8 @@ export function useTarsPublish(args: {
     const proposal = proposals.find((view) => view.responsibilityId === row.id && view.state === "waiting" && !declined.has(view.requestId));
     if (proposal && !initial) {
       requestAnimationFrame(() => {
+        const waiting = document.querySelector<HTMLElement>(`[data-tars-waiting-record="${CSS.escape(proposal.requestId)}"] button`);
+        if (waiting) { waiting.click(); return; }
         const card = document.querySelector<HTMLElement>(`[data-tars-publish-card="${CSS.escape(proposal.requestId)}"]`);
         card?.scrollIntoView({ block: "nearest" });
         (card?.querySelector<HTMLElement>("[data-tars-publish-message]") ?? card)?.focus();

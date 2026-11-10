@@ -1,3 +1,4 @@
+import { StackedPullRequestBranchFields, type BranchFields } from "./StackedPullRequestBranchFields";
 import { i18n, useTranslation, Trans } from "@/i18n";
 import { Checkbox } from "@/components/aui/components/Checkbox";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -41,7 +42,6 @@ import {
   InlineNoticeBanner,
   PrePrReviewFindingsPanel,
   PrePrVerificationPanel,
-  PullRequestBranchFields,
   type InlineNotice,
   type ScmStatusItem,
 } from "./create-pr-dialog-panels";
@@ -54,14 +54,6 @@ interface DialogState {
   onClose: () => void;
 }
 
-interface BranchFields {
-  currentBranch?: string;
-  defaultBranch: string;
-  targetBranch: string;
-  options: string[];
-  loading: boolean;
-  onTargetBranchChange: (branch: string) => void;
-}
 
 interface MergeFields {
   method: ConcretePrMergeMethod;
@@ -177,17 +169,7 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                 openPrStyles.createFormBodyScroll,
               )}
             >
-              <PullRequestBranchFields
-                currentBranch={props.branch.currentBranch}
-                defaultBranch={props.branch.defaultBranch}
-                disabled={props.dialog.busy}
-                loading={props.branch.loading}
-                targetBranch={props.branch.targetBranch}
-                targetBranchOptions={props.branch.options}
-                onTargetBranchChange={(nextBranch) => {
-                  props.branch.onTargetBranchChange(nextBranch);
-                }}
-              />
+              <StackedPullRequestBranchFields branch={props.branch} disabled={props.dialog.busy} />
 
               <div className={sx(openPrStyles.mergeCard)}>
                 <p className={FIELD_LABEL_CLASS}>{i18n.t("sourceControl:createPullRequestDialog.mergeBehavior")}</p>

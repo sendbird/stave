@@ -24,6 +24,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   // The native compact waiter owns a ten-minute deadline. Let its structured
   // failure reach the Runtime settings caller before the transport expires.
   "provider.compact-codex-thread": 11 * 60_000,
+  "turn-admission.wait": null,
   "provider.stream-turn": null,
   "provider.start-stream-turn": null,
   "provider.start-push-turn": null,
@@ -45,8 +46,12 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   "tars.act": null,
   "tars.reprioritize": null,
   "tars.apply-decision": null,
+  "tars.confirm-proposal": null,
   // Commit hooks, a push and pull request creation have no meaningful bound; a deadline would fence an outcome the host may still apply.
   "tars.publish": null,
+  // A schedule change waits its turn in the Schedules service's queue, which may be starting a run.
+  "tars.schedule": null,
+  "tars.schedule-toggle": null,
   "workspace-scripts.run-entry": null,
   "workspace-scripts.run-hook": null,
 };

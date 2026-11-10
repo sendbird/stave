@@ -49,5 +49,13 @@
     "detail": "Reload to restore saved work. Recent changes that were not saved may be lost. Running tasks may continue in the background; check their activity after reloading before starting another run. Reloading does not resend your request.",
     "reload": "Reload window",
     "keepOpen": "Keep open"
+  },
+  "nativeNotification": {
+    "allowOnce": "Allow once",
+    "deny": "Deny",
+    "reply": "Reply",
+    "openToReview": "Open to review",
+    "alreadyAnswered": "Already answered",
+    "couldNotAnswer": "Could not answer — open Stave"
   }
 }

@@ -338,3 +338,13 @@ describe("pull request watch polling", () => {
     expect(advancePullRequestWatchState({ previous: ok, read: { ok: true, pullRequest: null }, now: NOW }).pullRequest?.number).toBe(42);
   });
 });
+
+describe("automatic watch marker", () => {
+  test("survives successful and failed reads so the task keeps offering Stop watching", () => {
+    const automatic = { pullRequest: null, lastCheckedAt: null, lastSeen: null, consecutiveReadFailures: 0, lastReadError: null, pendingSince: null, automatic: true as const };
+    const read = advancePullRequestWatchState({ previous: automatic, read: { ok: true, pullRequest: null }, now: NOW });
+    expect(read.automatic).toBe(true);
+    expect(advancePullRequestWatchState({ previous: read, read: { ok: false, error: "offline" }, now: NOW }).automatic).toBe(true);
+    expect(advancePullRequestWatchState({ previous: null, read: { ok: true, pullRequest: null }, now: NOW }).automatic).toBeUndefined();
+  });
+});

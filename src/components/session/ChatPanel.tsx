@@ -1,11 +1,13 @@
+import { FeatureEnableHint } from "./FeatureEnableHint";
+import { TurnFileActions, UndoFileRestore } from "./TurnFileActions";
+import { canOfferClaudeFileRewind } from "./turn-file-action-availability";
+import { useTurnHasSnapshot } from "./turn-snapshot-catalog";
+import { SearchHighlight } from "@/components/system/SearchHighlight";
+import { useWholeTaskFind } from "./use-whole-task-find";
 import { TranscriptFind } from "@/components/system/TranscriptFind";
 import { ConversationFindTrigger } from "./conversation-find";
 import { conversationFindMarker } from "./conversation-find.stylex";
-import {
-  findMatchingMessageIndexes,
-  isConversationFindShortcut,
-  stepFindPosition,
-} from "./conversation-find-matching";
+import { isConversationFindShortcut } from "./conversation-find-matching";
 import { TranscriptDelegationsProvider } from "./message/transcript-delegations-context";
 import { TranscriptEntranceScope } from "./transcript-entrance-scope";
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
@@ -66,6 +68,7 @@ import {
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
+import { TaskPullRequestWatchNotice } from "@/components/session/TaskPullRequestWatchNotice";
 import { FailedOutgoingMessages } from "@/components/session/FailedOutgoingMessages";
 import { TurnDocumentRevisions } from "@/components/session/TurnDocumentRevisions";
 import {
@@ -135,6 +138,14 @@ import {
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCard } from "@/components/agent-runs/AgentRunResultCard";
+import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
+import { useTaskReturnStore } from "@/store/task-return-store";
+import {
+  claimReturnReveal,
+  releaseReturnReveal,
+  RETURN_REVEAL_SETTLE_MS,
+  useReturnAnchor,
+} from "@/components/session/return-summary/use-return-anchor";
 import { StageDivider } from "@/components/agent-runs/StageDivider";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
@@ -195,8 +206,10 @@ interface MessageRowProps {
   showInterimMessages: boolean;
   traceExpansionMode: "auto" | "manual";
   threadActionState?: ConversationTurnActionState;
+  /** The latest finished Claude reply carries the file checkpoint tip, once. */
   message: {
     id: string;
+    turnId?: string;
     role: "user" | "assistant";
     providerId: ChatMessage["providerId"];
     nativeAccountProfileId?: string;
@@ -233,6 +246,9 @@ interface MessageRowProps {
   revealToolUseId?: string;
   /** The approval or answer the return summary is revealing in this message. */
   revealRequestId?: string;
+  searchMatch?: { query: string; snippet: string };
+  /** The return summary sits beside this message: where you had left off. */
+  returnSummary?: "before" | "after";
   /** On a reply whose model differs from the reply before it: both models. */
   modelChangeFrom?: string;
   modelChangeTo?: string;
@@ -285,23 +301,23 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const [timeDetailsOpen, setTimeDetailsOpen] = useState(false);
   const [rewindPreview, setRewindPreview] =
     useState<ClaudeFileRewindResponse | null>(null);
-  const [rewindClaudeFilesFromMessage, capabilities] = useAppStore(
+  const [rewindClaudeFilesFromMessage, capabilities, workspaceId] = useAppStore(
     useShallow((state) => [
       state.rewindClaudeFilesFromMessage,
       message.providerBoundary
         ? state.providerRuntimeCapabilities[message.providerBoundary.providerId]
         : null,
+      state.taskWorkspaceIdById[taskId],
     ]),
   );
-  const boundary = message.providerBoundary;
-  const canRewindFiles = Boolean(
-    !activeTurnId &&
-    !message.isStreaming &&
-    message.role === "user" &&
-    boundary?.providerId === "claude-code" &&
-    boundary.kind === "message" &&
-    capabilities?.history.rewind.files,
-  );
+  // Claude history recorded before turn snapshots keeps the native file rewind.
+  const hasTurnSnapshot = useTurnHasSnapshot(workspaceId, taskId, startedTurnId ?? message.turnId);
+  const canRewindFiles = canOfferClaudeFileRewind({
+    message,
+    activeTurnId,
+    rewindSupported: Boolean(capabilities?.history.rewind.files),
+    hasSnapshot: hasTurnSnapshot,
+  });
   // The live row owns its clock; ticking must not rerender the conversation.
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const clockActive =
@@ -468,6 +484,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   return (
     <div
       data-message-id={message.id}
+      data-content-search-match={args.searchMatch ? "true" : undefined}
       data-conversation-turn-id={
         message.role === "assistant" && threadActionState
           ? message.id
@@ -485,6 +502,14 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           styles.rowGroupedWithNext,
       )}
     >
+      {args.searchMatch ? (
+        <p className={sx(styles.searchMatch)}>
+          <SearchHighlight
+            text={args.searchMatch.snippet}
+            query={args.searchMatch.query}
+          />
+        </p>
+      ) : null}
       {args.dateSeparator ? (
         <div className={sx(styles.dateSeparator)} data-conversation-date>
           <time dateTime={args.dateSeparator}>
@@ -492,6 +517,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           </time>
         </div>
       ) : null}
+      {args.returnSummary === "before" ? <ReturnSummaryCard taskId={taskId} /> : null}
       {message.role === "user" ? (
         <StageDivider taskId={taskId} turnId={startedTurnId} />
       ) : null}
@@ -683,6 +709,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     previousTurn={previousAssistantTurn}
                   />
                 ) : null}
+                {message.role === "assistant" && !threadActionState ? <TurnFileActions taskId={taskId} messageId={message.id} /> : null}
                 {message.role === "assistant" && threadActionState ? (
                   <ConversationTurnActions
                     taskId={taskId}
@@ -791,6 +818,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ) : null}
         </div>
       </Message>
+      {args.returnSummary === "after" ? <ReturnSummaryCard taskId={taskId} /> : null}
     </div>
   );
 });
@@ -881,11 +909,14 @@ function ChatPanelMessageList(props: {
     ),
   );
   const messages = useAppStore(
-    (state) => state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
+    (state) =>
+      state.taskHistoryMessagesByTask[taskId] ??
+      state.messagesByTask[taskId] ??
+      EMPTY_MESSAGES,
   );
   const [finding, setFinding] = useState(false);
   const [findQuery, setFindQuery] = useState("");
-  const [findIndex, setFindIndex] = useState(-1);
+
   const [findFocusRequest, setFindFocusRequest] = useState(0);
   const [focusFindTrigger, setFocusFindTrigger] = useState(false);
   const hasFailedSends = useAppStore(
@@ -953,6 +984,14 @@ function ChatPanelMessageList(props: {
     () => visibleSteerMessageSegments(messages),
     [messages],
   );
+  // Where you had left off, when this visit is a return with news.
+  const returnAnchor = useReturnAnchor(taskId, visibleMessages);
+  const returnAnchorMessageId = returnAnchor?.messageId;
+  const returnAnchorPlacement = returnAnchor?.placement;
+  const returnArrivalAt = returnAnchor?.arrivalAt;
+  const currentArrivalAt = useTaskReturnStore(
+    (state) => state.arrivalByTask[taskId]?.at,
+  );
   const dateSeparators = useMemo(
     () => buildConversationDateSeparators(visibleMessages),
     [visibleMessages],
@@ -985,13 +1024,27 @@ function ChatPanelMessageList(props: {
       }),
     [threadActionStateByMessageId, visibleMessages, i18n.language],
   );
-  const hasOlderMessages = messages.length < totalMessageCount;
+  const newerMessageCount = useAppStore(
+    (state) => (state.taskMessageWindowOffsetByTask[taskId] ?? 0) + (state.taskHistoryMessagesByTask[taskId] ? Math.max(0, (state.messageCountByTask[taskId] ?? 0) - (state.taskHistoryMessageCountByTask[taskId] ?? state.messageCountByTask[taskId] ?? 0)) : 0),
+  );
+  const workspaceId = useAppStore(
+    (state) => state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId,
+  );
+  const wholeTaskFind = useWholeTaskFind({
+    taskId,
+    workspaceId,
+    query: findQuery,
+    messages: useAppStore((state)=>state.messagesByTask[taskId] ?? EMPTY_MESSAGES),
+    enabled: finding,
+  });
+  const hasOlderMessages =
+    messages.length + newerMessageCount < totalMessageCount;
   // A read of this task's messages failed: never draw that as a new task, and
   // say so at the older-messages row.
   const messagesLoadFailed = useTaskMessageLoadFailures(
     (state) => state.failedByTask[taskId] === true,
   );
-  const retryMessages = (mode: "latest" | "older") => {
+  const retryMessages = (mode: "latest" | "older" | "newer") => {
     clearTaskMessagesLoadFailure(taskId);
     void loadTaskMessages({ taskId, mode });
   };
@@ -1007,7 +1060,7 @@ function ChatPanelMessageList(props: {
   // A new task's pending send is its only row: no empty list before it, so it
   // sits where its real first row will.
   const pendingIsFirstRow = usesInnerLayout && Boolean(pendingAutoRouteKey);
-  const liveStreamingMessageId = activeTurnId
+  const liveStreamingMessageId = activeTurnId && newerMessageCount === 0
     ? visibleMessages.at(-1)?.id
     : undefined;
   const latestVisibleMessageId = visibleMessages.at(-1)?.id;
@@ -1016,7 +1069,7 @@ function ChatPanelMessageList(props: {
     [visibleMessages],
   );
   const autoScrollKey = `${visibleMessages.length}:${lastVisibleMessageScrollFingerprint}:${pendingAutoRouteKey ?? ""}`;
-  const forceScrollKey = [
+  const forceScrollKey = newerMessageCount > 0 ? undefined : [
     scrollToLatestMessageRequestNonce,
     latestVisibleMessageId ?? "none",
     turnCompletionScrollTick,
@@ -1082,6 +1135,9 @@ function ChatPanelMessageList(props: {
     }
     return map;
   }, [visibleMessages]);
+  const returnAnchorIndex = returnAnchorMessageId
+    ? messageIndexById.get(returnAnchorMessageId)
+    : undefined;
   const restoreAnchor = taskScrollAnchorCache.get(scrollContextKey);
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
@@ -1121,7 +1177,7 @@ function ChatPanelMessageList(props: {
     });
     observer.observe(container);
     return () => observer.disconnect();
-  }, [hasBottomIntent, taskId]);
+  }, [hasBottomIntent, taskId, scrollContextKey]);
   const traceExpansionMode = getReasoningTraceExpansionMode({
     reasoningExpansionMode,
   });
@@ -1224,10 +1280,20 @@ function ChatPanelMessageList(props: {
   const [transcriptRevealTick, setTranscriptRevealTick] = useState(0);
   // The step being revealed (a tool call, or an approval or answer you gave):
   // its row opens the trace that holds it, and focus moves once it is on screen.
+  const [searchMatch, setSearchMatch] = useState<{
+    messageId: string;
+    query: string;
+    snippet: string;
+  } | null>(null);
+  // `target` reveals the message itself (a turn's reply, from its start) or
+  // the return summary beside it, without moving focus.
   const [revealedStep, setRevealedStep] = useState<{
     messageId: string;
     toolUseId?: string;
     requestId?: string;
+    searchQuery?: string;
+    searchSnippet?: string;
+    target?: "message" | "return-summary";
   } | null>(null);
   // Read by the focus wait below without restarting it on every provider flush.
   const visibleMessagesRef = useRef(visibleMessages);
@@ -1243,13 +1309,22 @@ function ChatPanelMessageList(props: {
     ) {
       return;
     }
-    const { toolUseId, decision, nonce } = focusTranscriptToolRequest;
+    const {
+      toolUseId,
+      decision,
+      nonce,
+      messageId: targetMessageId,
+      searchQuery,
+      searchSnippet,
+    } = focusTranscriptToolRequest;
     const messageIndex = decision
       ? findMessageIndexByDecision({ messages: visibleMessages, ...decision })
-      : findMessageIndexByToolUseId({
-          messages: visibleMessages,
-          toolUseId: toolUseId ?? "",
-        });
+      : targetMessageId
+        ? visibleMessages.findIndex((message) => message.id === targetMessageId)
+        : findMessageIndexByToolUseId({
+            messages: visibleMessages,
+            toolUseId: toolUseId ?? "",
+          });
     if (transcriptRevealRef.current?.nonce !== nonce) {
       transcriptRevealRef.current = { nonce, pages: 0, inFlight: false };
     }
@@ -1257,7 +1332,7 @@ function ChatPanelMessageList(props: {
     const step = decideTranscriptReveal({
       found: messageIndex >= 0,
       loading: taskMessagesLoading || reveal.inFlight,
-      hasOlderMessages,
+      hasOlderMessages: targetMessageId ? reveal.pages === 0 : hasOlderMessages,
       pagesLoaded: reveal.pages,
       maxPages: TRANSCRIPT_REVEAL_MAX_PAGES,
     });
@@ -1267,7 +1342,11 @@ function ChatPanelMessageList(props: {
     if (step === "load-older") {
       reveal.inFlight = true;
       reveal.pages += 1;
-      void loadTaskMessages({ taskId, mode: "older" }).then((result) => {
+      void loadTaskMessages({
+        taskId,
+        mode: "older",
+        messageId: targetMessageId,
+      }).then((result) => {
         if (transcriptRevealRef.current !== reveal) {
           return;
         }
@@ -1292,6 +1371,9 @@ function ChatPanelMessageList(props: {
       return;
     }
 
+    if (targetMessageId) {
+      taskScrollAnchorCache.save(scrollContextKey, { messageId: targetMessageId, offset: 0 });
+    }
     // Leave follow-the-bottom first, as the turn rail does: otherwise the next
     // height change (a row measured on the way, the trace opening) pulls the
     // transcript back to the latest message.
@@ -1304,7 +1386,7 @@ function ChatPanelMessageList(props: {
       Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
     virtuosoRef.current?.scrollToIndex({
       index: messageIndex,
-      align: "center",
+      align: targetMessageId ? "start" : "center",
       behavior: "auto",
     });
     const messageId = visibleMessages[messageIndex]?.id;
@@ -1312,7 +1394,9 @@ function ChatPanelMessageList(props: {
       setRevealedStep(
         decision
           ? { messageId, requestId: decision.requestId }
-          : { messageId, toolUseId },
+          : targetMessageId
+            ? { messageId, target: "message", searchQuery, searchSnippet }
+            : { messageId, toolUseId },
       );
     }
   }, [
@@ -1323,6 +1407,7 @@ function ChatPanelMessageList(props: {
     taskMessagesLoading,
     transcriptRevealTick,
     visibleMessages,
+    scrollContextKey,
   ]);
 
   // Kept apart from the effect above so a provider flush, which hands that one
@@ -1332,12 +1417,24 @@ function ChatPanelMessageList(props: {
     if (!revealedStep) {
       return;
     }
-    const selector = revealedStep.requestId
-      ? [
-          `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
-          `[data-user-input-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
-        ].join(", ")
-      : `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
+    if (revealedStep.searchSnippet) {
+      setSearchMatch({
+        messageId: revealedStep.messageId,
+        query: revealedStep.searchQuery ?? "",
+        snippet: revealedStep.searchSnippet,
+      });
+    }
+    const messageSelector = `[data-testid="conversation-scroll-${escapeAttributeSelectorValue(taskId)}"] [data-message-id="${escapeAttributeSelectorValue(revealedStep.messageId)}"]`;
+    const selector = revealedStep.target === "message"
+      ? messageSelector
+      : revealedStep.target === "return-summary"
+        ? `${messageSelector} [data-testid="return-summary"]`
+        : revealedStep.requestId
+          ? [
+              `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+              `[data-user-input-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+            ].join(", ")
+          : `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
     // Where the step now is becomes the reading anchor a later render keeps.
     const anchorAtStep = () => {
       suppressAnchorUntilRef.current = 0;
@@ -1362,8 +1459,26 @@ function ChatPanelMessageList(props: {
     const focusStep = () => {
       const node = document.querySelector<HTMLElement>(selector);
       if (node) {
-        node.scrollIntoView({ block: "center", behavior: "auto" });
-        node.focus({ preventScroll: true });
+        // A message is read from its start; a step or the summary is centered.
+        // Only a step takes focus: the others are places to read from.
+        node.scrollIntoView({
+          block: revealedStep.target === "message" ? "start" : "center",
+          behavior: "auto",
+        });
+        if (!revealedStep.target) {
+          node.focus({ preventScroll: true });
+        } else if (
+          revealedStep.target === "message" &&
+          (revealedStep.searchSnippet ||
+            document.activeElement?.closest('[data-testid="return-summary"]'))
+        ) {
+          // The card's button may scroll out of the list and unmount: focus
+          // moves with the reader to the reply instead of falling to the page.
+          if (!node.hasAttribute("tabindex")) {
+            node.setAttribute("tabindex", "-1");
+          }
+          node.focus({ preventScroll: true });
+        }
         anchorAtStep();
       } else if (frames > 0 && frames % TRANSCRIPT_STEP_REAIM_FRAMES === 0) {
         // Rows on the way measure taller or shorter than estimated, so the
@@ -1395,6 +1510,80 @@ function ChatPanelMessageList(props: {
     return () => window.cancelAnimationFrame(frame);
   }, [revealedStep, scrollContextKey, taskId]);
 
+  // Coming back to the task opens the conversation where you had left off:
+  // once per return, when new messages follow the summary, the transcript
+  // moves to it the way a decision's Show does. It waits for the transcript's
+  // own first pins to the bottom to settle, which would undo an earlier move.
+  // At the end of the conversation the summary is in view already. A return
+  // is claimed once, also when it needs no move, so a reply arriving later
+  // does not pull the reader away from the bottom.
+  const returnRevealPending =
+    returnAnchorIndex !== undefined && returnArrivalAt
+      ? `${returnArrivalAt}|${returnAnchorMessageId}|${
+          returnAnchorPlacement === "after" &&
+          returnAnchorIndex === visibleMessages.length - 1
+            ? "in-view"
+            : "move"
+        }`
+      : null;
+  // A return with nothing to say once its conversation is on screen spends
+  // its move: news that shows up later (a reply while you watch) does not
+  // pull you away from where you are reading.
+  useEffect(() => {
+    if (
+      currentArrivalAt &&
+      !returnAnchorMessageId &&
+      visibleMessages.length > 0 &&
+      !taskMessagesLoading
+    ) {
+      claimReturnReveal(taskId, currentArrivalAt);
+    }
+  }, [
+    currentArrivalAt,
+    returnAnchorMessageId,
+    taskId,
+    taskMessagesLoading,
+    visibleMessages.length,
+  ]);
+  useEffect(() => {
+    if (!returnRevealPending || !returnArrivalAt || !returnAnchorMessageId) {
+      return;
+    }
+    if (!claimReturnReveal(taskId, returnArrivalAt)) {
+      return;
+    }
+    if (returnRevealPending.endsWith("|in-view")) {
+      return;
+    }
+    const messageId = returnAnchorMessageId;
+    let moved = false;
+    const timer = window.setTimeout(() => {
+      moved = true;
+      const index = visibleMessagesRef.current.findIndex(
+        (message) => message.id === messageId,
+      );
+      if (index < 0) {
+        return;
+      }
+      manualScrollIntentRef.current?.markManualScrollIntent();
+      suppressAnchorUntilRef.current =
+        Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
+      virtuosoRef.current?.scrollToIndex({
+        index,
+        align: "center",
+        behavior: "auto",
+      });
+      setRevealedStep({ messageId, target: "return-summary" });
+    }, RETURN_REVEAL_SETTLE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      // Unmounted or changed before the move ran: the next run may try again.
+      if (!moved) {
+        releaseReturnReveal(taskId, returnArrivalAt);
+      }
+    };
+  }, [returnAnchorMessageId, returnArrivalAt, returnRevealPending, taskId]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!isConversationFindShortcut(event, props.findScopeId)) return;
@@ -1405,16 +1594,20 @@ function ChatPanelMessageList(props: {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [props.findScopeId]);
-  const findMatches = useMemo(
-    () => (finding ? findMatchingMessageIndexes(visibleMessages, findQuery) : []),
-    [finding, visibleMessages, findQuery],
-  );
   const stepFind = (backward: boolean) => {
-    const next = stepFindPosition(findIndex, findMatches.length, backward);
-    if (next < 0) return;
-    setFindIndex(next);
-    manualScrollIntentRef.current?.markManualScrollIntent();
-    virtuosoRef.current?.scrollToIndex({ index: findMatches[next]!, align: "center", behavior: "auto" });
+    void wholeTaskFind.step(backward).then((hit) => {
+      if (!hit) return;
+      const state = useAppStore.getState();
+      useAppStore.setState({
+        focusTranscriptToolRequest: {
+          taskId,
+          messageId: hit.messageId,
+          searchQuery: findQuery,
+          searchSnippet: hit.snippet,
+          nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
+        },
+      });
+    });
   };
   return (
     <>
@@ -1423,27 +1616,31 @@ function ChatPanelMessageList(props: {
           query={findQuery}
           onQuery={(value) => {
             setFindQuery(value);
-            setFindIndex(-1);
+            setSearchMatch(null);
           }}
           onStep={stepFind}
           onClose={(restoresFocus) => {
             setFocusFindTrigger(!restoresFocus);
             setFinding(false);
           }}
-          label={i18n.t("common:transcriptFind.loaded")}
-          canStep={findMatches.length > 0}
+          label={i18n.t("common:transcriptFind.wholeTask")}
+          canStep={wholeTaskFind.results.length > 0}
           focusRequest={findFocusRequest}
           result={
-            !findQuery.trim()
-              ? ""
-              : !findMatches.length
-                ? i18n.t("common:transcriptFind.none")
-                : findIndex < 0
-                  ? i18n.t("common:transcriptFind.count", { count: findMatches.length })
-                  : i18n.t("common:transcriptFind.matches", {
-                      current: Math.min(findIndex + 1, findMatches.length),
-                      total: findMatches.length,
-                    })
+            findQuery.trim().length < 2
+              ? i18n.t("common:transcriptFind.minimum")
+              : wholeTaskFind.status === "searching"
+                ? i18n.t("common:transcriptFind.searching")
+                : wholeTaskFind.status === "error"
+                  ? i18n.t("common:transcriptFind.failed")
+                  : !wholeTaskFind.results.length
+                    ? i18n.t("common:transcriptFind.none")
+                    : i18n.t("common:transcriptFind.position", {
+                        current: wholeTaskFind.position,
+                        total:
+                          wholeTaskFind.offset + wholeTaskFind.results.length,
+                        more: wholeTaskFind.nextOffset !== null ? "+" : "",
+                      })
           }
         />
       ) : (
@@ -1537,7 +1734,8 @@ function ChatPanelMessageList(props: {
               {taskMessagesLoading
                 ? i18n.t("session:chatPanel.chatPanelMessageList")
                 : i18n.t("session:chatPanel.chatPanelMessageList2", {
-                    value1: totalMessageCount - messages.length,
+                    value1:
+                      totalMessageCount - messages.length - newerMessageCount,
                   })}
             </Button>
           </div>
@@ -1580,6 +1778,11 @@ function ChatPanelMessageList(props: {
             itemContent={(index, message) => (
               <MessageRow
                 taskId={taskId}
+                searchMatch={
+                  searchMatch?.messageId === message.id
+                    ? searchMatch
+                    : undefined
+                }
                 activeTurnId={activeTurnId}
                 chatStreamingEnabled={chatStreamingEnabled}
                 isFirst={index === 0}
@@ -1604,6 +1807,11 @@ function ChatPanelMessageList(props: {
                     ? revealedStep.requestId
                     : undefined
                 }
+                returnSummary={
+                  message.id === returnAnchorMessageId
+                    ? returnAnchorPlacement
+                    : undefined
+                }
                 modelChangeFrom={modelChangeMarkers.get(message.id)?.from}
                 modelChangeTo={modelChangeMarkers.get(message.id)?.to}
                 userGroupPosition={userMessageGroups.get(message.id)?.position}
@@ -1614,7 +1822,33 @@ function ChatPanelMessageList(props: {
             )}
           />
         )}
+        {newerMessageCount > 0 ? (
+          <div className={sx(styles.loadOlderRow)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={taskMessagesLoading}
+              className={sx(styles.loadOlderButton)}
+              onClick={() => retryMessages("newer")}
+            >
+              {i18n.t("common:transcriptFind.newer", {
+                count: newerMessageCount,
+              })}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={taskMessagesLoading}
+              onClick={() => retryMessages("latest")}
+            >
+              {i18n.t("common:transcriptFind.latest")}
+            </Button>
+          </div>
+        ) : null}
         <ConversationColumn flush={usesInnerLayout}>
+          <TaskPullRequestWatchNotice workspaceId={workspaceId} taskId={taskId} />
           <AgentRunResultCard taskId={taskId} />
           <FailedOutgoingMessages taskId={taskId} />
           <PendingAutoRouteTurn
@@ -1667,18 +1901,22 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   const taskId = useScopedTaskId();
   return (
     <TranscriptDelegationsProvider key={taskId} taskId={taskId}>
-    {/* Virtualized rows remount on scroll: no AUI entrance replays here. */}
-    <TranscriptEntranceScope>
-    <Conversation data-chat-panel={findScopeId} className={sx(conversationFindMarker)}>
-      <div className={sx(styles.panelColumn)}>
-        <MemoizedChatPanelMessageList
-          findScopeId={findScopeId}
-          scrollActivationKey={props.scrollActivationKey}
-        />
-      </div>
-      <ChatScrollToBottomButton taskId={taskId} />
-    </Conversation>
-    </TranscriptEntranceScope>
+      {/* Virtualized rows remount on scroll: no AUI entrance replays here. */}
+      <TranscriptEntranceScope>
+        <Conversation
+          data-chat-panel={findScopeId}
+          className={sx(conversationFindMarker)}
+        >
+          <UndoFileRestore taskId={taskId} />
+          <div className={sx(styles.panelColumn)}>
+            <MemoizedChatPanelMessageList
+              findScopeId={findScopeId}
+              scrollActivationKey={props.scrollActivationKey}
+            />
+          </div>
+          <ChatScrollToBottomButton taskId={taskId} />
+        </Conversation>
+      </TranscriptEntranceScope>
     </TranscriptDelegationsProvider>
   );
 }

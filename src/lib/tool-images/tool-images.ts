@@ -178,3 +178,57 @@ export function readPngSize(base64: string): { width: number; height: number } |
   const height = view.getUint32(20);
   return width > 0 && height > 0 ? { width, height } : null;
 }
+
+/** A tool image attached to the reply, numbered in the order it was taken. */
+export interface ReplyToolImage {
+  image: ToolOutputImage;
+  /** 1-based: the reply calls it "Image 1", "Image 2", ... */
+  number: number;
+  toolUseId?: string;
+}
+
+interface ReplyToolPart {
+  type: string;
+  state?: string;
+  output?: string;
+  toolUseId?: string;
+  ownerAgentId?: string;
+  parentToolUseId?: string;
+}
+
+/**
+ * The images the assistant's own tool calls returned in one reply, in call
+ * order. A subagent's calls are its own work and are left out, so the numbers
+ * match what the assistant counted when it named them.
+ */
+export function collectReplyToolImages(parts: readonly ReplyToolPart[]): ReplyToolImage[] {
+  const images: ReplyToolImage[] = [];
+  for (const part of parts) {
+    if (part.type !== "tool_use" || part.state !== "output-available") continue;
+    if (part.ownerAgentId || part.parentToolUseId) continue;
+    for (const image of parseToolOutputImages(part.output).images) {
+      images.push({
+        image,
+        number: images.length + 1,
+        ...(part.toolUseId ? { toolUseId: part.toolUseId } : {}),
+      });
+    }
+  }
+  return images;
+}
+
+/** The number of the first image each tool call contributed to the reply. */
+export function firstReplyImageNumberByToolUseId(images: readonly ReplyToolImage[]): Map<string, number> {
+  const numbers = new Map<string, number>();
+  for (const entry of images) {
+    if (entry.toolUseId && !numbers.has(entry.toolUseId)) numbers.set(entry.toolUseId, entry.number);
+  }
+  return numbers;
+}
+
+/**
+ * Tells the model how the reply shows its screenshots, so it names them the
+ * way the thumbnails are labelled (`session:toolOutputImages.label`).
+ */
+export const REPLY_SCREENSHOT_INSTRUCTION =
+  "- Screenshots you take yourself during a reply are attached under that reply as numbered thumbnails, in the order you took them, starting at 1 in each reply (a subagent's screenshots are not counted). When the reply discusses one, refer to it by its number in the reply's language: \"사진 1\", \"사진 2\" in Korean, \"Image 1\", \"Image 2\" in English. Do not paste image data, file paths, or links for them.";

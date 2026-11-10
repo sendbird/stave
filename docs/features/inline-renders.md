@@ -16,6 +16,11 @@ content.
 - Keep a visual result in the conversation history, where you can reopen,
   inspect, or save it later.
 
+Agents also show a page without being asked when a reply compares three or
+more options across several attributes, shows numbers across groups or over
+time, or explains a flow, architecture, or UI layout. Short answers, code, and
+plain lists stay as text.
+
 Use [Lens](lens.md) instead when you want to check a real web app or a running
 dev server. Inline pages are results the agent produced, not sites to browse.
 
@@ -46,7 +51,8 @@ dev server. Inline pages are results the agent produced, not sites to browse.
 The title and buttons sit on a row above the page. The page itself sits in a
 slightly tinted area that marks where it begins and ends, with 16 pixels of
 space around its content (up to 24 pixels in a wide or expanded frame) unless
-the page sets its own.
+the page sets its own. Text in the page starts at 14 pixels, the size of the
+reply around it, unless the page sets its own size.
 
 - **Title**: the name the agent gave the page.
 - **View source**: shows the page's HTML exactly as the agent wrote it, with a
@@ -129,7 +135,9 @@ access** option, and your current theme, and gives the agent:
 - the page's height and the height its frame will take in the conversation;
 - console errors and warnings (with line numbers in the agent's HTML), requests
   that failed or that **Network access** blocked, and any attempt to navigate
-  away.
+  away;
+- a note when text renders smaller than 12 pixels, or when the page paints its
+  own background instead of letting the tinted area show through.
 
 Nothing appears in the conversation and nothing is saved; the trace shows only
 a **Preview HTML page** step. The agent then fixes what it found and shows the
@@ -200,7 +208,11 @@ names a `ui://` resource with the type `text/html;profile=mcp-app`, under
 `_meta.ui.resourceUri` or the older `_meta["ui/resourceUri"]`. When such a tool
 runs, Stave shows the view in that tool's row instead of the plain text result.
 The row opens on its own; **Full screen** in the view's header lifts it over the
-window.
+window. **Show text result** in the same header opens the tool's plain text
+result under the view, with a **Copy** button, for a view that shows nothing
+or less than you need. It opens by itself when the view has no data to draw:
+the call's result carries no structured content (for example a failed call
+whose server left it empty) or its input could not be read.
 
 **Settings → Chat → Inline HTML pages → Show MCP App views** turns this on or
 off (on by default). Off shows those tools as plain text.
@@ -210,7 +222,7 @@ off (on by default). Off shows those tools as plain text.
 | Provider | Support |
 |---|---|
 | Codex | Full. Stave declares the extension when it starts the Codex App Server, reads the view when the call completes, and relays the view's tool calls and resource reads to the same server and thread. |
-| Claude | The view shows the call's input and result. Claude Code has no way for Stave to call the server's tools or read its other resources, so a Claude view's tool calls and resource reads are refused, and the view is told so when it starts. Needs a Claude Code version that reports tool UI metadata and resource reads to Stave. |
+| Claude | The view shows the call's input and result. Stave hands the view the result's structured content that Claude Code reports with the call, which views such as Atlassian's Jira widget need to show anything, even when the result was too large for the model to read; a view captured without it gets the result's text as structured content when that text is one JSON object. Claude Code has no way for Stave to call the server's tools or read its other resources, so a Claude view's tool calls and resource reads are refused, and the view is told so when it starts. Needs a Claude Code version that reports tool UI metadata and resource reads to Stave. |
 | Cursor, Kiro | Not supported; the tool row shows its text result. |
 
 Stave's own Local MCP server declares no views, so every view comes from a
@@ -250,12 +262,25 @@ waiting at once.
   removed when the workspace is archived.
 - A view is at most 5 MB. Stave waits up to 20 seconds for the server to return
   it; a view that is missing, of the wrong type, too large, or too slow leaves
-  the row as plain text.
+  the row as plain text. So does a call whose input cannot be read or whose
+  result is over 1,000,000 characters, because the view could not be given
+  them. A call with no arguments counts as an empty input.
 - Turning the setting on or off restarts the Codex App Server once its running
   turns finish, and the next Codex turn starts a new native thread, as an MCP
   configuration change does.
 
 ## Troubleshooting
+
+### An MCP App view is an empty box
+
+- Symptom: a third-party tool row, such as a Jira search through the
+  Atlassian MCP server in Claude, shows its view as an empty frame.
+- Cause: the view draws only from data its provider did not pass on: the
+  result carried no structured content and its text is not one JSON object.
+  Views captured in Claude before Stave read the structured content Claude
+  Code reports can also show this for large results.
+- Fix: choose **Show text result** in the view's header to read the result,
+  or turn off **Show MCP App views**.
 
 ### The page says it is no longer available
 

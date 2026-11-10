@@ -520,6 +520,15 @@ Rules:
   is additive and never deletes omitted rows
 - a host write must not route through `upsertWorkspace` unless
   `persistTaskTurnDelta` declined (missing row or legacy inline payload)
+- a host whole-snapshot write (no task turn to scope it, or a declined delta)
+  takes `openTaskTabIds`, `lensTabs`, `paneTabMeta`, `dockLayout` and
+  `reviewCommentsByTask` from the persisted shell through
+  `carryRendererOwnedShellFields`; it opens a tab only for a top-level task it
+  adds in that write. Omitting `openTaskTabIds` reads as a legacy snapshot and
+  reopens every live task the user had closed
+- the renderer opens a tab for a host-reported task only when a live or cached
+  session lacks it (`applyHostTaskTurnSync`); for an uncached workspace the
+  persisted tab set is already the host's decision
 - there is no synchronous renderer→main persistence IPC; quit asks the
   renderer to flush and waits behind a bounded timeout
 - the renderer keeps at most `MAX_CACHED_WORKSPACE_SESSIONS` inactive
@@ -588,6 +597,17 @@ When changing PR status fetching, derivation, or UI rendering:
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
 
+Stack discovery and retargeting extend this route through
+`src/lib/pull-request-stack.ts` (strict request and response schemas, parent
+eligibility and long-lived branch rules),
+`electron/host-service/pull-request-stack-runtime.ts`,
+`electron/host-service/pull-request-repo-cache.ts` (per-repository PR lists
+shared with agent PR discovery), `protocol.ts`, SCM IPC, preload and the window
+API. Retargeting performs only the confirmed `{ number, fromBase, toBase }`
+transitions, revalidates the merged parent and each child, and returns a result
+per child with reason codes the renderer translates; the existing update
+operation addresses the selected child explicitly and never rewrites history.
+
 ## PR Context Contract
 
 When changing how PR review threads or failed-CI evidence are attached to a task:
@@ -619,6 +639,16 @@ When changing how a wake-up resumes an existing task:
 - `electron/main/wake-up-service.ts` — the main-process bridge
 - `electron/main/stave-mcp-server.ts` — the `stave_*_wake_up` tools
 
+Automatic discovery starts at completed task-turn events in
+`electron/host-service.ts`. Both provider paths feed
+`turn-pr-evidence.ts` while a turn streams; `agent-pr-auto-watch.ts` then
+checks the shared watch setting (`isPullRequestWatchEnabled`, synced through
+`wake-ups:sync-settings`), the PR's repository, author and creation time, and
+which task's turn opened it. It registers through the serialized wake-up
+runtime with `automatic: true`, preserving existing schedules and pinning the
+PR identity. The existing change event feeds `wake-ups-store.ts`, including
+memory-only hints for ambiguous PRs, and the task's watch notice.
+
 A change to the defer / pause / stop priority order is a change to the
 `wake-up-safety` gate, and a change to what a wake-up definition may
 contain is a change to the `agent-platform-boundaries` gate. Both are asserted
@@ -643,12 +673,28 @@ Agent run and provider paths:
   `tars.brief`): the user's message and Tars's instruction a unit keeps from
   admission (`request`, `delegatedInstruction`), which `tarsSnapshotForWindow`
   leaves out of every snapshot like `mandate`
+- `src/lib/tars/usage.ts` — the usage view's read (`tars:get-usage`, handled
+  in main by `electron/main/tars-usage.ts`): the window sends the period it
+  computed in local time (`TarsUsageInputSchema`), main reads the completed
+  turns of each work's own task (`electron/persistence/task-turn-usage.ts`,
+  bounded by work and row count) and returns a `TarsUsageReport`, parsed again
+  in preload. It reports only what turn rows recorded and never estimates a
+  cost
+- `src/lib/tars/knowledge.ts` — what the "What Tars knows" view groups, and
+  the planner limits it states (`TARS_PLANNER_HISTORY_MESSAGES`,
+  `TARS_PLANNER_MAX_REPOSITORIES`), which `tars-planner.ts` and
+  `tars-context.ts` read from the same constants
 - `electron/host-service/tars-runtime.ts` — serialized admission,
   reconciliation and the one `act` control path
 - `electron/host-service/tars-control.ts` — deterministic control admission,
   click records (`tars.act`) and the shared request ledger contract
 - `electron/host-service/tars-decisions.ts` — saved conversation proposals,
-  including `control` actions, admitted through the same runtime path
+  including `control` actions, admitted through the same runtime path; it
+  decides apply-at-once versus hold-for-Confirm from `src/lib/tars/autonomy.ts`
+  and admits a confirmed held work proposal (`tars.confirm-proposal`)
+- `src/lib/tars/autonomy.ts` — the autonomy level's one policy table
+  (`tarsActionMode`), read by the host, the planner prompt and Settings, and
+  the whole-word matching of the user's "never do" rules
 - `electron/host-service/tars-host.ts` and `tars-execution.ts` —
   registered scope checks, isolated task creation and existing Run integration
 - `electron/persistence/tars-store.ts` — durable identity, unique request
@@ -656,6 +702,9 @@ Agent run and provider paths:
 - `electron/persistence/tars-event-inbox.ts`, `src/lib/tars/events.ts` and
   `electron/main/tars-follow-up.ts` — the event inbox and the automatic
   follow-up it may start (see below)
+- `src/lib/tars/schedules.ts`, `electron/host-service/tars-schedules.ts` and
+  `electron/persistence/tars-schedule-store.ts` — schedules Tars sets up (see
+  [Tars schedules](#tars-schedules))
 - `src/components/tars/` — renderer mirror and interactive controls
 - `src/lib/tars/ownership.ts`, `src/store/tars-snapshot-store.ts` and
   `src/store/tars-owned-control.ts` — which task or run an active
@@ -676,7 +725,8 @@ same connection:
 - `unverifiedCompletion`: a responsibility blocked with `unverifiedCompletion`
   until its decision `unverified:<responsibility>:<revision>` is answered or
   the row changes (`messageId`, `actionIndex` and `operation` are null).
-- `ask`: an unanswered `ask` receipt of the newest message whose control
+- `ask`: an unanswered `ask` receipt not retired by a later message addressing
+  the same responsibilities, whose control
   options all target current revisions (`operation` null, `question` and
   `optionCount` for display). A question about no work stays in the
   conversation only.
@@ -694,8 +744,10 @@ snapshot's responsibilities; the conversation card, the short-answer binding,
 the answer path and the re-ask scan all read it. A decision binds to its
 targets (responsibility id and revision for every control option). It is
 `waiting`, `answered`, `invalid` (a target moved past its revision or ended)
-or `retired` (a newer proposal, a later message, a sibling answered, or work
-settled elsewhere). Without a snapshot a target-bound decision is not offered.
+or `retired` (a newer proposal, a later user message addressing the same
+responsibilities, a sibling answered, or work settled elsewhere). Unrelated
+messages keep the decision waiting; only the latest message accepts short
+answers. Without a snapshot a target-bound decision is not offered.
 
 The model's `ask` action (`TarsAskActionSchema`) has a question, 2–4 options
 (unique `label` up to 60 characters, one-line `rationale`, `effect`) and an
@@ -731,6 +783,22 @@ of the newest message with nothing said after it. Answering a decision retires
 the other decisions of its message on the same responsibility only, and
 `isCurrentProposal` applies that rule to every confirmation. Typed messages may
 not use `answer:` or `reask:` request ids.
+
+`window.api.tars.dismissDecision` (`tars:dismiss-decision`,
+`TarsDismissInputSchema`: a decision id and `source` `click` or `key`) closes
+one waiting decision without an option. Main checks that it waits and records
+an applied answer with `effect: { kind: "dismiss" }` (`closeDecision`); the same
+dismissal again returns it, an answered decision returns `alreadyAnswered` and
+anything else `notWaiting`. It never reaches the host. The model's `withdraw`
+action (`TarsWithdrawActionSchema`: a `confirm:` or `ask:` decision id only)
+records `effect: { kind: "withdraw", messageId, actionIndex }` with source
+`tars` in the host's admission, settling its receipt `applied` with no
+responsibility, or `rejected` (`stale`, `notOwned`) when the decision no longer
+waits or is not Tars's own. A closure chooses no option, applies nothing and
+retires no sibling. A control proposal and a question also stop waiting once a
+later message exists that is not an automatic follow-up
+(`readMovedOnTarsMessages`); the projection, `pendingDecisions` and
+`isCurrentProposal` read that one rule.
 
 The model's `show` action (`TarsShowActionSchema`: `responsibilityId` and
 `view`, one of `report`, `changes`, `timeline` or `review`; no other field
@@ -776,6 +844,57 @@ The host refuses every action of such a message except `ask`, and an invalid
 decision from it is never asked again. Main wakes the service on the host's
 `snapshot` change events.
 
+### Tars schedules
+
+Tars stores and runs no schedule itself. A schedule it sets up is an
+automation record of the Schedules service
+(`electron/host-service/automation-runtime.ts`), which keeps it, fires it and
+starts its task with its own guards. Tars adds the proposal, the record of
+which schedules it created, and the conversation's record of their runs.
+
+- `TarsScheduleActionSchema` (`src/lib/tars/schedules.ts`) is the planner's
+  `{kind:"schedule", operation}` action: `create`, `update`, `pause`,
+  `resume`, `remove` and `list`. `when` is deliberately loose; the host turns
+  it into a rule with `resolveTarsScheduleRule` (the service's
+  `AutomationScheduleSchema`, or one UTC instant) and refuses an impossible
+  one with a `TarsScheduleReason` instead of failing the reply.
+- `applyTarsDecision` settles a `list` as applied (it only opens the list) and
+  every change as `proposed`, or `rejected` with the reason
+  `createTarsScheduler().proposalRefusal` returns. `tarsFollowUpRefusal`
+  refuses every schedule action from an automatic follow-up.
+- `window.api.tars.previewSchedule` / `confirmSchedule` / `toggleSchedule` /
+  `listSchedules` (`tars:schedule-preview`, `tars:schedule`,
+  `tars:schedule-toggle`, `tars:schedules`) reach the host as
+  `tars.schedule-preview`, `tars.schedule`, `tars.schedule-toggle` and
+  `tars.schedules`. A confirmation carries only its proposal's request id
+  (`schedule:<message>:<index>`), `enable` for a new schedule and its source;
+  the host reads the action from the saved receipt.
+- `confirm` records the request in `tars_schedule_requests`
+  (`TarsScheduleRecordSchema`) before anything changes, then applies it through
+  the service and settles the record, the ownership row and the proposal's
+  receipt in one transaction. The request id is the retry identity. A new
+  schedule's id is derived from it (`tarsScheduleIdFor`) and passed to
+  `AutomationRuntime.create(input, { id })`, which returns the existing
+  schedule for a known id, so a retried or recovered create never makes a
+  second one.
+- `tars_schedules` (`TarsOwnedScheduleSchema`) holds the schedules Tars
+  created with the hash of the content it last saved
+  (`tarsScheduleContentKey`: name, request, workspace, rule, permission mode).
+  An id without a row is refused as `notTarsSchedule`; a row whose schedule is
+  gone as `scheduleGone`; a schedule whose content hash moved as
+  `editedElsewhere`. Turning a schedule on or off is not content.
+- Every schedule Tars saves has `trustPolicy: "review-required"` and
+  `maxConcurrentRuns: 1`; a new one is saved `enabled: false` unless the
+  confirmation carried `enable`.
+- `AutomationRuntimeDependencies.onStateSaved` hands every saved state to
+  `recordTarsScheduleRuns`, which upserts the `scheduled` runs of Tars's
+  schedules into `tars_schedule_runs` (`TarsScheduleRunSchema`, actor
+  `schedule`). `TarsConversation.schedules` and `scheduleRuns` carry the
+  records and the runs to the window.
+- `AutomationUpsertInput.runOnceAt` (optional, UTC) makes a schedule one-time:
+  `resolveNextAutomationRunAt` returns that instant, refuses one that has
+  passed, and a scheduled run turns the schedule off.
+
 ### Event inbox and automatic follow-up
 
 `tars_events` (`TarsEventSchema`) holds one row per observed change of a
@@ -799,19 +918,20 @@ Main processes pending events only when no user message is queued
 (`admitTarsFollowUps`). It reads the decisions projection once, outside the
 write lock; if a message arrived since, invalidated decisions wait for the
 next pass. Per responsibility, the newest event that still stands
-(`isTarsEventCurrent`, and the user has not spoken since) is chosen, the rest
+(`isTarsEventCurrent`, and the user has not addressed that responsibility since) is chosen, the rest
 are `coalesced` or `superseded`; paused, taken-over and ended work never stands.
 One IMMEDIATE transaction then creates the message
 `followup:<event key>` with `origin: { kind: "followUp", eventKey,
 responsibilityId, reason, observedRevision, summary }` and settles the event
 `followedUp`, so a crash never creates two. Budget: once the automatic
-messages (`followUp` and `reask`) since the last user-typed message or chosen
-reply reach the saved `maxTurns`, the event is saved `exhausted` and no model
+messages (`followUp` and `reask`) since the last user action reach
+`TARS_FOLLOW_UP_CAP` (20), independently of execution `maxTurns`, the event is saved `exhausted` and no model
 call starts; past `TARS_FOLLOW_UP_WINDOW_CAP` automatic messages in
 `TARS_FOLLOW_UP_WINDOW_MS`, events stay `pending` and the service sets one
 timer for when the window opens. The count restarts at the user's last action:
-a user-typed message or chosen reply, or any row in `tars_action_records`
-(clicks, Confirm) or `tars_decision_answers`. Right before the planner call
+a user-typed message or chosen reply, or a user-sourced row in `tars_action_records`
+(clicks, Confirm) or `tars_decision_answers`. Automatic controls and Tars-authored
+withdrawals never restart it. Right before the planner call
 (`supersedeStale` → `supersedeStaleTarsFollowUp`), a follow-up whose event no
 longer stands is cancelled and its event set `superseded`, with no model call.
 `applyTarsDecision` refuses, with reason `notByFollowUp` (allowed on every
@@ -911,11 +1031,13 @@ A model-proposed `resume`, `handBack` or `cancel` is checked and saved as a
 `proposed` receipt; only the user's confirming click (`confirm:<message>:<index>`
 request ID, same `act` path, repeating the proposal exactly) applies it, and
 that click's outcome settles the proposal in the same transaction. Pause and
-takeover apply at once. A hand-back during the final stage always replaces its
+takeover apply at once. A hand-back during a stage that may end the run (the
+last stage, or a review whose pass skips the fix stage) always replaces its
 started attempt: a running or user-paused run is held first, then the run's
 `restartStageAndResume` restarts and resumes it in one transition, so a refused
-resume changes nothing. Completion needs a final attempt that started after the
-hand-back. Decisions, controls and
+resume changes nothing. Completion needs an attempt of the last stage that ran
+(`tarsFinalStageRecord`) that started after the hand-back, or unchanged work
+Stave read after it. Decisions, controls and
 responsibility requests have no host request deadline, and main never fences a
 control receipt after a failed delivery: it stays pending until the host's
 idempotent retry settles the run effect and the receipt together. Such an
@@ -953,6 +1075,23 @@ do not replace provider safety controls, and a completion report must not be
 presented as a host check or external-service outcome. The service is desktop
 hosted; there is no corresponding execution service in the browser dev bridge
 or ordinary task Local MCP tool catalog.
+
+`completionGoal` is an optional endpoint admitted with the responsibility and
+delegate action. `tarsObservation` checks the Run's evidence first; a verified
+result stays nonterminal `resultReady` until that endpoint is established.
+`resultVerifiedRunId` and publication's `agentRunId` bind evidence to an execution.
+Only the host's recorded PR fulfills `pullRequest`; a link never proves CI or
+merge. Unknown scope waits for explicit acceptance (`completionConfirmedAt`).
+Restart reads old unscoped completions conservatively without rewriting their
+history or admission hash. A confirmed message to `completed` or `resultReady`
+work enters the persisted delivery ledger, reserves a continuation scope and
+starts or reconciles a Run in the same task and execution workspace.
+`previousRunIds` retains prior executions; report loading and output targets
+include those IDs. `publicationHistory` retains earlier publications while the
+new execution clears active publication, acceptance and verification evidence.
+Completion observation and report projection use execution-specific criteria.
+An uncertain start retains one concurrency slot until reconciled; cancellation
+reconciles without starting work, then stops the actual Run.
 
 Focused coverage: `tests/tars-store.test.ts`,
 `tests/tars-runtime.test.ts`, `tests/tars-control.test.ts`,

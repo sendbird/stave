@@ -439,7 +439,10 @@ describe("MarkdownMessage", () => {
       }),
     );
 
-    expect(html).toContain('style="font-size:18px;line-height:1.68"');
+    // The root publishes the conversation's type scale for an 18px chat font size.
+    expect(html).toContain(
+      'style="--chat-type-body:18px;--chat-type-secondary:max(var(--aui-font-size-caption), 16px);--chat-type-meta:max(var(--aui-font-size-micro), 14px);font-size:18px;line-height:1.55"',
+    );
     expect(html).toContain('style="font-size:14px"');
   });
 
@@ -587,5 +590,68 @@ describe("formatFileLinkLocation", () => {
     expect(formatFileLinkLocation({ line: 42 })).toBe("L42");
     expect(formatFileLinkLocation({ line: 42, column: 7 })).toBe("L42:C7");
     expect(formatFileLinkLocation({})).toBeNull();
+  });
+});
+
+/**
+ * Tars writes short status lines one per line. With one newline between them
+ * they used to share one pre-wrap paragraph and stack at the bare line pitch,
+ * so a new statement looked like a long line wrapping.
+ */
+describe("MarkdownMessage lineBreaks", () => {
+  const renderLines = (content: string, lineBreaks?: "line" | "paragraph") =>
+    renderToStaticMarkup(
+      createElement(MarkdownMessage, { content, lineBreaks, messageCodeFontSize: 14, messageFontSize: 16 }),
+    );
+  const paragraphs = (html: string) => html.match(/<p\b/g)?.length ?? 0;
+  const statusLines = "Next: split the work.\nNext: verify it.\nNeeds you: approve the card.";
+
+  test("by default one newline stays a line break inside one paragraph", () => {
+    const html = renderLines(statusLines);
+    expect(paragraphs(html)).toBe(1);
+    expect(html).toContain("Next: split the work.\nNext: verify it.");
+  });
+
+  test("paragraph mode gives each line its own paragraph with the message paragraph style", () => {
+    const html = renderLines(statusLines, "paragraph");
+    expect(paragraphs(html)).toBe(3);
+    expect(html).not.toContain("work.\nNext");
+    expect(html.match(new RegExp(`class="${sx(markdownStyles.paragraph)}"`, "g"))?.length).toBe(3);
+  });
+
+  test("blank-line paragraphs, inline formatting and hard breaks keep their meaning", () => {
+    const html = renderLines("**Next:** split the `work`.\nThen [verify](https://example.com) it.  \nsame paragraph\n\nNew paragraph.", "paragraph");
+    expect(paragraphs(html)).toBe(3);
+    expect(html).toContain("<strong");
+    expect(html).toContain("<code");
+    expect(html).toContain("<br/>");
+  });
+
+  test("lists, code and tables are left as they were", () => {
+    const content = "- first item\n  continues\n- second\n\n```ts\nconst a = 1;\nconst b = 2;\n```\n\n| a | b |\n| - | - |\n| 1 | 2 |";
+    const html = renderLines(content, "paragraph");
+    expect(html).toBe(renderLines(content, "line"));
+  });
+
+  test("newlines inside inline formatting and links do not split their nodes", () => {
+    const content = "**two\nlines** and [a\nlabel](https://example.com)\nNext statement.";
+    const html = renderLines(content, "paragraph");
+    expect(paragraphs(html)).toBe(2);
+    expect(html).toContain("two\nlines</strong>");
+    expect(html).toContain("a\nlabel");
+  });
+
+  test("paragraph rendering cannot change a cached default-mode response", () => {
+    expect(paragraphs(renderLines(statusLines, "paragraph"))).toBe(3);
+    expect(paragraphs(renderLines(statusLines))).toBe(1);
+    expect(paragraphs(renderLines(statusLines, "paragraph"))).toBe(3);
+  });
+
+  test("streaming and settled paragraph mode keep the same line structure", () => {
+    const props = { content: statusLines, lineBreaks: "paragraph" as const, messageCodeFontSize: 14, messageFontSize: 16 };
+    const streaming = renderToStaticMarkup(createElement(MarkdownMessage, { ...props, isStreaming: true }));
+    const settled = renderToStaticMarkup(createElement(MarkdownMessage, { ...props, isStreaming: false }));
+    expect(streaming.replace(' data-streaming="true"', "")).toBe(settled);
+    expect(paragraphs(streaming)).toBe(3);
   });
 });

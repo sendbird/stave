@@ -232,16 +232,12 @@ export function StatusBar() {
   // The bar is a home for meters, not chrome of its own: with no usage
   // provider connected and no developer segment it has nothing to say, so it
   // takes no row. The polling above keeps running either way.
-  if (usageSegments.length === 0 && !developerModeEnabled) {
-    return null;
-  }
-
   return (
     <footer
       aria-label={t("shell:statusBar.label")}
       // The toast stack sits above the bar, never on its meters.
       data-toast-avoid=""
-      {...stylex.props(layoutShellStyles.statusBar)}
+      {...stylex.props(layoutShellStyles.statusBar, usageSegments.length === 0 && !developerModeEnabled && visibility.hidden)}
     >
       <div {...stylex.props(usageStripStyles.container)}>
         {usageSegments.map(({ segment, account }) => (
@@ -256,10 +252,10 @@ export function StatusBar() {
         ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
-        {developerModeEnabled ? (
-          <StatusBarMemorySegment labelBreakpoint={resourceLabelBreakpoint} />
-        ) : null}
+        <StatusBarMemorySegment labelBreakpoint={resourceLabelBreakpoint} hideTrigger={!developerModeEnabled} />
       </div>
     </footer>
   );
 }
+
+const visibility = stylex.create({ hidden: { display: "none" } });

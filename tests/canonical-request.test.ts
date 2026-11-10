@@ -516,6 +516,8 @@ describe("first-turn-only retrieved context gating", () => {
       [
         STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
         STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
+        "tars:mandate",
+        "tars:portfolio",
       ].sort(),
     );
   });

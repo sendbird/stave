@@ -450,11 +450,6 @@ export function CraneConnectorSettingsSection() {
             </div>
           )}
 
-          {status?.connector ? (
-            <p className={sx(styles.infoNote)}>
-              {t("settingsConnections:settingsDialogCraneConnector.craneAndMartinShareThisOne")}</p>
-          ) : null}
-
           {status && !status.secureStorageAvailable ? (
             <p className={sx(styles.warning)}>
               {t("settingsConnections:settingsDialogCraneConnector.osCredentialEncryptionIsUnavailablePairing")}</p>

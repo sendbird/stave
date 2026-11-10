@@ -1,3 +1,12 @@
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs, type SetTaskReadStatesResult, type TaskReadNotificationChange, type TaskReadState, type TaskReadTarget } from "../../src/lib/task-read-state";
+import {
+  APP_NOTIFICATION_KINDS,
+  buildNotificationExpiresAt,
+  isNotificationAttentionKind,
+  isTaskCompletionNotificationKind,
+  isTaskReadAttentionKind,
+  type AppNotificationKind,
+} from "../../src/lib/notifications/notification.types";
 import type {
   ListResultReviewsArgs,
   ResultReview,
@@ -42,11 +51,71 @@ function sourcePredicate(prefix: string) {
     AND length(trim(${prefix}turn_id)) > 0`;
 }
 
+const sqlKinds = (predicate: (kind: AppNotificationKind) => boolean) =>
+  APP_NOTIFICATION_KINDS.filter(predicate).map(kind => `'${kind}'`).join(", ");
+const READ_ATTENTION_KINDS_SQL = sqlKinds(isTaskReadAttentionKind);
+const PENDING_ATTENTION_KINDS_SQL = sqlKinds(isNotificationAttentionKind);
+const COMPLETION_KINDS_SQL = sqlKinds(isTaskCompletionNotificationKind);
+/** Targets travel as one JSON array so a batch is one statement, not one per task. */
+const TARGETS_CTE = `WITH targets(ord, workspace_id, task_id) AS (
+  SELECT CAST(key AS INTEGER), json_extract(value, '$[0]'), json_extract(value, '$[1]') FROM json_each(?))`;
+const IN_TARGETS = "(workspace_id, task_id) IN (SELECT workspace_id, task_id FROM targets)";
+const LATEST_RESULT_ID = `(SELECT r.id FROM result_reviews r WHERE r.workspace_id = t.workspace_id AND r.task_id = t.task_id
+  ORDER BY r.created_at DESC, r.id DESC LIMIT 1)`;
+const NOTIFICATION_CHANGE = "RETURNING id, read_at AS readAt, expires_at AS expiresAt";
+const encodeTargets = (targets: readonly TaskReadTarget[]) =>
+  JSON.stringify(targets.map(target => [target.workspaceId, target.taskId]));
+/** Read sets the usual retention, except on attention that is still answerable. */
+const READ_NOTIFICATION_SET = `read_at = COALESCE(read_at, ?), expires_at = CASE
+  WHEN kind IN (${PENDING_ATTENTION_KINDS_SQL}) AND resolved_at IS NULL THEN NULL
+  ELSE COALESCE(expires_at, ?) END`;
+
+function prepareTaskReadStatements(db: ReviewDatabase) {
+  return {
+    list: db.prepare(`${TARGETS_CTE}
+      SELECT t.workspace_id AS workspaceId, t.task_id AS taskId,
+        (SELECT r.reviewed_at IS NULL FROM result_reviews r WHERE r.workspace_id = t.workspace_id AND r.task_id = t.task_id
+          ORDER BY r.created_at DESC, r.id DESC LIMIT 1) AS latestUnread,
+        EXISTS (SELECT 1 FROM notifications n WHERE n.workspace_id = t.workspace_id AND n.task_id = t.task_id
+          AND n.kind IN (${READ_ATTENTION_KINDS_SQL}) AND n.read_at IS NULL AND n.resolved_at IS NULL) AS attention,
+        EXISTS (SELECT 1 FROM task_read_marks m WHERE m.workspace_id = t.workspace_id AND m.task_id = t.task_id) AS manual
+      FROM targets t ORDER BY t.ord`),
+    readOutputs: db.prepare(`${TARGETS_CTE}
+      UPDATE result_reviews SET reviewed_at = COALESCE(reviewed_at, ?)
+      WHERE id IN (SELECT ${LATEST_RESULT_ID} FROM targets t)`),
+    unreadOutputs: db.prepare(`${TARGETS_CTE}
+      UPDATE result_reviews SET reviewed_at = NULL
+      WHERE id IN (SELECT ${LATEST_RESULT_ID} FROM targets t)`),
+    readNotifications: db.prepare(`${TARGETS_CTE}
+      UPDATE notifications SET ${READ_NOTIFICATION_SET}
+      WHERE read_at IS NULL AND ${IN_TARGETS}
+        AND (kind IN (${COMPLETION_KINDS_SQL}) OR (kind IN (${READ_ATTENTION_KINDS_SQL}) AND resolved_at IS NULL))
+      ${NOTIFICATION_CHANGE}`),
+    readAttention: db.prepare(`${TARGETS_CTE}
+      UPDATE notifications SET ${READ_NOTIFICATION_SET}
+      WHERE read_at IS NULL AND ${IN_TARGETS} AND kind IN (${READ_ATTENTION_KINDS_SQL}) AND resolved_at IS NULL
+      ${NOTIFICATION_CHANGE}`),
+    // Unread reopens only the latest output's completion, and clears expiry so
+    // retention cannot prune what the user asked to keep unread.
+    unreadNotifications: db.prepare(`${TARGETS_CTE}
+      UPDATE notifications SET read_at = NULL, expires_at = NULL
+      WHERE (read_at IS NOT NULL OR expires_at IS NOT NULL) AND (
+        (kind IN (${READ_ATTENTION_KINDS_SQL}) AND resolved_at IS NULL AND ${IN_TARGETS})
+        OR (kind IN (${COMPLETION_KINDS_SQL}) AND (workspace_id, task_id, turn_id) IN (
+          SELECT r.workspace_id, r.task_id, r.turn_id FROM targets t JOIN result_reviews r ON r.id = ${LATEST_RESULT_ID})))
+      ${NOTIFICATION_CHANGE}`),
+    deleteMarks: db.prepare(`${TARGETS_CTE} DELETE FROM task_read_marks WHERE ${IN_TARGETS}`),
+    insertMarks: db.prepare(`${TARGETS_CTE}
+      INSERT OR IGNORE INTO task_read_marks (workspace_id, task_id) SELECT workspace_id, task_id FROM targets`),
+  };
+}
+
 /** Result history has no notification-retention dependency. Both host and
  * renderer notifications enter this transactionally, including replay. */
 export class ResultReviewStore {
   constructor(private readonly db: ReviewDatabase) {
     db.exec(`
+      CREATE TABLE IF NOT EXISTS task_read_marks (workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, PRIMARY KEY(workspace_id, task_id));
       CREATE TABLE IF NOT EXISTS result_reviews (
         id TEXT NOT NULL PRIMARY KEY,
         project_path TEXT NOT NULL, project_name TEXT NOT NULL,
@@ -91,6 +160,59 @@ export class ResultReviewStore {
     const columns = db.prepare("PRAGMA table_info(result_reviews)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "marked_reviewed_at")) {
       db.exec("ALTER TABLE result_reviews ADD COLUMN marked_reviewed_at TEXT");
+    }
+  }
+
+  /** Prepared on first use: the notifications table is created by its own store. */
+  private taskReadStatementCache: ReturnType<typeof prepareTaskReadStatements> | null = null;
+  private get taskReadStatements() {
+    return (this.taskReadStatementCache ??= prepareTaskReadStatements(this.db));
+  }
+
+  /** One query for every target, whatever the batch size. */
+  listTaskReadStates(input: ListTaskReadStatesArgs): TaskReadState[] {
+    const args = ListTaskReadStatesArgsSchema.parse(input);
+    if (!args.targets.length) return [];
+    const rows = this.taskReadStatements.list.all(encodeTargets(args.targets)) as Array<{
+      workspaceId: string; taskId: string; latestUnread: number | null; attention: number; manual: number;
+    }>;
+    return rows.map(row => ({
+      workspaceId: row.workspaceId,
+      taskId: row.taskId,
+      unread: Boolean(row.latestUnread === 1 || row.attention || (row.latestUnread === null && row.manual)),
+    }));
+  }
+
+  /**
+   * Completion read state remains in result_reviews; task_read_marks only holds
+   * a manual reminder for tasks with no output. The task's completion and
+   * attention notifications follow the same mark so the bell count agrees.
+   * Reading never resolves attention.
+   */
+  setTaskReadStates(input: SetTaskReadStatesArgs): SetTaskReadStatesResult {
+    const args = SetTaskReadStatesArgsSchema.parse(input);
+    const statements = this.taskReadStatements;
+    const targets = encodeTargets(args.targets);
+    const now = new Date().toISOString();
+    const expiresAt = buildNotificationExpiresAt({ readAt: now });
+    this.db.exec("SAVEPOINT set_task_read_state");
+    try {
+      let notifications: TaskReadNotificationChange[];
+      if (args.read) {
+        if (!args.attentionOnly) statements.readOutputs.run(targets, now);
+        notifications = (args.attentionOnly ? statements.readAttention : statements.readNotifications)
+          .all(targets, now, expiresAt) as TaskReadNotificationChange[];
+        statements.deleteMarks.run(targets);
+      } else {
+        statements.unreadOutputs.run(targets);
+        notifications = statements.unreadNotifications.all(targets) as TaskReadNotificationChange[];
+        statements.insertMarks.run(targets);
+      }
+      const states = this.listTaskReadStates({ targets: args.targets });
+      this.db.exec("RELEASE set_task_read_state");
+      return { states, notifications };
+    } catch (error) {
+      this.db.exec("ROLLBACK TO set_task_read_state"); this.db.exec("RELEASE set_task_read_state"); throw error;
     }
   }
 

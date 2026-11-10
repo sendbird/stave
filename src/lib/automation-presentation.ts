@@ -6,7 +6,7 @@
  * scheduling math.
  */
 import { i18n, type TFunction, type I18nKey } from "@/i18n/runtime";
-import { formatDate, formatList, formatTime } from "@/i18n/format";
+import { formatDate, formatDateTime, formatList, formatTime } from "@/i18n/format";
 import {
   AUTOMATION_SCHEDULE_ISSUE_MESSAGES,
   AUTOMATION_WEEKEND_WEEKDAYS,
@@ -171,6 +171,21 @@ export function formatAutomationSchedule(
   return options.compact && schedule.every === 1
     ? t(EVERY_ONE_KEYS[shape], values)
     : t(EVERY_KEYS[shape], { ...values, count: schedule.every });
+}
+
+/**
+ * When a schedule runs, in one sentence: its cadence, or for a one-time
+ * schedule the instant it runs ("Once on Nov 11, 2026, 3:00 PM"), in this
+ * computer's time zone.
+ */
+export function formatAutomationCadence(
+  automation: { schedule: AutomationSchedule; runOnceAt?: string | undefined },
+  t: TFunction<["automation"]> = i18n.getFixedT(null, ["automation"]),
+  options: { compact?: boolean } = {},
+): string {
+  return automation.runOnceAt !== undefined
+    ? t("automation:scheduleText.once", { when: formatDateTime(automation.runOnceAt) })
+    : formatAutomationSchedule(automation.schedule, t, options);
 }
 
 const CADENCE_PRESET_KEYS = {

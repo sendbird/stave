@@ -11,6 +11,7 @@ import type {
   WakeUpUpsertInput,
 } from "../../src/lib/supervision/wake-up-policy";
 import type { WakeUpSnapshot } from "../host-service/wake-up-runtime";
+import type { WakeUpSyncSettings } from "../../src/lib/supervision/wake-up-bridge";
 import { invokeHostService } from "./host-service-client";
 
 function invokeWakeUp<TResult>(
@@ -36,6 +37,15 @@ export function getWakeUp(args: { id: string }) {
 
 export function createWakeUp(input: WakeUpUpsertInput) {
   return invokeWakeUp<WakeUp>("create", input);
+}
+
+/** A pull request watch Stave adds on its own (after Create PR). */
+export function createAutomaticWakeUp(input: WakeUpUpsertInput) {
+  return invokeWakeUp<WakeUp>("create-automatic", input);
+}
+
+export function syncWakeUpSettings(settings: WakeUpSyncSettings) {
+  return invokeWakeUp<{ ok: true }>("sync-settings", settings);
 }
 
 export function updateWakeUp(args: {

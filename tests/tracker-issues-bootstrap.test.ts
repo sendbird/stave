@@ -104,7 +104,7 @@ describe("tracker issues bootstrap", () => {
         maxResults: 25,
       });
       expect(trackerConfigured).toEqual([
-        expect.objectContaining({ sourceEnabled: { crane: true } }),
+        expect.objectContaining({ sourceEnabled: { crane: true, github: false } }),
       ]);
 
       // Later edits are pushed by Settings → Integrations, not again here.

@@ -23,7 +23,7 @@ describe("a helper of the run that waits on the user", () => {
     for (const status of ["blocked", "stuck", "awaiting-sign-off"] as const)
       expect(tarsHelperObservation([{ detail: helperRunDetail({ status, turnCount: 2 }), pendingRequests: 0 }])).toEqual({
         state: "waiting", detail: TEAM.question, stageAsksUser: true, stageWait: waits[status], waitingTaskId: TEAM.helperTaskId, runTurns: 2,
-        runStage: `${TEAM.helperRunId}/${helperRunDetail().agentRun.workflow.stages[0]!.id}#1` });
+        runStage: `${TEAM.helperRunId}/${helperRunDetail().agentRun.workflow.stages[0]!.id}#1:${helperRunDetail().stages[0]!.reportRevision}` });
     expect(tarsHelperObservation([{ detail: helperRunDetail({ status: "running" }), pendingRequests: 0 }])).toBeNull();
     expect(tarsHelperObservation([])).toBeNull();
   });
@@ -57,6 +57,7 @@ function runHostScenario() {
     import { tmpdir } from "node:os";
     import path from "node:path";
     import { TarsStore } from "./electron/persistence/tars-store";
+    import { TarsConversationStore } from "./electron/persistence/tars-conversation-store";
     import { TEAM, helperAuthority, helperRunDetail, leadRunDetail } from "./tests/fixtures/tars-helper-runs";
     const directory = mkdtempSync(path.join(tmpdir(), "tars-helper-wait-"));
     const filename = path.join(directory, "store.sqlite");
@@ -74,7 +75,7 @@ function runHostScenario() {
       repositoryPath: TEAM.repositoryPath };
     const persistence = {
       tars,
-      tarsConversations: { getSettings: () => null },
+      tarsConversations: new TarsConversationStore(db),
       agentAssignments: { getByTaskId: () => assignment, getByRequestId: () => assignment },
       agentRuns: {
         getLatestAgentRunForTask: (task) => task === taskId ? lead().agentRun : null,
@@ -94,7 +95,7 @@ function runHostScenario() {
     const { createHostTarsRuntime } = await import("./electron/host-service/tars-host");
     const agentRuns = { get: async ({ agentRunId }) => agentRunId === TEAM.leadRunId ? lead() : helper };
     let runtime = createHostTarsRuntime({ agentRuns, assignments: {} });
-    const restart = () => { runtime.stop(); db.close(); db = new Database(filename); tars = new TarsStore(db); persistence.tars = tars;
+    const restart = () => { runtime.stop(); db.close(); db = new Database(filename); tars = new TarsStore(db); persistence.tars = tars; persistence.tarsConversations = new TarsConversationStore(db);
       runtime = createHostTarsRuntime({ agentRuns, assignments: {} }); };
     const tick = async () => { runtime.requestTick(); await runtime.drain(); };
     const look = () => ({ row: tars.get(id), asks: tars.events.listRecent(100).filter((event) => event.kind === "stageAsksUser").length });

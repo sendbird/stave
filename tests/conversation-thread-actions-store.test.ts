@@ -158,6 +158,9 @@ describe("conversation thread store actions", () => {
     const state = useAppStore.getState();
     expect(forkedTaskId).toBeString();
     expect(state.activeTaskId).toBe(forkedTaskId);
+    expect(state.tasks.find((task) => task.id === forkedTaskId)?.forkParent).toEqual({
+      taskId: "task-1", workspaceId: "ws-1", messageId: "m-2",
+    });
     expect(
       state.tasks.find((task) => task.id === forkedTaskId)?.provider,
     ).toBe("claude-code");

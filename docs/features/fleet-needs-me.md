@@ -301,6 +301,55 @@ Fleet item, and the task records the answer the same way.
 3. Stave opens the matching repository, workspace, and task before showing the
    request or result.
 
+## Select And Control Multiple Tasks
+
+Tree, Table and Cards share a selection. Use the row checkbox, Cmd/Ctrl-click
+for individual tasks, or Shift-click for a range in the visible order. With a
+row focused, X toggles it, Shift+Arrow extends the range, Cmd/Ctrl+A selects all
+visible tasks, and Esc clears the selection. Filters apply to Select all;
+hidden tasks leave the selection. Re-sorting keeps the same selected tasks.
+Selecting a group selects its visible tasks. The selected count is announced.
+
+The selection toolbar appears only while tasks are selected and stays on one
+line. It shows the count, a clear button (Esc), Stop and Archive. Snooze opens a
+menu for 1 hour, 4 hours, 1 day or 1 week. More contains Mark read, Mark reviewed,
+Open for a single task, and Delete permanently. On narrow widths, primary actions
+move into More. Actions without eligible items are hidden; each action's count
+and confirmation use only eligible tasks. The header's standalone Stop all
+button appears while work is running.
+
+Stop applies only to running work. It stops the parent turn before its running
+descendants, preventing further delegation during the stop. Finished descendants
+remain untouched. Owner-managed work goes through its owner or is skipped; a
+refused pause never directly cancels its children. The stop preview is read only
+when Stop or Stop all is opened, and lists turns, children, runs and owned work.
+
+Archive skips live turns, pending approvals or questions, running children,
+running agent runs and protected tasks, with a reason for each skipped item.
+Archive and Snooze offer Undo in the result toast and with Cmd/Ctrl+Z while that
+toast is available. Mark all read in the command palette asks for confirmation
+because read marks cannot be undone. A repository-scoped stop command limits
+its action to one repository. Archive and Undo keep the current workspace open.
+
+**Delete permanently** requires archiving first and a separate confirmation
+that counts eligible tasks and warns that deletion cannot be undone. Cancel has
+the initial focus; Enter does not confirm unless the destructive button is
+explicitly focused. Live work, pending requests or protection prevents deletion.
+Deletion removes task records and related execution and attention history.
+Ended children keep their content and become independent Task History entries.
+Deleting a child keeps its parent's history and detaches only the child link.
+
+Task History supports selecting several visible entries, **Restore (n)** and
+**Delete permanently (n)**. Restore opens the selected archived tasks or closed
+tabs. A task that cannot be restored or deleted is counted as skipped, and the
+remaining tasks continue.
+
+Tree and Table offer an optional, saved **Group by status** choice. It orders
+tasks as Needs you, Working, Ready for review, Idle and Ended. Ready for review
+includes finished work with unread results or open pull-request states. Each
+group shows its task count and can select its visible tasks. The existing
+layout and grouping remain the default.
+
 ## Files And Data
 
 - Fleet does not create a separate task ledger or execution database.
@@ -401,3 +450,56 @@ Fleet item, and the task records the answer the same way.
 ## Global surfaces and navigation
 
 Fleet, Agents, Schedules, Issues, and AI usage share a page header. Closing a global surface returns one step through navigation history. Back and Forward also include global surfaces. F6 and Shift+F6 cycle window regions; Skip to content moves directly to the main area. The sidebar marks the current surface and labels its repository/work queue view switch. Counts use warning colour only when user attention is required. Without repositories, Fleet offers one Open repository action and hides its filters and board controls.
+
+Bulk task archive skips archived or permanently deleted workspaces with a translated reason. Restore an archived workspace before changing its tasks. The cleanup center uses the same persisted running-work preview as Fleet Stop, including unfinished turns, running descendants and active runs.
+
+## Task reading and ordering
+
+An unseen dot on task tabs, sidebar tasks and Fleet rows means a finished or
+failed result, or a request for attention, has not been seen. Opening a task
+in the focused window reads it; merely expanding a Fleet row does not.
+Use **Mark as unread** to return to a task later, or **Mark as read** to clear
+its dot. Fleet's selection **More** menu offers **Mark as read (n)** and
+**Mark as unread (n)** for the selected tasks, saved in one write. An unread
+mark stays after the window regains focus; it clears when you open the task
+again.
+
+The latest output's existing read mark is the source of truth for completion
+reading. Reading a task reads its latest output and attention notification history without
+approving a request, resolving a blocker or explicitly marking a result as
+reviewed. Marking a task unread also marks its latest output unread. The
+task's completion notifications follow the same mark, so the notification
+count changes with it. The separate manual mark covers tasks without an
+output. These marks survive
+restarts; reading an older output cannot hide a newer unread completion.
+
+Pin tasks from Task History or the sidebar task row. Task pins are separate
+from pane tab pins. In Task History, pinned tasks come first. In the sidebar,
+running and waiting tasks still come first, and a pin lifts a task within its
+status.
+
+Task History defaults to activity order. Drag a task onto another task, or
+focus its row and press `Alt + Up/Down`, to place it. A placed task keeps its
+position when its activity changes; tasks you have not placed, including new
+and newly closed ones, still enter by activity. Under a search, a moved task
+lands between the visible tasks around it. **Reset order** returns every task
+to activity order. Pinning or reordering another workspace's history does not
+switch to that workspace; only reopening a task does.
+
+Under each workspace, the sidebar lists open tasks only when one is running,
+waiting, unread or pinned, at most three, with the rest behind **+N more**.
+
+## Scale
+
+The table windows task rows and group headings inside its scroll area. Each
+group shows one selection control: its heading row, which stays under the column
+header while that group's rows are at the top. Selection and keyboard navigation
+use the complete filtered order, including rows outside the viewport, and a
+focused row stays in place when you scroll away from it. Moving focus scrolls
+only when the next row is out of view. Group selection and select-all still
+exclude filtered or collapsed items.
+
+A long Tree is one list that scrolls with the board, group headings included;
+↑/↓ (or k/j) step through every card across groups and wrap at the ends, at any
+list size. A repository with many workspace cards scrolls with the board too,
+and the cards in one row keep one height.

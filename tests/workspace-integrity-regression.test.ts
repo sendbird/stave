@@ -73,8 +73,8 @@ afterEach(() => {
 });
 
 describe("workspace integrity regressions", () => {
-  test.each(["Current workspace", "Agent running"])("bulk cleanup stops after the notification await: %s", async (blocker) => {
-    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage() };
+  test.each(["Current workspace", "Agent running"])("bulk cleanup stops after the snapshot await: %s", async (blocker) => {
+    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage(), api: { workspaceCleanup: { act: async () => ({ ok: true }) } } };
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
@@ -87,14 +87,14 @@ describe("workspace integrity regressions", () => {
       workspacePathById: { current: REPOSITORY_PATH, old: `${REPOSITORY_PATH}/old` },
       workspaceDefaultById: { current: true },
       activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
-      purgeWorkspaceNotifications: async () => {
+      flushActiveWorkspaceSnapshot: async () => {
         useAppStore.setState(blocker === "Current workspace"
           ? { activeWorkspaceId: "old" }
           : { activeTurnIdsByTask: { job: "turn" }, taskWorkspaceIdById: { job: "old" } });
       },
     });
     await expect(useAppStore.getState().closeWorkspace({
-      workspaceId: "old", deleteBranch: false, onlyIfInactive: true,
+      workspaceId: "old", onlyIfInactive: true,
     })).rejects.toThrow(blocker);
     expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["current", "old"]);
   });
@@ -102,7 +102,7 @@ describe("workspace integrity regressions", () => {
   test("bulk cleanup preserves the current session without an asynchronous workspace switch", async () => {
     (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage() };
     const { useAppStore } = await import("../src/store/app.store");
-    const { waitForPendingWorkspaceArchiveCleanups } = await import("../src/store/workspace-archive-cleanup");
+    Object.assign(window, { api: { workspaceCleanup: { act: async () => ({ ok: true }) } } });
     const switchedTo: string[] = [];
     const currentTask = createTask("current-task");
     useAppStore.setState({
@@ -115,7 +115,7 @@ describe("workspace integrity regressions", () => {
       workspacePathById: { base: REPOSITORY_PATH, current: `${REPOSITORY_PATH}/current`, old: `${REPOSITORY_PATH}/old` },
       workspaceDefaultById: { base: true },
       activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
-      purgeWorkspaceNotifications: async () => {},
+      flushActiveWorkspaceSnapshot: async () => {},
       flushRepositoryRegistry: async () => {},
       switchWorkspace: async ({ workspaceId }) => {
         switchedTo.push(workspaceId);
@@ -123,15 +123,13 @@ describe("workspace integrity regressions", () => {
         useAppStore.setState({ activeWorkspaceId: workspaceId, activeTurnIdsByTask: { job: "turn" }, taskWorkspaceIdById: { job: "old" } });
       },
     });
-    try {
-      await useAppStore.getState().closeWorkspace({ workspaceId: "old", deleteBranch: false, onlyIfInactive: true });
+    {
+      await useAppStore.getState().closeWorkspace({ workspaceId: "old", onlyIfInactive: true });
       expect(switchedTo).toEqual([]);
       expect(useAppStore.getState().activeWorkspaceId).toBe("current");
       expect(useAppStore.getState().activeTaskId).toBe(currentTask.id);
       expect(useAppStore.getState().tasks).toEqual([currentTask]);
       expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["base", "current"]);
-    } finally {
-      await waitForPendingWorkspaceArchiveCleanups();
     }
   });
 

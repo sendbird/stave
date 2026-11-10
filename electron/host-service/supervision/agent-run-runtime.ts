@@ -1,4 +1,7 @@
+import { resolveAgentRunUsageLimitResumeAt, resolveUsageLimitRetryAt } from "../../../src/lib/agent-runs/usage-limit";
+import { agentRunBrowserRequested } from "./agent-run-browser";
 import { i18n } from "../../../src/i18n/runtime";
+import { buildTarsRunCommand } from "../tars-ownership";
 import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
 import { mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
 import type { RunQuestionAnswer } from "../run-question-answer";
@@ -40,6 +43,7 @@ import { readTeamProviderUsage } from "./provider-usage-context";
 import { selectAdaptiveRoute, type AgentRunReplyComposer, type AgentRunReplyRouteNote } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
 import { prepareRunTurn } from "./turn-preparation";
+import { createRunOperationQueues } from "./run-operation-queues";
 import { DelegatedAgentRunAuthoritySchema, type DelegatedAgentRunAuthority, type DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
 import { isReadOnlyDelegationPolicy } from "../../../src/lib/runs/delegation-policy";
@@ -158,6 +162,7 @@ import type { AgentRunStore } from "../../persistence/agent-run-store";
 import type { AgentRunStageGrant } from "../../providers/agent-run-grants";
 import type { TaskSupervisionSnapshot } from "../local-mcp-runtime";
 import type { HostAgentRunAction } from "../protocol";
+import { agentRunTurnStartFailureDetail } from "../../../src/lib/agent-runs/turn-start-failure";
 
 /** Faster than wake-ups: an agent run is actively waiting on its own turns. */
 const AGENT_RUN_TICK_INTERVAL_MS = 5_000;
@@ -174,7 +179,7 @@ const DETAIL_EVENT_LIMIT = 200;
  */
 const EVENT_WAIT_READ_DEADLINE_MS = 5 * 60_000;
 
-/** A pull request read a waiting run started outside the chain; a later tick applies it. */
+/** A pull request read a waiting run started outside its queue; a later tick applies it. */
 interface PendingPullRequestRead {
   waitId: string;
   controller: AbortController;
@@ -205,6 +210,7 @@ type AgentRunStorePort = Pick<
   | "listRecentAgentRuns"
   | "listRecentEvents"
   | "listEventsByKind"
+  | "latestEventSequence"
 > & Partial<Pick<AgentRunStore, "resourceConfig" | "readResources" | "reserveChildResources" | "consumeResourceTurn" | "releaseResourceReservation" | "helperTurnRefusal">>;
 
 export interface AgentRunTurnRow {
@@ -224,10 +230,15 @@ function endedWithoutOutput(row: AgentRunTurnRow): boolean {
   return Boolean(row.completedAt) && row.terminalReceipt?.outcome === "failed" && row.terminalReceipt.outputObserved === false;
 }
 
+/** Host-only admission identity; never part of renderer/IPC start input. */
+export interface AgentRunAdmission { tarsResponsibilityId: string }
+
 export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies {
+  dailyUsageLimit?: (providerId: AgentRun["fingerprint"]["providerId"]) => string | null;
+  hasPendingControl?: (taskId: string) => boolean;
   store: AgentRunStorePort;
   prepareGatewayCredentials?: (args: { accounts: ProviderAccountSelection; signal: AbortSignal }) => Promise<import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined>;
-  freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection }) => AdaptiveRunPolicy;
+  freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection; admission?: AgentRunAdmission }) => AdaptiveRunPolicy;
   stopResourceTask?: (args: { workspaceId: string; taskId: string }) => Promise<unknown>;
   resourceExecutionLive?: (childRunId: string, executionId: string) => boolean;
   delegatedAssignment?: (taskId: string) => AgentAssignment | null;
@@ -246,6 +257,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   }) => AgentRunTurnRow[];
   runSupervisedTurn: (args: {
     gatewayCredentials?: import("../../provider-accounts/gateway-runtime").GatewayCredentials;
+    /** A reply or an answer the user sent through the run: admitted as a user turn. */
+    admissionPriority?: "user";
     workspaceId: string;
     taskId: string;
     parentTaskId?: string;
@@ -280,11 +293,14 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   userPermissionOptions?: (providerId: AgentRunFingerprint["providerId"]) => ProviderRuntimeOptions | undefined;
   /** Closes a turn left open by a stopped host; true when it was open. */
   completeInterruptedTurn: (turnId: string) => boolean;
+  /** A turn the admission queue holds or restored; the boot sweep leaves it running. */
+  isQueuedTurn?: (turnId: string) => boolean;
   countActiveDelegatedTasks: (taskId: string) => number;
   /** Whether the Local MCP server the model reports through is up. */
   isReportingAvailable: (options?: { fresh?: boolean }) => Promise<boolean>;
   resolveAgentRunGrant: (agentRunKey: string) => AgentRunStageGrant | null;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
+  archiveReportArtifacts?: (args: { artifacts: import("../../../src/lib/agent-runs/artifacts").ReportArtifact[]; previousArtifacts: import("../../../src/lib/agent-runs/artifacts").ReportArtifact[]; workspaceId: string; agentRunId: string; taskId: string; turnId: string }) => Promise<import("./report-artifacts").ArchivedReportArtifacts>;
   readHeadSha: (cwd: string) => Promise<string | null>;
   readWorkspaceRevision?: (cwd: string) => Promise<import("../../../src/lib/agent-runs/verification-contract").WorkspaceRevision>;
   collectStageFacts: (args: {
@@ -345,7 +361,7 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   readObservedTurnEnding?: (turnId: string) => AgentRunRouteTurnFacts["ending"];
   /**
    * The wake-up runtime's pull request watch reader, for a run waiting on a
-   * pull request's checks or review. It runs outside the tick chain; Pause,
+   * pull request's checks or review. It runs outside the run's queue; Pause,
    * Stop and Cancel abort `signal`. Absent: such a wait is refused.
    */
   readPullRequestWatch?: (args: {
@@ -398,19 +414,21 @@ export interface AgentRunRuntime {
   start: () => void;
   stop: () => void;
   /**
-   * Evaluates active agent runs now instead of at the next interval. Resolves
-   * when that tick has run; a tick already queued is shared.
+   * Evaluates every active agent run now, each on its own queue, instead of at
+   * the next interval. Resolves once each run's evaluation has run; a run whose
+   * evaluation is already queued shares it.
    */
   requestTick: () => Promise<void>;
   /**
-   * Resolves once the pull request reads of waiting runs have landed and the
-   * ticks they asked for have run. For tests and shutdown; a tick never waits on it.
+   * Resolves once the pull request reads of waiting runs have landed and every
+   * run's queued operations, the ticks they asked for included, have run. For
+   * tests and shutdown; a tick never waits on it.
    */
   whenIdle: () => Promise<void>;
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
   answerQuestion: (args: { workspaceId: string; taskId: string; stage: AgentRunStageIdentity; prompt: string; questionAnswer: RunQuestionAnswer }) => Promise<void>;
-  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; composer?: AgentRunReplyComposer }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation";
+  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; prompt?: string; composer?: AgentRunReplyComposer }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation";
     /** Set when the reply runs on another model than the composer sent, so its route line can say so. */
     routeNote?: AgentRunReplyRouteNote } | null;
   resourceRootForTask: (taskId: string) => string | null;
@@ -421,7 +439,7 @@ export interface AgentRunRuntime {
    * or replaced. True when a run ended. A legacy run is left alone.
    */
   endAgentRunForTask: (args: { taskId: string; delegatedOnly?: boolean }) => Promise<boolean>;
-  startAgentRun: (input: AgentRunStartInput, guard?: () => void) => Promise<AgentRunDetail>;
+  startAgentRun: (input: AgentRunStartInput, guard?: () => void, admission?: AgentRunAdmission) => Promise<AgentRunDetail>;
   prepareDelegatedAgentRun: (args: { agentRunId: string; model: string; input: AgentRunStartInput; authority: DelegatedAgentRunAuthority; resourceLink?: ResourceLink }) => Promise<AgentRunDetail>;
   isDelegatedExecutionCurrent: (agentRunId: string, taskId: string, authority: DelegatedAgentRunAuthority) => boolean;
   activateDelegatedAgentRun: (args: { agentRunId: string; executionId: string }) => Promise<AgentRunDetail>;
@@ -442,7 +460,7 @@ export interface AgentRunRuntime {
    */
   /** `turnId` names the reply's turn when the caller must find it later (a Tars delivery after a restart). */
   replyAsUser: (args: { agentRunId: string; prompt: string; turnId?: string }, guard?: (run: AgentRun) => void) => Promise<void>;
-  reply: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
+  reply: (args: AgentRunRequestChangesArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   skipStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   retryStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   pause: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
@@ -501,8 +519,13 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   const clearIntervalImpl = deps.clearInterval ?? globalThis.clearInterval;
   const { store } = deps;
   let intervalHandle: ReturnType<typeof globalThis.setInterval> | null = null;
-  let operationChain = Promise.resolve();
-  let queuedTick: Promise<void> | null = null;
+  const queues = createRunOperationQueues();
+  /** Each run's next evaluation while it waits in that run's queue; a tick then shares it. */
+  const queuedEvaluations = new Map<string, Promise<void>>();
+  /** Helpers a root that ended is ending, each on its own queue, per root run. */
+  const helperEndings = new Map<string, Promise<void>>();
+  /** Helpers with an end already queued, so repeated ticks do not pile more. */
+  const endingHelpers = new Set<string>();
   /** Turns this runtime started, per agent run; hydrated from `turn-linked`. */
   const agentRunTurnIds = new Map<string, Set<string>>();
   /** Agent run turns Stave stopped in the middle of; hydrated from `turn-interrupted`. */
@@ -609,27 +632,82 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * refuses the start with its reason; a host without resource support starts
    * the run on its own max turns.
    */
-  function freezeTeamLimits(run: AgentRun, input: Pick<AgentRunStartInput, "origin" | "routingIntent" | "accounts">): AdaptiveRunPolicy | null {
+  function freezeTeamLimits(run: AgentRun, input: Pick<AgentRunStartInput, "origin" | "routingIntent" | "accounts">, admission?: AgentRunAdmission): AdaptiveRunPolicy | null {
     if (input.origin !== "agent" || !store.consumeResourceTurn || !deps.freezeResources) return null;
     if (deps.taskRunsAsAgent && !deps.taskRunsAsAgent(run.leadTaskId)) return null;
-    const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run, routingIntent: input.routingIntent, accounts: input.accounts }));
+    const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run, routingIntent: input.routingIntent, accounts: input.accounts, admission }));
     requireInitialEffortSupport(policy);
     return policy;
   }
 
   /**
-   * Every tick and command runs in this one chain, as in the wake-up runtime:
-   * two ticks never interleave, and a report never lands between a tick's
-   * read and its write.
+   * Every tick evaluation, command, reply and report of a run runs in that
+   * run's own queue: two evaluations of one run never interleave, and a report
+   * never lands between its run's read and write. Different runs never wait on
+   * each other, so one run's slow task read, routing, start or action delays
+   * only that run.
+   *
+   * What is shared between runs, and how it stays consistent without a
+   * host-wide queue:
+   * - A task's admission (start, delegated preparation, an end for its task)
+   *   queues on the task and on its current run (`enqueueTask`): one active run
+   *   per task, in the order those were asked. Other tasks are not involved.
+   * - A root's helpers: budget entries (reserve, spend, release) are each one
+   *   SQLite savepoint that checks the budget again, so they need no queue; a
+   *   helper the root ends, or whose execution ended, is cancelled on the
+   *   helper's own queue (`endHelper`), never written from another run's.
+   * - The boot sweep closes every active run's interrupted turns in one
+   *   operation that holds all their queues. It is the one host-wide section
+   *   left: synchronous, no I/O, once per start (`reconcileInterruptedStarts`).
    */
-  function enqueue<T>(operation: () => Promise<T> | T): Promise<T> {
-    const next = operationChain.then(operation, operation);
-    operationChain = next.then(
-      () => undefined,
-      () => undefined,
+  const runKey = (agentRunId: string) => `run:${agentRunId}`;
+  const taskKey = (taskId: string) => `task:${taskId}`;
+
+  /** Settles once the helpers a run ended are cancelled; never rejects. */
+  const helpersEnded = (agentRunId: string) => helperEndings.get(agentRunId) ?? Promise.resolve();
+
+  /** Queues on one run. The result also waits for helpers that operation ended, outside the queue. */
+  function enqueueRun<T>(agentRunId: string, operation: () => Promise<T> | T): Promise<T> {
+    return queues.enqueue(runKey(agentRunId), operation).then(
+      (value) => helpersEnded(agentRunId).then(() => value),
+      (error: unknown) => helpersEnded(agentRunId).then(() => { throw error; }),
     );
-    return next;
   }
+
+  /**
+   * Queues a task's admission on the task and on its current run, if it has
+   * one. A start also holds the run it creates (`newRunId`), so that run's
+   * first evaluation, and anything else asked of it, waits for its creation.
+   */
+  function enqueueTask<T>(taskId: unknown, operation: () => Promise<T> | T, newRunId?: string): Promise<T> {
+    const created = newRunId ? [runKey(newRunId)] : [];
+    // An invalid id still queues, on a key of its own, so its parse refuses inside as before.
+    if (typeof taskId !== "string") return queues.enqueue([taskKey(""), ...created], operation);
+    const active = store.getActiveAgentRunForTask(taskId);
+    if (!active) return queues.enqueue([taskKey(taskId), ...created], operation);
+    return queues.enqueue([taskKey(taskId), runKey(active.id), ...created], operation).then(
+      (value) => helpersEnded(active.id).then(() => value),
+      (error: unknown) => helpersEnded(active.id).then(() => { throw error; }),
+    );
+  }
+
+  /** Queues on the run a stage grant names; an unknown grant is refused inside, as before. */
+  function enqueueGrant<T>(agentRunKey: string, operation: () => Promise<T> | T): Promise<T> {
+    let agentRunId: string | undefined;
+    try {
+      agentRunId = deps.resolveAgentRunGrant(agentRunKey)?.agentRunId;
+    } catch {
+      agentRunId = undefined;
+    }
+    return agentRunId ? enqueueRun(agentRunId, operation) : queues.enqueue(`grant:${agentRunKey}`, operation);
+  }
+
+  /**
+   * The run's own newest event. A helper's turn or end writes a budget entry
+   * on its root's log from the helper's queue; that never makes the root's
+   * turn preparation stale, since the turn's budget is checked again when spent.
+   */
+  const ownEventSequence = (agentRunId: string) => store.latestEventSequence(agentRunId, ["resource-budget"]);
 
   function emit(agentRun: AgentRun) {
     try {
@@ -721,22 +799,56 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const config = store.resourceConfig?.(change.agentRun.id);
       if (config?.link) store.releaseResourceReservation?.(config.link, now());
       else if (config) {
-        for (const reservation of store.readResources?.(change.agentRun.id)?.reservations ?? []) {
-          if (reservation.released) continue;
-          const child = store.getAggregate(reservation.childRunId);
-          if (child && isActiveAgentRunState(child.agentRun.state)) {
-            preparationControllers.get(child.agentRun.id)?.abort();
-            applyChange(cancelAgentRun({ aggregate: child, now: now() }));
-            void deps.stopResourceTask?.({ workspaceId: child.agentRun.workspaceId, taskId: child.agentRun.leadTaskId }).catch((error) => {
-              console.error("[agent-runs] resource child stop failed", { agentRunId: child.agentRun.id, detail: describeError(error, "Stop failed") });
-            });
-          } else store.releaseResourceReservation?.({ rootRunId: change.agentRun.id, reservationId: reservation.reservationId, executionId: reservation.executionId }, now());
+        const rootRunId = change.agentRun.id;
+        const endings = (store.readResources?.(rootRunId)?.reservations ?? [])
+          .filter((reservation) => !reservation.released)
+          .map((reservation) => endHelper(rootRunId, reservation, "root-ended"));
+        if (endings.length > 0) {
+          const all = Promise.all([helpersEnded(rootRunId), ...endings]).then(() => undefined);
+          helperEndings.set(rootRunId, all);
+          void all.then(() => { if (helperEndings.get(rootRunId) === all) helperEndings.delete(rootRunId); });
         }
       }
       forgetEndedRun(change.agentRun.id);
     }
     emit(change.agentRun);
     return requireAggregate(change.agentRun.id);
+  }
+
+  /**
+   * Ends one helper of a root on the helper's own queue: the helper's in-flight
+   * work is aborted at once, and the cancel lands after it, so no write from
+   * the root's queue ever races the helper's own read and write. A helper that
+   * already ended only has its unused reservation released. `execution-ended`
+   * (the tick's recovery) acts only once the helper's exact execution is gone.
+   * Settles once done; never rejects.
+   */
+  function endHelper(
+    rootRunId: string,
+    reservation: { childRunId: string; reservationId: string; executionId: string },
+    cause: "root-ended" | "execution-ended",
+  ): Promise<void> {
+    const { childRunId } = reservation;
+    // Every tick looks again; one recovery per helper is enough while it waits for the helper's queue.
+    const recovery = cause === "execution-ended";
+    if (recovery && endingHelpers.has(childRunId)) return Promise.resolve();
+    if (recovery) endingHelpers.add(childRunId);
+    const releaseInterruption = interruptRun(childRunId);
+    return queues.enqueue(runKey(childRunId), () => {
+      if (cause === "execution-ended" && deps.resourceExecutionLive?.(childRunId, reservation.executionId)) return;
+      const child = store.getAggregate(childRunId);
+      if (child && isActiveAgentRunState(child.agentRun.state)) {
+        applyChange(cancelAgentRun({ aggregate: child, now: now() }));
+        if (cause === "root-ended") void deps.stopResourceTask?.({ workspaceId: child.agentRun.workspaceId, taskId: child.agentRun.leadTaskId }).catch((error) => {
+          console.error("[agent-runs] resource child stop failed", { agentRunId: childRunId, detail: describeError(error, "Stop failed") });
+        });
+      } else store.releaseResourceReservation?.({ rootRunId, reservationId: reservation.reservationId, executionId: reservation.executionId }, now());
+    }).catch((error: unknown) => {
+      console.error("[agent-runs] resource child end failed", { agentRunId: childRunId, detail: describeError(error, "Invalid resource state") });
+    }).finally(() => {
+      if (recovery) endingHelpers.delete(childRunId);
+      releaseInterruption();
+    });
   }
 
   /**
@@ -1112,8 +1224,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   /**
-   * A waiting run's pull request read runs outside the chain, so a slow or
-   * hung `gh` never holds another run's tick, Pause or Stop. A tick takes the
+   * A waiting run's pull request read runs outside the run's queue, so a slow
+   * or hung `gh` never holds that run's own tick, Pause or Stop. A tick takes the
    * result a read brought back for this same wait, or starts one when the
    * watch is due and none is out; the read asks for a tick when it lands. A
    * read past `EVENT_WAIT_READ_DEADLINE_MS` is dropped and counts as failed.
@@ -1266,7 +1378,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         aggregate,
         decision: {
           action: "mark-stuck",
-          detail: `The stage's turn could not start: ${detail}`,
+          detail: agentRunTurnStartFailureDetail(detail),
         },
         now: now(),
       }),
@@ -1356,6 +1468,17 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       ...(read.imageContexts?.length ? { imageContexts: [...(rest.imageContexts ?? []), ...read.imageContexts] } : {}) };
   }
 
+  function pauseForDailyLimit(aggregate: AgentRunAggregate, providerId: AgentRun["fingerprint"]["providerId"]): boolean {
+    const detail = deps.dailyUsageLimit?.(providerId);
+    if (!detail) return false;
+    const change = applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "usage-limit", detail } });
+    // A daily stop needs an explicit resume; discard any prior subscription reset reservation.
+    change.agentRun.usageLimit = undefined;
+    change.agentRun.dailyUsageLimit = true;
+    applyChange(change);
+    return true;
+  }
+
   async function startAgentRunTurn(
     aggregate: AgentRunAggregate,
     decision: Extract<
@@ -1365,6 +1488,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     reason: AgentRunTurnReason,
     actionPrompt?: string,
     userReply = false,
+    beforeDispatch?: () => void,
+    requestedTurnId?: string,
   ) {
     const { agentRun } = aggregate;
     const before = currentStageRecord(aggregate);
@@ -1375,7 +1500,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       applyChange(cancelAgentRun({ aggregate, now: now() }));
       return;
     }
-    const preparedSequence = store.listRecentEvents(agentRun.id, 1).at(-1)?.sequence ?? 0;
+    const preparedSequence = ownEventSequence(agentRun.id);
     const controller = new AbortController();
     const resources = store.resourceConfig?.(agentRun.id);
     if (resources?.link) {
@@ -1398,14 +1523,23 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       ? usageLimitedTurnEffort(store.listEventsByKind(agentRun.id, ["turn-linked"]), resetContinuation.turnId) : null;
     // After a pool switch the cached observations of the account in use apply, not the frozen one's.
     const observedAccount = resources ? (agentRunPoolAccount(agentRun)?.accountProfileId ?? resources.policy.accountProfileId) : undefined;
-    const observed = !resetContinuation && resources && observedAccount ? readAdaptiveObservations(resources.policy.providerId, observedAccount, now().getTime()) : null;
+    let observed = !resetContinuation && resources && observedAccount ? readAdaptiveObservations(resources.policy.providerId, observedAccount, now().getTime()) : null;
     const catalogModels = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models : null;
     // A cached catalog can reject a proposal; it never silently replaces a pinned/current model.
     let adaptive = !resetContinuation && resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
     preparationControllers.set(agentRun.id, controller);
     let routed: AgentRunTurnRoute | null, startHeadSha = before.startHeadSha;
+    let dispatchQuota = observed?.quota?.snapshot ?? null;
     let gatewayCredentials: import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined;
     try {
+      // A missing/expired cache is not evidence that this account can start work.
+      // Refresh once at the dispatch boundary, scoped to the Run's captured account.
+      if (!resetContinuation && resources && !observed?.quota && deps.readAccountUsage) {
+        dispatchQuota = await prepareRunTurn(controller.signal, () => deps.readAccountUsage!({
+          fingerprint: agentRun.fingerprint, accounts: runAccountOptions(agentRun, resources), workspaceId: agentRun.workspaceId,
+        }).catch(() => null));
+        if (observedAccount) observed = readAdaptiveObservations(resources.policy.providerId, observedAccount, now().getTime());
+      }
       const initialDecision = !actionPrompt && !agentRun.turnCount ? delegation?.initialDecision : undefined;
       // A model pinned in the composer is not classified again: nothing automatic may replace it.
       const constrained = !resetContinuation && !initialDecision && !adaptive?.composerPin?.model && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
@@ -1413,6 +1547,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         prompt: actionPrompt ?? agentRun.assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
         effort: adaptive?.effort ?? delegation?.effort, modelPinned: resources?.policy.modelLocked ?? delegation?.modelPinned,
         effortPinned: resources?.policy.effortLocked ?? delegation?.effortPinned, accounts: runAccountOptions(agentRun, resources),
+        autoRouting: resources?.policy.autoRouting,
         allowedModels: resources?.policy.allowedModels ?? delegation?.allowedModels,
       }, controller.signal)) : null;
       if (adaptive && constrained?.route === "auto" && resources) adaptive = selectAdaptiveRoute(resources.policy, aggregate,
@@ -1436,6 +1571,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return cwd ? deps.readHeadSha(cwd).catch(() => null) : null;
       });
       const snapshot = await prepareRunTurn(controller.signal, () => readSnapshot(agentRun));
+      beforeDispatch?.();
       if (!snapshot.exists || snapshot.archived || snapshot.activeTurnId || snapshot.pendingApprovalCount || snapshot.pendingUserInputCount) return;
       controller.signal.throwIfAborted();
     } catch (error) {
@@ -1446,10 +1582,13 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
     const latest = requireAggregate(agentRun.id);
     // Preparation is read-only: a changed run/attempt cannot authorize its old result.
-    if ((store.listRecentEvents(agentRun.id, 1).at(-1)?.sequence ?? 0) !== preparedSequence ||
+    if (ownEventSequence(agentRun.id) !== preparedSequence ||
         latest.agentRun.state !== "running" || latest.agentRun.updatedAt !== agentRun.updatedAt ||
         latest.agentRun.turnCount !== agentRun.turnCount ||
         currentStageRecord(latest).attempt !== before.attempt || currentStageRecord(latest).stageId !== before.stageId) return;
+    // The root runs on its own queue, so it may pause or end while its helper prepares: the helper then starts nothing now.
+    if (resources?.link && store.getAggregate(resources.link.rootRunId)?.agentRun.state !== "running") return;
+    if (pauseForDailyLimit(aggregate, routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId)) return;
     const change = applyAgentRunDecision({ aggregate, decision, now: now() });
     if (delegation && !deps.delegatedExecutionCurrent?.(agentRun.id, agentRun.leadTaskId, delegation)) {
       applyChange(cancelAgentRun({ aggregate, now: now() }));
@@ -1467,13 +1606,22 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       attempt: before.attempt,
       turn: change.agentRun.turnCount,
     });
-    const availability = resources && observed?.quota ? resolveAccountUsageBlock({
-      providerId: resources.policy.providerId, model: adaptive?.model, snapshot: observed.quota.snapshot, now: now().getTime(),
+    const availability = resources && dispatchQuota ? resolveAccountUsageBlock({
+      providerId: resources.policy.providerId, model: adaptive?.model, snapshot: dispatchQuota, now: now().getTime(),
     }) === null : undefined;
     if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, catalogModels)) {
       await markStartFailure(agentRun.id, "The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently."); return;
     }
-    if (availability === false || observed?.catalog?.catalog.ok === false || (adaptive && catalogModels && !catalogModels.some((entry) => entry.model === adaptive.model))) {
+    if (availability === false && resources) {
+      const fingerprint = routed?.fingerprint ?? agentRun.fingerprint;
+      const quota = observeUsageLimitQuota(fingerprint, dispatchQuota, now());
+      applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "usage-limit", detail: "",
+        usageLimit: { turnId: `quota:${before.stageId}:${before.attempt}:${agentRun.turnCount}`, fingerprint,
+          accountProfileId: observedAccount!, resetsAt: quota.resetsAt ?? null,
+          resumeAt: resolveAgentRunUsageLimitResumeAt(quota.resetsAt ?? null, now()) ?? resolveUsageLimitRetryAt(now()) } } }));
+      return;
+    }
+    if (observed?.catalog?.catalog.ok === false || (adaptive && catalogModels && !catalogModels.some((entry) => entry.model === adaptive.model))) {
       await markStartFailure(agentRun.id, "Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers."); return;
     }
     if (resources && !store.consumeResourceTurn?.(agentRun.id, turnKey, now())) {
@@ -1532,6 +1680,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     // lands. Only a linked prior turn makes this a continuation.
     const isContinuation = store.listEventsByKind(agentRun.id, ["turn-linked"])
       .some((event) => typeof event.detail.turnId === "string");
+    const browserRequested = agentRunBrowserRequested({ assignment: agentRun.assignment, delegated: !!delegation,
+      events: store.listEventsByKind(agentRun.id, ["turn-linked"]) });
     try {
       const resumedDelegatedEffort = AgentResourceRequestObjectSchema.shape.effort.safeParse(resumeEffort?.claudeEffort ?? resumeEffort?.codexReasoningEffort).data;
       const runtimeOptions: ProviderRuntimeOptions = { ...(delegation ? buildDelegatedTaskRuntimeOptions({
@@ -1540,8 +1690,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }) : {
           ...runPermissionOptions(agentRun, routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId),
           ...routed?.runtimeOptions,
+          ...(browserRequested ? { providerBrowserAlwaysOn: true } : {}),
         }), ...runAccountOptions(agentRun, resources), ...(resetContinuation ? usageLimitAccounts(resetContinuation.fingerprint, resetContinuation.accountProfileId, {}) : {}) };
       const turn = await deps.runSupervisedTurn({
+        ...(requestedTurnId ? { turnId: requestedTurnId } : {}),
         ...(resetContinuation || deps.prepareGatewayCredentials ? { gatewayCredentials: gatewayCredentials ?? {} } : {}),
         workspaceId: agentRun.workspaceId,
         taskId: agentRun.leadTaskId,
@@ -1573,7 +1725,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       recordEvent(started.agentRun, {
         kind: "turn-linked",
         idempotencyKey: buildAgentRunTurnOutcomeKey(turnKey, "linked"),
-        detail: { ...identity, turnId: turn.turnId, ...(Object.keys(effort).length ? { effort } : {}) },
+        detail: { ...identity, turnId: turn.turnId, browserRequested, ...(Object.keys(effort).length ? { effort } : {}) },
       });
     } catch (error) {
       const detail = describeError(error, "The provider did not start the turn.");
@@ -1706,13 +1858,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       step += 1
     ) {
       signal.throwIfAborted();
+      if (deps.hasPendingControl?.(aggregate.agentRun.leadTaskId)) return;
       const { observation, turns } = await observe(aggregate, signal);
       signal.throwIfAborted();
       observeUserWait(aggregate, observation);
       const waiting = aggregate.agentRun.usageLimit;
       const limited = observation.lastEndedTurn?.usageLimited;
       const due = aggregate.agentRun.state === "paused" && aggregate.agentRun.pauseReason === "usage-limit" &&
-        waiting?.resumeAt && Date.parse(waiting.resumeAt) <= now().getTime();
+        waiting && Date.parse(waiting.resumeAt ?? resolveUsageLimitRetryAt(new Date(aggregate.agentRun.updatedAt))) <= now().getTime();
       // The policy keeps a reservation idle while the task's runtime drifted;
       // reading usage then would repeat a forced read on every tick.
       const leadFingerprint = observation.leadTask.fingerprint;
@@ -1773,6 +1926,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           return;
         }
       }
+      if (["start-stage-turn", "nudge", "start-action-turn", "execute-action", "request-sign-off"].includes(decision.action) &&
+          pauseForDailyLimit(aggregate, aggregate.agentRun.fingerprint.providerId)) return;
       switch (decision.action) {
         case "idle":
         case "wait":
@@ -1821,43 +1976,61 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
   }
 
-  async function tick() {
-    const generation = stopGeneration;
-    // Release only reservations whose exact persisted execution ended. Missing evidence retains capacity.
-    if (deps.resourceExecutionLive) for (const root of store.listActiveAgentRuns()) {
+  /**
+   * Releases reservations whose exact persisted execution ended; missing
+   * evidence retains capacity. A helper still active is ended on its own
+   * queue (`endHelper`), so this never waits on any run.
+   */
+  function recoverResourceReservations(): Promise<void>[] {
+    if (!deps.resourceExecutionLive) return [];
+    const recoveries: Promise<void>[] = [];
+    for (const root of store.listActiveAgentRuns()) {
       try {
-      const config = store.resourceConfig?.(root.id);
-      if (!config || config.link) continue;
-      for (const row of store.readResources?.(root.id)?.reservations ?? []) {
-        if (!row.released && !deps.resourceExecutionLive(row.childRunId, row.executionId)) {
-          const child = store.getAggregate(row.childRunId);
-          if (child && isActiveAgentRunState(child.agentRun.state)) applyChange(cancelAgentRun({ aggregate: child, now: now() }));
-          else store.releaseResourceReservation?.({ rootRunId: root.id, reservationId: row.reservationId, executionId: row.executionId }, now());
+        const config = store.resourceConfig?.(root.id);
+        if (!config || config.link) continue;
+        for (const row of store.readResources?.(root.id)?.reservations ?? []) {
+          if (!row.released && !deps.resourceExecutionLive(row.childRunId, row.executionId))
+            recoveries.push(endHelper(root.id, row, "execution-ended"));
         }
-      }
       } catch (error) {
         console.error("[agent-runs] resource recovery failed", { agentRunId: root.id, detail: describeError(error, "Invalid resource state") });
       }
     }
-    for (const agentRun of store.listActiveAgentRuns()) {
-      if (generation !== stopGeneration) return;
-      try {
-        await evaluate(agentRun.id);
-      } catch (error) {
-        console.error("[agent-runs] run evaluation failed", error, { agentRunId: agentRun.id });
-      }
-    }
+    return recoveries;
   }
 
-  function requestTick(): Promise<void> {
-    if (queuedTick) return queuedTick;
-    queuedTick = enqueue(async () => {
-      queuedTick = null;
-      await tick();
-    }).catch((error) => {
-      console.error("[agent-runs] tick failed", error);
+  /**
+   * Queues one evaluation of a run on its own queue, or shares the one already
+   * waiting there. An evaluation that has started does not absorb a later
+   * request: the run may have changed since it read. Never rejects.
+   */
+  function requestEvaluation(agentRunId: string): Promise<void> {
+    const queued = queuedEvaluations.get(agentRunId);
+    if (queued) return queued;
+    const generation = stopGeneration;
+    const evaluation: Promise<void> = enqueueRun(agentRunId, async () => {
+      if (queuedEvaluations.get(agentRunId) === evaluation) queuedEvaluations.delete(agentRunId);
+      if (generation !== stopGeneration) return;
+      try {
+        await evaluate(agentRunId);
+      } catch (error) {
+        console.error("[agent-runs] run evaluation failed", error, { agentRunId });
+      }
     });
-    return queuedTick;
+    queuedEvaluations.set(agentRunId, evaluation);
+    return evaluation;
+  }
+
+  /** Every active run is evaluated on its own queue; one slow run delays only itself. */
+  function requestTick(): Promise<void> {
+    try {
+      const recoveries = recoverResourceReservations();
+      const evaluations = store.listActiveAgentRuns().map((agentRun) => requestEvaluation(agentRun.id));
+      return Promise.all([...recoveries, ...evaluations]).then(() => undefined);
+    } catch (error) {
+      console.error("[agent-runs] tick failed", error);
+      return Promise.resolve();
+    }
   }
 
   async function whenIdle() {
@@ -1867,8 +2040,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         await Promise.all(out);
         continue;
       }
-      // A landed read has asked for its tick; wait for it, then for any read it started.
-      await enqueue(() => undefined);
+      // A landed read has asked for its tick; wait for it and every queued operation, then for any read it started.
+      await queues.drain();
       if (![...pullRequestReads.values()].some((read) => !read.result)) return;
     }
   }
@@ -1889,7 +2062,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     );
     const latestLinked = events.filter((event) => event.kind === "turn-linked").at(-1);
     const turnId = latestLinked?.detail.turnId;
-    if (typeof turnId === "string" && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
+    if (typeof turnId === "string" && !deps.isQueuedTurn?.(turnId) && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
       const turnKey = latestLinked.idempotencyKey.replace(/:linked$/, "");
       recordEvent(agentRun, {
         kind: "turn-interrupted",
@@ -1969,42 +2142,53 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * replayed. Every agent run's turns are closed before anyone is notified: a
    * notification loads the workspace session, which would otherwise keep a
    * turn another agent run has not closed yet as running.
+   *
+   * The closes are the one operation that holds every active run's queue: it
+   * is synchronous and does no I/O, so it holds them only for that moment.
+   * Each run then reports its own interrupted starts on its own queue, queued
+   * here before the first tick can evaluate it, so a start is never replayed.
    */
-  async function reconcileInterruptedStarts() {
-    const interrupted: Array<{ agentRun: AgentRun; orphans: AgentRunEvent[] }> = [];
-    for (const agentRun of store.listActiveAgentRuns()) {
-      try {
-        // Before this sweep records anything at the boot's time.
-        recordHostStarted(agentRun);
-      } catch (error) {
-        console.error("[agent-runs] failed to record the host start", error, { agentRunId: agentRun.id });
+  function reconcileInterruptedStarts(): Promise<void> {
+    const agentRuns = store.listActiveAgentRuns();
+    const closed = queues.enqueue(agentRuns.map((agentRun) => runKey(agentRun.id)), () => {
+      const interrupted = new Map<string, AgentRunEvent[]>();
+      for (const agentRun of agentRuns) {
+        try {
+          // Before this sweep records anything at the boot's time.
+          recordHostStarted(agentRun);
+        } catch (error) {
+          console.error("[agent-runs] failed to record the host start", error, { agentRunId: agentRun.id });
+        }
+        try {
+          const orphans = closeInterruptedTurns(agentRun);
+          if (orphans.length > 0) interrupted.set(agentRun.id, orphans);
+        } catch (error) {
+          console.error("[agent-runs] failed to close an interrupted run turn", error, {
+            agentRunId: agentRun.id,
+          });
+        }
       }
-      try {
-        const orphans = closeInterruptedTurns(agentRun);
-        if (orphans.length > 0) interrupted.push({ agentRun, orphans });
-      } catch (error) {
-        console.error("[agent-runs] failed to close an interrupted run turn", error, {
-          agentRunId: agentRun.id,
-        });
-      }
-    }
-    for (const { agentRun, orphans } of interrupted) {
-      try {
-        await reportInterruptedStarts(agentRun, orphans);
-      } catch (error) {
-        console.error("[agent-runs] failed to reconcile an interrupted run", error, {
-          agentRunId: agentRun.id,
-        });
-      }
-    }
+      return interrupted;
+    });
+    return Promise.all(agentRuns.map((agentRun) => enqueueRun(agentRun.id, async () => {
+      // Settled already: this run's queue reaches here only after the closes.
+      const orphans = (await closed).get(agentRun.id);
+      if (orphans) await reportInterruptedStarts(agentRun, orphans);
+    }).catch((error: unknown) => {
+      console.error("[agent-runs] failed to reconcile an interrupted run", error, {
+        agentRunId: agentRun.id,
+      });
+    }))).then(() => undefined);
   }
 
   function start() {
     if (intervalHandle) return;
     hostStarted = true;
-    void enqueue(reconcileInterruptedStarts).catch((error) => {
+    try {
+      void reconcileInterruptedStarts();
+    } catch (error) {
       console.error("[agent-runs] boot reconciliation failed", error);
-    });
+    }
     intervalHandle = setIntervalImpl(() => void requestTick(), AGENT_RUN_TICK_INTERVAL_MS);
     void requestTick();
   }
@@ -2062,9 +2246,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     agentRunId: string,
     build: (aggregate: AgentRunAggregate) => AgentRunChange | Promise<AgentRunChange>,
   ): Promise<AgentRunDetail> {
-    return enqueue(async () => {
+    return enqueueRun(agentRunId, async () => {
       const aggregate = requireAggregate(agentRunId);
-      const change = await build(aggregate);
+      const change = await buildTarsRunCommand(aggregate, build, store);
       if (hasEffect(change, aggregate)) applyChange(change);
       void requestTick();
       return detailOf(agentRunId);
@@ -2096,7 +2280,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     };
   }
 
-  const scriptRunner = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange,
+  const scriptRunner = createStageScriptRunner({ ...deps, enqueue: (operation, agentRunKey) => enqueueGrant(agentRunKey, operation), requireGrant, applyChange,
     isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null,
     isChecksRepairTurn: (grant) => {
       const events = store.listEventsByKind(grant.agentRunId, ["turn-started", "turn-linked"])
@@ -2110,7 +2294,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     runWorkspaceScript: scriptRunner.run,
     reserveChildResources: (args) => store.reserveChildResources?.({ ...args, now: now() }) ?? null,
     releaseChildResources: (link) => { store.releaseResourceReservation?.(link, now()); },
-    requestResources: ({ agentRunKey, request }) => enqueue(() => {
+    requestResources: ({ agentRunKey, request }) => enqueueGrant(agentRunKey, () => {
       const { grant, aggregate } = requireGrant(agentRunKey);
       const config = store.resourceConfig?.(aggregate.agentRun.id);
       if (!config) refuse("Adaptive resources are not enabled for this Run.");
@@ -2133,7 +2317,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     notifyTaskTurnFinished: ({ taskId }) => {
       if (store.getActiveAgentRunForTask(taskId)) void requestTick();
     },
-    answerQuestion: (args) => enqueue(async () => {
+    answerQuestion: (args) => enqueueRun(args.stage.agentRunId, async () => {
       const aggregate = requireAggregate(args.stage.agentRunId);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
       // The question is moot once its run ended or its stage attempt moved on; a paused run only waits.
@@ -2146,13 +2330,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         refuse(i18n.t("agentRuns:persistentQuestion.waitForRequest"));
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse(i18n.t("agentRuns:persistentQuestion.reportingUnavailable"));
       await deps.runSupervisedTurn({ workspaceId: args.workspaceId, taskId: args.taskId,
+        admissionPriority: "user",
         ...(delegatedAuthority(run) ? { parentTaskId: delegatedAuthority(run)!.parentTaskId } : {}),
         prompt: args.prompt, questionAnswer: args.questionAnswer, fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
       // The normal provider admission calls prepareUserTurn: the reply is a
       // user turn of this stage, not another automatic stage-start or nudge.
     }),
-    prepareUserTurn: ({ taskId, workspaceId, turnId, providerId, composer }) => {
+    prepareUserTurn: ({ taskId, workspaceId, turnId, providerId, prompt, composer }) => {
       let run = store.getActiveAgentRunForTask(taskId);
       if (!run || !hasAgentOrigin(run) || (workspaceId && run.workspaceId !== workspaceId)) return null;
       let aggregate = requireAggregate(run.id);
@@ -2220,8 +2405,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:composer:${turnId}`, detail: adaptive.composerDecision });
       if (adaptive?.decision)
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:${adaptive.requestSequence ?? `reply-auto:${turnId}`}`, detail: adaptive.decision });
+      const browserRequested = agentRunBrowserRequested({ assignment: run.assignment, prompt, delegated: !!authority,
+        events: store.listEventsByKind(run.id, ["turn-linked"]) });
       turnIdsFor(run.id).add(turnId);
-      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
+      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply", browserRequested } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
       const accountOptions = resources && replyAccount ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: replyAccount } : { claudeAccountProfileId: replyAccount }) : {};
       // Only a model the composer did not pin can differ from what runs; an effort-only pin still lets Auto pick the model.
@@ -2232,6 +2419,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }) } } : { runtimeOptions: { ...accountOptions,
         // The reply is a turn of the run: the run's consent, not the composer's settings alone.
         ...runPermissionOptions(run, providerId === "codex" || providerId === "claude-code" ? providerId : run.fingerprint.providerId),
+        ...(browserRequested ? { providerBrowserAlwaysOn: true } : {}),
         ...(adaptive ? { model: adaptive.model, ...adaptive.runtimeOptions } : {}) } }), context: {
         type: "retrieved_context", sourceId: AGENT_RUN_CONTEXT_SOURCE_ID, title: "Agent stage reply",
         content: `${describeAgentRunExecutionContext(aggregate)}\n${endedWait ? `Your wait for ${endedWait.kind}${endedWait.target ? ` on ${endedWait.target}` : ""} ended without the event, and the user's reply continues the run.\n` : ""}This is the user's reply in the current stage. Handle it once and report the stage using the reporting tools. If it is only a clarification, answer it and keep the stage blocked on the missing decision. Do not restart or repeat the original assignment.`,
@@ -2249,7 +2437,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const current = store.getActiveAgentRunForTask(taskId);
       const releaseInterruption = current && hasAgentOrigin(current) && (!delegatedOnly || delegatedAuthority(current))
         ? interruptRun(current.id) : () => {};
-      return enqueue(() => {
+      return enqueueTask(taskId, () => {
         const active = store.getActiveAgentRunForTask(taskId);
         const aggregate = active && hasAgentOrigin(active) ? store.getAggregate(active.id) : null;
         if (!aggregate || !isActiveAgentRunState(aggregate.agentRun.state)) return false;
@@ -2259,7 +2447,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }).finally(releaseInterruption);
     },
     prepareDelegatedAgentRun: ({ agentRunId, model, input: rawInput, authority: rawAuthority, resourceLink }) =>
-      enqueue(async () => {
+      enqueueTask((rawInput as { leadTaskId?: unknown } | null)?.leadTaskId, async () => {
         const input = AgentRunStartInputSchema.parse(rawInput);
         if (input.workflow.stages.some((stage) => stage.kind === "ai" && stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check")))
           refuse(i18n.t("agentRuns:workspaceCheck.delegated"));
@@ -2288,6 +2476,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           if (root?.agentRun.state !== "running" || !reservation || reservation.released || reservation.executionId !== authority.executionId || reservation.childRunId !== agentRunId)
             refuse("The exact parent reservation ended during child preparation.");
         }
+        const dailyRefusal = deps.dailyUsageLimit?.(snapshot.providerId);
+        if (dailyRefusal) throw new AgentRunCommandError("daily-usage-limit", dailyRefusal);
         const change = createAgentRun({ id: agentRunId, input, repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: authority.permissionPolicy.providerId, model }, now: now() });
         change.agentRun = { ...change.agentRun, state: "paused", pauseReason: "paused-by-user" };
@@ -2299,9 +2489,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         if (!created.ok) refuse(created.message);
         emit(change.agentRun);
         return detailOf(agentRunId);
-      }),
+      }, agentRunId),
     activateDelegatedAgentRun: ({ agentRunId, executionId }) =>
-      enqueue(() => {
+      enqueueRun(agentRunId, () => {
         const aggregate = requireAggregate(agentRunId);
         const authority = delegatedAuthority(aggregate.agentRun);
         if (!authority || authority.executionId !== executionId) refuse("The delegated execution changed before activation.");
@@ -2315,8 +2505,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(agentRunId);
       }),
-    startAgentRun: (rawInput, guard) =>
-      enqueue(async () => {
+    startAgentRun: (rawInput, guard, admission) => {
+      const agentRunId = randomUUID();
+      return enqueueTask((rawInput as { leadTaskId?: unknown } | null)?.leadTaskId, async () => {
         guard?.();
         const input = AgentRunStartInputSchema.parse(rawInput);
         // Binding reads only the workspace's script configuration; no git snapshot here.
@@ -2342,6 +2533,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent?.modelProviderId && input.routingIntent.modelProviderId !== snapshot.providerId)
           refuse("The captured provider changed before Run admission. Restore it or submit a new assignment.");
+        const dailyRefusal = deps.dailyUsageLimit?.(snapshot.providerId);
+        if (dailyRefusal) throw new AgentRunCommandError("daily-usage-limit", dailyRefusal);
         if (!(await deps.isReportingAvailable({ fresh: true }))) {
           refuse(
             "Stave's local tools are off, so the agent could not report its stages. Turn on Local MCP in Settings, or send the assignment as a single turn.",
@@ -2351,8 +2544,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const { accountPool: requestedPool, ...rest } = input;
         const accountPool = normalizeAgentRunAccountPool({ pool: requestedPool,
           currentAccountId: selectedProviderAccount(snapshot.providerId, input.accounts), subscriptionAccountIds: subscriptionAccountIds(snapshot.providerId) });
+        const finalDailyRefusal = deps.dailyUsageLimit?.(snapshot.providerId);
+        if (finalDailyRefusal) throw new AgentRunCommandError("daily-usage-limit", finalDailyRefusal);
         const change = createAgentRun({
-          id: randomUUID(),
+          id: agentRunId,
           input: { ...rest, ...(accountPool ? { accountPool } : {}) },
           repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: snapshot.providerId, model: snapshot.model },
@@ -2364,7 +2559,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent) change.events = change.events.map((event) => ({ ...event,
           idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, routingIntent: input.routingIntent } }));
-        const policy = freezeTeamLimits(change.agentRun, input);
+        const policy = freezeTeamLimits(change.agentRun, input, admission);
         if (policy) change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
         guard?.();
         const created = store.create(change, now());
@@ -2372,7 +2567,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         emit(change.agentRun);
         void requestTick();
         return detailOf(change.agentRun.id);
-      }),
+      }, agentRunId);
+    },
     list: async (args = {}) => {
       const recent = args.workspaceId
         ? store.listAgentRunsForWorkspace(args.workspaceId, args.limit)
@@ -2424,7 +2620,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       return { prUrl: result.url };
     },
     shareReport: ({ agentRunId, threadUrl }) =>
-      enqueue(async () => {
+      enqueueRun(agentRunId, async () => {
         if (!SLACK_THREAD_URL.test(threadUrl)) refuse("Paste a Slack thread link, such as https://acme.slack.com/archives/C123/p456.");
         const detail = await getDetail({ agentRunId });
         if (!detail.report) refuse("The report is ready once the run ends.");
@@ -2461,7 +2657,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           now: now(),
         });
       }),
-    replyAsUser: ({ agentRunId, prompt, turnId }, guard) => enqueue(async () => {
+    replyAsUser: ({ agentRunId, prompt, turnId }, guard) => enqueueRun(agentRunId, async () => {
       const aggregate = requireAggregate(agentRunId);
       guard?.(aggregate.agentRun);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
@@ -2479,13 +2675,22 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse("Local reporting tools must be available before the run continues.");
       // Rechecked after the reads: nothing may take the run over in between.
       guard?.(requireAggregate(agentRunId).agentRun);
+      // Manager guidance resumes the supervised stage, including an independent review.
+      // Keep queued delivery identity so restart reconciliation can find the same turn.
+      if (guard && (record.status === "blocked" || record.status === "stuck")) {
+        await startAgentRunTurn(aggregate, { action: "start-stage-turn", stageIndex: run.currentStageIndex,
+          attempt: record.attempt, reason: "continue-after-user" }, "continue-after-user", text, true,
+          () => guard(requireAggregate(agentRunId).agentRun), turnId);
+        return;
+      }
       // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
-      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, ...(turnId ? { turnId } : {}),
+      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, admissionPriority: "user", ...(turnId ? { turnId } : {}),
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),
-    reply: (args) => enqueue(async () => {
+    reply: (args, guard) => enqueueRun(args.agentRunId, async () => {
       const aggregate = requireAggregate(args.agentRunId);
+      guard?.(aggregate.agentRun);
       const { agentRun } = aggregate, record = currentStageRecord(aggregate);
       if (record.stageId !== args.stageId || record.attempt !== args.attempt)
         throw new AgentRunCommandError("stale-identity", "The delegated stage changed. Refresh before replying.");
@@ -2506,9 +2711,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       if (snapshot.activeTurnId || snapshot.pendingApprovalCount || snapshot.pendingUserInputCount)
         refuse("Answer the current request or wait for the active turn before replying to this stage.");
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse("Local reporting tools must be available before the delegated Agent continues.");
+      guard?.(requireAggregate(agentRun.id).agentRun);
       await startAgentRunTurn(aggregate, { action: "start-stage-turn", stageIndex: agentRun.currentStageIndex,
         attempt: record.attempt, reason: "continue-after-user" }, "continue-after-user",
-        `The user replied to the blocked stage:\n${feedback}\n\nHandle this guidance once, continue the current stage, and report or block it using the stage tools. Do not restart the original assignment.`, true);
+        `The ${guard ? "owning Tars representative" : "user"} replied to the blocked stage:\n${feedback}\n\nHandle this guidance once, continue the current stage, and report or block it using the stage tools. Do not restart the original assignment.`, true, guard ? () => guard(requireAggregate(agentRun.id).agentRun) : undefined);
       return detailOf(agentRun.id);
     }),
     skipStage: (args, guard) =>
@@ -2600,7 +2806,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }).finally(releaseInterruption);
     },
     getForGrant: ({ agentRunKey }) =>
-      enqueue(() => {
+      enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const record = currentStageRecord(aggregate);
         if (record.stageId !== grant.stageId || record.attempt !== grant.attempt) {
@@ -2612,7 +2818,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return { ...buildAgentRunBriefing(aggregate), ...(store.readResources?.(aggregate.agentRun.id) ? { resources: store.readResources!(aggregate.agentRun.id)!, stageTurnIds: store.listEventsByKind(aggregate.agentRun.id, ["turn-linked"]).filter((event) => event.detail.stageId === grant.stageId && event.detail.attempt === grant.attempt).map((event) => String(event.detail.turnId)) } : {}) };
       }),
     reportStage: ({ agentRunKey, report }) =>
-      enqueue(async () => {
+      enqueueGrant(agentRunKey, async () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageCompleteReportInputSchema.parse(report);
         const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
@@ -2625,27 +2831,38 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           const unreported = unreportedStageCriteria(aggregate, record, input);
           if (unreported.length) refuse(describeUnreportedCriteria(unreported));
         }
-        // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
-        const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
-        const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
-        const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
-        const next = applyChange(
-          recordStageReport({
-            aggregate,
-            expected: { stageId: grant.stageId, attempt: grant.attempt },
-            report: { outcome: "complete", ...input },
-            workspaceRevision,
-            turnId: grant.turnId,
-            now: now(),
-          }),
-        );
-        return receipt(
-          next,
-          "Recorded. Stave acts on it when this turn ends, and checks the commands and tool calls you cited against this stage's turns.",
-        );
+        // Refuse stale grants/report limits before allocating any saved entries.
+        recordStageReport({ aggregate, expected: { stageId: grant.stageId, attempt: grant.attempt }, report: { outcome: "complete", ...input, artifacts: [] }, turnId: grant.turnId, now: now() });
+        const archived = await deps.archiveReportArtifacts?.({ artifacts: input.artifacts, previousArtifacts: aggregate.stages.flatMap((entry) => entry.report?.outcome === "complete" ? entry.report.artifacts : []), workspaceId: aggregate.agentRun.workspaceId, agentRunId: aggregate.agentRun.id, taskId: aggregate.agentRun.leadTaskId, turnId: grant.turnId });
+        const artifacts = archived?.artifacts ?? input.artifacts;
+        try {
+          // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
+          const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
+          const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
+          const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
+          const next = applyChange(
+            recordStageReport({
+              aggregate,
+              expected: { stageId: grant.stageId, attempt: grant.attempt },
+              report: { outcome: "complete", ...input, artifacts },
+              workspaceRevision,
+              turnId: grant.turnId,
+              now: now(),
+            }),
+          );
+          return receipt(
+            next,
+            "Recorded. Stave acts on it when this turn ends, and checks the commands and tool calls you cited against this stage's turns.",
+          );
+        } catch (error) {
+          // A post-commit notification/read failure must not remove pages already recorded.
+          const persisted = store.getAggregate(aggregate.agentRun.id)?.stages.find((entry) => entry.stageId === record.stageId && entry.attempt === record.attempt);
+          if (!persisted || persisted.reportRevision <= record.reportRevision) await archived?.discard();
+          throw error;
+        }
       }),
     blockStage: ({ agentRunKey, block }) =>
-      enqueue(() => {
+      enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageBlockInputSchema.parse(block);
         if (workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
@@ -2664,7 +2881,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         );
       }),
     waitForEvent: ({ agentRunKey, request }) =>
-      enqueue(() => {
+      enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const { agentRun } = aggregate;
         const record = currentStageRecord(aggregate);

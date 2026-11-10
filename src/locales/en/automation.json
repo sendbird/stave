@@ -128,7 +128,9 @@
     "selectARepositoryBeforeAttachingInformation": "Select a repository before attaching Information.",
     "refreshingInformationResources": "Refreshing Information resources…",
     "noInformationAttachedYetAddAResource": "No Information attached yet. Add a resource above to create its Default Workspace entry and attach it.",
-    "injectsValueIntoEachRun": "Injects {{value1}} into each run."
+    "injectsValueIntoEachRun": "Injects {{value1}} into each run.",
+    "runsOnce": "{{when}}, then it turns itself off. Runs only while Stave is open; a run missed while Stave was closed happens once when it opens.",
+    "repeatInstead": "Repeat on a cadence instead"
   },
   "automationLatestRun": {
     "latestRun": "Latest run",
@@ -292,7 +294,8 @@
       "everyDay": "day",
       "workweek": "weekday",
       "weekend": "weekend day"
-    }
+    },
+    "once": "Once on {{when}}"
   },
   "editor": {
     "cadence": {

@@ -1,15 +1,25 @@
+import type { TarsUndoActionInput } from "./action-undo";
+import type { TarsUndoActionResult } from "./conversation";
 import { z } from "zod";
+import { TarsCompletionGoalSchema } from "./completion";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
+import type { TarsAttachmentImage, TarsAttachmentImageInput } from "./attachment-image";
+import type { TarsUsageInput, TarsUsageReport } from "./usage";
 import type { SaveTarsComposerDraftInput, TarsComposerDraft } from "./composer-draft";
 import type {
-  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView,
+  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView, TarsDismissInput,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import { AGENT_RUN_LIMITS, STAGE_BLOCK_KINDS } from "../agent-runs/domain";
 import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-name";
 import { TarsPublicationSchema } from "./publication";
+import type { TarsAwayState } from "./away-state";
+import { TarsTrayClearedSchema, type TarsClearInput, type TarsClearRecord, type TarsUndoClearInput, type TarsViewSettings } from "./clearing";
+import type {
+  TarsScheduleConfirmInput, TarsScheduleList, TarsSchedulePreview, TarsSchedulePreviewInput, TarsScheduleResult, TarsScheduleToggleInput,
+} from "./schedules";
 
 /** The longest message the user can send Tars. */
 export const TARS_MESSAGE_MAX_CHARS = 32_000;
@@ -21,6 +31,7 @@ export const TARS_IPC = Object.freeze({
   get: "tars:get",
   create: "tars:create",
   act: "tars:act",
+  undoAction: "tars:undo-action",
   updateIdentity: "tars:update-identity",
   sendMessage: "tars:send-message",
   configureConversation: "tars:configure-conversation",
@@ -28,6 +39,8 @@ export const TARS_IPC = Object.freeze({
   cancelMessage: "tars:cancel-message",
   /** Answers one decision card option (click, key or a bound short answer); controls take `tars:act`'s host path. */
   answer: "tars:answer",
+  /** Closes one waiting decision card without an option (the user's Dismiss); nothing applies. */
+  dismissDecision: "tars:dismiss-decision",
   /** Confirms one publish card: the host commits, pushes and opens a draft pull request. */
   publish: "tars:publish",
   /** Reads what a publish card shows (repository, branches, changed files, body); changes nothing. */
@@ -36,10 +49,38 @@ export const TARS_IPC = Object.freeze({
   reprioritize: "tars:reprioritize",
   /** Reads one responsibility's saved message and Tars's instruction (`TarsBrief`); changes nothing. */
   getBrief: "tars:get-brief",
+  /** Reads one image a saved message carries (`TarsAttachmentImage`) for its preview; changes nothing. */
+  getAttachmentImage: "tars:get-attachment-image",
   /** Reads the saved composer draft; `null` when there is none. */
   getDraft: "tars:get-draft",
   /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
   saveDraft: "tars:save-draft",
+  /** Previews, confirms, declines or restores one bulk control or cleanup (`TarsBatchInput`). */
+  batch: "tars:batch",
+  /** Reads the saved batch records with their per-item outcomes. */
+  batches: "tars:batches",
+  /** Clears the conversation view, the tray's Done cards or its outputs (`TarsClearInput`); hides, never deletes. */
+  clear: "tars:clear",
+  /** Restores what one clear hid. */
+  undoClear: "tars:undo-clear",
+  /** Saves the view settings (`TarsViewSettings`: how long ended work stays in the tray). */
+  configureView: "tars:configure-view",
+  /** Reads when the user last saw the conversation and the "while you were away" summary on screen (`TarsAwayState`). */
+  getAway: "tars:get-away",
+  /** Saves that state. Idempotent, and never announced through `changed`. */
+  saveAway: "tars:save-away",
+  /** Reads what Tars's work spent in a period (`TarsUsageReport`); changes nothing. */
+  getUsage: "tars:get-usage",
+  /** Confirms one schedule card: the host creates, changes, pauses, resumes or removes a schedule Tars set up. */
+  schedule: "tars:schedule",
+  /** Reads what a schedule card shows (what runs, where, when next); changes nothing. */
+  schedulePreview: "tars:schedule-preview",
+  /** The pause switch of a schedule Tars created. */
+  scheduleToggle: "tars:schedule-toggle",
+  /** Lists the schedules Tars created, as the Schedules service has them now. */
+  schedules: "tars:schedules",
+  /** Asks Tars's saved reasoning model for suggested requests about the facts the window observed (`TarsSuggestInput`); changes no work. */
+  suggest: "tars:suggest",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -61,7 +102,7 @@ export const TarsAgentIdSchema = z.string().trim().min(1).max(80).regex(/^[A-Za-
 
 /** `takenOver`: the user owns the work; Tars never resumes it until an explicit hand-back. */
 export const TarsStateSchema = z.enum([
-  "queued", "preparing", "running", "waiting", "paused", "completed", "blocked", "cancelled", "takenOver",
+  "queued", "preparing", "running", "waiting", "paused", "resultReady", "completed", "blocked", "cancelled", "takenOver",
 ]);
 export type TarsState = z.infer<typeof TarsStateSchema>;
 
@@ -160,14 +201,19 @@ export function isTarsRunCommandOperation(operation: TarsControlOperation): oper
  * Stable codes for the status sentences Tars itself writes into a
  * responsibility's detail. Surfaces translate the code
  * (`describeTarsResponsibilityDetail`); `detail` keeps the English sentence
- * for the model's context and diagnostics. A run's own words (its reason or a
- * stage's detail) and other subsystems' errors carry no code.
+ * for the model's context and diagnostics. A run's stop or cancel reason and a
+ * stage turn that could not start carry a code too, with the run's own words
+ * kept in `detail` as an expandable diagnostic
+ * (`describeTarsResponsibilityDiagnostic`). Other stage details and other
+ * subsystems' errors carry no code.
  */
 export const TarsDetailCodeSchema = z.enum([
+  "preparationFailed",
   "waitingForUser", "runPaused", "runStopped", "incompleteReport", "staleVerification",
   "scopeUnregistered", "taskIdentityChanged", "taskInUse", "executionAgentUnavailable", "assignmentUnavailable",
   "executionExists", "ownershipUnverified", "ownershipChanged", "taskUnavailable", "takenOverInTask",
   "admissionWithdrawn", "observationFailed", "unverifiedCompletion", "acceptedWithoutVerification", "workingChangesUnavailable",
+  "runCancelled", "turnStartFailed", "dailyUsageLimit",
 ]);
 export type TarsDetailCode = z.infer<typeof TarsDetailCodeSchema>;
 
@@ -182,6 +228,7 @@ const DetailCodeFields = {
 };
 
 export const TarsActivitySchema = z.object({
+  prChecks: TarsPublicationSchema.shape.checks,
   id: IdSchema, responsibilityId: IdSchema, revision: z.number().int().min(1),
   title: z.string().min(1).max(120), state: TarsStateSchema,
   detail: z.string().max(2_000).nullable(), ...DetailCodeFields, createdAt: z.iso.datetime(),
@@ -200,11 +247,15 @@ export const TarsIdentitySchema = UpdateTarsIdentityInputSchema.extend({
 }).strict();
 export type TarsIdentity = z.infer<typeof TarsIdentitySchema>;
 
+export const TARS_DEFAULT_MAX_TURNS = 60;
+
 export const CreateTarsResponsibilityInputSchema = z.object({
   requestId: IdSchema.regex(/^[A-Za-z0-9._:-]+$/),
   title: z.string().trim().min(1).max(120),
   instruction: z.string().trim().min(1).max(TARS_ASSIGNMENT_MAX_CHARS),
   acceptanceCriteria: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+  /** Explicit requested endpoint; absent on older or ambiguous delegations. */
+  completionGoal: TarsCompletionGoalSchema.optional(),
   workspaceId: IdSchema,
   repositoryPath: z.string().trim().min(1).max(4_096),
   providerId: z.enum(["claude-code", "codex"]),
@@ -212,7 +263,7 @@ export const CreateTarsResponsibilityInputSchema = z.object({
   /** Captured at admission; later renderer settings cannot change queued execution. */
   runtimeHints: SecondaryRunRuntimeHintsSchema.optional(),
   priority: PrioritySchema.default(50),
-  maxTurns: z.number().int().min(1).max(100).default(30),
+  maxTurns: z.number().int().min(1).max(100).default(TARS_DEFAULT_MAX_TURNS),
 }).strict();
 export type CreateTarsResponsibilityInput = z.input<typeof CreateTarsResponsibilityInputSchema>;
 
@@ -354,7 +405,19 @@ export const TarsQueueWaitSchema = z.discriminatedUnion("code", [
 ]);
 export type TarsQueueWait = z.infer<typeof TarsQueueWaitSchema>;
 
+/** Host-only identity of a fresh scope on the same execution task; saved before starting it. */
+export const TarsContinuationSchema = z.object({
+  requestId: IdSchema,
+  previousRunId: IdSchema,
+  previousInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS),
+  previousCriteria: z.array(z.string().min(1).max(500)).min(1).max(20),
+  text: z.string().trim().min(1).max(TARS_TASK_TEXT_MAX_CHARS),
+  requestedAt: z.iso.datetime(),
+}).strict();
+export type TarsContinuation = z.infer<typeof TarsContinuationSchema>;
+
 export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.extend({
+  continuationFromRevision: z.number().int().min(1).optional(),
   id: IdSchema,
   /** The execution model pin; null runs the work on automatic routing. */
   model: ModelSchema,
@@ -371,8 +434,15 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   taskId: IdSchema.nullable(),
   executionWorkspaceId: IdSchema.nullable(),
   agentRunId: IdSchema.nullable(),
+  /** The exact run whose result passed completion verification; cleared when execution resumes. */
+  resultVerifiedRunId: IdSchema.nullable().optional(),
+  /** Explicit user acceptance, distinct from execution ending. */
+  completionConfirmedAt: z.iso.datetime().optional(),
   /** A start may have committed without its acknowledgement; only a receipt read clears this reservation. */
   executionPending: z.boolean().optional(),
+  /** Earlier executions remain in the run store, including their reports and verification. */
+  previousRunIds: z.array(IdSchema).optional(),
+  continuation: TarsContinuationSchema.optional(),
   /** Set by a hand-back: completion needs a final verification started at or after this time. */
   reverifyAfter: z.iso.datetime().nullable(),
   /**
@@ -407,6 +477,8 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
    * No create request, control or renderer write can set it.
    */
   publication: TarsPublicationSchema.optional(),
+  /** Prior execution publications remain visible, never eligible as current completion evidence. */
+  publicationHistory: z.array(TarsPublicationSchema).optional(),
   /**
    * The run's own current stage attempt (`stageId#attempt`) when last
    * observed, while the run is active. A stage command (retry, skip, sign off)
@@ -445,9 +517,10 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 }
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
+  continuationFromRevision: true,
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
-  executionPending: true,
+  executionPending: true, resultVerifiedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;
@@ -488,11 +561,11 @@ export type TarsPendingDecision = z.infer<typeof TarsPendingDecisionSchema>;
  * `verificationFailed` (the run ended with required criteria unmet or a
  * verification older than a hand-back), `stageAsksUser` (the run's own stage
  * stopped to ask the user; followed up at once, not after the quiet wait),
- * `waitExpired` and `decisionInvalidated` need Tars's judgment. `completed` and `hostRecovery`
+ * `resultReady`, `waitExpired` and `decisionInvalidated` need Tars's judgment. `completed` and `hostRecovery`
  * the host settles itself; they are recorded, never followed up.
  */
 export const TarsEventKindSchema = z.enum([
-  "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "completed", "hostRecovery",
+  "resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "decisionInvalidated", "completed", "hostRecovery", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice",
 ]);
 export type TarsEventKind = z.infer<typeof TarsEventKindSchema>;
 
@@ -517,6 +590,8 @@ export const TarsSnapshotSchema = z.object({
   pendingDecisions: z.array(TarsPendingDecisionSchema).default([]),
   /** Tars's next automatic look at each responsibility, from the event inbox; absent from older hosts. */
   followUps: z.array(TarsFollowUpStateSchema).max(200).default([]),
+  /** Ended work the tray leaves out (cleared or past retention); absent from older hosts, which leave out nothing. */
+  cleared: TarsTrayClearedSchema.optional(),
   runtime: z.literal("desktop"),
 }).strict();
 export type TarsSnapshot = z.infer<typeof TarsSnapshotSchema>;
@@ -535,18 +610,44 @@ export interface TarsBridgeApi {
   act(input: TarsActInput): Promise<TarsActResult>;
   /** Answers a decision card; absent on bridges that predate decision cards. */
   answer?(input: TarsAnswerInput): Promise<TarsAnswerResult>;
+  /** Dismisses a waiting decision card: it stops waiting and nothing applies; absent on bridges that predate dismissal. */
+  dismissDecision?(input: TarsDismissInput): Promise<TarsAnswerResult>;
   /** Confirms a publish card through the host's one publish path; absent on bridges that predate publishing. */
   publish?(input: TarsPublishInput): Promise<TarsPublishResult>;
   /** What a publish card shows, read by the host; absent on bridges that predate publishing. */
   previewPublish?(input: TarsPublishPreviewInput): Promise<TarsPublishPreview>;
-  /** Moves queued work in the queue and records it like a click; absent on bridges that predate queue moves. */
+  /** Restores host-snapshotted local changes only; absent on older bridges. */
+  undoAction?(input: TarsUndoActionInput): Promise<TarsUndoActionResult>;
+  /** Moves queued work and records the result; absent on older bridges. */
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
   getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
+  /** Reads one image of a saved message for its preview; absent on bridges that predate previews, which show the image as a file chip. */
+  getAttachmentImage?(input: TarsAttachmentImageInput): Promise<TarsAttachmentImage | null>;
+  /** Reads what Tars's work spent in a period; absent on bridges that predate the usage view, which then says so. */
+  getUsage?(input: TarsUsageInput): Promise<TarsUsageReport>;
   /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */
   getDraft?(): Promise<TarsComposerDraft | null>;
   saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;
+  /** Bulk control and cleanup batches; absent on bridges without them, which offer no batch card or Done-lane cleanup. */
+  batch?(input: import("./batch").TarsBatchInput): Promise<import("./batch").TarsBatchRecord>;
+  batches?(): Promise<import("./batch").TarsBatchRecord[]>;
+  /** Clears and restores; absent on bridges that predate clearing, which offer no Clear. */
+  clear?(input: TarsClearInput): Promise<TarsClearRecord>;
+  undoClear?(input: TarsUndoClearInput): Promise<TarsClearRecord>;
+  configureView?(input: TarsViewSettings): Promise<TarsViewSettings>;
+  /** When the user last saw the conversation and the summary on screen; absent on bridges that predate it, which show no summary. */
+  getAway?(): Promise<TarsAwayState>;
+  /** Saves it and returns what is saved now: the seen time never moves backward and a dismissed summary stays dismissed. */
+  saveAway?(input: TarsAwayState): Promise<TarsAwayState>;
+  /** Schedules Tars sets up in Stave's Schedules service; absent on bridges that predate them, which show a schedule proposal as a plain line. */
+  previewSchedule?(input: TarsSchedulePreviewInput): Promise<TarsSchedulePreview>;
+  confirmSchedule?(input: TarsScheduleConfirmInput): Promise<TarsScheduleResult>;
+  toggleSchedule?(input: TarsScheduleToggleInput): Promise<TarsScheduleResult>;
+  listSchedules?(): Promise<TarsScheduleList>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
+  /** Suggested requests written by Tars's saved reasoning model; absent on bridges without it, which show no suggestions. */
+  suggest?(input: import("./suggestion-generation").TarsSuggestInput): Promise<import("./suggestion-generation").TarsSuggestResult>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;
 }

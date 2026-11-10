@@ -1,12 +1,13 @@
+import { tarsCanUpdatePublication } from "./publication";
 import type { TarsActionReceipt } from "./conversation";
 import { tarsPublishProposalRequestId, tarsPublicationResumeStep, type TarsPublishRecord, type TarsPublicationStep } from "./publication";
 import type { TarsResponsibility } from "./types";
 
 /**
- * A publish proposal Tars made from the user's words, as the conversation
+ * A publish proposal from the user's words or a verified-result follow-up, as the conversation
  * shows it. `waiting`: the card can be confirmed; `invalid`: the work moved
  * past the revision Tars saw (or its draft pull request opened) before the
- * user confirmed; `settled`: confirmed, and its record says how it went.
+ * user confirmed; `settled`: admitted by confirmation or policy, with its recorded outcome.
  */
 export interface TarsPublishProposalView {
   requestId: string;
@@ -21,9 +22,10 @@ export interface TarsPublishProposalView {
 }
 
 /** Whether completed work can show a publish card now, from the saved row alone; the host checks the workspace and GitHub. */
-export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication"> | undefined) {
-  return Boolean(row && row.state === "completed" && row.detailCode !== "acceptedWithoutVerification" && row.executionWorkspaceId
-    && row.publication?.state !== "opened");
+export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication" | "resultVerifiedRunId" | "agentRunId" | "executionPending"> | undefined) {
+  return Boolean(row && !row.executionPending && (row.state === "completed" || row.state === "resultReady") && row.detailCode !== "acceptedWithoutVerification" && row.executionWorkspaceId
+    && (row.state !== "resultReady" || Boolean(row.agentRunId && row.resultVerifiedRunId === row.agentRunId))
+    && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
 }
 
 export function projectTarsPublishProposals(sources: {

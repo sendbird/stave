@@ -1,3 +1,17 @@
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
+import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
+import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
+import { NativeNotificationResolvedSchema, type NativeNotificationResolved } from "../src/lib/notifications/native-notification-contract";
+import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "../src/lib/task-context/conversation-truncation";
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema, type TurnSnapshotOwner, type TurnSnapshotRestore } from "../src/lib/turn-snapshots";
+import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
+import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
+import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
+import { contentSearchPreload } from "./persistence/content-search-preload";
+import { TarsBatchInputSchema, TarsBatchRecordSchema, TarsBatchRecordsSchema } from "../src/lib/tars/batch";
+import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../src/lib/workspace-cleanup-contract";
+import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
+import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
@@ -92,21 +106,6 @@ import type {
   CraneDispatchJobUpdate,
 } from "../src/lib/crane-connector/types";
 import type {
-  AtelierConnectorPairInput,
-  AtelierConnectorPublicStatus,
-} from "../src/lib/atelier-connector/types";
-import type { MartinProjectSummary } from "../src/lib/martin-sync/contract";
-import type {
-  MartinLinkProjectArgs,
-  MartinListProjectsArgs,
-  MartinSyncEnqueueArgs,
-  MartinSyncLinksChangedArgs,
-  MartinSyncMappingStalePayload,
-  MartinSyncPublicStatus,
-  MartinSyncSettings,
-  MartinWorkspaceArgs,
-} from "../src/lib/martin-sync/types";
-import type {
   TrackerSourceId,
   TrackerIssueAttachStaveTaskArgs,
   TrackerIssueDetail,
@@ -137,10 +136,7 @@ import type {
   JiraConnectorSetCredentialArgs,
   JiraConnectorSettings,
 } from "../src/lib/jira-connector/types";
-import type {
-  WorkspaceMartinProjectLink,
-  WorkspaceInformationState,
-} from "../src/lib/workspace-information";
+import type { WorkspaceInformationState } from "../src/lib/workspace-information";
 import type {
   AutomationInformationResourceCreateInput,
   AutomationRun,
@@ -153,10 +149,18 @@ import { TARS_IPC, CreateTarsResponsibilityInputSchema, TarsChangedEventSchema, 
   type TarsBridgeApi, type TarsChangedEvent } from "../src/lib/tars/types";
 import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversationInputSchema, CancelTarsMessageInputSchema,
   TarsMessageViewSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
-  TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
+  TarsAnswerResultSchema, TarsReprioritizeInputSchema, TarsDismissInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
+import { TarsAttachmentImageInputSchema, TarsAttachmentImageSchema } from "../src/lib/tars/attachment-image";
+import { TarsUsageInputSchema, TarsUsageReportSchema } from "../src/lib/tars/usage";
 import { SaveTarsComposerDraftInputSchema, TarsComposerDraftSchema } from "../src/lib/tars/composer-draft";
+import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../src/lib/tars/clearing";
+import { TarsAwayStateSchema } from "../src/lib/tars/away-state";
+import { TarsSuggestInputSchema, TarsSuggestResultSchema } from "../src/lib/tars/suggestion-generation";
+import {
+  TarsScheduleConfirmInputSchema, TarsScheduleListSchema, TarsSchedulePreviewInputSchema, TarsSchedulePreviewSchema, TarsScheduleResultSchema, TarsScheduleToggleInputSchema,
+} from "../src/lib/tars/schedules";
 import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
@@ -342,12 +346,6 @@ interface WorkspaceInformationUpdatePayload {
 const craneConnectorStatusSubscribers = new Set<
   (payload: CraneConnectorPublicStatus) => void
 >();
-const martinSyncStatusSubscribers = new Set<
-  (payload: MartinSyncPublicStatus) => void
->();
-const martinMappingStaleSubscribers = new Set<
-  (payload: MartinSyncMappingStalePayload) => void
->();
 const craneDispatchApprovalSubscribers = new Set<
   (payload: CraneDispatchApprovalRequest) => void
 >();
@@ -372,22 +370,6 @@ ipcRenderer.on(
   "crane-connector:status",
   (_event, payload: CraneConnectorPublicStatus) => {
     for (const subscriber of craneConnectorStatusSubscribers) {
-      subscriber(payload);
-    }
-  },
-);
-ipcRenderer.on(
-  "martin-sync:status",
-  (_event, payload: MartinSyncPublicStatus) => {
-    for (const subscriber of martinSyncStatusSubscribers) {
-      subscriber(payload);
-    }
-  },
-);
-ipcRenderer.on(
-  "martin-sync:mapping-stale",
-  (_event, payload: MartinSyncMappingStalePayload) => {
-    for (const subscriber of martinMappingStaleSubscribers) {
       subscriber(payload);
     }
   },
@@ -835,6 +817,8 @@ ipcRenderer.on(WAKE_UP_IPC.changed, (_event, payload: WakeUpChangedEvent) => {
 const wakeUpsApi: WakeUpsBridgeApi = {
   list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args ?? {}),
   create: (input) => ipcRenderer.invoke(WAKE_UP_IPC.create, input),
+  createAutomatic: (input) => ipcRenderer.invoke(WAKE_UP_IPC.createAutomatic, input),
+  syncSettings: (settings) => ipcRenderer.invoke(WAKE_UP_IPC.syncSettings, settings),
   update: (args) => ipcRenderer.invoke(WAKE_UP_IPC.update, args),
   setPaused: (args) => ipcRenderer.invoke(WAKE_UP_IPC.setPaused, args),
   remove: (args) => ipcRenderer.invoke(WAKE_UP_IPC.remove, args),
@@ -862,12 +846,28 @@ const tarsApi: TarsBridgeApi = {
   create: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.create, CreateTarsResponsibilityInputSchema.parse(input))),
   act: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.act, TarsActInputSchema.parse(input))),
   answer: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.answer, TarsAnswerInputSchema.parse(input))),
+  dismissDecision: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.dismissDecision, TarsDismissInputSchema.parse(input))),
   publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
+  undoAction: async (input) => TarsUndoActionResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoAction, TarsUndoActionInputSchema.parse(input))),
   reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
   getBrief: async (input) => TarsBriefSchema.parse(await ipcRenderer.invoke(TARS_IPC.getBrief, TarsBriefInputSchema.parse(input))),
+  getAttachmentImage: async (input) => TarsAttachmentImageSchema.parse(await ipcRenderer.invoke(TARS_IPC.getAttachmentImage, TarsAttachmentImageInputSchema.parse(input))),
+  getUsage: async (input) => TarsUsageReportSchema.parse(await ipcRenderer.invoke(TARS_IPC.getUsage, TarsUsageInputSchema.parse(input))),
   getDraft: async () => TarsComposerDraftSchema.nullable().parse(await ipcRenderer.invoke(TARS_IPC.getDraft)),
   saveDraft: async (input) => { await ipcRenderer.invoke(TARS_IPC.saveDraft, SaveTarsComposerDraftInputSchema.parse(input)); },
+  batch: async input => TarsBatchRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.batch, TarsBatchInputSchema.parse(input))),
+  batches: async () => TarsBatchRecordsSchema.parse(await ipcRenderer.invoke(TARS_IPC.batches)),
+  clear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.clear, TarsClearInputSchema.parse(input))),
+  undoClear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoClear, TarsUndoClearInputSchema.parse(input))),
+  configureView: async (input) => TarsViewSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureView, TarsViewSettingsSchema.parse(input))),
+  getAway: async () => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.getAway)),
+  suggest: async (input) => TarsSuggestResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.suggest, TarsSuggestInputSchema.parse(input))),
+  saveAway: async (input) => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.saveAway, TarsAwayStateSchema.parse(input))),
+  previewSchedule: async (input) => TarsSchedulePreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedulePreview, TarsSchedulePreviewInputSchema.parse(input))),
+  confirmSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedule, TarsScheduleConfirmInputSchema.parse(input))),
+  toggleSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.scheduleToggle, TarsScheduleToggleInputSchema.parse(input))),
+  listSchedules: async () => TarsScheduleListSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedules)),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);
@@ -1206,6 +1206,11 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  turnSnapshots: {
+    list: async (args: TurnSnapshotOwner) => TurnSnapshotListSchema.parse(await ipcRenderer.invoke("turn-snapshots:list", TurnSnapshotOwnerSchema.parse(args))),
+    restore: async (args: TurnSnapshotRestore) => TurnSnapshotResultSchema.parse(await ipcRenderer.invoke("turn-snapshots:restore", TurnSnapshotRestoreSchema.parse(args))),
+    undo: async (args: TurnSnapshotOwner) => TurnSnapshotResultSchema.parse(await ipcRenderer.invoke("turn-snapshots:undo", TurnSnapshotOwnerSchema.parse(args))),
+  },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>
       ipcRenderer.invoke("provider:stream-turn", args),
@@ -1227,6 +1232,10 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    listLiveTurns: (): Promise<ProviderLiveTurnsResult> =>
+      ipcRenderer.invoke("provider:list-live-turns"),
+    takeRestoredQueuedTurns: () =>
+      ipcRenderer.invoke("provider:take-restored-queued-turns"),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>
@@ -1684,19 +1693,16 @@ contextBridge.exposeInMainWorld("api", {
       taskId: string;
       limit?: number;
       offset?: number;
+      messageId?: string;
     }) => ipcRenderer.invoke("persistence:load-task-messages", args),
-    truncateTaskMessagesAfter: (args: {
+    truncateTaskMessagesAfter: async (args: {
+      before?: true;
       workspaceId: string;
       taskId: string;
       messageId: string;
-    }) =>
-      ipcRenderer.invoke(
-        "persistence:truncate-task-messages-after",
-        args,
-      ) as Promise<{
-        ok: boolean;
-        removedCount: number;
-      }>,
+    }) => TruncateTaskMessagesResultSchema.parse(await ipcRenderer.invoke(
+      "persistence:truncate-task-messages-after", TruncateTaskMessagesAfterArgsSchema.parse(args),
+    )),
     loadWorkspaceEditorTabBodies: (args: {
       workspaceId: string;
       tabIds: string[];
@@ -1704,7 +1710,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:load-workspace-editor-tab-bodies", args),
     loadRepositoryRegistry: () =>
       ipcRenderer.invoke("persistence:load-repository-registry"),
-    upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
+    upsertWorkspace: (args: { id: string; name: string; snapshot: unknown; creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean }; }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
     saveRepositoryRegistry: (args: {
       repositories: unknown[];
@@ -1750,6 +1756,8 @@ contextBridge.exposeInMainWorld("api", {
         | import("../src/lib/workspace-resume-brief").WorkspaceResumeBriefDraft
         | null;
     }) => ipcRenderer.invoke("persistence:save-direction-draft", args),
+    listTaskReadStates: async (args: ListTaskReadStatesArgs) => TaskReadStatesResponseSchema.parse(await ipcRenderer.invoke("persistence:list-task-read-states", ListTaskReadStatesArgsSchema.parse(args))),
+    setTaskReadStates: async (args: SetTaskReadStatesArgs) => SetTaskReadStatesResponseSchema.parse(await ipcRenderer.invoke("persistence:set-task-read-states", SetTaskReadStatesArgsSchema.parse(args))),
     listResultReviews: (
       args?: import("../src/lib/reviews/result-review").ListResultReviewsArgs,
     ) => ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),
@@ -1852,6 +1860,7 @@ contextBridge.exposeInMainWorld("api", {
     ...usageStatisticsPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...turnHistoryPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...taskHandoffPreload((channel, args) => ipcRenderer.invoke(channel, args)),
+    ...contentSearchPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...taskSearchPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     summarizeTurnSpend: (
       args: import("../src/lib/providers/turn-spend").TurnSpendArgs,
@@ -2014,92 +2023,6 @@ contextBridge.exposeInMainWorld("api", {
       localMcpTaskTurnUpdateSubscribers.add(listener);
       return () => {
         localMcpTaskTurnUpdateSubscribers.delete(listener);
-      };
-    },
-  },
-  atelierConnector: {
-    getStatus: () =>
-      ipcRenderer.invoke("atelier-connector:get-status") as Promise<{
-        ok: boolean;
-        status: AtelierConnectorPublicStatus;
-        message?: string;
-      }>,
-    pair: (args: AtelierConnectorPairInput) =>
-      ipcRenderer.invoke("atelier-connector:pair", args) as Promise<{
-        ok: boolean;
-        status: AtelierConnectorPublicStatus;
-        message?: string;
-      }>,
-  },
-  martinSync: {
-    getStatus: () =>
-      ipcRenderer.invoke("martin-sync:get-status") as Promise<{
-        ok: boolean;
-        status: MartinSyncPublicStatus;
-        message?: string;
-      }>,
-    configure: (args: MartinSyncSettings) =>
-      ipcRenderer.invoke("martin-sync:configure", args) as Promise<{
-        ok: boolean;
-        status: MartinSyncPublicStatus;
-        message?: string;
-      }>,
-    enqueue: (args: MartinSyncEnqueueArgs) =>
-      ipcRenderer.invoke("martin-sync:enqueue", args) as Promise<{
-        ok: boolean;
-        status?: MartinSyncPublicStatus;
-        message?: string;
-      }>,
-    notifyLinksChanged: (args: MartinSyncLinksChangedArgs) =>
-      ipcRenderer.invoke("martin-sync:links-changed", args) as Promise<{
-        ok: boolean;
-        status?: MartinSyncPublicStatus;
-        message?: string;
-      }>,
-    retryFailed: () =>
-      ipcRenderer.invoke("martin-sync:retry-failed") as Promise<{
-        ok: boolean;
-        status: MartinSyncPublicStatus;
-        message?: string;
-      }>,
-    listProjects: (args: MartinListProjectsArgs = {}) =>
-      ipcRenderer.invoke("martin-sync:list-projects", args) as Promise<{
-        ok: boolean;
-        projects: MartinProjectSummary[];
-        message?: string;
-      }>,
-    linkProject: (args: MartinLinkProjectArgs) =>
-      ipcRenderer.invoke("martin-sync:link-project", args) as Promise<{
-        ok: boolean;
-        project?: WorkspaceMartinProjectLink;
-        snapshotRelativePath?: string;
-        message?: string;
-      }>,
-    unlinkProject: (args: MartinWorkspaceArgs) =>
-      ipcRenderer.invoke("martin-sync:unlink-project", args) as Promise<{
-        ok: boolean;
-        message?: string;
-      }>,
-    refreshContext: (args: MartinWorkspaceArgs) =>
-      ipcRenderer.invoke("martin-sync:refresh-context", args) as Promise<{
-        ok: boolean;
-        project?: WorkspaceMartinProjectLink;
-        snapshotRelativePath?: string;
-        markdown?: string;
-        message?: string;
-      }>,
-    subscribeStatus: (listener: (payload: MartinSyncPublicStatus) => void) => {
-      martinSyncStatusSubscribers.add(listener);
-      return () => {
-        martinSyncStatusSubscribers.delete(listener);
-      };
-    },
-    subscribeMappingStale: (
-      listener: (payload: MartinSyncMappingStalePayload) => void,
-    ) => {
-      martinMappingStaleSubscribers.add(listener);
-      return () => {
-        martinMappingStaleSubscribers.delete(listener);
       };
     },
   },
@@ -2329,6 +2252,10 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   taskControl: {
+    deletePermanently: async (args: FleetTaskControlArgs) => FleetTaskControlResultSchema.parse(await ipcRenderer.invoke("task-control:delete-permanently", FleetTaskControlArgsSchema.parse(args))),
+    archive: async (args: FleetArchiveArgs) => FleetArchiveResultSchema.parse(await ipcRenderer.invoke("task-control:archive", FleetArchiveArgsSchema.parse(args))),
+    previewStop: async (args: FleetStopPreviewArgs) => FleetStopPreviewResultSchema.parse(await ipcRenderer.invoke("task-control:preview-stop", FleetStopPreviewArgsSchema.parse(args))),
+    stopChildren: async (args: FleetTaskControlArgs) => FleetStopChildrenResultSchema.parse(await ipcRenderer.invoke("task-control:stop-children", FleetTaskControlArgsSchema.parse(args))),
     takeOver: (args: { workspaceId: string; taskId: string }) =>
       ipcRenderer.invoke("task-control:take-over", args) as Promise<{
         ok: boolean;
@@ -2542,6 +2469,15 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("terminal:close-sessions-by-slot-prefix", args),
   },
   notifications: {
+    subscribeNativeResolved: (listener: (payload: NativeNotificationResolved) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        const parsed = NativeNotificationResolvedSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on("notifications:native-resolved", handler);
+      return () => { ipcRenderer.removeListener("notifications:native-resolved", handler); };
+    },
+    setActionsEnabled: (args: { enabled: boolean }) => ipcRenderer.invoke("notifications:set-actions-enabled", args),
     showNative: (args: {
       notificationId: string;
       title: string;
@@ -2581,6 +2517,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   scripts: scriptsApi,
   sourceControl: {
+    seedWorktreeDependencies: (args: import("../src/lib/worktree-dependencies").WorktreeDependenciesArgs) =>
+      ipcRenderer.invoke("scm:seed-worktree-dependencies", args) as Promise<import("../src/lib/worktree-dependencies").WorktreeDependenciesResult>,
     getStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:status", args),
     stageAll: (args: { cwd?: string }) =>
@@ -2698,6 +2636,10 @@ contextBridge.exposeInMainWorld("api", {
         autoMergeAllowed?: boolean;
         stderr: string;
       }>,
+    getPrStack: async (args: GetPrStackArgs) =>
+      GetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:get-pr-stack", GetPrStackArgsSchema.parse(args))),
+    retargetPrStack: async (args: RetargetPrStackArgs) =>
+      RetargetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:retarget-pr-stack", RetargetPrStackArgsSchema.parse(args))),
     getPrStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:get-pr-status", args) as Promise<{
         ok: boolean;
@@ -2910,6 +2852,18 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("shell:open-in-terminal", args),
     openInGhostty: (args: { path: string }) =>
       ipcRenderer.invoke("shell:open-in-ghostty", args),
+  },
+  workspaceCleanup: {
+    onChanged: (listener: (event: { workspaceId: string; repositoryPath: string }) => void) => {
+      const handler = (_event: unknown, payload: unknown) => { const parsed = WorkspaceCleanupChangedSchema.safeParse(payload); if (parsed.success) listener(parsed.data); };
+      ipcRenderer.on("workspace:cleanup-changed", handler);
+      return () => { ipcRenderer.removeListener("workspace:cleanup-changed", handler); };
+    },
+    listArchived: async () => WorkspaceCleanupRowSchema.array().parse(await ipcRenderer.invoke("workspace:cleanup-archives")),
+    list: async (args = {}) => WorkspaceCleanupListResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-list", WorkspaceCleanupListArgsSchema.parse(args))),
+    act: async (args: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupActArgs) => WorkspaceCleanupResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-act", WorkspaceCleanupActArgsSchema.parse(args))),
+    configure: async (policy: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupPolicy) => WorkspaceCleanupPolicySchema.parse(await ipcRenderer.invoke("workspace:cleanup-configure", WorkspaceCleanupPolicySchema.parse(policy))),
+    runNow: async () => WorkspaceCleanupRunResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-run", {})),
   },
   workspaceExecution: {
     status: () => ipcRenderer.invoke("workspace:execution-status") as Promise<WorkspaceExecutionState[]>,

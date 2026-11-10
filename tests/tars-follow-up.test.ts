@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { actTars } from "../electron/host-service/tars-control";
-import { tarsEventKey, TARS_FOLLOW_UP_WINDOW_CAP } from "../src/lib/tars/events";
+import { tarsEventKey, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UP_CAP } from "../src/lib/tars/events";
 import type { TarsDecisionAction } from "../src/lib/tars/conversation";
 import { followUpFixture, minutes, START } from "./tars-follow-up-fixture";
 
@@ -74,29 +74,30 @@ test("global cap: past the window cap events wait, the tray says until when, and
   expect(f.responsibilities.snapshot().followUps).toEqual([]);
 });
 
-test("automatic turns draw from the saved shared turn limit and stop cleanly, with a notice, when it is used up", async () => {
-  const f = fixture({ maxTurns: 2 }); f.service.start();
-  const rows = [0, 1, 2].map(() => f.responsibility("blocked", { detail: "Stuck." }));
+test.each([1, 100])("automatic follow-ups have a separate cap and one visible exhaustion record (run maxTurns %s)", async (maxTurns) => {
+  const f = fixture({ maxTurns }); f.service.start();
+  for (let index = 0; index < TARS_FOLLOW_UP_CAP; index++) {
+    f.responsibility("blocked", { detail: "Stuck." });
+    await f.settle();
+    f.advance(minutes(61));
+  }
+  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
+  const exhausted = f.responsibility("blocked", { detail: "Still stuck." });
   await f.settle();
-  expect(f.planner).toHaveLength(2);
-  expect(eventsOf(f, rows[2]!.id)).toEqual([expect.objectContaining({ status: "exhausted", messageId: null })]);
-  expect(f.responsibilities.snapshot().followUps).toEqual([{ responsibilityId: rows[2]!.id, kind: "blocked", status: "exhausted", at: null }]);
+  expect(eventsOf(f, exhausted.id)).toEqual([expect.objectContaining({ status: "exhausted", messageId: null })]);
   expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted")).toHaveLength(1);
-  // Nothing retries an exhausted event.
+  expect(f.responsibilities.snapshot().followUps).toContainEqual({ responsibilityId: exhausted.id, kind: "blocked", status: "exhausted", at: null });
   f.advance(minutes(120)); await f.settle();
-  expect(f.planner).toHaveLength(2);
-  // Once the user speaks, the limit starts again for the next change.
-  await f.send("What happened to the release checks?");
-  expect(f.planner).toHaveLength(3);
-  expect(f.responsibilities.snapshot().followUps).toEqual([]);
-  const next = f.responsibility("blocked", { detail: "Stuck." });
-  await f.settle();
-  expect(f.planner).toHaveLength(4);
-  expect(f.automatic().at(-1)?.origin).toMatchObject({ kind: "followUp", responsibilityId: next.id });
+  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
+  expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted")).toHaveLength(1);
+  await f.send("Continue checking.");
+  f.responsibility("blocked", { detail: "A new change." }); await f.settle();
+  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP + 2);
 });
 
 test("an event never resumes or reclaims work the user took over or paused", async () => {
   const f = fixture();
+  f.conversations.configure({ ...f.conversations.getSettings()!, autonomy: "careful" });
   const taken = f.responsibility("running");
   f.observations.set(taken.id, blocked());
   f.runtime.requestTick(); await f.runtime.drain();
@@ -173,18 +174,20 @@ test("a change the user already spoke about starts no follow-up", async () => {
   f.responsibilities.patch(reran.id, reran.revision, { state: "blocked", detail: "Stuck again." }, f.now());
   const quiet = f.responsibility("blocked", { detail: "Stuck." });
   f.advance(minutes(1));
-  f.conversations.create({ requestId: "typed", text: "Why is the second check stuck?" }, f.now());
+  const spoken = f.conversations.create({ requestId: "typed", text: "Why is the second check stuck?" }, f.now());
+  const claimed = f.conversations.claim(spoken.id, spoken.revision, f.now());
+  f.conversations.answer(claimed.id, claimed.revision, { reply: "Here is the check.", actions: [{ kind: "show", responsibilityId: quiet.id, view: "report" }] }, f.now());
   // Only the second responsibility's change predates the user's words; the first one changed again after them.
   f.advance(minutes(1));
   const again = f.responsibilities.get(row.id)!;
   const moved = f.responsibilities.patch(again.id, again.revision, { state: "running", detail: null }, f.now());
   f.responsibilities.patch(moved.id, moved.revision, { state: "blocked", detail: "Stuck a third time." }, f.now());
   f.service.start(); await f.settle();
-  // Its first two blocks predate the user's words, which covered them; the newest one is followed up once.
-  expect(eventsOf(f, row.id).map((event) => event.status)).toEqual(["superseded", "superseded", "followedUp"]);
+  // Unrelated conversation never covers this work; its old changes coalesce into the newest one.
+  expect(eventsOf(f, row.id).map((event) => event.status)).toEqual(["coalesced", "coalesced", "followedUp"]);
   expect(eventsOf(f, quiet.id).map((event) => event.status)).toEqual(["superseded"]);
-  // The user's own message and one follow-up.
-  expect(f.planner).toHaveLength(2);
+  // The addressed message was already answered; only the other work needs a planner turn.
+  expect(f.planner).toHaveLength(1);
   expect(f.automatic().map((message) => message.origin)).toEqual([expect.objectContaining({ responsibilityId: row.id,
     eventKey: tarsEventKey(eventsOf(f, row.id).at(-1)!) })]);
   expect(Date.parse(f.now()) - Date.parse(START)).toBe(minutes(2));

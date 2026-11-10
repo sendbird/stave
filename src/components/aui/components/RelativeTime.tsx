@@ -34,6 +34,11 @@ export type RelativeTimeProps = Omit<PreviewCardRootProps, "children"> & {
   formatRelative: (date: Date, now: Date) => string;
   /** The card's name for Coordinated Universal Time (host-supplied copy). */
   utcLabel: string;
+  /**
+   * Host-owned geometry for the trigger button (its line box, a larger hit
+   * area); `xstyle` styles the card. Host modification.
+   */
+  triggerXstyle?: XstyleProp["xstyle"];
 } & XstyleProp;
 
 function formatAbsolute(date: Date, locale: string, timeZone?: string) {
@@ -65,6 +70,7 @@ export function RelativeTime({
   now,
   utcLabel,
   xstyle,
+  triggerXstyle,
   ...props
 }: RelativeTimeProps) {
   const parsed = date instanceof Date ? date : new Date(date);
@@ -79,7 +85,7 @@ export function RelativeTime({
       <PreviewCardTrigger
         {...triggerTheme}
         className={cx(
-          sx(styles.trigger, transition.colors, focusRing.ring),
+          sx(styles.trigger, transition.colors, focusRing.ring, triggerXstyle),
           triggerTheme.className,
         )}
         render={<button type="button" />}

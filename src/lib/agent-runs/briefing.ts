@@ -196,6 +196,7 @@ export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): 
   const record = currentStageRecord(aggregate);
   const wait = currentEventWait(agentRun, record);
   return [
+    "Choose the next approach from the current evidence. Continue directly for small work; delegate bounded independent work only when authorized and useful. Review helper results before accepting them. After a failed approach, diagnose it before retrying or changing resources. Respect fixed models, role access and spending limits. Ask only for missing decisions or authority; never treat a clarification as an answer. Complete only when the required outcome is supported by evidence.",
     `Current stage: ${stage.title} (${stage.kind}), attempt ${record.attempt}, status ${record.status}.`,
     stage.kind === "ai" ? `Required outcome: ${stage.doneWhen}` : `Action: ${stage.action.type}`,
     ...(stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction) : []),
@@ -207,7 +208,6 @@ export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): 
     ...(record.feedback ? [`Requested changes: ${record.feedback.slice(0, 2000)}`] : []),
     ...(record.report ? [`Latest report: ${JSON.stringify(record.report).slice(0, 3000)}`] : []),
     ...(record.facts ? [`Observed checks: ${JSON.stringify(record.facts.commands).slice(0, 3000)}`] : []),
-    "Choose the next approach from the current evidence. Continue directly for small work; delegate bounded independent work only when authorized and useful. Review helper results before accepting them. After a failed approach, diagnose it before retrying or changing resources. Respect fixed models, role access and spending limits. Ask only for missing decisions or authority; never treat a clarification as an answer. Complete only when the required outcome is supported by evidence.",
   ].join("\n");
 }
 
@@ -288,16 +288,17 @@ export function buildAgentRunTurnContextPart(args: {
     title: "Agent Run Stage",
     content: [
       "A Stave agent run started this turn. The user did not type this message and may not be watching.",
+      // Put the stable reporting/authority contract before this turn's state.
+      args.reason === "repair-checks" ? checksRepairClosing(args.aggregate) : STAGE_TURN_CLOSING,
+      // Stage prompts already include the implicit workflow's plan instruction.
+      ...(hasAgentOrigin(agentRun) && (args.reason === "nudge" || args.reason === "repair-checks" ||
+        stage.kind !== "ai" || !stage.instruction.includes(AGENT_RUN_PLAN_INSTRUCTION)) ? [AGENT_RUN_PLAN_INSTRUCTION] : []),
       // An agent run's workflow is named after its agent; a legacy run's after its saved workflow.
       hasAgentOrigin(agentRun)
         ? `Agent: ${agentRun.workflow.name}. Workflow ${position}`
         : `Workflow: ${agentRun.workflow.name}. Stage ${position.slice("stage ".length)}`,
-      TURN_REASON_LINES[args.reason],
       describeAgentRunExecutionContext(args.aggregate),
-      // Stage prompts already include the implicit workflow's plan instruction.
-      ...(hasAgentOrigin(agentRun) && (args.reason === "nudge" || args.reason === "repair-checks" ||
-        stage.kind !== "ai" || !stage.instruction.includes(AGENT_RUN_PLAN_INSTRUCTION)) ? [AGENT_RUN_PLAN_INSTRUCTION] : []),
-      args.reason === "repair-checks" ? checksRepairClosing(args.aggregate) : STAGE_TURN_CLOSING,
+      TURN_REASON_LINES[args.reason],
     ].join("\n"),
   };
 }

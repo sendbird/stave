@@ -29,7 +29,7 @@ test("Tars IPC validates scope-bearing input before dispatch and awaits host res
   expect(output.handlers).not.toContain("tars:control");
   expect(output.created.runtime).toBe("desktop");
   expect(output.calls).toHaveLength(1);
-  expect(output.calls[0]).toMatchObject(["tars.invoke", { action: "create", args: { workspaceId: "workspace-a", repositoryPath: "/tmp/registered", maxTurns: 30, priority: 50 } }]);
+  expect(output.calls[0]).toMatchObject(["tars.invoke", { action: "create", args: { workspaceId: "workspace-a", repositoryPath: "/tmp/registered", maxTurns: 60, priority: 50 } }]);
 });
 
 test("conversation IPC rejects invented authority, action bodies, invalid cancellation and pagination before dispatch", () => {
@@ -339,6 +339,55 @@ test("actual preload validates a brief request and rejects a malformed brief", (
     channels: ["tars:get-brief", "tars:get-brief", "tars:get-brief", "tars:get-brief", "tars:get-brief"] });
 });
 
+test("an image preview read names a message and position only, reaches the conversation service, and preload accepts an image and nothing else", () => {
+  const source = `
+    import { mock } from "bun:test";
+    const handlers = new Map(); const calls = [];
+    mock.module("electron", () => ({ webContents: { getAllWebContents: () => [] }, ipcMain: { handle: (key, callback) => handlers.set(key, callback) } }));
+    mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: async () => { throw new Error("Image reads must use the main service"); } }));
+    mock.module("./electron/main/tars-conversation-instance", () => ({ getTarsConversationService: async () => ({
+      getAttachmentImage: (input) => { calls.push(input); return null; },
+    }) }));
+    const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
+    const read = await handlers.get("tars:get-attachment-image")(null, { messageId: "message-1", index: 2 });
+    let denied = 0;
+    for (const invalid of [undefined, {}, { messageId: "message-1" }, { messageId: "", index: 0 }, { messageId: "message-1", index: 8 },
+      { messageId: "message-1", index: 0.5 }, { messageId: "message-1", index: 0, workspaceId: "other" }]) {
+      try { await handlers.get("tars:get-attachment-image")(null, invalid); } catch { denied++; }
+    }
+    console.log(JSON.stringify({ read, denied, calls }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({ read: null, denied: 7, calls: [{ messageId: "message-1", index: 2 }] });
+
+  const preload = `
+    import { mock } from "bun:test";
+    let api; const calls = []; let reply;
+    mock.module("electron", () => ({
+      contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
+      ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webUtils: { getPathForFile: () => "" },
+    }));
+    await import("./electron/preload");
+    const image = { type: "image_context", label: "screen.png", mimeType: "image/png", dataUrl: "data:image/png;base64,AQID" };
+    reply = image; const accepted = await api.tars.getAttachmentImage({ messageId: "message-1", index: 1 });
+    reply = null; const missing = await api.tars.getAttachmentImage({ messageId: "message-1", index: 1 });
+    let denied = 0;
+    try { await api.tars.getAttachmentImage({ messageId: "message-1", index: 1, extra: true }); } catch { denied++; }
+    for (const malformed of [{ type: "file_context", filePath: "notes.md", content: "secret", language: "md" }, { ...image, mimeType: "image/jpeg" }, { ...image, dataUrl: "https://example.com/x.png" }]) {
+      reply = malformed; try { await api.tars.getAttachmentImage({ messageId: "message-1", index: 1 }); } catch { denied++; }
+    }
+    console.log(JSON.stringify({ accepted, missing, denied, channels: calls.map(([channel]) => channel) }));
+  `;
+  const exposed = Bun.spawnSync({ cmd: [process.execPath, "--eval", preload], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(exposed.exitCode, exposed.stderr.toString()).toBe(0);
+  expect(JSON.parse(exposed.stdout.toString())).toEqual({
+    accepted: { type: "image_context", label: "screen.png", mimeType: "image/png", dataUrl: "data:image/png;base64,AQID" }, missing: null, denied: 4,
+    channels: Array(5).fill("tars:get-attachment-image"),
+  });
+});
+
 test("draft IPC validates the draft before it reaches the conversation service, and preload refuses a malformed saved draft", () => {
   const source = `
     import { mock } from "bun:test";
@@ -393,4 +442,28 @@ test("draft IPC validates the draft before it reaches the conversation service, 
   expect(exposed.exitCode, exposed.stderr.toString()).toBe(0);
   expect(JSON.parse(exposed.stdout.toString())).toEqual({ empty: null, saved: { text: "Saved", includeWorkingChanges: false, requestId: null }, denied: 2,
     channels: ["tars:get-draft", "tars:get-draft", "tars:save-draft", "tars:get-draft"] });
+});
+
+test("dismiss IPC names a decision and a click or key only, and reaches the conversation service, never the host", () => {
+  const source = `
+    import { mock } from "bun:test";
+    const handlers = new Map(); const calls = [];
+    mock.module("electron", () => ({ webContents: { getAllWebContents: () => [] }, ipcMain: { handle: (key, callback) => handlers.set(key, callback) } }));
+    mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: async () => { throw new Error("Dismissal must not use the host"); } }));
+    mock.module("./electron/main/tars-conversation-instance", () => ({ getTarsConversationService: async () => ({
+      dismissDecision: (input) => { calls.push(input); return { answer: null, refusal: "notWaiting" }; },
+    }) }));
+    const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
+    const result = await handlers.get("tars:dismiss-decision")(null, { decisionId: "confirm:message-1:0", source: "click" });
+    let denied = 0;
+    for (const value of [{ decisionId: "confirm:message-1:0", source: "words" }, { decisionId: "confirm:message-1:0", source: "tars" },
+      { decisionId: "anything", source: "click" }, { decisionId: "ask:m:0", source: "key", optionIndex: 0 }, undefined]) {
+      try { await handlers.get("tars:dismiss-decision")(null, value); } catch { denied++; }
+    }
+    console.log(JSON.stringify({ result, calls, denied }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({ result: { answer: null, refusal: "notWaiting" },
+    calls: [{ decisionId: "confirm:message-1:0", source: "click" }], denied: 5 });
 });

@@ -1,3 +1,4 @@
+import type { FeatureTipId } from "@/lib/feature-tips";
 /**
  * Application settings contract and defaults.
  *
@@ -19,6 +20,8 @@ import {
   type InlineRenderNetworkPolicy,
 } from "@/lib/inline-render/inline-render";
 import { DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS } from "@/lib/fleet/workspace-settlement";
+import { DEFAULT_PULL_REQUEST_WATCH_ENABLED } from "@/lib/supervision/pull-request-watch";
+import { DEFAULT_LONG_LIVED_BRANCHES_TEXT } from "@/lib/pull-request-stack";
 import type {
   ClaudePluginMode,
   ClaudeSettingSource,
@@ -104,10 +107,6 @@ import {
   type CraneConnectorSettings,
 } from "@/lib/crane-connector/types";
 import {
-  DEFAULT_MARTIN_SYNC_SETTINGS,
-  type MartinSyncSettings,
-} from "@/lib/martin-sync/types";
-import {
   DEFAULT_JIRA_CONNECTOR_SETTINGS,
   type JiraConnectorSettings,
 } from "@/lib/jira-connector/types";
@@ -168,6 +167,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   messageFontFamily: string;
   messageMonoFontFamily: string;
   messageKoreanFontFamily: string;
+  /**
+   * How wide the task chat's and Tars's message column and composer may grow.
+   * Each choice still steps up with the conversation surface's own width
+   * (`transcript-width.ts`); this picks the scale.
+   */
+  conversationWidth: ConversationWidth;
   /** Zoom scale for the workspace information panel (0.8 – 1.3, default 1). */
   infoPanelScale: number;
   /** Per-section visibility overrides for the workspace information panel. */
@@ -238,6 +243,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
   routingDecision: RoutingDecisionConfig;
+  /** Most agent turns running at once across Stave (1–16); null runs every turn without waiting. */
+  globalAgentTurnLimit: number | null;
   /** How many helper Agents one Agent run can have working at once (`TEAM_LIMITS`). */
   agentRunConcurrentHelpers: number;
   /** How many helper Agents one Agent run can call in total (`TEAM_LIMITS`). */
@@ -313,6 +320,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * use) but this setting is the primary, user-facing on/off switch.
    */
   midTurnSteeringEnabled: boolean;
+  /** Short tips that offer optional features (steering, file checkpoints). */
+  featureTipsEnabled: boolean;
+  /** Tips the user closed; each stays closed. */
+  dismissedFeatureTips: FeatureTipId[];
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
@@ -324,10 +335,18 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Merge strategy used when automatic merging is queued. */
   createPrMergeMethod: PrMergeMethod;
   /**
-   * Watch every pull request the Create PR flow opens and wake the task that
-   * opened it when checks fail or the branch conflicts with its base.
+   * Watch pull requests Stave opens (Create PR) or an agent opens during a
+   * task turn, and wake that task when checks fail or the branch conflicts
+   * with its base. A repository may override it; see
+   * `isPullRequestWatchEnabled` for the one contract the host shares.
    */
   createPrWatchEnabled: boolean;
+  /**
+   * Long-lived branch names or `*` globs, separated by commas or lines. A PR
+   * from such a branch is never a stack parent, so its children are not
+   * retargeted (`src/lib/pull-request-stack.ts`).
+   */
+  pullRequestLongLivedBranches: string;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -359,6 +378,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   scmAutoRefreshSeconds: number;
   confirmBeforeClose: boolean;
   nativeNotificationsEnabled: boolean;
+  notificationActionsEnabled: boolean;
+  restartContinuation: "ask" | "automatically" | "never";
   /**
    * Minutes an agent run sign-off may wait before one batched reminder; 0 turns
    * reminders off. The first request always notifies.
@@ -409,8 +430,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   accountsOnboarding: AccountsOnboardingSettings;
   /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
   craneConnector: CraneConnectorSettings;
-  /** Martin workspace sync toggles. Secrets stay in Electron main. */
-  martinSync: MartinSyncSettings;
   /**
    * Jira Cloud tracker connector. Site, JQL, and project mappings live here;
    * the email and API token never leave the Electron main vault.
@@ -600,6 +619,14 @@ export const COMPOSER_LAYOUT_MODES: readonly ComposerLayoutMode[] = [
   "classic",
 ] as const;
 
+export type ConversationWidth = "narrow" | "default" | "wide";
+
+export const CONVERSATION_WIDTHS: readonly ConversationWidth[] = ["narrow", "default", "wide"] as const;
+
+export function normalizeConversationWidth(value: unknown): ConversationWidth {
+  return value === "narrow" || value === "wide" ? value : "default";
+}
+
 export type EditorHtmlViewMode = "preview" | "source";
 
 export function normalizeEditorHtmlViewMode(
@@ -716,6 +743,7 @@ export const defaultSettings: AppSettings = {
   messageFontFamily: "Geist Variable",
   messageMonoFontFamily: "JetBrains Mono",
   messageKoreanFontFamily: "Pretendard Variable",
+  conversationWidth: "default",
   infoPanelScale: 1,
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
@@ -740,6 +768,7 @@ export const defaultSettings: AppSettings = {
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
   routingDecision: DEFAULT_ROUTING_DECISION,
+  globalAgentTurnLimit: null,
   agentRunConcurrentHelpers: TEAM_LIMITS.concurrentHelpers.default,
   agentRunTotalHelpers: TEAM_LIMITS.totalHelpers.default,
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
@@ -768,12 +797,15 @@ export const defaultSettings: AppSettings = {
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
   midTurnSteeringEnabled: false,
+  featureTipsEnabled: true,
+  dismissedFeatureTips: [],
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
-  createPrWatchEnabled: true,
+  createPrWatchEnabled: DEFAULT_PULL_REQUEST_WATCH_ENABLED,
+  pullRequestLongLivedBranches: DEFAULT_LONG_LIVED_BRANCHES_TEXT,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -798,6 +830,8 @@ export const defaultSettings: AppSettings = {
   scmAutoRefreshSeconds: 0,
   confirmBeforeClose: true,
   nativeNotificationsEnabled: true,
+  notificationActionsEnabled: true,
+  restartContinuation: "ask",
   runSignOffReminderMinutes: 30,
   notificationSoundEnabled: true,
   notificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
@@ -824,7 +858,6 @@ export const defaultSettings: AppSettings = {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
     repositoryMappings: [],
   },
-  martinSync: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
   jiraConnector: {
     ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
     repositoryMappings: [],
@@ -858,7 +891,7 @@ export const defaultSettings: AppSettings = {
   codexApprovalPolicy: "never",
   codexBinaryPath: "",
   // Matches `resolveDefaultCodexEffortForModel` for the default model
-  // (GPT-6 Sol). Keep the two in step when either changes.
+  // (GPT-6.2 Sol). Keep the two in step when either changes.
   codexReasoningEffort: "high",
   codexWebSearch: "live",
   codexAppToolApprovalMode: "inherit",

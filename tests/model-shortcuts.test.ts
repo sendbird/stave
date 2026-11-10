@@ -17,8 +17,8 @@ describe("model shortcuts", () => {
     expect(normalizeModelShortcutKeys(["codex:gpt-6-luna", ""])).toEqual([
       "codex:gpt-6-luna",
       "",
-      "claude-code:claude-fable-5-1",
-      "codex:gpt-6-astra",
+      "claude-code:claude-fable-5-2",
+      "codex:gpt-6.2-astra",
       "",
       "",
       "",
@@ -31,6 +31,12 @@ describe("model shortcuts", () => {
   test("upgrades persisted Opus 4.8 shortcuts to Opus 5.5", () => {
     expect(normalizeModelShortcutKeys(["claude-code:claude-opus-4-8"])[0]).toBe(
       "claude-code:claude-opus-5-5",
+    );
+  });
+
+  test("upgrades persisted Fable 5.1 shortcuts to Fable 5.2", () => {
+    expect(normalizeModelShortcutKeys(["claude-code:claude-fable-5-1"])[0]).toBe(
+      "claude-code:claude-fable-5-2",
     );
   });
 

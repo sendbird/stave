@@ -1,6 +1,19 @@
+import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
+import { TurnSnapshotService } from "./host-service/turn-snapshots";
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
+import { setTurnFileSnapshotCapture } from "./providers/runtime";
+import { createHostTurnAdmission } from "./host-service/turn-admission-host";
+import { createQueuedTurnRecoveryHandlers } from "./host-service/turn-admission-recovery";
+import { TurnAdmissionWaitResultSchema } from "./host-service/turn-admission";
+import { createTarsBatchRuntime } from "./host-service/tars-batch";
+import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
+import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
+import { z as cleanupZ } from "zod";
+import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
 import { findAutomationWorkspace } from "./host-service/automation-workspace-location";
+import { createTarsExecutionRouter } from "./host-service/tars-execution-routing";
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { readTeamProviderUsage } from "./host-service/supervision/provider-usage-context";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
@@ -8,7 +21,7 @@ import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
 import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
-import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
+import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, requestHostGatewayCredentials, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
@@ -22,7 +35,6 @@ import {
 } from "../src/lib/source-control-pr";
 import { DEFAULT_PROMPT_PR_DESCRIPTION } from "../src/lib/providers/prompt-defaults";
 import type { ProviderAccountSelection } from "../src/lib/providers/provider-account-selection";
-import { helperKeepsParentProvider } from "../src/lib/agent-runs/resources";
 import {
   cleanupAllScriptProcesses,
   getScriptStatuses,
@@ -89,17 +101,21 @@ import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-files";
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
+import { createAgentPrAutoWatch } from "./host-service/agent-pr-auto-watch";
+import { turnPullRequestEvidence } from "./host-service/turn-pr-evidence";
+import { isPullRequestWatchEnabled } from "../src/lib/supervision/pull-request-watch";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
-import { applyTarsDecision } from "./host-service/tars-decisions";
+import { applyTarsDecision, confirmTarsProposal, type TarsDecisionPorts } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
 import { reprioritizeTars } from "./host-service/tars-queue";
+import { createTarsScheduler, recordTarsScheduleRuns } from "./host-service/tars-schedules";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
 import { getProviderAccountRegistry } from "./provider-accounts/registry";
-import { createConstrainedHostRouter } from "./host-service/supervision/constrained-route-host";
+import { createHostConstrainedRouter } from "./host-service/supervision/agent-run-routing-host";
 import { withConstrainedRoutingCancellation } from "./providers/constrained-routing-cancellation";
 import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
@@ -128,6 +144,7 @@ import type {
 } from "./host-service/protocol";
 import {
   providerRuntime,
+  setProviderTurnAdmission,
   setAgentRunUserTurnResolver,
   setProviderDecisionAnsweredListener,
 } from "./providers/runtime";
@@ -209,7 +226,7 @@ import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
-  shouldBypassOutboundQueueLimit,
+  outboundQueueLimitBytes,
   truncateHostServiceErrorMessage,
 } from "./shared/host-service-transport";
 import {
@@ -255,7 +272,6 @@ type HostServiceOutboundMessage =
 
 const HOST_SERVICE_QUEUE_WARN_DEPTH = 24;
 const HOST_SERVICE_QUEUE_WARN_BYTES = 256 * 1024;
-const HOST_SERVICE_QUEUE_MAX_BYTES = 2 * 1024 * 1024;
 const HOST_SERVICE_QUEUE_SLOW_WRITE_MS = 48;
 const HOST_SERVICE_QUEUE_LOG_INTERVAL_MS = 2_000;
 const HOST_SERVICE_SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -524,12 +540,10 @@ function writeMessage(message: HostServiceOutboundMessage) {
   if (fatalHostServiceError) {
     return Promise.reject(fatalHostServiceError);
   }
-  if (
-    !shouldBypassOutboundQueueLimit(message) &&
-    pendingMessageBytes + messageBytes > HOST_SERVICE_QUEUE_MAX_BYTES
-  ) {
+  const queueLimitBytes = outboundQueueLimitBytes(message);
+  if (pendingMessageBytes + messageBytes > queueLimitBytes) {
     const error = new Error(
-      `protocol overflow: outbound queue exceeded ${HOST_SERVICE_QUEUE_MAX_BYTES} bytes`,
+      `protocol overflow: outbound queue exceeded ${queueLimitBytes} bytes`,
     );
     maybeLogQueueBackpressure({
       reason: "rejected",
@@ -599,6 +613,7 @@ const terminalRuntime = createTerminalRuntime({
   persistence: ensureHostServicePersistenceReady(),
 });
 const automationRuntime = createAutomationRuntime({
+  isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
   persistence: ensureHostServicePersistenceReady(),
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
@@ -607,14 +622,29 @@ const automationRuntime = createAutomationRuntime({
   emitUnattendedAutomationsChanged: (payload) => {
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
+  // A run a Tars schedule started is recorded in Tars's conversation as started by that schedule.
+  onStateSaved: (state) => {
+    recordTarsScheduleRuns(ensureHostServicePersistenceReady().tars.schedules, state, new Date().toISOString());
+  },
 });
 const agentRunRuntime = createHostAgentRunRuntime({
+  isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
   // Read on each tick, after `assignRuntime` below exists.
   taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
   delegatedAssignment: (taskId) => assignRuntime.assignmentForTask(taskId),
   emitChanged: (event) => {
     emitEvent("agent-run.changed", event);
   },
+});
+function turnSnapshots() {
+  return new TurnSnapshotService(ensureHostServicePersistenceReady(), Number(process.env.STAVE_TURN_SNAPSHOT_LIMIT ?? 50), {
+    hasRunningTerminal: (workspaceIds) => terminalRuntime.hasRunningWorkspaceProcesses(workspaceIds),
+  });
+}
+// Capture is best effort: the service records why a turn has no snapshot and never throws.
+setTurnFileSnapshotCapture(async (args) => {
+  if (!args.workspaceId || !args.taskId || !args.turnId) return;
+  await turnSnapshots().capture({workspaceId:args.workspaceId,taskId:args.taskId},args.turnId);
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
 // The turn's record counts the time a decision waited on the user as waiting, not a stall.
@@ -638,6 +668,7 @@ const assignRuntime = createHostAssignRuntime({
 });
 const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
+  isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
   runSupervisedTurn,
   // A wake-up has no consent of its own: it runs with the user's settings.
@@ -669,6 +700,33 @@ const wakeUpRuntime = createWakeUpRuntime({
     emitEvent("wake-up.changed", event);
   },
 });
+const agentPrAutoWatch = createAgentPrAutoWatch({
+  wakeUps: wakeUpRuntime,
+  context: async (candidate) => {
+    const { repositories } = await localMcpRuntime.loadNormalizedRepositories();
+    const registration = localMcpRuntime.findWorkspaceRegistration({ repositories, workspaceId: candidate.workspaceId });
+    if (!registration) return null;
+    const snapshot = await localMcpRuntime.getTaskSupervisionSnapshot(candidate);
+    // One contract with the renderer: the synced global switch, overridden per repository.
+    const enabled = isPullRequestWatchEnabled({
+      globalSetting: ensureHostServicePersistenceReady().delegationPolicies.loadPullRequestWatchDefault(),
+      repositoryOverride: registration.project.settingsOverrides?.createPrWatchEnabled,
+    });
+    return { cwd: registration.workspacePath, enabled, managed: snapshot.managed ?? false, snapshot };
+  },
+  evidence: turnPullRequestEvidence,
+  owned: ({ workspaceId, number, url }) => ensureHostServicePersistenceReady().agentRuns.listActiveAgentRuns().some(run => run.workspaceId === workspaceId) ||
+    ensureHostServicePersistenceReady().tars.snapshot().responsibilities.some(row =>
+      (row.executionWorkspaceId === workspaceId && row.publication?.number === number || row.publication?.url === url)),
+  onError: (error) => console.warn("[pr-auto-watch] discovery failed", error),
+  // The tasks' notices read hints through the wake-up list.
+  onHint: (hint) => { for (const taskId of hint.taskIds) emitEvent("wake-up.changed", { wakeUpId: "", workspaceId: hint.workspaceId, taskId }); },
+});
+function discoverAgentPullRequest(args: { workspaceId: string; taskId: string; turnId: string }) {
+  turnPullRequestEvidence.complete(args.turnId);
+  const turn = ensureHostServicePersistenceReady().listTurns({ ...args, limit: 1 })[0];
+  if (turn) agentPrAutoWatch.notify({ ...args, startedAt: turn.createdAt, completedAt: turn.completedAt });
+}
 const tarsRuntime = createHostTarsRuntime({
   agentRuns: agentRunRuntime,
   assignments: assignRuntime,
@@ -676,6 +734,14 @@ const tarsRuntime = createHostTarsRuntime({
 });
 // Publishing runs beside the runtime's queue: a push never holds up observation or controls.
 const tarsPublisher = createHostTarsPublisher({ agentRuns: agentRunRuntime });
+// Schedules Tars sets up are the Schedules service's own records; this only admits and records what the user confirmed.
+const tarsScheduler = (() => {
+  const persistence = ensureHostServicePersistenceReady();
+  return createTarsScheduler({
+    schedules: persistence.tars.schedules, conversations: persistence.tarsConversations, automations: automationRuntime,
+    readRegistry: () => persistence.loadRepositoryRegistry(), findWorkspace: findAutomationWorkspace,
+  });
+})();
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -686,6 +752,7 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
   if (event.payload.done) {
+    discoverAgentPullRequest(event.payload);
     agentRunRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
   }
 });
@@ -759,10 +826,6 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
     case "get-workspace-information":
       return localMcpRuntime.getWorkspaceInformation(
         args as Parameters<typeof localMcpRuntime.getWorkspaceInformation>[0],
-      );
-    case "set-workspace-martin-project":
-      return localMcpRuntime.setWorkspaceMartinProject(
-        args as Parameters<typeof localMcpRuntime.setWorkspaceMartinProject>[0],
       );
     case "replace-workspace-notes":
       return localMcpRuntime.replaceWorkspaceNotes(
@@ -887,10 +950,10 @@ async function invokeWakeUpAction(
   args: unknown,
 ) {
   switch (action) {
-    case "list":
-      return wakeUpRuntime.list(
-        args as Parameters<typeof wakeUpRuntime.list>[0],
-      );
+    case "list": {
+      const listArgs = args as Parameters<typeof wakeUpRuntime.list>[0];
+      return { ...(await wakeUpRuntime.list(listArgs)), autoWatchHints: agentPrAutoWatch.hints(listArgs?.workspaceId) };
+    }
     case "get":
       return wakeUpRuntime.get(
         args as Parameters<typeof wakeUpRuntime.get>[0],
@@ -899,6 +962,17 @@ async function invokeWakeUpAction(
       return wakeUpRuntime.create(
         args as Parameters<typeof wakeUpRuntime.create>[0],
       );
+    case "create-automatic":
+      return wakeUpRuntime.create(
+        args as Parameters<typeof wakeUpRuntime.create>[0],
+        { automatic: true },
+      );
+    case "sync-settings": {
+      const value = (args as { createPrWatchEnabled?: unknown } | null)?.createPrWatchEnabled;
+      if (typeof value !== "boolean") throw new Error("Invalid wake-up settings.");
+      ensureHostServicePersistenceReady().delegationPolicies.savePullRequestWatchDefault(value);
+      return { ok: true };
+    }
     case "update":
       return wakeUpRuntime.update(
         args as Parameters<typeof wakeUpRuntime.update>[0],
@@ -948,7 +1022,7 @@ function flushActivePushTurnEvents() {
 function startPushProviderTurn(args: StreamTurnArgs) {
   const turnId = args.turnId ?? randomUUID();
   const store = args.taskId ? ensureHostServicePersistenceReady() : null;
-  let sequence = 0;
+  let sequence = store?.getStreamEvents({ turnId }).at(-1)?.sequence ?? 0;
   let completed = false;
 
   // W1 Phase 0 — durable turn-event journaling. Buffer events and flush to
@@ -1043,6 +1117,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
           latestTurnUsage = toPersistenceTurnUsage(turnEvent);
         }
 
+        if (args.taskId && args.workspaceId) {
+          turnPullRequestEvidence.observe({ turnId, workspaceId: args.workspaceId, taskId: args.taskId, event: turnEvent });
+        }
         if (persistEnabled) {
           pendingTurnEvents.push({ sequence, event: turnEvent });
           if (pendingTurnEvents.length >= TURN_EVENT_FLUSH_MAX_PENDING) {
@@ -1086,6 +1163,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
           }
           // A reply during an agent run is guidance for the current stage; the
           // agent run picks it up now instead of at its next interval.
+          if (args.workspaceId) discoverAgentPullRequest({ workspaceId: args.workspaceId, taskId: args.taskId, turnId });
           agentRunRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
@@ -1425,7 +1503,7 @@ async function respond<TMethod extends HostServiceMethod>(
 
 /**
  * Truncated so the response stays small enough to safely bypass the outbound
- * queue cap (see {@link shouldBypassOutboundQueueLimit}).
+ * queue cap (see {@link outboundQueueLimitBytes}).
  */
 async function respondError(id: number, error: unknown) {
   await writeMessage({
@@ -1443,7 +1521,9 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
+  agentPrAutoWatch.stop();
   wakeUpRuntime.stop();
+  tarsPublisher.watcher.stop();
   tarsRuntime.stop();
   agentRunRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
@@ -1555,6 +1635,7 @@ function requestNeedsCliDiscovery(method: string) {
   }
   if (
     method === "provider.abort-turn" ||
+    method === "provider.list-live-turns" ||
     method === "provider.read-stream-turn" ||
     method === "provider.ack-stream-turn" ||
     method === "provider.steer-turn" ||
@@ -1572,6 +1653,26 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     withRequestAccountScope(request.params, () => handleAccountRequest(request)));
 }
 
+const hostTurnAdmission = createHostTurnAdmission(ensureHostServicePersistenceReady());
+setProviderTurnAdmission(hostTurnAdmission.admission);
+const admissionRefreshTimer = setInterval(() => hostTurnAdmission.refresh(), 1000);
+admissionRefreshTimer.unref();
+
+const workspaceCleanupRuntime = createWorkspaceCleanupRuntime({ store: ensureHostServicePersistenceReady, hasTerminals: workspaceId => terminalRuntime.hasWorkspaceSessions(workspaceId), changed: event => emitEvent("workspace.cleanup-changed", event) });
+workspaceCleanupRuntime.start();
+const tarsBatchRuntime = createTarsBatchRuntime({
+  conversations: () => ensureHostServicePersistenceReady().tarsConversations,
+  responsibilities: () => ensureHostServicePersistenceReady().tars,
+  cleanup: workspaceCleanupRuntime,
+  undo: (requestId, expectedRevision) => {
+    const persistence = ensureHostServicePersistenceReady();
+    return undoTarsAction({ requestId, expectedRevision }, { conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+      readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo,
+      control: (action, ledger) => tarsRuntime.act(action, ledger) });
+  },
+  control: input => actTars(input, { conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime, responsibilities: ensureHostServicePersistenceReady().tars }),
+});
+
 async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
   if (requestNeedsCliDiscovery(request.method)) {
     // Discovery may initialize login shells. Turns and tooling probes must see
@@ -1580,6 +1681,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     await prepareCliExecutableDiscovery();
   }
   switch (request.method) {
+    case "turn-admission.wait":
+      await respond(request.id, TurnAdmissionWaitResultSchema.parse(await hostTurnAdmission.wait(request.params)));
+      return;
+    case "turn-admission.take-restored":
+      await respond(request.id, { items: hostTurnAdmission.takeRestored() });
+      return;
     case "service.get-resource-metrics": {
       const metrics = await readHostServiceResourceMetrics({
         ptyPids: terminalRuntime.listPtyPids(),
@@ -1616,6 +1723,15 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       }
       return;
     }
+    case "workspace.cleanup-list":
+      await respond(request.id, await workspaceCleanupRuntime.list(WorkspaceCleanupListArgsSchema.parse(request.params).scanDisk)); return;
+    case "workspace.cleanup-act":
+      await respond(request.id, await workspaceCleanupRuntime.act(WorkspaceCleanupActArgsSchema.parse(request.params))); return;
+    case "workspace.cleanup-configure":
+      await respond(request.id, workspaceCleanupRuntime.configure(WorkspaceCleanupPolicySchema.parse(request.params))); return;
+    case "workspace.cleanup-run":
+      cleanupZ.object({}).strict().parse(request.params);
+      await respond(request.id, await workspaceCleanupRuntime.runNow()); return;
     case "workspace.execution-status":
       await respond(request.id, workspaceExecutionGate.snapshot());
       return;
@@ -1747,6 +1863,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await cleanupAllScriptProcesses();
       await respond(request.id, { ok: true });
       return;
+    case "turn-snapshots.list":
+      await respond(request.id, TurnSnapshotListSchema.parse(await turnSnapshots().list(TurnSnapshotOwnerSchema.parse(request.params)))); return;
+    case "turn-snapshots.restore":
+      await respond(request.id, TurnSnapshotResultSchema.parse(await turnSnapshots().restore(TurnSnapshotRestoreSchema.parse(request.params)))); return;
+    case "turn-snapshots.undo":
+      await respond(request.id, TurnSnapshotResultSchema.parse(await turnSnapshots().undo(TurnSnapshotOwnerSchema.parse(request.params)))); return;
     case "provider.stream-turn":
       await respond(
         request.id,
@@ -1782,6 +1904,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.abort-turn":
       await respond(request.id, providerRuntime.abortTurn(request.params));
+      return;
+    case "provider.list-live-turns":
+      await respond(request.id, providerRuntime.listLiveTurns());
       return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));
@@ -2094,6 +2219,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "scm.push":
       await respond(request.id, await pushScmBranch(request.params));
       return;
+    case "scm.get-pr-stack":
+      await respond(request.id, await getPullRequestStack(request.params));
+      return;
+    case "scm.retarget-pr-stack":
+      await respond(request.id, await retargetPullRequestStack(request.params));
+      return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));
       return;
@@ -2201,14 +2332,22 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.invoke":
       await respond(request.id, await (request.params.action === "get" ? tarsRuntime.get() : tarsRuntime[request.params.action](request.params.args)));
       return;
-    case "tars.apply-decision": {
+    case "tars.apply-decision":
+    case "tars.confirm-proposal": {
       const persistence = ensureHostServicePersistenceReady();
-      await respond(request.id, await applyTarsDecision(request.params, {
+      // One set of ports: a held work proposal the user confirmed is admitted exactly as an unheld one.
+      const ports: TarsDecisionPorts = {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
         readRegistry: () => persistence.loadRepositoryRegistry(),
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
+        routeExecution: createTarsExecutionRouter({ fixedAgent: id => hostAgents().find(agent => agent.id === id)?.model.mode === "fixed",
+          read: accounts => getRateLimitsSnapshot({ runtimeOptions: accounts, providers: ["claude-code", "codex"], force: true, reason: "dispatch-guard" }) }),
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
+        readRunBudget: (id) => persistence.agentRuns.getAggregate(id)?.agentRun ?? null,
+        publish: (input) => tarsPublisher.publish(input),
+        workspace: { read: id => persistence.workspaceInformation.read(id), write: (id, info, now) => persistence.workspaceInformation.write(id, info, now), changed: (workspaceId, workspaceInformation) => localMcpRuntime.emitWorkspaceInformationUpdate({ workspaceId, workspaceInformation }) },
+        scheduleRefusal: (action, requestId) => tarsScheduler.proposalRefusal(action, requestId),
         snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
           workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
           ref: tarsWorkingChangesRef(messageId, workspaceId),
@@ -2216,13 +2355,20 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
           message: `chore(tars): start from working changes\n\nSnapshot of the uncommitted changes in workspace ${workspaceId} for Tars message ${messageId}.`,
           date,
         }),
-      }));
+      };
+      await respond(request.id, request.method === "tars.confirm-proposal"
+        ? await confirmTarsProposal(request.params, ports) : await applyTarsDecision(request.params, ports));
       return;
     }
     case "tars.act":
       await respond(request.id, await actTars(request.params, {
         conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
+        responsibilities: ensureHostServicePersistenceReady().tars,
       }));
+      return;
+    case "tars.pr-review":
+      await tarsPublisher.watcher.confirm(request.params);
+      await respond(request.id, { ok: true });
       return;
     case "tars.publish":
       await respond(request.id, await tarsPublisher.publish(request.params));
@@ -2233,6 +2379,32 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.brief":
       await respond(request.id, await tarsRuntime.brief(request.params));
       return;
+    case "tars.batch":
+      await respond(request.id, await tarsBatchRuntime.invoke(request.params)); return;
+    case "tars.batches":
+      await respond(request.id, tarsBatchRuntime.list()); return;
+    case "tars.schedule":
+      await respond(request.id, await tarsScheduler.confirm(request.params));
+      return;
+    case "tars.schedule-preview":
+      await respond(request.id, await tarsScheduler.preview(request.params));
+      return;
+    case "tars.schedule-toggle":
+      await respond(request.id, await tarsScheduler.toggle(request.params));
+      return;
+    case "tars.schedules":
+      await respond(request.id, await tarsScheduler.list());
+      return;
+    case "tars.undo-action": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await undoTarsAction(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        workspace: { read: id => persistence.workspaceInformation.read(id), write: (id, info, now) => persistence.workspaceInformation.write(id, info, now), changed: (workspaceId, workspaceInformation) => localMcpRuntime.emitWorkspaceInformationUpdate({ workspaceId, workspaceInformation }) },
+        readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo, withdrawDelivery: tarsRuntime.withdrawDelivery,
+        control: (action, ledger) => tarsRuntime.act(action, ledger),
+      }));
+      return;
+    }
     case "tars.reprioritize": {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await reprioritizeTars(request.params, {
@@ -2247,14 +2419,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "delegated-agent.resolve-route": {
       const persistence = ensureHostServicePersistenceReady();
-      const router = createConstrainedHostRouter({ assignment: (taskId) => assignRuntime.assignmentForTask(taskId),
+      const router = createHostConstrainedRouter({ runs: persistence.agentRuns, assignment: (taskId) => assignRuntime.assignmentForTask(taskId),
         settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list(),
         history: ({ workspaceId, taskId }) => persistence.loadTaskMessagesPage({ workspaceId, taskId, limit: 12 })?.messages ?? [],
-        parentModels: (taskId, providerId) => { const run = persistence.agentRuns.getActiveAgentRunForTask(taskId); const policy = run ? persistence.agentRuns.resourceConfig(run.id)?.policy : undefined;
-          if (!policy || policy.providerId === providerId) return policy?.allowedModels;
-          // Another provider: allowed unless the parent's model is pinned; the parent's catalog says nothing about it.
-          if (helperKeepsParentProvider(policy)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
-          return undefined; },
         cwd: resolveWorkspacePath,
         classify: (input, signal) => classifyUtilityRoute(input, undefined, undefined, signal) });
       await respond(request.id, await withConstrainedRoutingCancellation(request.params.requestId, (signal) => router(request.params, signal))); return;
@@ -2286,13 +2453,6 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
-  automationRuntime.start();
-  wakeUpRuntime.start();
-  agentRunRuntime.start();
-  assignRuntime.start();
-  tarsRuntime.start();
-  // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
-  tarsPublisher.recover();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,
@@ -2386,10 +2546,32 @@ async function main() {
   process.stdin.on("end", handleStdinClosed);
   process.stdin.on("close", handleStdinClosed);
 
+  const queuedTurnRecovery = createQueuedTurnRecoveryHandlers({
+    store: ensureHostServicePersistenceReady(),
+    authorizationForTurn: turnId => automationRuntime.authorizationForTurn(turnId),
+    requestCredentials: accounts => requestHostGatewayCredentials(accounts),
+    resumeQueuedProviderTurn: localMcpRuntime.resumeQueuedProviderTurn,
+    notify: localMcpRuntime.notifySupervisorProblem,
+  });
+  // Before any request: a renderer that takes its restored starts finds them all.
+  hostTurnAdmission.restoreRendererStarts(queuedTurnRecovery);
   // Announce readiness only once stdin is actually being consumed, so the first
   // request can never land before this process is able to read it.
   await writeMessage({ type: "ready" });
+  automationRuntime.start({ deferScheduling: true });
+  await hostTurnAdmission.recover(queuedTurnRecovery);
+  automationRuntime.start();
+  wakeUpRuntime.start();
+  agentRunRuntime.start();
+  assignRuntime.start();
+  tarsRuntime.start();
+  // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
+  tarsPublisher.recover();
+  tarsPublisher.watcher.start();
+  // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
+  void tarsScheduler.recover();
 }
+
 
 void main().catch((error) => {
   process.stderr.write(`[host-service] ${String(error)}\n`);

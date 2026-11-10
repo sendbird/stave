@@ -6,6 +6,7 @@ import {
   type UsageSeriesPoint, type UsageStatisticsArgs, type UsageStatisticsReport, type UsageTurn,
 } from "../../src/lib/providers/usage-statistics";
 import { METRIC_SUMS, TURN_METRICS, USAGE_CTE } from "./usage-statistics-query";
+import { readTaskTurnUsage } from "./task-turn-usage";
 import type { BridgeEvent } from "../providers/types";
 
 interface UsageDatabase {
@@ -115,8 +116,24 @@ export class UsageStatisticsStore {
     this.db.prepare("DELETE FROM usage_quota_observations WHERE observed_at < ?").run(before);
   }
 
+  /** The completed turns of the named tasks in a period, read by task and bounded (`task-turn-usage.ts`). */
+  readTaskTurns(args: Parameters<typeof readTaskTurnUsage>[1]) {
+    return readTaskTurnUsage(this.db, args);
+  }
+
   read(args: UsageStatisticsArgs): UsageStatisticsReport {
     return this.db.transaction(() => this.readReport(args))();
+  }
+
+  /** Global provider totals use the exact same measured-token and reported-cost contract as AI usage. */
+  readPeriodTotals(args: { from: string; to: string }): Array<UsageMetrics & { providerId: ProviderId }> {
+    return this.db.prepare(`${USAGE_CTE} SELECT provider_id AS providerId, ${METRIC_SUMS}
+      FROM usage GROUP BY provider_id`).all(args.from, args.to, null, null, null, null, 0, null) as Array<UsageMetrics & { providerId: ProviderId }>;
+  }
+
+  hasReportedCost(providerId: ProviderId): boolean {
+    return Boolean(this.db.prepare(`${USAGE_CTE} SELECT 1 FROM usage WHERE cost IS NOT NULL LIMIT 1`)
+      .get("0000", "9999", providerId, providerId, null, null, 0, null));
   }
 
   private readReport(args: UsageStatisticsArgs): UsageStatisticsReport {

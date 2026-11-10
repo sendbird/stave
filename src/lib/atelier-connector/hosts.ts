@@ -1,7 +1,7 @@
 /**
  * Atelier serves people and machines from different hosts.
  *
- * Pages and links (`/apps/crane/...`, Martin project pages, connector settings)
+ * Pages and links (`/apps/crane/...`, connector settings)
  * live on the UI host, which sits behind an SSO gate. That gate answers a
  * machine request with a redirect, and a redirect drops the connector's bearer
  * token, so connector requests go to the API host instead. Users configure the

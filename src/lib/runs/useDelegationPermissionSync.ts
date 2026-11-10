@@ -7,6 +7,12 @@ import { permissionOptions } from "./delegation-policy";
 export function useDelegationPermissionSync() {
   const settings = useAppStore((state) => state.settings);
   const serialized = JSON.stringify({
+    browser: {
+      providerBrowserAlwaysOn: settings.providerBrowserAlwaysOn,
+      providerBrowserAutoFallback: settings.providerBrowserAutoFallback,
+      providerBrowserAutoArm: settings.providerBrowserAutoArm,
+      providerBrowserAutoFallbackDomains: settings.providerBrowserAutoFallbackDomains,
+    },
     "claude-code": permissionOptions("claude-code", {
       ...settings,
       claudeSandboxCredentialFiles: settings.claudeSandboxCredentialFiles

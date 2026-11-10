@@ -7,6 +7,8 @@ export function DesktopNotificationsCard() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const nativeNotificationsEnabled = useAppStore((state) => state.settings.nativeNotificationsEnabled);
   const runSignOffReminderMinutes = useAppStore((state) => state.settings.runSignOffReminderMinutes);
+  const notificationActionsEnabled = useAppStore((state) => state.settings.notificationActionsEnabled);
+  const restartContinuation = useAppStore((state) => state.settings.restartContinuation);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const reminderOptions = [
     { value: "0", label: t("settings:desktopNotifications.signOffReminder.never") },
@@ -25,6 +27,23 @@ export function DesktopNotificationsCard() {
         description={t("settings:desktopNotifications.native.description")}
         checked={nativeNotificationsEnabled}
         onCheckedChange={(checked) => updateSettings({ patch: { nativeNotificationsEnabled: checked } })}
+      />
+      {window.api?.platform === "darwin" && <SwitchField
+        title={t("settings:desktopNotifications.actions.title")}
+        description={t("settings:desktopNotifications.actions.description")}
+        checked={notificationActionsEnabled}
+        onCheckedChange={(checked) => updateSettings({ patch: { notificationActionsEnabled: checked } })}
+      />}
+      <SelectField
+        title={t("settings:desktopNotifications.restart.title")}
+        description={t("settings:desktopNotifications.restart.description")}
+        value={restartContinuation}
+        options={[
+          { value: "ask", label: t("settings:desktopNotifications.restart.ask") },
+          { value: "automatically", label: t("settings:desktopNotifications.restart.automatically") },
+          { value: "never", label: t("settings:desktopNotifications.restart.never") },
+        ]}
+        onChange={(value) => updateSettings({ patch: { restartContinuation: value as "ask" | "automatically" | "never" } })}
       />
       <SelectField
         title={t("settings:desktopNotifications.signOffReminder.title")}

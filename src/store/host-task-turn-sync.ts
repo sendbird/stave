@@ -4,7 +4,7 @@ import {
   loadWorkspaceShellForRestore,
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
-import { appendOpenTaskTabForHostCreatedTask } from "@/lib/tasks";
+import { appendOpenTaskTabForHostCreatedTask, keepRendererOwnedTaskFields } from "@/lib/tasks";
 import { WORKSPACE_APP_SURFACE, type AppActiveSurface } from "@/store/app-surface";
 import {
   reduceProviderTurnActivityEvents,
@@ -172,7 +172,7 @@ function mergePersistedTaskIntoSession(args: {
       )
         ? args.currentSession.tasks.map((task) =>
             task.id === args.update.taskId
-              ? { ...persistedTask, title: task.title, titleManuallySet: task.titleManuallySet }
+              ? keepRendererOwnedTaskFields(persistedTask, task)
               : task,
           )
         : [persistedTask, ...args.currentSession.tasks],
@@ -235,8 +235,13 @@ export function applyHostTaskTurnSync(args: {
     args.state.activeWorkspaceId === args.update.workspaceId
       ? createWorkspaceSessionStateFromAppState(args.state)
       : (args.state.workspaceRuntimeCacheById[args.update.workspaceId] ?? null);
+  // Without a live or cached session the renderer has no baseline to call a
+  // task new against, and the persisted shell already holds the host's tab
+  // decision (`mergeTaskTurnDeltaPayload` opens a host-created task there).
+  // Treating every task of an uncached workspace as new reopened tabs the user
+  // had closed as soon as one of them, typically a managed run, got an event.
   const isNewToRenderer =
-    !liveOrCache ||
+    liveOrCache !== null &&
     !liveOrCache.tasks.some((task) => task.id === args.update.taskId);
   const merged = mergePersistedTaskIntoSession({
     currentSession: liveOrCache ?? args.loaded.persistedSession,

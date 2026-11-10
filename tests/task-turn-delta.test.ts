@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  carryRendererOwnedShellFields,
   HOST_OWNED_WORKSPACE_SHELL_FIELDS,
   mergeTaskTurnDeltaPayload,
   toWorkspaceShellMetaSource,
@@ -287,4 +288,80 @@ describe("toWorkspaceShellMetaSource", () => {
     expect(source.cliSessionTabs).toEqual([]);
     expect(source.providerSessionByTask).toEqual({});
   });
+});
+
+describe("carryRendererOwnedShellFields", () => {
+  const liveTask = (id: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    title: id,
+    provider: "claude-code",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    unread: false,
+    archivedAt: null,
+    ...overrides,
+  }) as PersistedWorkspaceShellPayload["tasks"][number];
+
+  test("keeps a tab the user closed closed instead of dropping the field", () => {
+    const persistedShell = createPayload({
+      tasks: [liveTask("task-1"), liveTask("task-closed")],
+      openTaskTabIds: ["task-1"],
+    });
+    const carried = carryRendererOwnedShellFields({
+      persistedShell,
+      tasks: persistedShell.tasks,
+    });
+    expect(carried).toEqual({
+      reviewCommentsByTask: persistedShell.reviewCommentsByTask,
+      openTaskTabIds: ["task-1"],
+      lensTabs: persistedShell.lensTabs,
+      paneTabMeta: persistedShell.paneTabMeta,
+      dockLayout: persistedShell.dockLayout,
+    });
+  });
+
+  test("keeps an explicit empty tab set empty", () => {
+    const persistedShell = createPayload({ openTaskTabIds: [] });
+    expect(
+      carryRendererOwnedShellFields({ persistedShell, tasks: persistedShell.tasks })
+        .openTaskTabIds,
+    ).toEqual([]);
+  });
+
+  test("opens a tab for a top-level task the host adds in this write only", () => {
+    const persistedShell = createPayload({ openTaskTabIds: [] });
+    const carried = carryRendererOwnedShellFields({
+      persistedShell,
+      tasks: [
+        liveTask("task-new"),
+        liveTask("task-child", { parentTaskId: "task-1" }),
+        ...persistedShell.tasks,
+      ],
+    });
+    expect(carried.openTaskTabIds).toEqual(["task-new"]);
+  });
+
+  test("leaves a legacy shell without openTaskTabIds unset", () => {
+    const persistedShell = createPayload({ openTaskTabIds: undefined });
+    const carried = carryRendererOwnedShellFields({
+      persistedShell,
+      tasks: [liveTask("task-new"), ...persistedShell.tasks],
+    });
+    expect(carried.openTaskTabIds).toBeUndefined();
+  });
+
+  test("carries nothing when no shell is persisted yet", () => {
+    expect(
+      carryRendererOwnedShellFields({ persistedShell: null, tasks: [liveTask("task-1")] }),
+    ).toEqual({});
+  });
+});
+
+
+test("host progress preserves renderer task pinning and manual order", () => {
+  const payload = createPayload();
+  const stale = { ...payload.tasks[0]!, pinned: false, historyOrderKey: 7 };
+  payload.tasks[0] = { ...payload.tasks[0]!, pinned: true, historyOrderKey: 2 };
+  const next = mergeTaskTurnDeltaPayload({ payload, taskId: stale.id, task: stale, messageCount: 12 });
+  expect(next.tasks[0]?.pinned).toBe(true);
+  expect(next.tasks[0]?.historyOrderKey).toBe(2);
 });

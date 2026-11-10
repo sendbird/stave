@@ -10,6 +10,26 @@ Use **Tokens & cost** for totals, trends and account/model breakdowns,
 **History** for individual runs. A status-bar usage popover opens the
 account-quota view directly.
 
+## Daily provider limits
+
+**Settings > Providers > Today’s daily limits** sets one app-wide limit per
+provider: tokens, or USD after that provider has reported a cost. Every limit
+starts off. AI usage and Tars’s usage insights show today’s recorded task usage
+against it, across all accounts and workspaces, regardless of history filters.
+
+Limits reuse the usage report’s measured-token convention (excluding cache
+reads) and reported costs only. Completed turns count on their start date in
+the machine’s local calendar day; local midnight starts a fresh day, including
+shorter or longer daylight-saving days. Unreported usage is not estimated.
+Tars’s own conversation replies are not recorded task turns and are excluded.
+
+At or above a limit, Tars work, helpers and agent runs cannot start a new unit
+on that provider. Active turns finish; the next stage boundary pauses with a
+usage-limit reason. Concurrent turns may exceed the limit before they finish.
+**Change daily limit** opens the setting. Raise or disable it, or wait for the
+next local day, then resume the same work. A daily pause stays paused across
+restart and never resumes automatically.
+
 ## Browse an account
 
 Choose a provider, account, period and daily or hourly grouping. Presets cover

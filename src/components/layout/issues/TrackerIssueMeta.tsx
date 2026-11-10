@@ -7,7 +7,7 @@ import {
 import { Badge } from "../../aui/components/Badge";
 import { PriorityIcon } from "@/components/aui/components/WorkflowIcon";
 import { sx } from "@/components/aui/utils/stylex";
-import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
+import { TrackerSourceIcon } from "./TrackerSourceIcon";
 import {
   TRACKER_PRIORITY_PRESENTATION,
   TRACKER_STATUS_PRESENTATION,
@@ -68,8 +68,8 @@ export function TrackerIssueMeta(props: { task: TrackerIssue; now: Date }) {
         <MetaField label={tI18n("issues:trackerIssueMeta.due")}>{due?.label ?? tI18n("issues:trackerIssueMeta.noDueDate")}</MetaField>
         <MetaField label={tI18n("issues:trackerIssueMeta.source")}>
           <span className={sx(taskLayoutStyles.metaInline)}>
-            <ServiceLinkIcon
-              kind={task.source === "crane" ? "crane" : "jira"}
+            <TrackerSourceIcon
+              source={task.source}
               className={sx(trackerVisualStyles.icon)}
             />
             {TRACKER_SOURCE_LABELS[task.source]} {task.key}

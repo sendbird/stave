@@ -9,8 +9,10 @@ import {
 import { onHostServiceEvent } from "../host-service-client";
 import { WakeUpUpsertInputSchema } from "../../../src/lib/supervision/wake-up-policy";
 import {
+  createAutomaticWakeUp,
   createWakeUp,
   listWakeUps,
+  syncWakeUpSettings,
   pauseWakeUp,
   removeWakeUp,
   resumeWakeUp,
@@ -22,6 +24,7 @@ const ListArgsSchema = z.object({ workspaceId: IdSchema.optional() }).strict();
 const UpdateArgsSchema = z.object({ id: IdSchema, input: WakeUpUpsertInputSchema }).strict();
 const SetPausedArgsSchema = z.object({ id: IdSchema, paused: z.boolean() }).strict();
 const RemoveArgsSchema = z.object({ id: IdSchema }).strict();
+const SyncSettingsArgsSchema = z.object({ createPrWatchEnabled: z.boolean() }).strict();
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
@@ -66,6 +69,29 @@ export function registerWakeUpHandlers() {
       return { ok: true, wakeUp: await createWakeUp(parsed.data) };
     } catch (error) {
       return { ok: false, wakeUp: null, message: errorMessage(error, "Failed to save the check-back.") };
+    }
+  });
+
+  ipcMain.handle(WAKE_UP_IPC.createAutomatic, async (_event, args: unknown): Promise<WakeUpCommandResponse> => {
+    const parsed = WakeUpUpsertInputSchema.safeParse(args);
+    if (!parsed.success || parsed.data.trigger.kind !== "pull_request") {
+      return { ok: false, wakeUp: null, message: parsed.success ? "Only a pull request watch is added automatically." : parsed.error.issues[0]?.message ?? "Invalid check-back." };
+    }
+    try {
+      return { ok: true, wakeUp: await createAutomaticWakeUp(parsed.data) };
+    } catch (error) {
+      return { ok: false, wakeUp: null, message: errorMessage(error, "Failed to save the check-back.") };
+    }
+  });
+
+  ipcMain.handle(WAKE_UP_IPC.syncSettings, async (_event, args: unknown) => {
+    const parsed = SyncSettingsArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false };
+    try {
+      await syncWakeUpSettings(parsed.data);
+      return { ok: true };
+    } catch {
+      return { ok: false };
     }
   });
 

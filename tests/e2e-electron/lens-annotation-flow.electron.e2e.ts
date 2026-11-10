@@ -1,8 +1,9 @@
-import { buildPromptDraftDisplayPartsForSend } from "../../src/store/prompt-draft-message-content";
+import { execFileSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import {
   E2E_LENS_SESSION_ID,
@@ -335,6 +336,19 @@ test("sent feedback replays from persistence beside the changed preview", async 
   const loaded = await stave.page.evaluate(async (workspaceId) => window.api.persistence?.loadWorkspace?.({ workspaceId }), E2E_WORKSPACE_ID);
   const draft = loaded?.snapshot?.promptDraftByTask?.[taskId];
   expect(draft).toBeDefined();
+  // This renderer helper imports bundled locale JSON. Load a bundle at test
+  // execution time so Node collection never evaluates the renderer import graph.
+  const helperBundle = testInfo.outputPath("prompt-draft-message-content.mjs");
+  execFileSync("bun", [
+    "build",
+    path.join(import.meta.dirname, "../../src/store/prompt-draft-message-content.ts"),
+    "--target=node",
+    "--format=esm",
+    `--outfile=${helperBundle}`,
+  ]);
+  const { buildPromptDraftDisplayPartsForSend } = await import(
+    pathToFileURL(helperBundle).href
+  ) as typeof import("../../src/store/prompt-draft-message-content");
   const displayParts = buildPromptDraftDisplayPartsForSend(draft!);
   const originalImage = displayParts?.find((part) => part.type === "image_context");
   expect(originalImage?.type).toBe("image_context");

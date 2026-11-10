@@ -34,6 +34,9 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
         type: "tool", toolUseId: part.toolUseId, toolName: part.toolName, input: part.input,
         state: "input-available", agentId: part.agentId, ownerAgentId: part.ownerAgentId, parentToolUseId: part.parentToolUseId,
       }, now);
+      if (part.toolUseId && part.reportedModel) {
+        graph = reduceWorkGraphEvent(graph, { type: "subagent_model", toolUseId: part.toolUseId, model: part.reportedModel }, now);
+      }
       for (const content of part.progressMessages ?? []) {
         graph = reduceWorkGraphEvent(graph, { type: "subagent_progress", toolUseId: part.toolUseId, agentId: part.agentId, content }, now);
       }

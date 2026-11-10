@@ -27,15 +27,6 @@ test("workspace snapshots retain maintained direction when the turn recap is rep
     ...createEmptyWorkspaceInformation(),
     resumeBrief: brief,
     intentAnchorIds: ["resource-1"],
-    martinProject: {
-      ref: "ref",
-      slug: "project",
-      name: "Project",
-      url: "https://example.com/project",
-      linkedAt: brief.updatedAt,
-      lastPulledAt: null,
-      stale: true,
-    },
   };
   const snapshot = parseWorkspaceSnapshot({
     payload: {
@@ -48,9 +39,6 @@ test("workspace snapshots retain maintained direction when the turn recap is rep
   expect(snapshot?.workspaceInformation?.resumeBrief).toEqual(brief);
   expect(snapshot?.workspaceInformation?.intentAnchorIds).toEqual(
     information.intentAnchorIds,
-  );
-  expect(snapshot?.workspaceInformation?.martinProject).toEqual(
-    information.martinProject,
   );
   const resumed = parseWorkspaceSnapshot({
     payload: {

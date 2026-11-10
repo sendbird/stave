@@ -336,6 +336,8 @@ export function buildApprovalNotificationInputs(args: {
         payload: {
           toolName: event.toolName,
           description: event.description,
+          // A risk-flagged request is never allowed from a notification banner.
+          ...(event.risk ? { risk: event.risk } : {}),
         },
         dedupeKey: `task.approval_requested:${args.turnId}:${event.requestId}`,
       } satisfies AppNotificationCreateInput,
@@ -458,6 +460,8 @@ export function buildUserInputNotificationInputs(args: {
           toolName: event.toolName,
           question,
           questionCount: event.questions.length,
+          questions: event.questions,
+          ...(event.delivery ? { delivery: event.delivery } : {}),
           requestId: event.requestId,
           messageId: location.messageId,
         },

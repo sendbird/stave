@@ -219,6 +219,23 @@ describe("the table", () => {
   const render = (rows: readonly FleetTaskRow[]) =>
     renderToStaticMarkup(createElement(FleetTaskTableView, { rows, nowMs: NOW, onOpenTask: () => {} }));
 
+  test("bounds initial markup for two thousand logical task rows", () => {
+    const template = fixture()[0]!;
+    const rows = Array.from({ length: 2000 }, (_, index) => ({
+      ...template, key: `scale-${index}`, task: { ...template.task, id: `scale-${index}` },
+    }));
+    const html = render(rows);
+    const mounted = html.match(/data-fleet-task-table-row=/g) ?? [];
+    expect(mounted.length).toBeGreaterThan(0);
+    expect(mounted.length).toBeLessThan(66);
+    expect(html).toContain('aria-rowcount="2001"');
+    // The header row is 1 and body rows follow it, each index once.
+    const indexes = [...html.matchAll(/aria-rowindex="(\d+)"/g)].map((match) => Number(match[1]));
+    expect(indexes[0]).toBe(1);
+    expect(indexes[1]).toBe(2);
+    expect(new Set(indexes).size).toBe(indexes.length);
+  });
+
   test("names each column, the state, the need and how long it has waited", () => {
     const html = render(fixture());
     for (const column of ["Task", "Workspace", "State", "Needs", "Waiting", "Activity"]) {

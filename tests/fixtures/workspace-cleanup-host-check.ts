@@ -1,0 +1,320 @@
+import type { GitHubPrPayload } from "../../src/lib/pr-status";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, symlinkSync, existsSync, writeFileSync, rmSync, renameSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SqliteStore } from "../../electron/persistence/sqlite-store";
+import { createWorkspaceCleanupRuntime, responsibilityCleanupBlocker } from "../../electron/host-service/workspace-cleanup-runtime";
+import { DEFAULT_WORKSPACE_CLEANUP_POLICY } from "../../src/lib/workspace-cleanup-contract";
+import { workspaceExecutionGate } from "../../electron/shared/workspace-execution-gate";
+
+async function main() {
+const root = mkdtempSync(join(tmpdir(), "workspace-cleanup-host-"));
+const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+try {
+  const repo = join(root, "repository");
+  git(root, "init", "-b", "main", repo);
+  git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: initial");
+  const remote = join(root, "remote.git");
+  git(root, "init", "--bare", remote);
+  git(repo, "remote", "add", "origin", remote);
+  git(repo, "push", "-u", "origin", "main");
+  const path = join(root, "feature's $(literal)");
+  git(repo, "worktree", "add", "-b", "feature", path);
+  let store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
+  let now = Date.parse("2026-11-16T00:00:00Z");
+  let workspaceId = "feature";
+  const registry = () => ({ repositoryPath: repo, repositoryName: "Repository", lastOpenedAt: "2026-01-01", defaultBranch: "main", workspaces: [{ id: "base", name: "Default", updatedAt: "2026-01-01" }, { id: workspaceId, name: "Feature", updatedAt: "2026-01-01" }], activeWorkspaceId: "base", workspacePathById: { base: repo, [workspaceId]: path }, workspaceBranchById: { base: "main", [workspaceId]: "feature" }, workspaceDefaultById: { base: true, [workspaceId]: false }, workspaceLastActiveAtById: { [workspaceId]: "2026-01-01T00:00:00Z" }, linkedWorkspacePaths: [join(root, "external-linked")] });
+  store.saveRepositoryRegistry({ repositories: [registry()] });
+  store.upsertWorkspace({ id: "feature", name: "Feature", snapshot: { activeTaskId: "task", tasks: [{ id: "task", title: "Task", provider: "codex", updatedAt: "2026-01-01T00:00:00Z", unread: false }], messagesByTask: { task: [{ id: "message", role: "user", model: "user", providerId: "user", content: "Keep history", parts: [] }] } } });
+  let terminals = false;
+  // Only the PTY observation, PR service and clock are faked; Git, registry, history and policy persistence are real.
+  const prTimes = new Map<string, string | null>();
+  const prStates = new Map<string, "OPEN" | "MERGED">();
+  const changed: Array<{ workspaceId: string; repositoryPath: string; stage?: string; command?: string }> = [];
+  const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now, changed: event => changed.push(event),
+    pr: async ({ target }) => {
+      const pr: GitHubPrPayload | null = prTimes.has(target ?? "") ? { number: 1, title: "Completed work", state: prStates.get(target ?? "") ?? "MERGED", isDraft: prStates.get(target ?? "") === "OPEN",
+        url: "https://example.test/pull/1", reviewDecision: null, mergeable: "UNKNOWN", mergeStateStatus: "UNKNOWN", checksRollup: null,
+        mergedAt: prTimes.get(target ?? "") ?? null, baseRefName: "main", headRefName: target ?? "" } : null;
+      return { ok: true, pr, stderr: "" };
+    } });
+  const act = (action: "archive" | "restore" | "delete", extra = {}) => runtime.act({ action, workspaceId, repositoryPath: repo, ...extra });
+  git(path, "checkout", "-b", "other-head");
+  assert.equal((await act("archive")).ok, false);
+  assert.equal(existsSync(path), true);
+  git(path, "checkout", "feature");
+  git(repo, "branch", "-d", "other-head");
+  // Inject only the archive write failure; the real checkout and SQLite history must survive.
+  const archiveWorkspace = store.archiveWorkspacePersistence.bind(store);
+  store.archiveWorkspacePersistence = () => { throw new Error("fixtureArchiveWriteFailed"); };
+  const refusedArchive = await act("archive");
+  store.archiveWorkspacePersistence = archiveWorkspace;
+  assert.equal(refusedArchive.ok, false);
+  assert.equal(refusedArchive.reason, "fixtureArchiveWriteFailed");
+  assert.equal(existsSync(path), true, "Archive persistence failure must leave the checkout intact");
+  assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" })!.messagesByTask.task![0]!.content, "Keep history");
+  assert.ok(store.loadRepositoryRegistry()[0]!.workspaces.some(workspace => workspace.id === "feature"));
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+  const releaseAfterWriteFailure = workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path });
+  releaseAfterWriteFailure();
+  // A real Git refusal rolls the archive metadata back and releases admission.
+  git(repo, "worktree", "lock", path);
+  const refusedRemoval = await act("archive");
+  assert.equal(refusedRemoval.ok, false);
+  assert.equal(refusedRemoval.reason, "worktreeRemoveFailed");
+  assert.equal(existsSync(path), true);
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+  const releaseAfterRollback = workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path });
+  releaseAfterRollback();
+  // If the rollback write also fails, keep the durable archive and notify the UI.
+  const restoreWorkspace = store.restoreWorkspacePersistence.bind(store);
+  store.restoreWorkspacePersistence = () => { throw new Error("fixtureRestoreWriteFailed"); };
+  const previousChanges = changed.length;
+  const partialArchive = await act("archive");
+  store.restoreWorkspacePersistence = restoreWorkspace;
+  assert.equal(partialArchive.ok, false);
+  assert.equal(existsSync(path), true);
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 1);
+  assert.ok(changed.length > previousChanges);
+  assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path }), /archived/);
+  git(repo, "worktree", "unlock", path);
+  assert.equal((await act("restore")).ok, true);
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+  assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" })!.messagesByTask.task![0]!.content, "Keep history");
+  const linkedShelfRoot = join(repo, ".stave", "workspaces");
+  mkdirSync(linkedShelfRoot, { recursive: true });
+  const linkedShelfPath = join(linkedShelfRoot, "external-feature");
+  symlinkSync(path, linkedShelfPath);
+  const unrelatedShelfPath = join(linkedShelfRoot, "unrelated");
+  writeFileSync(unrelatedShelfPath, "keep");
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.linkedWorkspacePaths!.push(path); return { repositories, result: undefined }; });
+  assert.equal((await act("archive")).ok, true, "Linked workspaces must be archivable");
+  assert.equal(existsSync(path), true, "Linked archive keeps external checkout");
+  assert.equal(existsSync(linkedShelfPath), false, "Linked archive removes only its internal link");
+  assert.equal(existsSync(unrelatedShelfPath), true, "Linked archive keeps unrelated entries");
+  writeFileSync(linkedShelfPath, "occupied");
+  assert.equal((await act("restore")).ok, false, "Restore must not overwrite an occupied link path");
+  assert.equal(existsSync(linkedShelfPath), true);
+  rmSync(linkedShelfPath);
+  assert.equal(git(repo, "show-ref", "--verify", "refs/heads/feature").includes("refs/heads/feature"), true);
+  assert.equal((await act("restore")).ok, true, "Linked archives are restorable");
+  assert.equal(existsSync(linkedShelfPath), true, "Restore recreates the internal external-worktree link");
+  rmSync(linkedShelfPath);
+  rmSync(unrelatedShelfPath);
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.linkedWorkspacePaths = [join(root, "external-linked")]; return { repositories, result: undefined }; });
+  const initMarker = join(root, "init-ran");
+  const failureMarker = join(root, "init-fail");
+  store.upsertWorkspace({ id: workspaceId, name: "Feature", snapshot: store.loadWorkspaceSnapshot({ workspaceId })!, creationOptions: { useRootNodeModulesSymlink: true, initCommand: `if test -f ${JSON.stringify(failureMarker)}; then printf generated > setup-output; exit 23; fi; rm -f setup-output; printf restored > ${JSON.stringify(initMarker)}` } });
+  mkdirSync(join(repo, "node_modules"));
+  symlinkSync(join(repo, "node_modules"), join(path, "node_modules"));
+  assert.equal((await act("archive")).ok, true);
+  assert.equal(existsSync(path), false);
+  assert.equal(git(repo, "branch", "--list", "feature").trim(), "feature");
+  assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" })!.messagesByTask.task![0]!.content, "Keep history");
+  mkdirSync(path);
+  writeFileSync(join(path, "unrelated.txt"), "unrelated directory");
+  assert.equal((await act("restore")).ok, false);
+  assert.equal(existsSync(join(path, "unrelated.txt")), true);
+  rmSync(path, { recursive: true });
+  assert.equal((await act("restore")).ok, true);
+  assert.equal(existsSync(path), true);
+  assert.equal(existsSync(join(path, "node_modules")), true, "Restore must recreate dependency links");
+  assert.equal(existsSync(initMarker), true, "Restore must rerun original initialization");
+  assert.ok(changed.some(event => event.stage === "preparing" && event.command?.includes("printf restored")), "Initialization publishes progress");
+  assert.equal(store.loadRepositoryRegistry()[0]!.archivedWorkspacePaths!.length, 0);
+  assert.equal((await act("archive")).ok, true);
+  writeFileSync(failureMarker, "fail preparation");
+  const preparationFailure = await act("restore");
+  assert.equal(preparationFailure.ok, false);
+  assert.equal(preparationFailure.reason, "workspacePreparationFailed");
+  assert.ok(changed.some(event => event.stage === "preparationFailed"));
+  assert.ok(store.listArchivedWorkspacesPersistence().some(record => record.workspaceId === workspaceId), "Failed setup remains archived and retryable");
+  rmSync(failureMarker);
+  assert.equal((await act("restore")).ok, true, "Restore retries initialization after a clear failure");
+  // Every automatic rule sees the same authoritative guards.
+  const policy = { ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } };
+  for (const guard of ["dirty", "unpushed", "current", "default", "running", "terminal"] as const) {
+    runtime.configure(policy);
+    if (guard === "dirty") writeFileSync(join(path, "unsaved.txt"), "keep");
+    if (guard === "unpushed") git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: unpushed");
+    if (guard === "current") store.updateRepositoryRegistry(repositories => { repositories[0]!.activeWorkspaceId = "feature"; return { repositories, result: undefined }; });
+    if (guard === "default") store.updateRepositoryRegistry(repositories => { repositories[0]!.workspaceDefaultById.feature = true; return { repositories, result: undefined }; });
+    const release = guard === "running" ? workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path }) : () => {};
+    terminals = guard === "terminal";
+    await runtime.runNow();
+    assert.equal(existsSync(path), true, guard);
+    assert.equal(store.listArchivedWorkspacesPersistence().length, 0, guard);
+    release(); terminals = false;
+    if (guard === "dirty") rmSync(join(path, "unsaved.txt"));
+    if (guard === "unpushed") git(path, "reset", "--hard", "main");
+    store.saveRepositoryRegistry({ repositories: [registry()] });
+  }
+  // A repository's remembered selection is not the application's current workspace.
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.activeWorkspaceId = "feature"; return { repositories, result: undefined }; });
+  store.saveRepositoryRegistry({ repositories: store.loadRepositoryRegistry(), activeRepositoryPath: null });
+  assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.blockers.includes("currentWorkspace"), false);
+  store.saveRepositoryRegistry({ repositories: [registry()], activeRepositoryPath: repo });
+  runtime.configure(DEFAULT_WORKSPACE_CLEANUP_POLICY);
+  // Denied permanent branch deletion keeps both history and checkout.
+  git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: unmerged");
+  assert.equal((await act("delete", { deleteBranch: true })).ok, false);
+  assert.equal(existsSync(path), true);
+  assert.ok(store.loadWorkspaceSnapshot({ workspaceId: "feature" }));
+  assert.equal((await act("delete", { deleteBranch: true, forceDeleteBranch: true })).ok, true);
+  assert.equal(existsSync(path), false);
+  assert.equal(git(repo, "branch", "--list", "feature").trim(), "");
+  assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" }), null);
+  // Restore without a branch retains an isolated read-only history shelf.
+  workspaceId = "restorable";
+  git(repo, "worktree", "add", "-b", "feature", path);
+  store.saveRepositoryRegistry({ repositories: [registry()] });
+  store.upsertWorkspace({ id: workspaceId, name: "Feature", snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} } });
+  workspaceExecutionGate.resume("feature");
+  const rearchive = await act("archive");
+  assert.equal(rearchive.ok, true, JSON.stringify(rearchive));
+  git(repo, "branch", "-d", "feature");
+  const readonly = await act("restore");
+  assert.equal(readonly.ok, true); assert.equal(readonly.readOnly, true);
+  assert.equal(existsSync(path), false);
+  assert.equal(store.listArchivedWorkspacesPersistence()[0]!.readOnly, true);
+  for (const state of ["running", "waiting", "paused", "resultReady", "takenOver"]) assert.equal(responsibilityCleanupBlocker([{ executionWorkspaceId: "feature", state }], "feature"), "responsibilityRunning");
+  for (const state of ["completed", "cancelled"]) assert.equal(responsibilityCleanupBlocker([{ executionWorkspaceId: "feature", state }], "feature"), null);
+  assert.equal(responsibilityCleanupBlocker([{ executionWorkspaceId: "feature", state: "completed", publication: { state: "committed" } }], "feature"), "publicationPending");
+  const responsibility = store.tars.create({ requestId: "ended-work", title: "Verify cleanup", instruction: "Keep the workspace recoverable", acceptanceCriteria: ["History remains available"], workspaceId, repositoryPath: repo, providerId: "codex" }, new Date(now).toISOString());
+  const completed = store.tars.patch(responsibility.id, responsibility.revision, { state: "completed", executionWorkspaceId: workspaceId, completionConfirmedAt: new Date(now).toISOString() }, new Date(now).toISOString());
+  assert.equal(store.tars.snapshot().responsibilities[0]!.state, "completed");
+  assert.deepEqual((await runtime.list()).rows.find(row => row.id === workspaceId)!.blockers, []);
+  store.tarsConversations.recordPublish({ requestId: "pending-publish", source: "click", responsibilityId: completed.id, expectedRevision: completed.revision, commitMessage: "feat: retained work", title: "feat: retained work" }, null, new Date(now).toISOString());
+  assert.equal(store.tars.snapshot().responsibilities[0]!.publication, undefined);
+  assert.ok((await runtime.list()).rows.find(row => row.id === workspaceId)!.blockers.includes("publicationPending"));
+  store.tarsConversations.settlePublish("pending-publish", { status: "rejected", reason: "publishFailed", error: "Fixture publication was cancelled" }, new Date(now).toISOString());
+  assert.deepEqual((await runtime.list()).rows.find(row => row.id === workspaceId)!.blockers, []);
+  const published = store.tars.patch(completed.id, completed.revision, { publication: { state: "opened", failedStep: null, commit: "0000000000000000000000000000000000000000", branch: "feature", base: "main", commitMessage: "feat: retained work", title: "feat: retained work", url: "https://example.test/pull/1", number: 1, error: null, reason: null, updatedAt: new Date(now).toISOString() } }, new Date(now).toISOString());
+  prTimes.set("feature", null); prStates.set("feature", "OPEN");
+  assert.ok((await runtime.list()).rows.find(row => row.id === workspaceId)!.blockers.includes("publicationPending"));
+  store.tars.patch(published.id, published.revision, { publication: undefined }, new Date(now).toISOString());
+  // Successful automatic archive and its audit survive a real store restart.
+  const registerAutomatic = (id: string) => {
+    const workspacePath = join(root, id);
+    git(repo, "worktree", "add", "-b", id, workspacePath);
+    store.upsertWorkspace({ id, name: id, snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} } });
+    store.updateRepositoryRegistry(repositories => {
+      const repository = repositories[0]!;
+      repository.workspaces.push({ id, name: id, updatedAt: "2026-01-01" });
+      repository.workspacePathById[id] = workspacePath; repository.workspaceBranchById[id] = id; repository.workspaceDefaultById[id] = false;
+      return { repositories, result: undefined };
+    });
+    return workspacePath;
+  };
+  runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, merged: { enabled: true, value: 2 } });
+  for (const [id, mergedAt, eligible] of [
+    ["merge-no-date", null, false], ["merge-invalid", "invalid", false],
+    ["merge-recent", new Date(now - 12 * 3600_000).toISOString(), false],
+    ["merge-due", new Date(now - 3 * 86400_000).toISOString(), true],
+  ] as const) {
+    const candidatePath = registerAutomatic(id);
+    prTimes.set(id, mergedAt);
+    await runtime.runNow();
+    assert.equal(existsSync(candidatePath), !eligible, id);
+  }
+  const tolerantPolicy = { ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 99 } };
+  store.writeWorkspaceCleanupState({ policy: { ...tolerantPolicy, futureRule: {} }, recent: [], lastRun: now, futureField: "keep" });
+  assert.equal((await runtime.list()).policy.inactive.value, 99, "Unknown persisted fields must be stripped without resetting rules");
+  store.writeWorkspaceCleanupState({ policy: "invalid", recent: [], lastRun: now });
+  assert.equal((await runtime.list()).policy.inactive.value, 99, "Invalid persisted state keeps the last good rules");
+  await runtime.runNow();
+  assert.equal((store.readWorkspaceCleanupState() as { policy: unknown }).policy, "invalid", "A parse failure must not overwrite user rules");
+  store.writeWorkspaceCleanupState({ policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 });
+  const retryPath = registerAutomatic("retry-failure");
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.workspaceLastActiveAtById = { ...repositories[0]!.workspaceLastActiveAtById, "retry-failure": "2026-01-01T00:00:00Z" }; return { repositories, result: undefined }; });
+  git(repo, "worktree", "lock", retryPath);
+  runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } });
+  const firstFailure = await runtime.runNow();
+  assert.equal(firstFailure.results.filter(result => result.workspaceId === "retry-failure").length, 1);
+  const auditEvictedState = store.readWorkspaceCleanupState() as { recent: unknown[] };
+  auditEvictedState.recent = [];
+  store.writeWorkspaceCleanupState(auditEvictedState);
+  const sameDay = await runtime.runNow();
+  assert.equal(sameDay.results.filter(result => result.workspaceId === "retry-failure").length, 0, "Automatic failures must not repeat on the same day");
+  now += 3 * 86400_000;
+  const nextDay = await runtime.runNow();
+  assert.equal(nextDay.results.filter(result => result.workspaceId === "retry-failure").length, 1, "Automatic failures may retry after one day");
+  git(repo, "worktree", "unlock", retryPath);
+  const automaticPath = registerAutomatic("automatic-one");
+  runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } });
+  const automatic = await runtime.runNow();
+  assert.ok(automatic.results.some(result => result.workspaceId === "automatic-one" && result.ok), JSON.stringify(automatic));
+  assert.equal(existsSync(automaticPath), false);
+  assert.ok((await runtime.list()).recent.some(result => result.workspaceId === "automatic-one" && result.automatic && result.ok));
+  store.close();
+  store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
+  // A fresh host has no in-memory suspension; durable archives still deny execution.
+  workspaceExecutionGate.resume("automatic-one");
+  workspaceExecutionGate.resume("restorable");
+  workspaceExecutionGate.setArchiveReader(() => []);
+  assert.equal(store.loadRepositoryRegistry()[0]!.workspaceLastActiveAtById?.restorable, "2026-01-01T00:00:00Z");
+  assert.deepEqual(store.loadRepositoryRegistry()[0]!.linkedWorkspacePaths, [join(root, "external-linked")]);
+  const restarted = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => false, now: () => now });
+  assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "automatic-one", cwd: automaticPath }), /archived/);
+  assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "restorable", cwd: path }), /archived/);
+  assert.throws(() => workspaceExecutionGate.acquire({ cwd: path }), /archived/);
+  assert.ok((await restarted.list()).recent.some(result => result.workspaceId === "automatic-one" && result.automatic && result.ok));
+  const crossPath = registerAutomatic("cross-connection");
+  const connection = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
+  const crossLease = workspaceExecutionGate.acquire({ workspaceId: "cross-connection" }); crossLease();
+  connection.archiveWorkspacePersistence({ workspaceId: "cross-connection", repositoryPath: repo, path: crossPath, branch: "cross-connection", name: "Cross connection" });
+  assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "cross-connection" }), /archived/, "Other connections invalidate the cached archived set");
+  connection.restoreWorkspacePersistence({ workspaceId: "cross-connection" });
+  const restoredLease = workspaceExecutionGate.acquire({ workspaceId: "cross-connection" }); restoredLease();
+  connection.close();
+  const secondPath = registerAutomatic("automatic-two");
+  now += 30 * 60_000;
+  assert.equal((await restarted.runScheduled()).results.length, 0);
+  assert.equal(existsSync(secondPath), true, "scheduled cleanup ran before one hour");
+  now += 31 * 60_000;
+  const scheduledResult = await restarted.runScheduled();
+  assert.ok(scheduledResult.results.some(result => result.workspaceId === "automatic-two" && result.ok), JSON.stringify(scheduledResult));
+  assert.equal(existsSync(secondPath), false);
+  const foreignPath = join(root, "foreign-repository");
+  git(root, "init", "-b", "foreign-only", foreignPath);
+  writeFileSync(join(foreignPath, "retained.txt"), "external content");
+  git(foreignPath, "add", "retained.txt");
+  git(foreignPath, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-m", "test: external history");
+  const foreignLink = join(linkedShelfRoot, "foreign-link");
+  symlinkSync(foreignPath, foreignLink);
+  store.upsertWorkspace({ id: "foreign-linked", name: "Foreign", snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} } });
+  store.updateRepositoryRegistry(repositories => {
+    const repository = repositories[0]!;
+    repository.workspaces.push({ id: "foreign-linked", name: "Foreign", updatedAt: "2026-01-01" });
+    repository.workspacePathById["foreign-linked"] = foreignPath;
+    repository.workspaceBranchById["foreign-linked"] = "foreign-only";
+    repository.workspaceDefaultById["foreign-linked"] = false;
+    repository.linkedWorkspacePaths!.push(foreignPath);
+    return { repositories, result: undefined };
+  });
+  const foreignAct = (action: "archive" | "restore" | "delete") => runtime.act({ action, workspaceId: "foreign-linked", repositoryPath: repo });
+  assert.equal((await foreignAct("archive")).ok, true, "A linked foreign repository can archive without primary ownership");
+  assert.equal(existsSync(foreignLink), false);
+  assert.equal(existsSync(join(foreignPath, "retained.txt")), true);
+  assert.equal(git(foreignPath, "symbolic-ref", "--short", "HEAD").trim(), "foreign-only");
+  assert.equal((await foreignAct("restore")).ok, true, "Foreign archive restores its existing checkout without a primary branch");
+  assert.equal(existsSync(foreignLink), true);
+  assert.equal((await foreignAct("delete")).ok, false, "Foreign checkout stays protected from destructive cleanup");
+  assert.equal((await foreignAct("archive")).ok, true);
+  renameSync(foreignPath, join(root, "moved-foreign"));
+  const unavailableForeign = await foreignAct("restore");
+  assert.equal(unavailableForeign.ok, true);
+  assert.equal(unavailableForeign.readOnly, true, "Unavailable external checkouts retain read-only history");
+  assert.equal(existsSync(foreignPath), false, "A missing external checkout is never recreated from the primary repository");
+  assert.equal(existsSync(foreignLink), false);
+  store.close();
+} finally {
+  workspaceExecutionGate.setArchiveReader(() => []);
+  workspaceExecutionGate.resume("feature");
+  rmSync(root, { recursive: true, force: true });
+}
+
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });

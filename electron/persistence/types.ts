@@ -17,12 +17,20 @@ import type {
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 
 export interface PersistenceTaskRow {
+  forkParent?: { taskId: string; workspaceId: string; messageId: string };
   id: string;
   title: string;
   titleManuallySet?: boolean;
   provider: ProviderId;
   updatedAt: string;
   unread: boolean;
+  pinned?: boolean;
+  /**
+   * Task History position, set only when the user places the task. It shares a
+   * scale with `updatedAt` milliseconds, so unplaced tasks sort by activity
+   * among placed ones. Absent keeps activity order; the sidebar ignores it.
+   */
+  historyOrderKey?: number;
   archivedAt?: string | null;
   controlMode?: "interactive" | "managed";
   controlOwner?: "stave" | "external";
@@ -195,6 +203,10 @@ export interface PersistenceRepositoryRegistryEntry {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
+  /** Recorded user/turn activity; shell snapshot writes are not activity. */
+  workspaceLastActiveAtById?: Record<string, string>;
+  /** Externally owned worktrees must never be removed by workspace cleanup. */
+  linkedWorkspacePaths?: string[];
   repositoryBasePrompt?: string;
   /** Free-text branch naming rule saved in repository settings; kickoff and Tars follow it. */
   kickoffBranchNamingRule?: string;

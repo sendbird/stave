@@ -314,3 +314,24 @@ coordinator, and a boundary test keeps it that way.
 Turn state that survived a crash is swept at boot: a turn a wake-up started
 before Stave was killed stays open in SQLite, and without the sweep every later
 occurrence would defer behind a turn that will never finish.
+
+## Automatic watches after task turns
+
+**Settings → Prompts → PR Completion → Watch pull requests** (on by default,
+overridable per repository) also covers PRs an agent opens during a task turn.
+The host considers only turns whose tool calls ran a PR-creating command or
+reported a PR link, and adopts a PR only when it is on a non-default branch of
+this repository, authored by the signed-in `gh` user and created during that
+turn. If two tasks in the workspace could have opened it, neither is watched
+and both tasks explain why. Up to four discovery reads run within five minutes,
+using the repository's shared PR list; this short queue is memory-only.
+Registered watches use the durable check-back store and survive restart.
+
+Registration waits for active turns, approvals and questions. Existing task
+schedules, managed task ownership and an existing automatic PR owner prevent
+registration. The default trigger includes failed checks and merge conflicts,
+with review feedback off. Watches Stave adds on its own are marked automatic;
+only those show **Stop watching** in the task, while a watch the user scheduled
+links to Schedules. Stopping does not get undone by the next completed turn.
+The existing watch policy stops on merge or close, and the cleanup center can
+independently list the branch under its **PR merged** rule.

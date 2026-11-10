@@ -185,7 +185,7 @@ function normalizePaneState(args: {
     .filter((task) => !isTaskArchived(task))
     .map((task) => task.id);
   const openTaskTabIds = Array.isArray(args.rawOpenTaskTabIds)
-    ? normalizeOpenTaskTabIds(args.rawOpenTaskTabIds, new Set(activeTaskIds))
+    ? normalizeOpenTaskTabIds(args.rawOpenTaskTabIds, new Set(args.tasks.map(task=>task.id)))
     : activeTaskIds;
 
   return {
@@ -227,7 +227,7 @@ function resolveActiveSurface(args: {
   // reopening an arbitrary task on the next load.
   const hasTask = (taskId: string) =>
     args.openTaskTabIds.includes(taskId) &&
-    args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
+    args.tasks.some((task) => task.id === taskId);
   const hasCliSession = (cliSessionTabId: string) =>
     args.cliSessionTabs.some((tab) => tab.id === cliSessionTabId);
 
@@ -306,7 +306,7 @@ function resolveActiveTaskId(args: {
 }) {
   const isOpenLiveTask = (taskId: string) =>
     args.openTaskTabIds.includes(taskId) &&
-    args.tasks.some((task) => task.id === taskId && !isTaskArchived(task));
+    args.tasks.some((task) => task.id === taskId);
   if (isOpenLiveTask(args.activeTaskId)) {
     return args.activeTaskId;
   }
@@ -830,6 +830,7 @@ export function createWorkspaceSnapshot(args: {
 }
 
 async function persistWorkspaceSnapshotNow(args: {
+  creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
   workspaceId: string;
   workspaceName: string;
   activeTaskId: string;
@@ -903,6 +904,7 @@ async function persistWorkspaceSnapshotNow(args: {
   await upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
+    creationOptions: args.creationOptions,
     snapshot: createWorkspaceSnapshot({
       activeTaskId: mergedActiveTaskId,
       tasks: mergedTasks,

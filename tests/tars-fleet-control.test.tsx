@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { tarsRecordText } from "./tars-record-text";
 import path from "node:path";
 import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -76,7 +77,7 @@ const APP_FIELDS = ["repositoryPath", "activeWorkspaceId", "workspaces", "recent
   "activeTurnIdsByTask", "abortTaskTurn"] as const;
 const originalApp = Object.fromEntries(APP_FIELDS.map((key) => [key, appInitial[key]]));
 const originalRunCommand = useAgentRunsStore.getState().runCommand;
-let aborts: Array<{ taskId: string; keepAgentRun?: boolean }> = [];
+let aborts: Array<{ taskId: string; keepAgentRun?: boolean; cascade?: boolean }> = [];
 let runCommands: string[] = [];
 
 /** Make the last published snapshot what the next render reads. */
@@ -94,7 +95,7 @@ beforeEach(() => {
     repositoryPath: TARGET.repositoryPath, activeWorkspaceId: TARGET.workspaceId,
     workspaces: [{ id: TARGET.workspaceId, name: "ws-1" }] as never, recentRepositories: [], taskWorkspaceIdById: {},
     tasks: [task("task-1")], messagesByTask: { "task-1": [] }, activeTurnIdsByTask: { "task-1": "turn-1" },
-    abortTaskTurn: ((args: { taskId: string; keepAgentRun?: boolean }) => { aborts.push(args); }) as never,
+    abortTaskTurn: ((args: { taskId: string; keepAgentRun?: boolean; cascade?: boolean }) => { aborts.push(args); }) as never,
   };
   Object.assign(appInitial, scene);
   useAppStore.setState(scene);
@@ -187,7 +188,7 @@ describe("Fleet controls on Tars-owned work", () => {
       expect(host.acts.map((input) => [input.operation, input.source])).toEqual([["pause", "fleet"], ["takeover", "fleet"]]);
       expect(host.runControls).toEqual(["pause", "takeover"]);
       // The pause settled the run, so only the in-flight turn stops; the run is kept, never cancelled.
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true, cascade: false }]);
       expect(runCommands).toEqual([]);
 
       // Taken over: the work is yours, so Fleet stops your own turn directly and shows no Tars owner.
@@ -201,10 +202,11 @@ describe("Fleet controls on Tars-owned work", () => {
       const state = { conversation, error: null, busy: false, available: true, refresh: async () => {} } as unknown as TarsConversationState;
       const render = () => renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", titleOf: () => "Verified result",
         initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }));
-      expect(render()).toContain("Paused · Fleet");
-      expect(render()).toContain("Taken over · Fleet");
+      expect(tarsRecordText(render())).toContain("Pause Verified result Applied");
+      expect(tarsRecordText(render())).toContain("Take over Verified result Applied");
+      expect(render()).toContain('aria-label="You did this in Fleet"');
       applyAppLocale("ko"); await i18n.changeLanguage("ko");
-      try { expect(render()).toContain("일시 정지 적용됨 · Fleet"); } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
+      try { expect(tarsRecordText(render())).toContain("일시 정지 Verified result 적용됨"); } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     } finally { host.close(); }
   });
 
@@ -218,7 +220,7 @@ describe("Fleet controls on Tars-owned work", () => {
       expect(panel.labels).not.toContain("Pause");
       panel.press("Stop");
       await settle(() => aborts.length === 1);
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true, cascade: false }]);
       expect(host.acts).toEqual([]);
       expect(runCommands).toEqual([]);
     } finally { host.close(); }
@@ -237,7 +239,7 @@ describe("Fleet controls on Tars-owned work", () => {
       panel.press("Stop");
       await settle(() => aborts.length === 1);
       // The store's Stop then cancels your run, exactly as the task view's Stop does.
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false, cascade: true }]);
       expect(host.acts).toEqual([]);
       const sink: { actions: AgentRunActions } = { actions: {} };
       function Capture() { sink.actions = useAgentRunActions(userRun()); return null; }
@@ -270,7 +272,7 @@ describe("Fleet controls on Tars-owned work", () => {
     seedFleetRuns([tarsRun([userTurn])]);
     renderPanel().press("Pause");
     await settle(() => aborts.length === 1);
-    expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true }]);
+    expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true, cascade: false }]);
   });
 
   test("a row Tars does not own keeps the direct stop and never calls tars:act", async () => {
@@ -284,7 +286,7 @@ describe("Fleet controls on Tars-owned work", () => {
       expect(panel.labels).not.toContain("Take over");
       panel.press("Stop");
       await settle(() => aborts.length === 1);
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false, cascade: true }]);
       expect(host.acts).toEqual([]);
     } finally { host.close(); }
   });
@@ -327,10 +329,10 @@ describe("Fleet controls on Tars-owned work", () => {
     try {
       const status = describeFleetTarsOutcome(outcome);
       expect(status.tone).toBe("error");
-      expect(status.text).toBe("이 Task의 담당이 바뀌어 Tars가 이어서 진행할 수 없습니다. 해당 Task에서 계속하세요.");
+      expect(status.text).toBe("이 작업을 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 작업에서 계속하세요.");
       expect(status.text).not.toContain(diagnostic);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
-    expect(describeFleetTarsOutcome(outcome).text).toContain("ownership changed");
+    expect(describeFleetTarsOutcome(outcome).text).toContain("now controlled elsewhere");
   });
 
   test("the owner label shows only on rows an active Tars responsibility holds", () => {
@@ -376,8 +378,9 @@ describe("task view run controls on Tars-owned work", () => {
       const state = { conversation, error: null, busy: false, available: true, refresh: async () => {} } as unknown as TarsConversationState;
       applyAppLocale("ko"); await i18n.changeLanguage("ko");
       try {
-        expect(renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } })))
-          .toContain("직접 맡기 적용됨 · 작업 화면");
+        const html = renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }));
+        expect(tarsRecordText(html)).toContain("직접 맡기 적용됨");
+        expect(html).toContain('aria-label="작업 화면에서 직접 한 일입니다"');
       } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     } finally { host.close(); }
   });

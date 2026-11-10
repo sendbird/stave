@@ -1,6 +1,6 @@
 import type { AgentRunStartInput } from "../agent-runs/domain";
 import type { AdaptiveRoutingIntent } from "../agent-runs/resources";
-import { selectedProviderAccount } from "../providers/provider-account-selection";
+import { snapshotProviderAccounts } from "../providers/provider-account-selection";
 import type { TarsResponsibility } from "./types";
 
 /**
@@ -9,18 +9,18 @@ import type { TarsResponsibility } from "./types";
  * model: without an explicit pin (`model` null) the run routes automatically,
  * so Stave Auto picks each turn's model and effort and helpers, including the
  * reviewer, may run on the other provider. A pin locks the whole team to that
- * model and its provider, at the model's default effort.
+ * model and its provider. The lead starts at its default effort; helpers may
+ * use live Auto for effort within that model unless effort is pinned.
  */
 export function buildTarsExecutionResources(
   row: Pick<TarsResponsibility, "providerId" | "model" | "runtimeHints">,
 ): Pick<AgentRunStartInput, "accounts" | "routingIntent"> {
   const hints = row.runtimeHints;
-  const accountKey = row.providerId === "codex" ? "codexAccountProfileId" : "claudeAccountProfileId";
   const routingIntent: AdaptiveRoutingIntent = row.model
     ? { model: row.model, modelProviderId: row.providerId, autoRouting: false }
     : { autoRouting: true };
   return {
-    ...(hints ? { accounts: { [accountKey]: selectedProviderAccount(row.providerId, hints) } } : {}),
+    ...(hints ? { accounts: snapshotProviderAccounts(hints) } : {}),
     routingIntent,
   };
 }

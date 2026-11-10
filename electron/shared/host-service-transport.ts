@@ -27,6 +27,25 @@ export function shouldBypassOutboundQueueLimit(message: {
   return message.type === "response" && message.ok === false;
 }
 
+/** Backlog cap for events: a push nobody is waiting for is dropped rather than buffered without bound. */
+export const HOST_SERVICE_EVENT_QUEUE_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * How many outbound bytes may be pending when this message is queued.
+ *
+ * - An error response always goes through (`shouldBypassOutboundQueueLimit`).
+ * - A success response answers a request the main process is waiting for, and
+ *   there are only as many as requests in flight. It gets the receiver's own
+ *   buffer budget, so a backlog of events (a burst of provider stream events
+ *   during parallel runs) cannot turn an ordinary read such as `tars:get` into
+ *   a "protocol overflow" failure.
+ * - Events keep the small backlog cap.
+ */
+export function outboundQueueLimitBytes(message: { type: string; ok?: boolean }) {
+  if (shouldBypassOutboundQueueLimit(message)) return Number.POSITIVE_INFINITY;
+  return message.type === "response" ? HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES : HOST_SERVICE_EVENT_QUEUE_MAX_BYTES;
+}
+
 /** Keeps a bypassing error response small enough to be safe to force through. */
 export function truncateHostServiceErrorMessage(value: string) {
   return value.length > HOST_SERVICE_ERROR_MESSAGE_MAX_CHARS

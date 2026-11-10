@@ -9,8 +9,11 @@ import {
   type SteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
 import {
+  CONVERSATION_WIDTHS,
   normalizeComposerLayoutMode,
+  normalizeConversationWidth,
   type ComposerLayoutMode,
+  type ConversationWidth,
 } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
 import { TurnActivityFields } from "./settings-dialog-turn-activity-fields";
@@ -31,6 +34,11 @@ const STEER_QUEUE_ENTER_ACTION_LABEL_KEYS = {
   steer: "settings:chatSection.activeTurn.keys.steer",
 } as const satisfies Record<SteerQueueEnterAction, I18nKey>;
 const STEER_QUEUE_ENTER_ACTIONS = ["queue", "steer"] as const satisfies readonly SteerQueueEnterAction[];
+const CONVERSATION_WIDTH_LABEL_KEYS = {
+  narrow: "settings:chatSection.layout.conversationWidth.narrow",
+  default: "settings:chatSection.layout.conversationWidth.default",
+  wide: "settings:chatSection.layout.conversationWidth.wide",
+} as const satisfies Record<ConversationWidth, I18nKey>;
 
 export function ChatSection() {
   const [
@@ -38,6 +46,7 @@ export function ChatSection() {
     messageFontSize,
     messageCodeFontSize,
     messageFontFamily,
+    conversationWidth,
     reasoningExpansionMode,
     showInterimMessages,
     showConversationTurnRail,
@@ -53,6 +62,7 @@ export function ChatSection() {
           state.settings.messageFontSize,
           state.settings.messageCodeFontSize,
           state.settings.messageFontFamily,
+          state.settings.conversationWidth,
           state.settings.reasoningExpansionMode,
           state.settings.showInterimMessages,
           state.settings.showConversationTurnRail,
@@ -142,6 +152,26 @@ export function ChatSection() {
           </div>
         </LabeledField>
         <ChatTypographyAdvancedFields />
+      </SettingsCard>
+      <SettingsCard
+        title={t("settings:chatSection.layout.title")}
+        description={t("settings:chatSection.layout.description")}
+      >
+        <LabeledField
+          title={t("settings:chatSection.layout.conversationWidth.title")}
+          description={t("settings:chatSection.layout.conversationWidth.description")}
+        >
+          <ChoiceButtons<ConversationWidth>
+            value={normalizeConversationWidth(conversationWidth)}
+            onChange={(value) =>
+              updateSettings({ patch: { conversationWidth: value } })
+            }
+            options={CONVERSATION_WIDTHS.map((width) => ({
+              value: width,
+              label: t(CONVERSATION_WIDTH_LABEL_KEYS[width]),
+            }))}
+          />
+        </LabeledField>
       </SettingsCard>
       <SettingsCard
         title={t("settings:chatSection.behavior.title")}

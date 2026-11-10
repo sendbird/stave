@@ -1,3 +1,4 @@
+import { revealFleetVirtualRow } from "./fleet-virtual-focus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { i18n } from "@/i18n";
 import { toast } from "@/lib/notifications/toast";
@@ -98,6 +99,7 @@ export function useFleetFocusRequest(args: {
     let attempts = 0;
     let frame = 0;
     const attempt = () => {
+      revealFleetVirtualRow(scrollKey);
       const element = findFleetFocusElement(scrollKey);
       if (element || ++attempts >= SCROLL_ATTEMPTS) {
         element?.scrollIntoView({ block: "center" });

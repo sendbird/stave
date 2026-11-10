@@ -192,3 +192,12 @@ test("loads complete task history in chronological pages", async () => {
     messages.map((message) => message.id),
   );
 });
+
+test("content Find in browser dev searches persisted inline messages without a native bridge",async()=>{
+  const storage=createMemoryStorage();
+  (globalThis as {window:unknown}).window={localStorage:storage};
+  await upsertWorkspace({id:"dev-find",name:"Dev",snapshot:buildSnapshot({tasks:[buildTask("t")],messagesByTask:{t:[buildMessage("devneedle")]}})});
+  const {searchTaskContent}=await import("@/lib/db/content-search.db");
+  const response=await searchTaskContent({query:"devneedle",workspaceId:"dev-find",taskId:"t"});
+  expect(response.ok && response.results.map(hit=>hit.messageId)).toEqual(["devneedle"]);
+});

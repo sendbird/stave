@@ -2,7 +2,14 @@
 
 Stave Auto picks an eligible provider, model, and effort for each turn.
 It uses existing Stave models and requires no additional service or model
-installation. Auto itself remains opt-in.
+installation. Composer Auto and ordinary Agent runs follow **Enable Auto
+routing**, including when it is turned off during a run. Tars **Execution
+model: Automatic** explicitly uses the shared Auto policy even while that
+switch is off. This does not turn the switch on or change the saved policy.
+Its admitted Automatic choice survives restarts and applies to helpers within
+their role, provider, account and frozen model catalog. Fixed models and
+explicit model or effort pins take priority. **Model classification** still
+controls whether this policy calls the Routing decision model.
 
 ## Default behavior
 
@@ -13,10 +20,10 @@ Deterministic rules then map each level to one model rung and an effort range:
 | Level | Work | Claude | Codex | Effort range |
 | --- | --- | --- | --- | --- |
 | Simple | A bounded, obvious step: a typo, rename, small config edit, direct answer | Haiku 5.5 | GPT-6 Luna | Low – Medium |
-| Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.1 Sol | Medium – High |
-| Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.1 Sol | High – Extra high |
-| Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.1 | GPT-6 Astra | Low – Medium |
-| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.1 | GPT-6 Astra | Medium – High |
+| Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.2 Sol | Medium – High |
+| Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.2 Sol | High – Extra high |
+| Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.2 | GPT-6.2 Astra | Low – Medium |
+| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.2 | GPT-6.2 Astra | Medium – High |
 
 The frontier levels stop at high effort by default: Fable and Astra at extra
 high cost far more than they add for most work. Each level is editable (see
@@ -44,6 +51,10 @@ Haiku 4.5 moves onto Haiku 5.5.
 GPT-6.1 Terra is the balanced Codex rung, the counterpart of Sonnet 5.5. It
 replaces GPT-5.6 Terra, and a stored allow-list that names GPT-5.6 Terra moves
 onto GPT-6.1 Terra.
+
+GPT-6.2 Sol and GPT-6.2 Astra are the flagship and frontier Codex rungs. They
+replace GPT-6.1 Sol and GPT-6 Astra, and a stored allow-list that names either
+previous model moves onto its 6.2 successor.
 
 A task that runs as an [agent](agents.md) whose model is Auto-routing with a
 task class uses that class as a fallback: a confident classification still
@@ -302,7 +313,8 @@ keeps later steps unavailable until they can be reached, says "Step n of 3",
 and moves focus to the new step when you continue or go back. A rule's
 target model is a searchable list (names and ids; with "Any eligible" each
 provider has its own section), and each model shows its list price where one
-is published.
+is published. Shared model pickers keep the full name on its own line, with
+wrapping details or compatibility notices beside the price on the next line.
 Historical model choice is evidence of preference, not proof of quality.
 
 ## Decision records

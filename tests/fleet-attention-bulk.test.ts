@@ -8,6 +8,7 @@ import {
   pickFleetBulkEffect,
   planFleetAttentionSnooze,
   planFleetOutcomeRead,
+  planFleetOutcomeTaskRead,
   planFleetOutcomeReview,
   planFleetReviewClear,
   revertFleetBulkOutcome,
@@ -288,5 +289,16 @@ describe("applying a plan", () => {
     });
     expect(applied.calls).toEqual([]);
     expect(outcome).toMatchObject({ readResults: 0, failed: 2 });
+  });
+
+  test("reading all outcomes goes through the task read mark, one target per task", () => {
+    const failed = { ...durableResult(3), kind: "run-failed" as const };
+    const orphan = item({ id: "turn:result-ready:ws-1:none", kind: "result-ready", taskId: undefined, notificationId: "n-orphan", source: "notification" });
+    const plan = planFleetOutcomeTaskRead([durableResult(1), durableResult(1), failed, notificationResult, orphan, blockingApproval, readyPr]);
+    expect(plan.targets).toEqual([
+      { workspaceId: "ws-1", taskId: "task-1" },
+      { workspaceId: "ws-1", taskId: "task-3" },
+    ]);
+    expect(plan.notificationIds).toEqual(["n-orphan"]);
   });
 });

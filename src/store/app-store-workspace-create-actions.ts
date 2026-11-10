@@ -267,6 +267,7 @@ export function createWorkspaceCreateActions(args: {
       await persistWorkspaceSnapshot({
         workspaceId,
         workspaceName: workspaceDisplayName,
+        creationOptions: { initCommand: workspaceInitCommand || undefined, useRootNodeModulesSymlink },
         activeTaskId: snapshot.activeTaskId,
         tasks: snapshot.tasks,
         messagesByTask: snapshot.messagesByTask,
@@ -296,6 +297,12 @@ export function createWorkspaceCreateActions(args: {
       } catch {
         // Worktree may be created successfully before filesystem bridge catches up.
         // Keep workspace registration and use the existing file list as fallback.
+      }
+
+      const seed = window.api?.sourceControl?.seedWorktreeDependencies;
+      if (runner && seed) {
+        const result = await seed({ sourcePath: current.repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink }).catch(() => ({ status: "fallback" }));
+        if (result.status === "fallback") creationNotices.push({ level: "warning", message: i18n.t("workspace:dependencyCopyFallback") });
       }
 
       if (useRootNodeModulesSymlink) {
@@ -562,6 +569,17 @@ export function createWorkspaceCreateActions(args: {
         repositoryPath,
         worktreePath: worktreeRoot,
       });
+      const cleanup = window.api?.workspaceCleanup;
+      const archived = (await cleanup?.listArchived?.() ?? []).find(row =>
+        row.repositoryPath === repositoryPath && comparableWorktreePaths.includes(normalizeComparablePath(row.path)));
+      if (archived && cleanup) {
+        const restored = await cleanup.act({ action: "restore", workspaceId: archived.id, repositoryPath });
+        if (!restored.ok) return { ok: false, message: i18n.t("workspace:cleanupCenter.unavailable") };
+        const { refreshWorkspaceCleanupRegistry } = await import("@/store/workspace-cleanup-sync");
+        await refreshWorkspaceCleanupRegistry();
+        await get().switchWorkspace({ workspaceId: archived.id });
+        return { ok: true };
+      }
       const creationNotices: Array<{
         level: "success" | "warning";
         message: string;

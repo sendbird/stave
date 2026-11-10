@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { ToolOutputImage } from "@/lib/tool-images/tool-images";
+import type { ReplyToolImage, ToolOutputImage } from "@/lib/tool-images/tool-images";
 
 type Loaded = { status: "loading" } | { status: "ready"; src: string } | { status: "missing" };
 
@@ -37,11 +37,22 @@ function useToolImageSource(image: ToolOutputImage): Loaded {
   return loaded;
 }
 
-function ToolImageThumbnail(props: { image: ToolOutputImage; index: number }) {
+/**
+ * The reply's number for the first image of each tool call, so a tool step
+ * labels its screenshot the way the reply refers to it ("Image 2").
+ */
+export const ReplyImageNumbersContext = createContext<ReadonlyMap<string, number> | null>(null);
+
+export function useReplyImageNumber(toolUseId: string | undefined): number | undefined {
+  const numbers = useContext(ReplyImageNumbersContext);
+  return toolUseId ? numbers?.get(toolUseId) : undefined;
+}
+
+function ToolImageThumbnail(props: { image: ToolOutputImage; number: number; compact?: boolean }) {
   useTranslation();
   const loaded = useToolImageSource(props.image);
   const [open, setOpen] = useState(false);
-  const label = i18n.t("session:toolOutputImages.label", { index: props.index + 1 });
+  const label = i18n.t("session:toolOutputImages.label", { index: props.number });
 
   if (loaded.status !== "ready") {
     return (
@@ -54,19 +65,30 @@ function ToolImageThumbnail(props: { image: ToolOutputImage; index: number }) {
   }
   return (
     <>
-      <AuiButton
-        layout="host"
-        type="button"
-        xstyle={styles.thumbButton}
-        aria-label={i18n.t("session:toolOutputImages.open", { label })}
-        onClick={() => setOpen(true)}
-      >
-        <img src={loaded.src} alt={label} className={sx(styles.thumb)} />
-      </AuiButton>
+      <figure className={sx(styles.figure)}>
+        <AuiButton
+          layout="host"
+          type="button"
+          xstyle={styles.thumbButton}
+          aria-label={i18n.t("session:toolOutputImages.open", { label })}
+          title={i18n.t("session:toolOutputImages.open", { label })}
+          onClick={() => setOpen(true)}
+        >
+          <img
+            src={loaded.src}
+            alt={label}
+            className={sx(styles.thumb, props.compact && styles.thumbCompact)}
+          />
+        </AuiButton>
+        {props.compact ? (
+          <figcaption className={sx(styles.caption)}>{label}</figcaption>
+        ) : null}
+      </figure>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent xstyle={styles.dialog}>
           <DialogTitle>{label}</DialogTitle>
-          <div className={sx(styles.fullFrame)}>
+          {/* Original size: the frame scrolls instead of shrinking the image. */}
+          <div className={sx(styles.fullFrame)} data-testid="tool-image-full-frame">
             <img src={loaded.src} alt={label} className={sx(styles.full)} />
           </div>
         </DialogContent>
@@ -76,15 +98,43 @@ function ToolImageThumbnail(props: { image: ToolOutputImage; index: number }) {
 }
 
 /** The images a tool call returned, as thumbnails that open full size. */
-export function ToolOutputImages(props: { images: readonly ToolOutputImage[] }) {
+export function ToolOutputImages(props: { images: readonly ToolOutputImage[]; firstNumber?: number }) {
   if (props.images.length === 0) return null;
+  const first = props.firstNumber ?? 1;
   return (
     <div className={sx(styles.grid)} data-testid="tool-output-images">
       {props.images.map((image, index) => (
         <ToolImageThumbnail
           key={image.kind === "stored" ? image.imageId : `inline-${index}`}
           image={image}
-          index={index}
+          number={first + index}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The screenshots the assistant took during a reply, attached under it as
+ * small numbered thumbnails ("Image 1", "Image 2"), in the order taken. The
+ * reply refers to them by those numbers; a click opens one at original size.
+ */
+export function ReplyToolImages(props: { images: readonly ReplyToolImage[] }) {
+  useTranslation();
+  if (props.images.length === 0) return null;
+  return (
+    <div
+      role="group"
+      aria-label={i18n.t("session:toolOutputImages.attached", { count: props.images.length })}
+      className={sx(styles.grid)}
+      data-testid="reply-tool-images"
+    >
+      {props.images.map((entry) => (
+        <ToolImageThumbnail
+          key={entry.image.kind === "stored" ? entry.image.imageId : `inline-${entry.number}`}
+          image={entry.image}
+          number={entry.number}
+          compact
         />
       ))}
     </div>
@@ -109,11 +159,32 @@ const styles = stylex.create({
     overflow: "hidden",
     padding: 0,
   },
+  figure: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--aui-space-4"],
+    margin: 0,
+    minInlineSize: 0,
+  },
   thumb: {
     display: "block",
     maxBlockSize: 200,
     maxInlineSize: "min(100%, 360px)",
     objectFit: "contain",
+  },
+  thumbCompact: {
+    blockSize: 72,
+    inlineSize: 112,
+    maxInlineSize: "100%",
+    objectFit: "cover",
+    objectPosition: "top",
+  },
+  caption: {
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   placeholder: {
     color: vars["--aui-color-text-muted"],
@@ -125,10 +196,11 @@ const styles = stylex.create({
   },
   fullFrame: {
     maxBlockSize: "78vh",
+    maxInlineSize: "100%",
     overflow: "auto",
   },
   full: {
     display: "block",
-    maxInlineSize: "100%",
+    maxInlineSize: "none",
   },
 });

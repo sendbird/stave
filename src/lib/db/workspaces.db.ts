@@ -1,3 +1,4 @@
+import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "@/lib/task-context/conversation-truncation";
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 import type { ReviewComment } from "@/types/review";
 import {
@@ -36,7 +37,10 @@ export interface ProviderSessionCursor {
 export type TaskProviderSessionEntry = string | ProviderSessionCursor;
 
 export interface TaskProviderSessionState {
-  accounts?: Record<string, Partial<Record<"claude-code" | "codex", TaskProviderSessionEntry>>>;
+  accounts?: Record<
+    string,
+    Partial<Record<"claude-code" | "codex", TaskProviderSessionEntry>>
+  >;
   "claude-code"?: TaskProviderSessionEntry;
   codex?: TaskProviderSessionEntry;
   cursor?: TaskProviderSessionEntry;
@@ -160,11 +164,13 @@ interface RequiredPersistenceApi {
     taskId: string;
     limit?: number;
     offset?: number;
+    messageId?: string;
   }) => Promise<{
     ok: boolean;
     page: TaskMessagesPage | null;
   }>;
   truncateTaskMessagesAfter?: (args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -183,6 +189,7 @@ interface RequiredPersistenceApi {
     id: string;
     name: string;
     snapshot: WorkspaceSnapshot;
+    creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
   }) => Promise<{ ok: boolean }>;
   loadRepositoryRegistry: () => Promise<{
     ok: boolean;
@@ -578,6 +585,7 @@ export async function loadTaskMessagesPage(args: {
   taskId: string;
   limit?: number;
   offset?: number;
+  messageId?: string;
   /**
    * Keep persisted streaming flags. Host-owned turns reload this page while the
    * turn is still running; snapshot sealing would render finished interim
@@ -598,14 +606,21 @@ export async function loadTaskMessagesPage(args: {
         messagesByTask: snapshot?.messagesByTask ?? {},
         preserveStreaming: args.preserveStreaming,
       })[args.taskId] ?? [];
-    const start = Math.max(messages.length - offset - limit, 0);
-    const end = Math.max(messages.length - offset, 0);
+    const anchorIndex = args.messageId
+      ? messages.findIndex((message) => message.id === args.messageId)
+      : -1;
+    const resolvedOffset =
+      anchorIndex >= 0
+        ? Math.max(0, messages.length - anchorIndex - Math.ceil(limit / 2))
+        : offset;
+    const start = Math.max(messages.length - resolvedOffset - limit, 0);
+    const end = Math.max(messages.length - resolvedOffset, 0);
     const pageMessages = messages.slice(start, end);
     return {
       messages: pageMessages,
       totalCount: messages.length,
       limit,
-      offset,
+      offset: resolvedOffset,
       hasMoreOlder: start > 0,
     };
   }
@@ -621,14 +636,21 @@ export async function loadTaskMessagesPage(args: {
           : {},
         preserveStreaming: args.preserveStreaming,
       })[args.taskId] ?? [];
-    const start = Math.max(messages.length - offset - limit, 0);
-    const end = Math.max(messages.length - offset, 0);
+    const anchorIndex = args.messageId
+      ? messages.findIndex((message) => message.id === args.messageId)
+      : -1;
+    const resolvedOffset =
+      anchorIndex >= 0
+        ? Math.max(0, messages.length - anchorIndex - Math.ceil(limit / 2))
+        : offset;
+    const start = Math.max(messages.length - resolvedOffset - limit, 0);
+    const end = Math.max(messages.length - resolvedOffset, 0);
     const pageMessages = messages.slice(start, end);
     return {
       messages: pageMessages,
       totalCount: messages.length,
       limit,
-      offset,
+      offset: resolvedOffset,
       hasMoreOlder: start > 0,
     };
   }
@@ -638,6 +660,7 @@ export async function loadTaskMessagesPage(args: {
     taskId: args.taskId,
     limit,
     offset,
+    messageId: args.messageId,
   });
   if (!response.ok || !response.page) {
     throw new Error(
@@ -680,10 +703,12 @@ export async function loadAllTaskMessages(args: {
 }
 
 export async function truncateTaskMessagesAfter(args: {
+  before?: true;
   workspaceId: string;
   taskId: string;
   messageId: string;
 }): Promise<number> {
+  args = TruncateTaskMessagesAfterArgsSchema.parse(args);
   const persistence = getPersistenceApi();
   if (!persistence) {
     const rows = loadFallbackRows();
@@ -699,14 +724,15 @@ export async function truncateTaskMessagesAfter(args: {
       if (targetIndex < 0) {
         return row;
       }
-      removedCount = messages.length - targetIndex - 1;
+      const keepCount = targetIndex + (args.before ? 0 : 1);
+      removedCount = messages.length - keepCount;
       return {
         ...row,
         snapshot: {
           ...row.snapshot,
           messagesByTask: {
             ...row.snapshot.messagesByTask,
-            [args.taskId]: messages.slice(0, targetIndex + 1),
+            [args.taskId]: messages.slice(0, keepCount),
           },
         },
       };
@@ -720,7 +746,7 @@ export async function truncateTaskMessagesAfter(args: {
     );
   }
 
-  const response = await persistence.truncateTaskMessagesAfter(args);
+  const response = TruncateTaskMessagesResultSchema.parse(await persistence.truncateTaskMessagesAfter(args));
   if (!response.ok) {
     throw new Error(
       `Failed to truncate task messages: ${args.workspaceId}/${args.taskId}/${args.messageId}`,
@@ -802,16 +828,26 @@ export async function closeWorkspacePersistence(args: {
   });
 }
 
-export async function loadRepositoryRegistryState(): Promise<{ repositories: unknown[]; activeRepositoryPath?: string | null }> {
+export async function loadRepositoryRegistryState(): Promise<{
+  repositories: unknown[];
+  activeRepositoryPath?: string | null;
+}> {
   const persistence = getPersistenceApi();
   if (!persistence?.loadRepositoryRegistry) {
     return { repositories: [] };
   }
   const response = await persistence.loadRepositoryRegistry();
   if (!response.ok) {
-    throw new Error("Failed to load repository registry from persistence bridge.");
+    throw new Error(
+      "Failed to load repository registry from persistence bridge.",
+    );
   }
-  return { repositories: Array.isArray(response.repositories) ? response.repositories : [], activeRepositoryPath: response.activeRepositoryPath };
+  return {
+    repositories: Array.isArray(response.repositories)
+      ? response.repositories
+      : [],
+    activeRepositoryPath: response.activeRepositoryPath,
+  };
 }
 
 export async function saveRepositoryRegistrySnapshot(args: {
@@ -827,7 +863,9 @@ export async function saveRepositoryRegistrySnapshot(args: {
     activeRepositoryPath: args.activeRepositoryPath,
   });
   if (!response.ok) {
-    throw new Error("Failed to save repository registry via persistence bridge.");
+    throw new Error(
+      "Failed to save repository registry via persistence bridge.",
+    );
   }
 }
 
@@ -835,6 +873,7 @@ export async function upsertWorkspace(args: {
   id: string;
   name: string;
   snapshot: WorkspaceSnapshot;
+  creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
 }): Promise<void> {
   const validated = parseWorkspaceSnapshot({ payload: args.snapshot });
   if (!validated) {
@@ -888,6 +927,7 @@ export async function upsertWorkspace(args: {
     id: args.id,
     name: args.name,
     snapshot: normalized,
+    creationOptions: args.creationOptions,
   });
   if (!response.ok) {
     throw new Error(`Failed to upsert workspace snapshot: ${args.id}`);

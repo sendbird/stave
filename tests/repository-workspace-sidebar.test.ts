@@ -11,6 +11,8 @@ import {
   buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
   buildWorkspaceProgressTaskItems,
+  selectCompactWorkspaceTaskRows,
+  WORKSPACE_TASK_ROW_LIMIT,
   buildVisibleWorkspaceShortcutTargets,
   formatWorkQueueWorkspaceLabel,
   getWorkspaceHoverActionVisibilityStyle,
@@ -648,15 +650,15 @@ describe("resolveWorkspaceRowBranch", () => {
 });
 
 describe("buildWorkspaceArchiveDialogCopy", () => {
-  test("offers branch deletion for a Stave-managed worktree", () => {
+  test("keeps the branch and history for a managed worktree", () => {
     const copy = buildWorkspaceArchiveDialogCopy({
       workspaceName: "fix/archive",
       isLinkedWorktree: false,
     });
 
-    expect(copy.canDeleteBranch).toBe(true);
+    expect(copy.canDeleteBranch).toBe(false);
     expect(copy.description).toBe(
-      'Archive workspace "fix/archive"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.',
+      'Archive workspace "fix/archive"? The clean worktree is removed. The branch, tasks, messages and history are kept. Restore it from Archived or Clean up workspaces.',
     );
   });
 
@@ -668,7 +670,7 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
 
     expect(copy.canDeleteBranch).toBe(false);
     expect(copy.description).toBe(
-      'Archive workspace "imported"? It is a linked worktree owned outside this repository, so Stave only removes its shortcut — the worktree and its git branch stay untouched.',
+      'Archive workspace "imported"? Its external worktree and branch are kept, along with all tasks, messages and history. Restore it from Archived or Clean up workspaces.',
     );
   });
 });
@@ -895,7 +897,7 @@ describe("workspace progress task tree", () => {
     ).toBe("Rewrite the provider logo fallback so…");
   });
 
-  test("hides the tree when no open task is responding", () => {
+  test("keeps idle open tasks visible after the last turn finishes", () => {
     expect(
       buildWorkspaceProgressTaskItems({
         tasks: [
@@ -908,7 +910,7 @@ describe("workspace progress task tree", () => {
           },
         ],
       }),
-    ).toEqual([]);
+    ).toEqual([{ taskId: "task-idle", title: "Idle task", providerId: "claude-code", status: "idle" }]);
   });
 
   test("lists open tasks under a responding workspace with provider and status", () => {
@@ -983,5 +985,52 @@ describe("workspace progress task tree", () => {
         providerId: "codex",
       },
     ]);
+  });
+});
+
+test("sidebar keeps status order, puts pins first within a status and ignores history order", () => {
+  const base = { provider: "codex" as const, archivedAt: null };
+  const tasks = [
+    { ...base, id: "new", title: "Newest", updatedAt: "2026-11-17" },
+    { ...base, id: "pinned", title: "Pinned", updatedAt: "2026-11-15", pinned: true },
+    { ...base, id: "reopened", title: "Reopened", updatedAt: "2026-11-10", historyOrderKey: Date.parse("2027-01-01") },
+    { ...base, id: "approval", title: "Needs approval", updatedAt: "2026-11-01" },
+    { ...base, id: "closed", title: "Closed", updatedAt: "2026-11-18" },
+    { ...base, id: "archived", title: "Archived", updatedAt: "2026-11-18", archivedAt: "2026-11-18" },
+    { ...base, id: "child", title: "Child", updatedAt: "2026-11-18", parentTaskId: "new" },
+  ];
+  const approvalMessage = { id: "m", role: "assistant", model: "codex", providerId: "codex", content: "", isStreaming: false,
+    parts: [{ type: "approval", toolName: "bash", requestId: "r", description: "Run", state: "approval-requested" }] };
+  expect(buildWorkspaceProgressTaskItems({
+    tasks, openTaskTabIds: ["new", "pinned", "reopened", "approval", "archived", "child"],
+    messagesByTask: { approval: [approvalMessage] } as never,
+  }).map(task => task.taskId)).toEqual(["approval", "pinned", "new", "reopened"]);
+});
+
+describe("compact workspace task rows", () => {
+  const row = (taskId: string, status: "idle" | "running" | "waiting-approval" = "idle", pinned = false) =>
+    ({ taskId, title: taskId, status, providerId: "codex" as const, ...(pinned ? { pinned } : {}) });
+  const none = new Set<string>();
+
+  test("an idle workspace with nothing unread or pinned stays one line", () => {
+    expect(selectCompactWorkspaceTaskRows({ items: [row("a"), row("b")], unreadTaskIds: none, expanded: false }))
+      .toEqual({ rows: [], hiddenCount: 0 });
+  });
+
+  test("a finished unread task stays visible while other idle tasks fold into +N more", () => {
+    const items = [row("a"), row("b"), row("done"), row("c")];
+    const compact = selectCompactWorkspaceTaskRows({ items, unreadTaskIds: new Set(["done"]), expanded: false });
+    expect(compact.rows.map(item => item.taskId)).toEqual(["done"]);
+    expect(compact.hiddenCount).toBe(3);
+    const expanded = selectCompactWorkspaceTaskRows({ items, unreadTaskIds: new Set(["done"]), expanded: true });
+    expect(expanded).toEqual({ rows: items, hiddenCount: 0 });
+  });
+
+  test("running, attention and pinned tasks expand the workspace up to the row limit", () => {
+    const items = [row("ask", "waiting-approval"), row("r1", "running"), row("r2", "running"), row("pin", "idle", true), row("idle")];
+    const compact = selectCompactWorkspaceTaskRows({ items, unreadTaskIds: none, expanded: false });
+    expect(compact.rows.map(item => item.taskId)).toEqual(["ask", "r1", "r2", "pin"].slice(0, WORKSPACE_TASK_ROW_LIMIT));
+    expect(compact.hiddenCount).toBe(items.length - compact.rows.length);
+    expect(WORKSPACE_TASK_ROW_LIMIT).toBeLessThanOrEqual(3);
   });
 });

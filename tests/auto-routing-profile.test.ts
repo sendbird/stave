@@ -90,17 +90,17 @@ describe("resolveRoute", () => {
         .toMatchObject({ providerId: "claude-code", model: DEFAULT_CLAUDE_OPUS_MODEL,
           effort: "medium", ruleId: "standard", complexity: "medium" });
       expect(resolveRoute({ profile: balanced, role: "primary", signals: signals({ taskClass, currentProviderId: "codex" }) }))
-        .toMatchObject({ providerId: "codex", model: "gpt-6.1-sol", effort: "medium", ruleId: "standard" });
+        .toMatchObject({ providerId: "codex", model: "gpt-6.2-sol", effort: "medium", ruleId: "standard" });
     }
   });
 
   test("each level maps to one rung and effort on both providers", () => {
     const expected = {
       low: { claude: [DEFAULT_CLAUDE_HAIKU_MODEL, "medium"], codex: ["gpt-6-luna", "medium"], rule: "bounded" },
-      medium: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "medium"], codex: ["gpt-6.1-sol", "medium"], rule: "standard" },
-      high: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "high"], codex: ["gpt-6.1-sol", "high"], rule: "complex" },
-      expert: { claude: [CLAUDE_FABLE_MODEL, "medium"], codex: ["gpt-6-astra", "medium"], rule: "expert" },
-      extreme: { claude: [CLAUDE_FABLE_MODEL, "high"], codex: ["gpt-6-astra", "high"], rule: "extreme" },
+      medium: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "medium"], codex: ["gpt-6.2-sol", "medium"], rule: "standard" },
+      high: { claude: [DEFAULT_CLAUDE_OPUS_MODEL, "high"], codex: ["gpt-6.2-sol", "high"], rule: "complex" },
+      expert: { claude: [CLAUDE_FABLE_MODEL, "medium"], codex: ["gpt-6.2-astra", "medium"], rule: "expert" },
+      extreme: { claude: [CLAUDE_FABLE_MODEL, "high"], codex: ["gpt-6.2-astra", "high"], rule: "extreme" },
     } as const;
     for (const [complexity, route] of Object.entries(expected) as Array<[keyof typeof expected, (typeof expected)[keyof typeof expected]]>) {
       for (const taskClass of ["implement", "plan", "docs"] as const) {
@@ -130,6 +130,16 @@ describe("resolveRoute", () => {
       .eligibleModelsByProvider["claude-code"]).toEqual([DEFAULT_CLAUDE_HAIKU_MODEL]);
   });
 
+  test("a stored allow list that names Fable 5.1 moves onto Fable 5.2", () => {
+    const stored = validateProfile({
+      ...balanced,
+      eligibleModelsByProvider: { "claude-code": ["claude-fable-5-1", DEFAULT_CLAUDE_SONNET_MODEL] },
+    });
+    expect(stored.eligibleModelsByProvider["claude-code"]).toEqual(["claude-fable-5-2", DEFAULT_CLAUDE_SONNET_MODEL]);
+    expect(resolveRouteTierForModel("claude-fable-5-2")).toBe("frontier");
+    expect(resolveRouteTierForModel("claude-fable-5-1")).toBe("frontier");
+  });
+
   test("GPT-6.1 Terra is the balanced Codex rung, ahead of a runtime-listed GPT-5.6 Terra", () => {
     expect(resolveRouteTierForModel("gpt-6.1-terra")).toBe("balanced");
     expect(resolveRoute({ profile: balanced, role: "primary",
@@ -141,9 +151,19 @@ describe("resolveRoute", () => {
   test("a stored allow list that names GPT-5.6 Terra moves onto GPT-6.1 Terra", () => {
     const stored = validateProfile({
       ...balanced,
-      eligibleModelsByProvider: { codex: ["gpt-6.1-sol", "gpt-5.6-terra", "gpt-6.1-terra"] },
+      eligibleModelsByProvider: { codex: ["gpt-6.2-sol", "gpt-5.6-terra", "gpt-6.1-terra"] },
     });
-    expect(stored.eligibleModelsByProvider.codex).toEqual(["gpt-6.1-sol", "gpt-6.1-terra"]);
+    expect(stored.eligibleModelsByProvider.codex).toEqual(["gpt-6.2-sol", "gpt-6.1-terra"]);
+  });
+
+  test("a stored allow list that names GPT-6.1 Sol or GPT-6 Astra moves onto the 6.2 models", () => {
+    const stored = validateProfile({
+      ...balanced,
+      eligibleModelsByProvider: { codex: ["gpt-6.1-sol", "gpt-6-astra", "gpt-6.2-sol", "gpt-6-luna"] },
+    });
+    expect(stored.eligibleModelsByProvider.codex).toEqual(["gpt-6.2-sol", "gpt-6.2-astra", "gpt-6-luna"]);
+    expect(resolveRouteTierForModel("gpt-6.2-astra")).toBe("frontier");
+    expect(resolveRouteTierForModel("gpt-6.2-sol")).toBe("flagship");
   });
 
   test("Auto never picks Haiku 4.5 unless it is allowed explicitly", () => {
@@ -156,7 +176,7 @@ describe("resolveRoute", () => {
   test("a skill name does not bypass the capability floor", () => {
     expect(resolveRoute({ profile: balanced, role: "primary",
       signals: signals({ skill: "ship", currentProviderId: "codex" }) }))
-      .toMatchObject({ model: "gpt-6.1-sol", ruleId: "standard" });
+      .toMatchObject({ model: "gpt-6.2-sol", ruleId: "standard" });
   });
 
   test("a sensitive change routes as complex work, and a sensitive expert task keeps the frontier", () => {
@@ -212,7 +232,7 @@ describe("resolveRoute", () => {
       for (const currentProviderId of ["claude-code", "codex", "cursor", "kiro"] as const) {
         const route = resolveRoute({ profile, role: "primary", signals: signals({ taskClass, complexity: "low", currentProviderId }) });
         expect(route).toMatchObject({ complexity: "medium", ruleId: "standard", effort: "high" });
-        expect(route.model).toBe(currentProviderId === "codex" ? "gpt-6.1-sol" : DEFAULT_CLAUDE_OPUS_MODEL);
+        expect(route.model).toBe(currentProviderId === "codex" ? "gpt-6.2-sol" : DEFAULT_CLAUDE_OPUS_MODEL);
       }
     }
   });
@@ -267,7 +287,7 @@ describe("resolveRoute", () => {
     }
     const narrow = { ...balanced, eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5"] } };
     expect(resolveRoute({ profile: narrow, role: "primary", signals: signals({ complexity: "high" }) }))
-      .toMatchObject({ providerId: "codex", model: "gpt-6.1-sol" });
+      .toMatchObject({ providerId: "codex", model: "gpt-6.2-sol" });
   });
 
   test("an unavailable provider fails over even though provider switching is off", () => {
@@ -324,7 +344,7 @@ describe("resolveRoute", () => {
     });
     expect(advisor).toMatchObject({
       providerId: "codex",
-      model: "gpt-6-astra",
+      model: "gpt-6.2-astra",
       effort: "medium",
       ruleId: "advisor-default",
     });
@@ -336,7 +356,7 @@ describe("resolveRoute", () => {
     });
     expect(delegate).toMatchObject({
       providerId: "codex",
-      model: "gpt-6.1-sol",
+      model: "gpt-6.2-sol",
       effort: "medium",
       ruleId: "delegate-default",
     });
@@ -536,7 +556,7 @@ describe("cache hold: step-downs and same-rung switches wait for a boundary", ()
       providerId: "codex",
       light: "gpt-6-luna",
       balancedModel: "gpt-6.1-terra",
-      flagship: "gpt-6.1-sol",
+      flagship: "gpt-6.2-sol",
       sameRung: "gpt-6-sol",
       warmMs: CODEX_PROMPT_CACHE_WARM_MS,
       extra: { runtimeModelsByProvider: { codex: ["gpt-6-sol"] } },
@@ -591,7 +611,7 @@ describe("cache hold: step-downs and same-rung switches wait for a boundary", ()
     const between = CODEX_PROMPT_CACHE_WARM_MS + MINUTE;
     expect(between).toBeLessThan(CLAUDE_PROMPT_CACHE_WARM_MS);
     expect(route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, lighterWork, between)).cacheHeldModel).toBe(true);
-    expect(route(continuingOn("codex", "gpt-6.1-sol", lighterWork, between)).cacheHeldModel).toBe(false);
+    expect(route(continuingOn("codex", "gpt-6.2-sol", lighterWork, between)).cacheHeldModel).toBe(false);
   });
 
   test("a held Opus still steps its effort down under the hard budget ceiling", () => {
@@ -635,14 +655,14 @@ describe("cache hold: step-downs and same-rung switches wait for a boundary", ()
   });
 
   test("a held model that loses its cache on effort changes keeps its effort under budget pressure", () => {
-    // GPT-6.1 Sol does not keep its cache across effort changes, so the budget
+    // GPT-6.2 Sol does not keep its cache across effort changes, so the budget
     // guard's step-down to a balanced model waits and effort stays put.
-    const held = route(continuingOn("codex", "gpt-6.1-sol", { budgetUsedPercent: 85 }));
+    const held = route(continuingOn("codex", "gpt-6.2-sol", { budgetUsedPercent: 85 }));
     expect(held).toMatchObject({
-      providerId: "codex", model: "gpt-6.1-sol", budgetShift: -1, budgetHeldModel: false, cacheHeldModel: true,
+      providerId: "codex", model: "gpt-6.2-sol", budgetShift: -1, budgetHeldModel: false, cacheHeldModel: true,
     });
-    const unpressured = route(continuingOn("codex", "gpt-6.1-sol"));
-    expect(unpressured).toMatchObject({ model: "gpt-6.1-sol", cacheHeldModel: false });
+    const unpressured = route(continuingOn("codex", "gpt-6.2-sol"));
+    expect(unpressured).toMatchObject({ model: "gpt-6.2-sol", cacheHeldModel: false });
     expect(held.effort).toBe(unpressured.effort);
     expect(held.reason).toContain("Usage is at 85%");
     expect(held.reason).toContain("deferred");

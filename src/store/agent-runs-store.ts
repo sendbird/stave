@@ -1,4 +1,6 @@
 import { formatTime as formatLocaleTime } from "@/i18n/format";
+import { toast } from "@/components/ui/sonner";
+import { openDailyLimitSettings } from "@/lib/usage/daily-limit-navigation";
 import { i18n } from "@/i18n/runtime";
 /**
  * Renderer state for agent runs: the latest agent run of each task in the active
@@ -222,6 +224,9 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
       }
       try {
         const response = await api.start(input);
+        if (!response.ok && response.code === "daily-usage-limit") toast.error(i18n.t("usage:dailyLimit.reached"), {
+          action: { label: i18n.t("usage:dailyLimit.raise"), onClick: openDailyLimitSettings },
+        });
         if (response.ok && response.agentRun) storeDetail(response.agentRun);
         return response;
       } catch {

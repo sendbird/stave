@@ -15,7 +15,6 @@ import {
   MessageResponse,
 } from "@/components/ai-elements";
 import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
-import { TranscriptWideBlock } from "@/components/ai-elements/transcript-wide";
 import {
   ChangedFilesBlock,
   FileChangeSummaryBlock,
@@ -32,6 +31,11 @@ import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { parseInlineRenderToolOutput } from "@/lib/inline-render/inline-render";
 import { MessageSubagents } from "./message-subagents";
 import { InlineHtmlRenderList } from "./inline-html-render";
+import { ReplyImageNumbersContext, ReplyToolImages } from "./tool-output-images";
+import {
+  collectReplyToolImages,
+  firstReplyImageNumberByToolUseId,
+} from "@/lib/tool-images/tool-images";
 import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,
@@ -586,6 +590,8 @@ export function AssistantMessageBody(args: {
     () => trace.entries.filter((entry) => entry.kind !== "user_input"),
     [trace.entries],
   );
+  const hasPendingOrAnsweredQuestions =
+    historyEntries.length < trace.entries.length;
   /* Once the turn ends: the web sources its searches and fetches returned. */
   const turnSources = useMemo(
     () => (isStreaming ? [] : collectTurnWebSources(message.parts)),
@@ -650,6 +656,13 @@ export function AssistantMessageBody(args: {
       }),
     [trace.entries],
   );
+  /*
+   * Screenshots the assistant took, attached under the reply in the order
+   * taken. The reply calls them "Image 1", "Image 2", and the tool steps in
+   * the trace use the same numbers.
+   */
+  const replyImages = useMemo(() => collectReplyToolImages(message.parts), [message.parts]);
+  const replyImageNumbers = useMemo(() => firstReplyImageNumberByToolUseId(replyImages), [replyImages]);
   const showDiffResults = allDiffParts.length > 0 && !isStreaming;
   const showFileChangeSummary =
     unresolvedFileChangeRows.length > 0 && !isStreaming;
@@ -677,8 +690,45 @@ export function AssistantMessageBody(args: {
     return <p className={sx(styles.noResponse)}>{i18n.t("session:assistantTrace.assistantMessageBody")}</p>;
   }
 
+  /*
+   * Which text is the reply stays provisional while the turn runs: the next
+   * tool call or question turns the trailing text into interim text, and that
+   * lives in the trace. Below the pinned rows (subagents, questions, published
+   * pages) such text would be drawn under them and then jump above them into
+   * the trace, so a running turn keeps it right under the trace instead. The
+   * finished reply follows the pinned rows, in the order they happened.
+   */
+  const responseFollowsPinned = !isActivelyStreaming;
+  const responseBlock =
+    trace.responseParts.length > 0 ? (
+      <div
+        className={sx(
+          styles.block,
+          (responseFollowsPinned
+            ? trace.entries.length > 0 ||
+              inlineRenders.length > 0 ||
+              (showInterimMessages && trace.interimTextParts.length > 0)
+            : historyEntries.length > 0 || trace.showStreamingPlaceholder) &&
+            styles.spacedTop,
+          !responseFollowsPinned && hasPendingOrAnsweredQuestions && styles.spacedBottom,
+        )}
+      >
+        {trace.responseParts.map((part, index) => (
+          <MessageResponse
+            key={`${messageId}-response-${index}`}
+            isStreaming={
+              isStreaming && index === trace.responseParts.length - 1
+            }
+            tokenizePromptTokens={message.role === "user"}
+          >
+            {part.text}
+          </MessageResponse>
+        ))}
+      </div>
+    ) : null;
+
   return (
-    <>
+    <ReplyImageNumbersContext.Provider value={replyImageNumbers}>
       {trace.showStreamingPlaceholder || historyEntries.length > 0 ? (
         <ChainOfThought
           isStreaming={isStreaming}
@@ -726,6 +776,7 @@ export function AssistantMessageBody(args: {
         </ChainOfThought>
       ) : null}
 
+      {responseFollowsPinned ? null : responseBlock}
       <MessageSubagents message={message} taskId={taskId} readOnly={readOnly} />
       {trace.entries.filter((entry) => entry.kind === "user_input").map((entry) => (
         <TraceClarification readOnly={readOnly} key={entry.id} part={entry.part} taskId={taskId} messageId={messageId} />
@@ -763,27 +814,11 @@ export function AssistantMessageBody(args: {
         />
       ) : null}
 
-      {trace.responseParts.length > 0 ? (
-        <div
-          className={sx(
-            styles.block,
-            (trace.entries.length > 0 ||
-              inlineRenders.length > 0 ||
-              (showInterimMessages && trace.interimTextParts.length > 0)) &&
-              styles.spacedTop,
-          )}
-        >
-          {trace.responseParts.map((part, index) => (
-            <MessageResponse
-              key={`${messageId}-response-${index}`}
-              isStreaming={
-                isStreaming && index === trace.responseParts.length - 1
-              }
-              tokenizePromptTokens={message.role === "user"}
-            >
-              {part.text}
-            </MessageResponse>
-          ))}
+      {responseFollowsPinned ? responseBlock : null}
+
+      {!isStreaming && replyImages.length > 0 ? (
+        <div className={sx(styles.spacedTop)}>
+          <ReplyToolImages images={replyImages} />
         </div>
       ) : null}
 
@@ -791,15 +826,13 @@ export function AssistantMessageBody(args: {
 
       {showDiffResults ? (
         <div className={sx(styles.spacedTop)}>
-          <TranscriptWideBlock>
-            <ChangedFilesBlock
-              parts={allDiffParts}
-              taskId={taskId}
-              messageId={messageId}
-              readOnly={readOnly}
-              offerTurnReview
-            />
-          </TranscriptWideBlock>
+          <ChangedFilesBlock
+            parts={allDiffParts}
+            taskId={taskId}
+            messageId={messageId}
+            readOnly={readOnly}
+            offerTurnReview
+          />
         </div>
       ) : null}
 
@@ -820,6 +853,6 @@ export function AssistantMessageBody(args: {
           <ImageAttachmentBlock parts={trace.imageContextParts} />
         </div>
       ) : null}
-    </>
+    </ReplyImageNumbersContext.Provider>
   );
 }

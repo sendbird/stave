@@ -30,7 +30,7 @@ import { COMPOSER_SIDE_QUESTION_SLOT } from "@/lib/composer-toolbar-fit";
 export function PromptInputActions(args: {
   /**
    * Side questions are always a direct toolbar action, independent of control
-   * placement; `null` while a narrow row has moved it into the `⋯` menu.
+   * placement: an icon button beside Attach. `null` when the task offers none.
    */
   sideQuestionControl: ReactNode;
   contextMeter: ReactNode;
@@ -113,12 +113,9 @@ export function PromptInputActions(args: {
           }}
           className={tooltipTriggerButtonClassName({
             size: "icon-sm",
-            className: cx(
-              PROMPT_TOOLBAR_ICON_BUTTON,
-              minimal
-                ? sx(promptInputStyles.attachButtonMinimal)
-                : undefined,
-            ),
+            // One borderless icon button in both composers, beside the minimal
+            // composer's own accessory controls, which match it.
+            className: PROMPT_TOOLBAR_ICON_BUTTON,
           })}
           aria-label={i18n.t("composer:promptInput.ariaLabel20")}
         >
@@ -160,12 +157,10 @@ export function PromptInputActions(args: {
             className={tooltipTriggerButtonClassName({
               variant: "default",
               size: "icon-sm",
+              // The one filled control in either composer.
               className: cx(
                 sx(promptInputStyles.roundedMd),
                 PROMPT_SURFACE_PRIMARY_FOCUS,
-                minimal
-                  ? sx(promptInputStyles.sendButtonMinimal)
-                  : undefined,
               ),
             })}
             disabled={primaryActionDisabled}

@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { actTars } from "../electron/host-service/tars-control";
 import { admitTarsFollowUps } from "../electron/main/tars-follow-up";
 import { tarsTrayFollowUp } from "../src/lib/tars/tray-model";
-import { TARS_EVENT_RETENTION_MS, TARS_WAIT_FOLLOW_UP_MS } from "../src/lib/tars/events";
+import { TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_CAP, TARS_WAIT_FOLLOW_UP_MS } from "../src/lib/tars/events";
 import type { TarsDecisionAction } from "../src/lib/tars/conversation";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 import { followUpFixture, minutes } from "./tars-follow-up-fixture";
@@ -82,9 +82,13 @@ test("a follow-up whose change stopped standing before the model call is cancell
 
 test("any user action restarts the automatic-turn count: a control click as much as a typed message", async () => {
   const f = fixture({ maxTurns: 1 }); f.service.start();
-  f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
+  // Exhaust the independent follow-up cap, leaving room in the hourly window for recovery.
+  for (let index = 0; index < TARS_FOLLOW_UP_CAP; index++) {
+    f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
+    f.advance(minutes(61));
+  }
   const second = f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
-  expect(f.planner).toHaveLength(1);
+  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
   expect(f.responsibilities.snapshot().followUps).toEqual([{ responsibilityId: second.id, kind: "blocked", status: "exhausted", at: null }]);
   f.advance(minutes(1));
   const other = f.responsibility("running");
@@ -92,7 +96,7 @@ test("any user action restarts the automatic-turn count: a control click as much
   expect(f.responsibilities.snapshot().followUps).toEqual([]);
   f.advance(minutes(1));
   const third = f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
-  expect(f.planner).toHaveLength(2);
+  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP + 1);
   expect(f.automatic().at(-1)?.origin).toMatchObject({ responsibilityId: third.id });
 });
 

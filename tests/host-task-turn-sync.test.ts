@@ -102,6 +102,24 @@ describe("applyHostTaskTurnSync", () => {
     expect(result.syncedSession.tasks[0]).toMatchObject({ title: "My chosen name", titleManuallySet: true, unread: true });
   });
 
+  test.each([true, false])("keeps a pin and history order made inside the save debounce (active: %s)", (active) => {
+    const task = buildTask({ id: "task-pinned", pinned: true, historyOrderKey: 42, controlMode: "interactive", controlOwner: "stave" });
+    const unpinned = buildTask({ id: "task-unpinned", controlMode: "interactive", controlOwner: "stave" });
+    const session = emptySession({ tasks: [task, unpinned] });
+    const workspaceId = active ? "ws-active" : "ws-background";
+    const staleHostCopy = [{ ...task, pinned: undefined, historyOrderKey: undefined, unread: true }, { ...unpinned, pinned: true, historyOrderKey: 7 }];
+    for (const target of [task, unpinned]) {
+      const result = applyHostTaskTurnSync({
+        state: buildState({ session: active ? session : emptySession(), cache: { [workspaceId]: session } }),
+        loaded: { persistedSession: emptySession({ tasks: staleHostCopy }), persistedActiveTurnId: "turn-1", messages: [], messageCount: 1 },
+        update: buildUpdate({ workspaceId, taskId: target.id }),
+      });
+      const synced = result.syncedSession.tasks.find(item => item.id === target.id)!;
+      expect(synced.pinned).toBe(target.pinned);
+      expect(synced.historyOrderKey).toBe(target.historyOrderKey);
+    }
+  });
+
   test("restored delegation identity keeps host progress from changing renderer selection", () => {
     const parent = buildTask({ id: "task-parent", controlMode: "interactive", controlOwner: "stave" });
     const child = buildTask({ id: "task-child", parentTaskId: parent.id });
@@ -230,9 +248,11 @@ describe("applyHostTaskTurnSync", () => {
         }),
       }),
       loaded: {
+        // The host's delta write already opened the new task's tab on disk.
         persistedSession: emptySession({
+          activeTaskId: created.id,
           tasks: [created],
-          openTaskTabIds: [],
+          openTaskTabIds: [created.id],
           activeTurnIdsByTask: { [created.id]: "turn-1" },
         }),
         persistedActiveTurnId: "turn-1",
@@ -256,6 +276,43 @@ describe("applyHostTaskTurnSync", () => {
         ?.activeTaskId,
     ).toBe(created.id);
   });
+
+  test.each(["claude-code", "codex"] as const)(
+    "%s: an uncached workspace keeps a closed task closed when its host turn reports",
+    (providerId) => {
+      const local = buildTask({ id: "task-local", controlMode: "interactive", controlOwner: "stave" });
+      const open = buildTask({ id: "task-open", controlMode: "interactive", controlOwner: "stave" });
+      const closedManaged = buildTask({ id: "task-closed-managed", provider: providerId });
+      const result = applyHostTaskTurnSync({
+        state: buildState({
+          activeWorkspaceId: "ws-active",
+          session: emptySession({
+            activeTaskId: local.id,
+            tasks: [local],
+            openTaskTabIds: [local.id],
+            activeSurface: { kind: "task", taskId: local.id },
+          }),
+        }),
+        loaded: {
+          persistedSession: emptySession({
+            activeTaskId: open.id,
+            tasks: [open, closedManaged],
+            openTaskTabIds: [open.id],
+            activeTurnIdsByTask: { [closedManaged.id]: "turn-1" },
+          }),
+          persistedActiveTurnId: "turn-1",
+          messages: [],
+          messageCount: 3,
+        },
+        update: { ...buildUpdate({ workspaceId: "ws-background", taskId: closedManaged.id }), providerId },
+      });
+
+      const cached = result.statePatch.workspaceRuntimeCacheById?.["ws-background"];
+      expect(cached?.openTaskTabIds).toEqual([open.id]);
+      expect(cached?.activeTaskId).toBe(open.id);
+      expect(result.statePatch.openTaskTabIds).toBeUndefined();
+    },
+  );
 
   test.each(["claude-code", "codex"] as const)(
     "%s: a host turn the renderer first hears about mid-run keeps its persisted start",

@@ -27,12 +27,6 @@ export const workspaceInformationPanelStyles = stylex.create({
     transformOrigin: "top left",
   },
   body: { paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"] },
-  topCards: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--aui-space-8"],
-    marginBlockEnd: vars["--aui-space-8"],
-  },
 
   // ---- section header ----------------------------------------------------
   // The shared accordion root separates rows with a gap and rounds each item.

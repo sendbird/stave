@@ -1,3 +1,4 @@
+import { tarsRunIds } from "@/lib/tars/continuation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { useAppStore } from "@/store/app.store";
@@ -14,7 +15,7 @@ export function useTarsRunDetails(responsibilities: readonly TarsResponsibility[
   const requested = useRef(new Set<string>());
   const mounted = useRef(true);
   useEffect(() => () => { mounted.current = false; }, []);
-  const wanted = responsibilities.flatMap((row) => row.agentRunId && !fleetRuns[row.agentRunId] ? [`${row.agentRunId}@${row.revision}`] : []).join("|");
+  const wanted = responsibilities.flatMap((row) => tarsRunIds(row).filter((id) => !fleetRuns[id]).map((id) => `${id}@${id === row.agentRunId ? row.revision : "ended"}`)).join("|");
   useEffect(() => {
     const api = typeof window === "undefined" ? undefined : window.api?.agentRuns;
     if (!api || !wanted) return;

@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useId, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
 import { useTranslation } from "@/i18n";
@@ -16,9 +17,9 @@ import { tarsSideViewStyles as styles } from "./tars-side-view.styles";
 function CopyText({ text, label }: { text: string; label: string }) {
   const { status, copied, copy } = useClipboardCopy();
   return <>
-    <Button variant="ghost" size="icon-2xs" aria-label={label} title={label} onClick={() => { void copy(text); }}>
+    <Tooltip content={label}><Button variant="ghost" size="icon-2xs" aria-label={label} onClick={() => { void copy(text); }}>
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-    </Button>
+    </Button></Tooltip>
     <ClipboardCopyAnnouncement status={status} />
   </>;
 }
@@ -62,7 +63,8 @@ export function TarsBriefPanel({ row, state, onRetry }: {
   const criteriaId = useId();
   const brief = state.status === "ready" ? state.brief : null;
   const request = brief?.request ?? null;
-  return <div className={sx(styles.section)} data-tars-brief={state.status}>
+  // Each saved text is its own section on the section rhythm.
+  return <div className={sx(styles.stack)} data-tars-brief={state.status}>
     {brief ? <>
       {request
         ? <SavedText part="request" title={t("shell:tars.side.brief.request")} text={request.text} copyLabel={t("shell:tars.side.brief.copyRequest")}

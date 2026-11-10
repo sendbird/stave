@@ -119,7 +119,7 @@ const REVIEW_THREADS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$threa
           line
           comments(last:$comments){
             totalCount
-            nodes{ id body createdAt url author{ login } }
+            nodes{ id body createdAt url author{ login } pullRequestReview{ id commit{ oid } } }
           }
         }
       }
@@ -134,6 +134,10 @@ function mapComment(raw: unknown): PrReviewComment | null {
   const node = raw as Record<string, unknown>;
   const author = node.author as Record<string, unknown> | null | undefined;
   return {
+    ...(node.pullRequestReview ? {
+      reviewId: asPlainString((node.pullRequestReview as { id?: unknown }).id, PR_CONTEXT_LIMITS.maxNameChars),
+      commitSha: asPlainString((node.pullRequestReview as { commit?: { oid?: unknown } }).commit?.oid, 64),
+    } : {}),
     id: asPlainString(node.id, PR_CONTEXT_LIMITS.maxNameChars),
     author: asPlainString(author?.login, PR_CONTEXT_LIMITS.maxLoginChars),
     body: asString(node.body, PR_CONTEXT_LIMITS.maxCommentChars),

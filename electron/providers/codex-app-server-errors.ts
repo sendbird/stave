@@ -1,5 +1,6 @@
 import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { CODEX_MODEL_UPDATE_GUIDANCE } from "../../src/lib/providers/codex-model-requirements";
+import { i18n } from "../../src/i18n/runtime";
 /**
  * User-facing error formatting for Codex App Server failures.
  *
@@ -25,6 +26,11 @@ export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+export function isCodexRoutingDiscoveryFailure(message: string) {
+  return /workspace routing discovery (?:failed|timed out)\b/i.test(message)
+    && !/unauthorized|forbidden|\b40[13]\b|cancelled|canceled/i.test(message);
+}
+
 function matchesUnavailableModel(message: string) {
   return (
     /(?:codex|client|cli).*(?:version.*(?:too old|not supported)|outdated)/i.test(message)
@@ -41,6 +47,9 @@ export function isCodexModelUnavailableError(message: string) {
 }
 
 export function toCodexUserFacingErrorMessage(args: { message: string }) {
+  if (isCodexRoutingDiscoveryFailure(args.message) || /^Codex App Server (?:initialize|account\/read|thread\/(?:start|resume)) timed out after \d+ms\.$/.test(args.message)) {
+    return i18n.t("providers:errors.codexStartup");
+  }
   const message = formatCodexAppServerErrorMessage(args.message);
   const lower = message.toLowerCase();
   const rawLower = args.message.toLowerCase();

@@ -152,6 +152,7 @@ describe("tracker issues and Jira settings registry", () => {
         DEFAULT_TRACKER_ISSUES_SETTINGS.refreshIntervalSeconds,
       defaultKickoffStartMode: "stage",
       sourceEnabled: DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled,
+      githubMappings: [],
     });
   });
 });

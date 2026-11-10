@@ -157,7 +157,8 @@
     "copy": "code",
     "alt": "attachment",
     "messageAttachment": "attachment",
-    "removeAttachment": "Remove attachment"
+    "removeAttachment": "Remove attachment",
+    "codeScrollRegion": "Code, scrolls sideways"
   },
   "modelEffortGrid": {
     "getEffortShortLabel": "Med",
@@ -592,7 +593,7 @@
   },
   "shelfUsageLimit": {
     "ariaLabel": "Usage limit",
-    "title": "Resume on its own once the limit resets, while Stave is open",
+    "title": "Resume on its own once the limit resets; the reservation survives restart",
     "shelfUsageLimit": "Resume at reset",
     "title2": "Don't resume on its own",
     "shelfUsageLimit2": "Cancel",
@@ -630,7 +631,7 @@
     "hint5": "Send one now, or it sends after your next message finishes.",
     "label": "Resumes at {{value1}}",
     "detail2": "{{value1}} usage limit{{value2}}",
-    "hint6": "{{value1}} Stave resumes on its own after the limit resets, while the app is open. {{value2}}",
+    "hint6": "{{value1}} Stave resumes on its own after the limit resets, including after reopening the app. {{value2}}",
     "detail3": "reset time unknown",
     "detail4": "resets {{value1}} · in {{value2}}",
     "detail5": "reset time passed",
@@ -649,7 +650,8 @@
     "extraCopy172": "Resume continues the stopped turn where it left off.",
     "extraCopy173": "Resume sends {{value1}} queued in order.",
     "extraCopy174": "{{value1}}\n\nThe reviewer's full instructions are the first message of the review task.",
-    "noUpdatesForAWhile": "No updates for a while"
+    "noUpdatesForAWhile": "No updates for a while",
+    "restoredPausedLabel": "Waiting to send (restored)"
   },
   "useShelfReviews": {
     "copy": "Could not attach the review",
