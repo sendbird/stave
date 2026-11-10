@@ -251,10 +251,25 @@ Name the workspace and say what "done" means; Tars turns that into acceptance
 criteria. If something is unclear it asks first. The first send saves the
 conversation settings (see [Settings and models](#settings-and-models)).
 
-An empty conversation offers a few example requests; pressing one adds its
-full text to the message box without sending it. **How Tars works** below the
-examples, and the help button in the Tars header at any time, show what Tars
-can do and its limits in short form.
+An empty conversation, and one you cleared, shows a start screen:
+
+- a greeting with the name you gave Tars;
+- **Right now**: how many pieces of work need you, are running and finished
+  in the last day. Each count opens its section of the work list (**Needs
+  you**, **In progress**, **Done**) and moves focus there. Counts of zero are
+  left out, and the line is hidden when there is nothing to count;
+- **Try asking**: example requests grouped by what Tars can do: hand off work,
+  check or steer work, decide and answer, open results, publish, and tidy up.
+  Pressing one (or Enter on it) adds its full text to the message box and
+  focuses it; nothing is sent until you send it. Handing off work is offered
+  only when a repository is registered, and an example a suggestion chip
+  already asks about your real work is left out;
+- **Where Tars can work**: the names of up to four registered repositories and
+  how many more there are, or, with none, how to add one (**Open repository**
+  in the sidebar).
+
+The help button in the Tars header shows what Tars can do and its limits in
+short form at any time.
 
 ### 2. Answer decisions
 
@@ -524,7 +539,7 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
 (for the conversation, **Restore**), and survives a restart.
 
 - **Conversation.** **Clear conversation** (the eraser in the header) asks
-  first, then hides the conversation so far: the welcome returns and Tars's
+  first, then hides the conversation so far: the start screen returns and Tars's
   recent conversation memory starts fresh, so its next reply does not draw on
   the hidden messages. Your work, the requests that admitted it, decisions and
   records stay saved and Tars still knows your work. Some things always stay
