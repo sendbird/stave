@@ -238,7 +238,7 @@ export interface TarsHelperRead {
  * the tray counts the rows Fleet shows there. Null when no helper waits.
  */
 export function tarsHelperObservation(helpers: readonly TarsHelperRead[]): TarsExecutionObservation | null {
-  const waits = helpers.flatMap(({ detail, pendingRequests }) => {
+  const waits = helpers.flatMap(({ detail, pendingRequests }): Array<{ asks: boolean; observation: TarsExecutionObservation }> => {
     const run = detail.agentRun;
     const kind = activeAgentRunAttentionKind(detail);
     if (!kind && pendingRequests <= 0) return [];
@@ -247,7 +247,8 @@ export function tarsHelperObservation(helpers: readonly TarsHelperRead[]): TarsE
     const at = { waitingTaskId: run.leadTaskId, runTurns: run.turnCount, runStage: `${run.id}/${stage.stageId}#${stage.attempt}`.slice(0, 300) };
     const wait = tarsStageWait(stage);
     // A helper's turn that could not start is said by code, like the run's own.
-    const failed = parseAgentRunTurnStartFailure(stage.detail) ? { detailCode: "turnStartFailed" as const, detailParams: null } : {};
+    const failed: Pick<TarsExecutionObservation, "detailCode" | "detailParams"> = parseAgentRunTurnStartFailure(stage.detail)
+      ? { detailCode: "turnStartFailed", detailParams: null } : {};
     if (kind && run.state === "running") return [{ asks: true, observation: { state: "waiting" as const, detail: stage.detail ?? null, ...failed, stageAsksUser: true,
       ...(wait ? { stageWait: wait } : {}), ...at } }];
     if (kind) {
