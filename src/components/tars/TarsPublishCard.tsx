@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { GitPullRequestDraft } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Button, Input } from "@/components/ui";
@@ -42,6 +42,8 @@ export interface TarsPublishCardProps {
   error?: string | null;
   /** A card the user opened takes focus on its commit message; a proposal never takes focus by itself. */
   autoFocus?: boolean;
+  /** Shown under the description: the user's own rule that matched this proposal, when the host found one. */
+  notice?: ReactNode;
   /** Absent: the card shows what it would publish without the button. */
   onPublish?: (words: TarsPublishWords, source: TarsPublishSource) => void;
   /** Decline and Esc: nothing is published. */
@@ -70,7 +72,7 @@ export function tarsPublishCardKey(event: Pick<KeyboardEvent<HTMLElement>, "key"
  * the pull request title, and shows the body the host built from the frozen
  * report. Enter publishes, Esc declines; there is no standing permission.
  */
-export function TarsPublishCard({ id, row, preview, previewState, initial, busy = false, error, autoFocus = false, onPublish, onDecline }: TarsPublishCardProps) {
+export function TarsPublishCard({ id, row, preview, previewState, initial, busy = false, error, autoFocus = false, onPublish, onDecline, notice }: TarsPublishCardProps) {
   const { t } = useTranslation(["shell"]);
   const titleId = useId();
   const subtitleId = useId();
@@ -139,6 +141,7 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
       </div>
     </div>
     <p className={sx(styles.detail)}>{t("shell:tars.publish.card.description")}</p>
+    {notice}
     <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.publish.card.details")} data-tars-publish-rows={rows.map((entry) => entry.key).join(",")}>
       {rows.map((entry) => <div key={entry.key} className={sx(styles.row)} data-tars-publish-row={entry.key}>
         <dt className={sx(styles.rowLabel)}>{entry.label}</dt>

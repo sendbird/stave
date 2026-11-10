@@ -9,6 +9,9 @@ import {
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
 import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
 import { TarsClearActionSchema, TarsClearRecordSchema, TarsConversationViewSchema } from "./clearing";
+import {
+  TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, TarsAutonomyLevelSchema, TarsNeverRuleMatchSchema, TarsNeverRulesSchema, tarsActionKey,
+} from "./autonomy";
 
 const IdSchema = z.string().trim().min(1).max(256);
 const RevisionSchema = z.number().int().min(1);
@@ -66,6 +69,10 @@ export const TarsConversationSettingsSchema = z.object({
   allowedAgentIds: z.array(TarsAgentIdSchema).max(TARS_MAX_ALLOWED_AGENTS)
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((ids) => new Set(ids).size === ids.length, "Each allowed agent is listed once.").optional(),
+  /** How independently Tars acts (`autonomy.ts`). Absent on profiles saved before levels existed: the default level. */
+  autonomy: TarsAutonomyLevelSchema.optional(),
+  /** The user's "never do" rules: hard constraints for the planner and a reason for the host to ask first. Absent: none. */
+  neverDo: TarsNeverRulesSchema.optional(),
 }).strict();
 export type TarsConversationSettings = z.infer<typeof TarsConversationSettingsSchema>;
 
@@ -144,22 +151,8 @@ export const TarsControlActionSchema = z.object({
 });
 export type TarsControlAction = z.infer<typeof TarsControlActionSchema>;
 
-/**
- * Controls that return authority to Tars, give its run more room or end work.
- * When the model proposes one, it waits for the user's confirming click; pause
- * and takeover, which only reduce Tars's authority, apply at once, and so does
- * `startNow`, which only changes when work the user already admitted starts.
- */
-export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set([
-  "resume", "handBack", "cancel", "acceptCompletion", "extend", "retryStage", "skipStage", "signOff",
-  // Answering for the user in the task: the card shows the exact request, answers or words first.
-  "approve", "answer", "message", "requestChanges",
-]);
-/**
- * Effects that cannot be undone. They are never a default: no recommended
- * option, no Enter, no "yes". An approved tool call runs at once.
- */
-export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion", "skipStage", "approve"]);
+// Defined with the autonomy levels, which are read from the same sets (`autonomy.ts`).
+export { TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS };
 export function tarsConfirmationRequestId(messageId: string, actionIndex: number) {
   return `confirm:${messageId}:${actionIndex}`;
 }
@@ -414,6 +407,16 @@ export function tarsMessageView(message: TarsMessage): TarsMessageView {
   return attachments?.length ? { ...rest, attachments: attachments.map(tarsAttachmentSummary) } : rest;
 }
 
+/**
+ * Whether the host may hold this action as a proposal that waits for the
+ * user: every act except a view and the controls that only reduce what Tars
+ * does (pause, takeover, deny), which always apply at once.
+ */
+export function isTarsHoldableAction(action: { kind: string; operation?: TarsControlOperation }): boolean {
+  const key = tarsActionKey(action);
+  return key !== null && key !== "show" && key !== "pause" && key !== "takeover" && key !== "deny";
+}
+
 export const TarsActionReceiptSchema = z.object({
   messageId: IdSchema,
   actionIndex: z.number().int().min(0).max(7),
@@ -425,13 +428,15 @@ export const TarsActionReceiptSchema = z.object({
   error: ErrorSchema.nullable(),
   /** Only a refused control or agent carries a code; other rejections keep their diagnostic. */
   reason: TarsActionReasonSchema.nullable(),
+  /** The user's "never do" rules that matched this action when the host held it for confirmation; absent when none did. */
+  matchedRules: z.array(TarsNeverRuleMatchSchema).min(1).max(12).optional(),
   revision: RevisionSchema,
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 }).strict().superRefine((receipt, context) => {
   // An ask always waits for the user's answer, and a publish or a clear for the user's confirmation on its card; none applies anything itself.
-  const proposable = (receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)) || receipt.action.kind === "ask"
-    || receipt.action.kind === "publish" || receipt.action.kind === "clear";
+  // Any other act can wait where an autonomy level or one of the user's rules holds it; a view and the reducing controls never do.
+  const proposable = receipt.action.kind === "ask" || isTarsHoldableAction(receipt.action);
   // A clear belongs to no responsibility, so its applied receipt names none.
   const unbound = receipt.action.kind === "clear";
   // An automatic follow-up's refusal carries its one code on any kind of action.
@@ -451,7 +456,7 @@ export type TarsActionReceipt = z.infer<typeof TarsActionReceiptSchema>;
 
 export const TarsReceiptOutcomeSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("applied"), responsibilityId: IdSchema }).strict(),
-  z.object({ status: z.literal("proposed") }).strict(),
+  z.object({ status: z.literal("proposed"), matchedRules: z.array(TarsNeverRuleMatchSchema).max(12).optional() }).strict(),
   z.object({ status: z.literal("rejected"), error: ErrorSchema, reason: TarsActionReasonSchema.optional() }).strict(),
 ]);
 export type TarsReceiptOutcome = z.infer<typeof TarsReceiptOutcomeSchema>;
@@ -603,7 +608,11 @@ export const TarsAnswerInputSchema = z.object({
 export type TarsAnswerInput = z.infer<typeof TarsAnswerInputSchema>;
 
 /** The effect an answer applies, read from the saved decision when the answer was recorded. */
-export const TarsAnswerEffectSchema = TarsAskEffectSchema;
+export const TarsAnswerEffectSchema = z.discriminatedUnion("kind", [
+  ...TarsAskEffectSchema.options,
+  // Confirms the held work proposal the decision names (a delegation or a priority change): the host applies the saved action, never the caller's.
+  z.object({ kind: z.literal("proposal") }).strict(),
+]);
 
 /**
  * The first answer to a decision. Its identity is the decision: a repeated
@@ -672,6 +681,17 @@ export type CancelTarsMessageInput = z.infer<typeof CancelTarsMessageInputSchema
 /** Internal host admission accepts only the identity of an already saved proposal. */
 export const ApplyTarsDecisionInputSchema = CancelTarsMessageInputSchema;
 export type ApplyTarsDecisionInput = z.infer<typeof ApplyTarsDecisionInputSchema>;
+
+/**
+ * The user's confirmation of a held work proposal (a delegation or a priority
+ * change). It names the saved receipt only; the host applies that saved
+ * action through the same admission as an unheld one.
+ */
+export const ConfirmTarsProposalInputSchema = z.object({
+  messageId: IdSchema,
+  actionIndex: z.number().int().min(0).max(7),
+}).strict();
+export type ConfirmTarsProposalInput = z.infer<typeof ConfirmTarsProposalInputSchema>;
 
 export const TarsConversationSchema = z.object({
   settings: TarsConversationSettingsSchema.nullable(),

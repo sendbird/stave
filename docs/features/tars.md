@@ -998,6 +998,10 @@ A decision waiting on you is one card in the conversation, whatever asked it:
 
 - a control Tars proposed that waits for your confirmation (resume, hand back,
   cancel, accept as done),
+- new work or a queue change that your
+  [autonomy level](#how-independently-tars-acts) or one of your **Never do**
+  rules held: **Confirm** applies the saved proposal, and nothing is started
+  or reordered before it,
 - Stave's own choice for a completion it could not verify, and
 - a question Tars asks when it needs you to choose: 2 to 4 options, each with
   a short label and a one-line reason, and a recommended option when Tars has
@@ -1237,6 +1241,51 @@ An empty field means Tars follows only its built-in rules.
 
 **Keep ended work in the panel** sets the retention period described in
 [Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
+
+### How independently Tars acts
+
+**How independently Tars acts** is one choice between three levels. It decides
+which of Tars's proposals Stave applies at once and which wait for your
+**Confirm** on a card. The table under the choice lists, for the level you
+picked, what Tars does on its own, what it asks first, what it always asks
+and what it never does. Stave reads that table from the same rules it applies,
+so the table and the behavior cannot differ. A saved change applies from
+Tars's next decision, without a restart.
+
+| Level | What changes |
+| --- | --- |
+| **Careful** | Starting new work, changing the queue order and starting queued work now wait for your **Confirm**. A held delegation shows a **Start this work?** card; nothing is created until you confirm it. |
+| **Balanced** (default) | Exactly the behavior without levels: work you ask for starts, and continuing, answering for you or ending work waits for you. |
+| **Hands-off** | When you ask in your own words, Tars also resumes work, retries a phase and gives work more steps at once. Each leaves an applied record in the conversation. |
+
+No level loosens a safeguard:
+
+- Cancelling work, skipping a phase, accepting a completion Stave could not
+  verify, approving a tool request and publishing always wait for you.
+- Handing back work you took over, approving a waiting phase and anything Tars
+  says for you in a task (an answer, your words, requested changes) also wait
+  at every level.
+- Pausing work, handing it over to you and denying a tool request always apply
+  at once, because they only reduce what Tars does.
+- An [automatic follow-up](#automatic-follow-up) gains nothing from a level.
+  Without your words Tars can still only ask, show a view or propose something
+  for you to confirm.
+- Tars never merges, deploys, force-pushes, deletes branches, worktrees or
+  tasks, creates an "always allow" rule, spends money or messages other people.
+  Stave offers it no action for these.
+
+Stave uses the more careful of the level saved now and the level that was saved
+when you sent the message, so lowering the level takes effect immediately and a
+message never carries a looser level than your settings.
+
+**Never do** holds up to 12 rules in your own words, such as "never touch
+production branches". Tars receives them as hard constraints. Stave also asks
+you first when a proposed action plainly names a rule's repository, branch or
+action, even at a level that would apply it, and shows the rule and the word
+that matched on the card; **Confirm** is then never the Enter or "yes" default.
+The rules guide Tars's decisions. Stave does not block an action because of a
+rule, and it does not read a rule's meaning beyond those words, so a rule that
+names nothing Stave can match depends on Tars following it.
 
 The **Conversation model** is used only for talking with Tars, including its
 automatic follow-ups. Delegated work runs separately:

@@ -2305,6 +2305,107 @@
         "label": "How is {{title}} going?",
         "prompt": "How is “{{title}}” going? Tell me what it is doing now and what is left."
       }
+    },
+    "autonomy": {
+      "title": "How independently Tars acts",
+      "hint": "One choice for what Tars does by itself and what waits for you. It applies from Tars's next decision.",
+      "level": {
+        "careful": {
+          "label": "Careful",
+          "description": "Tars proposes, and you confirm every action that starts or reorders work."
+        },
+        "balanced": {
+          "label": "Balanced",
+          "description": "The default. Tars starts the work you ask for; continuing, answering for you or ending work waits for you."
+        },
+        "handsOff": {
+          "label": "Hands-off",
+          "description": "When you ask, Tars also resumes, retries and extends its own work at once, and leaves a record."
+        }
+      },
+      "table": {
+        "label": "What Tars does at the {{level}} level",
+        "column": {
+          "when": "When Tars proposes it",
+          "actions": "Actions"
+        },
+        "row": {
+          "auto": "Does on its own",
+          "confirm": "Asks you first",
+          "always": "Always asks, at every level",
+          "never": "Never does"
+        },
+        "none": "Nothing"
+      },
+      "action": {
+        "show": "open a report, changes, timeline or review",
+        "delegate": "start new work",
+        "reprioritize": "change the queue order",
+        "startNow": "start queued work now",
+        "pause": "pause work",
+        "takeover": "hand work over to you",
+        "deny": "deny a tool request",
+        "resume": "resume work",
+        "extend": "give work more steps",
+        "retryStage": "retry a phase",
+        "handBack": "take back work you took over",
+        "signOff": "approve a waiting phase",
+        "answer": "answer a question in a task",
+        "message": "send your words to a task",
+        "requestChanges": "ask for changes to a phase",
+        "clear": "clear the conversation or lists",
+        "cancel": "cancel work",
+        "skipStage": "skip a phase",
+        "acceptCompletion": "accept a completion Stave could not verify",
+        "approve": "approve a tool request",
+        "publish": "commit, push and open a draft pull request"
+      },
+      "unavailable": {
+        "merge": "merge",
+        "deploy": "deploy",
+        "forcePush": "force-push",
+        "deleteBranches": "delete branches, worktrees or tasks",
+        "alwaysAllow": "create an “always allow” rule",
+        "spendMoney": "spend money",
+        "contactOthers": "message other people"
+      },
+      "footnote": "A level never applies to what Tars starts by itself: after an automatic follow-up it can only ask, show a view or propose something for you to confirm.",
+      "never": {
+        "title": "Never do",
+        "hint": "Rules in your own words. Tars is told to treat them as hard limits, and Stave asks you first when a proposed action names a rule's repository, branch or action. They guide Tars's decisions; Stave does not block anything because of them.",
+        "placeholder": "For example: never touch production branches",
+        "inputLabel": "New rule",
+        "add": "Add rule",
+        "remove": "Remove rule: {{rule}}",
+        "removeShort": "Remove",
+        "empty": "No rules yet.",
+        "limit_one": "You can keep up to {{count}} rule.",
+        "limit_other": "You can keep up to {{count}} rules."
+      },
+      "card": {
+        "title_one": "One of your rules may apply",
+        "title_other": "{{count}} of your rules may apply",
+        "match": {
+          "repository": "“{{rule}}” names this repository ({{value}}).",
+          "branch": "“{{rule}}” names this branch ({{value}}).",
+          "action": "“{{rule}}” names this action ({{value}})."
+        },
+        "note": "Stave asked first because of this. The rule does not block the action; the choice is yours."
+      },
+      "proposal": {
+        "title": {
+          "delegate": "Start this work?",
+          "reprioritize": "Change this work's priority?"
+        },
+        "effect": {
+          "delegate": "Tars adds this work to its queue and starts it when there is room.",
+          "reprioritize": "The work moves in the queue to priority {{priority}}."
+        },
+        "subject": {
+          "delegate": "Start {{title}}",
+          "reprioritize": "Change the priority of {{title}}"
+        }
+      }
     }
   }
 }

@@ -24,12 +24,22 @@ import { QuestionOptionRow, questionOptionRowStyles } from "@/components/ai-elem
 import { TARS_RECORD_STATE, TarsActionRecordLine, TarsMessageDeliveryLine, useTarsDirectActor } from "./TarsActionRecordLine";
 import { TarsRecordDetail, TarsRecordList, TarsRecordRow, TarsWorkChip } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
+import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
 
 type TitleOf = (responsibilityId: string) => string | undefined;
 /** One row of a confirmation's details: label, value and, for the repository, its full path on hover. */
 type DetailRow = { key: string; label: string; value: string; title?: string };
 
+/** A held work proposal's saved action; null for every other decision. */
+function proposalOf(decision: TarsDecisionView) {
+  const option = decision.options[0];
+  return option?.kind === "proposal" ? option.action : null;
+}
+
 function titleFor(decision: TarsDecisionView, titleOf?: TitleOf) {
+  // New work has no responsibility yet: its title is the one Tars proposed.
+  const proposal = proposalOf(decision);
+  if (proposal?.kind === "delegate") return proposal.title;
   const id = decision.targets[0]?.responsibilityId ?? "";
   return titleOf?.(id) ?? id;
 }
@@ -39,6 +49,8 @@ export function describeTarsDecisionSubject(decision: TarsDecisionView, titleOf?
   if (decision.kind === "ask") return decision.question ?? "";
   const title = titleFor(decision, titleOf);
   if (decision.kind === "unverifiedCompletion") return i18n.t("shell:tars.decision.unverified.question", { title });
+  const proposal = proposalOf(decision);
+  if (proposal) return i18n.t(`shell:tars.autonomy.proposal.subject.${proposal.kind}`, { title });
   const option = decision.options[0];
   return option?.kind === "control" ? i18n.t(`shell:tars.conversation.control.${option.control.operation}`, { title }) : "";
 }
@@ -47,6 +59,7 @@ export function describeTarsDecisionSubject(decision: TarsDecisionView, titleOf?
 export function describeTarsDecisionOption(decision: TarsDecisionView, option: TarsDecisionOption): string {
   if (option.kind === "verify") return i18n.t("shell:tars.decision.option.verify");
   if (option.kind === "reply" || option.label) return option.label ?? "";
+  if (option.kind === "proposal") return i18n.t("shell:tars.conversation.confirm");
   return decision.kind === "confirm" ? i18n.t("shell:tars.conversation.confirm") : i18n.t(`shell:tars.decision.option.${option.control.operation}`);
 }
 
@@ -62,6 +75,7 @@ function confirmLabel(decision: TarsDecisionView, option: TarsDecisionOption): s
 function optionRationale(option: TarsDecisionOption): string | null {
   if (option.kind === "verify") return i18n.t("shell:tars.decision.option.verifyRationale");
   if (option.kind === "reply" || option.rationale) return option.rationale;
+  if (option.kind === "proposal") return null;
   return option.control.operation === "acceptCompletion" ? i18n.t("shell:tars.decision.option.acceptRationale")
     : option.control.operation === "cancel" ? i18n.t("shell:tars.decision.option.cancelRationale") : null;
 }
@@ -111,7 +125,9 @@ export function describeTarsDecisionTarget(decision: TarsDecisionView, context: 
   const target = decision.targets[0];
   const row = target ? context.rowOf?.(target.responsibilityId) : undefined;
   const repository = row?.repositoryPath ? row.repositoryPath.split(/[\\/]/).filter(Boolean).at(-1) ?? row.repositoryPath : null;
-  const workspaceId = row ? row.executionWorkspaceId ?? row.workspaceId : null;
+  const proposal = proposalOf(decision);
+  // New work names the workspace it would start from; it has no row yet.
+  const workspaceId = proposal?.kind === "delegate" ? proposal.workspaceId : row ? row.executionWorkspaceId ?? row.workspaceId : null;
   return {
     repository, repositoryPath: row?.repositoryPath ?? null,
     workspace: workspaceId ? context.workspaceNameOf?.(workspaceId) ?? null : null,
@@ -311,10 +327,13 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   // and where it runs waits behind Details.
   const option = decision.options[0];
   const operation: TarsControlOperation | null = decision.kind === "confirm" && option?.kind === "control" ? option.control.operation : null;
-  const Icon = operation ? OPERATION_ICON[operation] : ShieldAlert;
+  // A held work proposal: new work, or a priority change, that the level or one of the user's rules made wait.
+  const proposal = proposalOf(decision);
+  const Icon = operation ? OPERATION_ICON[operation] : proposal?.kind === "delegate" ? Plus : proposal ? FastForward : ShieldAlert;
   const irreversible = decision.options.some(isIrreversibleOption);
   const target = describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf });
-  const effect = operation ? t(`shell:tars.decision.card.effect.${operation}`) : t("shell:tars.decision.card.unverifiedEffect");
+  const effect = operation ? t(`shell:tars.decision.card.effect.${operation}`)
+    : proposal ? t(`shell:tars.autonomy.proposal.effect.${proposal.kind}`, { priority: proposal.priority }) : t("shell:tars.decision.card.unverifiedEffect");
   const workId = decision.targets[0]?.responsibilityId;
   // A task operation shows exactly what it answers or sends before anyone confirms it.
   const row = option?.kind === "control" ? rowOf?.(option.control.responsibilityId) : undefined;
@@ -348,7 +367,8 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     <div className={sx(styles.confirmHeader)}>
       <IconTile size="sm" tone={irreversible ? "danger" : "warning"} xstyle={styles.icon}><Icon aria-hidden size={iconTileGlyphSizes.sm} /></IconTile>
       <div className={sx(styles.heading)}>
-        <p id={questionId} className={sx(styles.title)}>{operation ? t(`shell:tars.decision.card.title.${operation}`) : t("shell:tars.decision.card.unverifiedTitle")}</p>
+        <p id={questionId} className={sx(styles.title)}>{operation ? t(`shell:tars.decision.card.title.${operation}`)
+          : proposal ? t(`shell:tars.autonomy.proposal.title.${proposal.kind}`) : t("shell:tars.decision.card.unverifiedTitle")}</p>
         <div id={subtitleId} className={sx(styles.subtitle)}><TarsWorkChip title={titleFor(decision, titleOf)} responsibilityId={workId} /></div>
       </div>
       {/* A single action that can't be undone says so once, here; a choice says it on each option it applies to. */}
@@ -359,6 +379,8 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     </div>
     <p className={sx(styles.effect)} data-tars-decision-effect="">{effect}</p>
     {carried}
+    {/* The user's own rule that made Stave ask first, with the word that matched. */}
+    <TarsNeverRuleNotice matches={decision.matchedRules} />
     {options}
     {failureLine}
     {rows.length ? <TarsDecisionDetails rows={rows} /> : null}

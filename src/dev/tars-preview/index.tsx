@@ -9,7 +9,8 @@ import { applyThemeClass } from "@/lib/themes/apply";
 import { isTarsAnswerRetryable, tarsMessageView, type TarsActInput, type TarsAnswerResult, type TarsConversation, type TarsDecision, type TarsDecisionAnswer, type TarsMessage,
   type TarsReprioritizeInput } from "@/lib/tars/conversation";
 import { planTarsQueueMove, tarsQueueOf } from "@/lib/tars/queue-order";
-import { parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
+import { isTarsWorkProposal, parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
+import { matchTarsNeverRules, tarsActionDisposition, tarsActionKey } from "@/lib/tars/autonomy";
 import { collectFleetTarsAttentionItems, type FleetAttentionItem, type FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { collectTarsAttention } from "@/lib/tars/attention";
 import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
@@ -285,7 +286,9 @@ export function TarsPreview() {
         const effect = parsed?.kind === "unverifiedCompletion" ? [{ kind: "control" as const, responsibilityId: parsed.responsibilityId, expectedRevision: parsed.revision, operation: "acceptCompletion" as const },
           { kind: "control" as const, responsibilityId: parsed.responsibilityId, expectedRevision: parsed.revision, operation: "cancel" as const }][optionIndex]
           : receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]?.effect
-            : receipt?.action.kind === "control" && optionIndex === 0 ? receipt.action : undefined;
+            : receipt?.action.kind === "control" && optionIndex === 0 ? receipt.action
+              // A held work proposal: Confirm applies the saved action, as the host does.
+              : receipt && isTarsWorkProposal(receipt) && receipt.status === "proposed" && optionIndex === 0 ? { kind: "proposal" as const } : undefined;
         if (!effect) return { answer: null, refusal: "invalidOption" };
         if (parsed?.kind === "unverifiedCompletion" && tarsUnverifiedDecisionId(unverifiedId, row?.revision ?? 0) !== decisionId) return { answer: null, refusal: "notWaiting" };
         const createdAt = new Date(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
@@ -297,6 +300,9 @@ export function TarsPreview() {
         if (effect.kind === "control") {
           const { record } = await act({ requestId: answer.actRequestId!, responsibilityId: effect.responsibilityId, expectedRevision: effect.expectedRevision, operation: effect.operation, source });
           Object.assign(answer, record.status === "rejected" ? { status: "rejected", reason: record.reason, error: record.error } : { status: "applied" }, { revision: answer.revision + 1 });
+        } else if (effect.kind === "proposal") {
+          Object.assign(receipt!, { status: "applied", responsibilityId: "preview-responsibility", revision: receipt!.revision + 1 });
+          Object.assign(answer, { status: "applied", revision: answer.revision + 1 });
         } else {
           // The chosen option goes back to Tars as the user's answer; the preview answers it at once.
           const reply = "Understood. I will keep the plan and report back when the check finishes.";
@@ -396,12 +402,17 @@ export function TarsPreview() {
           message = { ...input, ...conversation.settings, id: input.requestId, state: pending ? (conversation.messages.length ? "queued" : "reasoning") : "answered", revision: 1, decision: pending ? null : decision, reply: pending ? null : decision.reply, error: null, createdAt, updatedAt: createdAt };
           conversation.messages.push(message);
           const proposed = decision.actions[0];
-          if (proposed) conversation.receipts.push(proposed.kind === "control" || proposed.kind === "ask" || proposed.kind === "clear"
-            // Model-proposed authority-granting or terminal controls wait for a confirming click; a question waits for its answer.
-            ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null, revision: 1, createdAt, updatedAt: createdAt }
+          // The host's own policy decides what waits: the saved autonomy level, tightened by any "never do" rule that names the action or the repository.
+          const key = proposed ? tarsActionKey(proposed) : null;
+          const matches = key ? matchTarsNeverRules(conversation.settings.neverDo, { key, repository: "preview", branches: [] }) : [];
+          const held = proposed?.kind === "ask" || (key !== null && tarsActionDisposition({ key, level: conversation.settings.autonomy, matches }) === "confirm");
+          if (proposed) conversation.receipts.push(held
+            // Held actions wait for a confirming click; a question waits for its answer.
+            ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null,
+              ...(matches.length ? { matchedRules: matches } : {}), revision: 1, createdAt, updatedAt: createdAt }
             : { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "applied",
               responsibilityId: proposed.kind === "show" ? proposed.responsibilityId : "preview-responsibility", error: null, reason: null, revision: 2, createdAt, updatedAt: createdAt });
-          if (proposed?.kind === "control" || proposed?.kind === "ask") {
+          if (held && (proposed?.kind === "control" || proposed?.kind === "ask")) {
             // The host lists a waiting decision in the snapshot and announces the change; publish it as that notification would.
             const target = proposed.kind === "control" ? proposed : proposed.options.flatMap((option) => option.effect.kind === "control" ? [option.effect] : [])[0]!;
             snapshot = { ...snapshot, pendingDecisions: [...(snapshot.pendingDecisions ?? []), proposed.kind === "control"

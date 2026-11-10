@@ -470,6 +470,21 @@ offers **Reset to default**; either fills the field, and **Save** keeps it.
 tray once it last changed 1, 3, 7 (the default), 14 or 30 days ago, or keeps
 them **Until I clear it**.
 
+**How independently Tars acts** is one choice between three levels, and the
+table under it lists what Tars does on its own, asks first, always asks and
+never does at the level you picked. **Balanced** is the default and behaves as
+Tars did without levels. **Careful** also makes starting new work, changing the
+queue order and starting queued work now wait for your **Confirm**. **Hands-off**
+lets Tars resume work, retry a phase and give work more steps at once when you
+ask, leaving a record of each. At every level cancelling work, skipping a phase,
+accepting a completion Stave could not verify, approving a tool request and
+publishing wait for you, and an automatic follow-up gains nothing from a level.
+**Never do** holds rules in your own words, such as "never touch production
+branches". Tars receives them as hard limits, and Stave asks you first and shows
+the rule on the card when a proposed action names the rule's repository, branch
+or action. The rules guide Tars's decisions; Stave does not block an action
+because of them. A saved change applies from Tars's next decision.
+
 To tidy up, use **Clear conversation** (the eraser in the header) or **Clear**
 in the tray's **Done** and **Outputs** sections, or ask, such as "clear the
 chat" or "done 정리해줘"; Tars then shows a card, and only your **Clear**
