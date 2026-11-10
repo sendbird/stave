@@ -12,6 +12,7 @@ import type { TarsConversationSettings } from "@/lib/tars/conversation";
 import type { TarsBridgeApi, TarsIdentity } from "@/lib/tars/types";
 import { tarsInsightsStyles as styles } from "./tars-insights.styles";
 import { TarsKnowsView } from "./TarsKnowsView";
+import { useTarsTextScale } from "./TarsMessageChrome";
 import { TarsUsageView } from "./TarsUsageView";
 import { useTarsUsage } from "./use-tars-insights";
 
@@ -39,6 +40,8 @@ export function TarsInsights({ identity, settings, bridge, onEditSettings, onOpe
   const agentNames = useMemo(() => new Map(listAgents({ custom: customAgents, activeOnly: false }).map((agent) => [agent.id, getAgentDisplayName(agent)])), [customAgents]);
   const agentNameOf = useCallback((id: string) => agentNames.get(id) ?? null, [agentNames]);
   const usage = useTarsUsage(bridge, view === "usage");
+  // The sheets sit outside the conversation column, so they publish its type scale themselves.
+  const textScale = useTarsTextScale();
   const close = () => setView(null);
   /** The memory's task, in its own workspace: the way a work's own task opens from the tray. */
   const openTask = (task: RepositoryMemorySourceTask, repositoryPath: string) => {
@@ -56,7 +59,7 @@ export function TarsInsights({ identity, settings, bridge, onEditSettings, onOpe
         { label: t("shell:tars.usage.open"), onSelect: () => setView("usage") },
       ] }]} />
     <Sheet open={view === "knows"} onOpenChange={(open) => { if (!open) close(); }}>
-      <SheetContent xstyle={styles.sheet} data-tars-insights-sheet="knows">
+      <SheetContent xstyle={styles.sheet} style={textScale} data-tars-insights-sheet="knows">
         <SheetHeader><SheetTitle>{t("shell:tars.knows.title")}</SheetTitle><SheetDescription>{t("shell:tars.knows.description")}</SheetDescription></SheetHeader>
         {identity && view === "knows" ? <TarsKnowsView identity={identity} settings={settings} agentNameOf={agentNameOf} repositories={repositories}
           onEditSettings={() => { close(); onEditSettings(); }} onOpenTask={openTask}
@@ -64,7 +67,7 @@ export function TarsInsights({ identity, settings, bridge, onEditSettings, onOpe
       </SheetContent>
     </Sheet>
     <Sheet open={view === "usage"} onOpenChange={(open) => { if (!open) close(); }}>
-      <SheetContent xstyle={styles.sheet} data-tars-insights-sheet="usage">
+      <SheetContent xstyle={styles.sheet} style={textScale} data-tars-insights-sheet="usage">
         <SheetHeader><SheetTitle>{t("shell:tars.usage.title")}</SheetTitle><SheetDescription>{t("shell:tars.usage.description")}</SheetDescription></SheetHeader>
         {view === "usage" ? <TarsUsageView state={usage.state} onReload={() => void usage.reload()} onOpenWork={(responsibilityId) => { close(); onOpenWork(responsibilityId); }} /> : null}
       </SheetContent>

@@ -1,5 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
+
+/**
+ * Item names, notes and figures read the conversation's type scale
+ * (`chat-type.stylex.ts`), which the sheet sets from the chat font size:
+ * `secondary` for the lines, `meta` for labels and paths. Section titles and
+ * the totals keep the AUI heading steps.
+ */
+const SECONDARY = chatType["--chat-type-secondary"];
+const SECONDARY_LEADING = chatType["--chat-type-secondary-leading"];
+const META = chatType["--chat-type-meta"];
+const META_LEADING = chatType["--chat-type-meta-leading"];
 
 /** The "What Tars knows" and "Usage" sheets: read-mostly lists on the settings sheet's own rhythm. */
 export const tarsInsightsStyles = stylex.create({
@@ -15,7 +27,7 @@ export const tarsInsightsStyles = stylex.create({
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
   sectionHead: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0 },
   sectionTitle: { margin: 0, fontSize: vars["--aui-font-size-section"], fontWeight: vars["--aui-font-weight-semibold"], lineHeight: vars["--aui-line-height-lead"] },
-  note: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  note: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING, overflowWrap: "anywhere" },
   error: { color: vars["--aui-color-danger-text"] },
   /** One thing Tars knows: a hairline above it instead of a card around it. */
   item: {
@@ -24,23 +36,23 @@ export const tarsInsightsStyles = stylex.create({
   },
   /** The item's name with its edit action on the end; the action drops under a long name instead of squeezing it. */
   itemHead: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"], minWidth: 0 },
-  itemTitle: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  itemTitle: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: SECONDARY, fontWeight: vars["--aui-font-weight-medium"], lineHeight: SECONDARY_LEADING, overflowWrap: "anywhere" },
   /** Source and last-saved time, in one wrapping line. */
-  meta: { display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], minWidth: 0, margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
+  meta: { display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], minWidth: 0, margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
   /** The user's own text, as written: line breaks kept, scrolled past a screenful. */
   quoted: {
     margin: 0, maxHeight: "16rem", overflowY: "auto", padding: vars["--aui-space-12"], borderRadius: vars["--aui-radius-control"],
-    backgroundColor: vars["--aui-color-surface-tint"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"],
+    backgroundColor: vars["--aui-color-surface-tint"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING,
     whiteSpace: "pre-wrap", overflowWrap: "anywhere",
   },
   chips: { display: "flex", flexWrap: "wrap", gap: vars["--aui-space-4"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
   /** A repository's accordion title: its name, then its path in what room is left. */
   repositoryTitle: { display: "flex", alignItems: "baseline", gap: vars["--aui-space-8"], minWidth: 0 },
   repositoryName: { flexShrink: 0, maxWidth: "100%", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  repositoryPath: { flex: "1 1 0", minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-regular"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  repositoryPath: { flex: "1 1 0", minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: META, fontWeight: vars["--aui-font-weight-regular"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   repositoryBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0 },
   memoryList: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0 },
-  subhead: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"] },
+  subhead: { margin: 0, color: vars["--aui-color-text"], fontSize: SECONDARY, fontWeight: vars["--aui-font-weight-medium"], lineHeight: SECONDARY_LEADING },
 
   /** Usage: the period switch with the report's time and Refresh on the end. */
   toolbar: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], minWidth: 0 },
@@ -48,9 +60,9 @@ export const tarsInsightsStyles = stylex.create({
   /** The period's totals: as many equal columns as fit, never narrower than a figure needs. */
   totals: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(6.5rem, 1fr))", gap: vars["--aui-space-12"], margin: 0, minWidth: 0 },
   total: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0 },
-  totalLabel: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-caption"] },
+  totalLabel: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: META, lineHeight: META_LEADING },
   totalValue: { margin: 0, fontSize: vars["--aui-font-size-heading"], fontWeight: vars["--aui-font-weight-semibold"], lineHeight: vars["--aui-line-height-heading"], fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" },
-  totalMissing: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-regular"] },
+  totalMissing: { color: vars["--aui-color-text-muted"], fontSize: SECONDARY, fontWeight: vars["--aui-font-weight-regular"] },
   rows: { display: "flex", flexDirection: "column", minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
   /** One work or model: its name, its bar, then its figures. */
   row: {
@@ -58,11 +70,11 @@ export const tarsInsightsStyles = stylex.create({
     borderTopWidth: vars["--aui-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--aui-color-border"],
   },
   rowHead: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: vars["--aui-space-12"], minWidth: 0 },
-  rowName: { minWidth: 0, fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  rowName: { minWidth: 0, fontSize: SECONDARY, fontWeight: vars["--aui-font-weight-medium"], lineHeight: SECONDARY_LEADING, overflowWrap: "anywhere" },
   /** A work's title is its opener; it wraps like the plain name beside it would. */
   rowOpen: { maxWidth: "100%", minWidth: 0, height: "auto", whiteSpace: "normal", textAlign: "start", overflowWrap: "anywhere" },
-  rowPrimary: { flexShrink: 0, fontSize: vars["--aui-font-size-body"], fontVariantNumeric: "tabular-nums", lineHeight: vars["--aui-line-height-control"] },
-  rowMeta: { display: "flex", flexWrap: "wrap", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], minWidth: 0, margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], fontVariantNumeric: "tabular-nums" },
+  rowPrimary: { flexShrink: 0, fontSize: SECONDARY, fontVariantNumeric: "tabular-nums", lineHeight: SECONDARY_LEADING },
+  rowMeta: { display: "flex", flexWrap: "wrap", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], minWidth: 0, margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING, fontVariantNumeric: "tabular-nums" },
   rowMetaText: { minWidth: 0, overflowWrap: "anywhere" },
   notes: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
 });
