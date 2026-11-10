@@ -47,7 +47,7 @@ function NodeMarker({ state }: { state: WorkState }) {
 
 /** "1 of 3 stages done · Running"; the state alone while the run is unread. */
 export function describeTarsFlowSummary(flow: TarsFlow) {
-  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.applied");
+  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.appliedAction.delegate");
   return flow.progress && flow.progress.total > 0
     ? i18n.t("shell:tars.flow.summary", { finished: flow.progress.finished, total: flow.progress.total, state })
     : state;

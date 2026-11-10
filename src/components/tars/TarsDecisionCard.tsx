@@ -297,16 +297,17 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     {source && responsibilityId && onOpenTask ? <Button type="button" size="2xs" variant="outline" data-tars-decision-open-task=""
       onClick={() => onOpenTask({ responsibilityId, ...source })}>{t("shell:tars.openTask")}</Button> : null}
   </span> : null;
+  // The revision the decision is bound to stays an attribute, not a row: it means nothing to people.
   const candidates: Array<DetailRow | null> = [
     target.repository ? { key: "repository", label: t("shell:tars.decision.card.rows.repository"), value: target.repository, title: target.repositoryPath ?? undefined } : null,
     target.workspace ? { key: "workspace", label: t("shell:tars.decision.card.rows.workspace"), value: target.workspace } : null,
-    target.revision !== null ? { key: "revision", label: t("shell:tars.decision.card.rows.revision"), value: t("shell:tars.decision.card.revision", { revision: target.revision }) } : null,
     payload ? { key: payload.key, label: t(`shell:tars.decision.card.rows.${payload.key}`), value: payload.value, note: truncation ?? undefined } : null,
     { key: "effect", label: t("shell:tars.decision.card.rows.effect"), value: effect },
   ];
   const rows = candidates.filter((row): row is DetailRow => row !== null);
   return <section ref={cardRef} {...common} role="group" tabIndex={0} aria-labelledby={`${questionId} ${subtitleId}`} aria-describedby={hintId}
-    className={sx(styles.card, focusRing.ring)} onKeyDown={onKeyDown} data-tars-decision-risk={irreversible ? "irreversible" : undefined}>
+    className={sx(styles.card, focusRing.ring)} onKeyDown={onKeyDown} data-tars-decision-risk={irreversible ? "irreversible" : undefined}
+    data-tars-decision-revision={target.revision ?? undefined}>
     <div className={sx(styles.confirmHeader)}>
       <IconTile size="sm" tone={irreversible ? "danger" : "warning"} xstyle={styles.icon}><Icon aria-hidden size={iconTileGlyphSizes.sm} /></IconTile>
       <div className={sx(styles.heading)}>

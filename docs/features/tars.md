@@ -294,10 +294,10 @@ fit (for example, sign-off while no stage waits for it) is refused with
 
 | Ask | Effect on the run |
 |---|---|
-| "Give it more turns" (**Add turns**) | A run paused at its turn limit gets 10 more turns and continues. |
-| "Retry it" (**Retry stage**) | A blocked or stuck current stage starts a fresh attempt. |
-| "Skip this stage" (**Skip stage**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
-| "Approve it" (**Sign off**) | A stage waiting for your sign-off starts. |
+| "Give it more turns" (**Add steps**) | A run paused at its turn limit gets 10 more turns (shown to you as steps) and continues. |
+| "Retry it" (**Retry phase**) | A blocked or stuck current stage (shown as a phase) starts a fresh attempt. |
+| "Skip this stage" (**Skip phase**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
+| "Approve it" (**Approve phase**) | A stage waiting for your sign-off starts. |
 | "Resume it" (**Resume**) | Also continues a run paused by a usage limit or an expired wait. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
 
 None of these apply to work you took over, including a run you took over in
@@ -696,18 +696,18 @@ stage, its recorded events) and the provider turn of the run's lead task,
 which the host relays for every workspace.
 
 - While the turn reports steps, its latest tool call in plain words and when
-  it was reported ("Running the tests · seen just now"). Only a reported step
+  it was reported ("Running the tests · updated just now"). Only a reported step
   counts: a turn adopted after a reload, or one that has not reported a step,
-  reads "Turn in progress · no step observed yet", never as live.
-- After the relayed turn finished, "No turn running right now"; when no turn
-  has reached this window yet (such as right after a restart), "No turn
-  activity observed yet". Both add the run's last update.
+  reads "Working · no activity reported yet", never as live.
+- After the relayed turn finished, "Waiting to take the next step"; when no turn
+  has reached this window yet (such as right after a restart), "No activity
+  reported yet". Both add the run's last update.
 - When nothing was observed for five minutes (`TARS_PROGRESS_STALE_MS`, the
-  provider stall threshold) or the provider marked the turn stalled, "Nothing
-  observed for 7m · progress may be out of date" in the warning ink, or, when
-  a last step is known, "Last step: Running the tests, 7m ago · progress may
+  provider stall threshold) or the provider marked the turn stalled, "No update
+  for 7m · progress may be out of date" in the warning ink, or, when
+  a last step is known, "Last activity: Running the tests, 7m ago · progress may
   be out of date".
-- Without a run read in this window, "No run observation yet"; work that is
+- Without a run read in this window, "No progress information yet"; work that is
   not running never borrows a turn's words and is not called out of date for
   being quiet.
 
@@ -993,13 +993,13 @@ ask:
   that Fleet shows. Tars tells apart what the stage waits for. Only a stage
   whose agent blocked it for your input or permission asks you a question:
   Tars gets that question and the agent's suggested action in the agent's own
-  words, and the line reads **Automatic follow-up · Needs your decision**. A
+  words, and the line reads **Tars follow-up · Needs your answer or approval**. A
   stage awaiting your sign-off reads the same. A stage that one of Stave's own
   checks stopped (a required criterion not met or not verified, no report, the
   reporting tools unavailable, a failed stage action) or that the agent
   blocked on its environment or an outside service asks you nothing: the line
-  reads **Automatic follow-up · Needs verification or a next step** (in
-  Korean, **자동 후속 · 확인 또는 다음 단계 필요**), and Tars says what needs
+  reads **Tars follow-up · A Stave check stopped progress** (in
+  Korean, **Tars 후속 확인 · Stave 검사에서 멈춤**), and Tars says what needs
   verifying or which next step fits instead of saying the run asked you
   something. When the stage blocked on an acceptance criterion, the reason
   Tars reads says whether the stage report marked it **Not met** or **Not
@@ -1013,8 +1013,8 @@ ask:
   (or in the task of a helper the run delegated to), or
 - a question Tars asked became invalid because its work changed.
 
-The follow-up appears in the conversation as **Automatic follow-up ·** its
-reason and the work's title (in Korean, **자동 후속 ·**), never as your words.
+The follow-up appears in the conversation as **Tars follow-up ·** its
+reason and the work's title (in Korean, **Tars 후속 확인 ·**), never as your words.
 It goes through the same queue as your messages: it is only added while none
 of your messages can start, and a follow-up still queued starts nothing once
 you have written to Tars about the change. It may ask a question, propose a

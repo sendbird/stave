@@ -29,7 +29,7 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "The work is queued", actions: [receipt.action] };
     const html = render({ ...message, state: "answered", decision, reply: decision.reply }, [receipt]);
     expect(html).toContain("My representative");
-    expect(html).toContain("Accepted for execution");
+    expect(html).toContain("Work added");
     expect(html).not.toContain("Completed");
     expect(html).not.toContain("Cancel message");
   });
@@ -105,7 +105,7 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "It is yours now.", actions: [control] };
     const html = render({ ...message, text: "내가 할게", state: "answered", decision, reply: decision.reply },
       [{ ...receipt, action: control, responsibilityId: "goal" }]);
-    expect(tarsRecordText(html)).toContain("Take over goal Accepted for execution");
+    expect(tarsRecordText(html)).toContain("Take over goal Taken over by you");
     expect(html).toContain("내가 할게");
   });
 });

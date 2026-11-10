@@ -45,7 +45,7 @@ export interface TarsRecordRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
   subject?: ReactNode;
   /** Where it came from, quiet: "click", "Fleet", "Agent: release-manager". */
   meta?: ReactNode;
-  /** The outcome in its state's color: "Applied", "Not applied", "Accepted for execution". */
+  /** The outcome in its state's color: "Work added", "Paused", "Not applied". */
   status?: ReactNode;
   /** Lines under it: why it was refused, where words for a busy run stand. */
   detail?: ReactNode;
