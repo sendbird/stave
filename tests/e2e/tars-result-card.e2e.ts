@@ -29,6 +29,17 @@ async function containment(page: Page, row: Locator) {
   expect(boxes.right).toBeLessThanOrEqual(column.right + 1);
   expect(boxes.minLeft).toBeGreaterThanOrEqual(boxes.left - 1);
   expect(boxes.maxRight).toBeLessThanOrEqual(boxes.right + 1);
+  // Result surfaces share the transcript's outer edge; only their content is padded.
+  const surface = await row.locator('[data-tars-result-card]').boundingBox();
+  expect(Math.abs(surface!.x - boxes.left)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(surface!.x + surface!.width - boxes.right)).toBeLessThanOrEqual(0.5);
+  const separation = await row.evaluate((node) => {
+    const header = node.querySelector('[data-tars-record-header]')!;
+    const card = node.querySelector('[data-tars-result-card]')!;
+    return { gap: card.getBoundingClientRect().top - header.getBoundingClientRect().bottom, token: parseFloat(getComputedStyle(card).paddingTop) };
+  });
+  // The header and its surface are separated by the same 12-space token as the card's padding.
+  expect(Math.abs(separation.gap - separation.token)).toBeLessThanOrEqual(0.5);
 }
 
 for (const { name, query, ko } of [
@@ -123,3 +134,31 @@ test("the card's text follows the chat font size", async ({ page }) => {
   // The conversation scale's secondary step, in whole pixels.
   expect(large).toBe(18);
 });
+
+for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {
+  for (const density of ["regular", "compact"]) for (const width of [390, 1440]) {
+    test(`publish fields share control height and label alignment: ${theme} ${lang} ${density} ${width}`, async ({ page }) => {
+      await open(page, `&theme=${theme}&lang=${lang}&density=${density}`, width);
+      const publish = page.locator('[data-tars-publish-card]:has([data-tars-publish-type])').first();
+      await publish.scrollIntoViewIfNeeded();
+      const fields = await publish.evaluate((node) => {
+        return ['[data-tars-publish-type]', '[data-tars-publish-message]', '[data-tars-publish-title]'].map((selector) => {
+          const control = node.querySelector(selector)!;
+          const label = control.closest('label')!;
+          const rect = control.getBoundingClientRect();
+          return { top: rect.top, left: rect.left, right: rect.right, height: rect.height,
+            labelTop: label.firstElementChild!.getBoundingClientRect().top, font: getComputedStyle(control).fontSize };
+        });
+      });
+      const [type, message, title] = fields;
+      expect(Math.abs(type!.height - message!.height)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(title!.height - message!.height)).toBeLessThanOrEqual(0.5);
+      expect(type!.font).toBe(message!.font);
+      if (message!.left >= type!.right) {
+        expect(Math.abs(type!.top - message!.top)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(type!.labelTop - message!.labelTop)).toBeLessThanOrEqual(0.5);
+      }
+      expect(await publish.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+    });
+  }
+}

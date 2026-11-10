@@ -138,7 +138,7 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
       <TarsWorkChip title={activity.title} responsibilityId={activity.responsibilityId} />
       {meta ? <span className={sx(styles.meta)} data-tars-result-meta="">{meta}</span> : null}
     </>}
-    detail={body ? <div role="group" aria-label={t("shell:tars.result.label", { title: row.title })} className={sx(styles.card)} data-tars-result-card={row.id}>
+    fullWidthDetail detail={body ? <div role="group" aria-label={t("shell:tars.result.label", { title: row.title })} className={sx(styles.card)} data-tars-result-card={row.id}>
       {reason ? <p className={sx(styles.reason)} data-tars-result-reason="">{reason}</p> : null}
       {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
       {model.criteria.length ? <div className={sx(styles.group)}>

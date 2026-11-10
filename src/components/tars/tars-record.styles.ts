@@ -61,6 +61,9 @@ export const tarsRecordStyles = stylex.create({
     fontSize: RECORD_TEXT, lineHeight: RECORD_LEADING, color: vars["--aui-color-text"],
     [REVEAL]: { default: 0, ":hover": 1, ":focus-within": 1, "@media (hover: none)": 1 },
   },
+  /** A result card uses the transcript's outer edge, independently of the header's mark slot. */
+  rowWithSurface: { display: "grid", gridTemplateColumns: `${MARK_SLOT} minmax(0, 1fr)`, rowGap: vars["--aui-space-12"] },
+  fullWidthDetail: { gridColumn: "1 / -1", minWidth: 0 },
   /** The mark sits in a box one text line tall, so it stays on the first line however far the text wraps. */
   markSlot: {
     display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
@@ -168,7 +171,7 @@ export const tarsRecordStyles = stylex.create({
   /** A diagnostic in the tool's own words, shown as written. */
   diagnostic: { display: "block", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: RECORD_TIME, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
   /** Controls ride the outcome's place at the trailing edge, centred on the line in a box no taller than it, so a button never moves the line (it reaches into the row's own padding). */
-  actions: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", alignSelf: "center", gap: vars["--aui-space-4"], minWidth: 0, maxBlockSize: LINE },
+  actions: { display: "inline-flex", alignItems: "center", alignSelf: "center", gap: vars["--aui-space-4"], minWidth: 0, blockSize: LINE },
   /**
    * A value chip (`Badge`) in the row's own type: the chat font size, not the
    * chip's fixed caption, and exactly one text line tall, so its words and its

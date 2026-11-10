@@ -869,7 +869,7 @@ conversation's notices use the state's own word: **Completed**, **Blocked**,
 **Cancelled**.
 
 **Ended work shows what it came to.** Where work completes or stops, the
-conversation shows a result card under the notice's row (the state, the work,
+conversation shows a result card, aligned with the conversation's outer edge, under the notice's row (the state, the work,
 its agent and how long the run worked). The card shows only what the run
 recorded:
 

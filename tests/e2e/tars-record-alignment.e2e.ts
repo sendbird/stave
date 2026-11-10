@@ -22,6 +22,8 @@ async function openGallery(page: Page, { width = 1440, theme = "light", lang = "
   await page.goto(`/?stavePreview=tars&gallery=true&theme=${theme}&lang=${lang}`);
   await expect(page.locator('[data-tars-message="g-i"]')).toBeAttached({ timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
+  // A shared worktree dependency must load as a real font, rather than silently testing a fallback.
+  expect(await page.evaluate(async () => (await document.fonts.load('14px "Geist Variable"')).length)).toBeGreaterThan(0);
 }
 
 interface RowCentres { chips: number; firstLine: boolean; offsets: Record<string, number> }
@@ -109,3 +111,23 @@ test("the mark stays centred on the first line when the chips wrap under it", as
     expect(wrapped.some(([, offset]) => offset > TOLERANCE)).toBe(true);
   }
 });
+
+for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {
+  for (const density of ["regular", "compact"]) for (const width of [390, 1440]) {
+    test(`retry shares the record's first-line centre (${theme} ${lang} ${density} ${width})`, async ({ page }) => {
+      await openGallery(page, { width, theme, lang });
+      await page.evaluate((value) => { document.documentElement.dataset.uiDensity = value; }, density);
+      const retry = page.locator('[data-tars-publish-retry]').first();
+      await retry.scrollIntoViewIfNeeded();
+      const offsets = await retry.evaluate((button) => {
+        const row = button.closest('[data-tars-record-state]')!;
+        const centre = (node: Element) => { const r = node.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+        const origin = centre(row.querySelector(':scope > span svg')!);
+        return [button, row.querySelector('[data-tars-record-lead]')!, row.querySelector('time')!].map((node) => centre(node) - origin);
+      });
+      for (const offset of offsets) expect(Math.abs(offset)).toBeLessThanOrEqual(TOLERANCE);
+      // The control keeps its normal hit area even though the text line is shorter.
+      expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(24);
+    });
+  }
+}

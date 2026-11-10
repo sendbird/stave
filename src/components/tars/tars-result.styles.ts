@@ -15,7 +15,7 @@ export const tarsResultStyles = stylex.create({
   meta: { minWidth: 0, color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" },
   card: {
     display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, maxInlineSize: "100%", boxSizing: "border-box",
-    marginBlock: vars["--aui-space-4"], padding: vars["--aui-space-12"],
+    marginBlock: 0, padding: vars["--aui-space-12"],
     borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border-subtle"],
     borderRadius: vars["--aui-radius-panel"], backgroundColor: vars["--aui-color-surface"], color: vars["--aui-color-text"],
   },

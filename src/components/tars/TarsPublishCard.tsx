@@ -154,7 +154,7 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
       <div className={sx(publishStyles.commitLine)}>
         <label className={sx(publishStyles.field, publishStyles.typeField)}>
           <span className={sx(publishStyles.label)}>{t("shell:tars.publish.card.rows.commitType")}</span>
-          <NativeSelect controlOnly size="sm" value={type} disabled={busy} data-tars-publish-type=""
+          <NativeSelect controlOnly size="md" value={type} disabled={busy} data-tars-publish-type=""
             onChange={(event) => changeType(event.target.value as TarsCommitType)}
             options={[...(type ? [] : [{ value: "", label: "—" }]), ...TARS_COMMIT_TYPES.map((value) => ({ value, label: value }))]} />
         </label>

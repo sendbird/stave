@@ -619,7 +619,7 @@ entry shows the moving mark with the number of running work and an amber count
 of what needs you; collapsed, it shows one dot, amber when something needs you,
 blue when work only runs. The conversation keeps only words, decisions and the
 moments work completes, is blocked or is cancelled, each with the state tag's
-word. Completed, blocked and failed work shows a result card there: the completion
+word. Completed, blocked and failed work shows a result card there, aligned with the other conversation cards: the completion
 criteria with what backs each one (**Met · confirmed by a check**, **Met · confirmed by
 review**, or **Met · agent's report only** when nothing Stave ran or reviewed confirms
 it), a two-line summary with **Open report**, the changed files with **View changes**,

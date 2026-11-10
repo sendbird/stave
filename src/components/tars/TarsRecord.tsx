@@ -119,6 +119,8 @@ export interface TarsRecordRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
   status?: ReactNode;
   /** Lines under it: why it was refused, where words for a busy run stand. */
   detail?: ReactNode;
+  /** A result surface spans the whole row; text notes stay in the body's rail column. */
+  fullWidthDetail?: boolean;
   /** Controls that act on the record (retry). */
   actions?: ReactNode;
   /** Takes focus programmatically (a decision card that folded while focused), with the visible focus ring. */
@@ -134,14 +136,14 @@ export interface TarsRecordRowProps extends Omit<HTMLAttributes<HTMLDivElement>,
  * It draws no surface of its own, so the same row also sits in a raised panel
  * row (the side view's timeline) without a nested box.
  */
-export function TarsRecordRow({ state, icon, actor, lead, subject, values, status, detail, actions, focusable, at, ref, ...rest }: TarsRecordRowProps) {
+export function TarsRecordRow({ state, icon, actor, lead, subject, values, status, detail, fullWidthDetail, actions, focusable, at, ref, ...rest }: TarsRecordRowProps) {
   const position = useContext(TarsRecordPosition);
   const time = at ? <time dateTime={at} className={sx(styles.time, Boolean(position) && styles.timeLater)} data-tars-record-time="">
     {formatTime(at, { hour: "numeric", minute: "2-digit" })}</time> : null;
-  return <div {...rest} ref={ref} tabIndex={focusable ? -1 : undefined} className={sx(styles.row, focusable && focusRing.ring)} data-tars-record-state={state}>
+  return <div {...rest} ref={ref} tabIndex={focusable ? -1 : undefined} className={sx(styles.row, fullWidthDetail && styles.rowWithSurface, focusable && focusRing.ring)} data-tars-record-state={state}>
     <span className={sx(styles.markSlot)}><TarsRecordMark state={state} icon={icon} /></span>
     <div className={sx(styles.body)}>
-      <div className={sx(styles.line)}>
+      <div className={sx(styles.line)} data-tars-record-header="">
         <span className={sx(styles.main)}>
           <span className={sx(styles.text)}>
             {/* The actor's glyph opens the first text, inside it, so a long sentence wraps after the glyph instead of leaving it alone on a line. */}
@@ -157,8 +159,9 @@ export function TarsRecordRow({ state, icon, actor, lead, subject, values, statu
           {time}
         </span> : null}
       </div>
-      {detail}
+      {!fullWidthDetail ? detail : null}
     </div>
+    {fullWidthDetail && detail ? <div className={sx(styles.fullWidthDetail)}>{detail}</div> : null}
   </div>;
 }
 
