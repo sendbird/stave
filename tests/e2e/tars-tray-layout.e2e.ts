@@ -342,7 +342,10 @@ test("the tray keeps its own type sizes whatever the conversation's text size", 
   const sizes = () => page.locator("[data-tars-tray]").evaluate((tray) => [...tray.querySelectorAll("h3, p, span, button")].slice(0, 200)
     .map((node) => getComputedStyle(node).fontSize).join(","));
   const before = await sizes();
-  await view.evaluate((node) => (node as HTMLElement).style.setProperty("--tars-text-size", "40px"));
+  // The conversation's type scale (`chat-type.stylex.ts`), which its column sets from the chat font size.
+  await view.evaluate((node) => {
+    for (const step of ["body", "secondary", "meta"]) (node as HTMLElement).style.setProperty(`--chat-type-${step}`, "40px");
+  });
   expect(await sizes()).toBe(before);
 });
 

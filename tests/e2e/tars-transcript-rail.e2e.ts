@@ -244,8 +244,8 @@ test("card text follows the chat font size: the title and effect at the messages
       return { title: px(node.querySelector("p")!), effect: px(node.querySelector("[data-tars-decision-effect]")!),
         work: px(node.querySelector("[data-tars-record-work]")!), details: px(node.querySelector("[data-tars-decision-details-toggle]")!) };
     });
-    // Secondary lines are the rail's size: 0.875 of the messages, never under the 12px caption tier.
-    const secondary = Math.max(12, size * 0.875);
+    // Secondary lines are the rail's size: the scale's secondary step in whole pixels, never under the 12px caption tier.
+    const secondary = Math.max(12, Math.round(size * 0.875));
     expect(sizes).toEqual({ title: size, effect: size, work: secondary, details: secondary });
   }
 });
@@ -259,6 +259,6 @@ test("Enter on a card's Details opens it and confirms nothing, even on a card wh
   await details.focus();
   await page.keyboard.press("Enter");
   await expect(details).toHaveAttribute("aria-expanded", "true");
-  await expect(card.locator('[data-tars-decision-row="revision"]')).toBeVisible();
+  await expect(card.locator("[data-tars-decision-rows]")).toBeVisible();
   await expect(card).toHaveAttribute("data-tars-decision-state", "waiting");
 });
