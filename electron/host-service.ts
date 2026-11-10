@@ -91,7 +91,7 @@ import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/sup
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
-import { applyTarsDecision } from "./host-service/tars-decisions";
+import { applyTarsDecision, confirmTarsProposal, type TarsDecisionPorts } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
 import { reprioritizeTars } from "./host-service/tars-queue";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
@@ -2201,9 +2201,11 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.invoke":
       await respond(request.id, await (request.params.action === "get" ? tarsRuntime.get() : tarsRuntime[request.params.action](request.params.args)));
       return;
-    case "tars.apply-decision": {
+    case "tars.apply-decision":
+    case "tars.confirm-proposal": {
       const persistence = ensureHostServicePersistenceReady();
-      await respond(request.id, await applyTarsDecision(request.params, {
+      // One set of ports: a held work proposal the user confirmed is admitted exactly as an unheld one.
+      const ports: TarsDecisionPorts = {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
         readRegistry: () => persistence.loadRepositoryRegistry(),
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
@@ -2216,7 +2218,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
           message: `chore(tars): start from working changes\n\nSnapshot of the uncommitted changes in workspace ${workspaceId} for Tars message ${messageId}.`,
           date,
         }),
-      }));
+      };
+      await respond(request.id, request.method === "tars.confirm-proposal"
+        ? await confirmTarsProposal(request.params, ports) : await applyTarsDecision(request.params, ports));
       return;
     }
     case "tars.act":

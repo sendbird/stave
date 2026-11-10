@@ -1,9 +1,10 @@
 import {
-  TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
+  TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
 import type {
-  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
+  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
+import type { TarsNeverRuleMatch } from "./autonomy";
 import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
 
 /**
@@ -72,12 +73,22 @@ export function describeTarsControlInput(control: ControlRequest, row: Pick<Tars
     truncated: request?.truncated === true, source: request ? { taskId: request.taskId, workspaceId: request.workspaceId } : null };
 }
 
+/** The work actions the host can hold as a proposal: new work, or a priority change. */
+export type TarsWorkProposalAction = Extract<TarsDecisionAction, { kind: "delegate" | "reprioritize" }>;
+
+/** Whether a receipt is a work proposal the host held (or had held) for the user's confirmation. */
+export function isTarsWorkProposal<R extends Pick<TarsActionReceipt, "action">>(receipt: R): receipt is R & { action: TarsWorkProposalAction } {
+  return receipt.action.kind === "delegate" || receipt.action.kind === "reprioritize";
+}
+
 /**
  * One option. `label` null names a Stave option by its control. `verify` only
  * puts a request for new verification work in the composer; it never acts.
  */
 export type TarsDecisionOption =
   | { kind: "control"; control: ControlRequest; label: string | null; rationale: string | null }
+  /** A held work proposal (a delegation or a priority change): Confirm applies the saved action through the host. */
+  | { kind: "proposal"; action: TarsWorkProposalAction; label: null; rationale: null }
   | { kind: "reply"; label: string; rationale: string }
   | { kind: "verify"; responsibilityId: string };
 
@@ -120,6 +131,8 @@ export interface TarsDecisionView {
   reask: boolean;
   /** Tars already asked again for this decision. */
   reasked: boolean;
+  /** The user's "never do" rules the host matched when it held this action; absent when none did. */
+  matchedRules?: readonly TarsNeverRuleMatch[];
 }
 
 export interface TarsDecisionSources {
@@ -231,7 +244,19 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const message = sources.messages[order.get(receipt.messageId) ?? -1];
     if (!message) continue;
     const later = (order.get(receipt.messageId) ?? 0) < lastSpoken;
-    if (action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(action.operation)) {
+    if (isTarsWorkProposal(receipt)) {
+      // Held by the autonomy level or one of the user's rules; an unheld one was applied or refused and stays a receipt line.
+      const id = tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex);
+      // The host settles the proposal with its confirmation's outcome, so any answer to it is final.
+      const answer = settling.get(id) ?? failures.get(id) ?? null;
+      if (receipt.status !== "proposed" && !answer) continue;
+      views.push(settle({ id, kind: "confirm", messageId: receipt.messageId, actionIndex: receipt.actionIndex, question: null,
+        targets: receipt.action.kind === "reprioritize" ? [{ responsibilityId: receipt.action.responsibilityId, expectedRevision: receipt.action.expectedRevision }] : [],
+        // Held because one of the user's rules matched: confirming is then an explicit choice, never Enter or "yes".
+        options: [{ kind: "proposal", action: receipt.action, label: null, rationale: null }], recommended: receipt.matchedRules?.length ? null : 0,
+        answer, record: null, since: receipt.updatedAt,
+        ...(receipt.matchedRules ? { matchedRules: receipt.matchedRules } : {}) }, null, message.origin, later));
+    } else if (action.kind === "control" && isTarsHoldableAction(action)) {
       const id = tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex);
       // The host settles a proposal with its confirmation's outcome, so any answer to it is final.
       const answer = settling.get(id) ?? failures.get(id) ?? null;
@@ -246,7 +271,8 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
         targets: [{ responsibilityId: action.responsibilityId, expectedRevision: action.expectedRevision }],
         options: [{ kind: "control", control, label: null, rationale: null }],
         // Confirming a cancel or an acceptance is always an explicit choice.
-        recommended: TARS_IRREVERSIBLE_OPERATIONS.has(action.operation) ? null : 0, answer, record, since: receipt.updatedAt },
+        recommended: TARS_IRREVERSIBLE_OPERATIONS.has(action.operation) || receipt.matchedRules?.length ? null : 0, answer, record, since: receipt.updatedAt,
+        ...(receipt.matchedRules ? { matchedRules: receipt.matchedRules } : {}) },
       retiredBy, message.origin));
     } else if (action.kind === "ask" && receipt.status === "proposed") {
       const id = tarsAskDecisionId(receipt.messageId, receipt.actionIndex);
@@ -355,8 +381,12 @@ export function tarsQuestionKeyAction(key: string, decision: Pick<TarsDecisionVi
 export function describeTarsDecisionForModel(view: TarsDecisionView): string {
   // i18n-ignore: model-facing context
   if (view.kind === "ask") return `Question: ${view.question ?? ""}\nOptions: ${view.options.map((option, index) =>
-    `${index + 1}. ${option.kind === "verify" ? "verify" : option.label ?? option.kind}`).join("; ")}`;
-  const control = view.options[0]?.kind === "control" ? view.options[0].control : null;
+    `${index + 1}. ${option.kind === "verify" || option.kind === "proposal" ? option.kind : option.label ?? option.kind}`).join("; ")}`;
+  const first = view.options[0];
+  // i18n-ignore: model-facing context
+  if (first?.kind === "proposal") return first.action.kind === "delegate" ? `Proposed new work "${first.action.title}", waiting for the user's confirmation.`
+    : `Proposed priority ${first.action.priority} for responsibility ${first.action.responsibilityId} at revision ${first.action.expectedRevision}.`;
+  const control = first?.kind === "control" ? first.control : null;
   // i18n-ignore: model-facing context
   return control ? `Proposed control ${control.operation} for responsibility ${control.responsibilityId} at revision ${control.expectedRevision}.` : "Decision";
 }

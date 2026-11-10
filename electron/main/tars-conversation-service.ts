@@ -1,10 +1,11 @@
 import {
   CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
-  TarsConversationSchema, TarsConversationSettingsSchema, TARS_CONFIRMED_OPERATIONS, tarsConfirmationRequestId, isTarsAnswerRetryable,
-  type TarsMessage, type ApplyTarsDecisionInput, type TarsActInput, type TarsActResult, type TarsAnswerResult, type TarsDecisionAnswer,
+  TarsConversationSchema, TarsConversationSettingsSchema, TarsControlReasonSchema, isTarsHoldableAction, tarsConfirmationRequestId, isTarsAnswerRetryable,
+  type TarsMessage, type ApplyTarsDecisionInput, type ConfirmTarsProposalInput, type TarsActInput, type TarsActResult, type TarsActionReceipt,
+  type TarsAnswerResult, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
 import {
-  isTarsReservedMessageRequestId, parseTarsDecisionId, projectTarsDecisions, tarsAnswerActRequestId,
+  isTarsReservedMessageRequestId, isTarsWorkProposal, parseTarsDecisionId, projectTarsDecisions, tarsAnswerActRequestId,
   tarsAnswerMessageRequestId, tarsAskDecisionId, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "../../src/lib/tars/decisions";
 import { admitTarsFollowUps, claimTarsMessage, releaseTarsFollowUpStart, supersedeStaleTarsFollowUp, tarsAutomaticStartDeferral } from "./tars-follow-up";
@@ -30,6 +31,11 @@ interface ConversationPorts {
    * control work are refused as not waiting.
    */
   act?: (input: TarsActInput) => Promise<TarsActResult>;
+  /**
+   * The host's admission of a held work proposal the user confirmed
+   * (`tars.confirm-proposal`). Absent, such a confirmation is refused.
+   */
+  confirmProposal?: (input: ConfirmTarsProposalInput) => Promise<TarsActionReceipt>;
   /**
    * False until the renderer synced the saved agents. A message that allows
    * saved agents waits for them instead of reasoning with an incomplete list.
@@ -110,13 +116,13 @@ export function createTarsConversationService(ports: ConversationPorts) {
     const activity = ports.responsibilities.listActivity(DECISION_WINDOW);
     const ids = [
       ...receipts.flatMap((receipt) => receipt.action.kind === "ask" ? [tarsAskDecisionId(receipt.messageId, receipt.actionIndex)]
-        : receipt.action.kind === "control" ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []),
+        : receipt.action.kind === "control" || isTarsWorkProposal(receipt) ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []),
       ...activity.map((event) => tarsUnverifiedDecisionId(event.responsibilityId, event.revision)),
       ...snapshot.responsibilities.map((row) => tarsUnverifiedDecisionId(row.id, row.revision)),
     ];
     const answers = ports.conversations.getAnswers(ids);
     const records = ports.conversations.getActions(receipts.flatMap((receipt) =>
-      receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)
+      receipt.action.kind === "control" && isTarsHoldableAction(receipt.action)
         ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []));
     return projectTarsDecisions({ messages, receipts, records, answers, activity, responsibilities: snapshot.responsibilities });
   }
@@ -162,6 +168,15 @@ export function createTarsConversationService(ports: ConversationPorts) {
         : { status: "rejected", reason: record.reason, error: record.error ?? "The control was not applied." }, now());
     }
     const parsed = parseTarsDecisionId(answer.decisionId);
+    if (effect.kind === "proposal") {
+      // The host applies the saved action of the receipt this decision names, admitted again now.
+      if (!ports.confirmProposal || parsed?.kind !== "confirm") throw new Error("The host proposal path is unavailable.");
+      const settled = await ports.confirmProposal({ messageId: parsed.messageId, actionIndex: parsed.actionIndex });
+      if (settled.status === "pending" || settled.status === "proposed") return answer;
+      const reason = TarsControlReasonSchema.safeParse(settled.reason);
+      return ports.conversations.settleAnswer(answer.decisionId, settled.status === "applied" ? { status: "applied" }
+        : { status: "rejected", reason: reason.success ? reason.data : null, error: settled.error ?? "The proposal was not applied." }, now());
+    }
     const receipt = parsed && parsed.kind === "ask" ? ports.conversations.getReceipt(parsed.messageId, parsed.actionIndex) : null;
     if (receipt?.action.kind !== "ask") throw new Error("The question for this answer was not found.");
     const option = receipt.action.options[answer.optionIndex];
@@ -384,9 +399,10 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (view?.state === "answered") return { answer: view.answer, refusal: "alreadyAnswered" };
       if (!view || view.state !== "waiting" || !view.checked) return { answer: null, refusal: "notWaiting" };
       const option = view.options[input.optionIndex];
-      if (!option || option.kind === "verify" || (option.kind === "control" && !ports.act)) return { answer: null, refusal: "invalidOption" };
+      if (!option || option.kind === "verify" || (option.kind === "control" && !ports.act) || (option.kind === "proposal" && !ports.confirmProposal))
+        return { answer: null, refusal: "invalidOption" };
       const recorded = ports.conversations.recordAnswer({ decisionId: view.id, optionIndex: input.optionIndex, source: input.source,
-        effect: option.kind === "control" ? { kind: "control", ...option.control } : { kind: "reply" },
+        effect: option.kind === "control" ? { kind: "control", ...option.control } : { kind: option.kind },
         label: option.label, actRequestId: option.kind === "control" ? tarsAnswerActRequestId(view.id) : null }, now());
       if (recorded.refusal) return recorded;
       return { answer: await settleAnswer(recorded.answer), refusal: null };

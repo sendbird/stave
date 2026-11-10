@@ -1047,6 +1047,8 @@ export interface HostServiceRequestMap {
   "tars.invoke": { action: "get" | "create" | "updateIdentity"; args: unknown };
   /** Main-only admission of a persisted decision; no model-supplied action payload. */
   "tars.apply-decision": import("../../src/lib/tars/conversation").ApplyTarsDecisionInput;
+  /** Main-only confirmation of a held work proposal; names the saved receipt, never an action. */
+  "tars.confirm-proposal": import("../../src/lib/tars/conversation").ConfirmTarsProposalInput;
   /** A direct control, admitted on the same path as a proposed control. */
   "tars.act": import("../../src/lib/tars/conversation").TarsActInput;
   /** One publish card's confirmation, from a word proposal or a click; the host admits and runs it. */
@@ -1265,6 +1267,7 @@ export interface HostServiceResponseMap {
   "wake-up.invoke": unknown;
   "tars.invoke": import("../../src/lib/tars/types").TarsSnapshot;
   "tars.apply-decision": import("../../src/lib/tars/conversation").TarsActionReceipt[];
+  "tars.confirm-proposal": import("../../src/lib/tars/conversation").TarsActionReceipt;
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishResult;
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
