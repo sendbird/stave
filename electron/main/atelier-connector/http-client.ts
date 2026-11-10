@@ -38,19 +38,24 @@ const CONTEXT_BUNDLE_MAX_RESPONSE_BYTES = 512 * 1_024;
 const RETRY_AFTER_MS_MAX = 5 * 60 * 1_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
-const ServerConnectorSchema = CraneConnectorMetadataSchema.extend({
+/*
+ * Like the dispatch client's schemas, these strip unknown properties instead of
+ * rejecting them: the exchange has already consumed the pairing code and
+ * revoked the previous connector by the time it answers, so rejecting an
+ * additive field would strand a pairing Crane already shows as connected.
+ */
+const ServerConnectorSchema = z.object({
+  ...CraneConnectorMetadataSchema.shape,
   secretPrefix: z.string().trim().min(1).max(16),
   revokedAt: z.string().datetime({ offset: true }).nullable(),
   scopes: z.array(AtelierConnectorScopeSchema).min(1).max(2).optional(),
-}).strict();
+});
 
-const ExchangeResponseSchema = z
-  .object({
-    connector: ServerConnectorSchema,
-    secret: z.string().trim().startsWith("stc_").max(128),
-    pollRetryMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
-  })
-  .strict();
+const ExchangeResponseSchema = z.object({
+  connector: ServerConnectorSchema,
+  secret: z.string().trim().startsWith("stc_").max(128),
+  pollRetryMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
+});
 
 const ErrorResponseSchema = z
   .object({
@@ -74,15 +79,13 @@ const ErrorResponseSchema = z
  * open one. They answer identically today, so keep the two in step by hand
  * until one of them has a reason to diverge.
  */
-const CraneTaskJobClaimResponseSchema = z
-  .object({
-    job: CraneStaveJobV1Schema,
-    leaseId: z.string().trim().startsWith("stl_").max(128),
-    leaseExpiresAt: z.string().datetime({ offset: true }),
-    nextSequence: z.number().int().min(1),
-    retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
-  })
-  .strict();
+const CraneTaskJobClaimResponseSchema = z.object({
+  job: CraneStaveJobV1Schema,
+  leaseId: z.string().trim().startsWith("stl_").max(128),
+  leaseExpiresAt: z.string().datetime({ offset: true }),
+  nextSequence: z.number().int().min(1),
+  retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
+});
 
 export type CraneTaskJobClaimResponse = z.infer<
   typeof CraneTaskJobClaimResponseSchema
