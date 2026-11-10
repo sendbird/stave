@@ -28,6 +28,7 @@ import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 import { createPreviewClearBridge } from "./tars-clear-fixtures";
 import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
+import { buildTarsAwayFixtures, createPreviewAwayBridge, syncTarsAwayPreview, TARS_AWAY_PREVIEW_GAP_MS } from "./tars-away-fixtures";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -134,6 +135,17 @@ export function TarsPreview() {
       pendingDecisions: [...(snapshot.pendingDecisions ?? []), { kind: "unverifiedCompletion", responsibilityId: "preview-responsibility", messageId: null,
         actionIndex: null, operation: null, expectedRevision: 1, proposedAt: now, optionCount: 3 }] };
     }
+    // `away=true`: the user left 45 minutes ago and work went on, so opening the page is coming back: the "while you were away"
+    // summary sits where they left. `away=live`: the user is here now and the same changes arrive as the clock moves (the e2e moves it).
+    const awayMode = params.get("away");
+    const away = awayMode === "true" || awayMode === "live" ? (() => {
+      const anchor = Number(sessionStorage.getItem("stave-preview-away-anchor")) || Date.now() - (awayMode === "true" ? TARS_AWAY_PREVIEW_GAP_MS : 0);
+      sessionStorage.setItem("stave-preview-away-anchor", String(anchor));
+      return { fixtures: buildTarsAwayFixtures(new Date(anchor), params.get("lang") === "ko"),
+        bridge: createPreviewAwayBridge("stave-preview-away-state", awayMode === "true" ? { lastSeenAt: new Date(anchor).toISOString(), summary: null } : undefined) };
+    })() : null;
+    /** The clock new preview records are dated from: the fixed fixture day, or the real one when the away fixtures follow it. */
+    const clockBase = () => away ? Date.now() : Date.parse(now);
     let sendFailed = false;
     const conversationKey = gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
@@ -169,13 +181,16 @@ export function TarsPreview() {
       { id: "activity-unverified", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate across two repositories",
         state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", createdAt: now });
     const saveConversation = () => sessionStorage.setItem(conversationKey, JSON.stringify(conversation));
+    /** With the away fixtures, every read first brings the saved state up to what has happened by now. */
+    const syncAway = () => { if (away) { snapshot = syncTarsAwayPreview(away.fixtures, Date.now(), conversation, snapshot); saveConversation(); publishAttention(); } };
+    syncAway();
     const conversationView = (): TarsConversation => ({ ...structuredClone(conversation), messages: conversation.messages.map((message) => tarsMessageView(structuredClone(message))) });
     // Clearing as the host does it; `retentionDays=N` starts with another retention period than the default.
     const clearing = createPreviewClearBridge({ storageKey: `${conversationKey}-view`, now,
       ...(params.get("retentionDays") ? { retentionDays: Number(params.get("retentionDays")) } : {}),
       getSnapshot: () => snapshot, getConversation: () => ({ ...conversation, messages: conversation.messages.map((message) => tarsMessageView(message)) }), changed: saveConversation });
     /** One second after anything saved, clears included, so a new message never lands before a clear. */
-    const nextPreviewAt = () => new Date(Math.max(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000,
+    const nextPreviewAt = () => new Date(Math.max(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000,
       ...(clearing.view(conversationView()).clears ?? []).map((record) => Date.parse(record.updatedAt) + 1000))).toISOString();
     // Live progress stays out of the transcript; only the block that needs the user reads as a notice.
     if (params.get("activity") === "true" && !conversation.activity.length) conversation.activity.push(
@@ -203,7 +218,7 @@ export function TarsPreview() {
         // A control moves the revision past any proposal waiting on it, so Fleet's decision row ends with it.
         pendingDecisions: (snapshot.pendingDecisions ?? []).filter((decision) => decision.responsibilityId !== responsibilityId) };
       if (!error) publishAttention();
-      const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+      const createdAt = new Date(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
       const record = { requestId, source, requestHash: "b".repeat(64), action: { kind: "control" as const, responsibilityId, expectedRevision, operation },
         status: error ? "rejected" as const : "applied" as const, error, reason, revision: 2, createdAt, updatedAt: createdAt };
       conversation.records.push(record);
@@ -213,7 +228,7 @@ export function TarsPreview() {
       saveConversation();
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
-    const publishing = side ? createPreviewPublishBridge({ getSnapshot: () => snapshot, conversation, runs: side.runs, failOnce: publishMode === "failed", save: () => saveConversation(),
+    const publishing = side || away ? createPreviewPublishBridge({ getSnapshot: () => snapshot, conversation, runs: side?.runs ?? {}, failOnce: publishMode === "failed", save: () => saveConversation(),
       setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(snapshot)); } }) : null;
     /** The host's queue move, against the preview snapshot: same order rules, same record line. */
     async function reprioritize({ requestId, responsibilityId, expectedRevision, move, source }: TarsReprioritizeInput) {
@@ -227,7 +242,7 @@ export function TarsPreview() {
       if (!reason) snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((candidate) => changes.has(candidate.id)
         ? { ...candidate, priority: changes.get(candidate.id)!, revision: candidate.revision + 1 } : candidate)
         .sort((a, b) => b.priority - a.priority || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)) };
-      const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+      const createdAt = new Date(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
       const record = { requestId, source, requestHash: "d".repeat(64), action: { kind: "move" as const, responsibilityId, expectedRevision, move },
         status: reason ? "rejected" as const : "applied" as const, error: reason ? "Preview move is not admissible." : null, reason,
         ...(reason ? {} : { priority: changes.get(responsibilityId)! }), revision: 2, createdAt, updatedAt: createdAt };
@@ -238,7 +253,8 @@ export function TarsPreview() {
     const bridge: TarsBridgeApi = {
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
       reprioritize: async (input) => reprioritize(input),
-      get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone({ ...snapshot, cleared: clearing.cleared() })); },
+      ...away?.bridge,
+      get: async () => { syncAway(); reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone({ ...snapshot, cleared: clearing.cleared() })); },
       clear: (input) => clearing.clear(input),
       undoClear: (input) => clearing.undoClear(input),
       configureView: (input) => clearing.configureView(input),
@@ -272,7 +288,7 @@ export function TarsPreview() {
             : receipt?.action.kind === "control" && optionIndex === 0 ? receipt.action : undefined;
         if (!effect) return { answer: null, refusal: "invalidOption" };
         if (parsed?.kind === "unverifiedCompletion" && tarsUnverifiedDecisionId(unverifiedId, row?.revision ?? 0) !== decisionId) return { answer: null, refusal: "notWaiting" };
-        const createdAt = new Date(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
+        const createdAt = new Date(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000).toISOString();
         const label = receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]!.label : null;
         const answer: TarsDecisionAnswer = { decisionId, optionIndex, source, effect, label, status: "pending", reason: null, error: null,
           actRequestId: effect.kind === "control" ? `${tarsAnswerActRequestId(decisionId)}${attempt ? `:${attempt}` : ""}` : null, ...(attempt ? { attempt } : {}),
@@ -311,7 +327,7 @@ export function TarsPreview() {
         if (draft && !conversation.messages.some((message) => message.requestId === draft.requestId)) sessionStorage.setItem(draftKey, JSON.stringify(draft));
         else sessionStorage.removeItem(draftKey);
       },
-      getConversation: async () => clearing.view(conversationView()),
+      getConversation: async () => { syncAway(); return clearing.view(conversationView()); },
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
         if (Object.keys(input).some((key) => !["requestId", "text", "includeWorkingChanges", "attachments"].includes(key)))
