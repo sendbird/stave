@@ -631,7 +631,7 @@
       "tracking": 4,
       "radius": 3,
       "icon-metric": 14,
-      "control-metric": 13,
+      "control-metric": 9,
       "status-mix": 2
     },
     "src/components/ai-elements/prompt-input-control-menu.styles.ts": {
