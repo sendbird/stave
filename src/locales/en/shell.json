@@ -2285,8 +2285,7 @@
         "completed": "Scheduled run finished",
         "failed": "Scheduled run failed",
         "skipped": "Scheduled run skipped",
-        "openTask": "Open task",
-        "scheduledFor": "Scheduled for {{when}}"
+        "openTask": "Open task"
       },
       "reason": {
         "invalidRule": "Schedules cannot run this repeat rule. Use every N minutes, hours, days or weeks, with a time of day for chosen weekdays.",

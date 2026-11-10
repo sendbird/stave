@@ -2248,8 +2248,7 @@
         "completed": "일정 실행이 끝났습니다",
         "failed": "일정 실행이 실패했습니다",
         "skipped": "일정 실행을 건너뛰었습니다",
-        "openTask": "작업 열기",
-        "scheduledFor": "예정 시각 {{when}}"
+        "openTask": "작업 열기"
       },
       "reason": {
         "invalidRule": "일정에서 실행할 수 없는 반복 규칙입니다. N분, N시간, N일, N주마다로 지정하고, 요일을 고르면 시각도 함께 지정해 주세요.",
