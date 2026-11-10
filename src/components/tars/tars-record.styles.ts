@@ -199,13 +199,13 @@ export const tarsRecordStyles = stylex.create({
  * A delegation's folded flow (`TarsFlowBlock`) on the same rail as the
  * records beside it: its glyph in the mark column, its words at the record
  * size on the rail's text column, and its live line on that column too. The
- * trigger keeps its hover fill by reaching that fill's padding past the
- * column's edge instead of moving the glyph.
+ * trigger starts on the column's edge with no leading pad, so its glyph is
+ * in the mark column and its box (and hover fill) never leaves the column.
  */
 export const tarsFlowRailStyles = stylex.create({
   root: { marginBlockStart: 0, fontSize: RECORD_TEXT, lineHeight: RECORD_LEADING },
   trigger: {
-    marginInlineStart: `calc(${vars["--aui-space-8"]} * -1)`, paddingBlock: vars["--aui-space-4"], minBlockSize: 0,
+    paddingInlineStart: 0, paddingBlock: vars["--aui-space-4"], minBlockSize: 0,
     fontSize: "inherit", lineHeight: "inherit",
   },
   summaryState: { fontSize: "inherit" },
