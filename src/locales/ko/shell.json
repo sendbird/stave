@@ -1318,7 +1318,8 @@
         "review": "리뷰 열기"
       },
       "publish": "Draft PR로 게시",
-      "reprioritize": "우선순위 {{priority}}로 변경"
+      "reprioritize": "우선순위 {{priority}}로 변경",
+      "clear": "정리"
     },
     "execution": {
       "model": "실행 모델",
@@ -2038,6 +2039,106 @@
     "deny": "요청 거절",
     "answer": "질문 답변",
     "message": "Task에 전달",
-    "requestChanges": "변경 요청"
+    "requestChanges": "변경 요청",
+    "instructionsDefault": "- 답이나 내가 내려야 할 결정을 먼저 말하고, 답변은 짧게 해 줘.\n- 작업을 맡기기 전에 목표와 완료 기준을 다시 확인하고, 목표나 대상 워크스페이스가 분명하지 않으면 먼저 물어봐 줘.\n- 검토하기 쉬운 작은 단위로 진행하고, 끝내려고 완료 기준을 낮추지 마.\n- 작업이 막히거나 내가 필요하면 무슨 일이 있었는지, 무엇을 권하는지, 내가 무엇을 정해야 하는지 말해 줘.\n- 관찰이 오래됐거나 알 수 없으면 추측하지 말고 그렇다고 말해 줘.",
+    "instructionsUseDefault": "기본값 사용",
+    "instructionsResetDefault": "기본값으로 되돌리기",
+    "instructionsEmptyHint": "상시 지침이 없으면 Tars는 기본 규칙만 따릅니다. 기본값을 출발점으로 삼아 고칠 수 있습니다.",
+    "retention": {
+      "label": "끝난 작업을 패널에 두는 기간",
+      "hint": "이 기간이 지나면 끝난 작업의 카드와 산출물이 패널에서 빠집니다. 삭제되지 않으며 Fleet과 해당 Task에는 남습니다. Draft PR이 아직 끝나지 않은 작업은 그대로 둡니다.",
+      "never": "직접 정리할 때까지",
+      "days_other": "{{count}}일"
+    },
+    "clear": {
+      "scope": {
+        "conversation": "대화",
+        "done": "끝남",
+        "outputs": "산출물"
+      },
+      "hidden": {
+        "conversation_other": "메시지 {{count}}개",
+        "done_other": "끝난 작업 {{count}}개",
+        "outputs_other": "끝난 작업 {{count}}개의 산출물"
+      },
+      "record": {
+        "applied": "정리함",
+        "undone": "되돌림",
+        "fromTars": "Tars 제안"
+      },
+      "restore": "복원",
+      "undo": "되돌리기",
+      "failed": "정리하지 못했습니다. 다시 시도해 주세요.",
+      "announce": {
+        "cleared": "화면에서 정리했습니다.",
+        "restored": "되돌렸습니다."
+      },
+      "card": {
+        "title": "화면에서 정리하시겠습니까?",
+        "subtitle": "아무것도 삭제되지 않습니다. 남는 기록에서 되돌릴 수 있습니다.",
+        "details": "정리할 항목",
+        "kept": "진행 중이거나 기다리는 작업, 결정을 기다리는 항목, Task에 전달을 기다리는 말은 항상 남습니다.",
+        "nothing": "지금 정리할 항목이 없습니다.",
+        "keysHint": "Enter로 정리하고 Esc로 그대로 둡니다.",
+        "decline": "나중에",
+        "confirm": "정리",
+        "declined": "정리하지 않음"
+      },
+      "conversation": {
+        "button": "대화 정리",
+        "title": "대화를 정리하시겠습니까?",
+        "description_other": "메시지 {{count}}개가 이 화면에서 빠지고 Tars의 최근 대화 기억이 새로 시작됩니다. 삭제되는 것은 없습니다. 작업, 결정을 기다리는 항목과 기록은 그대로 남고 복원으로 대화를 되돌릴 수 있습니다.",
+        "confirm": "대화 정리"
+      },
+      "lane": {
+        "clear": "정리",
+        "clearDone": "끝남에서 끝난 작업 정리",
+        "clearOutputs": "끝난 작업의 산출물 정리",
+        "hidden_other": "끝난 작업 {{count}}개 숨김(정리했거나 보관 기간 지남)"
+      }
+    },
+    "suggestions": {
+      "label": "추천 요청",
+      "needsYou": {
+        "label": "내가 확인할 일",
+        "prompt": "지금 내가 확인해야 할 게 뭐야? 각각 어떻게 하면 좋을지도 알려 줘."
+      },
+      "followUp": {
+        "label": "{{title}} 진행 상황",
+        "prompt": "“{{title}}” 진행 상황 알려 줘. 지금 뭘 하고 있고 뭐가 남았어?"
+      },
+      "blocked": {
+        "label": "{{title}} 막힌 이유",
+        "prompt": "“{{title}}” 왜 막혔어? 어떻게 하면 좋을지 알려 줘."
+      },
+      "resume": {
+        "label": "{{title}} 재개",
+        "prompt": "“{{title}}” 다시 진행해 줘."
+      },
+      "startNow": {
+        "label": "{{title}} 바로 시작",
+        "prompt": "“{{title}}” 지금 바로 시작해 줘."
+      },
+      "startQueued": {
+        "label_other": "대기 {{count}}개 바로 시작",
+        "prompt_other": "대기 중인 작업 {{count}}개 모두 지금 시작해 줘."
+      },
+      "publish": {
+        "label": "{{title}} Draft PR 열기",
+        "prompt": "“{{title}}” Draft PR 올려 줘."
+      },
+      "report": {
+        "label": "{{title}} 보고서 보기",
+        "prompt": "“{{title}}” 결과 보고서 보여 줘."
+      },
+      "finishedToday": {
+        "label": "오늘 끝난 일",
+        "prompt": "최근 하루 동안 끝난 일을 요약해 줘. 내가 확인할 것도 알려 줘."
+      },
+      "progress": {
+        "label": "{{title}} 진행 상황",
+        "prompt": "“{{title}}” 진행 상황 알려 줘. 지금 뭘 하고 있고 뭐가 남았어?"
+      }
+    }
   }
 }

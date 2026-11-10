@@ -14,6 +14,7 @@ import {
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
 import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
+import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -43,6 +44,13 @@ export function registerTarsHandlers() {
     const input = CancelTarsMessageInputSchema.parse(rawInput);
     return tarsMessageView(await (await getTarsConversationService()).cancelMessage(input));
   });
+  // Clearing hides views only; main checks a confirmed proposal against the saved one and settles both together.
+  ipcMain.handle(TARS_IPC.clear, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).clear(TarsClearInputSchema.parse(rawInput)));
+  ipcMain.handle(TARS_IPC.undoClear, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).undoClear(TarsUndoClearInputSchema.parse(rawInput)));
+  ipcMain.handle(TARS_IPC.configureView, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).configureView(TarsViewSettingsSchema.parse(rawInput)));
   // An answer names a saved decision and an option index; main reads the option and controls go to the host's act path.
   ipcMain.handle(TARS_IPC.answer, async (_event, rawInput: unknown) => {
     const input = TarsAnswerInputSchema.parse(rawInput);

@@ -14,12 +14,14 @@ import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/ta
 import type { createSecondaryRunCoordinator } from "./runs/secondary-run-coordinator";
 import { processTarsMessage, tarsMessageRunIdentity, type TarsPlannerContext } from "./tars-planner";
 import { isTarsAgentCatalogPending, TarsAgentCatalogPendingError } from "../../src/lib/tars/agents";
+import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema, parseTarsClearProposalRequestId } from "../../src/lib/tars/clearing";
+import { filterTarsConversationView, tarsClearKeeps } from "../../src/lib/tars/clear-view";
 
 type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
 interface ConversationPorts {
   conversations: TarsConversationStore;
   coordinator: Coordinator;
-  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events">;
+  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events" | "view">;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
   /**
@@ -102,10 +104,8 @@ export function createTarsConversationService(ports: ConversationPorts) {
   }
 
   /** The saved state every decision is projected from, read by exact identity where the window could miss it. */
-  function decisions() {
-    // Decisions read words, receipts and origins: never attachment content.
-    const messages = ports.conversations.listViews(DECISION_WINDOW);
-    const receipts = messages.flatMap((message) => ports.conversations.listReceipts(message.id));
+  function decisions(sources = readDecisionMessages()) {
+    const { messages, receipts } = sources;
     const snapshot = ports.responsibilities.snapshot();
     const activity = ports.responsibilities.listActivity(DECISION_WINDOW);
     const ids = [
@@ -119,6 +119,29 @@ export function createTarsConversationService(ports: ConversationPorts) {
       receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)
         ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []));
     return projectTarsDecisions({ messages, receipts, records, answers, activity, responsibilities: snapshot.responsibilities });
+  }
+
+  /** Decisions read words, receipts and origins: never attachment content. */
+  function readDecisionMessages() {
+    const messages = ports.conversations.listViews(DECISION_WINDOW);
+    return { messages, receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)) };
+  }
+
+  /** What a conversation clear keeps in view, from every saved decision rather than the cleared view. */
+  function clearKeeps() {
+    const sources = readDecisionMessages();
+    return { keeps: tarsClearKeeps({ decisions: decisions(sources), receipts: sources.receipts }), messages: sources.messages };
+  }
+
+  /** When the active conversation clear happened; the view and Tars's recent history start after it. */
+  function clearedAt() {
+    return ports.responsibilities.view.activeConversationClear()?.createdAt ?? null;
+  }
+
+  /** Tars's history boundary: the active clear's time and the messages it kept because they were under way. */
+  function historyAfter() {
+    const active = ports.responsibilities.view.activeConversationClear();
+    return active ? { at: active.createdAt, keep: active.inProgress ?? [] } : null;
   }
 
   /**
@@ -235,7 +258,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false) throw new TarsAgentCatalogPendingError();
       activeMessageId = message.id;
       try {
-        await processTarsMessage(message.id, { ...ports, isStopped: () => stopped,
+        await processTarsMessage(message.id, { ...ports, isStopped: () => stopped, historyAfter,
           supersedeStale: (id) => supersedeStaleTarsFollowUp({ events: ports.responsibilities.events, conversations: ports.conversations,
             responsibilities: ports.responsibilities, now }, id),
           claim: (id, revision, at) => claimTarsMessage({ events: ports.responsibilities.events, conversations: ports.conversations, responsibilities: ports.responsibilities }, id, revision, at),
@@ -297,11 +320,46 @@ export function createTarsConversationService(ports: ConversationPorts) {
       const { limit, activityLimit } = GetTarsConversationInputSchema.parse(rawInput);
       // A window reads this on every change: attachment summaries only, the content stays for the planner.
       const messages = ports.conversations.listViews(limit);
-      return TarsConversationSchema.parse({ settings: ports.conversations.getSettings(),
+      const view = ports.responsibilities.view;
+      const active = view.activeConversationClear();
+      const conversation = { settings: ports.conversations.getSettings(),
         activity: ports.responsibilities.listActivity(activityLimit), messages,
         receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)),
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
-        events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit) });
+        events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit),
+        clears: view.listClears(active?.createdAt ?? null, limit), trayClears: view.listTrayClears(),
+        view: { retentionDays: view.getSettings().retentionDays, clearedAt: active?.createdAt ?? null, clearRequestId: active?.requestId ?? null } };
+      // A cleared conversation hides what came before, never what still needs the user.
+      return TarsConversationSchema.parse(active ? filterTarsConversationView(conversation, { clearedAt: active.createdAt, inProgress: active.inProgress ?? [], keeps: clearKeeps().keeps }) : conversation);
+    },
+    /**
+     * Applies one clear from a button or a confirmed Tars proposal
+     * (`clear:<message>:<index>`, settled with it). Hides, never deletes; the
+     * same request id returns the saved record.
+     */
+    clear(rawInput: unknown) {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      const input = TarsClearInputSchema.parse(rawInput);
+      const proposal = parseTarsClearProposalRequestId(input.requestId);
+      const at = now();
+      const previous = clearedAt();
+      return ports.responsibilities.view.clear(input, { responsibilities: ports.responsibilities.snapshot().responsibilities, now: at,
+        hiddenMessages: () => {
+          const { keeps, messages } = clearKeeps();
+          const kept = messages.filter((message) => keeps.messageIds.has(message.id) && message.createdAt <= at && (!previous || message.createdAt > previous)
+            && message.state !== "queued" && message.state !== "reasoning").length;
+          return ports.conversations.countSettledBetween(previous, at) - kept;
+        },
+        inProgress: () => ports.conversations.listInProgressIds(),
+        ...(proposal ? { proposal: { ...proposal, settle: () => { ports.conversations.settleClearProposal(proposal, input.scopes, at); } } } : {}) });
+    },
+    undoClear(rawInput: unknown) {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      return ports.responsibilities.view.undo(TarsUndoClearInputSchema.parse(rawInput).requestId, now());
+    },
+    configureView(rawInput: unknown) {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      return ports.responsibilities.view.configure(TarsViewSettingsSchema.parse(rawInput));
     },
     /** The composer draft is the user's words, not reasoning work: it stays readable and writable while the service is stopped. */
     getDraft() {

@@ -3122,7 +3122,11 @@ interface WindowApi {
    * (`tars:get-brief`) reads one responsibility's saved message and Tars's
    * instruction, which the snapshot leaves out. `getDraft` / `saveDraft`
    * (`tars:get-draft` / `tars:save-draft`) keep the composer draft across
-   * views and restarts. `onChanged` pushes `tars:changed`
+   * views and restarts. `clear` / `undoClear` (`tars:clear` /
+   * `tars:undo-clear`) hide and restore the conversation view, the tray's
+   * Done cards or its outputs, and `configureView` (`tars:configure-view`)
+   * saves how long ended work stays in the tray; nothing is deleted.
+   * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
   tars?: TarsBridgeApi;

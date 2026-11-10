@@ -26,6 +26,8 @@ import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
 import { TRANSCRIPT_OVERFLOW_REPLY } from "@/dev/fixtures/transcript-overflow-fixture";
 import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
+import { createPreviewClearBridge } from "./tars-clear-fixtures";
+import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -114,11 +116,17 @@ export function TarsPreview() {
     // The gallery keeps its own saved state per language (and per spread), so another preview's or language's conversation never replaces it.
     const galleryKey = `stave-preview-gallery-${params.get("lang") === "ko" ? "ko" : "en"}${spread ? "-days" : ""}`;
     const identityKey = gallery ? `${galleryKey}-identity` : "stave-preview-identity";
+    // `newProfile=true`: Tars was never used here (identity never saved, conversation never configured), so it starts with the default standing instructions.
     let snapshot: TarsSnapshot = JSON.parse(sessionStorage.getItem(identityKey) ?? "null") ?? {
-      runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: now }, pendingDecisions: gallery?.pendingDecisions ?? fixtures?.pendingDecisions ?? [],
+      runtime: "desktop", identity: { id: "personal", name: "Tars", instructions: "", updatedAt: params.get("newProfile") === "true" ? TARS_IDENTITY_UNSAVED_AT : now }, pendingDecisions: gallery?.pendingDecisions ?? fixtures?.pendingDecisions ?? [],
       followUps: gallery?.followUps ?? followUp?.followUps ?? [],
       responsibilities: gallery?.responsibilities ?? followUp?.responsibilities ?? side?.responsibilities ?? fixtures?.responsibilities ?? [{ id: "preview-responsibility", requestId: "preview-request", title: "Verify the release candidate across two repositories", instruction: "Inspect the actual result.", acceptanceCriteria: ["The required checks pass on the reviewed revision."], repositoryPath: "/tmp/preview", workspaceId: "preview-workspace", executionWorkspaceId: null, providerId: "codex", model: null, agentId: null, priority: 50, maxTurns: 30, revision: 1, state: "running", detail: "Waiting for the independent review result.", taskId: null, agentRunId: null, reverifyAfter: null, createdAt: now, updatedAt: now }],
     };
+    // `endedDaysAgo=N`: ended work last changed N days before the fixtures' clock, so retention has something old enough to hide.
+    if (params.has("endedDaysAgo") && !sessionStorage.getItem(identityKey)) {
+      const ended = new Date(Date.parse(now) - Number(params.get("endedDaysAgo")) * 86_400_000).toISOString();
+      snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.state === "completed" || row.state === "cancelled" ? { ...row, updatedAt: ended } : row) };
+    }
     // `decision=unverified`: the run reported success Stave could not verify, so Stave's own decision waits.
     if (params.get("decision") === "unverified" && !sessionStorage.getItem(identityKey)) {
       snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.id !== "preview-responsibility" ? row
@@ -161,6 +169,14 @@ export function TarsPreview() {
       { id: "activity-unverified", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate across two repositories",
         state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", createdAt: now });
     const saveConversation = () => sessionStorage.setItem(conversationKey, JSON.stringify(conversation));
+    const conversationView = (): TarsConversation => ({ ...structuredClone(conversation), messages: conversation.messages.map((message) => tarsMessageView(structuredClone(message))) });
+    // Clearing as the host does it; `retentionDays=N` starts with another retention period than the default.
+    const clearing = createPreviewClearBridge({ storageKey: `${conversationKey}-view`, now,
+      ...(params.get("retentionDays") ? { retentionDays: Number(params.get("retentionDays")) } : {}),
+      getSnapshot: () => snapshot, getConversation: () => ({ ...conversation, messages: conversation.messages.map((message) => tarsMessageView(message)) }), changed: saveConversation });
+    /** One second after anything saved, clears included, so a new message never lands before a clear. */
+    const nextPreviewAt = () => new Date(Math.max(Date.parse(now) + (conversation.messages.length + conversation.records.length + 1) * 1000,
+      ...(clearing.view(conversationView()).clears ?? []).map((record) => Date.parse(record.updatedAt) + 1000))).toISOString();
     // Live progress stays out of the transcript; only the block that needs the user reads as a notice.
     if (params.get("activity") === "true" && !conversation.activity.length) conversation.activity.push(
       { id: "activity-initial", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate", state: "running", detail: null, createdAt: now },
@@ -222,7 +238,10 @@ export function TarsPreview() {
     const bridge: TarsBridgeApi = {
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
       reprioritize: async (input) => reprioritize(input),
-      get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone(snapshot)); },
+      get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone({ ...snapshot, cleared: clearing.cleared() })); },
+      clear: (input) => clearing.clear(input),
+      undoClear: (input) => clearing.undoClear(input),
+      configureView: (input) => clearing.configureView(input),
       // `briefFailure=once`: the first opening's reads fail (a development mount reads twice), so its Retry has something to do.
       getBrief: async ({ responsibilityId }) => {
         briefReads++;
@@ -231,7 +250,8 @@ export function TarsPreview() {
         if (!row) throw new Error("The responsibility was not found.");
         return buildTarsBrief(row);
       },
-      updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input } }; sessionStorage.setItem(identityKey, JSON.stringify(snapshot)); return structuredClone(snapshot); },
+      updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input, updatedAt: nextPreviewAt() } }; sessionStorage.setItem(identityKey, JSON.stringify(snapshot));
+        return structuredClone({ ...snapshot, cleared: clearing.cleared() }); },
       create: async () => { throw new Error("Use the global conversation."); },
       act: async (input) => act(input),
       answer: async ({ decisionId, optionIndex, source }): Promise<TarsAnswerResult> => {
@@ -291,7 +311,7 @@ export function TarsPreview() {
         if (draft && !conversation.messages.some((message) => message.requestId === draft.requestId)) sessionStorage.setItem(draftKey, JSON.stringify(draft));
         else sessionStorage.removeItem(draftKey);
       },
-      getConversation: async () => ({ ...structuredClone(conversation), messages: conversation.messages.map((message) => tarsMessageView(structuredClone(message))) }),
+      getConversation: async () => clearing.view(conversationView()),
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
         if (Object.keys(input).some((key) => !["requestId", "text", "includeWorkingChanges", "attachments"].includes(key)))
@@ -315,6 +335,14 @@ export function TarsPreview() {
           if (side && /report|보고서/i.test(input.text)) {
             decision.reply = params.get("lang") === "ko" ? "결제 화면 작업의 결과 보고서를 옆에 열었습니다." : "I opened the checkout work's result report beside the conversation.";
             decision.actions.push({ kind: "show", responsibilityId: side.ids.checkout, view: "report" });
+          }
+          // Asking to clear proposes it: the card waits for the user's confirmation, as the host's proposal does.
+          if (/\bclear\b|정리|지워/i.test(input.text)) {
+            const korean = params.get("lang") === "ko";
+            const scopes = /\beverything\b|\ball\b|전부|모두/i.test(input.text) ? ["conversation", "done", "outputs"] as const
+              : /done|finished|끝난/i.test(input.text) ? ["done"] as const : ["conversation"] as const;
+            decision.reply = korean ? "정리 카드를 띄웠습니다. 확인하면 화면에서만 정리되고 삭제되는 것은 없습니다." : "Here is the clear card. Confirming hides these from view; nothing is deleted.";
+            decision.actions.push({ kind: "clear", scopes: [...scopes] });
           }
           if (params.get("receipt")) decision.actions.push({ kind: "delegate", workspaceId: "preview-workspace", title: "Check the review", instruction: "Review the current work.", acceptanceCriteria: ["The review is complete."], priority: 50 });
           const proposal = params.get("proposal");
@@ -348,11 +376,11 @@ export function TarsPreview() {
               ] });
           }
           const pending = params.get("conversationPending") === "true";
-          const createdAt = new Date(Date.parse(now) + (conversation.messages.length + 1) * 1000).toISOString();
+          const createdAt = nextPreviewAt();
           message = { ...input, ...conversation.settings, id: input.requestId, state: pending ? (conversation.messages.length ? "queued" : "reasoning") : "answered", revision: 1, decision: pending ? null : decision, reply: pending ? null : decision.reply, error: null, createdAt, updatedAt: createdAt };
           conversation.messages.push(message);
           const proposed = decision.actions[0];
-          if (proposed) conversation.receipts.push(proposed.kind === "control" || proposed.kind === "ask"
+          if (proposed) conversation.receipts.push(proposed.kind === "control" || proposed.kind === "ask" || proposed.kind === "clear"
             // Model-proposed authority-granting or terminal controls wait for a confirming click; a question waits for its answer.
             ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null, revision: 1, createdAt, updatedAt: createdAt }
             : { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "applied",
