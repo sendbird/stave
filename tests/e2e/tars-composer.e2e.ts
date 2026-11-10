@@ -359,8 +359,8 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
       expect(after.switcherRight).toBeLessThanOrEqual(after.right);
       // Live progress reads at the 13px interface row in the timeline, and at the conversation's
       // secondary step (14px beside 16px messages) in the composer band.
-      const sizes = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-live-line], [data-tars-recent-entry]")]
-        .filter((element) => !element.closest("[data-tars-running-strip]")).map((element) => parseFloat(getComputedStyle(element).fontSize)));
+      const sizes = await side.evaluate((root) => [...root.querySelectorAll("[data-tars-live-line], [data-tars-recent-entry]")]
+        .map((element) => parseFloat(getComputedStyle(element).fontSize)));
       expect(sizes.length).toBeGreaterThan(1);
       expect(new Set(sizes)).toEqual(new Set([13]));
       const band = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-running-strip] [data-tars-live-line]")]
