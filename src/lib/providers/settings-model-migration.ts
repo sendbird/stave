@@ -4,6 +4,7 @@ import {
   DEFAULT_CLAUDE_SONNET_MODEL,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
+  upgradeSettingsScopedClaudeModel,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_MODEL_SHORTCUT_KEYS } from "@/lib/providers/model-shortcuts";
 import type { TaskPreset } from "@/lib/task-presets";
@@ -253,6 +254,35 @@ const SOL_6_MODEL_SHORTCUT_KEYS = [
   "",
 ];
 
+/**
+ * Shortcut slots are normalized before the migration runs, and that
+ * normalization moves a retired Claude id (Fable 5.1, for example) onto its
+ * successor. An untouched frozen seed therefore arrives in either its raw or
+ * its upgraded form; both still mean the user never edited it.
+ */
+function matchesFrozenShortcutSeed(
+  keys: readonly string[],
+  seed: readonly string[],
+) {
+  const claudePrefix = "claude-code:";
+  return (
+    keys.length === seed.length &&
+    keys.every((key, index) => {
+      const seedKey = seed[index] ?? "";
+      if (key === seedKey) {
+        return true;
+      }
+      return (
+        seedKey.startsWith(claudePrefix) &&
+        key ===
+          `${claudePrefix}${upgradeSettingsScopedClaudeModel({
+            model: seedKey.slice(claudePrefix.length),
+          })}`
+      );
+    })
+  );
+}
+
 export function migrateSettingsModelDefaults(
   input: SettingsModelMigrationInput,
 ): SettingsModelMigrationResult {
@@ -277,10 +307,7 @@ export function migrateSettingsModelDefaults(
       result.changed = true;
     }
     if (
-      result.modelShortcutKeys.length === V1_MODEL_SHORTCUT_KEYS.length &&
-      result.modelShortcutKeys.every(
-        (key, index) => key === V1_MODEL_SHORTCUT_KEYS[index],
-      )
+      matchesFrozenShortcutSeed(result.modelShortcutKeys, V1_MODEL_SHORTCUT_KEYS)
     ) {
       result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
       result.changed = true;
@@ -391,10 +418,7 @@ function applySol61Migration(result: SettingsModelMigrationResult) {
     result.changed = true;
   }
   if (
-    result.modelShortcutKeys.length === SOL_6_MODEL_SHORTCUT_KEYS.length &&
-    result.modelShortcutKeys.every(
-      (key, index) => key === SOL_6_MODEL_SHORTCUT_KEYS[index],
-    )
+    matchesFrozenShortcutSeed(result.modelShortcutKeys, SOL_6_MODEL_SHORTCUT_KEYS)
   ) {
     result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
     result.changed = true;

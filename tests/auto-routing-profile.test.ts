@@ -130,6 +130,16 @@ describe("resolveRoute", () => {
       .eligibleModelsByProvider["claude-code"]).toEqual([DEFAULT_CLAUDE_HAIKU_MODEL]);
   });
 
+  test("a stored allow list that names Fable 5.1 moves onto Fable 5.2", () => {
+    const stored = validateProfile({
+      ...balanced,
+      eligibleModelsByProvider: { "claude-code": ["claude-fable-5-1", DEFAULT_CLAUDE_SONNET_MODEL] },
+    });
+    expect(stored.eligibleModelsByProvider["claude-code"]).toEqual(["claude-fable-5-2", DEFAULT_CLAUDE_SONNET_MODEL]);
+    expect(resolveRouteTierForModel("claude-fable-5-2")).toBe("frontier");
+    expect(resolveRouteTierForModel("claude-fable-5-1")).toBe("frontier");
+  });
+
   test("GPT-6.1 Terra is the balanced Codex rung, ahead of a runtime-listed GPT-5.6 Terra", () => {
     expect(resolveRouteTierForModel("gpt-6.1-terra")).toBe("balanced");
     expect(resolveRoute({ profile: balanced, role: "primary",

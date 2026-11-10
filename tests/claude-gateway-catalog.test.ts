@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { configuredGatewayCatalog, loadProviderModelCatalog } from "../src/lib/providers/use-provider-model-catalogs";
 import { useProviderAccounts } from "../src/lib/providers/use-provider-accounts";
-import { claudeModelForcesAdaptiveThinking, claudeFastModeEnabled } from "../src/lib/providers/claude-model-requirements";
+import { CLAUDE_FABLE_52_MINIMUM_VERSION, claudeModelForcesAdaptiveThinking, claudeFastModeEnabled, getClaudeModelVersionGuidance } from "../src/lib/providers/claude-model-requirements";
 import { modelAcceptsExplicitEffort } from "../src/lib/providers/model-effort";
 
 test("Gateway selection uses only its configured models and native selection restores the catalog", async () => {
@@ -25,7 +25,12 @@ test("Gateway routing prefixes retain native model requirements", () => {
     expect(modelAcceptsExplicitEffort({ providerId: "claude-code", model: `${prefix}claude-haiku-5-5` })).toBe(true);
     expect(claudeModelForcesAdaptiveThinking(`${prefix}claude-haiku-5-5`)).toBe(true);
     expect(claudeFastModeEnabled(true, `${prefix}claude-haiku-5-5`)).toBe(false);
+    expect(claudeModelForcesAdaptiveThinking(`${prefix}claude-fable-5-2`)).toBe(true);
+    // Fable 5.2 offers fast mode, unlike Sonnet 5.5 and Haiku 5.5.
+    expect(claudeFastModeEnabled(true, `${prefix}claude-fable-5-2`)).toBe(true);
+    expect(getClaudeModelVersionGuidance(`${prefix}claude-fable-5-2`)).toContain(CLAUDE_FABLE_52_MINIMUM_VERSION);
   }
   expect(claudeModelForcesAdaptiveThinking("claude-haiku-4-5")).toBe(false);
   expect(claudeFastModeEnabled(true, "claude-opus-5-5")).toBe(true);
+  expect(getClaudeModelVersionGuidance("claude-fable-5-1")).toBeUndefined();
 });

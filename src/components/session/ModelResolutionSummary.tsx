@@ -44,7 +44,7 @@ export interface ActualRunModel {
 }
 
 /**
- * `Claude Fable 5.1 · High`. The effort rides beside the model
+ * `Claude Fable 5.2 · High`. The effort rides beside the model
  * because the two are chosen together in the composer; a run record that
  * names only the model hides half of what was asked of it.
  */
