@@ -1,3 +1,21 @@
+## [0.33.1](https://github.com/sendbird/stave/compare/v0.33.0...v0.33.1) (2026-11-10)
+
+This patch release includes the eight merged changes since 0.33.0.
+
+### Changes
+
+- The Tars conversation drops the name line over replies, shows a short time only on hover or focus, shows attached files as chips, cancels with an icon, shows Thinking where the reply will appear, and turns failures into notices with Edit and resend. Its text follows the chat font size setting (#927).
+- Tars records (delegation receipts, direct controls, queue moves, words for a busy run, publish outcomes, notices) read as status rows with an icon in one grouped block; question cards become a radio list with reasons and an Answer button; more code languages are highlighted (#929).
+- Tars tray cards show decisions waiting on you at full width with the branch as small header metadata, and side views give each section clear spacing (#928).
+- Independent agent runs no longer wait on each other's starts, controls and replies; only a short session update inside the same workspace is ordered (#925).
+- Global surfaces no longer repeat their title in the top bar (#931). Closed task tabs stay closed when a workspace opens (#930), and a running turn's reply stays above pinned cards (#932).
+- Claude Fable 5.2 replaces Fable 5.1 as the frontier Claude model (#926).
+- The Tars dev preview gains a gallery of every conversation case (`?stavePreview=tars&gallery=true`), and CI splits the layout suite into two shards.
+
+### References
+
+- [PR #925](https://github.com/sendbird/stave/pull/925), [PR #926](https://github.com/sendbird/stave/pull/926), [PR #927](https://github.com/sendbird/stave/pull/927), [PR #928](https://github.com/sendbird/stave/pull/928), [PR #929](https://github.com/sendbird/stave/pull/929), [PR #930](https://github.com/sendbird/stave/pull/930), [PR #931](https://github.com/sendbird/stave/pull/931), [PR #932](https://github.com/sendbird/stave/pull/932)
+
 ## [0.33.0](https://github.com/sendbird/stave/compare/v0.32.1...v0.33.0) (2026-11-10)
 
 This minor release includes the twelve merged changes since 0.32.1. Most of them answer feedback from using Tars day to day.

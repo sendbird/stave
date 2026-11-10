@@ -4,12 +4,12 @@ title: Stave 사용자 가이드
 product: Stave
 brandSub: Guide
 versionLabel: v1
-status: Current · Stave 0.32.0 기준
+status: Current · Stave 0.33.1 기준
 statusTone: current
 captured: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
 recorder: jacob.kim
-footer: Stave 사용자 가이드 v1 · Stave 0.32.0(main df0f0f0b) 기준 · 원문은 저장소 docs/heron, 화면은 docs/screenshots/guide에 있습니다.
+footer: Stave 사용자 가이드 v1 · Stave 0.33.1 기준 · 원문은 저장소 docs/heron, 화면은 docs/screenshots/guide에 있습니다.
 ---
 
 @page start | 시작하기 | Stave 한눈에 보기 | guide
@@ -17,7 +17,7 @@ footer: Stave 사용자 가이드 v1 · Stave 0.32.0(main df0f0f0b) 기준 · �
 
 ```meta
 대상 | Stave를 처음 쓰는 개발자 | 설치부터 에이전트에게 목표를 맡기는 단계까지
-기준 버전 | Stave 0.32.0 | main `df0f0f0b`, 0.32.0 릴리스 커밋
+기준 버전 | Stave 0.33.1 | 0.33.1 릴리스
 화면 | 합성 데이터로 찍은 캡처 | 한국어 UI. 저장소의 `docs/screenshots/guide/ko`에 있습니다
 UI 언어 | 영어(기본)와 한국어 | 설정 > 일반 > 언어에서 바꿉니다
 ```
@@ -857,7 +857,7 @@ macOS는 Cmd, Windows와 Linux는 Ctrl입니다. 전체 목록은 Cmd/Ctrl+/ 로
 
 ## 이 판에서 확인한 것과 하지 않은 것
 
-- 라벨과 동작은 기능을 바꾼 변경마다 그 소스와 한국어·영어 문구 파일에서 확인했습니다. 0.32.0 전체를 한 번에 다시 대조하지는 않았습니다.
+- 라벨과 동작은 기능을 바꾼 변경마다 그 소스와 한국어·영어 문구 파일에서 확인했습니다. 0.33.1 전체를 한 번에 다시 대조하지는 않았습니다.
 - 스크린샷은 합성 데이터로 개발용 화면을 찍은 것입니다. 실제 프로바이더에 로그인한 상태의 동작은 이 판에서 다시 실행해 보지 않았습니다.
 - Lens 스크린샷은 브라우저 빌드에서 찍어 도구 막대만 보입니다.
 
