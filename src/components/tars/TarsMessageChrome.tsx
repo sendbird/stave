@@ -14,16 +14,18 @@ import type { AttachmentContext } from "@/lib/providers/attachment-context";
 import { tarsAttachmentSummary, type TarsAttachmentSummary, type TarsMessageView } from "@/lib/tars/conversation";
 import { describeTarsMessageFailure } from "@/lib/tars/detail";
 import { useAppStore } from "@/store/app.store";
-import { TARS_TEXT_SIZE, tarsMessageStyles as styles } from "./tars-message.styles";
+import { chatTypeScaleVars } from "@/components/ai-elements/message-text-scale";
+import { tarsMessageStyles as styles } from "./tars-message.styles";
 
 /**
- * The conversation's text size, from the chat font size setting the task chat
- * also reads. The conversation column sets it; status lines, failures, times
- * and file details are sized from it (`tars-message.styles`).
+ * The conversation's type scale (`chat-type.stylex.ts`) for the chat font size
+ * setting the task chat also reads. The conversation column sets it; status
+ * lines, failures, times, file chips, the running strip and the composer are
+ * sized from it.
  */
 export function useTarsTextScale(): CSSProperties {
   const size = useAppStore((state) => state.settings.messageFontSize);
-  return { [TARS_TEXT_SIZE]: `${size}px` } as CSSProperties;
+  return chatTypeScaleVars(size);
 }
 
 /**
@@ -33,7 +35,7 @@ export function useTarsTextScale(): CSSProperties {
  */
 export function TarsMessageTime({ at, side }: { at: string; side: "start" | "end" }) {
   return <span className={sx(styles.time, side === "end" ? styles.timeEnd : styles.timeStart)} data-tars-message-time="">
-    <RelativeTime past date={at} />
+    <RelativeTime past date={at} triggerXstyle={styles.timeTrigger} />
   </span>;
 }
 
@@ -43,6 +45,14 @@ const CODE_TYPES = /^(?:[cm]?[jt]sx?|py|rb|rs|go|java|kt|swift|sh|sql|css|scss|h
 function AttachmentIcon({ summary }: { summary: TarsAttachmentSummary }) {
   const Icon = summary.kind === "image" ? ImageIcon : /^(?:diff|patch)$/i.test(summary.type) ? FileDiff : CODE_TYPES.test(summary.type) ? FileCode2 : FileText;
   return <Icon aria-hidden="true" className={sx(styles.fileIcon)} />;
+}
+
+/** A chip's words on the conversation's scale; the AUI chip keeps its truncation and ink. */
+function ChipName({ children }: { children: ReactNode }) {
+  return <span className={sx(styles.chipName)}>{children}</span>;
+}
+function ChipMeta({ children }: { children: ReactNode }) {
+  return <span className={sx(styles.chipMeta)}>{children}</span>;
 }
 
 /** "1.2 KB · YAML": the size, then the file type or image format. */
@@ -66,10 +76,10 @@ export function TarsMessageAttachments({ attachments, workingChanges }: { attach
   return <>
     {attachments.length ? <ul className={sx(styles.fileList)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">
       {attachments.map((summary, index) => <li key={index} className={sx(styles.fileItem)} data-tars-attachment-kind={summary.kind}>
-        <Attachment name={summary.name} meta={meta(summary)} icon={<AttachmentIcon summary={summary} />} xstyle={styles.chip} title={summary.name} />
+        <Attachment name={<ChipName>{summary.name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} icon={<AttachmentIcon summary={summary} />} xstyle={styles.chip} title={summary.name} />
       </li>)}
     </ul> : null}
-    {workingChanges ? <Attachment name={t("shell:tars.conversation.workingChanges.badge")} icon={<FileDiff aria-hidden="true" className={sx(styles.fileIcon)} />}
+    {workingChanges ? <Attachment name={<ChipName>{t("shell:tars.conversation.workingChanges.badge")}</ChipName>} icon={<FileDiff aria-hidden="true" className={sx(styles.fileIcon)} />}
       xstyle={styles.chip} data-tars-message-working-changes="" /> : null}
   </>;
 }
@@ -88,7 +98,7 @@ export function TarsComposerAttachments({ parts, nameOf, onRemove }: {
     {parts.map((part) => {
       const name = nameOf(part);
       const summary = tarsAttachmentSummary(part);
-      return <Attachment key={name} name={name} meta={meta(summary)} xstyle={styles.chip} title={name}
+      return <Attachment key={name} name={<ChipName>{name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} xstyle={styles.chip} title={name}
         icon={part.type === "image_context" ? <img src={part.dataUrl} alt="" className={sx(styles.thumbnail)} /> : <AttachmentIcon summary={summary} />}
         onRemove={onRemove ? () => onRemove(name) : undefined} removeLabel={t("shell:tars.conversation.attachments.remove", { name })} />;
     })}

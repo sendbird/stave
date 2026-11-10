@@ -1,18 +1,18 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
 /**
- * The conversation's text sizes, from the chat font size setting (the one the
- * task chat reads). The conversation column publishes it as `--tars-text-size`
- * (`useTarsTextScale`); a message drawn outside that column falls back to the
- * setting's default, 16px.
+ * The conversation's type scale (`chat-type.stylex.ts`), which the Tars column
+ * sets from the chat font size setting the task chat also reads
+ * (`useTarsTextScale`). Status lines and failures take `secondary`; times and
+ * file details `meta`. A message drawn outside that column reads the scale at
+ * the setting's default, 16px.
  */
-export const TARS_TEXT_SIZE = "--tars-text-size";
-const TEXT = `var(${TARS_TEXT_SIZE}, ${vars["--aui-font-size-lead"]})`;
-/** Status lines and failure text: 14px beside 16px messages, never under the caption tier. */
-const SECONDARY = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
-/** Times and file details: 12px beside 16px messages, never under the micro tier. */
-const CAPTION = `max(${vars["--aui-font-size-micro"]}, calc(${TEXT} * 0.75))`;
+const SECONDARY = chatType["--chat-type-secondary"];
+const SECONDARY_LEADING = chatType["--chat-type-secondary-leading"];
+const META = chatType["--chat-type-meta"];
+const META_LEADING = chatType["--chat-type-meta-leading"];
 
 /**
  * An exchange publishes whether it is hovered or holds focus, so its time can
@@ -53,13 +53,29 @@ export const tarsMessageStyles = stylex.create({
     maxWidth: "100%",
     paddingBlockEnd: vars["--aui-space-2"],
     color: vars["--aui-color-text-muted"],
-    fontSize: CAPTION,
-    lineHeight: vars["--aui-line-height-caption"],
+    fontSize: META,
+    lineHeight: META_LEADING,
     whiteSpace: "nowrap",
     opacity: `var(${REVEAL}, 1)`,
     transitionProperty: { default: "opacity", "@media (prefers-reduced-motion: reduce)": "none" },
     transitionDuration: vars["--aui-motion-duration-quick"],
     transitionTimingFunction: vars["--aui-motion-ease-standard"],
+  },
+  /**
+   * The time's button keeps the line above (the AUI trigger's own is `normal`)
+   * and gets a 24px hit area without a larger box: the area grows upward into
+   * the gap above the exchange, so it never covers the message under it.
+   */
+  timeTrigger: {
+    position: "relative",
+    lineHeight: "inherit",
+    "::before": {
+      content: '""',
+      position: "absolute",
+      insetBlockStart: `min(0px, calc(100% - ${vars["--aui-control-height-2xs"]}))`,
+      insetBlockEnd: 0,
+      insetInline: `min(0px, calc((100% - ${vars["--aui-control-height-2xs"]}) / 2))`,
+    },
   },
   timeEnd: { insetInlineEnd: 0 },
   timeStart: { insetInlineStart: 0 },
@@ -79,6 +95,9 @@ export const tarsMessageStyles = stylex.create({
   fileItem: { display: "flex", minWidth: 0, maxWidth: "100%" },
   /** A chip never grows past the column; a long name ends in an ellipsis. */
   chip: { maxInlineSize: "min(100%, 20rem)" },
+  /** A chip's name and its size and type, on the scale's secondary and meta steps (AUI sets fixed 14px and 12px). */
+  chipName: { fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
+  chipMeta: { fontSize: META, lineHeight: META_LEADING },
   fileIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
   /** A picked image's own pixels, the size of a small control, in the composer's chip. */
   thumbnail: {
@@ -90,14 +109,14 @@ export const tarsMessageStyles = stylex.create({
   /** Where Tars's reply will be: what the message is doing now, one quiet line. */
   status: {
     display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, minHeight: vars["--aui-control-height-2xs"],
-    margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: vars["--aui-line-height-control"],
+    margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING,
   },
   statusLabel: { minWidth: 0, overflowWrap: "anywhere" },
   cancelIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
   /** A failure in the conversation: the AUI notice at the conversation's secondary size, compact enough to sit between messages. */
   notice: { paddingBlock: vars["--aui-space-12"], paddingInline: vars["--aui-space-16"], gap: vars["--aui-space-8"] },
-  noticeTitle: { fontSize: SECONDARY },
-  noticeBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], fontSize: SECONDARY, color: vars["--aui-color-text-muted"] },
+  noticeTitle: { fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
+  noticeBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING, color: vars["--aui-color-text-muted"] },
   noticeText: { margin: 0 },
   actionIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
   /**

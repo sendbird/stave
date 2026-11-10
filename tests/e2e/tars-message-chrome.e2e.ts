@@ -157,8 +157,9 @@ test("the conversation's text follows the chat font size, with secondary text sc
     expect(sizes.user).toBe(size);
     expect(sizes.reply).toBe(size);
     expect(sizes.composer).toBe(size);
-    expect(sizes.status).toBeCloseTo(size * 0.875, 1);
-    expect(sizes.notice).toBeCloseTo(size * 0.875, 1);
-    expect(sizes.time).toBeCloseTo(size * 0.75, 1);
+    // The conversation scale's secondary and meta steps, in whole pixels (`chatTypeScale`).
+    expect(sizes.status).toBe(Math.round(size * 0.875));
+    expect(sizes.notice).toBe(Math.round(size * 0.875));
+    expect(sizes.time).toBe(Math.round(size * 0.75));
   }
 });

@@ -38,7 +38,8 @@ Host modifications are intentional and retained when refreshing the bundle:
   the card's `utcLabel` are required props the host fills
   (`src/components/system/RelativeTime.tsx`, with `formatRelativeTimeShort` from
   `src/i18n/format.ts`, or `formatTimeAgo` for a moment that already happened,
-  and the display language's locale).
+  and the display language's locale). It also takes `triggerXstyle`, host-owned
+  geometry for the trigger button (the Tars message time's line box and 24px hit area).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 - Plan takes three optional props the host needs to draw every plan on it (the
