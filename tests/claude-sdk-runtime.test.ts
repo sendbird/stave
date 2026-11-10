@@ -2014,6 +2014,19 @@ describe("buildClaudeQueryOptions", () => {
     });
   });
 
+  test("falls back from Fable 5.2 to Fable 5.1 when no fallback is configured", () => {
+    const options = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: { model: "claude-fable-5-2" },
+    });
+
+    expect(options).toMatchObject({
+      model: "claude-fable-5-2",
+      fallbackModel: "claude-fable-5-1",
+    });
+  });
+
   test("falls back from Haiku 5.5 to Haiku 4.5 when no fallback is configured", () => {
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,

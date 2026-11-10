@@ -5,6 +5,8 @@ export const CLAUDE_OPUS_55_MINIMUM_VERSION = "2.1.280";
 export const CLAUDE_SONNET_55_MINIMUM_VERSION = "2.1.284";
 /** Claude Code version that adds Haiku 5.5 and resolves `haiku` to it. */
 export const CLAUDE_HAIKU_55_MINIMUM_VERSION = "2.1.293";
+/** First Claude Code release whose model table carries Fable 5.2. */
+export const CLAUDE_FABLE_52_MINIMUM_VERSION = "2.1.321";
 
 /** Routing prefixes do not change the underlying Claude model's capabilities. */
 export function normalizeClaudeModelId(model?: string) {
@@ -22,6 +24,9 @@ export function getClaudeModelVersionGuidance(model: string): string | undefined
   if (/^claude-haiku-5-5$/.test(trimmed)) {
     return i18n.t("providers:claudeModelRequirements.requiresClaudeCodeOrNewerRun", { value1: CLAUDE_HAIKU_55_MINIMUM_VERSION });
   }
+  if (/^claude-fable-5-2$/.test(trimmed)) {
+    return i18n.t("providers:claudeModelRequirements.requiresClaudeCodeOrNewerRun", { value1: CLAUDE_FABLE_52_MINIMUM_VERSION });
+  }
   return undefined;
 }
 
@@ -30,15 +35,17 @@ function claudeBareModelId(model?: string) {
 }
 
 const ADAPTIVE_THINKING_ONLY_MODELS: ReadonlySet<string> = new Set([
+  "claude-fable-5-2",
   "claude-opus-5-5",
   "claude-sonnet-5-5",
   "claude-haiku-5-5",
 ]);
 
 /**
- * Opus 5.5 and Sonnet 5.5 reject disabled and budget-based thinking. Haiku 5.5
- * rejects budget-based thinking, and disabled thinking at xhigh or max effort.
- * Stave keeps all three on adaptive thinking; effort sets the depth.
+ * Fable 5.2, Opus 5.5 and Sonnet 5.5 reject disabled and budget-based
+ * thinking. Haiku 5.5 rejects budget-based thinking, and disabled thinking at
+ * xhigh or max effort. Stave keeps all four on adaptive thinking; effort sets
+ * the depth.
  */
 export function claudeModelForcesAdaptiveThinking(model?: string) {
   return ADAPTIVE_THINKING_ONLY_MODELS.has(claudeBareModelId(model));

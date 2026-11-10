@@ -61,7 +61,7 @@ describe("provider usage summary", () => {
 
   test("a model's own window marks that model, not the whole provider", () => {
     const summary = summarize(claude(20, 30, { fableWeekly: { usedPercent: 100, resetsAt: IN_AN_HOUR } }));
-    expect(summary).toMatchObject({ status: "headroom", usedPercent: 30, exhaustedModels: ["claude-fable-5-1"] });
+    expect(summary).toMatchObject({ status: "headroom", usedPercent: 30, exhaustedModels: ["claude-fable-5-2"] });
   });
 
   test("Codex buckets read the same way, and a partial reading says so", () => {

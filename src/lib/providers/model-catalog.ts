@@ -18,7 +18,13 @@ export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5-5";
 export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5-5[1m]";
 export const DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL = "claude-opus-4-8";
 export const DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL = "claude-opus-4-8[1m]";
-export const CLAUDE_FABLE_MODEL = "claude-fable-5-1";
+// Claude Fable 5.2 is the frontier Claude model. Claude Code 2.1.321 or newer
+// knows the id; an older CLI, or an outage, falls back to Fable 5.1 (see
+// `resolveDefaultClaudeFallbackModel`).
+export const CLAUDE_FABLE_MODEL = "claude-fable-5-2";
+// Previous frontier Claude model. Kept resolvable for historical turns and as
+// the runtime fallback; a pinned id moves onto Fable 5.2.
+export const LEGACY_CLAUDE_FABLE_MODEL = "claude-fable-5-1";
 // Claude Sonnet 5.5 is the current balanced-tier Sonnet. The id is passed
 // through to the Anthropic API, which decides availability. Claude Code
 // 2.1.284 or newer resolves the `sonnet` alias to this id; the selector
@@ -47,11 +53,12 @@ const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
   "claude-sonnet-4-6": DEFAULT_CLAUDE_SONNET_MODEL,
   "claude-sonnet-4-6[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
   "claude-fable-5": CLAUDE_FABLE_MODEL,
+  [LEGACY_CLAUDE_FABLE_MODEL]: CLAUDE_FABLE_MODEL,
   [LEGACY_CLAUDE_HAIKU_MODEL]: DEFAULT_CLAUDE_HAIKU_MODEL,
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
-// Latest models comparison (as of 2026-10-08)
+// Latest models comparison (as of 2026-11-10)
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
@@ -568,6 +575,13 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
     defaultClaudeEffort: "medium",
   },
+  [LEGACY_CLAUDE_FABLE_MODEL]: {
+    providerId: "claude-code",
+    model: LEGACY_CLAUDE_FABLE_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "medium",
+  },
   [DEFAULT_CLAUDE_OPUS_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,
@@ -860,6 +874,16 @@ export function upgradePinnedHaikuModel(model: string) {
     : model;
 }
 
+/**
+ * Moves a pinned Fable 5.1 id onto Fable 5.2. Auto's allowed-model lists store
+ * model ids outside the settings-scoped upgrade, so they call this directly.
+ */
+export function upgradePinnedFableModel(model: string) {
+  return model.trim().toLowerCase() === LEGACY_CLAUDE_FABLE_MODEL
+    ? CLAUDE_FABLE_MODEL
+    : model;
+}
+
 export function upgradeSettingsScopedClaudeModel(args: { model: string }) {
   const normalizedModel = args.model.trim().toLowerCase();
   const upgraded = LEGACY_AUTOMATIC_CLAUDE_MODELS[normalizedModel];
@@ -889,6 +913,11 @@ export function resolveDefaultClaudeFallbackModel(args: {
   // falls back to the previous light-tier model instead of failing the call.
   if (normalizedModel === DEFAULT_CLAUDE_HAIKU_MODEL) {
     return LEGACY_CLAUDE_HAIKU_MODEL;
+  }
+  // Fable 5.2 needs Claude Code 2.1.321 or newer. Fable 5.1 keeps the frontier
+  // rung on an older CLI or during an outage.
+  if (normalizedModel === CLAUDE_FABLE_MODEL) {
+    return LEGACY_CLAUDE_FABLE_MODEL;
   }
   return undefined;
 }
@@ -1253,6 +1282,12 @@ const CODEX_PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing";
  */
 export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
   [CLAUDE_FABLE_MODEL]: {
+    inputPerMTok: 8,
+    outputPerMTok: 40,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-11-10",
+  },
+  [LEGACY_CLAUDE_FABLE_MODEL]: {
     inputPerMTok: 10,
     outputPerMTok: 50,
     source: CLAUDE_PRICING_SOURCE,
@@ -1438,7 +1473,8 @@ export function findHumanModelName(args: { model: string }): string | null {
 
   // 2. Static known names
   const known: Record<string, string> = {
-    [CLAUDE_FABLE_MODEL]: "Claude Fable 5.1",
+    [CLAUDE_FABLE_MODEL]: "Claude Fable 5.2",
+    [LEGACY_CLAUDE_FABLE_MODEL]: "Claude Fable 5.1",
     "claude-fable-5": "Claude Fable 5",
     [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 5.5",
     [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 5.5 (1M)",
