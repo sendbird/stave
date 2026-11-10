@@ -159,6 +159,9 @@ import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
 import { SaveTarsComposerDraftInputSchema, TarsComposerDraftSchema } from "../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../src/lib/tars/clearing";
 import {
+  TarsScheduleConfirmInputSchema, TarsScheduleListSchema, TarsSchedulePreviewInputSchema, TarsSchedulePreviewSchema, TarsScheduleResultSchema, TarsScheduleToggleInputSchema,
+} from "../src/lib/tars/schedules";
+import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
   type AgentRunsBridgeApi,
@@ -872,6 +875,10 @@ const tarsApi: TarsBridgeApi = {
   clear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.clear, TarsClearInputSchema.parse(input))),
   undoClear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoClear, TarsUndoClearInputSchema.parse(input))),
   configureView: async (input) => TarsViewSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureView, TarsViewSettingsSchema.parse(input))),
+  previewSchedule: async (input) => TarsSchedulePreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedulePreview, TarsSchedulePreviewInputSchema.parse(input))),
+  confirmSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedule, TarsScheduleConfirmInputSchema.parse(input))),
+  toggleSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.scheduleToggle, TarsScheduleToggleInputSchema.parse(input))),
+  listSchedules: async () => TarsScheduleListSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedules)),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);

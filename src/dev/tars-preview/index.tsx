@@ -28,6 +28,7 @@ import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 import { createPreviewClearBridge } from "./tars-clear-fixtures";
 import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
+import { createPreviewScheduleBridge } from "./tars-schedule-fixtures";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -169,6 +170,10 @@ export function TarsPreview() {
       { id: "activity-unverified", responsibilityId: "preview-responsibility", revision: 1, title: "Verify the release candidate across two repositories",
         state: "blocked", detail: "Completion was reported without a Stave-verified check.", detailCode: "unverifiedCompletion", createdAt: now });
     const saveConversation = () => sessionStorage.setItem(conversationKey, JSON.stringify(conversation));
+    // `schedules=true`: Tars sets up schedules against the page's own clock, and a timer fires them. `schedules=mine` starts with one the user made in Schedules.
+    const changeListeners = new Set<(event: { scope: "snapshot" | "conversation" }) => void>();
+    const scheduling = params.get("schedules") ? createPreviewScheduleBridge({ storageKey: `${conversationKey}-schedules`, korean: params.get("lang") === "ko",
+      mode: params.get("schedules")!, conversation, changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }) : null;
     const conversationView = (): TarsConversation => ({ ...structuredClone(conversation), messages: conversation.messages.map((message) => tarsMessageView(structuredClone(message))) });
     // Clearing as the host does it; `retentionDays=N` starts with another retention period than the default.
     const clearing = createPreviewClearBridge({ storageKey: `${conversationKey}-view`, now,
@@ -237,6 +242,8 @@ export function TarsPreview() {
     }
     const bridge: TarsBridgeApi = {
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
+      // A fired schedule is announced as the host announces it, so the conversation reads again without a click.
+      ...(scheduling ? { ...scheduling.bridge, onChanged: (listener) => { changeListeners.add(listener); return () => { changeListeners.delete(listener); }; } } : {}),
       reprioritize: async (input) => reprioritize(input),
       get: async () => { reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone({ ...snapshot, cleared: clearing.cleared() })); },
       clear: (input) => clearing.clear(input),
@@ -344,6 +351,8 @@ export function TarsPreview() {
             decision.reply = korean ? "정리 카드를 띄웠습니다. 확인하면 화면에서만 정리되고 삭제되는 것은 없습니다." : "Here is the clear card. Confirming hides these from view; nothing is deleted.";
             decision.actions.push({ kind: "clear", scopes: [...scopes] });
           }
+          // Asking for scheduled work proposes it: the card waits for the user's confirmation, as the host's proposal does.
+          scheduling?.decide(input.text, decision);
           if (params.get("receipt")) decision.actions.push({ kind: "delegate", workspaceId: "preview-workspace", title: "Check the review", instruction: "Review the current work.", acceptanceCriteria: ["The review is complete."], priority: 50 });
           const proposal = params.get("proposal");
           if (proposal === "resume" || proposal === "cancel" || proposal === "handBack")
@@ -380,7 +389,8 @@ export function TarsPreview() {
           message = { ...input, ...conversation.settings, id: input.requestId, state: pending ? (conversation.messages.length ? "queued" : "reasoning") : "answered", revision: 1, decision: pending ? null : decision, reply: pending ? null : decision.reply, error: null, createdAt, updatedAt: createdAt };
           conversation.messages.push(message);
           const proposed = decision.actions[0];
-          if (proposed) conversation.receipts.push(proposed.kind === "control" || proposed.kind === "ask" || proposed.kind === "clear"
+          if (proposed) conversation.receipts.push(scheduling && proposed.kind === "schedule" ? scheduling.receiptFor(proposed, message.id, 0, createdAt)
+            : proposed.kind === "control" || proposed.kind === "ask" || proposed.kind === "clear"
             // Model-proposed authority-granting or terminal controls wait for a confirming click; a question waits for its answer.
             ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null, revision: 1, createdAt, updatedAt: createdAt }
             : { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "applied",
@@ -411,6 +421,8 @@ export function TarsPreview() {
       getReviewDiff: async () => structuredClone(side.diff), getReviewFileDiff: async ({ path }: { path: string }) => side.fileDiff(path) } } : {}) } as typeof window.api;
     // "Show in Fleet" leaves this preview's only surface; record where it would land.
     useFleetFocusStore.subscribe(({ request }) => { if (request) document.documentElement.dataset.previewFleetFocus = `${request.workspaceId}/${request.taskId}`; });
+    // "Open Schedules" leaves this preview's only surface too; record the surface it asks for.
+    useAppStore.subscribe((state) => { document.documentElement.dataset.previewSurface = state.activeAppSurface.kind; });
     const empty = params.get("noRepositories") === "true";
     // The view mounts on Tars; Close leaves it (the view unmounts) and the reopen button below brings it back, as returning from a workspace would.
     useAppStore.getState().openTars();

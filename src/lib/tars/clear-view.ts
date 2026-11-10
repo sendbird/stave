@@ -14,7 +14,7 @@ export function tarsClearKeeps(args: { decisions: readonly TarsDecisionView[]; r
   return {
     messageIds: new Set([
       ...waiting.flatMap((view) => view.messageId ? [view.messageId] : []),
-      ...args.receipts.filter((receipt) => (receipt.action.kind === "publish" || receipt.action.kind === "clear") && receipt.status === "proposed")
+      ...args.receipts.filter((receipt) => (receipt.action.kind === "publish" || receipt.action.kind === "clear" || receipt.action.kind === "schedule") && receipt.status === "proposed")
         .map((receipt) => receipt.messageId),
     ]),
     decisionIds: new Set(waiting.map((view) => view.id)),
@@ -56,6 +56,9 @@ export function filterTarsConversationView(conversation: TarsConversation, args:
     ...(conversation.events ? { events: conversation.events.filter((event) => after(event.processedAt ?? event.createdAt)) } : {}),
     ...(conversation.publications ? { publications: conversation.publications.filter((record) => after(record.createdAt) || record.status === "pending") } : {}),
     ...(conversation.clears ? { clears: conversation.clears.filter((record) => record.createdAt >= clearedAt) } : {}),
+    ...(conversation.schedules ? { schedules: conversation.schedules.filter((record) => after(record.createdAt) || record.status === "pending") } : {}),
+    // A run still going keeps its line until it ends.
+    ...(conversation.scheduleRuns ? { scheduleRuns: conversation.scheduleRuns.filter((run) => after(run.startedAt) || run.status === "running" || run.status === "waiting") } : {}),
   };
 }
 

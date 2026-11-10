@@ -21,7 +21,7 @@ type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
 interface ConversationPorts {
   conversations: TarsConversationStore;
   coordinator: Coordinator;
-  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events" | "view">;
+  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events" | "view"> & Partial<Pick<TarsStore, "schedules">>;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
   /**
@@ -328,6 +328,8 @@ export function createTarsConversationService(ports: ConversationPorts) {
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
         events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit),
         clears: view.listClears(active?.createdAt ?? null, limit), trayClears: view.listTrayClears(),
+        // Schedule confirmations and the runs Tars's schedules started, written by the host on the same file.
+        ...(ports.responsibilities.schedules ? { schedules: ports.responsibilities.schedules.listRecords(limit), scheduleRuns: ports.responsibilities.schedules.listRuns(limit) } : {}),
         view: { retentionDays: view.getSettings().retentionDays, clearedAt: active?.createdAt ?? null, clearRequestId: active?.requestId ?? null } };
       // A cleared conversation hides what came before, never what still needs the user.
       return TarsConversationSchema.parse(active ? filterTarsConversationView(conversation, { clearedAt: active.createdAt, inProgress: active.inProgress ?? [], keeps: clearKeeps().keeps }) : conversation);

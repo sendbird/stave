@@ -1055,6 +1055,14 @@ export interface HostServiceRequestMap {
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "tars.brief": import("../../src/lib/tars/brief").TarsBriefInput;
+  /** One schedule card's confirmation; the host reads the saved proposal and applies it through the Schedules service. */
+  "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleConfirmInput;
+  /** What a schedule card shows; read only. */
+  "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreviewInput;
+  /** The pause switch of a schedule Tars created. */
+  "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleToggleInput;
+  /** The schedules Tars created, as the Schedules service has them now. */
+  "tars.schedules": undefined;
   "agent-run.invoke": {
     action: HostAgentRunAction;
     args: unknown;
@@ -1270,6 +1278,10 @@ export interface HostServiceResponseMap {
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.brief": import("../../src/lib/tars/brief").TarsBrief;
+  "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleResult;
+  "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreview;
+  "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleResult;
+  "tars.schedules": import("../../src/lib/tars/schedules").TarsScheduleList;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
   "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;
