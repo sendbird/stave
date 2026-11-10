@@ -15,6 +15,14 @@ const RECORD_TIME = chatType["--chat-type-meta"];
 const NARROW = "@container (max-width: 30rem)";
 /** A relative line height, so a larger chat font keeps its leading. */
 const RECORD_LEADING = "1.5";
+/**
+ * One text line of the row. Every part of a row's first line is a box this
+ * tall that centres what it holds (the mark, the actor's glyph, a chip, the
+ * outcome, the smaller time), and the parts align at the line's top. So they
+ * share one centre line whatever their own size or font, and it stays the
+ * first line's when the sentence or the chips wrap.
+ */
+const LINE = "1lh";
 
 /** The rail's line runs through the middle of this slot, so every mark sits on it whatever its glyph. */
 const MARK_SLOT = vars["--aui-space-16"];
@@ -56,7 +64,7 @@ export const tarsRecordStyles = stylex.create({
   /** The mark sits in a box one text line tall, so it stays on the first line however far the text wraps. */
   markSlot: {
     display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-    inlineSize: MARK_SLOT, blockSize: "1lh",
+    inlineSize: MARK_SLOT, blockSize: LINE,
   },
   /** The rail's segment from the row above down to this row's mark. */
   railAbove: {
@@ -79,37 +87,43 @@ export const tarsRecordStyles = stylex.create({
    * drops to a line of its own.
    */
   line: {
-    display: { default: "flex", [NARROW]: "grid" }, flexWrap: "wrap", alignItems: "baseline",
+    display: { default: "flex", [NARROW]: "grid" }, flexWrap: "wrap", alignItems: "flex-start",
     gridTemplateColumns: { default: null, [NARROW]: "minmax(0, 1fr) auto" },
     columnGap: vars["--aui-space-8"], rowGap: { default: vars["--aui-space-2"], [NARROW]: vars["--aui-space-4"] }, minWidth: 0,
   },
   /** Who did it, what was done, then its values as chips; a long sentence wraps word by word, a chip wraps whole. Narrow, its two parts become the line's own rows. */
   main: {
-    display: { default: "flex", [NARROW]: "contents" }, flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
+    display: { default: "flex", [NARROW]: "contents" }, flexWrap: "wrap", alignItems: "flex-start", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
     flex: "1 1 14rem", minWidth: 0,
   },
   /** Who did it and what was done: part of the main run when wide, the narrow line's first cell. */
   text: {
-    display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"],
+    display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "flex-start", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"],
     minWidth: 0, gridColumn: { default: null, [NARROW]: "1" }, gridRow: { default: null, [NARROW]: "1" },
   },
   /** The values: chips in the main run when wide, the narrow line's full-width second row. */
   values: {
-    display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
+    display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "flex-start", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
     minWidth: 0, gridColumn: { default: null, [NARROW]: "1 / -1" }, gridRow: { default: null, [NARROW]: "2" },
   },
   lead: { minWidth: 0, color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
   subject: { minWidth: 0, color: vars["--aui-color-text"], overflowWrap: "anywhere" },
-  /** Who did it: a person for the user's own control, Tars's mark for what Tars did. */
+  /**
+   * Who did it: a person for the user's own control, Tars's mark for what Tars
+   * did. It stays inline, so a long sentence wraps after it, in a box as tall
+   * as the text line and set on the line's top, which centres the glyph on the
+   * line without leaning on a font's own baseline.
+   */
   actor: {
-    display: "inline-flex", alignItems: "center", verticalAlign: "-0.125em", flexShrink: 0,
-    inlineSize: "1em", blockSize: "1em", marginInlineEnd: vars["--aui-space-8"], color: vars["--aui-color-text-muted"],
+    display: "inline-flex", alignItems: "center", verticalAlign: "top", flexShrink: 0,
+    inlineSize: "1em", blockSize: LINE, marginInlineEnd: vars["--aui-space-8"], color: vars["--aui-color-text-muted"],
   },
   actorTars: { color: vars["--aui-color-accent"] },
-  actorIcon: { inlineSize: "100%", blockSize: "100%" },
+  actorIcon: { inlineSize: "100%", blockSize: "1em" },
   /** The outcome and the time at the trailing edge; narrow, the first row's second cell. */
   trail: {
-    display: "inline-flex", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "baseline", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], flexShrink: 0, minWidth: 0,
+    display: "inline-flex", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-2"], flexShrink: 0, minWidth: 0,
+    minBlockSize: LINE,
     marginInlineStart: { default: "auto", [NARROW]: 0 }, gridColumn: { default: null, [NARROW]: "2" }, gridRow: { default: null, [NARROW]: "1" },
   },
   status: { fontWeight: vars["--aui-font-weight-medium"], whiteSpace: "nowrap" },
@@ -153,14 +167,14 @@ export const tarsRecordStyles = stylex.create({
   },
   /** A diagnostic in the tool's own words, shown as written. */
   diagnostic: { display: "block", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: "0.875em", color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
-  /** Controls ride the outcome's place at the trailing edge, centred on the line so a button does not drop the row's baseline. */
-  actions: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", alignSelf: "center", gap: vars["--aui-space-4"], minWidth: 0 },
+  /** Controls ride the outcome's place at the trailing edge, centred on the line in a box no taller than it, so a button never moves the line (it reaches into the row's own padding). */
+  actions: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", alignSelf: "center", gap: vars["--aui-space-4"], minWidth: 0, maxBlockSize: LINE },
   /**
    * A value chip (`Badge`) in the row's own type: the chat font size, not the
-   * chip's fixed caption, and no taller than the line, so a row of chips keeps
-   * the text's rhythm.
+   * chip's fixed caption, and exactly one text line tall, so its words and its
+   * glyph sit on the line's centre and a row of chips keeps the text's rhythm.
    */
-  chip: { fontSize: "inherit", lineHeight: vars["--aui-line-height-tight"], minBlockSize: 0, paddingBlock: 0, maxInlineSize: "100%" },
+  chip: { boxSizing: "border-box", fontSize: "inherit", lineHeight: "inherit", blockSize: LINE, minBlockSize: 0, paddingBlock: 0, maxInlineSize: "100%" },
   chipIcon: { flexShrink: 0, inlineSize: "0.9em", blockSize: "0.9em" },
   /** The chip's text ellipsizes inside it; the full value is in its tooltip. */
   chipText: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
@@ -172,12 +186,12 @@ export const tarsRecordStyles = stylex.create({
    */
   chipButton: {
     display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], maxInlineSize: "100%", minWidth: 0,
-    blockSize: "auto", minBlockSize: 0, paddingBlock: 0, paddingInline: vars["--aui-space-8"], borderRadius: vars["--aui-radius-full"],
+    boxSizing: "border-box", blockSize: LINE, minBlockSize: 0, paddingBlock: 0, paddingInline: vars["--aui-space-8"], borderRadius: vars["--aui-radius-full"],
     borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid",
     borderColor: { default: vars["--aui-color-border"], ":hover": vars["--aui-color-border-strong"] },
     backgroundColor: { default: vars["--aui-color-surface-raised"], ":hover": vars["--aui-color-overlay-hover"] },
     color: vars["--aui-color-text"], cursor: "pointer",
-    fontSize: "inherit", lineHeight: vars["--aui-line-height-tight"], fontWeight: vars["--aui-font-weight-medium"],
+    fontSize: "inherit", lineHeight: "inherit", fontWeight: vars["--aui-font-weight-medium"],
   },
 });
 

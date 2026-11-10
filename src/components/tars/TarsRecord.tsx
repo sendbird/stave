@@ -145,8 +145,8 @@ export function TarsRecordRow({ state, icon, actor, lead, subject, values, statu
         <span className={sx(styles.main)}>
           <span className={sx(styles.text)}>
             {/* The actor's glyph opens the first text, inside it, so a long sentence wraps after the glyph instead of leaving it alone on a line. */}
-            {lead ? <span className={sx(styles.lead)}>{actor ? <TarsRecordActorMark actor={actor} /> : null}{lead}</span> : null}
-            {subject ? <span className={sx(styles.subject)}>{!lead && actor ? <TarsRecordActorMark actor={actor} /> : null}{subject}</span> : null}
+            {lead ? <span className={sx(styles.lead)} data-tars-record-lead="">{actor ? <TarsRecordActorMark actor={actor} /> : null}{lead}</span> : null}
+            {subject ? <span className={sx(styles.subject)} data-tars-record-subject="">{!lead && actor ? <TarsRecordActorMark actor={actor} /> : null}{subject}</span> : null}
             {!lead && !subject && actor ? <TarsRecordActorMark actor={actor} /> : null}
           </span>
           {values ? <span className={sx(styles.values)}>{values}</span> : null}
