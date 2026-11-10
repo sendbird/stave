@@ -240,6 +240,9 @@ test.describe("transcript width", () => {
         const right = box.right - parseFloat(style.paddingRight);
         const offenders: string[] = [];
         for (const element of list.querySelectorAll<HTMLElement>("*")) {
+          // A glyph's own shapes are paint, not layout: the moving ring's arc is a rotating circle whose box is wider than
+          // its 12px glyph at some angles, so a glyph on the column's edge failed here only at those moments. The glyph (its `svg`) is still checked.
+          if ((element as Element as SVGElement).ownerSVGElement) continue;
           const rect = element.getBoundingClientRect();
           if (rect.width <= 1 || rect.height <= 1 || getComputedStyle(element).clipPath.startsWith("inset(50%") || element.closest("[data-transcript-wide]")) continue;
           let clipped = false;
