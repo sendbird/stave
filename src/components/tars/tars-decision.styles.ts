@@ -1,18 +1,18 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
 /**
- * Card text follows the chat font size the conversation column publishes
- * (`--tars-text-size`, `tars-message.styles`), like the record rail beside
- * it: the title and the effect at the messages' size, secondary lines (the
- * work, rows, notes) one step under it, as the rail's records are (14px
- * beside 16px messages). Outside the column (the side view) the setting's
- * default, 16px, applies. Never under the caption tier.
+ * Card text reads the conversation's type scale (`chat-type.stylex.ts`), set
+ * by the conversation column from the chat font size setting: the title and
+ * the effect take `body`, secondary lines (the work, rows, notes) take
+ * `secondary`, as the record rail beside the card does (14px beside 16px
+ * messages). Outside the column (the side view) the scale's default applies.
  */
-const TEXT = `var(--tars-text-size, ${vars["--aui-font-size-lead"]})`;
-const SECONDARY = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
-/** Relative leading, so a larger chat font keeps its line spacing. */
-const LEADING = "1.5";
+const TEXT = chatType["--chat-type-body"];
+const TEXT_LEADING = chatType["--chat-type-body-leading"];
+const SECONDARY = chatType["--chat-type-secondary"];
+const LEADING = chatType["--chat-type-secondary-leading"];
 
 /**
  * A decision card follows the AUI #809 scoped permission request (`Approval`
@@ -42,12 +42,12 @@ export const tarsDecisionStyles = stylex.create({
   confirmHeader: { display: "flex", flexWrap: "wrap", alignItems: "flex-start", columnGap: vars["--aui-space-12"], rowGap: vars["--aui-space-8"], minWidth: 0 },
   icon: { flexShrink: 0 },
   heading: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: vars["--aui-space-4"], flex: "1 1 14rem", minWidth: 0 },
-  title: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: TEXT, fontWeight: vars["--aui-font-weight-medium"], lineHeight: LEADING, overflowWrap: "anywhere" },
+  title: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: TEXT, fontWeight: vars["--aui-font-weight-medium"], lineHeight: TEXT_LEADING, overflowWrap: "anywhere" },
   /** The work the decision is about: a question's "About …" line, a confirmation's work chip. */
   subtitle: { margin: 0, maxWidth: "100%", minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: LEADING, overflowWrap: "anywhere" },
   tags: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-4"], flex: "0 1 auto", minWidth: 0, marginInlineStart: "auto" },
   /** What will happen, in the messages' own size: the sentence the decision turns on. */
-  effect: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: TEXT, lineHeight: LEADING, overflowWrap: "anywhere" },
+  effect: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], fontSize: TEXT, lineHeight: TEXT_LEADING, overflowWrap: "anywhere" },
   /** What the decision carries (the request, the answers, the words), under its label. */
   payload: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, margin: 0 },
   payloadLabel: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: LEADING },

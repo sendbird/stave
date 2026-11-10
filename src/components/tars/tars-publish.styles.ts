@@ -1,10 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
-/** The card's secondary size, from the chat font size (as `tars-decision.styles`). */
-const TEXT = `var(--tars-text-size, ${vars["--aui-font-size-lead"]})`;
-const SECONDARY = `max(${vars["--aui-font-size-caption"]}, calc(${TEXT} * 0.875))`;
-const LEADING = "1.5";
+/** The card's secondary lines take the conversation scale's secondary step (as `tars-decision.styles`). */
+const SECONDARY = chatType["--chat-type-secondary"];
+const LEADING = chatType["--chat-type-secondary-leading"];
 
 /**
  * The publish card adds to the decision card (`tars-decision.styles`) only
