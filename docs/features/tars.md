@@ -141,12 +141,12 @@ reports on the work.
 - Do what you would do to the run in its task, from your words: give a run
   paused at its turn limit more turns, retry a blocked or stuck stage, skip
   the current stage, sign off a stage waiting for your approval, or resume a
-  run paused by a usage limit. Each waits for your **Confirm**.
+  run paused by a usage limit. Each waits for your confirmation on its card.
 - Answer what waits in the work's task from your words: approve or deny a
   tool approval, answer a question the run asked, send your words to the run
   as your reply ("tell it to use the existing index"), or request changes on a
   stage waiting for your sign-off. Denying applies at once; the rest wait for
-  your **Confirm** on a card that shows the exact request, answers or words.
+  your confirmation on a card that shows the exact request, answers or words.
 - Supervise each unit through work, independent review and verification, and
   refuse to call it done on the agent's word alone.
 - Ask you to choose between 2 to 4 options as a decision card you answer by
@@ -212,7 +212,7 @@ reports on the work.
 - **Answers in the task are once and yours.** Tars answers a tool approval
   once, never with an "always allow" rule, and only for a request it observed
   in the work's own task or the task of a helper its run delegated to. An
-  approval waits for your **Confirm** and is never a recommended or default
+  approval waits for your confirmation (**Approve**) and is never a recommended or default
   choice. Your words reach the run only while no turn runs in its task;
   otherwise say them in the task or ask again after the turn.
 - **Never through Tars.** Merging, deploying, force-pushing, deleting
@@ -280,11 +280,11 @@ explicitly. Details are in [Decisions](#decisions).
 
 You can ask in words too ("run the queued work now", "바로 실행해"). Start now,
 pause and take over apply at once; resume, hand back and cancel wait for your
-**Confirm** on a card. **Stop** in a Tars task or in
+confirmation on a card. **Stop** in a Tars task or in
 Fleet pauses the work rather than cancelling it.
 
 Words also reach what you would do to the run in its task. Each waits for your
-**Confirm**, and the run checks its own state again, so a command that does not
+confirmation, and the run checks its own state again, so a command that does not
 fit (for example, sign-off while no stage waits for it) is refused with
 "The run cannot do this in its current state":
 
@@ -305,7 +305,7 @@ observes, so you can answer them in the conversation:
 
 | Ask | Effect in the task |
 |---|---|
-| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
+| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Approve** on a card that shows the request as a code block labelled with its tool, with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
 | "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
 | "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. While a turn runs there, Stave keeps them and says them once that turn ends (see below). |
 | "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |
@@ -598,7 +598,7 @@ Control details beyond the [quick start table](#3-control-work):
   proposes or offers it.
 
 When a control comes from the conversation, resume, hand back and cancel wait
-for you as a decision card with **Confirm** under the reply; Tars's reply alone
+for you as a decision card under the reply, its button named by the action (**Resume**, **Hand back**, **Cancel work**); Tars's reply alone
 never returns work to Tars or cancels it. Until you confirm or refuse it, such
 a proposal counts as a Tars decision waiting on you; it stops waiting when a
 newer proposal for the same work replaces it, when the work's revision changes
@@ -835,10 +835,12 @@ otherwise the repository's default branch), the head branch (the work's own
 branch, `tars/<id>` for older work), the number of changed files, an editable
 commit message and pull request title prefilled as a Conventional Commit
 subject from the work's title (such as `feat: show the saved card first`; the
-type is a choice on the card), and a preview of the body: each acceptance
-criterion with its met or unmet status and the verification evidence from the
-frozen report. A **Draft PR** tag and a **Can't be undone** tag say what it is.
-Enter, while the card or one of its fields has focus, or **Open draft PR**
+type is a choice on the card), and the body: each acceptance criterion with
+its met or unmet status and the verification evidence from the frozen report.
+The body shows as rendered markdown; **Raw text** shows exactly the text that
+is sent, which is the same either way. A **Draft PR** tag and a **Can't be
+undone** tag say what it is. Enter, while the card or one of its fields has
+focus, or **Open draft PR** (the card's primary button, in the danger tone)
 publishes; Esc or **Decline** publishes nothing and records nothing.
 
 When you confirm, the host checks everything again from saved state, not from
@@ -859,7 +861,7 @@ in the report. Stave never merges, marks it ready or deploys.
 
 A decision waiting on you is one card in the conversation, whatever asked it:
 
-- a control Tars proposed that waits for **Confirm** (resume, hand back,
+- a control Tars proposed that waits for your confirmation (resume, hand back,
   cancel, accept as done),
 - Stave's own choice for a completion it could not verify, and
 - a question Tars asks when it needs you to choose: 2 to 4 options, each with
@@ -873,16 +875,20 @@ While it waits, the card has a full attention outline. A question's options
 group: each option shows its label, its reason on the line under it and its
 number key, the recommended one is marked **Recommended** and starts chosen,
 and an option that cannot be undone carries **Can't be undone**. **Answer**
-sends the chosen option. A confirmation keeps its one **Confirm** button with
-its key. Answering is the same action three ways:
+sends the chosen option. A confirmation has one button named by what it does,
+such as **Resume**, **Cancel work**, **Approve**, **Skip step** or **Send
+answer**, with its key. A waiting card carries no "waiting" tag: its buttons
+already say it waits. Answering is the same action three ways:
 
 - **Click** an option to choose it, then **Answer** (on a confirmation, click
-  **Confirm**).
+  its button).
 - **Keys**, only while the card or one of its options has focus: **1** to
   **4** or the arrow keys choose an option and **Enter** answers with the
   chosen one (nothing chosen: Enter does nothing). On a confirmation **1**
-  confirms, and **Enter** too when it is recommended. Keys typed in the message
-  box stay text; the card never takes focus by itself.
+  confirms, and **Enter** too when it is recommended. Enter on another button
+  in the card (**Details**, the work, **Open task**, **Not now**) is that
+  button's own press and confirms nothing. Keys typed in the message box stay
+  text; the card never takes focus by itself.
 - **Words**: a short reply binds only when exactly one decision waits in
   Tars's newest message and you said nothing after it. "1" to "4" pick that
   option; an affirmative picks the recommended option (none recommended: not
@@ -891,18 +897,27 @@ its key. Answering is the same action three ways:
   punctuation. Otherwise the message goes to Tars as usual.
 
 A confirmation, a proposed control or Stave's unverified-completion choice,
-leads with what it does ("Cancel this work?") and the work it is about, then
-rows for the repository, workspace, revision and effect when Stave knows them,
-and a **Can't be undone** tag for cancelling or accepting as done. Its footer
-offers **Not now** (Esc while the card has focus), which leaves the decision
-waiting and moves focus to the message box, next to **Confirm** and its key.
+leads with what will happen: what it does ("Cancel this work?"), the work it is
+about as a chip, then the effect in one sentence. What it carries follows only
+when it has it: the request a tool approval answers, as a code block labelled
+with its tool ("Request from Bash"), the answers or the words to send. The
+repository, workspace and revision, when Stave knows them, are under a
+collapsed **Details**. A single action that cannot be undone (cancelling,
+accepting as done, approving a tool request, skipping a step) says **Can't be
+undone** once, in the card's header; in a choice it is on each option it
+applies to. Its footer offers **Not now** (Esc while the card has focus),
+which leaves the decision waiting and moves focus to the message box, next to
+the card's button and its key. Card text follows the chat font size: the
+title and effect at the messages' size, the other lines one step under it, as
+records are.
 
 Cancelling and accepting as done cannot be undone, so they are never a
 default: they are never recommended (Stave drops such a recommendation and
 keeps the question), so they never start chosen, and an affirmative never
 applies one. Choose them explicitly: in a question, choose the option, then
-**Answer** or Enter (Answer then carries the danger tone instead of the filled
-primary); on a confirmation, **Confirm** or **1**.
+**Answer** or Enter; on a confirmation, its button or **1** (never Enter). The
+card's main button is always the primary one, in the danger tone when it cannot
+be undone.
 
 Each answer folds the card to a record row with the option, the question, how
 you answered (click, key or words) and its outcome, such as "Keep it running ·
@@ -911,8 +926,8 @@ shown as a message from you.
 Answering twice applies once, and a different answer to an answered decision
 is refused with that reason. If an answer is refused for a reason other than
 the work changing or ending (for example the run could not be reached), the
-card keeps the attempt on record and stays open, so you can try again or
-choose another option. Answering one responsibility's proposal retires only
+card stays open with a short alert under its options saying which choice was
+not applied and why, so you can try again or choose another option. Answering one responsibility's proposal retires only
 the other options for that same responsibility. A decision is bound to the
 work its options control: when that work moves past the revision Tars saw, or
 ends, the card says it is no longer valid, offers no buttons, and Tars asks
@@ -1011,11 +1026,13 @@ ask:
 
 The follow-up appears in the conversation as **Automatic follow-up ·** its
 reason and the work's title (in Korean, **자동 후속 ·**), never as your words.
+That line heads Tars's reply: the reply and anything it proposes hang from the
+line's mark on the record rail, so they read as one item Tars wrote by itself.
 It goes through the same queue as your messages: it is only added while none
 of your messages can start, and a follow-up still queued starts nothing once
 you have written to Tars about the change. It may ask a question, propose a
 resume, cancel, stage retry, more turns or sign-off that waits for your
-**Confirm** when what it observed fits, or open a view. It never proposes
+confirmation when what it observed fits, or open a view. It never proposes
 skipping a stage or starting queued work now, and never answers in the task
 for you: for a waiting approval it can only ask you with **Approve** and
 **Deny** options, and your choice applies it. It never
@@ -1027,9 +1044,9 @@ proposes nothing about work you paused or took over, or that ended, including
 when that happened while Tars was thinking. The run's own words reach Tars only
 as an untrusted observation. A change you already wrote about after it
 happened starts nothing, and a follow-up whose change is no longer current
-just before Tars would think about it is cancelled without a model call ("Tars
-did not follow up: the work changed before it could."). That check runs again
-right before the model call.
+just before Tars would think about it is cancelled without a model call: its
+line stays as one item with "Tars did not follow up: the work changed before
+it could." under it. That check runs again right before the model call.
 
 Each change gets one follow-up, however often the host sees it again. A stage
 that asks you is one change until the run continues: new words from the same
