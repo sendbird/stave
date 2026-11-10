@@ -30,6 +30,8 @@ export default defineConfig({
       ignored: createWorkspaceWatchIgnore(__dirname),
     },
   },
+  // The highlighter worker imports these after first paint. Pre-bundle them so a cold gallery does not reload an active conversation.
+  optimizeDeps: { include: ["shiki/themes/github-light.mjs", "shiki/themes/github-dark.mjs"] },
   resolve: {
     // React hooks and editor nodes must share one runtime across dependency trees.
     dedupe: ["react", "react-dom", "lexical"],
