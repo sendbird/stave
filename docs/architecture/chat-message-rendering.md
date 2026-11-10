@@ -140,13 +140,20 @@ The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as p
 ### Transcript column
 
 Replies, user bubbles and the composer share one centred column
-(`transcript-measure.stylex.ts`, 760px). Rows end on its edges: a reply fills it and a user
-bubble ends on its right edge, with the bubble's hover actions beside it rather than in a
-reserved row below. The composer's card spans the same column; the framed composer's wings
-sit outside it. Top-level code blocks, tables and the turn's diff may grow to 880px on the same
-axis, never past the transcript's gutters (`transcript-wide.tsx`); inside list items, quotes,
-the trace rail and user bubbles they keep the column width. Rows are 8px apart inside a turn
-and 28px apart between turns.
+(`transcript-measure.stylex.ts`). Its width is one step of the conversation width scale
+(`transcript-width.ts`): the task chat's session area and Tars's conversation column are
+`stave-transcript` query containers, and the step follows that surface's width (64rem and
+90rem thresholds) and the reader's **Conversation width** setting (narrow, default 48/52/56rem,
+wide). Rows end on its edges: a reply fills it and a user bubble ends on its right edge, with
+the bubble's hover actions beside it rather than in a reserved row below. The composer's card
+spans the same column; the framed composer's wings sit outside it, and the side question panel
+ends on the wings' outer edge. Code blocks, diagrams, cards and the turn's changed files keep
+the column's edges and scroll or scale inside them. Only a top-level table grows past the
+column, as far as its columns need (`width: max-content` clamped between the column and the
+wide measure, the column plus 8rem), centred on the same axis and never past the transcript's
+gutters (`transcript-wide.tsx`); inside list items, quotes, the trace rail and user bubbles it
+keeps the column width and scrolls inside its own box. Rows are 8px apart inside a turn and
+28px apart between turns.
 
 ### Results outside work history
 

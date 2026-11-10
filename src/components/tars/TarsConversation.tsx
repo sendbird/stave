@@ -13,6 +13,7 @@ import { Conversation, ConversationContent, ConversationScrollButton } from "@/c
 import { TarsWelcome } from "./TarsGuide";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
+import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
 import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessageView } from "@/lib/tars/conversation";
@@ -126,7 +127,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
           {message.text ? <div className={sx(chrome.userBubble)} data-tars-user-bubble=""><MessageContent><p className={sx(chrome.messageText)}>{message.text}</p></MessageContent></div> : null}
         </div></Message>}
     {message.reply !== null ? <Message from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
-      {/* Code, tables and diffs may claim the transcript's wide measure; prose keeps the reading column. */}
+      {/* A wide table may claim the transcript's wide measure; prose, code and cards keep the reading column. */}
       <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
       : message.state === "failed" ? <TarsMessageFailure message={message} onResend={userWords && onResend ? onResend : undefined} />
         : message.state !== "answered" ? <TarsMessageStatus state={message.state} busy={busy} onCancel={onCancel} /> : null}
@@ -320,10 +321,12 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     if (message.includeWorkingChanges) setTarsDraftWorkingChanges(true);
     focusComposer();
   };
+  const widthTheme = useTranscriptWidthTheme();
   const unverifiedCard = (activity: { responsibilityId: string; revision: number }) =>
     decisions.find((view) => view.id === tarsUnverifiedDecisionId(activity.responsibilityId, activity.revision));
-  return <div className={sx(styles.chat, floor && trayStyles.conversationFloor)} style={textScale}>
-    <Conversation>
+  // The transcript and the composer take the same width step, measured on this column.
+  return <div className={sx(styles.chat, transcriptWidthStyles.surface, floor && trayStyles.conversationFloor)} style={textScale} data-tars-chat="">
+    <Conversation className={sx(widthTheme)}>
       <ConversationContent scrollScopeKey="personal-representative" autoScrollKey={`${scrollKey}|error:${state.error ?? ""}`} data-testid="tars-transcript">
         {!state.available ? <p role="status">{t("shell:tars.conversation.unavailable")}</p> : null}
         {!state.conversation && state.available && !state.error ? <p role="status">{t("shell:tars.conversation.loading")}</p> : null}
@@ -360,7 +363,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     </Conversation>
     {sidePanel}
     {/* The AUI #809 tray composer: a tinted band around the raised input; its one quiet line appears only for the over-limit error. */}
-    <div ref={composerRef} className={sx(styles.composer)} data-tars-composer="">
+    <div ref={composerRef} className={sx(styles.composer, widthTheme)} data-tars-composer="">
       <div className={sx(composerTray.tray)}>
       {composerStatus}
       <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />

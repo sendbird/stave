@@ -34,6 +34,7 @@ import {
 } from "@/components/ui";
 import { isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { RenderProfiler } from "@/lib/render-profiler";
+import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
 import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -294,6 +295,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
     [],
   );
 
+  // The transcript and the composer take the same width step: the session area is the surface they measure.
+  const widthTheme = useTranscriptWidthTheme();
   const sessionAreaProps = {
     ref: sessionAreaRef,
     tabIndex: -1,
@@ -302,7 +305,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     // Cmd/Ctrl+F from anywhere in this area (the composer included) finds in its transcript.
     "data-conversation-find-scope": "",
     onMouseDownCapture: handleSessionAreaMouseDownCapture,
-    className: sx(chatAreaStyles.sessionArea),
+    className: sx(chatAreaStyles.sessionArea, transcriptWidthStyles.surface),
   } as const;
 
   if (viewMode === "no_project") {
@@ -377,7 +380,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
   if (viewMode === "empty_task") {
     return (
       <div {...sessionAreaProps}>
-        <div className={sx(chatAreaStyles.surface)}>
+        <div className={sx(chatAreaStyles.surface, widthTheme)}>
           <div
             className={sx(
               chatAreaStyles.scrollColumn,
@@ -394,7 +397,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
 
   return (
     <div {...sessionAreaProps}>
-      <div className={sx(chatAreaStyles.surface)}>
+      <div className={sx(chatAreaStyles.surface, widthTheme)}>
         <div className={sx(chatAreaStyles.surface)}>
           {/* The message pane must be a flex column so `ChatPanel`'s
               `Conversation` root (`flex min-h-0 flex-1`) can claim the

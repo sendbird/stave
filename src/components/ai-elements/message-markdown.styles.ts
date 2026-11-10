@@ -212,10 +212,19 @@ export const markdownStyles = stylex.create({
     textDecorationLine: "underline",
     textUnderlineOffset: 2,
   },
+  /*
+   * Sized by its content: at least the box it sits in, wider only as far as
+   * its columns need. Columns take widths from their content, words stay
+   * whole, and a table whose words cannot fit scrolls inside its own box.
+   * In a reply's top level that box is the breakout (`transcript-wide.tsx`),
+   * so the table's natural width is what decides how far past the column it
+   * may grow.
+   */
   table: {
     marginBlock: vars["--aui-space-12"],
-    width: "100%",
-    tableLayout: "fixed",
+    inlineSize: "auto",
+    minInlineSize: "100%",
+    tableLayout: "auto",
     borderCollapse: "separate",
     borderSpacing: 0,
     borderRadius: vars["--aui-radius-control"],
@@ -245,8 +254,7 @@ export const markdownStyles = stylex.create({
     paddingBlock: vars["--aui-space-8"],
     verticalAlign: "top",
     whiteSpace: "normal",
-    wordBreak: "break-word",
-    overflowWrap: "anywhere",
+    overflowWrap: "break-word",
   },
   tableCell: {
     borderRightWidth: { default: vars["--aui-border-width-hairline"], ":last-child": 0 },
@@ -256,8 +264,7 @@ export const markdownStyles = stylex.create({
     paddingBlock: vars["--aui-space-8"],
     verticalAlign: "top",
     whiteSpace: "normal",
-    wordBreak: "break-word",
-    overflowWrap: "anywhere",
+    overflowWrap: "break-word",
   },
 
   // Root body

@@ -344,7 +344,7 @@ for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
     expect(geometry.metaBottom).toBeLessThanOrEqual(geometry.bubbleTop + 1);
     // Tars's reply starts on the leading edge of the same column.
     expect(Math.abs(geometry.reply[0] - geometry.row[0])).toBeLessThanOrEqual(1);
-    // Prose keeps the reading column; a table may take the wider measure when there is room, centred on the same axis.
+    // Prose keeps the reading column; a table may take the wider measure only as far as its columns need, centred on the same axis.
     expect(geometry.paragraph[1]).toBeLessThanOrEqual(geometry.reply[1] + 1);
     if (width < 1088) {
       // Narrow, a table wider than the column scrolls inside its own box, which stays within the column.
@@ -353,7 +353,8 @@ for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
       expect(geometry.tableScroll[3]).toBeLessThanOrEqual(geometry.reply[1] + 1);
     }
     if (width >= 1088) {
-      expect(geometry.table[1] - geometry.table[0]).toBeGreaterThan(geometry.reply[1] - geometry.reply[0]);
+      // This table's columns fit the column, so it ends on the column's edges (`transcript-width.e2e.ts` covers one that grows).
+      expect(geometry.table[1] - geometry.table[0]).toBeGreaterThanOrEqual(geometry.reply[1] - geometry.reply[0] - 1);
       expect(Math.abs((geometry.table[0] + geometry.table[1]) / 2 - (geometry.reply[0] + geometry.reply[1]) / 2)).toBeLessThanOrEqual(1);
     }
     // The composer's one choice is icon-only at every width, like Attach and Send: its full name is its accessible name,

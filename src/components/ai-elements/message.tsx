@@ -47,7 +47,6 @@ import {
 } from "./message-text-scale";
 import { PromptTokenChip } from "./prompt-token-chip";
 import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
-import { TranscriptWideBlock } from "./transcript-wide";
 
 interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
@@ -348,14 +347,13 @@ export function MessageResponse({
             </CodeBlockHeader>
           </CodeBlock>
         );
-        return (
-          <TranscriptWideBlock>
-            {language?.toLowerCase() === "mermaid" ? (
-              <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
-            ) : (
-              block
-            )}
-          </TranscriptWideBlock>
+        // Code and diagrams keep the column's edges: a long line scrolls
+        // inside the block and a diagram scales down, so neither sticks out
+        // past the prose around it.
+        return language?.toLowerCase() === "mermaid" ? (
+          <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
+        ) : (
+          block
         );
       }}
       className={className}

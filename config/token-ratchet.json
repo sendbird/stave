@@ -740,9 +740,6 @@
       "icon-metric": 2,
       "line-height": 3
     },
-    "src/components/session/side-chat/SideQuestionComposerControl.tsx": {
-      "icon-metric": 1
-    },
     "src/components/session/ChatInputComposer.tsx": {
       "icon-metric": 6
     },

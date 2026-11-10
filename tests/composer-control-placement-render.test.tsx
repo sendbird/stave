@@ -194,7 +194,9 @@ describe("composer control placement in the toolbar", () => {
     };
     const shown = await withTask("codex");
     expect(shown).toContain('data-testid="composer-side-question"');
-    expect(shown).toContain(">Side question<");
+    // An icon button: its name is the accessible name, never a visible label.
+    expect(shown).toContain('aria-label="Side question"');
+    expect(shown).not.toContain(">Side question<");
     // Persisted placement data cannot hide the fixed question action.
     for (const sideQuestion of ["overflow", "hidden"]) {
       const placements = JSON.parse(JSON.stringify({ sideQuestion }));
