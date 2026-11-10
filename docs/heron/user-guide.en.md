@@ -474,7 +474,7 @@ them **Until I clear it**.
 table under it lists what Tars does on its own, asks first, always asks and
 never does at the level you picked. **Balanced** is the default and behaves as
 Tars did without levels. **Careful** also makes starting new work, changing the
-queue order and starting queued work now wait for your **Confirm**. **Hands-off**
+queue order and starting queued work now wait for your confirmation. **Hands-off**
 lets Tars resume work, retry a phase and give work more steps at once when you
 ask, leaving a record of each. At every level cancelling work, skipping a phase,
 accepting a completion Stave could not verify, approving a tool request and
@@ -516,8 +516,9 @@ confirmation, stay. Hidden work stays in Fleet and in its task.
 
 Ask Tars for work that should run later or repeat, such as "every weekday at
 9, check the release branch" or "tomorrow at 3 pm look at this again". Tars
-shows a schedule card with what will run, where, and the next two runs in
-local time with the time zone; nothing is created until you confirm. A new
+shows a schedule card with what will run and the next two runs in local time
+with the time zone, and its name and where it runs under **Details**; nothing
+is created until you confirm. A new
 schedule is saved paused: **Create** (Enter) keeps it paused, **Create and
 turn on** starts it now. It is a normal schedule in **Schedules**: each run
 starts a new task in that workspace in the Guided permission mode, one run at
@@ -538,7 +539,8 @@ send it.
 An empty or cleared conversation shows a start screen: a greeting, **Right
 now** (how many pieces of work need you, are running and finished in the last
 day; each count opens its section of the work list), **Try asking** (example
-requests grouped by what Tars can do, which also only fill the message box)
+requests grouped by what Tars can do, from handing off and scheduling work to
+tidying up, which also only fill the message box)
 and **Where Tars can work** (your registered repositories, or how to add one
 with **Open repository** in the sidebar).
 
@@ -585,12 +587,7 @@ and **Do later**, and its grip lets you drag it among the queued cards or move
 it with **Alt+Up** and **Alt+Down**. Each move leaves a one-line record with
 the new priority. When Tars proposes
 something and waits for you, the main action becomes that confirmation, such as
-**Confirm resume**. When you come back to Tars after being away (Tars was
-closed or the window was hidden), a **While you were away** summary sits at the
-top of the tray: how much came to need you, failed or finished since you last
-saw Tars, and the latest of them, each opening its report or timeline. Close it
-with its X; it does not appear on a first visit or when nothing changed. Stave
-remembers when you last saw Tars on this device only. The conversation has its own **While you were away** card: when you
+**Confirm resume**. The conversation has a **While you were away** card: when you
 come back ten minutes or more after you last saw the end of the conversation and
 something happened meanwhile, one card sits where you left. It counts and names
 the decisions waiting for you, work that is blocked or failed, work that
@@ -614,8 +611,10 @@ work: its name, its stage (such as "Phase 2 of 3 · Cause, attempt 2") and what
 Stave last observed, with **Timeline**; beyond two running pieces of work it
 counts the rest. Where a
 reply Tars is still writing will appear, **Thinking** shimmers beside the moving
-mark. Replies have no name line; a message's time shows above it only while you
-hover or focus it, and the conversation's text follows the chat font size setting. The sidebar's **Tars**
+mark. Replies have no name line. A thin rule names each day, and a message's
+clock time shows beside your bubble only while you hover or focus it; records
+sit on a timeline rail between messages, with the time on the first of a run.
+The conversation's text follows the chat font size setting. The sidebar's **Tars**
 entry shows the moving mark with the number of running work and an amber count
 of what needs you; collapsed, it shows one dot, amber when something needs you,
 blue when work only runs. The conversation keeps only words, decisions and the
@@ -804,7 +803,7 @@ and suggested action. A stage that one of Stave's own checks stopped (a
 criterion not met or not verified, no report, a failed action) or that is
 blocked on its environment reads **A Stave check stopped progress**, and
 Tars says what to verify or do next instead of saying it asked you. It can
-ask, propose a resume or cancel that waits for your **Confirm**, change a
+ask, propose a resume or cancel that waits for your confirmation, change a
 queued priority or open a view. It never starts work by itself (it asks you
 instead), never pauses, takes over or accepts work as done, and proposes
 nothing about work you paused, took over or that ended. Each change gets one

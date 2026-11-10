@@ -172,6 +172,16 @@ reports on the work.
 - Commit, push and open a draft pull request for completed, verified work,
   each time only after you confirm its card.
 - Quote selected diff lines into your message so you can ask about them.
+- Act as independently as you choose: one setting with three levels decides
+  what Tars applies at once and what waits for you, and **Never do** rules in
+  your own words make Stave ask first. See
+  [How independently Tars acts](#how-independently-tars-acts).
+- Show what it knows and what its work spent: the standing instructions, the
+  agents it may use and each repository's branch rule and memory, and tokens,
+  turns and time by work and by model. See
+  [What Tars knows, and usage](#what-tars-knows-and-usage).
+- Summarize what happened while you were away, in one card where you left the
+  conversation.
 - Recover saved work after a restart without duplicating it.
 
 ## Limits
@@ -241,7 +251,8 @@ reports on the work.
   seconds and is not retried automatically.
 - **Settings apply forward.** Changing settings affects later messages and new
   work, not runs already admitted (removing an agent from the allowlist also
-  applies to messages already sent).
+  applies to messages already sent, and a more careful autonomy level or a new
+  **Never do** rule applies from Tars's next decision).
 
 ## Quick start
 
@@ -268,11 +279,11 @@ An empty conversation, and one you cleared, shows a start screen:
   you**, **In progress**, **Done**) and moves focus there. Counts of zero are
   left out, and the line is hidden when there is nothing to count;
 - **Try asking**: example requests grouped by what Tars can do: hand off work,
-  check or steer work, decide and answer, open results, publish, and tidy up.
-  Pressing one (or Enter on it) adds its full text to the message box and
-  focuses it; nothing is sent until you send it. Handing off work is offered
-  only when a repository is registered, and an example a suggestion chip
-  already asks about your real work is left out;
+  schedule work, check or steer work, decide and answer, open results, publish,
+  and tidy up. Pressing one (or Enter on it) adds its full text to the message
+  box and focuses it; nothing is sent until you send it. Handing off and
+  scheduling work are offered only when a repository is registered, and an
+  example a suggestion chip already asks about your real work is left out;
 - **Where Tars can work**: the names of up to four registered repositories and
   how many more there are, or, with none, how to add one (**Open repository**
   in the sidebar).
@@ -387,7 +398,9 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Work** tray: the header indicator ("1 needs you · 2 in progress · 3 done")
   opens lanes **Needs you**, **In progress**, **Done** and **Outputs**, each card
   with a live run monitor, what Stave observed and its recent progress, and,
-  once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
+  once its workspace exists, the work's branch.
+- **While you were away**: when you return after ten minutes or more, one
+  summary card sits in the conversation where you left.
 - **Side view**: **Request**, **Report**, **Changes**, **Timeline** and **Review** of one
   responsibility, opened from an output, a flow stage or your words.
 - **Fleet**: the **Tars** owner label and **Tars decision** rows in
@@ -505,8 +518,12 @@ is taken.
 as wide as their words, with their files (name, type and size) and the
 **Includes working changes** chip above it. Tars's replies start on the left,
 without a bubble or a name line; screen readers announce each side by name. A
-message's time ("5m ago") shows above it while you hover or focus the
-message, so it never moves the text; focus or hover the time for the full date.
+thin rule names each day (**Today**, **Yesterday**, then the weekday and
+date). A message's clock time ("2:32 PM") shows beside your bubble, on its
+last line, while you hover or focus the message, so it never moves the text;
+focus or hover the time for the full local and UTC time. Records sit on a
+timeline rail between messages: the first record of a run shows its time, and
+later ones show theirs on hover or focus.
 Until Tars replies, its place shows the message's state: **Thinking**,
 **Queued** or **Cancelled**, with **Cancel message** as an icon button beside
 a message in progress. Text follows the chat font size setting, as in a task.
@@ -567,8 +584,9 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
   afterwards keeps that **Undo**. Hidden work stays in Fleet
   and in its task, and Tars can still report on it.
 - **By asking.** Say "clear the chat", "대화 지워줘", "done 정리해줘" or
-  "clear everything". Tars proposes a clear card that lists what each part
-  would hide now and what always stays; **Clear** (Enter) applies it through
+  "clear everything". Tars proposes a clear card that says nothing is deleted,
+  then lists what each part would hide now and what always stays; **Clear**
+  (Enter) applies it through
   the same path as the buttons, **Not now** (Esc) leaves everything as it is.
   Tars never proposes a clear on its own initiative, and an automatic
   follow-up cannot.
@@ -589,10 +607,12 @@ fires and shows, and each run is a normal task in the workspace you named.
 - **By asking.** "Every weekday at 9, check the release branch", "tomorrow at
   3 pm look at this again", "매주 월요일 아침 9시에 의존성 업데이트 확인해줘".
   Tars proposes a schedule card. Nothing is created until you confirm it.
-- **The card** states what will run (a name and the request each run gets, in
-  plain words), where (the workspace, its branch and repository) and when: the
-  rule, and the next two runs in this computer's local time with the time
-  zone's name. A new schedule is saved **paused**, as every schedule an agent
+- **The card** is laid out like every confirmation card. It leads with what
+  will happen, then states what will run (the request each run gets, in plain
+  words) and when: the rule, and the next two runs in this computer's local
+  time with the time zone's name. The schedule's name is the chip under the
+  title, and its name and where it runs (the workspace, its branch and
+  repository) are under a collapsed **Details**. A new schedule is saved **paused**, as every schedule an agent
   proposes is: **Create** (Enter) keeps it paused until you turn it on, and
   **Create and turn on** starts it now. **Not now** (Esc) leaves everything as
   it is. The same request confirmed twice (a retry, a double click) creates
@@ -613,7 +633,8 @@ fires and shows, and each run is a normal task in the workspace you named.
 - **Change, pause, turn on, remove.** "Pause the release check", "move it to
   10:30", "remove that schedule". Each shows its own card with what the
   schedule is now and what it will be; removing cannot be undone (its run
-  history in Schedules goes with it), so it is never the Enter default.
+  history in Schedules goes with it), so the card says **Can't be undone**,
+  **Remove** is red and it is never the Enter default.
 - **Only schedules Tars created.** A schedule you made in Schedules is yours:
   Tars refuses to change, pause, turn on or remove it and says so. A schedule
   Tars created that you later edited in Schedules (its name, request, where or
@@ -908,16 +929,9 @@ retrying, blocking, waits on you, pauses and resumes, the run ending. Repeated
 turns of one stage fold into the newest; bookkeeping rows are left out. A card
 lists three, the timeline eight.
 
-When the Tars view opens again after you were away (it was closed or the
-window was hidden), a **While you were away** summary leads the tray: counts
-of work that came to need you, ended unfinished (cancelled by something other
-than your own cancel) or finished between the last time the view was visible
-and now, and up to four of them, each opening its report or timeline. It is
-dismissible, never shown on a first visit or when nothing changed, and the
-last-visible time is kept in this device's local storage only.
-
-The conversation has its own **While you were away** summary, so coming back
-does not mean reading every record row. Stave notes when you last saw the end
+The conversation has a **While you were away** summary, so coming back does
+not mean reading every record row. It is the only one: the work tray shows no
+recap of its own. Stave notes when you last saw the end
 of the conversation: the window visible and focused, Tars open and the
 transcript scrolled to its end. When you come back ten minutes or more later
 (`TARS_AWAY_MIN_GAP_MS`) and something happened meanwhile, one card sits in the
@@ -1089,8 +1103,8 @@ A decision waiting on you is one card in the conversation, whatever asked it:
   cancel, accept as done),
 - new work or a queue change that your
   [autonomy level](#how-independently-tars-acts) or one of your **Never do**
-  rules held: **Confirm** applies the saved proposal, and nothing is started
-  or reordered before it,
+  rules held: its button (**Start work** or **Change priority**) applies the
+  saved proposal, and nothing is started or reordered before it,
 - Stave's own choice for a completion it could not verify, and
 - a question Tars asks when it needs you to choose: 2 to 4 options, each with
   a short label and a one-line reason, and a recommended option when Tars has
@@ -1335,7 +1349,7 @@ An empty field means Tars follows only its built-in rules.
 
 **How independently Tars acts** is one choice between three levels. It decides
 which of Tars's proposals Stave applies at once and which wait for your
-**Confirm** on a card. The table under the choice lists, for the level you
+confirmation on a card. The table under the choice lists, for the level you
 picked, what Tars does on its own, what it asks first, what it always asks
 and what it never does. Stave reads that table from the same rules it applies,
 so the table and the behavior cannot differ. A saved change applies from
@@ -1343,7 +1357,7 @@ Tars's next decision, without a restart.
 
 | Level | What changes |
 | --- | --- |
-| **Careful** | Starting new work, changing the queue order and starting queued work now wait for your **Confirm**. A held delegation shows a **Start this work?** card; nothing is created until you confirm it. |
+| **Careful** | Starting new work, changing the queue order and starting queued work now wait for your confirmation. A held delegation shows a **Start this work?** card with **Start work**; nothing is created until you confirm it. |
 | **Balanced** (default) | Exactly the behavior without levels: work you ask for starts, and continuing, answering for you or ending work waits for you. |
 | **Hands-off** | When you ask in your own words, Tars also resumes work, retries a phase and gives work more steps at once. Each leaves an applied record in the conversation. |
 
@@ -1371,7 +1385,7 @@ message never carries a looser level than your settings.
 production branches". Tars receives them as hard constraints. Stave also asks
 you first when a proposed action plainly names a rule's repository, branch or
 action, even at a level that would apply it, and shows the rule and the word
-that matched on the card; **Confirm** is then never the Enter or "yes" default.
+that matched on the card; confirming is then never the Enter or "yes" default.
 The rules guide Tars's decisions. Stave does not block an action because of a
 rule, and it does not read a rule's meaning beyond those words, so a rule that
 names nothing Stave can match depends on Tars following it.

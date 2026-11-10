@@ -172,13 +172,15 @@ The conversation reads one type scale derived from the reader's chat font size
 (**Settings → Chat → Message font size**). It is defined as CSS variables in
 `src/components/ai-elements/chat-type.stylex.ts` and set by each host that knows
 the size with `chatTypeScaleVars` (`message-text-scale.ts`): the markdown root,
-a message's content and the Tars column. Later surfaces read the same variables.
+a message's content, the Tars column and the Tars knowledge and usage sheets.
+The Tars work tray and the conversation settings sheet are control surfaces and
+stay on AUI control type.
 
 | Step | Size | Line height | Used by |
 | --- | --- | --- | --- |
-| `body` | the chat font size (16px by default) | 1.55 | reply prose, lists, user bubbles, the composer's words |
-| `secondary` | one AUI step down: `round(body × 14/16)`, at least 12px | `--aui-line-height-normal` (20px at 14px) | table cells, link and file chips, message status rows, failure notices, attachment names, the running strip |
-| `meta` | two AUI steps down: `round(body × 12/16)`, at least 11px | `--aui-line-height-tight` | message times, file sizes and types, table headers, code block labels |
+| `body` | the chat font size (16px by default) | 1.55 | reply prose, lists, user bubbles, the composer's words, a Tars card's title and effect |
+| `secondary` | one AUI step down: `round(body × 14/16)`, at least 12px | `--aui-line-height-normal` (20px at 14px) | table cells, link and file chips, message status rows, failure notices, attachment names, the running strip, Tars records and result cards, the other lines of Tars cards (decision, publish, schedule, clear), the away summary, the start screen, the knowledge and usage sheets |
+| `meta` | two AUI steps down: `round(body × 12/16)`, at least 11px | `--aui-line-height-tight` | message and record times, day labels, file sizes and types, table headers, code block labels |
 
 Headings step up from `body` by fixed ratios (h1 1.5×, h2 1.25×, h3 1.125×;
 h4–h6 keep the body size in muted ink) with 24px above and 8px below. Code
