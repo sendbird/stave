@@ -657,7 +657,12 @@ Agent run and provider paths:
 - `electron/host-service/tars-control.ts` — deterministic control admission,
   click records (`tars.act`) and the shared request ledger contract
 - `electron/host-service/tars-decisions.ts` — saved conversation proposals,
-  including `control` actions, admitted through the same runtime path
+  including `control` actions, admitted through the same runtime path; it
+  decides apply-at-once versus hold-for-Confirm from `src/lib/tars/autonomy.ts`
+  and admits a confirmed held work proposal (`tars.confirm-proposal`)
+- `src/lib/tars/autonomy.ts` — the autonomy level's one policy table
+  (`tarsActionMode`), read by the host, the planner prompt and Settings, and
+  the whole-word matching of the user's "never do" rules
 - `electron/host-service/tars-host.ts` and `tars-execution.ts` —
   registered scope checks, isolated task creation and existing Run integration
 - `electron/persistence/tars-store.ts` — durable identity, unique request

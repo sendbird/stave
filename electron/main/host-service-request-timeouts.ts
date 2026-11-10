@@ -45,6 +45,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   "tars.act": null,
   "tars.reprioritize": null,
   "tars.apply-decision": null,
+  "tars.confirm-proposal": null,
   // Commit hooks, a push and pull request creation have no meaningful bound; a deadline would fence an outcome the host may still apply.
   "tars.publish": null,
   "workspace-scripts.run-entry": null,

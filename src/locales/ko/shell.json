@@ -2166,6 +2166,105 @@
         "label": "{{title}} 진행 상황",
         "prompt": "“{{title}}” 진행 상황 알려 줘. 지금 뭘 하고 있고 뭐가 남았어?"
       }
+    },
+    "autonomy": {
+      "title": "Tars가 스스로 하는 범위",
+      "hint": "Tars가 알아서 하는 일과 확인을 기다리는 일을 한 번에 정합니다. Tars의 다음 결정부터 적용됩니다.",
+      "level": {
+        "careful": {
+          "label": "신중하게",
+          "description": "Tars가 제안하고, 작업을 시작하거나 순서를 바꾸는 모든 동작을 직접 확인합니다."
+        },
+        "balanced": {
+          "label": "균형 있게",
+          "description": "기본값입니다. 요청한 작업은 Tars가 시작하고, 이어서 진행하거나 대신 답하거나 작업을 끝내는 일은 확인을 기다립니다."
+        },
+        "handsOff": {
+          "label": "맡겨 두기",
+          "description": "요청하면 Tars가 자기 작업을 바로 재개하고 다시 시도하고 단계를 더 주며, 기록을 남깁니다."
+        }
+      },
+      "table": {
+        "label": "{{level}} 단계에서 Tars가 하는 일",
+        "column": {
+          "when": "Tars가 제안했을 때",
+          "actions": "동작"
+        },
+        "row": {
+          "auto": "알아서 합니다",
+          "confirm": "먼저 묻습니다",
+          "always": "어느 단계에서나 항상 묻습니다",
+          "never": "하지 않습니다"
+        },
+        "none": "없음"
+      },
+      "action": {
+        "show": "보고서·변경 사항·타임라인·리뷰 열기",
+        "delegate": "새 작업 시작",
+        "reprioritize": "대기 순서 변경",
+        "startNow": "대기 중인 작업 바로 시작",
+        "pause": "작업 일시 중지",
+        "takeover": "작업을 사용자에게 넘기기",
+        "deny": "도구 요청 거부",
+        "resume": "작업 재개",
+        "extend": "작업에 단계 더 주기",
+        "retryStage": "단계 다시 시도",
+        "handBack": "사용자가 가져간 작업 다시 맡기",
+        "signOff": "대기 중인 단계 승인",
+        "answer": "작업의 질문에 답하기",
+        "message": "작업에 사용자의 말 전하기",
+        "requestChanges": "단계에 변경 요청",
+        "clear": "대화나 목록 정리",
+        "cancel": "작업 취소",
+        "skipStage": "단계 건너뛰기",
+        "acceptCompletion": "Stave가 확인하지 못한 완료 수락",
+        "approve": "도구 요청 승인",
+        "publish": "커밋, 푸시, 초안 풀 리퀘스트 열기"
+      },
+      "unavailable": {
+        "merge": "병합",
+        "deploy": "배포",
+        "forcePush": "강제 푸시",
+        "deleteBranches": "브랜치·워크트리·작업 삭제",
+        "alwaysAllow": "“항상 허용” 규칙 만들기",
+        "spendMoney": "비용 지출",
+        "contactOthers": "다른 사람에게 메시지 보내기"
+      },
+      "footnote": "Tars가 스스로 시작한 일에는 단계가 적용되지 않습니다. 자동 후속 확인 뒤에는 묻거나, 화면을 보여 주거나, 확인할 제안을 하는 것만 할 수 있습니다.",
+      "never": {
+        "title": "하지 말 것",
+        "hint": "직접 쓰는 규칙입니다. Tars는 이 규칙을 넘지 말아야 할 한계로 전달받고, 제안한 동작이 규칙에 적힌 저장소·브랜치·동작과 겹치면 Stave가 먼저 묻습니다. 규칙은 Tars의 판단을 이끄는 것이며, Stave가 이 규칙만으로 동작을 막지는 않습니다.",
+        "placeholder": "예: production 브랜치는 건드리지 않기",
+        "inputLabel": "새 규칙",
+        "add": "규칙 추가",
+        "remove": "규칙 삭제: {{rule}}",
+        "removeShort": "삭제",
+        "empty": "아직 규칙이 없습니다.",
+        "limit_other": "규칙은 {{count}}개까지 둘 수 있습니다."
+      },
+      "card": {
+        "title_other": "직접 정한 규칙 {{count}}개에 해당할 수 있습니다",
+        "match": {
+          "repository": "“{{rule}}” 규칙에 이 저장소({{value}})가 있습니다.",
+          "branch": "“{{rule}}” 규칙에 이 브랜치({{value}})가 있습니다.",
+          "action": "“{{rule}}” 규칙에 이 동작({{value}})이 있습니다."
+        },
+        "note": "이 규칙 때문에 Stave가 먼저 물었습니다. 규칙이 동작을 막지는 않으며, 결정은 사용자가 합니다."
+      },
+      "proposal": {
+        "title": {
+          "delegate": "이 작업을 시작할까요?",
+          "reprioritize": "이 작업의 우선순위를 바꿀까요?"
+        },
+        "effect": {
+          "delegate": "Tars가 이 작업을 대기열에 넣고 자리가 나면 시작합니다.",
+          "reprioritize": "작업이 대기열에서 우선순위 {{priority}}(으)로 이동합니다."
+        },
+        "subject": {
+          "delegate": "{{title}} 시작",
+          "reprioritize": "{{title}} 우선순위 변경"
+        }
+      }
     }
   }
 }

@@ -37,6 +37,8 @@ export function getTarsConversationService() {
       applyDecision: (input) => invokeHostService("tars.apply-decision", input),
       // Decision answers that control work take the same host path as a click.
       act: (input) => invokeHostService("tars.act", input),
+      // A confirmed work proposal is admitted by the host from its saved receipt.
+      confirmProposal: (input) => invokeHostService("tars.confirm-proposal", input),
       onError: () => console.error("[tars] conversation scheduling failed"),
     });
     // The host moves responsibilities; a move can invalidate a waiting decision, which Tars asks about once.

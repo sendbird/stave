@@ -31,6 +31,7 @@ import { TarsActivityNoticeLine, TarsFlowBlock } from "./TarsFlowBlock";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
 import { TarsPublishCard } from "./TarsPublishCard";
+import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
 import { TarsPublishRecordLine } from "./TarsPublishRecordLine";
 import { TarsRecordList, TarsRecordOpenWorkContext, TarsRecordRow, TarsWorkChip } from "./TarsRecord";
 import { TarsReceiptRow } from "./TarsReceiptRow";
@@ -87,7 +88,9 @@ function TarsClearProposal({ view, clear }: { view: TarsClearContext["proposals"
 }
 
 /** A publish proposal in place of its receipt: the card while it waits, else one line. */
-function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishContext["proposals"][number]; publish: TarsPublishContext; titleOf?: (id: string) => string | undefined }) {
+function TarsPublishProposal({ view, publish, titleOf, matchedRules }: { view: TarsPublishContext["proposals"][number]; publish: TarsPublishContext; titleOf?: (id: string) => string | undefined;
+  /** The user's "never do" rules the host matched for this proposal. */
+  matchedRules?: TarsActionReceipt["matchedRules"] }) {
   const { t } = useTranslation(["shell"]);
   const row = publish.rowOf(view.responsibilityId);
   const title = titleOf?.(view.responsibilityId) ?? view.responsibilityId;
@@ -100,7 +103,7 @@ function TarsPublishProposal({ view, publish, titleOf }: { view: TarsPublishCont
   if (!row) return null;
   const { preview, state } = publish.previewOf(row.id);
   return <TarsPublishCard id={view.requestId} row={row} preview={preview} previewState={state} busy={publish.busyId === view.requestId}
-    error={publish.errors.get(view.requestId)} onDecline={() => publish.onDecline(view.requestId)}
+    error={publish.errors.get(view.requestId)} onDecline={() => publish.onDecline(view.requestId)} notice={<TarsNeverRuleNotice matches={matchedRules} />}
     onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
 }
 
@@ -161,7 +164,8 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     {flowed.map(({ receipt, card }) => card
       ? <TarsDecisionCard key={`decision:${receipt.actionIndex}`} decision={card} titleOf={titleOf} {...context} busy={busy} error={answerErrors?.get(card.id)}
         onAnswer={onAnswer ? (view, index, source) => onAnswer(view, index, source) : undefined} /> : null)}
-    {publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf} />) : null}
+    {publish ? [...publishViews.values()].map((view) => <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf}
+      matchedRules={receipts.find((receipt) => receipt.actionIndex === view.actionIndex)?.matchedRules} />) : null}
     {clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : null}
     {flowed.map(({ receipt, flow }) => flow
       ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide}

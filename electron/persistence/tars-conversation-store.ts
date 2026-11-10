@@ -464,7 +464,10 @@ export class TarsConversationStore {
       const next = TarsActionReceiptSchema.parse({ ...current, status: outcome.status,
         responsibilityId: outcome.status === "applied" ? outcome.responsibilityId : null,
         error: outcome.status === "rejected" ? outcome.error : null,
-        reason: outcome.status === "rejected" ? outcome.reason ?? null : null, revision: current.revision + 1, updatedAt: now });
+        reason: outcome.status === "rejected" ? outcome.reason ?? null : null,
+        // The rules that made the host hold it stay with the proposal, for its card.
+        ...(outcome.status === "proposed" && outcome.matchedRules?.length ? { matchedRules: outcome.matchedRules } : {}),
+        revision: current.revision + 1, updatedAt: now });
       const result = this.db.prepare(`UPDATE tars_action_receipts SET revision = ?, body_json = ?
         WHERE message_id = ? AND action_index = ? AND revision = ?`)
         .run(next.revision, JSON.stringify(next), messageId, actionIndex, expectedRevision);
@@ -736,8 +739,35 @@ export class TarsConversationStore {
     return next;
   }
 
+  /**
+   * Applies a held work proposal (a delegation or a priority change) once the
+   * user confirmed it: effect and receipt settle in one transaction. A
+   * proposal that already settled is returned unchanged and its effect never
+   * runs again.
+   */
+  applyProposal(ref: TarsProposalRef, apply: () => { responsibilityId: string }, now: string): TarsActionReceipt {
+    return this.write(() => {
+      const current = this.getReceipt(ref.messageId, ref.actionIndex);
+      if (!current) throw new Error("The action receipt was not found.");
+      if (current.action.kind !== "delegate" && current.action.kind !== "reprioritize") throw new Error("Only a held work proposal is applied this way.");
+      if (current.status !== "proposed") return current;
+      if (this.get(ref.messageId)?.state !== "answered") throw new Error("The message does not authorize action execution.");
+      return this.settleProposal(ref, { status: "applied", responsibilityId: apply().responsibilityId }, now);
+    });
+  }
+
+  /** Refuses a held work proposal at its confirmation; one that already settled is returned unchanged. */
+  rejectProposal(ref: TarsProposalRef, outcome: { error: string; reason?: TarsActionReason }, now: string): TarsActionReceipt {
+    return this.write(() => {
+      const current = this.getReceipt(ref.messageId, ref.actionIndex);
+      if (!current) throw new Error("The action receipt was not found.");
+      if (current.status !== "proposed") return current;
+      return this.settleProposal(ref, { status: "rejected", error: outcome.error, reason: outcome.reason ?? null }, now);
+    });
+  }
+
   /** Only the confirming click moves a proposal on; it is never applied by the conversation itself. */
-  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string } | { status: "rejected"; error: string; reason: TarsActionReason },
+  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string } | { status: "rejected"; error: string; reason: TarsActionReason | null },
     now: string): TarsActionReceipt {
     const current = this.getReceipt(ref.messageId, ref.actionIndex);
     if (current?.status !== "proposed") throw new Error("The proposal is not awaiting confirmation.");
