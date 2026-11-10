@@ -42,6 +42,7 @@ import { MermaidBlock } from "./mermaid-block";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
   scaleMessageCodeFontSize,
+  chatTypeScaleVars,
   scaleMessageFontSize,
   useMessageTextScale,
 } from "./message-text-scale";
@@ -138,6 +139,7 @@ export function MessageContent({
     <div
       className={cx(sx(styles.content), className)}
       style={{
+        ...chatTypeScaleVars(messageFontSize),
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
       }}
@@ -257,6 +259,7 @@ export function MessageResponse({
       <div
         className={cx(sx(styles.responseBody), className)}
         style={{
+          ...chatTypeScaleVars(messageFontSize),
           fontSize: `${messageFontSize}px`,
           lineHeight: MESSAGE_BODY_LINE_HEIGHT,
           ...style,

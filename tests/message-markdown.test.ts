@@ -439,7 +439,10 @@ describe("MarkdownMessage", () => {
       }),
     );
 
-    expect(html).toContain('style="font-size:18px;line-height:1.68"');
+    // The root publishes the conversation's type scale for an 18px chat font size.
+    expect(html).toContain(
+      'style="--chat-type-body:18px;--chat-type-secondary:max(var(--aui-font-size-caption), 16px);--chat-type-meta:max(var(--aui-font-size-micro), 14px);font-size:18px;line-height:1.55"',
+    );
     expect(html).toContain('style="font-size:14px"');
   });
 

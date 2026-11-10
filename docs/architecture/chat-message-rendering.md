@@ -166,10 +166,52 @@ One transcript-level ledger subscription supplies live updates; read-only messag
 recorded receipts. Native results reuse the task projection and only the matching turn graph.
 Structured questions stay outside history, retaining the same answer and focus handling.
 
+### Type scale
+
+The conversation reads one type scale derived from the reader's chat font size
+(**Settings → Chat → Message font size**). It is defined as CSS variables in
+`src/components/ai-elements/chat-type.stylex.ts` and set by each host that knows
+the size with `chatTypeScaleVars` (`message-text-scale.ts`): the markdown root,
+a message's content and the Tars column. Later surfaces read the same variables.
+
+| Step | Size | Line height | Used by |
+| --- | --- | --- | --- |
+| `body` | the chat font size (16px by default) | 1.55 | reply prose, lists, user bubbles, the composer's words |
+| `secondary` | one AUI step down: `round(body × 14/16)`, at least 12px | `--aui-line-height-normal` (20px at 14px) | table cells, link and file chips, message status rows, failure notices, attachment names, the running strip |
+| `meta` | two AUI steps down: `round(body × 12/16)`, at least 11px | `--aui-line-height-tight` | message times, file sizes and types, table headers, code block labels |
+
+Headings step up from `body` by fixed ratios (h1 1.5×, h2 1.25×, h3 1.125×;
+h4–h6 keep the body size in muted ink) with 24px above and 8px below. Code
+glyphs follow the separate code font size setting, on the `secondary` line
+ratio. AUI controls inside these surfaces (buttons, badges) keep their control
+type. No text in these surfaces uses `line-height: normal`. A panel that caps
+the message size (`MessageTextScaleContext` `panel`) caps the scale with it.
+
+### Markdown blocks
+
+- Every block (paragraph, list, table, code block, rule) ends with one 12px
+  gap and starts with none, so any two blocks sit the same distance apart.
+- A table header is the AUI table header: muted, semibold `meta` text on the
+  subtle canvas band; body rows are ruled with the AUI row hairline.
+- Code blocks render tabs 4 columns wide. A `diff` or `patch` fence gives each
+  added and removed line a full-width row on the diff viewer's wash
+  (`--aui-color-diff-added`, `--aui-color-diff-removed`); headers and context
+  lines keep the code surface.
+- A code block whose lines are wider than it scrolls inside it. The side with
+  more code fades out over one control height (an overlay scrollbar stays
+  hidden until something scrolls), and the block is then a named region in
+  the tab order, so the keyboard reaches it and the arrow keys scroll it; the
+  block's edge shows the focus ring.
+- The code header names common fence ids readably (`golang` → Go, `jsonc` →
+  JSONC, `sh` → Shell); any other id shows as written.
+- The scroll-to-bottom button sits centred on the transcript's axis just above
+  the composer, in the task chat and in Tars.
+
 ### Inline code & file links
 
 - Inline backtick code uses bordered chip style (border + subtle bg, like `inline-citation`).
 - File link chips (with line numbers) use full-opacity `border-border` for clear visibility against the white chat background.
+- Link and file chips are `secondary` text on a 24px box, which is their hit area.
 - Prefer markdown links for workspace file references so the renderer can promote them to file chips.
 - As a compatibility fallback, inline code spans that resolve to known workspace file paths are also promoted to file chips.
   Before the workspace file index loads, only path-shaped text qualifies (a path separator, a file
