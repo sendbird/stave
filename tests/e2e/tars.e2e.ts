@@ -177,12 +177,12 @@ test("a click in the tray appends a one-line action record, never a user message
   // Take over sits in the card's "More actions" menu; the same host path records it.
   await panel.getByRole("button", { name: "More actions for Verify the release candidate across two repositories", exact: true }).click();
   await page.getByRole("menuitem", { name: "Take over", exact: true }).click();
-  await expect(view.locator("[data-tars-action-record]")).toContainText("Taken over · click");
+  await expect(view.locator("[data-tars-action-record]")).toContainText(/Take over.*click.*Applied/);
   await expect(panel.getByRole("button", { name: "Hand back", exact: true })).toBeVisible();
   await expect(panel.getByRole("button", { name: "Pause", exact: true })).toHaveCount(0);
   await panel.getByRole("button", { name: "Hand back", exact: true }).click();
   await expect(view.locator("[data-tars-action-record]")).toHaveCount(2);
-  await expect(view.locator("[data-tars-action-record]").last()).toContainText("Handed back · click");
+  await expect(view.locator("[data-tars-action-record]").last()).toContainText(/Hand back.*click.*Applied/);
   await expect(view.locator("[data-tars-message]")).toHaveCount(0);
 });
 
@@ -313,7 +313,11 @@ for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
       const pre = node.querySelector<HTMLElement>("[data-tars-reply] pre")!;
       const table = box("[data-tars-reply] table");
       const paragraph = box("[data-tars-reply] p:not(:first-child)");
-      return { view: [node.clientWidth, node.scrollWidth], row: [row.left, row.right, row.width], bubble: [bubble.left, bubble.right, bubble.width], metaRight: meta.right,
+      // The table's own scroll box: the nearest ancestor that clips it horizontally.
+      let scroller = node.querySelector<HTMLElement>("[data-tars-reply] table")!.parentElement!;
+      while (getComputedStyle(scroller).overflowX === "visible") scroller = scroller.parentElement!;
+      const tableBox = scroller.getBoundingClientRect();
+      return { tableScroll: [scroller.clientWidth, scroller.scrollWidth, tableBox.left, tableBox.right], view: [node.clientWidth, node.scrollWidth], row: [row.left, row.right, row.width], bubble: [bubble.left, bubble.right, bubble.width], metaRight: meta.right,
         reply: [reply.left, reply.right], pre: [pre.clientWidth, pre.scrollWidth, getComputedStyle(pre).overflowX], table: [table.left, table.right], paragraph: [paragraph.left, paragraph.right] };
     });
     // Nothing widens the view; the code block scrolls inside itself instead.
@@ -329,6 +333,12 @@ for (const width of [390, 1440]) for (const lang of ["en", "ko"]) {
     expect(Math.abs(geometry.reply[0] - geometry.row[0])).toBeLessThanOrEqual(1);
     // Prose keeps the reading column; a table may take the wider measure when there is room, centred on the same axis.
     expect(geometry.paragraph[1]).toBeLessThanOrEqual(geometry.reply[1] + 1);
+    if (width < 1088) {
+      // Narrow, a table wider than the column scrolls inside its own box, which stays within the column.
+      expect(geometry.tableScroll[1]).toBeGreaterThan(geometry.tableScroll[0]);
+      expect(geometry.tableScroll[2]).toBeGreaterThanOrEqual(geometry.reply[0] - 1);
+      expect(geometry.tableScroll[3]).toBeLessThanOrEqual(geometry.reply[1] + 1);
+    }
     if (width >= 1088) {
       expect(geometry.table[1] - geometry.table[0]).toBeGreaterThan(geometry.reply[1] - geometry.reply[0]);
       expect(Math.abs((geometry.table[0] + geometry.table[1]) / 2 - (geometry.reply[0] + geometry.reply[1]) / 2)).toBeLessThanOrEqual(1);
@@ -375,7 +385,7 @@ test("queued work moves with Do first, from its grip's keys and by dragging; eac
   await expect(page.getByRole("menuitem", { name: "Do later", exact: true })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Do first", exact: true }).click();
   await expect.poll(order).toEqual(["queue-auth", "queue-docs", "queue-search"]);
-  await expect(view.locator('[data-tars-record-kind="move"]').last()).toContainText("Moved earlier · click");
+  await expect(view.locator('[data-tars-record-kind="move"]').last()).toContainText(/Do first.*click · Priority \d+.*Applied/);
   await expect(view.locator("[data-tars-message]")).toHaveCount(1);
   await expect(notice).toHaveText(`${docs} is now 2 of 3 in the queue.`);
   await expect(panel.getByRole("button", { name: `More actions for ${docs}`, exact: true })).toBeFocused();
@@ -396,7 +406,7 @@ test("queued work moves with Do first, from its grip's keys and by dragging; eac
   const box = (await last.boundingBox())!;
   await grip.dragTo(last, { targetPosition: { x: box.width / 2, y: box.height - 4 } });
   await expect.poll(order).toEqual(["queue-auth", "queue-search", "queue-docs"]);
-  await expect(view.locator('[data-tars-record-kind="move"]').last()).toContainText("Moved later · drag");
+  await expect(view.locator('[data-tars-record-kind="move"]').last()).toContainText(/Move later.*drag · Priority \d+.*Applied/);
   await expect(view.locator('[data-tars-record-kind="move"]')).toHaveCount(3);
 });
 
@@ -408,7 +418,7 @@ test("a proposed cancel waits as a decision card, and the confirmed proposal fol
   const card = message.locator('[data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Awaiting your confirmation");
   await card.getByRole("button", { name: "Confirm", exact: true }).click();
-  await expect(message.locator('[data-tars-decision-state="answered"]')).toContainText("Cancel Verify the release candidate across two repositories · click");
+  await expect(message.locator('[data-tars-decision-state="answered"]')).toContainText(/Cancel Verify the release candidate across two repositories.*click.*Confirmed/);
   await expect(message.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(0);
   // The confirmation's own record shows on its card, not twice.
   await expect(view.locator("[data-tars-action-record]")).toHaveCount(0);
@@ -423,8 +433,15 @@ test("a decision card answered by click leaves one record line and Tars's reply,
   await expect(card).toContainText("Should I pause the release check until the staging deploy finishes?");
   // The question waits in Fleet's projection, so the tray counts it like a proposed control; the work itself still runs.
   await expect(view.getByRole("button", { name: "1 running · 1 needs you", exact: true })).toBeVisible();
-  await card.getByRole("button", { name: "Keep it running", exact: true }).click();
-  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText("Keep it running · click");
+  // The options are a radio group: the recommended one starts chosen, a click chooses another, and Answer sends the choice.
+  const keep = card.getByRole("radio", { name: /^Keep it running/ });
+  await expect(keep).toBeChecked();
+  await card.getByText("Pause it now", { exact: true }).click();
+  await expect(card.getByRole("radio", { name: /^Pause it now/ })).toBeChecked();
+  await expect(keep).not.toBeChecked();
+  await card.getByText("Keep it running", { exact: true }).click();
+  await card.getByRole("button", { name: "Answer", exact: true }).click();
+  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText(/Keep it running.*click.*Answered/);
   const answer = view.locator('[data-tars-message-origin="answer"]');
   await expect(answer).toContainText("Understood.");
   await expect(answer.locator('[data-role="user"], .is-user')).toHaveCount(0);
@@ -445,13 +462,18 @@ test("decision keys answer only while the card has focus; the composer keeps its
   await expect(card).toBeVisible();
   await editor(page).fill("");
   await card.focus();
+  // 1 only chooses the first option (focus moves to it); Enter answers the choice.
   await page.keyboard.press("1");
+  await expect(card.getByRole("radio", { name: /^Pause it now/ })).toBeChecked();
+  await expect(card.getByRole("radio", { name: /^Pause it now/ })).toBeFocused();
+  await expect(card).toBeVisible();
+  await page.keyboard.press("Enter");
   const answered = view.locator('[data-tars-decision-state="answered"]');
-  await expect(answered).toContainText("Pause it now · key");
+  await expect(answered).toContainText(/Pause it now.*key.*Answered/);
   // The pause went through the host's control path: the work is paused now.
   await expect(page.getByRole("complementary")).toContainText("Paused");
   // Focus stays on the folded record instead of falling to the page.
-  await expect(answered.locator("p")).toBeFocused();
+  await expect(answered.locator('[data-tars-record-state][tabindex="-1"]')).toBeFocused();
 });
 
 test("a short answer in words binds to the one waiting decision's recommended option", async ({ page }) => {
@@ -460,7 +482,7 @@ test("a short answer in words binds to the one waiting decision's recommended op
   await send(page, "릴리스 확인 어떻게 할까?");
   await expect(view.locator('[data-tars-decision-state="waiting"]')).toBeVisible();
   await send(page, "응");
-  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText("계속 실행 · 대화");
+  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText(/계속 실행.*대화.*답함/);
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
   // The bound word was an answer, not another message to Tars.
   expect(saved.messages.map((message: { text: string }) => message.text)).not.toContain("응");
@@ -484,12 +506,23 @@ test("an unverified completion is a decision card: verification work goes to the
   const view = page.getByTestId("tars-view");
   const card = view.locator('[data-tars-decision-kind="unverifiedCompletion"][data-tars-decision-state="waiting"]');
   await expect(card).toContainText("Stave could not verify");
-  await card.getByRole("button", { name: "Ask Tars for new verification work", exact: true }).click();
+  // Nothing is recommended, so Answer waits for a choice.
+  const submit = card.getByRole("button", { name: "Answer", exact: true });
+  await expect(submit).toBeDisabled();
+  await card.getByText("Ask Tars for new verification work", { exact: true }).click();
+  await submit.click();
   // It only drafts the request: nothing is answered or sent.
   await expect(editor(page)).toContainText("Start new work to verify");
   await expect(card).toBeVisible();
-  await card.getByRole("button", { name: "Accept as done", exact: true }).click();
-  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText("Accept as done · click");
+  // Accepting and cancelling cannot be undone, so either keeps Answer out of the filled primary; asking for verification does not.
+  await expect(submit).toHaveAttribute("data-variant", "primary");
+  await card.getByText("Cancel responsibility", { exact: true }).click();
+  await expect(submit).toHaveAttribute("data-tone", "danger");
+  await expect(submit).not.toHaveAttribute("data-variant", "primary");
+  await card.getByText("Accept as done", { exact: true }).click();
+  await expect(submit).toHaveAttribute("data-tone", "danger");
+  await submit.click();
+  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText(/Accept as done.*click.*Answered/);
 });
 
 test("the tray and a delegated flow show where work stands without adding transcript rows", async ({ page }) => {
@@ -518,7 +551,7 @@ test("the tray and a delegated flow show where work stands without adding transc
   // Confirm takes Resume's place instead of sitting beside it.
   await expect(release.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
   await release.getByRole("button", { name: "Confirm resume", exact: true }).click();
-  await expect(view.locator("[data-tars-action-record]")).toContainText("Resumed · click");
+  await expect(view.locator("[data-tars-action-record]")).toContainText(/Resume.*click.*Applied/);
   // Resumed work waits for the one active slot behind the running fix: it is waiting, never counted as running.
   await expect(view.getByRole("button", { name: "1 running · 1 waiting · 1 yours · 1 done", exact: true })).toBeVisible();
 });
@@ -684,7 +717,7 @@ test("asking for the report in words opens it beside the conversation as a view-
   await expect(sideView(page)).toHaveAttribute("data-tars-side-view", "report");
   await expect(sideView(page)).toContainText("Show the saved card first at checkout");
   await expect(page.getByTestId("tars-view").locator("[data-tars-message]").filter({ hasText: "Show me the report" }))
-    .toContainText("Opened the result report of Show the saved card first at checkout");
+    .toContainText(/Open the result report.*Show the saved card first at checkout.*Accepted for execution/);
   // Focus stays in the composer, and nothing was pressed to open it, so Esc leaves focus there.
   await expect(editor(page)).toBeFocused();
   await page.keyboard.press("Escape");
@@ -803,7 +836,7 @@ test("a confirmation card names its effect, marks what cannot be undone, and Esc
   await page.keyboard.press("Enter");
   await expect(card).toBeVisible();
   await page.keyboard.press("1");
-  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText("Cancel Verify the release candidate across two repositories · key");
+  await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText(/Cancel Verify the release candidate across two repositories.*key.*Confirmed/);
 });
 
 test("Korean decision text wraps between words, not inside one", async ({ page }) => {
@@ -846,7 +879,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
     await card.locator("[data-tars-publish-message]").fill("fix(checkout): show the saved card first");
     await card.locator("[data-tars-publish-message]").press("Enter");
     const line = view.locator("[data-tars-publish-record='applied']");
-    await expect(line).toContainText(lang === "ko" ? "Draft PR #12 열림 · 키" : "Draft PR #12 opened · key");
+    await expect(line).toContainText(lang === "ko" ? /Draft PR #12 열림.*키/ : /Draft PR #12 opened.*key/);
     await expect(view.locator("[data-tars-publish-card^='publish:']")).toHaveCount(0);
     // The pull request is an output of the work: the pinned tray lists it beside the conversation.
     await expect(view.locator("[data-tars-output='pullRequest']")).toContainText(lang === "ko" ? "Draft PR #12 보기" : "Draft PR #12");
@@ -884,7 +917,7 @@ test("a failed publish folds to its reason with Retry, which reopens the card an
   await expect(card).toHaveAttribute("data-tars-publish-state", "waiting");
   await card.locator("[data-tars-publish-confirm]").click();
   const failed = view.locator("[data-tars-publish-record='rejected']");
-  await expect(failed).toContainText("Not published · click");
+  await expect(failed).toContainText(/Not published.*click/);
   await expect(failed).toContainText("Stopped at: Push");
   await failed.locator("[data-tars-publish-retry]").click();
   const retry = view.locator("[data-tars-publish-card^='publish-click:']");
@@ -892,7 +925,7 @@ test("a failed publish folds to its reason with Retry, which reopens the card an
   await expect(retry.locator("[data-tars-publish-message]")).toBeFocused();
   await expect(retry.locator("[data-tars-publish-row='resume']")).toContainText("Push");
   await page.keyboard.press("Enter");
-  await expect(view.locator("[data-tars-publish-record='applied']")).toContainText("Draft PR #12 opened · key");
+  await expect(view.locator("[data-tars-publish-record='applied']")).toContainText(/Draft PR #12 opened.*key/);
   await expect(view.locator("[data-tars-publish-card]")).toHaveCount(0);
 });
 

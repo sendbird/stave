@@ -9,6 +9,7 @@ import type { TarsActivity, TarsControlOperation, TarsFollowUpState, TarsPending
 import type { buildTarsTrayFixtures } from "./tars-fixtures";
 import type { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
+import { tarsGalleryCodeReply } from "./tars-code-languages-fixture";
 
 type ControlAction = Extract<TarsDecisionAction, { kind: "control" }>;
 type ReceiptOutcome = { status: "applied"; responsibilityId: string } | { status: "proposed" | "pending" } | { status: "rejected"; reason: TarsActionReason };
@@ -212,6 +213,11 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
   {
     const c = begin("B3", "Reply that overflows the column", "열 너비를 넘는 답변");
     said("g-b3", c.at(), `${c.label}: ${l("long URL, wide code and a wide table.", "긴 URL, 넓은 코드와 넓은 표.")}`, TARS_PREVIEW_RICH_REPLY);
+  }
+  {
+    const c = begin("B4", "Code in every language", "언어별 코드");
+    said("g-b4", c.at(), `${c.label}: ${l("show the retry change in each language we use.", "우리가 쓰는 언어마다 재시도 변경을 보여 줘.")}`,
+      tarsGalleryCodeReply(l("Each block is highlighted with its own grammar; aliases use the grammar they stand for.", "블록마다 해당 언어 문법으로 강조합니다. 별칭은 가리키는 언어의 문법을 씁니다.")));
   }
 
   // C · A message's own states.

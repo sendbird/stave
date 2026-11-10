@@ -34,9 +34,5 @@ export const tarsStyles = stylex.create({
   errorBar: { color: vars["--aui-color-danger-text"], overflowWrap: "anywhere", paddingInline: vars["--aui-space-20"], flexShrink: 0 },
   full: { width: "100%" },
   messageText: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
-  actionRecord: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], margin: 0, paddingBlock: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], overflowWrap: "anywhere" },
-  recordTitle: { color: vars["--aui-color-text"], minWidth: 0 },
-  /** A decorative mark (the record arrow): the AUI #809 fourth, faint ink, never load-bearing. */
-  glyph: { color: vars["--aui-color-text-faint"] },
   receipts: { margin: 0, paddingInlineStart: vars["--aui-space-20"], display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], overflowWrap: "anywhere" },
 });

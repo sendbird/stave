@@ -1209,7 +1209,6 @@
       "failed": "The conversation request failed. Your draft and saved messages are preserved.",
       "failedHint": "This message will not run again automatically. Send a new message to try again.",
       "actions": "Action results",
-      "reprioritize": "Set priority {{priority}} for {{title}}",
       "control": {
         "pause": "Pause {{title}}",
         "resume": "Resume {{title}}",
@@ -1228,319 +1227,6 @@
         "message": "Send your words to {{title}}",
         "requestChanges": "Request changes on the waiting stage of {{title}}"
       },
-      "records": {
-        "click": {
-          "pending": {
-            "pause": "Pause pending · click",
-            "resume": "Resume pending · click",
-            "cancel": "Cancel pending · click",
-            "takeover": "Take over pending · click",
-            "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click",
-            "startNow": "Start now pending · click",
-            "extend": "Add turns pending · click",
-            "retryStage": "Retry stage pending · click",
-            "skipStage": "Skip stage pending · click",
-            "signOff": "Sign off pending · click",
-            "approve": "Approve request pending · click",
-            "deny": "Deny request pending · click",
-            "answer": "Answer question pending · click",
-            "message": "Send to task pending · click",
-            "requestChanges": "Request changes pending · click"
-          },
-          "applied": {
-            "pause": "Paused · click",
-            "resume": "Resumed · click",
-            "cancel": "Cancelled · click",
-            "takeover": "Taken over · click",
-            "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click",
-            "startNow": "Started now · click",
-            "extend": "Turns added · click",
-            "retryStage": "Stage retried · click",
-            "skipStage": "Stage skipped · click",
-            "signOff": "Signed off · click",
-            "approve": "Request approved · click",
-            "deny": "Request denied · click",
-            "answer": "Question answered · click",
-            "message": "Sent to task · click",
-            "requestChanges": "Changes requested · click"
-          },
-          "rejected": {
-            "pause": "Pause not applied · click",
-            "resume": "Resume not applied · click",
-            "cancel": "Cancel not applied · click",
-            "takeover": "Take over not applied · click",
-            "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click",
-            "startNow": "Start now not applied · click",
-            "extend": "Add turns not applied · click",
-            "retryStage": "Retry stage not applied · click",
-            "skipStage": "Skip stage not applied · click",
-            "signOff": "Sign off not applied · click",
-            "approve": "Approve request not applied · click",
-            "deny": "Deny request not applied · click",
-            "answer": "Answer question not applied · click",
-            "message": "Send to task not applied · click",
-            "requestChanges": "Request changes not applied · click"
-          }
-        },
-        "fleet": {
-          "pending": {
-            "pause": "Pause pending · Fleet",
-            "resume": "Resume pending · Fleet",
-            "cancel": "Cancel pending · Fleet",
-            "takeover": "Take over pending · Fleet",
-            "handBack": "Hand back pending · Fleet",
-            "acceptCompletion": "Accept as done pending · Fleet",
-            "startNow": "Start now pending · Fleet",
-            "extend": "Add turns pending · Fleet",
-            "retryStage": "Retry stage pending · Fleet",
-            "skipStage": "Skip stage pending · Fleet",
-            "signOff": "Sign off pending · Fleet",
-            "approve": "Approve request pending · Fleet",
-            "deny": "Deny request pending · Fleet",
-            "answer": "Answer question pending · Fleet",
-            "message": "Send to task pending · Fleet",
-            "requestChanges": "Request changes pending · Fleet"
-          },
-          "applied": {
-            "pause": "Paused · Fleet",
-            "resume": "Resumed · Fleet",
-            "cancel": "Cancelled · Fleet",
-            "takeover": "Taken over · Fleet",
-            "handBack": "Handed back · Fleet",
-            "acceptCompletion": "Accepted as done · Fleet",
-            "startNow": "Started now · Fleet",
-            "extend": "Turns added · Fleet",
-            "retryStage": "Stage retried · Fleet",
-            "skipStage": "Stage skipped · Fleet",
-            "signOff": "Signed off · Fleet",
-            "approve": "Request approved · Fleet",
-            "deny": "Request denied · Fleet",
-            "answer": "Question answered · Fleet",
-            "message": "Sent to task · Fleet",
-            "requestChanges": "Changes requested · Fleet"
-          },
-          "rejected": {
-            "pause": "Pause not applied · Fleet",
-            "resume": "Resume not applied · Fleet",
-            "cancel": "Cancel not applied · Fleet",
-            "takeover": "Take over not applied · Fleet",
-            "handBack": "Hand back not applied · Fleet",
-            "acceptCompletion": "Accept as done not applied · Fleet",
-            "startNow": "Start now not applied · Fleet",
-            "extend": "Add turns not applied · Fleet",
-            "retryStage": "Retry stage not applied · Fleet",
-            "skipStage": "Skip stage not applied · Fleet",
-            "signOff": "Sign off not applied · Fleet",
-            "approve": "Approve request not applied · Fleet",
-            "deny": "Deny request not applied · Fleet",
-            "answer": "Answer question not applied · Fleet",
-            "message": "Send to task not applied · Fleet",
-            "requestChanges": "Request changes not applied · Fleet"
-          }
-        },
-        "task": {
-          "pending": {
-            "pause": "Pause pending · task view",
-            "resume": "Resume pending · task view",
-            "cancel": "Cancel pending · task view",
-            "takeover": "Take over pending · task view",
-            "handBack": "Hand back pending · task view",
-            "acceptCompletion": "Accept as done pending · task view",
-            "startNow": "Start now pending · task view",
-            "extend": "Add turns pending · task view",
-            "retryStage": "Retry stage pending · task view",
-            "skipStage": "Skip stage pending · task view",
-            "signOff": "Sign off pending · task view",
-            "approve": "Approve request pending · task view",
-            "deny": "Deny request pending · task view",
-            "answer": "Answer question pending · task view",
-            "message": "Send to task pending · task view",
-            "requestChanges": "Request changes pending · task view"
-          },
-          "applied": {
-            "pause": "Paused · task view",
-            "resume": "Resumed · task view",
-            "cancel": "Cancelled · task view",
-            "takeover": "Taken over · task view",
-            "handBack": "Handed back · task view",
-            "acceptCompletion": "Accepted as done · task view",
-            "startNow": "Started now · task view",
-            "extend": "Turns added · task view",
-            "retryStage": "Stage retried · task view",
-            "skipStage": "Stage skipped · task view",
-            "signOff": "Signed off · task view",
-            "approve": "Request approved · task view",
-            "deny": "Request denied · task view",
-            "answer": "Question answered · task view",
-            "message": "Sent to task · task view",
-            "requestChanges": "Changes requested · task view"
-          },
-          "rejected": {
-            "pause": "Pause not applied · task view",
-            "resume": "Resume not applied · task view",
-            "cancel": "Cancel not applied · task view",
-            "takeover": "Take over not applied · task view",
-            "handBack": "Hand back not applied · task view",
-            "acceptCompletion": "Accept as done not applied · task view",
-            "startNow": "Start now not applied · task view",
-            "extend": "Add turns not applied · task view",
-            "retryStage": "Retry stage not applied · task view",
-            "skipStage": "Skip stage not applied · task view",
-            "signOff": "Sign off not applied · task view",
-            "approve": "Approve request not applied · task view",
-            "deny": "Deny request not applied · task view",
-            "answer": "Answer question not applied · task view",
-            "message": "Send to task not applied · task view",
-            "requestChanges": "Request changes not applied · task view"
-          }
-        },
-        "key": {
-          "pending": {
-            "pause": "Pause pending · click",
-            "resume": "Resume pending · click",
-            "cancel": "Cancel pending · click",
-            "takeover": "Take over pending · click",
-            "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click",
-            "startNow": "Start now pending · click",
-            "extend": "Add turns pending · click",
-            "retryStage": "Retry stage pending · click",
-            "skipStage": "Skip stage pending · click",
-            "signOff": "Sign off pending · click",
-            "approve": "Approve request pending · click",
-            "deny": "Deny request pending · click",
-            "answer": "Answer question pending · click",
-            "message": "Send to task pending · click",
-            "requestChanges": "Request changes pending · click"
-          },
-          "applied": {
-            "pause": "Paused · click",
-            "resume": "Resumed · click",
-            "cancel": "Cancelled · click",
-            "takeover": "Taken over · click",
-            "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click",
-            "startNow": "Started now · click",
-            "extend": "Turns added · click",
-            "retryStage": "Stage retried · click",
-            "skipStage": "Stage skipped · click",
-            "signOff": "Signed off · click",
-            "approve": "Request approved · click",
-            "deny": "Request denied · click",
-            "answer": "Question answered · click",
-            "message": "Sent to task · click",
-            "requestChanges": "Changes requested · click"
-          },
-          "rejected": {
-            "pause": "Pause not applied · click",
-            "resume": "Resume not applied · click",
-            "cancel": "Cancel not applied · click",
-            "takeover": "Take over not applied · click",
-            "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click",
-            "startNow": "Start now not applied · click",
-            "extend": "Add turns not applied · click",
-            "retryStage": "Retry stage not applied · click",
-            "skipStage": "Skip stage not applied · click",
-            "signOff": "Sign off not applied · click",
-            "approve": "Approve request not applied · click",
-            "deny": "Deny request not applied · click",
-            "answer": "Answer question not applied · click",
-            "message": "Send to task not applied · click",
-            "requestChanges": "Request changes not applied · click"
-          }
-        },
-        "words": {
-          "pending": {
-            "pause": "Pause pending · click",
-            "resume": "Resume pending · click",
-            "cancel": "Cancel pending · click",
-            "takeover": "Take over pending · click",
-            "handBack": "Hand back pending · click",
-            "acceptCompletion": "Accept as done pending · click",
-            "startNow": "Start now pending · click",
-            "extend": "Add turns pending · click",
-            "retryStage": "Retry stage pending · click",
-            "skipStage": "Skip stage pending · click",
-            "signOff": "Sign off pending · click",
-            "approve": "Approve request pending · click",
-            "deny": "Deny request pending · click",
-            "answer": "Answer question pending · click",
-            "message": "Send to task pending · click",
-            "requestChanges": "Request changes pending · click"
-          },
-          "applied": {
-            "pause": "Paused · click",
-            "resume": "Resumed · click",
-            "cancel": "Cancelled · click",
-            "takeover": "Taken over · click",
-            "handBack": "Handed back · click",
-            "acceptCompletion": "Accepted as done · click",
-            "startNow": "Started now · click",
-            "extend": "Turns added · click",
-            "retryStage": "Stage retried · click",
-            "skipStage": "Stage skipped · click",
-            "signOff": "Signed off · click",
-            "approve": "Request approved · click",
-            "deny": "Request denied · click",
-            "answer": "Question answered · click",
-            "message": "Sent to task · click",
-            "requestChanges": "Changes requested · click"
-          },
-          "rejected": {
-            "pause": "Pause not applied · click",
-            "resume": "Resume not applied · click",
-            "cancel": "Cancel not applied · click",
-            "takeover": "Take over not applied · click",
-            "handBack": "Hand back not applied · click",
-            "acceptCompletion": "Accept as done not applied · click",
-            "startNow": "Start now not applied · click",
-            "extend": "Add turns not applied · click",
-            "retryStage": "Retry stage not applied · click",
-            "skipStage": "Skip stage not applied · click",
-            "signOff": "Sign off not applied · click",
-            "approve": "Approve request not applied · click",
-            "deny": "Deny request not applied · click",
-            "answer": "Answer question not applied · click",
-            "message": "Send to task not applied · click",
-            "requestChanges": "Request changes not applied · click"
-          }
-        },
-        "move": {
-          "click": {
-            "pending": {
-              "earlier": "Do first pending · click",
-              "later": "Do later pending · click"
-            },
-            "applied": {
-              "earlier": "Moved earlier · click",
-              "later": "Moved later · click"
-            },
-            "rejected": {
-              "earlier": "Do first not applied · click",
-              "later": "Do later not applied · click"
-            }
-          },
-          "drag": {
-            "pending": {
-              "earlier": "Move earlier pending · drag",
-              "later": "Move later pending · drag"
-            },
-            "applied": {
-              "earlier": "Moved earlier · drag",
-              "later": "Moved later · drag"
-            },
-            "rejected": {
-              "earlier": "Move earlier not applied · drag",
-              "later": "Move later not applied · drag"
-            }
-          }
-        },
-        "movePriority": "Priority {{priority}}"
-      },
       "states": {
         "queued": "Queued",
         "reasoning": "Thinking",
@@ -1555,14 +1241,6 @@
         "proposed": "Awaiting your confirmation"
       },
       "delegateAgent": "Agent: {{name}}",
-      "ask": "Question: {{question}}",
-      "show": {
-        "report": "Opened the result report of {{title}}",
-        "changes": "Opened the changes of {{title}}",
-        "timeline": "Opened the run timeline of {{title}}",
-        "review": "Opened the review of {{title}}"
-      },
-      "publish": "Publish {{title}} as a draft pull request",
       "workingChanges": {
         "toggle": "Include my working changes",
         "hint": "Start this message’s work from uncommitted changes, including new files. Ignored files stay out. Resets after sending.",
@@ -1575,6 +1253,60 @@
       },
       "you": "Your message",
       "replyFrom": "Reply from {{name}}"
+    },
+    "record": {
+      "status": {
+        "applied": "Applied",
+        "pending": "Pending",
+        "rejected": "Not applied"
+      },
+      "source": {
+        "click": "click",
+        "key": "key",
+        "words": "words",
+        "fleet": "Fleet",
+        "task": "task view",
+        "drag": "drag"
+      },
+      "operation": {
+        "pause": "Pause",
+        "resume": "Resume",
+        "cancel": "Cancel",
+        "takeover": "Take over",
+        "handBack": "Hand back",
+        "acceptCompletion": "Accept as done",
+        "startNow": "Start now",
+        "extend": "Add turns",
+        "retryStage": "Retry stage",
+        "skipStage": "Skip stage",
+        "signOff": "Sign off",
+        "approve": "Approve request",
+        "deny": "Deny request",
+        "answer": "Answer question",
+        "message": "Send to task",
+        "requestChanges": "Request changes"
+      },
+      "move": {
+        "click": {
+          "earlier": "Do first",
+          "later": "Do later"
+        },
+        "drag": {
+          "earlier": "Move earlier",
+          "later": "Move later"
+        }
+      },
+      "priority": "Priority {{priority}}",
+      "delegate": "Delegate",
+      "ask": "Ask",
+      "show": {
+        "report": "Open the result report",
+        "changes": "Open the changes",
+        "timeline": "Open the run timeline",
+        "review": "Open the review"
+      },
+      "publish": "Publish as a draft PR",
+      "reprioritize": "Set priority {{priority}}"
     },
     "execution": {
       "model": "Execution model",
@@ -1900,12 +1632,13 @@
     "decision": {
       "waiting": "Waiting for your answer",
       "enterKey": "Enter",
-      "recommended": "Recommended. {{rationale}}",
       "keysHint": {
         "single": "With this card focused, press 1 or Enter to confirm.",
         "singleExplicit": "With this card focused, press 1 to confirm.",
         "withRecommended": "With this card focused, press 1–{{count}} to choose, or Enter for the recommended option.",
-        "plain": "With this card focused, press 1–{{count}} to choose."
+        "plain": "With this card focused, press 1–{{count}} to choose.",
+        "question": "With this card focused, press 1–{{count}} or the arrow keys to choose, then Enter to answer.",
+        "questionWithRecommended": "With this card focused, press 1–{{count}} or the arrow keys to choose, then Enter to answer. The recommended answer is chosen to start."
       },
       "unverified": {
         "question": "Stave could not verify that “{{title}}” is done. What should happen?"
@@ -1933,16 +1666,6 @@
         "requestChanges": "Request changes"
       },
       "verifyRequest": "Start new work to verify “{{title}}”: check the current result against each of its criteria and report what Stave can confirm.",
-      "source": {
-        "click": "click",
-        "key": "key",
-        "words": "words"
-      },
-      "record": {
-        "pending": "{{option}} · {{source}} · applying",
-        "applied": "{{option}} · {{source}}",
-        "rejected": "{{option}} not applied · {{source}}"
-      },
       "invalid": {
         "targetMoved": "No longer valid: the work changed after this was asked.",
         "targetEnded": "No longer valid: the work ended."
@@ -2019,7 +1742,16 @@
         "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
         "notNow": "Not now",
         "notNowHint": "Leave it waiting and go back to the message box",
-        "escKey": "Esc"
+        "escKey": "Esc",
+        "answer": "Answer",
+        "about": "About {{title}}",
+        "optionsLabel": "Answers to choose from"
+      },
+      "outcome": {
+        "pending": "Applying",
+        "answered": "Answered",
+        "confirmed": "Confirmed",
+        "rejected": "Not applied"
       }
     },
     "side": {
@@ -2271,18 +2003,16 @@
           "opened": "Publishing · finishing",
           "failed": "Publishing · stopped"
         },
-        "opened": "Draft PR #{{number}} opened · {{source}}",
-        "openedUnnumbered": "Draft PR opened · {{source}}",
-        "existing": "Draft PR #{{number}} was already open · {{source}}",
-        "existingUnnumbered": "A draft PR was already open · {{source}}",
-        "rejected": "Not published · {{source}}",
-        "source": {
-          "click": "click",
-          "key": "key"
-        },
         "failedStep": "Stopped at: {{step}}",
         "retry": "Retry",
-        "view": "Open on GitHub"
+        "view": "Open on GitHub",
+        "outcome": {
+          "opened": "Draft PR #{{number}} opened",
+          "openedUnnumbered": "Draft PR opened",
+          "existing": "Draft PR #{{number}} was already open",
+          "existingUnnumbered": "A draft PR was already open",
+          "rejected": "Not published"
+        }
       },
       "proposal": {
         "invalid": "This publish proposal is no longer valid: the work changed. Ask Tars again or use Create draft PR.",

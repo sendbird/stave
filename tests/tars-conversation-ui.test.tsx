@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { tarsRecordText } from "./tars-record-text";
 import { i18n, applyAppLocale } from "../src/i18n";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -49,7 +50,7 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "It is yours now.", actions: [control] };
     const html = render({ ...message, text: "내가 할게", state: "answered", decision, reply: decision.reply },
       [{ ...receipt, action: control, responsibilityId: "goal" }]);
-    expect(html).toContain("Take over goal");
+    expect(tarsRecordText(html)).toContain("Take over goal Accepted for execution");
     expect(html).toContain("내가 할게");
   });
 });

@@ -605,7 +605,7 @@
       "control-metric": 2
     },
     "src/components/ai-elements/question-option-row.styles.ts": {
-      "icon-metric": 10,
+      "icon-metric": 9,
       "line-height": 1
     },
     "src/components/ai-elements/user-input-card.styles.ts": {
