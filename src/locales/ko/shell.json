@@ -1254,7 +1254,10 @@
           "deny": "요청 거절됨",
           "answer": "답변 보냄",
           "message": "메시지 접수됨",
-          "requestChanges": "변경 요청됨"
+          "requestChanges": "변경 요청됨",
+          "clear": "정리됨",
+          "schedule": "적용됨",
+          "scheduleList": "목록 열림"
         }
       },
       "delegateAgent": "에이전트: {{name}}",
@@ -1300,7 +1303,8 @@
           "task": "작업 화면에서 직접 한 일입니다",
           "drag": "대기열에서 직접 끌어 옮긴 일입니다"
         },
-        "tars": "내 메시지를 보고 Tars가 한 일입니다"
+        "tars": "내 메시지를 보고 Tars가 한 일입니다",
+        "schedule": "사용자가 아니라 일정이 시작했습니다"
       },
       "openWork": "{{title}} 열기",
       "operation": {
@@ -2164,6 +2168,127 @@
       "progress": {
         "label": "{{title}} 진행 상황",
         "prompt": "“{{title}}” 진행 상황 알려 줘. 지금 뭘 하고 있고 뭐가 남았어?"
+      }
+    },
+    "schedule": {
+      "operation": {
+        "create": "새 일정",
+        "update": "일정 변경",
+        "pause": "일정 일시 정지",
+        "resume": "일정 켜기",
+        "remove": "일정 삭제",
+        "list": "일정 보기"
+      },
+      "rule": {
+        "once": "한 번, {{when}}"
+      },
+      "where": "{{workspace}} · {{repository}}",
+      "whereBranch": "{{workspace}} ({{branch}}) · {{repository}}",
+      "whereMissing": "워크스페이스를 더 이상 사용할 수 없습니다",
+      "nextRuns": "{{times}} ({{timezone}})",
+      "nextNone": "예정된 실행 없음",
+      "card": {
+        "title": {
+          "create": "이 일정을 만드시겠습니까?",
+          "update": "이 일정을 변경하시겠습니까?",
+          "pause": "이 일정을 일시 정지하시겠습니까?",
+          "resume": "이 일정을 켜시겠습니까?",
+          "remove": "이 일정을 삭제하시겠습니까?"
+        },
+        "subtitle": {
+          "create": "확인하기 전에는 아무것도 만들어지지 않습니다.",
+          "update": "확인하기 전에는 아무것도 바뀌지 않습니다.",
+          "pause": "일정은 그대로 저장되며, 다시 켤 때까지 실행되지 않습니다.",
+          "resume": "일정에 따라 다시 실행됩니다.",
+          "remove": "일정과 일정 화면의 실행 기록이 삭제됩니다. 이미 시작한 작업은 남습니다."
+        },
+        "details": "무엇을, 어디서, 언제 실행하는지",
+        "rows": {
+          "name": "이름",
+          "what": "실행할 내용",
+          "where": "위치",
+          "when": "시점",
+          "next": "다음 실행",
+          "was": "현재"
+        },
+        "startsPaused": "새 일정은 일시 정지된 상태로 저장되므로, 켠 뒤에야 위 시각에 실행됩니다. 만들기는 켤 때까지 일시 정지 상태로 두고, 만들고 켜기는 바로 시작합니다.",
+        "pausedNote": "일시 정지된 일정입니다. 켜면 위 시각에 실행됩니다.",
+        "runNote": "실행할 때마다 이 워크스페이스에서 새 작업을 시작하며, 위험한 동작 전에는 사용자에게 묻습니다. 일정은 Stave가 열려 있을 때만 실행되고, 닫혀 있는 동안 놓친 실행은 다시 열 때 한 번 실행됩니다.",
+        "loading": "일정을 읽는 중…",
+        "unavailable": "일정을 읽지 못했습니다. 다시 시도해 주세요.",
+        "retry": "다시 시도",
+        "keysHint": "Enter로 확인하고, Esc로 그대로 둡니다.",
+        "keysHintCreate": "Enter로 일시 정지된 상태로 만들고, Esc로 그대로 둡니다.",
+        "keysHintRemove": "삭제에는 단축키가 없습니다. Esc로 그대로 둡니다.",
+        "decline": "나중에",
+        "confirm": {
+          "create": "만들기",
+          "createEnabled": "만들고 켜기",
+          "update": "변경",
+          "pause": "일시 정지",
+          "resume": "켜기",
+          "remove": "삭제"
+        },
+        "declined": "거절했습니다. 일정은 바뀌지 않았습니다.",
+        "failed": "일정 변경이 적용되지 않았습니다. 다시 시도해 주세요."
+      },
+      "outcome": {
+        "pending": "일정을 저장하는 중…",
+        "create": "일정을 만들고 켰습니다",
+        "createPaused": "일정을 만들었습니다 (일시 정지됨)",
+        "update": "일정을 변경했습니다",
+        "pause": "일정을 일시 정지했습니다",
+        "resume": "일정을 켰습니다",
+        "remove": "일정을 삭제했습니다",
+        "rejected": "일정을 변경하지 않았습니다"
+      },
+      "run": {
+        "running": "일정 실행이 시작되었습니다",
+        "waiting": "일정 실행이 사용자를 기다리고 있습니다",
+        "completed": "일정 실행이 끝났습니다",
+        "failed": "일정 실행이 실패했습니다",
+        "skipped": "일정 실행을 건너뛰었습니다",
+        "openTask": "작업 열기",
+        "scheduledFor": "예정 시각 {{when}}"
+      },
+      "reason": {
+        "invalidRule": "일정에서 실행할 수 없는 반복 규칙입니다. N분, N시간, N일, N주마다로 지정하고, 요일을 고르면 시각도 함께 지정해 주세요.",
+        "invalidTime": "날짜나 시각을 읽을 수 없거나, 이 컴퓨터의 시계에 없는 시각입니다.",
+        "pastTime": "이미 지난 시각입니다. 앞으로의 시각으로 다시 요청해 주세요.",
+        "tooFrequent": "일정이 실행할 수 있는 것보다 잦습니다. 가장 짧은 간격은 1분입니다.",
+        "unknownWorkspace": "Stave에 등록되지 않은 워크스페이스이거나 폴더가 없습니다.",
+        "notTarsSchedule": "Tars가 만든 일정이 아니어서 변경하지 않습니다. 일정 화면에서 변경해 주세요.",
+        "scheduleGone": "삭제된 일정입니다. 여전히 필요하면 새로 요청해 주세요.",
+        "editedElsewhere": "Tars가 설정한 뒤 일정 화면에서 변경된 일정입니다. 일정 화면에서 변경해 주세요.",
+        "alreadyPaused": "이미 일시 정지된 일정입니다.",
+        "alreadyOn": "이미 켜져 있는 일정입니다.",
+        "runActive": "이 일정의 실행이 아직 진행 중입니다. 실행이 끝난 뒤 삭제해 주세요.",
+        "notByFollowUp": "자동 후속 확인은 일정을 만들거나 변경할 수 없습니다. 직접 요청해 주세요.",
+        "notWaiting": "이 제안은 더 이상 확인을 기다리지 않습니다.",
+        "unknown": "일정을 변경하지 못했습니다. 일정 화면을 확인한 뒤 다시 요청해 주세요."
+      },
+      "section": {
+        "title": "일정",
+        "empty": "아직 예약된 일정이 없습니다. Tars에게 요청해 보세요. 예: “평일 9시마다 릴리스 브랜치 확인해줘”.",
+        "unavailable": "일정을 읽지 못했습니다.",
+        "retry": "다시 시도",
+        "open": "일정 열기",
+        "next": "다음 {{when}}",
+        "paused": "일시 정지됨",
+        "finished": "완료됨",
+        "notRunYet": "아직 실행하지 않음",
+        "last": {
+          "running": "최근 실행: 실행 중",
+          "waiting": "최근 실행: 사용자를 기다리는 중",
+          "completed": "최근 실행: {{when}} 완료",
+          "failed": "최근 실행: {{when}} 실패",
+          "skipped": "최근 실행: {{when}} 건너뜀"
+        },
+        "switch": "“{{title}}” 일정에 따라 실행",
+        "editedElsewhere": "일정 화면에서 변경되었습니다. 일정 화면에서 관리해 주세요.",
+        "omitted_other": "일정 화면에 {{count}}개 더 있음",
+        "timezone": "시각은 {{timezone}} 기준입니다.",
+        "switchFailed": "전환이 적용되지 않았습니다. 다시 시도해 주세요."
       }
     }
   }

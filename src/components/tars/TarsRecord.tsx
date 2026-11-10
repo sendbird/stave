@@ -1,5 +1,5 @@
 import { Children, createContext, isValidElement, useContext, type HTMLAttributes, type ReactNode, type Ref } from "react";
-import { Ban, PanelRightOpen, UserRound, type LucideIcon } from "lucide-react";
+import { Ban, CalendarClock, PanelRightOpen, UserRound, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { StateMark } from "@/components/aui/components/StateMark";
@@ -53,14 +53,15 @@ export function TarsRecordMark({ state, icon, size = "sm" }: { state: TarsRecord
 /**
  * Who did what a record says. `you`: the user did it directly (a click in
  * Tars, a key, a short answer, Fleet, the task view, a drag). `tars`: Tars
- * did it from the user's message. `hint` says it in a sentence, for the
- * tooltip and for assistive technology.
+ * did it from the user's message. `schedule`: a schedule started it at its
+ * time; nobody typed it and Tars did not decide it. `hint` says it in a
+ * sentence, for the tooltip and for assistive technology.
  */
-export interface TarsRecordActor { by: "you" | "tars"; hint: string }
+export interface TarsRecordActor { by: "you" | "tars" | "schedule"; hint: string }
 
 /** The actor's glyph with its sentence on hover and for assistive technology. It explains; it is not a control. */
 function TarsRecordActorMark({ actor }: { actor: TarsRecordActor }) {
-  const Icon = actor.by === "you" ? UserRound : TarsMark;
+  const Icon = actor.by === "you" ? UserRound : actor.by === "schedule" ? CalendarClock : TarsMark;
   return <Tooltip content={actor.hint}>
     <span role="img" aria-label={actor.hint} className={sx(styles.actor, actor.by === "tars" && styles.actorTars)} data-tars-record-actor={actor.by}>
       <Icon aria-hidden="true" className={sx(styles.actorIcon)} />

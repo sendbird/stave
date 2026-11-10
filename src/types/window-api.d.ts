@@ -3126,6 +3126,11 @@ interface WindowApi {
    * `tars:undo-clear`) hide and restore the conversation view, the tray's
    * Done cards or its outputs, and `configureView` (`tars:configure-view`)
    * saves how long ended work stays in the tray; nothing is deleted.
+   * `previewSchedule` / `confirmSchedule` (`tars:schedule-preview` /
+   * `tars:schedule`) read and confirm a schedule card, `toggleSchedule`
+   * (`tars:schedule-toggle`) is the pause switch of a schedule Tars created
+   * and `listSchedules` (`tars:schedules`) lists those schedules; they are
+   * records of Stave's Schedules service, which stores and runs them.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
