@@ -1,7 +1,7 @@
 {
   "delegateRoute": {
-    "routed": "→ ran {{model}}",
-    "title": "Requested {{requested}}; routing ran {{routed}}"
+    "requested": "requested {{model}}",
+    "title": "Requested {{requested}}"
   },
   "workspaceCheck": {
     "progressPassed": "Stave checks: {{passed}} of {{total}} passed ({{names}})",
@@ -269,7 +269,17 @@
     "explicit": "Explicit",
     "providerDefault": "Default",
     "nameLabel": "Not resolved",
-    "title": "Model selected by {{value1}}"
+    "title": "Model selected by {{value1}}",
+    "evidence": {
+      "requested": "requested",
+      "configured": "configured",
+      "reported": "ran"
+    },
+    "evidenceTitle": {
+      "requested": "Requested model; the provider has not reported which model ran",
+      "configured": "Configured model; this provider does not report which model ran",
+      "reported": "Model the provider reported on the agent's own responses"
+    }
   },
   "delegationsBlock": {
     "ariaLabel": "Agents",

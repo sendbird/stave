@@ -1120,6 +1120,13 @@ export type NormalizedProviderEvent =
       binding?: "authoritative" | "guess";
     }
   | {
+      type: "subagent_model";
+      /** The spawn call (Agent/Task tool use) the subagent runs under. */
+      toolUseId: string;
+      /** The model id the provider reported on the subagent's own response. */
+      model: string;
+    }
+  | {
       type: "model_resolved";
       resolvedProviderId: ProviderId;
       resolvedModel: string;

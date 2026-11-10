@@ -254,6 +254,12 @@ export interface ToolUsePart extends MessagePartBase {
   completedAt?: string;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
+  /**
+   * The model the spawned subagent's own responses reported (Agent tool only).
+   * Absent when the provider did not report one; the spawn input's `model` is
+   * only what was asked for.
+   */
+  reportedModel?: string;
 }
 
 export interface CodeDiffPart extends MessagePartBase {

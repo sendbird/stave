@@ -3,8 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Bot } from "lucide-react";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
-import { AgentIdentity } from "@/components/delegation/AgentIdentity";
-import { DelegateRoute } from "@/components/delegation/DelegateRoute";
+import { ExchangeIdentity } from "@/components/delegation/ExchangeIdentity";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import { describeSubagentState, subagentResultLine } from "@/lib/delegation/subagent-summary";
 import { agentRunStyles as styles } from "./agent-runs.styles";
@@ -23,16 +22,9 @@ export function AgentRunSubagents({ rows }: { rows: readonly DelegationExchange[
           <li key={row.id} className={sx(localStyles.row)}>
             <div className={sx(styles.checkText)}>
               <span>{row.title} · {describeSubagentState(row)}</span>
-              {row.kind === "delegated-task" ? (
+              {row.kind === "delegated-task" || row.identity.model || row.identity.effort ? (
                 <span className={sx(localStyles.identity)}>
-                  <AgentIdentity
-                    compact
-                    providerId={row.identity.providerId}
-                    model={row.identity.model}
-                    effort={row.identity.effort}
-                    modelEvidence={row.identity.modelEvidence}
-                  />
-                  <DelegateRoute exchange={row} />
+                  <ExchangeIdentity compact exchange={row} />
                 </span>
               ) : null}
               {row.outcome.progress?.at(-1) ? <p className={sx(styles.notice)}>{row.outcome.progress.at(-1)}</p> : null}
@@ -52,7 +44,7 @@ const localStyles = stylex.create({
     lineHeight: vars["--aui-line-height-normal"],
     color: vars["--aui-color-text"],
   },
-  // Wraps so the routed model moves under the request instead of truncating.
+  // Wraps so the requested model moves under the one that ran instead of truncating.
   identity: {
     display: "flex",
     flexWrap: "wrap",

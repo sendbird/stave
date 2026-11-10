@@ -461,6 +461,7 @@ function normalizeEventToPart(args: {
           : {}),
       });
     case "subagent_progress":
+    case "subagent_model":
     case "approval_resolved":
       // Handled separately in appendProviderEventToAssistant — not a standalone part.
       return null;
@@ -677,6 +678,17 @@ function appendProviderEventContentToAssistant(args: {
   if (args.event.type === "approval_resolved") {
     const parts = recordAutomaticApprovalDecision(message.parts, args.event);
     return parts === message.parts ? message : { ...message, parts };
+  }
+
+  if (args.event.type === "subagent_model") {
+    const { toolUseId, model } = args.event;
+    const index = message.parts.findIndex((part) => part.type === "tool_use" && part.toolUseId === toolUseId);
+    const target = index === -1 ? undefined : message.parts[index];
+    // No spawn part to hold it, or nothing new: the event names no row.
+    if (target?.type !== "tool_use" || target.reportedModel === model) return message;
+    const parts = [...message.parts];
+    parts[index] = { ...target, reportedModel: model };
+    return { ...message, parts };
   }
 
   if (args.event.type === "subagent_progress") {

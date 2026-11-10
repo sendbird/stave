@@ -273,6 +273,7 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "user_input",
   "system",
   "subagent_progress",
+  "subagent_model",
   "model_resolved",
   "error",
   "done",

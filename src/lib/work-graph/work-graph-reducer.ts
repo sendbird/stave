@@ -73,6 +73,24 @@ function resolveAgentExecution(event: Extract<NormalizedProviderEvent, { type: "
   };
 }
 
+/**
+ * The model a node shows. A model the subagent's own responses reported is
+ * what actually ran, so a later spawn input (which only says what was asked
+ * for) never replaces it; otherwise the newer value wins as before.
+ */
+function mergeNodeModel(
+  existing: Pick<AgentNode, "model" | "modelEvidence"> | undefined,
+  patch: Pick<Partial<AgentNode>, "model" | "modelEvidence">,
+): Pick<AgentNode, "model" | "modelEvidence"> {
+  if (existing?.modelEvidence === "reported" && existing.model && patch.modelEvidence !== "reported") {
+    return { model: existing.model, modelEvidence: "reported" };
+  }
+  return {
+    model: patch.model ?? existing?.model,
+    modelEvidence: patch.modelEvidence ?? existing?.modelEvidence,
+  };
+}
+
 // i18n-ignore: canonical persisted placeholder used to merge provider identities
 const UNNAMED_AGENT_LABEL = "Agent";
 
@@ -342,9 +360,8 @@ function upsertNode(
         : existing.parentKey,
     label: patch.label ?? existing.label,
     badge: patch.badge ?? existing.badge,
-    model: patch.model ?? existing.model,
+    ...mergeNodeModel(existing, patch),
     effort: patch.effort ?? existing.effort,
-    modelEvidence: patch.modelEvidence ?? existing.modelEvidence,
     status,
     // An authoritative patch replaces rather than falls back: a child that is
     // running again has no completion time and no failure reason, and carrying
@@ -692,9 +709,8 @@ function promoteToolCallNode(args: {
         ? existing.label
         : callNode.label,
     badge: existing?.badge ?? callNode.badge,
-    model: existing?.model ?? callNode.model,
+    ...(existing ? mergeNodeModel(callNode, existing) : { model: callNode.model, modelEvidence: callNode.modelEvidence }),
     effort: existing?.effort ?? callNode.effort,
-    modelEvidence: existing?.modelEvidence ?? callNode.modelEvidence,
     // A result may already have settled the call while the agent node was still
     // reporting progress. Terminal wins either way: the work is over.
     status: isTerminalWorkGraphStatus(callNode.status)
@@ -1096,6 +1112,25 @@ export function reduceWorkGraphEvent(
           ...(event.completedAt !== undefined && !spawned.completedAt
             ? { completedAt: event.completedAt }
             : {}),
+        },
+        now,
+      );
+    }
+
+    case "subagent_model": {
+      // Reported by the subagent's own responses under its spawn call, so it
+      // routes by spawn identity only; an unmapped call names no worker.
+      const key = graph.nodeKeyBySpawnToolUseId[event.toolUseId];
+      if (!key || !graph.nodesByKey[key] || !event.model.trim()) {
+        return graph;
+      }
+      return upsertNode(
+        graph,
+        key,
+        {
+          identitySource: graph.nodesByKey[key].identitySource,
+          model: event.model,
+          modelEvidence: "reported",
         },
         now,
       );

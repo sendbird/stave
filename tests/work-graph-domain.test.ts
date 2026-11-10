@@ -1097,3 +1097,34 @@ describe("work graph controls", () => {
     expect(collectLiveWorkGraphIdentities(next).has("agent_1")).toBe(false);
   });
 });
+
+describe("subagent model the provider reported", () => {
+  const spawn = (input: Record<string, unknown> = { description: "Sweep the callers", model: "sonnet" }) =>
+    toolEvent({ toolUseId: "toolu_1", toolName: "Agent", input: JSON.stringify(input) });
+
+  test("replaces the requested model and is not undone by a repeated spawn", () => {
+    const next = reduceAll(graph(), [
+      spawn(),
+      { type: "subagent_model", toolUseId: "toolu_1", model: "claude-haiku-5-5" },
+      // The spawn input is re-sent with its result; it only says what was asked.
+      spawn(),
+    ]);
+    const node = next.nodesByKey[toolCallNodeKey("toolu_1")];
+    expect(node).toMatchObject({ model: "claude-haiku-5-5", modelEvidence: "reported" });
+  });
+
+  test("survives the call node being promoted to the provider's agent id", () => {
+    const next = reduceAll(graph(), [
+      spawn(),
+      { type: "subagent_model", toolUseId: "toolu_1", model: "claude-haiku-5-5" },
+      { type: "subagent_progress", toolUseId: "toolu_1", agentId: "agent_1", content: "Reading files" },
+    ]);
+    expect(next.nodesByKey[providerAgentNodeKey("claude-code", "agent_1")])
+      .toMatchObject({ model: "claude-haiku-5-5", modelEvidence: "reported" });
+  });
+
+  test("names no worker for a call that spawned nothing", () => {
+    const start = reduceAll(graph(), [spawn()]);
+    expect(reduceWorkGraphEvent(start, { type: "subagent_model", toolUseId: "toolu_other", model: "claude-haiku-5-5" }, 3_000)).toBe(start);
+  });
+});

@@ -66,6 +66,7 @@ const ToolUsePartSchema = z.object({
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   progressMessages: z.array(z.string()).optional(),
+  reportedModel: z.string().optional(),
   state: z.union([
     z.literal("input-streaming"),
     z.literal("input-available"),
