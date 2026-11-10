@@ -163,9 +163,19 @@ async function trayScroller(page: Page) {
 
 async function openGallery(page: Page, { lang, theme, width }: { lang: string; theme: string; width: number }) {
   await page.setViewportSize({ width, height: 900 });
+  // The gallery seeds code blocks, so a cold dev server may optimize a new dependency and reload the page once while
+  // it settles (`openTray`'s fixtures avoid them for that reason); after that reload the page stays put.
+  for (let attempt = 0; ; attempt += 1) {
+    try { return await settleGallery(page, { lang, theme, width }); }
+    catch (error) { if (attempt > 0 || !String(error).includes("Execution context was destroyed")) throw error; }
+  }
+}
+
+async function settleGallery(page: Page, { lang, theme, width }: { lang: string; theme: string; width: number }) {
   await page.goto(`/?stavePreview=tars&gallery=true&lang=${lang}&theme=${theme}`);
+  await page.waitForLoadState("networkidle");
   const view = page.getByTestId("tars-view");
-  // The gallery seeds every card kind; a cold dev server takes longer to serve it, as in the message-chrome suite.
+  // A cold dev server takes longer to serve the gallery, as in the message-chrome suite.
   await expect(view.locator("[data-tars-tray-indicator]")).toBeVisible({ timeout: 20_000 });
   await page.evaluate(() => document.fonts.ready);
   // The composer takes focus once the view settles, which would close a popover opened before it.
