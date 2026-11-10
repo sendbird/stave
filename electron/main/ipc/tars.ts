@@ -80,7 +80,7 @@ export function registerTarsHandlers() {
   // Usage is read on demand from saved turn rows; nothing is written and nothing is estimated.
   ipcMain.handle(TARS_IPC.getUsage, async (_event, rawInput: unknown) => {
     const input = TarsUsageInputSchema.parse(rawInput);
-    // Loaded on first use: main's persistence is opened only once a usage view asks for it.
+    // Loaded on first use, so registering these handlers does not load main's persistence module.
     const { getTarsUsageReport } = await import("../tars-usage-instance");
     return TarsUsageReportSchema.parse(await getTarsUsageReport(input));
   });
