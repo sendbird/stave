@@ -39,8 +39,9 @@ export function TarsBlockedNextSteps({ row, decision, actions, onAnswer, titleOf
     <div className={sx(styles.row)} role="group" aria-label={t("shell:tars.tray.controls", { title: row.title })}>
       {controls.map((operation) => <Button key={operation} size="xs" variant={operation === "resume" ? "default" : "outline"} disabled={actions.busy}
         data-tars-action={operation} onClick={() => actions.onAct(row, operation)}>{t(CONTROL_LABEL[operation])}</Button>)}
-      {row.taskId ? <Button size="2xs" variant="outline" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
-      {fleet ? <Button size="2xs" variant="ghost" onClick={() => actions.onShowInFleet(fleet)}>{t("shell:tars.tray.showInFleet")}</Button> : null}
+      {/* One row, one height: every next step here is on the 28px decision rung, so the row reads as one set of choices. */}
+      {row.taskId ? <Button size="xs" variant="outline" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
+      {fleet ? <Button size="xs" variant="ghost" onClick={() => actions.onShowInFleet(fleet)}>{t("shell:tars.tray.showInFleet")}</Button> : null}
     </div>
   </div>;
 }

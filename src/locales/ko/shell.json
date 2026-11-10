@@ -2092,7 +2092,8 @@
         },
         "blocked": "리뷰어가 리뷰하지 못함",
         "findings_other": "발견 사항 {{count}}개",
-        "noFindings": "리뷰어가 보고한 발견 사항이 없습니다."
+        "noFindings": "리뷰어가 보고한 발견 사항이 없습니다.",
+        "evidence": "리뷰어가 인용한 근거"
       },
       "timeline": {
         "none": "실행 세부 정보를 아직 불러오지 않았습니다.",
