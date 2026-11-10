@@ -1132,7 +1132,85 @@
     "priorityValue": "Priority {{priority}}",
     "scope": "Tars may create isolated worktrees, execute, repair and review work within this goal. Publishing and external messages require a separate request.",
     "providersHint": "This first version uses supervised Claude and Codex runs with the provider’s default model. Cursor and Kiro are not supported here yet.",
-    "start": "Delegate and start",
+    "start": {
+      "greeting": "Hi, I'm {{name}}.",
+      "intro": "Tell me what you want done, or ask how your work is going. An example only fills the message box; you send it.",
+      "now": {
+        "title": "Right now",
+        "needsYou_one": "{{count}} needs you",
+        "needsYou_other": "{{count}} need you",
+        "running_one": "{{count}} running",
+        "running_other": "{{count}} running",
+        "finishedToday_one": "{{count}} finished today",
+        "finishedToday_other": "{{count}} finished today",
+        "open": {
+          "needsYou": "Opens Needs you in the work list.",
+          "running": "Opens In progress in the work list.",
+          "finishedToday": "Opens Done in the work list."
+        }
+      },
+      "examples": {
+        "title": "Try asking",
+        "groups": {
+          "delegate": "Hand off work",
+          "steer": "Check or steer work",
+          "answer": "Decide and answer",
+          "show": "Open results",
+          "publish": "Publish",
+          "clear": "Tidy up"
+        },
+        "delegate": {
+          "label": "Fix a flaky test in a new workspace",
+          "prompt": "In the web workspace, fix the flaky date-picker test. Done means its test passes."
+        },
+        "status": {
+          "label": "What's running, and what needs me?",
+          "prompt": "What is running right now, and does anything need me?"
+        },
+        "pause": {
+          "label": "Pause a piece of work",
+          "prompt": "Pause the date-picker work."
+        },
+        "queue": {
+          "label": "Move queued work earlier",
+          "prompt": "Move the date-picker work to the front of the queue."
+        },
+        "answerWaiting": {
+          "label": "Answer a waiting question",
+          "prompt": "Answer the question waiting in the date-picker work: use the existing helper."
+        },
+        "options": {
+          "label": "Get options for blocked work",
+          "prompt": "The date-picker work is blocked. Give me the options and what you recommend."
+        },
+        "report": {
+          "label": "Show a result report",
+          "prompt": "Show me the report for the date-picker work."
+        },
+        "changes": {
+          "label": "Show what changed",
+          "prompt": "Show me what changed in the date-picker work."
+        },
+        "publish": {
+          "label": "Open a draft PR for finished work",
+          "prompt": "Open a draft PR for the date-picker work."
+        },
+        "clearConversation": {
+          "label": "Clear this conversation",
+          "prompt": "Clear this conversation."
+        },
+        "clearDone": {
+          "label": "Clear finished work",
+          "prompt": "Clear finished work from the Done list."
+        }
+      },
+      "repositories": {
+        "title": "Where {{name}} can work",
+        "more_one": "+{{count}} more",
+        "more_other": "+{{count}} more",
+        "none": "No repository is registered yet. Add one with “{{action}}” in the sidebar. Until then {{name}} can answer questions but cannot start work."
+      }
+    },
     "openTask": "Open task",
     "resume": "Resume",
     "pause": "Pause",
@@ -1185,7 +1263,6 @@
       "takenOver": "Taken over"
     },
     "conversation": {
-      "welcome": "Talk with {{name}}",
       "workUpdate": "Work update",
       "tooLong": "Keep this message under 32,000 characters.",
       "activity": "Activity",
@@ -1204,7 +1281,6 @@
       "cancel": "Cancel message",
       "confirm": "Confirm",
       "loading": "Loading conversation…",
-      "empty": "Ask about progress, work through a decision, or describe what you want done.",
       "unavailable": "Talking with Tars needs a recent version of the Stave desktop app.",
       "failed": "The conversation request failed. Your draft and saved messages are preserved.",
       "failedHint": "It will not run again automatically.",

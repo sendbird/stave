@@ -10,7 +10,7 @@ import { composerTray } from "@/components/aui/recipes/composer-tray";
 import { controlChrome } from "@/components/aui/recipes/control-chrome";
 import { sx } from "@/components/aui/utils/stylex";
 import { Conversation, ConversationContent, ConversationScrollButton } from "@/components/ai-elements/conversation";
-import { TarsWelcome } from "./TarsGuide";
+import { TarsStartScreen } from "./TarsStart";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
 import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
@@ -365,7 +365,9 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         {/* The active conversation clear leads what is left, with its Restore. */}
         {clear?.active ? <TarsRecordList><TarsClearRecordLine record={clear.active} busy={clear.busy} error={clear.errors.get(clear.active.requestId)}
           onUndo={() => void clear.undo(clear.active!.requestId)} /></TarsRecordList> : null}
-        {state.conversation && !timeline.some((item) => item.kind !== "clear") ? <TarsWelcome name={name} onExample={insertDraft} /> : null}
+        {/* Nothing to show yet, or everything cleared: the start screen. It leaves out an example a chip above the composer already asks. */}
+        {state.conversation && !timeline.some((item) => item.kind !== "clear")
+          ? <TarsStartScreen name={name} onExample={insertDraft} suggestions={!text.trim() && !composerDisabled ? suggestions : undefined} /> : null}
         <TarsRecordOpenWorkContext value={openWork}>
         {layoutTarsTranscript(timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) })))}
         {publish?.open ? (() => {
