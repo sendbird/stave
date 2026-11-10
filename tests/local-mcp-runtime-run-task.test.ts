@@ -134,6 +134,8 @@ const lastUpsertSnapshotByWorkspaceId = new Map<
       }>
     >;
     providerSessionByTask?: Record<string, import("@/lib/db/workspaces.db").TaskProviderSessionState>;
+    openTaskTabIds?: string[];
+    reviewCommentsByTask?: Record<string, unknown>;
   }
 >();
 
@@ -1875,6 +1877,24 @@ describe("local MCP runtime archived-task persistence", () => {
     });
     await runtime.replaceWorkspaceNotes({ workspaceId: RECONCILE_WORKSPACE_ID, notes: "A later host write" });
     expect(lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)?.tasks?.find((task) => task.id === created.taskId)).toMatchObject({ title: "My chosen name", titleManuallySet: true });
+  });
+
+  test("host snapshot writes keep tabs the renderer closed and open a host-added task", async () => {
+    const created = await runtime.runTask({ workspaceId: RECONCILE_WORKSPACE_ID, prompt: "Investigate closed tabs" });
+    // The renderer closes every task tab (without archiving) and saves a review comment.
+    const persisted = lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)!;
+    expect(persisted.tasks?.some((task) => task.id === created.taskId)).toBe(true);
+    const reviewCommentsByTask = { [created.taskId]: [{ id: "review-1" }] };
+    lastUpsertSnapshotByWorkspaceId.set(RECONCILE_WORKSPACE_ID, { ...persisted, openTaskTabIds: [], reviewCommentsByTask });
+
+    // An Information edit (e.g. a resource an agent registers) has no task turn to scope it.
+    await runtime.replaceWorkspaceNotes({ workspaceId: RECONCILE_WORKSPACE_ID, notes: "Host write after closing tabs" });
+    expect(lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)?.openTaskTabIds).toEqual([]);
+    expect(lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)?.reviewCommentsByTask).toEqual(reviewCommentsByTask);
+
+    // A top-level task the host adds still gets its tab; the closed one stays closed.
+    const idle = await runtime.createIdleTask({ workspaceId: RECONCILE_WORKSPACE_ID, title: "Supervised", provider: "codex" });
+    expect(lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)?.openTaskTabIds).toEqual([idle.taskId]);
   });
 
   test("host persist does not revive a task the renderer archived", async () => {
