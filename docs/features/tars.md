@@ -526,8 +526,8 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
   records stay saved and Tars still knows your work. Some things always stay
   in view: a message still queued or being answered (and its reply, even when
   it arrives after the clear), a question or confirmation still waiting for
-  you, a draft PR proposal still waiting for its card, and words still waiting
-  to be said in a task. The record at the top says how many messages it hid;
+  you, a draft PR or clear proposal still waiting for its card, and words
+  still waiting to be said in a task. The record at the top says how many messages it hid;
   **Restore** brings them back.
 - **Done and Outputs.** **Clear** in the tray's **Done** section hides ended
   work's cards; **Clear** in **Outputs** hides ended work's outputs. Only ended
@@ -535,7 +535,8 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
   and taken-over work never is, and neither is completed work whose draft PR
   is still committing or pushing, failed and waiting for a retry, or proposed
   and waiting for your confirmation. The section then says how many ended
-  items it hides, with **Undo** for the latest clear. Hidden work stays in Fleet
+  items it hides, with **Undo** for the latest clear; clearing the conversation
+  afterwards keeps that **Undo**. Hidden work stays in Fleet
   and in its task, and Tars can still report on it.
 - **By asking.** Say "clear the chat", "대화 지워줘", "done 정리해줘" or
   "clear everything". Tars proposes a clear card that lists what each part

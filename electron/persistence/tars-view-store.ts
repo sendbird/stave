@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
-  TARS_DEFAULT_VIEW_SETTINGS, TarsClearInputSchema, TarsClearRecordSchema, TarsViewSettingsSchema, normalizeTarsClearScopes, tarsClearableIds, tarsTrayCleared,
+  TARS_DEFAULT_VIEW_SETTINGS, TarsClearInputSchema, TarsClearRecordSchema, TarsViewSettingsSchema, normalizeTarsClearRecord, normalizeTarsClearScopes, tarsClearableIds,
+  tarsTrayCleared,
   type TarsClearInput, type TarsClearRecord, type TarsTrayCleared, type TarsViewSettings,
 } from "../../src/lib/tars/clearing";
 import type { TarsResponsibility } from "../../src/lib/tars/types";
@@ -125,7 +126,7 @@ export class TarsViewStore {
   }
 
   private read(row: unknown): TarsClearRecord | null {
-    return row ? TarsClearRecordSchema.parse(JSON.parse((row as StoredRow).body_json)) : null;
+    return row ? normalizeTarsClearRecord(TarsClearRecordSchema.parse(JSON.parse((row as StoredRow).body_json))) : null;
   }
 
   getClear(requestId: string): TarsClearRecord | null {
@@ -145,16 +146,26 @@ export class TarsViewStore {
       .all(since, since, limit).map((row) => this.read(row)!).reverse();
   }
 
+  /** The newest applied clear of each tray lane that hid something, whatever its time, oldest first: what each lane's Undo restores. */
+  listTrayClears(): TarsClearRecord[] {
+    const newest = (scope: "done" | "outputs") => this.read(this.db.prepare(`SELECT body_json FROM tars_clears
+      WHERE status = 'applied' AND json_array_length(body_json, '$.${scope}') > 0 ORDER BY created_at DESC, rowid DESC LIMIT 1`).get());
+    const records = new Map([newest("done"), newest("outputs")].flatMap((record) => record ? [[record.requestId, record] as const] : []));
+    return [...records.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
   /**
    * Applies one clear. Its request id is the retry identity: the same id and
    * scopes return the saved record, other scopes are refused. `hiddenMessages`
-   * counts what the conversation scope hides; `settleProposal` settles the
+   * counts what the conversation scope hides and `inProgress` names the
+   * messages it keeps because they are under way; `settleProposal` settles the
    * Tars proposal it confirms in the same transaction.
    */
   clear(rawInput: TarsClearInput, context: {
     responsibilities: readonly TrayRow[];
     now: string;
     hiddenMessages?: () => number;
+    inProgress?: () => string[];
     proposal?: { messageId: string; actionIndex: number; settle: () => void };
   }): TarsClearRecord {
     const input = TarsClearInputSchema.parse(rawInput);
@@ -174,7 +185,7 @@ export class TarsViewStore {
       const done = ids("done");
       const outputs = ids("outputs");
       const record = TarsClearRecordSchema.parse({ requestId: input.requestId, source: input.source, scopes, proposal, status: "applied",
-        ...(scopes.includes("conversation") ? { hiddenMessages: Math.max(0, context.hiddenMessages?.() ?? 0) } : {}),
+        ...(scopes.includes("conversation") ? { hiddenMessages: Math.max(0, context.hiddenMessages?.() ?? 0), inProgress: context.inProgress?.() ?? [] } : {}),
         ...(done ? { done } : {}), ...(outputs ? { outputs } : {}), revision: 1, createdAt: now, updatedAt: now });
       const archive = this.db.prepare(`INSERT INTO tars_archived (scope, responsibility_id, clear_request_id, archived_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(scope, responsibility_id) DO UPDATE SET clear_request_id = excluded.clear_request_id, archived_at = excluded.archived_at`);

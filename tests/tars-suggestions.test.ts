@@ -109,11 +109,11 @@ describe("the conversation view after a clear", () => {
     const waiting = { id: "ask:asking:0", messageId: "asking", state: "waiting" } as TarsDecisionView;
     const retired = { id: "ask:old:0", messageId: "old", state: "retired" } as TarsDecisionView;
     const view = filterTarsConversationView(conversation([old, queued, late, asking, fresh]),
-      { clearedAt, keeps: tarsClearKeeps({ decisions: [waiting, retired], receipts: [] }) });
+      { clearedAt, inProgress: [], keeps: tarsClearKeeps({ decisions: [waiting, retired], receipts: [] }) });
     expect(view.messages.map((entry) => entry.id)).toEqual(["queued", "late", "asking", "fresh"]);
     // No clear: nothing changes.
     const all = conversation([old]);
-    expect(filterTarsConversationView(all, { clearedAt: null, keeps: tarsClearKeeps({ decisions: [], receipts: [] }) })).toBe(all);
+    expect(filterTarsConversationView(all, { clearedAt: null, inProgress: [], keeps: tarsClearKeeps({ decisions: [], receipts: [] }) })).toBe(all);
   });
 
   test("a clear proposal waits until its record exists; a refused one stays a receipt line", () => {

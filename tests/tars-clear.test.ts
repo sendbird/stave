@@ -14,7 +14,8 @@ import { buildTarsPlannerPrompt, parseTarsDecisionOutput } from "../electron/mai
 import { createTarsRuntime } from "../electron/host-service/tars-runtime";
 import { REGISTRY, SETTINGS, testContext } from "./tars-test-context";
 import type { SecondaryProviderExecutionRequest } from "../src/lib/runs/secondary-run";
-import { TarsActionReceiptSchema, type TarsDecision } from "../src/lib/tars/conversation";
+import { TarsActionReceiptSchema, type TarsActionReceipt, type TarsConversation, type TarsDecision, type TarsMessageView } from "../src/lib/tars/conversation";
+import { filterTarsConversationView, projectTarsClearProposals, tarsClearKeeps, tarsLaneUndoClear } from "../src/lib/tars/clear-view";
 import {
   TarsClearInputSchema, TarsClearRecordSchema, TarsViewSettingsSchema, tarsClearProposalRequestId,
 } from "../src/lib/tars/clearing";
@@ -314,5 +315,110 @@ describe("clear proposals", () => {
     const store = new TarsStore(database());
     const origin = { kind: "followUp" as const, eventKey: "e", responsibilityId: "r", reason: "blocked" as const, observedRevision: 1, summary: "" };
     expect(tarsFollowUpRefusal({ kind: "clear", scopes: ["conversation"] }, origin, store)).toContain("cannot propose clearing");
+  });
+});
+
+describe("review fixes", () => {
+  const clearReceipt = (messageId: string, status: "proposed" | "applied"): TarsActionReceipt => ({ messageId, actionIndex: 0, requestHash: "a".repeat(64),
+    action: { kind: "clear", scopes: ["done", "outputs"] }, status, responsibilityId: null, error: null, reason: null, revision: status === "proposed" ? 1 : 2,
+    createdAt: at(0), updatedAt: at(0) });
+  const view = (message: string, overrides: Partial<TarsMessageView> = {}): TarsMessageView => ({ requestId: message, text: "Words.", providerId: "codex", model: "m",
+    maxTurns: 30, id: message, state: "answered", revision: 3, reply: "Reply.", error: null, decision: { reply: "Reply.", actions: [] }, createdAt: at(1), updatedAt: at(1),
+    ...overrides }) as TarsMessageView;
+  const conversation = (messages: TarsMessageView[], receipts: TarsActionReceipt[] = []): TarsConversation => ({
+    settings: null, messages, receipts, activity: [], records: [], answers: [], events: [], publications: [], clears: [] });
+
+  test("a clear proposal still waiting for its confirmation keeps its message and receipt through a conversation clear", () => {
+    const keeps = tarsClearKeeps({ decisions: [], receipts: [clearReceipt("proposed", "proposed"), clearReceipt("confirmed", "applied")] });
+    expect([...keeps.messageIds]).toEqual(["proposed"]);
+    const filtered = filterTarsConversationView(conversation([view("proposed"), view("confirmed")], [clearReceipt("proposed", "proposed"), clearReceipt("confirmed", "applied")]),
+      { clearedAt: at(10), inProgress: [], keeps });
+    expect(filtered.messages.map((message) => message.id)).toEqual(["proposed"]);
+    expect(projectTarsClearProposals(filtered.receipts, []).map((proposal) => [proposal.requestId, proposal.state])).toEqual([["clear:proposed:0", "waiting"]]);
+  });
+
+  test("the confirm card of a Done/Outputs clear Tars proposed survives clearing only the conversation, and still confirms", async () => {
+    const f = service({ answer: () => JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "clear", scopes: ["done", "outputs"] }] }) });
+    f.service.start();
+    const done = row(f.responsibilities, "done", { state: "completed" }, f.now());
+    const message = f.service.sendMessage({ requestId: "words", text: "Clear finished work." });
+    await f.service.whenIdle();
+    expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("proposed");
+    const chat = f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    // The proposal's message stays, so it is not counted as hidden.
+    expect(chat.hiddenMessages).toBe(0);
+    const cleared = f.service.getConversation();
+    expect(cleared.messages.map((entry) => entry.id)).toEqual([message.id]);
+    const requestId = tarsClearProposalRequestId(message.id, 0);
+    expect(projectTarsClearProposals(cleared.receipts, cleared.clears ?? []).map((proposal) => [proposal.requestId, proposal.state])).toEqual([[requestId, "waiting"]]);
+    const confirmed = f.service.clear({ requestId, scopes: ["done", "outputs"], source: "click" });
+    expect(confirmed.done).toEqual([done.id]);
+    expect(f.service.getConversation().view?.clearRequestId).toBe("clear-chat");
+    await f.service.stop();
+  });
+
+  test("a conversation clear keeps the earlier Done clear's Undo, and that Undo leaves the conversation cleared", async () => {
+    const f = service();
+    f.service.start();
+    f.service.sendMessage({ requestId: "older", text: "Earlier words." });
+    await f.service.whenIdle();
+    const done = row(f.responsibilities, "done", { state: "completed" }, f.now());
+    expect(f.service.clear({ requestId: "clear-done", scopes: ["done"], source: "click" }).done).toEqual([done.id]);
+    f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    const cleared = f.service.getConversation();
+    // The conversation's record lines start at the conversation clear...
+    expect(cleared.clears?.map((record) => record.requestId)).toEqual(["clear-chat"]);
+    // ...but the Done lane still offers the Undo of the work it hides.
+    expect(tarsLaneUndoClear(cleared, "done")?.requestId).toBe("clear-done");
+    expect(tarsLaneUndoClear(cleared, "outputs")).toBeNull();
+
+    f.service.undoClear({ requestId: "clear-done" });
+    expect(f.responsibilities.snapshot().cleared?.done).toEqual([]);
+    const restored = f.service.getConversation();
+    expect(restored.view?.clearRequestId).toBe("clear-chat");
+    expect(restored.messages).toEqual([]);
+    expect(tarsLaneUndoClear(restored, "done")).toBeNull();
+    await f.service.stop();
+  });
+
+  test("a message being answered at clear time keeps its reply even when it lands in the clear's millisecond; one answered before stays hidden", () => {
+    const clearedAt = at(10);
+    const keeps = tarsClearKeeps({ decisions: [], receipts: [] });
+    const filtered = filterTarsConversationView(conversation([view("before", { updatedAt: at(9) }), view("same", { updatedAt: clearedAt })]),
+      { clearedAt, inProgress: ["same"], keeps });
+    expect(filtered.messages.map((message) => message.id)).toEqual(["same"]);
+  });
+
+  test("a same-millisecond reply stays in view and reaches Tars's history; a reply before the clear does not", async () => {
+    const f = service();
+    f.service.start();
+    f.service.sendMessage({ requestId: "before", text: "Answered before the clear." });
+    await f.service.whenIdle();
+    const working = f.conversations.create({ requestId: "working", text: "Still being answered." }, f.now());
+    const claimed = f.conversations.claim(working.id, working.revision, f.now())!;
+    const record = f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    expect(record.hiddenMessages).toBe(1);
+    // The reply lands in the clear's own millisecond.
+    const answered = f.conversations.answer(working.id, claimed.revision, { reply: "Same-millisecond reply.", actions: [] }, record.createdAt);
+    expect(answered.updatedAt).toBe(record.createdAt);
+    expect(f.service.getConversation().messages.map((message) => [message.requestId, message.state])).toEqual([["working", "answered"]]);
+    f.service.sendMessage({ requestId: "next", text: "And now?" });
+    await f.service.whenIdle();
+    const prompt = f.requests.at(-1)!.input.prompt;
+    expect(prompt).toContain("Same-millisecond reply.");
+    expect(prompt).not.toContain("Answered before the clear.");
+    await f.service.stop();
+  });
+
+  test("a conversation clear saved before in-progress messages were recorded reads as keeping none", () => {
+    const db = database();
+    const store = new TarsStore(db, { now: () => at(60) });
+    const legacy = { requestId: "legacy", source: "click", scopes: ["conversation"], proposal: null, status: "applied", hiddenMessages: 2, revision: 1,
+      createdAt: at(1), updatedAt: at(1) };
+    db.prepare(`INSERT INTO tars_clears (request_id, request_hash, revision, status, conversation, created_at, body_json)
+      VALUES ('legacy', 'h', 1, 'applied', 1, ?, ?)`).run(at(1), JSON.stringify(legacy));
+    expect(store.view.getClear("legacy")?.inProgress).toEqual([]);
+    expect(store.view.activeConversationClear()?.inProgress).toEqual([]);
+    expect(TarsClearRecordSchema.safeParse({ ...legacy, scopes: ["done"], hiddenMessages: undefined, done: [], inProgress: [] }).success).toBe(false);
   });
 });

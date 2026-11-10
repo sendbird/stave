@@ -89,7 +89,12 @@ export const TARS_CLEAR_MAX_ITEMS = 1_000;
 /**
  * What one clear hid, as saved: `hiddenMessages` with the conversation scope,
  * `done` and `outputs` (the responsibilities whose card or outputs it hid)
- * with theirs. `undone` restored all of it.
+ * with theirs. `undone` restored all of it. `inProgress`, with the
+ * conversation scope, names the messages still queued or being answered when
+ * it was saved: they and their replies stay in view and in Tars's history,
+ * whatever time the reply lands, because a millisecond clock cannot order a
+ * reply saved in the clear's own millisecond. Older records lack it and are
+ * read as keeping none.
  */
 export const TarsClearRecordSchema = z.object({
   requestId: IdSchema,
@@ -100,16 +105,23 @@ export const TarsClearRecordSchema = z.object({
   hiddenMessages: z.number().int().min(0).optional(),
   done: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS).optional(),
   outputs: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS).optional(),
+  inProgress: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS).optional(),
   revision: z.number().int().min(1),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 }).strict().superRefine((record, context) => {
   const has = (scope: TarsClearScope) => record.scopes.includes(scope);
-  if (has("conversation") !== (record.hiddenMessages !== undefined) || has("done") !== (record.done !== undefined) || has("outputs") !== (record.outputs !== undefined))
+  if (has("conversation") !== (record.hiddenMessages !== undefined) || has("done") !== (record.done !== undefined) || has("outputs") !== (record.outputs !== undefined)
+    || (record.inProgress !== undefined && !has("conversation")))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "A clear records exactly what its scopes hid." });
 });
 export type TarsClearRecord = z.infer<typeof TarsClearRecordSchema>;
+
+/** A saved record as current code reads it: a conversation clear from before `inProgress` keeps none. */
+export function normalizeTarsClearRecord(record: TarsClearRecord): TarsClearRecord {
+  return record.scopes.includes("conversation") && !record.inProgress ? { ...record, inProgress: [] } : record;
+}
 
 /** Ended work the tray leaves out, by responsibility id: cleared by the user or past the retention window. */
 export const TarsTrayClearedSchema = z.object({

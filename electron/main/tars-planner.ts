@@ -42,8 +42,8 @@ interface PlannerPorts {
   claim?: (id: string, expectedRevision: number, now: string) => TarsMessage | null;
   /** Undoes what a claim recorded for a message that ended before its model call. */
   releaseStart?: (messageId: string) => void;
-  /** When the user last cleared the conversation; the model's recent history starts after it. */
-  historyAfter?: () => string | null;
+  /** The active conversation clear's time and the messages it kept as under way; the model's recent history starts after it. */
+  historyAfter?: () => { at: string; keep: readonly string[] } | null;
 }
 
 /** What the model needs about a message the user did not type. */

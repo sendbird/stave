@@ -138,6 +138,12 @@ export function createTarsConversationService(ports: ConversationPorts) {
     return ports.responsibilities.view.activeConversationClear()?.createdAt ?? null;
   }
 
+  /** Tars's history boundary: the active clear's time and the messages it kept because they were under way. */
+  function historyAfter() {
+    const active = ports.responsibilities.view.activeConversationClear();
+    return active ? { at: active.createdAt, keep: active.inProgress ?? [] } : null;
+  }
+
   /**
    * Applies an answer's effect once. A control takes the host's click path
    * under the answer's own request id and first source, so a retry joins the
@@ -252,7 +258,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false) throw new TarsAgentCatalogPendingError();
       activeMessageId = message.id;
       try {
-        await processTarsMessage(message.id, { ...ports, isStopped: () => stopped, historyAfter: clearedAt,
+        await processTarsMessage(message.id, { ...ports, isStopped: () => stopped, historyAfter,
           supersedeStale: (id) => supersedeStaleTarsFollowUp({ events: ports.responsibilities.events, conversations: ports.conversations,
             responsibilities: ports.responsibilities, now }, id),
           claim: (id, revision, at) => claimTarsMessage({ events: ports.responsibilities.events, conversations: ports.conversations, responsibilities: ports.responsibilities }, id, revision, at),
@@ -321,10 +327,10 @@ export function createTarsConversationService(ports: ConversationPorts) {
         receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)),
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
         events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit),
-        clears: view.listClears(active?.createdAt ?? null, limit),
+        clears: view.listClears(active?.createdAt ?? null, limit), trayClears: view.listTrayClears(),
         view: { retentionDays: view.getSettings().retentionDays, clearedAt: active?.createdAt ?? null, clearRequestId: active?.requestId ?? null } };
       // A cleared conversation hides what came before, never what still needs the user.
-      return TarsConversationSchema.parse(active ? filterTarsConversationView(conversation, { clearedAt: active.createdAt, keeps: clearKeeps().keeps }) : conversation);
+      return TarsConversationSchema.parse(active ? filterTarsConversationView(conversation, { clearedAt: active.createdAt, inProgress: active.inProgress ?? [], keeps: clearKeeps().keeps }) : conversation);
     },
     /**
      * Applies one clear from a button or a confirmed Tars proposal
@@ -344,6 +350,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
             && message.state !== "queued" && message.state !== "reasoning").length;
           return ports.conversations.countSettledBetween(previous, at) - kept;
         },
+        inProgress: () => ports.conversations.listInProgressIds(),
         ...(proposal ? { proposal: { ...proposal, settle: () => { ports.conversations.settleClearProposal(proposal, input.scopes, at); } } } : {}) });
     },
     undoClear(rawInput: unknown) {

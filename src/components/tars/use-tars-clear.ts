@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { i18n } from "@/i18n";
 import { normalizeTarsClearScopes, type TarsClearRecord, type TarsClearScope, type TarsClearSource } from "@/lib/tars/clearing";
-import { projectTarsClearProposals, type TarsClearProposalView } from "@/lib/tars/clear-view";
+import { projectTarsClearProposals, tarsLaneUndoClear, type TarsClearProposalView } from "@/lib/tars/clear-view";
 import type { TarsConversation } from "@/lib/tars/conversation";
 import type { TarsBridgeApi } from "@/lib/tars/types";
 import type { TarsClearCounts } from "./TarsClear";
@@ -52,8 +52,7 @@ export function useTarsClear(args: {
   const active = useMemo(() => clears.find((record) => record.requestId === activeId) ?? null, [activeId, clears]);
   const records = useMemo(() => clears.filter((record) => record.proposal === null && record.requestId !== activeId), [activeId, clears]);
   const proposals = useMemo(() => projectTarsClearProposals(conversation?.receipts ?? [], clears), [clears, conversation?.receipts]);
-  const latest = useCallback((scope: "done" | "outputs") => [...clears].reverse()
-    .find((record) => record.status === "applied" && (record[scope]?.length ?? 0) > 0) ?? null, [clears]);
+  const latest = useCallback((scope: "done" | "outputs") => tarsLaneUndoClear(conversation, scope), [conversation]);
   const setError = (key: string, message: string | null) => setErrors((current) => {
     const next = new Map(current);
     if (message) next.set(key, message); else next.delete(key);

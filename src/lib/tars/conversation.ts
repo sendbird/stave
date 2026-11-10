@@ -688,6 +688,8 @@ export const TarsConversationSchema = z.object({
   publications: z.array(TarsPublishRecordSchema).max(1_000).optional(),
   /** Clears from the active conversation clear on (its own record included); optional so older hosts' conversations still parse. */
   clears: z.array(TarsClearRecordSchema).max(1_000).optional(),
+  /** The newest applied clear of each tray lane (Done, Outputs) that hid something, whatever the conversation clear's time, for the lane's Undo. */
+  trayClears: z.array(TarsClearRecordSchema).max(2).optional(),
   /** Retention and the active conversation clear; absent from older hosts. */
   view: TarsConversationViewSchema.optional(),
 }).strict();

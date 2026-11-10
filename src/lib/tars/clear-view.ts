@@ -5,16 +5,17 @@ import { tarsUnverifiedDecisionId, type TarsDecisionView } from "./decisions";
 /**
  * What stays in the conversation view after a conversation clear, whatever
  * its time: a message whose decision still waits on the user (a question, a
- * confirmation, Stave's unverified-completion choice) or whose publish
- * proposal still waits for its card's confirmation. Read from the full saved
- * state (`projectTarsDecisions` over every message, not the cleared view).
+ * confirmation, Stave's unverified-completion choice) or whose publish or
+ * clear proposal still waits for its card's confirmation. Read from the full
+ * saved state (`projectTarsDecisions` over every message, not the cleared view).
  */
 export function tarsClearKeeps(args: { decisions: readonly TarsDecisionView[]; receipts: readonly TarsActionReceipt[] }) {
   const waiting = args.decisions.filter((view) => view.state === "waiting");
   return {
     messageIds: new Set([
       ...waiting.flatMap((view) => view.messageId ? [view.messageId] : []),
-      ...args.receipts.filter((receipt) => receipt.action.kind === "publish" && receipt.status === "proposed").map((receipt) => receipt.messageId),
+      ...args.receipts.filter((receipt) => (receipt.action.kind === "publish" || receipt.action.kind === "clear") && receipt.status === "proposed")
+        .map((receipt) => receipt.messageId),
     ]),
     decisionIds: new Set(waiting.map((view) => view.id)),
   };
@@ -23,8 +24,9 @@ export function tarsClearKeeps(args: { decisions: readonly TarsDecisionView[]; r
 /**
  * The conversation as a window reads it after a conversation clear at
  * `clearedAt`: entries from after it, plus what still needs the user or is
- * still under way. A queued or reasoning message (and its reply, when it comes
- * after the clear), words still waiting to be
+ * still under way. A queued or reasoning message, and one that was queued or
+ * reasoning when the clear was saved (`inProgress`, so its reply stays even
+ * when it lands in the clear's own millisecond), words still waiting to be
  * said in a task and a confirmation still publishing stay; so do the kept
  * messages and Stave's waiting unverified-completion cards. Answers stay as
  * lookups for the cards that remain. Clears are listed from the active one on,
@@ -32,14 +34,17 @@ export function tarsClearKeeps(args: { decisions: readonly TarsDecisionView[]; r
  */
 export function filterTarsConversationView(conversation: TarsConversation, args: {
   clearedAt: string | null;
+  /** The active clear's `inProgress`: messages under way when it was saved. */
+  inProgress: readonly string[];
   keeps: ReturnType<typeof tarsClearKeeps>;
 }): TarsConversation {
   const { clearedAt, keeps } = args;
   if (!clearedAt) return conversation;
   const after = (at: string) => at > clearedAt;
-  // A message still under way, or one answered after the clear, keeps its place: a reply never vanishes because it came late.
+  const underWay = new Set(args.inProgress);
+  // A message still under way, or one that was when the clear was saved, keeps its place: a reply never vanishes because it came late.
   const messages = conversation.messages.filter((message) => after(message.createdAt) || after(message.updatedAt) || message.state === "queued"
-    || message.state === "reasoning" || keeps.messageIds.has(message.id));
+    || message.state === "reasoning" || underWay.has(message.id) || keeps.messageIds.has(message.id));
   const kept = new Set(messages.map((message) => message.id));
   return {
     ...conversation,
@@ -79,4 +84,18 @@ export function projectTarsClearProposals(receipts: readonly TarsActionReceipt[]
     if (record) return [{ ...base, state: "settled" }];
     return receipt.status === "proposed" ? [{ ...base, state: "waiting" }] : [];
   });
+}
+
+/**
+ * The clear a tray lane's Undo restores: the newest applied clear of `scope`
+ * that hid something. `trayClears` carries it whatever the conversation
+ * clear's time, so clearing the conversation never takes a lane's Undo away.
+ */
+export function tarsLaneUndoClear(conversation: Pick<TarsConversation, "clears" | "trayClears"> | null, scope: "done" | "outputs"): TarsClearRecord | null {
+  let newest: TarsClearRecord | null = null;
+  // Oldest first, as the host lists them: the later of two records of the same time wins.
+  for (const record of [...(conversation?.trayClears ?? []), ...(conversation?.clears ?? [])]) {
+    if (record.status === "applied" && (record[scope]?.length ?? 0) > 0 && (!newest || record.createdAt >= newest.createdAt)) newest = record;
+  }
+  return newest;
 }

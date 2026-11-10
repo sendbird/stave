@@ -195,14 +195,21 @@ export class TarsConversationStore {
    * Admit history before this request, independent of queue depth or
    * equal/shifted clocks. History is words only: attachments are summaries.
    * `after` (a conversation clear) keeps only messages saved or answered after
-   * it, as the conversation view shows them.
+   * its time, plus the ones it saved as under way (`keep`), as the
+   * conversation view shows them.
    */
-  listBefore(messageId: string, limit = 8, after: string | null = null): TarsMessageView[] {
+  listBefore(messageId: string, limit = 8, after: { at: string; keep: readonly string[] } | null = null): TarsMessageView[] {
     this.requireLimit(limit);
+    const at = after?.at ?? null;
     return this.readViews(this.db.prepare(`SELECT id, json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
       WHERE rowid < (SELECT rowid FROM tars_messages WHERE id = ?)
-        AND (? IS NULL OR created_at > ? OR json_extract(body_json, '$.updatedAt') > ?)
-      ORDER BY rowid DESC LIMIT ?`).all(messageId, after, after, after, limit) as ViewRow[]).reverse();
+        AND (? IS NULL OR created_at > ? OR json_extract(body_json, '$.updatedAt') > ? OR id IN (SELECT value FROM json_each(?)))
+      ORDER BY rowid DESC LIMIT ?`).all(messageId, at, at, at, JSON.stringify(after?.keep ?? []), limit) as ViewRow[]).reverse();
+  }
+
+  /** Messages still queued or being answered: what a conversation clear saved now keeps in view whenever their replies land. */
+  listInProgressIds(): string[] {
+    return (this.db.prepare("SELECT id FROM tars_messages WHERE state IN ('queued', 'reasoning') ORDER BY rowid").all() as Array<{ id: string }>).map((row) => row.id);
   }
 
   /** Settled messages saved after `after` (any time when null) and at or before `through`: what a conversation clear at `through` hides. */

@@ -91,6 +91,35 @@ test.describe("Tars clear, retention and suggestions", () => {
     await expect(laneCount(page, "needsYou")).toHaveText("1");
   });
 
+  test("a clear card still waiting for its confirmation stays when only the conversation is cleared", async ({ page }) => {
+    await page.goto("/?stavePreview=tars&tray=true");
+    await send(page, "Clear finished work");
+    await expect(view(page).locator("[data-tars-clear-card]")).toBeVisible();
+    await view(page).locator("[data-tars-clear-conversation]").click();
+    await page.getByRole("dialog").getByRole("button", { name: "Clear conversation" }).click();
+    await expect(view(page).locator('[data-tars-clear-scopes="conversation"]')).toBeVisible();
+    const card = view(page).locator("[data-tars-clear-card]");
+    await expect(card).toBeVisible();
+    await card.focus();
+    await page.keyboard.press("Enter");
+    await expect(laneCount(page, "done")).toHaveText("0");
+  });
+
+  test("clearing the conversation after Done keeps the Done lane's Undo, and that Undo leaves the conversation cleared", async ({ page }) => {
+    await page.goto("/?stavePreview=tars&tray=true");
+    await send(page, "Keep an eye on the billing export.");
+    await openLane(page, "done");
+    await lane(page, "done").locator('[data-tars-lane-clear="done"]').click();
+    await expect(laneCount(page, "done")).toHaveText("0");
+    await view(page).locator("[data-tars-clear-conversation]").click();
+    await page.getByRole("dialog").getByRole("button", { name: "Clear conversation" }).click();
+    await expect(view(page).locator("[data-tars-message]")).toHaveCount(0);
+    await lane(page, "done").locator('[data-tars-lane-undo="done"]').click();
+    await expect(laneCount(page, "done")).toHaveText("1");
+    await expect(view(page).locator("[data-tars-message]")).toHaveCount(0);
+    await expect(view(page).locator("[data-tars-clear-undo]")).toBeVisible();
+  });
+
   test("retention hides old ended work by itself, and Until I clear it brings it back", async ({ page }) => {
     await page.goto("/?stavePreview=tars&tray=true&endedDaysAgo=10");
     await expect(laneCount(page, "done")).toHaveText("0");

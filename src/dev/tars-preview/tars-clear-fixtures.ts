@@ -56,9 +56,12 @@ export function createPreviewClearBridge(args: {
     /** The conversation as the host would return it: clears, the view state and the conversation clear's filter. */
     view(conversation: TarsConversation): TarsConversation {
       const current = active();
+      const lane = (scope: "done" | "outputs") => [...state.clears].reverse().find((record) => record.status === "applied" && (record[scope]?.length ?? 0) > 0);
+      const trayClears = [...new Set([lane("done"), lane("outputs")])].flatMap((record) => record ? [structuredClone(record)] : [])
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       const withView: TarsConversation = { ...conversation, clears: state.clears.filter((record) => !current || record.createdAt >= current.createdAt).map((record) => structuredClone(record)),
-        view: { retentionDays: state.settings.retentionDays, clearedAt: current?.createdAt ?? null, clearRequestId: current?.requestId ?? null } };
-      return current ? filterTarsConversationView(withView, { clearedAt: current.createdAt, keeps: keeps(conversation) }) : withView;
+        trayClears, view: { retentionDays: state.settings.retentionDays, clearedAt: current?.createdAt ?? null, clearRequestId: current?.requestId ?? null } };
+      return current ? filterTarsConversationView(withView, { clearedAt: current.createdAt, inProgress: current.inProgress ?? [], keeps: keeps(conversation) }) : withView;
     },
     async clear(input: TarsClearInput): Promise<TarsClearRecord> {
       const existing = state.clears.find((record) => record.requestId === input.requestId);
@@ -75,7 +78,7 @@ export function createPreviewClearBridge(args: {
       const done = ids("done");
       const outputs = ids("outputs");
       const record = TarsClearRecordSchema.parse({ requestId: input.requestId, source: input.source, scopes, proposal, status: "applied",
-        ...(scopes.includes("conversation") ? { hiddenMessages: hidden } : {}), ...(done ? { done } : {}), ...(outputs ? { outputs } : {}),
+        ...(scopes.includes("conversation") ? { hiddenMessages: hidden, inProgress: conversation.messages.filter((message) => message.state === "queued" || message.state === "reasoning").map((message) => message.id) } : {}), ...(done ? { done } : {}), ...(outputs ? { outputs } : {}),
         revision: 1, createdAt: at, updatedAt: at });
       for (const id of done ?? []) state.archived.push({ scope: "done", responsibilityId: id, requestId: record.requestId });
       for (const id of outputs ?? []) state.archived.push({ scope: "outputs", responsibilityId: id, requestId: record.requestId });

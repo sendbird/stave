@@ -476,7 +476,8 @@ chat" or "done 정리해줘"; Tars then shows a card, and only your **Clear**
 record with **Undo** (**Restore** for the conversation) and stays after a
 restart. A cleared conversation shows the welcome again and Tars's recent
 conversation memory starts fresh, but a message still being answered, a
-decision still waiting for you and words waiting for a task stay in view. Only
+decision or clear card still waiting for you and words waiting for a task stay
+in view, and **Done** and **Outputs** keep their **Undo**. Only
 ended work leaves **Done** and **Outputs**; running, waiting, blocked and
 taken-over work, and work whose draft PR is unfinished or waits for your
 confirmation, stay. Hidden work stays in Fleet and in its task.
