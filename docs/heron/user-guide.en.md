@@ -438,6 +438,8 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
+In the Work tray, **Group by project** adds folding project groups and card/output counts within each lane. Names come from registered projects or repository folders; missing ownership says **Unknown project**. Queued work keeps its order across all projects outside the groups. Drag and earlier/later actions still change that global queue. Clear and Undo apply to the whole lane. The grouping choice lasts while the tray is open.
+
 Open **Tars** in the sidebar to delegate an outcome across registered
 repositories. Unlike the saved Supervisor Agent, Tars keeps one personal
 name, standing instructions and responsibility list outside any one task.

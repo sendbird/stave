@@ -410,6 +410,8 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Agents**: the Supervisor's **Work** list includes Tars's work once you turn
   on **Show Tars work**.
 
+Use **Group by project** in the Work tray to fold work and outputs by project within each lane. Project counts count work cards or outputs, not attention requests. Registered project names are used when available, otherwise the repository folder name; missing ownership appears as **Unknown project**. Queued work stays outside project groups in its existing order across all projects; drag and earlier/later actions still change that global queue. Lane filters, Clear and Undo keep their existing scope. The grouping choice lasts while the tray is mounted.
+
 ## FAQ and troubleshooting
 
 **Tars answered but no work started.** Look at the outcome under the reply. A

@@ -1630,6 +1630,11 @@
         "hint": "Drag to change the order. Do first and Do later in More actions do the same.",
         "moved": "{{title}} is now {{position}} of {{total}} in the queue.",
         "refused": "{{title}} kept its place: {{reason}}"
+      },
+      "grouping": {
+        "toggle": "Group by project",
+        "unknown": "Unknown project",
+        "queue": "Queued · order across all projects"
       }
     },
     "flow": {

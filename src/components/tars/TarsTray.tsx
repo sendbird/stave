@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button, ExternalAnchor } from "@/components/ui";
@@ -36,6 +36,8 @@ import { TarsLiveLine, TarsRecentProgress, tarsLiveLineShows } from "./TarsLiveP
 import { useTarsLiveProgress } from "./use-tars-live-progress";
 import { TarsPublishEntry } from "./TarsPublishEntry";
 import { isTarsPublishable } from "@/lib/tars/publish-model";
+import { useAppStore } from "@/store/app.store";
+import { groupTarsTrayItems, type TarsTrayProject } from "@/lib/tars/tray-projects";
 import { tarsClearStyles as clearStyles } from "./tars-clear.styles";
 
 export { stateTone } from "./TarsRunMonitor";
@@ -412,6 +414,28 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
   </ul>;
 }
 
+/** A project disclosure counts work cards (or outputs), independently of attention-row counts. */
+function TarsProjectGroups<T>({ items, pathOf, projects, render }: {
+  items: readonly T[]; pathOf: (item: T) => string | null | undefined; projects: readonly TarsTrayProject[]; render: (items: T[]) => ReactNode;
+}) {
+  const { t } = useTranslation(["shell"]);
+  const id = useId();
+  const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  return groupTarsTrayItems(items, pathOf, projects).map((group, index) => {
+    const open = !folded.has(group.key);
+    const panelId = `${id}-${index}`;
+    return <section key={group.key} data-tars-project={group.key}>
+      <Button variant="ghost" size="sm" xstyle={styles.projectTrigger} aria-expanded={open} aria-controls={panelId}
+        onClick={() => setFolded((previous) => { const next = new Set(previous); if (open) next.add(group.key); else next.delete(group.key); return next; })}>
+        <ChevronRight aria-hidden className={sx(styles.chevron, transition.transform, open && styles.chevronOpen)} />
+        <span className={sx(styles.projectName)} title={group.key}>{group.label ?? t("shell:tars.tray.grouping.unknown")}</span>
+        <span className={sx(styles.sectionCount)} data-tars-project-count={group.items.length}>{group.items.length}</span>
+      </Button>
+      <div id={panelId} hidden={!open}>{render(group.items)}</div>
+    </section>;
+  });
+}
+
 /** One lane's sticky header: the chevron leading, the lane's name and count, then its Clear and Undo. */
 function TarsLaneHeader({ lane, count, open, surface, tools }: { lane: TarsTrayLaneId; count: number; open: boolean; surface: TarsTraySurface; tools?: ReactNode }) {
   const { t } = useTranslation(["shell"]);
@@ -441,6 +465,13 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
   model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[]; clearing?: TarsTrayClearing; surface?: TarsTraySurface;
 }) {
   const { t } = useTranslation(["shell"]);
+  const [grouped, setGrouped] = useState(false);
+  const registered = useAppStore((state) => state.recentRepositories);
+  const repositoryPath = useAppStore((state) => state.repositoryPath);
+  const repositoryName = useAppStore((state) => state.repositoryName);
+  const projects = repositoryPath ? [...registered, { repositoryPath, repositoryName: repositoryName ?? "" }] : registered;
+  const allCards = Object.values(model.lanes).flat();
+  const outputPath = (output: TarsOutput) => allCards.find((card) => card.row.id === output.responsibilityId)?.row.repositoryPath;
   // Only what the user chose is kept; every other lane follows the default rule as its count changes.
   const [chosen, setChosen] = useState<Partial<Record<TarsTrayLaneId, boolean>>>({});
   const queued = Object.values(model.lanes).flat().filter((card) => card.queue);
@@ -464,7 +495,13 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
     for (const lane of lanes) if (next.includes(lane) !== value.includes(lane)) updated[lane] = next.includes(lane);
     return updated;
   });
-  return <Accordion.Root multiple value={value} onValueChange={onValueChange} data-tars-tray="">
+  const renderCards = (cards: readonly TarsTrayCardModel[]) => <ul className={sx(styles.cards)}>
+    {cards.map((card) => card.queue ? <TarsQueuedCardItem key={card.row.id} card={card} actions={actions} sortable={sortable} />
+      : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
+  </ul>;
+  return <><div className={sx(styles.groupingTools)}>
+    <Button variant="ghost" size="2xs" aria-pressed={grouped} data-tars-group-projects="" onClick={() => setGrouped(!grouped)}>{t("shell:tars.tray.grouping.toggle")}</Button>
+  </div><Accordion.Root multiple value={value} onValueChange={onValueChange} data-tars-tray="">
     {LANES.map((lane) => {
       const cards = model.lanes[lane];
       const count = counts[lane] ?? 0;
@@ -473,10 +510,10 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
           tools={lane === "done" && clearing ? <TarsLaneTools scope="done" clearing={clearing} /> : undefined} />
         <Accordion.Panel>
           {lane === "done" && clearing ? <TarsLaneNote scope="done" clearing={clearing} /> : null}
-          {cards.length ? <ul className={sx(styles.cards)}>
-            {cards.map((card) => card.queue ? <TarsQueuedCardItem key={card.row.id} card={card} actions={actions} sortable={sortable} />
-              : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
-          </ul> : lane === "done" && clearing?.done.hidden ? null : <p className={sx(styles.empty)}>{t(`shell:tars.tray.emptyLane.${lane}`)}</p>}
+          {cards.length ? grouped ? <>
+            <TarsProjectGroups items={cards.filter((card) => !card.queue)} pathOf={(card) => card.row.repositoryPath} projects={projects} render={renderCards} />
+            {cards.some((card) => card.queue) ? <><p className={sx(styles.empty)}>{t("shell:tars.tray.grouping.queue")}</p>{renderCards(cards.filter((card) => card.queue))}</> : null}
+          </> : renderCards(cards) : lane === "done" && clearing?.done.hidden ? null : <p className={sx(styles.empty)}>{t(`shell:tars.tray.emptyLane.${lane}`)}</p>}
         </Accordion.Panel>
       </Accordion.Item>;
     })}
@@ -485,8 +522,8 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
         tools={clearing ? <TarsLaneTools scope="outputs" clearing={clearing} /> : undefined} />
       <Accordion.Panel>
         {clearing ? <TarsLaneNote scope="outputs" clearing={clearing} /> : null}
-        {!outputs.length && clearing?.outputs.hidden ? null : <TarsOutputList outputs={outputs} onOpenSide={actions.onOpenSide} />}
+        {!outputs.length && clearing?.outputs.hidden ? null : grouped && outputs.length > 0 ? <TarsProjectGroups items={outputs} pathOf={outputPath} projects={projects} render={(items) => <TarsOutputList outputs={items} onOpenSide={actions.onOpenSide} />} /> : <TarsOutputList outputs={outputs} onOpenSide={actions.onOpenSide} />}
       </Accordion.Panel>
     </Accordion.Item> : null}
-  </Accordion.Root>;
+  </Accordion.Root></>;
 }

@@ -361,3 +361,113 @@ test("a lane header shows a hover wash and the keyboard focus ring", async ({ pa
   await page.keyboard.press("Shift+Tab");
   await expect.poll(() => page.locator('[data-tars-lane-head="needsYou"] button[aria-expanded]').evaluate((node) => getComputedStyle(node).outlineStyle)).toBe("solid");
 });
+
+for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (const width of [1440, 390]) {
+  test(`project groups preserve rows, queue and lane controls (${lang}/${theme}/${width})`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await openTray(page, { fixture: "tray", lang, theme, width });
+    await page.evaluate((width) => { document.documentElement.dataset.uiDensity = width < 1088 ? "compact" : "regular"; }, width);
+    const toggle = page.locator("[data-tars-group-projects]");
+    const before = await page.locator("[data-tars-card]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-card")).sort());
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    const group = page.locator('[data-tars-tray-lane="needsYou"] [data-tars-project]').first();
+    await expect(group).toBeVisible();
+    const trigger = group.locator(':scope > button');
+    const geometry = await trigger.evaluate((node) => {
+      const [icon, label, count] = [...node.children];
+      const box = (element: Element) => element.getBoundingClientRect();
+      return { gap: box(label!).left - box(icon!).right, center: (box(icon!).top + box(icon!).bottom - box(label!).top - box(label!).bottom) / 2,
+        right: box(count!).right, container: box(node).right, shrink: getComputedStyle(icon!).flexShrink };
+    });
+    expect(Math.abs(geometry.gap - await tokenPx(page, "--aui-space-8"))).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(geometry.center)).toBeLessThanOrEqual(1);
+    expect(geometry.shrink).toBe("0");
+    expect(geometry.right).toBeLessThanOrEqual(geometry.container);
+    const after = await page.locator("[data-tars-card]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-card")).sort());
+    expect(after).toEqual(before);
+    await trigger.click();
+    await expect(group.locator('[data-tars-card]').first()).toBeHidden();
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    await expect(group.locator('[data-tars-card]').first()).toBeVisible();
+    await toggle.click();
+    await expect(page.locator('[data-tars-project]')).toHaveCount(0);
+    expect(await page.locator("[data-tars-card]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-card")).sort())).toEqual(before);
+  });
+}
+
+test("project grouping keeps global queue moves, output ownership and clearing through filtering", async ({ page }) => {
+  await openTray(page, { fixture: "tray", lang: "en", theme: "light", width: 1440 });
+  // Mount the real tray with controlled snapshots to exercise ownership and refresh boundaries without a provider.
+  await page.evaluate(async () => {
+    // @ts-expect-error browser imports use Vite optimized dependencies
+    const reactModule = await import("/node_modules/.vite/deps/react.js");
+    const { createElement } = reactModule.default ?? reactModule;
+    // @ts-expect-error browser imports use Vite optimized dependencies
+    const clientModule = await import("/node_modules/.vite/deps/react-dom_client.js");
+    const { createRoot } = clientModule.default ?? clientModule;
+    // @ts-expect-error browser imports use Vite's served source URLs
+    const { TarsTray } = await import("/src/components/tars/TarsTray.tsx");
+    // @ts-expect-error browser imports use Vite's served source URLs
+    const { buildTarsTray } = await import("/src/lib/tars/tray-model.ts");
+    // @ts-expect-error browser imports use Vite's served source URLs
+    const { buildTarsTrayFixtures } = await import("/src/dev/tars-preview/tars-fixtures.ts");
+    // @ts-expect-error browser imports use Vite's served source URLs
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const f = buildTarsTrayFixtures(new Date());
+    const base = f.responsibilities[0];
+    const rows = [
+      { ...base, id: "a", state: "running", repositoryPath: "/tmp/alpha" },
+      { ...base, id: "b", state: "running", repositoryPath: "/tmp/beta" },
+      { ...base, id: "q1", state: "queued", priority: 90, repositoryPath: "/tmp/beta" },
+      { ...base, id: "q2", state: "queued", priority: 50, repositoryPath: "/tmp/alpha" },
+      { ...base, id: "done", state: "completed", repositoryPath: "/tmp/alpha" },
+    ];
+    useAppStore.setState({ recentRepositories: [{ repositoryPath: "/tmp/alpha", repositoryName: "Known project", lastOpenedAt: new Date().toISOString(), defaultBranch: "main", workspaces: [], activeWorkspaceId: "", workspaceBranchById: {}, workspacePathById: {}, workspaceDefaultById: {} }] });
+    document.querySelector('[data-testid="tars-view"]')?.remove();
+    const host = document.createElement("div");
+    host.style.width = "390px";
+    document.body.append(host);
+    const root = createRoot(host);
+    let filtered = false;
+    let cleared = false;
+    const log = (value: string) => { host.dataset.action = value; };
+    const render = () => root.render(createElement(TarsTray, {
+      model: buildTarsTray({ responsibilities: rows.filter((row) => (!filtered || row.id !== "a") && (!cleared || row.id !== "done")), attentionItems: [], runs: {} }),
+      outputs: [{ kind: "changes", responsibilityId: "a", title: "Owned output", files: 1 }, { kind: "changes", responsibilityId: "missing", title: "Unknown output", files: 2 }],
+      actions: { busy: false, onAct: (_row: unknown, op: string) => log(op), onMove: (row: { id: string }, move: { direction: string }) => log(`${row.id}:${move.direction}`),
+        onConfirm: () => {}, onOpenTask: () => {}, onShowInFleet: () => {}, onOpenSide: (target: { responsibilityId: string }) => log(target.responsibilityId) },
+      clearing: { busy: false, done: { clearable: cleared ? 0 : 1, hidden: cleared ? 1 : 0, onUndo: cleared ? () => { cleared = false; render(); } : null }, outputs: { clearable: 0, hidden: 0, onUndo: null },
+        onClear: () => { cleared = true; render(); } },
+    }));
+    const filter = document.createElement("button");
+    filter.textContent = "Apply fixture filter";
+    filter.onclick = () => { filtered = !filtered; render(); };
+    document.body.append(filter);
+    render();
+  });
+  await page.locator('[data-tars-group-projects]').click();
+  const running = page.locator('[data-tars-tray-lane="running"]');
+  await expect(running.locator('[data-tars-project]')).toHaveCount(2);
+  await expect(running.locator('[data-tars-project]').first().locator(':scope > button')).toContainText("Known project");
+  expect(await page.locator('[data-tars-queue-item]').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-tars-queue-item')))).toEqual(["q1", "q2"]);
+  await expect(page.locator('[data-tars-project] [data-tars-queue-item]')).toHaveCount(0);
+  await page.locator('[data-tars-queue-grip="q2"]').focus();
+  await page.keyboard.press("Alt+ArrowUp");
+  await expect(page.locator('[data-action]')).toHaveAttribute("data-action", "q2:earlier");
+  await page.locator('[data-tars-output]').first().locator('button').click();
+  await expect(page.locator('[data-action]')).toHaveAttribute("data-action", "a");
+  await expect(page.locator('[data-tars-tray-lane="outputs"] [data-tars-project="unknown"]')).toContainText('Unknown project');
+  await page.locator('[data-tars-lane-head="done"] button[aria-expanded]').click();
+  await expect(page.locator('[data-tars-card="done"]')).toBeVisible();
+  await page.locator('[data-tars-lane-clear="done"]').click();
+  await expect(page.locator('[data-tars-card="done"]')).toHaveCount(0);
+  await page.locator('[data-tars-lane-undo="done"]').click();
+  await expect(page.locator('[data-tars-card="done"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Apply fixture filter' }).click();
+  await expect(page.locator('[data-tars-card="a"]')).toHaveCount(0);
+  await expect(running.locator('[data-tars-card]')).toHaveCount(3);
+  await page.getByRole('button', { name: 'Apply fixture filter' }).click();
+  await expect(running.locator('[data-tars-card]')).toHaveCount(4);
+});
