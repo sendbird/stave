@@ -139,7 +139,4 @@ export const tarsFlowStyles = stylex.create({
   stageStatic: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"] },
   stageTitle: { flex: 1, minWidth: 0, fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
   attempt: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"] },
-  notice: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], margin: 0, paddingBlock: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], overflowWrap: "anywhere" },
-  noticeTitle: { color: vars["--aui-color-text"], minWidth: 0 },
-  noticeState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], alignSelf: "center" },
 });

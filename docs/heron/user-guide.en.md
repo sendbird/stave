@@ -595,7 +595,7 @@ and head branch, the changed files, the commit message and pull request title
 report. **Open draft PR** or Enter publishes; **Decline** or Esc publishes
 nothing. Stave then commits, pushes the work's branch and opens a draft pull
 request; it never merges, deploys or force-pushes, and it asks again every
-time. The card folds to a line such as "Draft PR #12 opened", and the pull
+time. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
 request appears in **Outputs** and the report. If a step fails, **Retry** opens
 the card again and continues from that step.
 
@@ -619,13 +619,13 @@ send keeps it, with **Retry** in a notice at the end of the conversation. If the
 quitting offers to keep Stave open, retry saving or quit without saving. **Pause**, **Resume**, **Take
 over**, **Hand back** and **Cancel responsibility** control owned work. You can
 also ask in words, such as "stop it" or "I'll take it from here"; both go
-through the same check, and each click leaves a one-line record in the
+through the same check, and each click leaves a record row in the
 conversation. Work Tars holds shows a **Tars** label in Fleet View and on the
 task's run line. **Pause** and **Take over** in a Fleet row's panel, **Take
 control** on the run line, and every **Stop** of its turn (composer, Esc,
 command palette, run line) go through Tars too: the run is paused rather than
-cancelled, and the record names where you pressed it, such as "Paused · Fleet"
-or "Paused · task view". Once Tars has paused the work, **Stop** ends only your
+cancelled, and the record names where you pressed it, such as "Pause ·
+Verified result · Fleet · Applied" or "… · task view · Applied". Once Tars has paused the work, **Stop** ends only your
 own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
 decision card with **Confirm**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or it ended first. Words confirmed while earlier ones for the same work still wait are said after them, in order, and are not said after you hand the work back. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
@@ -643,15 +643,23 @@ or a completion Stave could not verify) leads with what it does, such as
 workspace, revision and effect when Stave knows them. Effects that cannot be
 undone, cancelling and accepting as done, carry a **Can't be undone** tag. Its
 footer shows **Not now** (Esc), which leaves the decision waiting and returns
-you to the message box, and **Confirm** with its key. While it waits, the card has an
-attention outline. Choose by clicking, or focus the card and press **1** to
-**4** (**Enter** picks the recommended or focused option); keys typed in the
-message box stay text. When exactly one decision waits in Tars's latest reply
+you to the message box, and **Confirm** with its key. A question's options are
+a radio group: each shows its label, its reason on the line under it and its
+number key, and the recommended one is marked and starts chosen; **Answer**
+sends the chosen option. While it waits, the card has an attention outline.
+Choose by clicking an option, or focus the card and press **1** to **4** or the
+arrow keys, then **Answer** or **Enter**; keys typed in the message box stay
+text. When exactly one decision waits in Tars's latest reply
 and you have not written since, a short reply such as "1", "yes" or "응"
 answers it: a number picks that option, a yes picks the recommended one.
 Anything else goes to Tars as a message. Cancelling and accepting as done are
-never a default: choose them by click or by number, never with Enter or "yes". An answered card
-folds to one line such as "Keep it running · click". Answering twice applies
+never a default: they never start chosen and "yes" never picks them; choose them
+yourself, and **Answer** then carries the danger tone instead of the filled
+primary. An answered card folds to a record row such as "Keep it running ·
+Should I pause the release check? · click · Answered". Records of controls,
+delegations, publishing and words for a busy run share that row: a status mark,
+what was done to which work, where it came from and its outcome, with a refusal's
+reason on the line under it. Answering twice applies
 once, and a different answer to an answered decision is refused; if Stave
 could not apply your choice for another reason, the card stays open. If the work
 changes before you answer, the card says it is no longer valid and Tars asks

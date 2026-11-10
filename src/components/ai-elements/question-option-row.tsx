@@ -60,6 +60,8 @@ export function QuestionOptionRow(args: {
   onChange?: () => void;
   /** The row took focus or the pointer: show its preview. */
   onPreview?: (source: "focus" | "pointer") => void;
+  /** A mark after the label, such as a risk tag; display only, not part of the option's value. */
+  tag?: ReactNode;
 }) {
   const { t } = useTranslation(["composer"]);
   const { row, kind, readOnly = false, disabled = false } = args;
@@ -96,10 +98,12 @@ export function QuestionOptionRow(args: {
         <span className={sx(styles.labelRow)}>
           <span className={sx(styles.label)}>{row.label}</span>
           {row.recommended ? (
-            <Badge variant="secondary" className={sx(styles.recommendedBadge)}>
+            // The small chip is one label line tall, so the label stays on the mark's line.
+            <Badge variant="secondary" size="sm">
               {t("userInputCard.copy")}
             </Badge>
           ) : null}
+          {args.tag}
         </span>
         {row.description ? (
           <span className={sx(styles.description)}>{row.description}</span>

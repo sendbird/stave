@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CircleAlert, CircleCheck, CircleDashed, CircleHelp, CircleMinus, CirclePause, CircleX, Clock, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleHelp, CircleMinus, CirclePause, CircleStop, CircleX, Clock, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
 import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentStepState } from "../src/components/aui/components/agent-state";
 import { StateMark } from "../src/components/aui/components/StateMark";
 import { StatusDot, statusDotWorkState } from "../src/components/aui/components/StatusDot";
@@ -13,7 +13,7 @@ describe("work state vocabulary", () => {
     expect(WORK_STATE["needs-you"].icon).toBe(Hand);
     expect(WORK_STATE.ready.icon).toBe(CircleCheck);
     expect(WORK_STATE.failed.icon).toBe(CircleX);
-    expect(WORK_STATE.stopped.icon).toBe(Square);
+    expect(WORK_STATE.stopped.icon).toBe(CircleStop);
     expect(WORK_STATE.queued.icon).toBe(CircleDashed);
     expect(WORK_STATE.idle.icon).toBe(CircleDashed);
     expect(WORK_STATE.skipped.icon).toBe(CircleMinus);

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { tarsRecordText } from "./tars-record-text";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
@@ -133,12 +134,12 @@ describe("publish record and entry", () => {
 
   test("folds to one line: the pull request it opened, or why it was not published with Retry", () => {
     const opened = renderToStaticMarkup(createElement(TarsPublishRecordLine, { record: record({}), title: "Checkout" }));
-    expect(opened).toContain("Draft PR #12 opened · click");
+    expect(tarsRecordText(opened)).toContain("Draft PR #12 opened Checkout click");
     expect(opened).toContain('href="https://github.com/example/web/pull/12"');
     const failed = renderToStaticMarkup(createElement(TarsPublishRecordLine, { record: record({ status: "rejected", reason: "publishFailed", error: "fatal: unable to access remote", url: null, number: null }),
       row: row({ publication: { state: "failed", failedStep: "push", commit: "f00ba12", branch: "b", base: "main", commitMessage: "feat: x", title: "feat: x", url: null, number: null,
         error: "fatal: unable to access remote", reason: "publishFailed", updatedAt: NOW } }), onRetry: () => {} }));
-    expect(failed).toContain("Not published · click");
+    expect(tarsRecordText(failed)).toContain("Not published click");
     expect(failed).toContain("A publish step failed.");
     expect(failed).toContain("Stopped at: Push");
     expect(failed).toContain("fatal: unable to access remote");

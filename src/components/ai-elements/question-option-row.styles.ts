@@ -139,11 +139,6 @@ export const questionOptionRowStyles = stylex.create({
     fontWeight: vars["--aui-font-weight-medium"],
     lineHeight: vars["--aui-line-height-control"],
   },
-  recommendedBadge: {
-    height: 16,
-    paddingInline: vars["--aui-space-4"],
-    fontSize: vars["--aui-font-size-micro"],
-  },
   description: {
     marginTop: vars["--aui-space-2"],
     display: "block",

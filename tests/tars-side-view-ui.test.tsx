@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { tarsRecordText } from "./tars-record-text";
 import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
@@ -245,7 +246,7 @@ describe("side-view panels", () => {
     const receipt = { ...f.receipts[0]!, messageId: "message-show", action: { kind: "show" as const, responsibilityId: "checkout", view: "changes" as const } };
     const html = renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [receipt], name: "Tars", busy: false, onCancel() {},
       titleOf: () => "Show the saved card first at checkout" }));
-    expect(html).toContain("Opened the changes of Show the saved card first at checkout");
+    expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout Accepted for execution");
     expect(i18n.language).toBe("en");
   });
 });

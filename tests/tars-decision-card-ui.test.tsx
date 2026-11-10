@@ -2,9 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
-import { describeTarsDecisionTarget, handleTarsDecisionKey, isTarsDecisionDismissKey, TarsDecisionCard, type TarsDecisionCardContext } from "../src/components/tars/TarsDecisionCard";
+import { describeTarsDecisionTarget, handleTarsDecisionKey, handleTarsQuestionKey, isTarsDecisionDismissKey, TarsDecisionCard, type TarsDecisionCardContext } from "../src/components/tars/TarsDecisionCard";
 import type { TarsResponsibility } from "../src/lib/tars/types";
-import { tarsDecisionKeyChoice, tarsUnverifiedOptions, type TarsDecisionView } from "../src/lib/tars/decisions";
+import { tarsDecisionKeyChoice, tarsQuestionKeyAction, tarsUnverifiedOptions, type TarsDecisionView } from "../src/lib/tars/decisions";
+import { tarsRecordText } from "./tars-record-text";
 import type { TarsDecisionAnswer } from "../src/lib/tars/conversation";
 
 const NOW = "2026-11-05T00:00:00.000Z";
@@ -40,6 +41,8 @@ const key = (value: string, patch: Record<string, unknown> = {}) => {
     preventDefault: () => { prevented = true; }, ...patch }, prevented: () => prevented };
 };
 const focusedOption = (index: number) => ({ closest: () => ({ getAttribute: () => String(index) }) });
+/** A key pressed on one of the card's own buttons (Answer, Not now). */
+const onButton = { closest: (selector: string) => selector.includes("button") ? {} : null };
 
 describe("decision card keys", () => {
   test("1–4 choose that option, Enter the focused option or else the recommended one; other keys choose nothing", () => {
@@ -53,44 +56,81 @@ describe("decision card keys", () => {
     expect(tarsDecisionKeyChoice("a", decision, null)).toBeNull();
   });
 
-  test("the key handler sits on the focusable card, so only keys pressed while it has focus answer; modifiers and composition are ignored", () => {
+  test("a question's options are a radio group: 1–4 choose without answering, Enter answers the chosen option", () => {
+    const decision = ask();
+    expect(tarsQuestionKeyAction("1", decision, 1)).toEqual({ kind: "select", index: 0 });
+    expect(tarsQuestionKeyAction("2", decision, null)).toEqual({ kind: "select", index: 1 });
+    expect(tarsQuestionKeyAction("3", decision, 1)).toBeNull();
+    expect(tarsQuestionKeyAction("Enter", decision, 0)).toEqual({ kind: "answer", index: 0 });
+    // Nothing chosen (no recommendation): Enter answers nothing.
+    expect(tarsQuestionKeyAction("Enter", unverified(), null)).toBeNull();
+    expect(tarsQuestionKeyAction("a", decision, 0)).toBeNull();
+    const calls: Array<[string, number]> = [];
+    const handlers = { select: (index: number) => calls.push(["select", index]), answer: (index: number) => calls.push(["answer", index]) };
+    const press = (value: string, patch: Record<string, unknown> = {}) => { const entry = key(value, patch); handleTarsQuestionKey(entry.event as never, decision, 0, handlers); return entry.prevented(); };
+    expect(press("2")).toBe(true);
+    expect(press("Enter")).toBe(true);
+    // Enter on Answer or Not now stays that button's own press; modifiers and composition are ignored.
+    expect(press("Enter", { target: onButton })).toBe(false);
+    expect(press("1", { metaKey: true })).toBe(false);
+    expect(press("1", { nativeEvent: { isComposing: true } })).toBe(false);
+    expect(calls).toEqual([["select", 1], ["answer", 0]]);
+  });
+
+  test("the key handler sits on the focusable card, so only keys pressed while it has focus act; the recommended option starts chosen", () => {
     const answers: Array<[number, string]> = [];
     const { root } = rendered(ask(), (index, source) => answers.push([index, source]));
     // The card is the focus scope: a focusable group with its own handler, never a window listener.
     expect(root).toMatchObject({ role: "group", tabIndex: 0 });
     const press = (value: string, patch: Record<string, unknown> = {}) => { const entry = key(value, patch); root!.onKeyDown!(entry.event); return entry.prevented(); };
+    // 1 only chooses; Enter answers the chosen option, which starts as the recommended one.
     expect(press("1")).toBe(true);
+    expect(answers).toEqual([]);
     expect(press("Enter")).toBe(true);
-    expect(press("Enter", { target: focusedOption(0) })).toBe(true);
+    expect(press("Enter", { target: onButton })).toBe(false);
     expect(press("1", { metaKey: true })).toBe(false);
     expect(press("2", { nativeEvent: { isComposing: true } })).toBe(false);
     expect(press("9")).toBe(false);
-    expect(answers).toEqual([[0, "key"], [1, "key"], [0, "key"]]);
+    expect(answers).toEqual([[1, "key"]]);
+    // A confirmation's one control is the choice itself, so its key answers at once.
+    const confirmed: Array<[number, string]> = [];
+    const confirm = rendered(proposal("pause"), (index, source) => confirmed.push([index, source]));
+    const entry = key("1");
+    confirm.root!.onKeyDown!(entry.event);
+    expect(confirmed).toEqual([[0, "key"]]);
     const direct: number[] = [];
-    handleTarsDecisionKey(key("2").event as never, ask(), (index) => direct.push(index));
-    expect(direct).toEqual([1]);
+    handleTarsDecisionKey(key("Enter", { target: focusedOption(0) }).event as never, proposal("cancel"), (index) => direct.push(index));
+    expect(direct).toEqual([0]);
   });
 });
 
 describe("decision card states", () => {
-  test("waiting: an emphasized card with each option, its rationale and key hints; Enter only on the recommended option", () => {
+  test("waiting: the question as the title, each option as a radio row with its label, why on its own line and its key, and Answer", () => {
     const { html } = rendered(ask());
     expect(html).toContain('data-tars-decision-state="waiting"');
     expect(html).toContain("Should I pause the release check?");
+    expect(html).toContain("About Release check");
     expect(html).toContain("Waiting for your answer");
-    expect(html).toContain("Pause it now");
-    expect(html).toContain("Recommended. It does not depend on staging.");
+    expect(html).toContain('role="radiogroup"');
+    expect((html.match(/type="radio"/g) ?? []).length).toBe(2);
+    expect(tarsRecordText(html)).toContain("Pause it now Staging first.");
+    expect(tarsRecordText(html)).toContain("Keep it running Recommended It does not depend on staging.");
+    // The recommended option starts chosen, so Enter or Answer sends it; the other waits for a choice.
+    expect(html).toMatch(/checked="" value="1"/);
+    expect(html).not.toMatch(/checked="" value="0"/);
     expect(html).toContain('aria-keyshortcuts="1"');
-    expect(html).toContain('aria-keyshortcuts="2 Enter"');
+    expect(html).toContain('aria-keyshortcuts="2"');
+    expect(html).toMatch(/<button[^>]*aria-keyshortcuts="Enter"[^>]*data-tars-decision-submit=""/);
+    // Two option keys and Answer's Enter.
     expect((html.match(/<kbd/g) ?? []).length).toBe(3);
-    expect(html).toContain("press 1–2 to choose, or Enter for the recommended option");
+    expect(html).toContain("press 1–2 or the arrow keys to choose, then Enter to answer. The recommended answer is chosen to start.");
   });
 
   test("answered folds to one record line with the option and how it was given; invalid says why and offers nothing", () => {
     const answer: TarsDecisionAnswer = { decisionId: "ask:message:0", optionIndex: 1, source: "words", effect: { kind: "reply" }, label: "Keep it running",
       status: "applied", reason: null, error: null, actRequestId: null, messageId: "answer", revision: 2, createdAt: NOW, updatedAt: NOW };
     const answered = rendered(ask({ state: "answered", answer })).html;
-    expect(answered).toContain("Keep it running · words");
+    expect(tarsRecordText(answered)).toContain("Keep it running Should I pause the release check? words Answered");
     expect(answered).not.toContain("<button");
     const invalid = rendered(ask({ state: "invalid", why: "targetMoved", reask: true })).html;
     expect(invalid).toContain("No longer valid: the work changed after this was asked.");
@@ -98,7 +138,7 @@ describe("decision card states", () => {
     expect(invalid).not.toContain("<button");
     expect(rendered(ask({ state: "invalid", why: "targetEnded", reasked: true })).html).toContain("Tars asked again below.");
     const rejected = rendered(ask({ state: "answered", answer: { ...answer, optionIndex: 0, label: "Pause it now", source: "click", status: "rejected", reason: "stale", error: "Stale." } })).html;
-    expect(rejected).toContain("Pause it now not applied · click");
+    expect(tarsRecordText(rejected)).toContain("Pause it now Should I pause the release check? click Not applied");
     expect(rejected).toContain("This work changed after you last saw it.");
   });
 
@@ -110,8 +150,10 @@ describe("decision card states", () => {
     expect(html).toContain("Can&#x27;t be undone");
     for (const label of ["Accept as done", "Cancel responsibility", "Ask Tars for new verification work"]) expect(html).toContain(label);
     expect(html).toContain("Nothing runs until you send it.");
-    expect(html).not.toContain("Enter</kbd>");
-    expect(html).toContain("press 1–3 to choose.");
+    // Nothing is recommended, so nothing starts chosen and Answer waits for a choice.
+    expect(html).not.toContain('checked=""');
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*data-tars-decision-submit=""/);
+    expect(html).toContain("press 1–3 or the arrow keys to choose, then Enter to answer.");
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const korean = rendered(unverified()).html;
     expect(korean).toContain("완료를 확인하지 못했습니다");
@@ -123,8 +165,10 @@ describe("decision card states", () => {
       label: null, status: "rejected", reason: "unknown", error: "Unreachable.", actRequestId: "answer:unverified:goal:4", messageId: null, revision: 2, createdAt: NOW, updatedAt: NOW };
     const html = rendered(unverified({ failure })).html;
     expect(html).toContain('data-tars-decision-attempt="rejected"');
-    expect(html).toContain("Cancel responsibility not applied · click");
-    expect((html.match(/<button/g) ?? []).length).toBe(3);
+    expect(tarsRecordText(html)).toContain("Cancel responsibility click Not applied");
+    // The options are radios; Answer is the card's one button here.
+    expect((html.match(/<button/g) ?? []).length).toBe(1);
+    expect((html.match(/type="radio"/g) ?? []).length).toBe(3);
     const cancel = rendered(ask({ id: "confirm:message:0", kind: "confirm", question: null, recommended: null,
       options: [{ kind: "control", control: { responsibilityId: "goal", expectedRevision: 2, operation: "cancel" }, label: null, rationale: null }] })).html;
     expect(cancel).toContain("press 1 to confirm.");
@@ -132,9 +176,10 @@ describe("decision card states", () => {
     expect(cancel).toContain('aria-keyshortcuts="1"');
   });
 
-  test("without a snapshot the options are shown but cannot be pressed", () => {
+  test("without a snapshot the options are shown but cannot be chosen or answered", () => {
     const { html } = rendered(ask({ checked: false }));
-    expect((html.match(/<button[^>]*\sdisabled=""/g) ?? []).length).toBe(2);
+    expect((html.match(/<input[^>]*type="radio"[^>]*\sdisabled=""/g) ?? []).length).toBe(2);
+    expect((html.match(/<button[^>]*\sdisabled=""/g) ?? []).length).toBe(1);
   });
 });
 

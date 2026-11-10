@@ -254,9 +254,11 @@ can do and its limits in short form.
 A decision waiting on you is one card in the conversation. Answer it in
 whichever way is handy:
 
-- **Click** an option.
-- **Keys**, while the card or one of its options has focus: **1** to **4**, or
-  **Enter** for the focused or recommended option. **Esc** chooses **Not now**.
+- **Click** an option to choose it, then **Answer**.
+- **Keys**, while the card or one of its options has focus: **1** to **4** or
+  the arrow keys choose an option, and **Enter** answers with it. The
+  recommended option starts chosen, so Enter alone answers with it. A
+  confirmation's single button answers with **1**. **Esc** chooses **Not now**.
 - **Words**: reply "1" to "4", or "yes", "ok", "네" and similar to pick the
   recommended option, when exactly one decision waits in Tars's newest message.
 
@@ -604,8 +606,9 @@ newer proposal for the same work replaces it, when the work's revision changes
 one host check: a control based on an outdated view, an unknown
 responsibility, a resume of work you took over, or any control of ended work is
 refused with its reason, and retrying the same request applies it at most
-once. Each click adds a one-line record such as "Paused · click" to the
-conversation; it is not shown as a message from you.
+once. Each click adds a record row to the conversation: the control, the
+work, where it came from and its outcome, such as "Pause · Verify the release
+candidate · click · Applied"; it is not shown as a message from you.
 
 - Eligible independent responsibilities start concurrently by default, including
   isolated worktrees of the same repository. No portfolio cap is imposed unless
@@ -650,9 +653,10 @@ the queue as it is when it applies the move: the middle between the two
 neighbors, or ten past the neighbor at either end, within 0 to 100. Only the
 moved work changes when such a priority exists (an equal priority is enough
 when oldest-first already orders the pair); otherwise Stave renumbers as few
-other queued items as it can, all in the one move. Each move leaves one line
-such as "Moved earlier · click" with the new priority in the conversation, or
-the reason it was refused. A move changes which work starts next, never work
+other queued items as it can, all in the one move. Each move leaves a record
+row such as "Do first · Refresh the API reference · click · Priority 70 ·
+Applied" in the conversation, or **Not applied** with the reason on the line
+under it. A move changes which work starts next, never work
 already running.
 
 ### Run monitor and the "while you were away" summary
@@ -847,8 +851,8 @@ GitHub CLI can reach. Then, in the execution workspace, it runs `git add -A`,
 `gh pr create --draft` against the base, or records the pull request that
 already exists for the branch. Each step is saved on the work, so **Retry**
 continues where it stopped, and a restart in the middle turns it into a
-retryable stop. The card folds to one line such as "Draft PR #12 opened ·
-click"; the pull request becomes an output in the tray's **Outputs** and a link
+retryable stop. The card folds to a record row such as "Draft PR #12 opened ·
+Show the saved card first at checkout · click" with **Open on GitHub**; the pull request becomes an output in the tray's **Outputs** and a link
 in the report. Stave never merges, marks it ready or deploys.
 
 ### Decisions
@@ -864,14 +868,21 @@ A decision waiting on you is one card in the conversation, whatever asked it:
   or sends the option back to Tars as your answer. A question grants nothing
   by itself; choosing an option takes the same host check as a click.
 
-While it waits, the card has a full attention outline and shows each option's
-key. Answering is the same action three ways:
+While it waits, the card has a full attention outline. A question's options
+(an ask, or Stave's choice for a completion it could not verify) are a radio
+group: each option shows its label, its reason on the line under it and its
+number key, the recommended one is marked **Recommended** and starts chosen,
+and an option that cannot be undone carries **Can't be undone**. **Answer**
+sends the chosen option. A confirmation keeps its one **Confirm** button with
+its key. Answering is the same action three ways:
 
-- **Click** an option.
+- **Click** an option to choose it, then **Answer** (on a confirmation, click
+  **Confirm**).
 - **Keys**, only while the card or one of its options has focus: **1** to
-  **4** choose that option; **Enter** chooses the focused option, or the
-  recommended one (without one, Enter on the card does nothing). Keys typed in
-  the message box stay text; the card never takes focus by itself.
+  **4** or the arrow keys choose an option and **Enter** answers with the
+  chosen one (nothing chosen: Enter does nothing). On a confirmation **1**
+  confirms, and **Enter** too when it is recommended. Keys typed in the message
+  box stay text; the card never takes focus by itself.
 - **Words**: a short reply binds only when exactly one decision waits in
   Tars's newest message and you said nothing after it. "1" to "4" pick that
   option; an affirmative picks the recommended option (none recommended: not
@@ -888,12 +899,15 @@ waiting and moves focus to the message box, next to **Confirm** and its key.
 
 Cancelling and accepting as done cannot be undone, so they are never a
 default: they are never recommended (Stave drops such a recommendation and
-keeps the question), Enter on the card never applies one, and an affirmative
-never applies one. Choose them explicitly by click, by their number, or by
-Enter on their own focused button.
+keeps the question), so they never start chosen, and an affirmative never
+applies one. Choose them explicitly: in a question, choose the option, then
+**Answer** or Enter (Answer then carries the danger tone instead of the filled
+primary); on a confirmation, **Confirm** or **1**.
 
-Each answer folds the card to one line such as "Keep it running · click" (or
-"· key", "· words"); a click or key is never shown as a message from you.
+Each answer folds the card to a record row with the option, the question, how
+you answered (click, key or words) and its outcome, such as "Keep it running ·
+Should I pause the release check? · click · Answered"; a click or key is never
+shown as a message from you.
 Answering twice applies once, and a different answer to an answered decision
 is refused with that reason. If an answer is refused for a reason other than
 the work changing or ending (for example the run could not be reached), the
@@ -928,8 +942,9 @@ and never cancels its run:
   **Take over** is Tars's takeover. The attention band opens the same panel.
 - On the task's run line, **Take control** is Tars's takeover. It keeps the
   run paused for you instead of ending it and releasing the task's agent.
-- Each control adds a one-line record to the conversation with where it came
-  from, such as "Paused · Fleet" or "Paused · task view". A refusal shows its
+- Each control adds a record row to the conversation with where it came
+  from, such as "Pause · Verified result · Fleet · Applied" or "… · task view ·
+  Applied". A refusal shows its
   translated reason where you pressed it. When Tars refused the pause or could
   not be asked, the run goes on, so its automatic turn keeps running; only a
   turn you started yourself stops.
