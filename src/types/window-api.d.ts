@@ -3129,6 +3129,8 @@ interface WindowApi {
    * `getAway` / `saveAway` (`tars:get-away` / `tars:save-away`) keep when
    * the user last saw the conversation and the "while you were away" summary
    * on screen (`TarsAwayState`); saving is idempotent and never announced.
+   * `getUsage` (`tars:get-usage`) reads what Tars's work spent in a period
+   * from saved turn rows; it changes nothing.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */

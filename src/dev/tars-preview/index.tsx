@@ -28,6 +28,7 @@ import { TRANSCRIPT_OVERFLOW_REPLY } from "@/dev/fixtures/transcript-overflow-fi
 import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 import { createPreviewClearBridge } from "./tars-clear-fixtures";
+import { buildTarsInsightsFixtures } from "./tars-insights-fixtures";
 import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
 import { buildTarsAwayFixtures, createPreviewAwayBridge, syncTarsAwayPreview, TARS_AWAY_PREVIEW_GAP_MS } from "./tars-away-fixtures";
 
@@ -147,6 +148,9 @@ export function TarsPreview() {
     })() : null;
     /** The clock new preview records are dated from: the fixed fixture day, or the real one when the away fixtures follow it. */
     const clockBase = () => away ? Date.now() : Date.parse(now);
+    // `insights=true`: saved standing instructions, repositories with memories and a branch rule, and turns for the usage view (`tars-insights-fixtures.ts`).
+    const insights = params.get("insights") === "true" ? buildTarsInsightsFixtures({ now: new Date(), korean: params.get("lang") === "ko", responsibilities: snapshot.responsibilities }) : null;
+    if (insights && !sessionStorage.getItem(identityKey)) snapshot = { ...snapshot, identity: { ...snapshot.identity, instructions: insights.instructions } };
     let sendFailed = false;
     const conversationKey = gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
@@ -434,7 +438,7 @@ export function TarsPreview() {
         Object.assign(message, { state: "cancelled", revision: message.revision + 1 }); saveConversation(); return tarsMessageView(structuredClone(message));
       },
     };
-    window.api = { ...window.api, tars: bridge, ...(side ? { sourceControl: { ...window.api?.sourceControl,
+    window.api = { ...window.api, tars: insights ? { ...bridge, getUsage: insights.getUsage } : bridge, ...(insights ? { repositoryMemory: insights.repositoryMemory } : {}), ...(side ? { sourceControl: { ...window.api?.sourceControl,
       getReviewDiff: async () => structuredClone(side.diff), getReviewFileDiff: async ({ path }: { path: string }) => side.fileDiff(path) } } : {}) } as typeof window.api;
     // "Show in Fleet" leaves this preview's only surface; record where it would land.
     useFleetFocusStore.subscribe(({ request }) => { if (request) document.documentElement.dataset.previewFleetFocus = `${request.workspaceId}/${request.taskId}`; });
@@ -444,7 +448,7 @@ export function TarsPreview() {
     useAppStore.setState({ providerAvailability: { ...useAppStore.getState().providerAvailability, codex: true, "claude-code": true }, repositoryPath: empty ? null : "/tmp/preview", activeWorkspaceId: params.get("workspace") ?? "preview-workspace",
       // Named so a confirmation card can say where the work runs.
       workspaces: empty ? [] : [{ id: "preview-workspace", name: "Release check", updatedAt: now },
-        ...Object.entries(gallery?.workspaceNames ?? {}).map(([id, name]) => ({ id, name, updatedAt: now }))], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
+        ...Object.entries(gallery?.workspaceNames ?? {}).map(([id, name]) => ({ id, name, updatedAt: now }))], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"], recentRepositories: insights?.repositories ?? [], openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
     setReady(true);
   }, []);
   // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.

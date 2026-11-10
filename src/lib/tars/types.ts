@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
+import type { TarsUsageInput, TarsUsageReport } from "./usage";
 import type { SaveTarsComposerDraftInput, TarsComposerDraft } from "./composer-draft";
 import type {
   CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView,
@@ -52,6 +53,8 @@ export const TARS_IPC = Object.freeze({
   getAway: "tars:get-away",
   /** Saves that state. Idempotent, and never announced through `changed`. */
   saveAway: "tars:save-away",
+  /** Reads what Tars's work spent in a period (`TarsUsageReport`); changes nothing. */
+  getUsage: "tars:get-usage",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -561,6 +564,8 @@ export interface TarsBridgeApi {
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
   getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
+  /** Reads what Tars's work spent in a period; absent on bridges that predate the usage view, which then says so. */
+  getUsage?(input: TarsUsageInput): Promise<TarsUsageReport>;
   /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */
   getDraft?(): Promise<TarsComposerDraft | null>;
   saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;

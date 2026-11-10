@@ -186,6 +186,12 @@ export class TarsConversationStore {
       ORDER BY created_at DESC, rowid DESC LIMIT ?`).all(limit) as ViewRow[]).reverse();
   }
 
+  /** When the answered messages in a period were sent, newest first: an indexed range read that loads no message. */
+  answeredTimes(args: { from: string; until: string; limit: number }): string[] {
+    return (this.db.prepare(`SELECT created_at FROM tars_messages WHERE created_at >= ? AND created_at < ? AND state = 'answered'
+      ORDER BY created_at DESC LIMIT ?`).all(args.from, args.until, args.limit) as Array<{ created_at: string }>).map((row) => row.created_at);
+  }
+
   /** The newest message's id, without reading any message. */
   latestId(): string | null {
     return (this.db.prepare("SELECT id FROM tars_messages ORDER BY created_at DESC, rowid DESC LIMIT 1").get() as { id: string } | undefined)?.id ?? null;

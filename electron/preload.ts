@@ -156,6 +156,7 @@ import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversa
   TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
+import { TarsUsageInputSchema, TarsUsageReportSchema } from "../src/lib/tars/usage";
 import { SaveTarsComposerDraftInputSchema, TarsComposerDraftSchema } from "../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../src/lib/tars/clearing";
 import { TarsAwayStateSchema } from "../src/lib/tars/away-state";
@@ -868,6 +869,7 @@ const tarsApi: TarsBridgeApi = {
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
   reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
   getBrief: async (input) => TarsBriefSchema.parse(await ipcRenderer.invoke(TARS_IPC.getBrief, TarsBriefInputSchema.parse(input))),
+  getUsage: async (input) => TarsUsageReportSchema.parse(await ipcRenderer.invoke(TARS_IPC.getUsage, TarsUsageInputSchema.parse(input))),
   getDraft: async () => TarsComposerDraftSchema.nullable().parse(await ipcRenderer.invoke(TARS_IPC.getDraft)),
   saveDraft: async (input) => { await ipcRenderer.invoke(TARS_IPC.saveDraft, SaveTarsComposerDraftInputSchema.parse(input)); },
   clear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.clear, TarsClearInputSchema.parse(input))),

@@ -484,6 +484,22 @@ branches". Tars receives them as hard limits, and Stave asks you first and shows
 the rule on the card when a proposed action names the rule's repository, branch
 or action. The rules guide Tars's decisions; Stave does not block an action
 because of them. A saved change applies from Tars's next decision.
+**Knowledge and usage** (the book button in the header) opens two read-mostly
+views. **What Tars knows** lists what Tars carries between messages: under
+**Everywhere**, the standing instructions (whether you wrote them or they are
+Stave's default, and when they were last saved) and the agents it may hand work
+to; under **Per repository**, each repository's branch naming rule and its
+repository memory. Tars does not read the memories itself: the tasks it starts
+in that repository receive the relevant ones, at most 6 per turn. Each item's
+**Edit** opens the editor that already owns it (**Conversation settings** or
+**Settings > Repository**), and a memory is edited or forgotten on its own row.
+The view also says what Tars does not remember: it rereads only the last 8
+messages of the conversation with each message and saves no memories from it.
+**Usage** shows what the work Tars started spent for **Today**, **7 days** and
+**30 days** in your local time: tokens, turns and time working, by work and by
+model, and each work's title opens that work. A cost appears only when a
+provider reported one; nothing is estimated. Tars's own replies are counted but
+their tokens are not recorded, and turns of helper tasks are not counted.
 
 To tidy up, use **Clear conversation** (the eraser in the header) or **Clear**
 in the tray's **Done** and **Outputs** sections, or ask, such as "clear the

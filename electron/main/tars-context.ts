@@ -1,11 +1,12 @@
 import type { SqliteStore } from "../persistence/sqlite-store";
 import { TARS_DEFAULT_BRANCH_NAMING_RULE } from "../../src/lib/tars/branch-name";
+import { TARS_PLANNER_MAX_REPOSITORIES } from "../../src/lib/tars/knowledge";
 import { resolveTarsWorkRequest, type TarsWorkRequestSource } from "../../src/lib/tars/brief";
 import type { TarsResponsibility, TarsWorkRequest } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 
-const MAX_REPOSITORIES = 12;
+const MAX_REPOSITORIES = TARS_PLANNER_MAX_REPOSITORIES;
 const MAX_WORKSPACES = 24;
 const MAX_OWNED = 20;
 const MAX_BRANCH_RULE_CHARS = 1_000;
