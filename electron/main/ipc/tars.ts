@@ -13,6 +13,7 @@ import {
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
+import { TarsUsageInputSchema, TarsUsageReportSchema } from "../../../src/lib/tars/usage";
 import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
 
@@ -76,6 +77,13 @@ export function registerTarsHandlers() {
   // A brief names one responsibility; its saved message can be long, so it is read on demand instead of riding on every snapshot.
   ipcMain.handle(TARS_IPC.getBrief, (_event, input: unknown) =>
     invokeHostService("tars.brief", TarsBriefInputSchema.parse(input)));
+  // Usage is read on demand from saved turn rows; nothing is written and nothing is estimated.
+  ipcMain.handle(TARS_IPC.getUsage, async (_event, rawInput: unknown) => {
+    const input = TarsUsageInputSchema.parse(rawInput);
+    // Loaded on first use: main's persistence is opened only once a usage view asks for it.
+    const { getTarsUsageReport } = await import("../tars-usage-instance");
+    return TarsUsageReportSchema.parse(await getTarsUsageReport(input));
+  });
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));
 }
