@@ -2203,6 +2203,117 @@
         "label": "How is {{title}} going?",
         "prompt": "How is “{{title}}” going? Tell me what it is doing now and what is left."
       }
+    },
+    "knows": {
+      "menu": "Knowledge and usage",
+      "open": "What Tars knows",
+      "title": "What Tars knows",
+      "description": "Everything Tars carries from one message to the next, and where each part comes from.",
+      "edit": "Edit",
+      "source": {
+        "you": "You wrote this",
+        "default": "Stave's default",
+        "none": "Not set",
+        "repository": "Set in repository settings",
+        "tarsSettings": "Chosen in Tars settings"
+      },
+      "savedAt": "Last saved {{time}}",
+      "neverSaved": "Never saved",
+      "everywhere": {
+        "title": "Everywhere",
+        "hint": "Applies to every message and to all work."
+      },
+      "instructions": {
+        "title": "Standing instructions",
+        "use": "Tars reads these with every message and hands them to the agents it starts.",
+        "empty": "No standing instructions are set.",
+        "edit": "Edit standing instructions in Tars settings"
+      },
+      "agents": {
+        "title": "Agents Tars may hand work to",
+        "builtins": "Built-in agents are always allowed.",
+        "none": "No saved agents are allowed.",
+        "missing_one": "{{count}} allowed agent no longer exists.",
+        "missing_other": "{{count}} allowed agents no longer exist.",
+        "edit": "Edit allowed agents in Tars settings"
+      },
+      "repositories": {
+        "title": "Per repository",
+        "hint": "Applies only to work in that repository.",
+        "empty": "No repositories are registered.",
+        "omitted_one": "{{count}} more repository is registered. Tars is shown the first {{max}}.",
+        "omitted_other": "{{count}} more repositories are registered. Tars is shown the first {{max}}."
+      },
+      "branchRule": {
+        "title": "Branch naming rule",
+        "use": "Tars names each new work branch by this rule.",
+        "edit": "Edit the branch naming rule of {{name}} in repository settings"
+      },
+      "memory": {
+        "title": "Repository memory",
+        "use": "Tars does not read these itself. The tasks it starts here receive the relevant ones, at most {{max}} per turn.",
+        "empty": "No memories are saved for this repository.",
+        "off": "Memory is turned off for this repository, so its tasks receive none.",
+        "used_one": "{{count}} memory in use",
+        "used_other": "{{count}} memories in use",
+        "unused": "Not used yet",
+        "unusedHint": "Candidates waiting for your review, and memories not confirmed for a long time.",
+        "showMore_one": "Show {{count}} more",
+        "showMore_other": "Show {{count}} more",
+        "loading": "Reading memories…",
+        "loadFailed": "The memories could not be read.",
+        "unavailable": "Repository memory cannot be read here.",
+        "editHint": "Edit or remove a memory on its row."
+      },
+      "forgets": {
+        "title": "What Tars does not remember",
+        "body_one": "With each message Tars rereads only the last message of this conversation and the current state of its work. Older messages stay on screen but are not read again, and Tars saves no memories from the conversation.",
+        "body_other": "With each message Tars rereads only the last {{count}} messages of this conversation and the current state of its work. Older messages stay on screen but are not read again, and Tars saves no memories from the conversation."
+      }
+    },
+    "usage": {
+      "open": "Usage",
+      "title": "Usage",
+      "description": "What the work Tars started spent, as the providers reported it. Nothing is estimated.",
+      "period": {
+        "label": "Period",
+        "today": "Today",
+        "sevenDays": "7 days",
+        "thirtyDays": "30 days",
+        "localTime": "Days are counted in your local time."
+      },
+      "totals": {
+        "label": "Totals",
+        "tokens": "Tokens",
+        "cost": "Reported cost",
+        "turns": "Turns",
+        "time": "Time working"
+      },
+      "notReported": "Not reported",
+      "unmeasured_one": "{{count}} of {{total}} turns reported no token count.",
+      "unmeasured_other": "{{count}} of {{total}} turns reported no token count.",
+      "costPartial": "Cost was reported on {{count}} of {{total}} turns; the rest have none.",
+      "byWork": "By work",
+      "byModel": "By model",
+      "openWork": "Open {{title}}",
+      "share": "{{name}}: share of this period",
+      "tokens": "{{value}} tokens",
+      "turns_one": "{{count}} turn",
+      "turns_other": "{{count}} turns",
+      "modelNotRecorded": "Model not recorded",
+      "empty": "No turns ran in this period.",
+      "replies_one": "Tars itself replied {{count}} time in this period. The tokens of its own replies are not recorded.",
+      "replies_other": "Tars itself replied {{count}} times in this period. The tokens of its own replies are not recorded.",
+      "repliesUnread": "Tars's own replies could not be counted. Their tokens are not recorded.",
+      "helpers": "Turns of helper tasks that a run starts are not counted.",
+      "truncated": "There were more turns than one report reads, so these totals are a lower bound.",
+      "omittedWorks_one": "{{count}} older piece of work was not read.",
+      "omittedWorks_other": "{{count}} older pieces of work were not read.",
+      "unavailable": "Usage cannot be read here.",
+      "loadFailed": "Usage could not be read.",
+      "loading": "Reading usage…",
+      "asOf": "As of {{time}}",
+      "refresh": "Refresh"
     }
   }
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ListTodo, Settings, X } from "lucide-react";
 import { TarsGuideButton } from "./TarsGuide";
+import { TarsInsights } from "./TarsInsights";
 import { TarsMark } from "./TarsMark";
 import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
@@ -349,6 +350,8 @@ export function TarsView() {
     <GlobalPageHeader title={snapshot?.identity.name ?? t("shell:tars.title")} titleIcon={<TarsMark />} actions={<div className={sx(styles.actions)}>
       <TarsTrayToggle pinned={pinned} counts={tray.counts} status={trayStatus} outputs={outputs.length} open={trayOpen} onOpenChange={onTrayOpenChange} panelId={trayId}>{trayBody}</TarsTrayToggle>
       <TarsGuideButton onExample={(text) => controller.current?.insert(text)} />
+      <TarsInsights identity={snapshot?.identity ?? null} settings={conversation.conversation?.settings ?? null} bridge={api} onEditSettings={() => setSettingsOpen(true)}
+        onOpenWork={(id) => { const row = rowOf(id); if (row) openSide({ responsibilityId: id, kind: row.agentRunId ? "timeline" : "brief" }); }} />
       {clearing.available ? <TarsClearConversationButton count={clearCounts.conversation} busy={clearing.busy}
         error={clearing.errors.get("conversation") ?? null} onClear={() => clearing.clear(["conversation"], "click")} /> : null}
       <Button variant="ghost" size="icon-sm" disabled={!snapshot} aria-label={t("shell:tars.conversation.settings")} title={t("shell:tars.conversation.settings")} onClick={() => setSettingsOpen(true)}><Settings /></Button>
