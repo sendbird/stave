@@ -224,7 +224,10 @@ reports on that run's own queue (`run-operation-queues.ts`), so one run's slow
 start or task read never delays another's start, words or control. A task's
 admission queues on that task and its current run; the boot sweep that closes
 interrupted turns is the only operation holding every run's queue, and it does
-no I/O. Unknown execution retains only that responsibility's reservation. Worktree
+no I/O. Runs in one workspace (same-workspace helpers) share only the short part
+of a turn start that changes that workspace's cached session and saves the
+prompt and turn row (`local-mcp-runtime.ts`); a helper's writer claim rechecks
+only the delegations that conflict with it. Unknown execution retains only that responsibility's reservation. Worktree
 registrations merge inside SQLite transactions so concurrent additions survive. A manual pause persists, and a
 failed observation stays visible as blocked. Terminal completion requires the
 owned run and its required acceptance report, not only an ended worker turn.

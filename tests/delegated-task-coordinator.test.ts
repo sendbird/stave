@@ -1763,4 +1763,47 @@ describe("restart reconciliation never makes independent delegations wait on eac
     harness.statusByTaskId.set(heldTaskId, { ...IDLE_STATUS, activeTurnId: "turn-held" });
     expect((await ownList).map((row) => [row.delegationKey, row.phase]).sort()).toEqual([["done-child", "completed"], ["held-child", "running"]]);
   });
+
+  /**
+   * Parent A's same-workspace writer outlived a restart unread (its host was not
+   * up yet), then finished; A asks for nothing afterwards. Parent C's writer in
+   * its own worktree has a task read that never comes back.
+   */
+  const restartWithAnotherParentsWriter = async (writerStatus: TaskStatus) => {
+    const harness = createHarness({ realPolicy: true, runTask: () => new Promise<{ turnId: string }>(() => {}) });
+    for (const parent of ["parent-task-2", "parent-task-3"]) harness.statusByTaskId.set(parent, IDLE_STATUS);
+    const writer = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", delegationKey: "writer-a" }));
+    const elsewhere = await harness.coordinator.delegate(delegateArgs({ parentTaskId: "parent-task-3", providerId: "claude-code",
+      delegationKey: "writer-c", workspace: { mode: "new-worktree", name: "writer-c" } }));
+    expect([writer.accepted, elsewhere.accepted]).toEqual([true, true]);
+    const restarted = harness.restart();
+    harness.setHostUnavailable(true);
+    expect(await restarted.reconcile()).toEqual({ reconciled: 0, deferred: 2 });
+    harness.setHostUnavailable(false);
+    harness.statusByTaskId.set(writer.child!.delegatedTaskId, writerStatus);
+    const read = harness.host.getTaskStatus;
+    harness.host.getTaskStatus = (args) => args.taskId === elsewhere.child!.delegatedTaskId ? new Promise(() => {}) : read(args);
+    const step = (child: typeof writer) => harness.store.getAggregate({ runId: child.child!.runId, stepId: child.child!.stepId })?.step.status;
+    return { harness, restarted, step: () => step(writer), elsewhereStep: () => step(elsewhere) };
+  };
+
+  test("another parent's writer that finished across a restart no longer refuses a writer in its workspace", async () => {
+    const { harness, restarted, step, elsewhereStep } = await restartWithAnotherParentsWriter({ ok: true, activeTurnId: null,
+      latestTurnId: "turn-a", latestTurnCompletedAt: "2026-08-10T01:00:00.000Z", latestTurnError: null });
+    const next = await restarted.delegate(delegateArgs({ parentTaskId: "parent-task-2", providerId: "claude-code", delegationKey: "writer-b" }));
+    expect(next).toMatchObject({ accepted: true, child: { delegatedWorkspaceId: PARENT_WORKSPACE } });
+    expect(step()).toBe("completed");
+    // Only the conflicting row was read again; parent C's unanswered child was left alone.
+    expect(elsewhereStep()).toBe("running");
+    expect(harness.runTaskCalls).toHaveLength(3);
+  });
+
+  test("another parent's writer still running across a restart keeps refusing one in its workspace", async () => {
+    const { restarted, step } = await restartWithAnotherParentsWriter({ ...IDLE_STATUS, activeTurnId: "turn-a" });
+    for (const attempt of [1, 2]) {
+      const refused = await restarted.delegate(delegateArgs({ parentTaskId: "parent-task-2", providerId: "claude-code", delegationKey: `writer-b-${attempt}` }));
+      expect(refused.reason).toBe("workspace-writer-busy");
+    }
+    expect(step()).toBe("running");
+  });
 });
