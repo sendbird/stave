@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import {
@@ -129,7 +130,7 @@ export function TopBar() {
               </Button>
             </Tooltip>
           ) : null}
-          {surfaceKind !== "workspace" ? <div role="group" aria-label={i18n.t("shell:topBar.location")} className={sx(topBarStyles.locationGroup)}>{surfaceLabel}</div> : hasRepositoryContext ? (
+          {surfaceKind !== "workspace" ? <VisuallyHidden role="group" aria-label={i18n.t("shell:topBar.location")}>{surfaceLabel}</VisuallyHidden> : hasRepositoryContext ? (
             <div
               className={sx(topBarStyles.locationGroup)}
               role="group"
