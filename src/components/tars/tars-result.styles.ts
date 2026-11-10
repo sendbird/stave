@@ -7,8 +7,8 @@ const NARROW = "@container (max-width: 30rem)";
 /**
  * The result of ended work, under its record row: the row keeps the state
  * mark on the rail, the work and the time; the card holds what the work came
- * to. All type inherits the record's size, which follows the chat font size
- * (`--tars-text-size`), so nothing here names a fixed size.
+ * to. All type inherits the record's size, the conversation scale's secondary
+ * step (`chat-type.stylex.ts`), so nothing here names a fixed size.
  */
 export const tarsResultStyles = stylex.create({
   /** Who did it and how long it took, after the work chip, in the quiet register. */

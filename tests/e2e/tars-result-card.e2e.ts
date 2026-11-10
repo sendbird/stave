@@ -119,6 +119,7 @@ test("the card's text follows the chat font size", async ({ page }) => {
   };
   const regular = await size("");
   const large = await size("&messageFontSize=20");
-  expect(regular).toBeCloseTo(14, 1);
-  expect(large).toBeCloseTo(17.5, 1);
+  expect(regular).toBe(14);
+  // The conversation scale's secondary step, in whole pixels.
+  expect(large).toBe(18);
 });
