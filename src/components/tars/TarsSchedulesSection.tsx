@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Button, Switch } from "@/components/ui";
 import { Accordion } from "@/components/aui/components/Accordion";
 import { transition } from "@/components/aui/recipes/transition";
-import { cx, sx } from "@/components/aui/utils/stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { describeTarsScheduleLastRun, describeTarsScheduleNext, describeTarsScheduleRule, describeTarsScheduleWorkspace } from "@/lib/tars/schedule-view";
 import type { TarsScheduleView } from "@/lib/tars/schedules";
 import { tarsScheduleStyles as styles } from "./tars-schedule.styles";
@@ -58,11 +58,12 @@ export function TarsSchedulesSection({ context, onOpenSchedules }: { context: Ta
   }, [context.listRequests]);
   return <Accordion.Root ref={root} multiple value={open ? [SECTION] : []} onValueChange={(value) => setChosen((value as string[]).includes(SECTION))} data-tars-schedules="">
     <Accordion.Item value={SECTION}>
-      <Accordion.Header>
-        <Accordion.Trigger>
-          <span className={sx(trayStyles.sectionTitle)}>{t("shell:tars.schedule.section.title")}
+      {/* The tray's own lane header: the chevron leading and turned down while open, the count trailing the name, muted while there is none. */}
+      <Accordion.Header xstyle={trayStyles.laneHeader}>
+        <Accordion.Trigger xstyle={trayStyles.laneTrigger}>
+          <ChevronRight aria-hidden className={sx(trayStyles.chevron, transition.transform, open && trayStyles.chevronOpen)} />
+          <span className={sx(trayStyles.sectionTitle, schedules.length === 0 && trayStyles.sectionTitleEmpty)}>{t("shell:tars.schedule.section.title")}
             <span className={sx(trayStyles.sectionCount)} data-tars-schedules-count={schedules.length}>{schedules.length}</span></span>
-          <ChevronDown aria-hidden className={cx(sx(trayStyles.chevron, transition.transform), "atelier-accordion-chevron")} />
         </Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Panel>
