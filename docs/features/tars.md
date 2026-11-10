@@ -663,7 +663,12 @@ one segment per workflow stage (done, in progress, not started, or stopped
 short), the step count such as "2/3", and **Timeline**, which opens the side
 view's timeline at that stage. Every card, queued work included, also has
 **Request**, which opens what the work was handed (see
-[Results, changes and the side view](#results-changes-and-the-side-view)). Each card wears the same state tag (the state
+[Results, changes and the side view](#results-changes-and-the-side-view)). **Request** and **Timeline** are icon
+buttons at the end of the card's footer, named by their tooltips, so the card's
+actions keep to one line. The work's branch is the line under the owner, in the
+code face at the same small size. What waits on you sits in a shaded area right
+above the actions: each item's kind (such as **Tars decision waiting**) on a
+short line, then its text across the card's width. Each card wears the same state tag (the state
 mark and the state's word) as the run panel and Agents. Values the run
 did not record, such as a start time, are left out rather than shown as zero.
 
@@ -795,7 +800,8 @@ opens the report. A blocked or stuck
 stage shows its reason and opens the report on its unmet criteria. **Show in
 Fleet** stays in each stage's menu and the tray card's menu.
 
-A blocked card in the tray shows its reason and **Open report**, which opens
+A blocked card in the tray shows its reason and **Open report** (at the end of
+its **Blocked** line when the card lists the block among what waits on you), which opens
 the report on its unmet criteria with the next steps the work admits, through
 the same host check as the tray: **Resume**, **Take over** and **Cancel
 responsibility**, or, for a completion Stave could not verify, its decision

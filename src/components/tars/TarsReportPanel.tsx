@@ -63,21 +63,22 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
   const reason = blocked ? describeTarsResponsibilityDetail(row) ?? t("shell:tars.tray.blockedDetail") : null;
   const spent = describeUsageLong(model.usage);
   const workingChanges = describeTarsWorkingChanges(row);
-  return <div className={sx(styles.section)} data-tars-report={model.state}>
-    {model.state === "frozen"
-      ? <p className={sx(styles.meta)} data-tars-report-frozen={model.frozenAt ?? ""}>
-        {t("shell:tars.side.report.frozenAt", { time: model.frozenAt ? formatDateTime(model.frozenAt) : "" })}
-        {model.finalRevision ? ` · ${t("shell:tars.side.report.finalRevision", { revision: model.finalRevision })}` : ""}
-        {spent ? ` · ${t("shell:tars.side.report.spent", { value: spent })}` : ""}
-      </p>
-      : <p className={sx(styles.meta)} role="status">{t(`shell:tars.side.report.${model.state}`)}</p>}
-    {workingChanges ? <p className={sx(styles.meta)} data-tars-report-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null}
-    {model.outcome ? <div className={sx(styles.row)}>
-      <Badge size="md" tone={model.outcome === "completed" ? "success" : model.outcome === "stopped" ? "danger" : "neutral"}>
-        {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge>
-      {model.reason ? <span className={sx(styles.meta)}>{model.reason}</span> : null}
-    </div> : null}
-    {publish ? <div className={sx(styles.row)} data-tars-report-publish="">{publish}</div> : null}
+  // Sections sit on the section rhythm; the lead says how the run ended and why, then when the report was taken.
+  return <div className={sx(styles.stack)} data-tars-report={model.state}>
+    <div className={sx(styles.summary)} data-tars-report-summary="">
+      {model.outcome ? <div className={sx(styles.row)}><Badge size="md" tone={model.outcome === "completed" ? "success" : model.outcome === "stopped" ? "danger" : "neutral"}>
+        {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge></div> : null}
+      {model.outcome && model.reason ? <p className={sx(styles.text)} data-tars-report-reason="">{model.reason}</p> : null}
+      {model.state === "frozen"
+        ? <p className={sx(styles.meta)} data-tars-report-frozen={model.frozenAt ?? ""}>
+          {t("shell:tars.side.report.frozenAt", { time: model.frozenAt ? formatDateTime(model.frozenAt) : "" })}
+          {model.finalRevision ? ` · ${t("shell:tars.side.report.finalRevision", { revision: model.finalRevision })}` : ""}
+          {spent ? ` · ${t("shell:tars.side.report.spent", { value: spent })}` : ""}
+        </p>
+        : <p className={sx(styles.meta)} role="status">{t(`shell:tars.side.report.${model.state}`)}</p>}
+      {workingChanges ? <p className={sx(styles.meta)} data-tars-report-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null}
+      {publish ? <div className={sx(styles.row)} data-tars-report-publish="">{publish}</div> : null}
+    </div>
     {/* Only blocked work has a reason and next steps; nothing else gets this landmark. */}
     {blocked ? <section className={sx(styles.section)} aria-label={t("shell:tars.side.report.blockedTitle")} data-tars-report-blocked="">
       {reason ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.report.blockedTitle")}.</strong> {reason}</span></p> : null}
@@ -107,7 +108,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
     {model.evidenceGroups.map((group) => <section key={group.stageId} className={sx(styles.section)} aria-label={t("shell:tars.side.report.evidenceIn", { stage: group.stageTitle })}
       data-tars-evidence-group={group.stageId}>
       <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.evidenceIn", { stage: group.stageTitle })}</h3>
-      <Evidence items={group.evidence} />
+      <div className={sx(raisedPanel.panel, styles.evidencePanel)}><Evidence items={group.evidence} /></div>
     </section>)}
     {model.leftBehind.length ? <section className={sx(styles.section)} aria-labelledby={`${ids}-left`}>
       <h3 id={`${ids}-left`} className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.leftBehind")}</h3>

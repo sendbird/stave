@@ -2128,7 +2128,8 @@
         "blocked": "The reviewer could not review",
         "findings_one": "{{count}} finding",
         "findings_other": "{{count}} findings",
-        "noFindings": "The reviewer reported no findings."
+        "noFindings": "The reviewer reported no findings.",
+        "evidence": "Evidence the reviewer cited"
       },
       "timeline": {
         "none": "The run's details are not loaded yet.",

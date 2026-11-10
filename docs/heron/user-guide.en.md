@@ -485,7 +485,9 @@ work stays neutral with its own symbol and word. A card whose run
 Stave has read is a run monitor: the stage it is on (such as "Now: Cause,
 attempt 2") with how long it has been on it, one segment per stage (done, in
 progress, not started or stopped), the step count such as "2/3", and
-**Timeline**, which opens the run's timeline at that stage. Under it the card
+**Timeline**, which opens the run's timeline at that stage. **Timeline** and
+**Request** are icon buttons at the end of the card, named by their tooltips; the
+work's branch is the line under the owner. Under it the card
 says what Stave observed: what the run's turn is doing now (such as "Running
 the tests · seen just now"), that no turn is running or that no turn activity
 has reached this window yet, with when the run last changed, or, when nothing
@@ -533,7 +535,7 @@ The tray's fourth section, **Outputs**, lists what work produced: the
 **Review** once the reviewer reported, and links the report recorded, such as a
 pull request (which opens in the browser). The header adds the outputs count,
 such as "1 done · 4 outputs", only when there are some. An output, or
-**Request** at the bottom of any work card, opens the side view beside the
+the **Request** icon at the bottom of any work card, opens the side view beside the
 conversation; on a wide window it takes the tray's place at the tray's width, so
 the conversation does not move, and the tray folds to its header until you close
 it. Each panel names itself in its title bar: the tray's **Work**, and the side
@@ -597,7 +599,8 @@ time. The card folds to a line such as "Draft PR #12 opened", and the pull
 request appears in **Outputs** and the report. If a step fails, **Retry** opens
 the card again and continues from that step.
 
-A blocked card in the tray shows why and offers **Open report**, which opens
+A blocked card in the tray shows why and offers **Open report** (at the end of
+its **Blocked** line when the card lists the block), which opens
 the report on its unmet criteria with the next steps that work allows:
 **Resume**, **Take over** or **Cancel responsibility**, or for a completion Stave
 could not verify, its decision card. A blocked or stuck stage in the work flow

@@ -28,6 +28,8 @@ export const tarsLiveStyles = stylex.create({
   },
   recentDot: { flexShrink: 0 },
   recentText: { flex: 1, minWidth: 0, overflowWrap: "anywhere" },
+  /** The tray card's history: the same 13px row in the muted ink, so it reads as history beside the live line. */
+  recentTextCompact: { color: vars["--aui-color-text-muted"] },
   recentAge: { flexShrink: 0, color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums" },
 
   /** The composer band's running work: one block per running piece of work, above the message field. */
@@ -45,7 +47,7 @@ export const tarsLiveStyles = stylex.create({
   stripMore: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
 
   /** The timeline's "Now" section: where the run stands before its stage history. */
-  now: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, paddingBlockEnd: vars["--aui-space-8"] },
+  now: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
   nowHead: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   nowStage: { minWidth: 0, margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
 

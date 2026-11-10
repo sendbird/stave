@@ -66,6 +66,22 @@ describe("blocked work navigation (A6)", () => {
     expect(renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: { ...actions, onOpenSide: undefined } }))).not.toContain("data-tars-open-report");
   });
 
+  test("with a Blocked row in its well, the card says the reason once and opens the report from the end of that row", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const search = f.responsibilities.find((row) => row.id === "search")!;
+    const blocked = { id: "tars:blocked:search", kind: "tars-blocked", taskId: search.taskId!, tarsResponsibilityId: search.id };
+    const tray = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [blocked], runs: f.runs });
+    const card = Object.values(tray.lanes).flat().find((entry) => entry.row.id === "search")!;
+    const { actions, opened } = actionsRecording();
+    const view = capture(() => TarsTrayCard({ card, actions }));
+    expect(view.html.split("The run stopped with a required criterion unmet.").length - 1).toBe(1);
+    expect(view.html).toMatch(/data-tars-attention="tars-blocked"(?:(?!<\/li>).)*data-tars-open-report="search"/);
+    expect(view.html.split("data-tars-open-report=").length - 1).toBe(1);
+    view.press("Open report");
+    expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
+  });
+
   test("its report offers only the controls its state admits, through the tray's host path; Fleet stays beside them", async () => {
     await applyAppLocale("en");
     const f = fixtures();
@@ -158,6 +174,19 @@ describe("side-view panels", () => {
     expect(html.split("data-tars-evidence-group=").length - 1).toBe(3);
     expect(html.split("Evidence reported in Verify").length - 1).toBe(2); // heading text and its aria-label
     expect(html).not.toContain("No evidence was cited");
+  });
+
+  test("the report leads with how the run ended and why, then when it was taken, before its sections", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const search = f.responsibilities[1]!;
+    const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(search, f.runs["run-search"]), row: search }));
+    const summary = html.slice(html.indexOf("data-tars-report-summary"), html.indexOf("data-tars-report-unmet"));
+    const order = ["Run stopped", "data-tars-report-reason", "data-tars-report-frozen"].map((text) => summary.indexOf(text));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // Evidence sits in one raised panel like the criteria above it.
+    expect(html).toMatch(/data-tars-evidence-group="[^"]+"(?:(?!<\/section>).)*<div class="[^"]*"><ul/);
   });
 
   test("only blocked work gets the blocked landmark and next steps", async () => {
