@@ -25,7 +25,7 @@ function work(id: string, overrides: Partial<TarsResponsibility> = {}): TarsResp
 }
 const tray = (rows: TarsResponsibility[], attention: Array<{ id: string; kind: string; tarsResponsibilityId: string }> = []) =>
   buildTarsTray({ responsibilities: rows, attentionItems: attention, runs: {} });
-const info = (overrides: Partial<TarsStartInfo> = {}): TarsStartInfo => ({ counts: [], onOpenCount() {}, repositories: ["web"], canPublish: true, canClear: true, ...overrides });
+const info = (overrides: Partial<TarsStartInfo> = {}): TarsStartInfo => ({ counts: [], onOpenCount() {}, repositories: ["web"], canPublish: true, canClear: true, canSchedule: true, ...overrides });
 const render = (value: TarsStartInfo, suggestions?: readonly Pick<TarsSuggestion, "kind">[]) =>
   renderToStaticMarkup(createElement(TarsStart, { name: "Tars", info: value, suggestions, onExample() {} }));
 const examplesIn = (html: string) => [...html.matchAll(/data-tars-start-example="([^"]+)"/g)].map((match) => match[1]!);
@@ -36,7 +36,7 @@ afterEach(async () => { applyAppLocale("en"); await i18n.changeLanguage("en"); }
 describe("start screen examples", () => {
   test("name only action kinds the planner's schema and prompt support, and every kind has an example", () => {
     const schemaKinds = TarsDecisionActionSchema.options.map((option) => (option as unknown as { shape: { kind: { value: string } } }).shape.kind.value);
-    expect(schemaKinds.sort()).toEqual(["ask", "clear", "control", "delegate", "publish", "reprioritize", "show"]);
+    expect(schemaKinds.sort()).toEqual(["ask", "clear", "control", "delegate", "publish", "reprioritize", "schedule", "show"]);
     const offered = new Set(TARS_START_EXAMPLES.map((example) => example.action));
     for (const kind of offered) if (kind !== "reply") expect(schemaKinds).toContain(kind);
     for (const kind of schemaKinds) expect(offered.has(kind as never)).toBe(true);
@@ -50,10 +50,13 @@ describe("start screen examples", () => {
 
   test("leave out what cannot be done now: work without a repository, publishing and clearing without their bridge", () => {
     const ids = (args: Parameters<typeof buildTarsStartGroups>[0]) => buildTarsStartGroups(args).flatMap((group) => group.examples.map((example) => example.id));
-    expect(ids({ repositories: 2, canPublish: true, canClear: true })).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
+    expect(ids({ repositories: 2, canPublish: true, canClear: true, canSchedule: true })).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
     const none = buildTarsStartGroups({ repositories: 0, canPublish: false, canClear: false });
     expect(none.map((group) => group.id)).toEqual(["steer", "answer", "show"]);
     expect(none.flatMap((group) => group.examples.map((example) => example.action))).not.toContain("delegate");
+    // A schedule needs a bridge that sets them up and somewhere to run.
+    expect(ids({ repositories: 2, canPublish: true, canClear: true })).not.toContain("schedule");
+    expect(ids({ repositories: 0, canPublish: true, canClear: true, canSchedule: true })).not.toContain("schedule");
     // Unknown repositories hide nothing; a known zero does.
     expect(ids({ repositories: null, canPublish: false, canClear: false })).toContain("delegate");
   });
@@ -64,7 +67,7 @@ describe("start screen examples", () => {
     expect(suggestions.map((entry) => entry.kind)).toEqual(["needsYou", "blocked", "report", "progress"]);
     const shown = examplesIn(render(info(), suggestions));
     for (const id of ["status", "options", "report"]) expect(shown).not.toContain(id);
-    expect(shown).toEqual(["delegate", "pause", "queue", "answerWaiting", "changes", "publish", "clearConversation", "clearDone"]);
+    expect(shown).toEqual(["delegate", "schedule", "pause", "queue", "answerWaiting", "changes", "publish", "clearConversation", "clearDone"]);
     // Without chips every example is back.
     expect(examplesIn(render(info()))).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
     // No start example and chip put the same words in the message box.

@@ -42,7 +42,7 @@ export function TarsClearRecordLine({ record, busy, error, onUndo }: { record: T
   return <TarsRecordRow state={undone ? "skipped" : "applied"} icon={Eraser} data-tars-clear-record={record.requestId} data-tars-clear-status={record.status}
     data-tars-clear-scopes={record.scopes.join(",")}
     lead={t(undone ? "shell:tars.clear.record.undone" : "shell:tars.clear.record.applied")} subject={describeHidden(record)}
-    meta={record.proposal ? t("shell:tars.clear.record.fromTars") : null}
+    status={record.proposal ? t("shell:tars.clear.record.fromTars") : undefined}
     detail={error ? <TarsRecordDetail role="alert">{error}</TarsRecordDetail> : null}
     actions={!undone && onUndo ? <Button variant="ghost" size="2xs" disabled={busy} data-tars-clear-undo={record.requestId} onClick={onUndo}>
       {t(conversation ? "shell:tars.clear.restore" : "shell:tars.clear.undo")}</Button> : null} />;

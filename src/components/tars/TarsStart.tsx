@@ -17,9 +17,10 @@ export interface TarsStartInfo {
   onOpenCount: (count: TarsStartCount) => void;
   /** Names of the registered repositories; null when the view cannot tell, which shows no repository line. */
   repositories: readonly string[] | null;
-  /** Whether this bridge can open a draft pull request, and clear. */
+  /** Whether this bridge can open a draft pull request, clear, and set up schedules. */
   canPublish: boolean;
   canClear: boolean;
+  canSchedule?: boolean;
 }
 
 /** Without a Tars view around it (a test, a story) the start screen shows the greeting and the examples that need nothing. */
@@ -93,7 +94,7 @@ export function TarsStart({ name, info, suggestions, onExample }: {
       requestAnimationFrame(() => requestAnimationFrame(sync));
     };
   }, []);
-  const groups = buildTarsStartGroups({ repositories: info.repositories ? info.repositories.length : null, canPublish: info.canPublish, canClear: info.canClear, suggestions });
+  const groups = buildTarsStartGroups({ repositories: info.repositories ? info.repositories.length : null, canPublish: info.canPublish, canClear: info.canClear, canSchedule: info.canSchedule, suggestions });
   const shown = info.repositories?.slice(0, TARS_START_REPOSITORIES_MAX) ?? [];
   const more = (info.repositories?.length ?? 0) - shown.length;
   return <section ref={root} className={sx(styles.root, textWrap.keepAll)} aria-labelledby={`${id}-greeting`} data-tars-welcome="" data-tars-start="">
