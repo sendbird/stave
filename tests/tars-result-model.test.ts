@@ -106,7 +106,18 @@ describe("Tars result model", () => {
 
   test("work whose run this window has not read shows nothing it did not read", () => {
     const { row } = fixture("published");
-    expect(project(row, undefined)).toEqual({ outcome: "completed", durationMs: null, report: "unavailable", criteria: [], staveChecks: [], changes: null, review: null, summary: null });
+    const delegated = [{ text: "Each command shows its shortcut beside its name.", required: true, status: "notReported", source: { kind: "none" } }];
+    const expected = {
+      outcome: "completed", durationMs: null, report: "unavailable", criteria: [], staveChecks: [], changes: null, review: null, summary: null,
+      completion: {
+        state: "unavailable", frozenAt: null, outcome: null, reason: null, summary: null, summaries: [],
+        criteria: delegated, unmet: delegated, leftBehind: [], links: [], evidenceGroups: [], finalRevision: null, usage: null,
+      },
+    };
+    expect(project(row, undefined)).toEqual(expected);
+    expect(project({ ...row, acceptanceCriteria: [] }, undefined)).toEqual({
+      ...expected, completion: { ...expected.completion, criteria: [], unmet: [] },
+    });
   });
 
   test("the side view's completed checkout: review findings are counted and Stave's own check is named", () => {

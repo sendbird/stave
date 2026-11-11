@@ -159,7 +159,7 @@ describe("side-view panels", () => {
     const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(checkout, f.runs["run-checkout"]), row: checkout }));
     expect(html).toContain("실행이 끝난");
     expect(html).toContain("최종 리비전 9e2b7c11");
-    expect(html).toContain("모든 기준을 충족했습니다.");
+    expect(html).toContain("완료 기준 2개 중 2개 충족");
     expect(html).toContain("Verify 단계에서 에이전트가 보고 · 9e2b7c11에서 확인 · 최종 리비전");
     expect(html).toContain("Stave에서 검증함");
     expect(html).toContain("Work 단계에서 보고한 근거");
@@ -183,8 +183,8 @@ describe("side-view panels", () => {
     const f = fixtures();
     const search = f.responsibilities[1]!;
     const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(search, f.runs["run-search"]), row: search }));
-    const summary = html.slice(html.indexOf("data-tars-report-summary"), html.indexOf("data-tars-report-unmet"));
-    const order = ["Run stopped", "data-tars-report-reason", "data-tars-report-frozen"].map((text) => summary.indexOf(text));
+    const summary = html.slice(html.indexOf("data-tars-report-summary"), html.indexOf("data-tars-result-details"));
+    const order = ["Run stopped", "data-tars-report-reason", "data-tars-completion-summary", "data-tars-report-frozen"].map((text) => summary.indexOf(text));
     expect(order.every((at) => at >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     // Evidence sits in one raised panel like the criteria above it.

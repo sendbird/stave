@@ -939,7 +939,7 @@ full-width result surface and resumes between text-only records, so it never
 runs through a card. The card shows only what the run
 recorded:
 
-- The completion criteria, each with what backs it. **Met · confirmed by a
+- Under **Full summary, criteria and evidence**, the completion criteria, each with what backs it. **Met · confirmed by a
   check** is a criterion whose own Stave check passed on the revision the run
   ended on. **Met · confirmed by review** is one the independent review passed
   on that revision. **Met · agent's report only** is everything else that was
@@ -947,7 +947,8 @@ recorded:
   **Not confirmed** and **Not reported** are the report's own statuses. Checks
   Stave ran and saw pass are named on one line under the list; they back the
   result as a whole and never turn a single criterion into a verified one.
-- The last summary from the report, cut to two lines, with **Open report**.
+- A short excerpt of the final recorded summary and the report's output links first, with **Open report**. No summary is invented when none was recorded.
+- **Full summary, criteria and evidence** expands the complete stage summaries, criteria and stage evidence. The Report view uses the same order: summary and outputs first, full detail folded. Unmet, unverified and unreported criteria, recorded remaining work, explicit caveats in the final summary, stale checks and completion accepted without a Stave check stay visible above the fold. The criterion count summarizes met statuses without implying a source; the details distinguish agent reports, checks and reviews. Empty criterion sets have no count. Earlier-stage caveats remain visible as historical notes labeled with their stage and may have been superseded; they are not presented as current unresolved warnings. Stop or cancellation reasons precede the summary. Result text follows the chat font size, while Report text keeps the panel scale.
 - The changed files with lines added and removed, and **View changes**; the
   review's result; and the draft pull request as a link, or **Create draft
   PR** where the work can be published.

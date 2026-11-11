@@ -36,9 +36,9 @@ async function containment(page: Page, row: Locator) {
   const separation = await row.evaluate((node) => {
     const header = node.querySelector('[data-tars-record-header]')!;
     const card = node.querySelector('[data-tars-result-card]')!;
-    return { gap: card.getBoundingClientRect().top - header.getBoundingClientRect().bottom, token: parseFloat(getComputedStyle(card).paddingTop) };
+    return { gap: card.getBoundingClientRect().top - header.getBoundingClientRect().bottom, token: parseFloat(getComputedStyle(node).getPropertyValue("--aui-space-12")) * parseFloat(getComputedStyle(document.documentElement).fontSize) };
   });
-  // The header and its surface are separated by the same 12-space token as the card's padding.
+  // The record owns the 12-space header gap; the surface owns its separate 16-space padding.
   expect(Math.abs(separation.gap - separation.token)).toBeLessThanOrEqual(0.5);
 }
 
@@ -57,6 +57,9 @@ for (const { name, query, ko } of [
       await expect(row).toHaveAttribute("data-tars-result", outcome);
       await containment(page, row);
     }
+    for (const id of ["result-verified", "result-reported"]) {
+      await card(page, id).locator('[data-tars-result-details] button').click();
+    }
     // Verified work says what confirmed each criterion; agent-reported work never borrows those words.
     const kinds = (id: string) => card(page, id).locator("[data-tars-result-criterion]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-result-criterion")));
     expect(await kinds("result-verified")).toEqual(["verifiedReview", "verifiedCheck"]);
@@ -68,9 +71,10 @@ for (const { name, query, ko } of [
     await expect(card(page, "result-published").getByRole("link")).toHaveAttribute("href", "https://github.com/example/web/pull/57");
     await expect(page.locator('[data-tars-activity="cancelled"]').first()).not.toHaveAttribute("data-tars-result", /.*/);
     await expect(result(page, "result-failed")).toContainText(ko ? "실패" : "Failed");
-    // The summary is cut to two lines; narrow, a criterion's status sits under its text instead of beside it.
-    const summary = card(page, "result-verified").locator("[data-tars-result-summary]");
-    expect(await summary.evaluate((node) => Math.round(node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight)))).toBeLessThanOrEqual(2);
+    // The summary excerpt wraps without clipping; narrow, a criterion's status sits under its text.
+    const summary = card(page, "result-verified").locator("[data-tars-completion-summary]");
+    expect((await summary.textContent())!.length).toBeLessThanOrEqual(321);
+    expect(await summary.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
     const criterion = await card(page, "result-verified").locator("[data-tars-result-criterion]").first().evaluate((node) => {
       const [, text, state] = [...node.children].map((child) => child.getBoundingClientRect());
       return { below: state!.top >= text!.bottom - 1, sameLine: Math.abs(state!.top - text!.top) <= 1 };
@@ -124,15 +128,16 @@ test("the card's buttons open their views by keyboard, with a visible focus ring
 });
 
 test("the card's text follows the chat font size", async ({ page }) => {
-  const size = async (query: string) => {
+  for (const [query, expected] of [["", 14], ["&messageFontSize=20", 18]] as const) {
     await open(page, query, 1440);
-    return card(page, "result-verified").locator("[data-tars-result-criterion]").first().evaluate((node) => parseFloat(getComputedStyle(node).fontSize));
-  };
-  const regular = await size("");
-  const large = await size("&messageFontSize=20");
-  expect(regular).toBe(14);
-  // The conversation scale's secondary step, in whole pixels.
-  expect(large).toBe(18);
+    const root = card(page, "result-reported");
+    await root.locator('[data-tars-result-details] button').click();
+    for (const selector of ['[data-tars-result-criterion]', '[data-tars-completion-summary]', '[data-tars-completion-count]', '[data-tars-result-details] button', '[data-tars-full-summary]']) {
+      expect(await root.locator(selector).first().evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(expected);
+    }
+    const warning = card(page, "search").locator('[data-tars-completion-warnings]');
+    expect(await warning.evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(expected);
+  }
 });
 
 for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {

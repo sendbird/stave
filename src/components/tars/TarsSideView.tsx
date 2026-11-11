@@ -9,6 +9,8 @@ import { sx } from "@/components/aui/utils/stylex";
 import { panelBarStyles } from "@/components/layout/panel-bar.constants";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { TarsActionRecord } from "@/lib/tars/conversation";
+import { buildTarsOutputs } from "@/lib/tars/outputs-model";
+import { TarsOutputList } from "./TarsTray";
 import { projectTarsReport, projectTarsReview } from "@/lib/tars/report-model";
 import { isTarsSideViewEscape, TARS_SIDE_VIEW_KINDS, type TarsSideViewKind, type TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { TarsResponsibility } from "@/lib/tars/types";
@@ -59,6 +61,8 @@ export function TarsSideView(props: TarsSideViewProps) {
   const subjectId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const report = useMemo(() => target.kind === "report" ? projectTarsReport(row, run) : null, [row, run, target.kind]);
+  const reportOutputs = run && target.kind === "report" ? buildTarsOutputs({ responsibilities: [row], runs: { [run.agentRun.id]: run } })
+    .filter((output) => output.kind !== "report" && output.kind !== "pullRequest") : [];
   const review = useMemo(() => target.kind === "review" ? projectTarsReview(run) : null, [run, target.kind]);
   useEffect(() => {
     if (props.takeFocus) headingRef.current?.focus({ preventScroll: true });
@@ -70,7 +74,8 @@ export function TarsSideView(props: TarsSideViewProps) {
     props.onClose();
   };
   const body = target.kind === "brief" ? <TarsBriefView row={row} load={props.loadBrief} />
-    : target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} publish={props.publishAction} />
+    : target.kind === "report" ? <TarsReportPanel model={report!} row={row} focusUnmet={target.focus !== undefined && "unmet" in target.focus} actions={props.blockedActions} publish={props.publishAction}
+      outputs={report?.state === "frozen" && reportOutputs.length ? <TarsOutputList outputs={reportOutputs} onOpenSide={(next) => props.onKind(next.kind)} /> : undefined} />
     : target.kind === "changes" ? <TarsChangesPanel detail={run} cwd={props.cwd} onQuote={props.onQuote} />
       : target.kind === "timeline" ? <TarsTimelinePanel detail={run} records={props.records} title={row.title} row={row}
         focusStageId={target.focus && "stageId" in target.focus ? target.focus.stageId : undefined} />

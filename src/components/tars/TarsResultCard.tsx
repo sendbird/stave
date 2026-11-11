@@ -13,6 +13,10 @@ import { isTarsPublishable } from "@/lib/tars/publish-model";
 import { projectTarsResult, tarsResultOutcome, type TarsResultCriterionKind, type TarsResultModel, type TarsResultOutcome } from "@/lib/tars/result-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { TarsActivity, TarsResponsibility } from "@/lib/tars/types";
+import { TarsCompletionOverview } from "./TarsCompletionOverview";
+import { TarsReportEvidenceGroups } from "./TarsReportPanel";
+import { TarsResultDetails } from "./TarsResultDetails";
+import { tarsCompletionStyles as completionStyles } from "./tars-completion.styles";
 import { TarsBlockedNextSteps } from "./TarsBlockedNextSteps";
 import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { TarsPublishEntry } from "./TarsPublishEntry";
@@ -122,12 +126,12 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
   ].join(" · ") : null;
   const views = openSide ? [
     // The report exists once the run ended; before that the timeline is what there is to read.
-    ...(model.report === "frozen" ? [<Button key="report" type="button" size="xs" variant="outline" data-tars-result-open="report"
+    ...(model.report === "frozen" ? [<Button key="report" type="button" size="sm" variant="outline" data-tars-result-open="report"
       aria-label={t("shell:tars.result.openReportFor", { title: row.title })}
       onClick={() => open({ kind: "report", ...(stopped ? { focus: { unmet: true as const } } : {}) })}>{t("shell:tars.result.openReport")}</Button>] : []),
-    ...(model.changes ? [<Button key="changes" type="button" size="xs" variant="outline" data-tars-result-open="changes"
+    ...(model.changes ? [<Button key="changes" type="button" size="sm" variant="outline" data-tars-result-open="changes"
       aria-label={t("shell:tars.result.openChangesFor", { title: row.title })} onClick={() => open({ kind: "changes" })}>{t("shell:tars.result.openChanges")}</Button>] : []),
-    ...(stopped && model.report !== "unavailable" ? [<Button key="timeline" type="button" size="xs" variant="outline" data-tars-result-open="timeline"
+    ...(stopped && model.report !== "unavailable" ? [<Button key="timeline" type="button" size="sm" variant="outline" data-tars-result-open="timeline"
       aria-label={t("shell:tars.result.openTimelineFor", { title: row.title })} onClick={() => open({ kind: "timeline" })}>{t("shell:tars.result.openTimeline")}</Button>] : []),
   ] : [];
   const facts = model.changes || review || publishes;
@@ -141,6 +145,24 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
     fullWidthDetail detail={body ? <div role="group" aria-label={t("shell:tars.result.label", { title: row.title })} className={sx(styles.card)} data-tars-result-card={row.id}>
       {reason ? <p className={sx(styles.reason)} data-tars-result-reason="">{reason}</p> : null}
       {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
+      <TarsCompletionOverview textScale="conversation" model={model.completion} row={row} />
+      {facts ? <div className={sx(styles.facts)} data-tars-result-facts="">
+        {model.changes ? <span className={sx(styles.fact)} data-tars-result-changes="">
+          {model.changes.files === null ? t("shell:tars.result.changesUncounted") : t("shell:tars.result.changes", { count: model.changes.files })}
+          {model.changes.lines ? <>{" "}<span className={sx(styles.added)}>+{model.changes.lines.insertions}</span>{" "}
+            <span className={sx(styles.removed)}>−{model.changes.lines.deletions}</span></> : null}
+        </span> : null}
+        {review ? <span className={sx(styles.fact)} data-tars-result-review={model.review!.blocked ? "blocked" : model.review!.verdict ?? "recorded"}>{review}</span> : null}
+        {publishes ? <span className={sx(styles.fact)} data-tars-result-publish=""><TarsPublishEntry row={row} onPublish={actions.onPublish} /></span> : null}
+      </div> : null}
+      {/* What the state admits next, through the tray's own handlers; then the views that explain it. */}
+      {stopped ? <TarsBlockedNextSteps row={row} decision={undefined} actions={actions} /> : null}
+      {views.length ? <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.result.views", { title: row.title })}>{views}</div> : null}
+      {model.report === "frozen" ? <TarsResultDetails textScale="conversation" key={row.id} label={t("shell:tars.completion.details")}>
+        {model.completion.summaries.map((summary) => <div key={summary.stageId} className={sx(styles.group)}>
+          <p className={sx(styles.groupLabel)}>{summary.title}</p>
+          <p className={sx(completionStyles.lead, completionStyles.chatText)} data-tars-full-summary={summary.stageId}>{summary.text}</p>
+        </div>)}
       {model.criteria.length ? <div className={sx(styles.group)}>
         <p className={sx(styles.groupLabel)}>{t("shell:tars.result.criteria.title")}</p>
         <ul className={sx(styles.criteria)} aria-label={t("shell:tars.result.criteria.title")}>
@@ -158,18 +180,7 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
           <span className={sx(styles.fact)}>{t("shell:tars.result.criteria.staveChecks", { checks: model.staveChecks.join(" · ") })}</span>
         </p> : null}
       </div> : null}
-      {model.summary ? <p className={sx(styles.summary)} data-tars-result-summary="">{model.summary}</p> : null}
-      {facts ? <div className={sx(styles.facts)} data-tars-result-facts="">
-        {model.changes ? <span className={sx(styles.fact)} data-tars-result-changes="">
-          {model.changes.files === null ? t("shell:tars.result.changesUncounted") : t("shell:tars.result.changes", { count: model.changes.files })}
-          {model.changes.lines ? <>{" "}<span className={sx(styles.added)}>+{model.changes.lines.insertions}</span>{" "}
-            <span className={sx(styles.removed)}>−{model.changes.lines.deletions}</span></> : null}
-        </span> : null}
-        {review ? <span className={sx(styles.fact)} data-tars-result-review={model.review!.blocked ? "blocked" : model.review!.verdict ?? "recorded"}>{review}</span> : null}
-        {publishes ? <span className={sx(styles.fact)} data-tars-result-publish=""><TarsPublishEntry row={row} onPublish={actions.onPublish} /></span> : null}
-      </div> : null}
-      {/* What the state admits next, through the tray's own handlers; then the views that explain it. */}
-      {stopped ? <TarsBlockedNextSteps row={row} decision={undefined} actions={actions} /> : null}
-      {views.length ? <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.result.views", { title: row.title })}>{views}</div> : null}
+        <TarsReportEvidenceGroups model={model.completion} />
+      </TarsResultDetails> : null}
     </div> : null} />;
 }
