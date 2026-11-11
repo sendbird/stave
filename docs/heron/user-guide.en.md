@@ -1049,3 +1049,29 @@ In a terminal, Cmd+F / Ctrl+F searches the retained terminal buffer. Enter and S
 Closing Fleet, Agents, Schedules, Issues, or AI usage returns to the previous view. F6 and Shift+F6 cycle window regions. The sidebar view switch has text labels. Fleet without repositories offers Open repository.
 
 When saving conflicts with a file changed on disk, use Compare, Keep mine, or Reload from disk in the editor banner. Saving again does not overwrite disk silently. Chat and Review diffs follow your diff display setting and collapse unchanged lines. Settings aligns short controls at the end of each row, and older changelog releases are collapsed. Markdown previews wrap paragraphs normally and offer highlighted code with copying.
+
+
+## Saved Tars comparisons
+
+Open a saved HTML output from a Tars report or Outputs to view it inside Stave.
+Its local images, CSS and standalone JavaScript are stored with the page, so it
+remains available after Stave restarts or the execution workspace is removed.
+Original and revised outputs have separate saved copies. Older reports with only
+localhost links still need their original source; Stave cannot recover a stopped
+server. Saved copies remain in local app data until that app data is removed.
+
+The preview states whether the agent reported actual component rendering,
+example data, a capture, or no source. This label is not independent verification.
+A saved comparison does not need a server and cannot access a backend. If an
+existing Workspace Tools process was linked, use **Start real app**, then
+**Open real app** to visit its URL. Login, backend and workspace availability
+still matter; starting a process does not prove the app is ready. If it fails,
+continue viewing the saved comparison. Stave never starts the process merely
+because you opened a saved output.
+
+Saved HTML provenance and timestamps are assigned by the host. Helpers can hand
+a local export path inside the execution workspace to the lead task; they cannot
+promote another task's inline render. `livePreview` is supported only on saved or
+local HTML artifacts. HTTP links must omit it. Root-relative asset paths require
+a static export with relative paths. Markdown copied outside Stave describes
+saved artifacts as local-only and omits their app-specific URI.

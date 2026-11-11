@@ -10,6 +10,7 @@ import {
 
 interface EditorHtmlPreviewProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
+  networkPolicy?: "open" | "blocked";
   /** The frame's accessible name, usually the file name. */
   frameTitle: string;
   /** Cmd/Ctrl+S pressed while the page holds focus. */
@@ -23,12 +24,13 @@ interface EditorHtmlPreviewProps extends HTMLAttributes<HTMLDivElement> {
  */
 export function EditorHtmlPreview({
   content,
+  networkPolicy = "open",
   frameTitle,
   onSaveShortcut,
   className,
   ...props
 }: EditorHtmlPreviewProps) {
-  const srcDoc = useMemo(() => buildHtmlFilePreviewDocument(content), [content]);
+  const srcDoc = useMemo(() => buildHtmlFilePreviewDocument(content, networkPolicy), [content, networkPolicy]);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const onSaveShortcutRef = useRef(onSaveShortcut);
   onSaveShortcutRef.current = onSaveShortcut;

@@ -1,3 +1,5 @@
+import { ReportArtifactLink } from "@/components/agent-runs/ReportArtifactLink";
+import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, FolderTree, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -393,13 +395,14 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
     {outputs.map((output, index) => {
       const label = outputLabel(output);
       const KindIcon = OUTPUT_ICON[output.kind];
-      const external = output.kind === "link" || output.kind === "pullRequest";
-      const opens = t(external ? "shell:tars.tray.outputs.opensExternal" : "shell:tars.tray.outputs.opensSide");
+      const saved = output.kind === "link" && savedHtmlReference(output.url);
+      const external = !saved && (output.kind === "link" || output.kind === "pullRequest");
+      const opens = saved ? i18n.t("agentRuns:artifacts.saved") : t(external ? "shell:tars.tray.outputs.opensExternal" : "shell:tars.tray.outputs.opensSide");
       const content = <>
         <span className={sx(styles.outputGlyph)}><KindIcon aria-hidden className={sx(styles.outputIcon)} /></span>
         <span className={sx(styles.outputText)}>
           <span className={sx(styles.outputLabel)}>{label}</span>
-          <span className={sx(styles.outputMeta)}>{output.title}</span>
+          <span className={sx(styles.outputMeta)}>{output.title}{saved ? ` · ${i18n.t("agentRuns:artifacts.saved")}` : output.kind === "link" && isLocalPreviewUrl(output.url) ? ` · ${i18n.t("agentRuns:artifacts.liveLink")}` : ""}</span>
         </span>
         <span className={sx(styles.outputGlyph)} title={opens}>
           {external ? <ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /> : <PanelRight aria-hidden className={sx(styles.outputIcon)} />}
@@ -408,8 +411,8 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
         {external ? <VisuallyHidden>{opens}</VisuallyHidden> : null}
       </>;
       return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}
-        data-tars-output-opens={external ? "external" : "side"}>
-        {external
+        data-tars-output-opens={saved ? "saved" : external ? "external" : "side"}>
+        {output.kind === "link" ? <ReportArtifactLink link={output} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ReportArtifactLink> : output.kind === "pullRequest"
           ? <ExternalAnchor href={output.url} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ExternalAnchor>
           : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputRow} disabled={!onOpenSide}
             aria-label={t("shell:tars.tray.outputs.open", { label, title: output.title })}

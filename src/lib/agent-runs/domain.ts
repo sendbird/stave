@@ -1,3 +1,4 @@
+import { MAX_RETAINED_REPORT_ARTIFACTS, ReportArtifactInputSchema, ReportArtifactSchema } from "./artifacts";
 import { AgentRunInitialContextSchema } from "./initial-context";
 import { i18n } from "@/i18n/runtime";
 /**
@@ -254,17 +255,7 @@ export const StageCompleteReportInputSchema = z
       .max(limits.decisions)
       .default([]),
     evidence: z.array(StageEvidenceSchema).max(limits.evidence).default([]),
-    artifacts: z
-      .array(
-        z
-          .object({
-            label: z.string().trim().min(1).max(limits.artifactLabel),
-            url: UrlSchema,
-          })
-          .strict(),
-      )
-      .max(limits.artifacts)
-      .default([]),
+    artifacts: z.array(ReportArtifactInputSchema).max(limits.artifacts).default([]),
     acceptanceCriteria: z
       .array(AcceptanceCriterionSchema)
       .max(limits.criteria)
@@ -301,6 +292,7 @@ const reportStamp = {
 
 export const StageReportSchema = z.discriminatedUnion("outcome", [
   StageCompleteReportInputSchema.extend({
+    artifacts: z.array(ReportArtifactSchema).max(MAX_RETAINED_REPORT_ARTIFACTS).default([]),
     outcome: z.literal("complete"),
     /** Host-captured at report receipt; never accepted from the agent input. */
     workspaceRevision: WorkspaceRevisionSchema.optional(),

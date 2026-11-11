@@ -92,7 +92,7 @@ function escapeAttribute(value: string): string {
  * ahead of every script the page declares; a page without a doctype keeps
  * rendering in quirks mode, as it would in a browser.
  */
-export function buildHtmlFilePreviewDocument(html: string): string {
+export function buildHtmlFilePreviewDocument(html: string, networkPolicy: "open" | "blocked" = "open"): string {
   const doctypeMatch = LEADING_DOCTYPE_PATTERN.exec(html);
   const doctype = doctypeMatch
     ? doctypeMatch[0].replace(/^\uFEFF?\s*/, "")
@@ -101,7 +101,7 @@ export function buildHtmlFilePreviewDocument(html: string): string {
     ? html.slice(doctypeMatch[0].length)
     : html.replace(/^\uFEFF/, "");
   const head = [
-    `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(HTML_FILE_PREVIEW_CSP)}">`,
+    `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(networkPolicy === "blocked" ? buildInlineRenderCsp("blocked", { delivery: "meta", embeddedScripts: true }) : HTML_FILE_PREVIEW_CSP)}">`,
     `<script>${FRAME_SCRIPT}</script>`,
   ].join("");
   return `${doctype}${head}${rest}`;

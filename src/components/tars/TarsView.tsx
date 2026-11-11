@@ -1,3 +1,4 @@
+import { ReportArtifactPreviewProvider } from "@/components/agent-runs/ReportArtifactLink";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ListTodo, Settings, X } from "lucide-react";
@@ -87,6 +88,10 @@ function useFollowUpClock(followUps: readonly TarsFollowUpState[] | undefined) {
 }
 
 export function TarsView() {
+  return <ReportArtifactPreviewProvider><TarsViewContent /></ReportArtifactPreviewProvider>;
+}
+
+function TarsViewContent() {
   const { t } = useTranslation(["shell"]);
   const close = useAppStore((state) => state.closeTars);
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);

@@ -49,6 +49,7 @@ export interface InlineRenderRecord {
   taskId: string;
   turnId: string | null;
   createdAt: string;
+  sourceUrl?: string;
 }
 
 export function inlineRenderWorkspaceKey(workspaceId: string | null): string {
@@ -66,6 +67,7 @@ export interface InlineRenderStore {
     html: string;
     title: string;
     height?: number;
+    sourceUrl?: string;
   }): Promise<InlineRenderReference>;
   read(renderId: string): Promise<{ html: string; record: InlineRenderRecord } | null>;
   describe(renderId: string): Promise<InlineRenderRecord | null>;
@@ -77,6 +79,7 @@ export interface InlineRenderStore {
     workspaceId: string | null;
     taskId: string;
   }): Promise<InlineRenderModelContextEntry[]>;
+  remove(renderId: string): Promise<void>;
   removeWorkspace(workspaceId: string): Promise<void>;
 }
 
@@ -151,6 +154,7 @@ export function createInlineRenderStore(args: { rootDir: () => string }): Inline
         height: clampInlineRenderHeight(parsed.height),
         taskId: parsed.taskId,
         turnId: typeof parsed.turnId === "string" ? parsed.turnId : null,
+        ...(typeof parsed.sourceUrl === "string" ? { sourceUrl: parsed.sourceUrl } : {}),
         createdAt: typeof parsed.createdAt === "string" ? parsed.createdAt : "",
       };
     } catch {
@@ -176,6 +180,7 @@ export function createInlineRenderStore(args: { rootDir: () => string }): Inline
         taskId: input.taskId,
         turnId: input.turnId,
         createdAt: new Date().toISOString(),
+        ...(input.sourceUrl ? { sourceUrl: input.sourceUrl } : {}),
       };
       await mkdir(location.dir, { recursive: true });
       // The page first: a record without its page would describe a render
@@ -248,6 +253,12 @@ export function createInlineRenderStore(args: { rootDir: () => string }): Inline
           .map((name) => readContextFile(path.join(dir, name), { taskId })),
       );
       return records.flatMap((record) => (record ? [toEntry(record)] : []));
+    },
+
+    async remove(renderId) {
+      const location = locate(renderId);
+      if (!location) return;
+      await Promise.all([location.htmlPath, location.recordPath, location.contextPath].map((file) => rm(file, { force: true })));
     },
 
     async removeWorkspace(workspaceId) {

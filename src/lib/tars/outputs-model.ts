@@ -1,3 +1,4 @@
+import type { AgentRunReportLink } from "../agent-runs/report";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { latestStageRecord } from "@/lib/agent-runs/domain";
 import { projectTarsReview } from "./report-model";
@@ -14,7 +15,7 @@ export type TarsOutput =
   | { kind: "report"; responsibilityId: string; title: string; outcome: NonNullable<AgentRunDetail["report"]>["outcome"]; frozenAt: string }
   | { kind: "changes"; responsibilityId: string; title: string; /** Null when the run recorded changes without a usable count. */ files: number | null }
   | { kind: "review"; responsibilityId: string; title: string; verdict: "passed" | "changes-requested" | null }
-  | { kind: "link"; responsibilityId: string; title: string; label: string; url: string }
+  | ({ kind: "link"; responsibilityId: string; title: string } & AgentRunReportLink)
   /** The draft pull request the host opened after the user confirmed it. */
   | { kind: "pullRequest"; responsibilityId: string; title: string; url: string; number: number | null };
 
@@ -61,7 +62,7 @@ export function buildTarsOutputs(args: {
     if (review && (review.verdict || review.findings.length || review.blocked)) outputs.push({ kind: "review", ...base, verdict: review.verdict });
     outputs.push(...pullRequest);
     for (const link of run.report?.links ?? []) if (!pullRequest.some((entry) => entry.kind === "pullRequest" && entry.url === link.url))
-      outputs.push({ kind: "link", ...base, label: link.label, url: link.url });
+      outputs.push({ ...link, kind: "link", ...base });
     return outputs;
   });
 }
