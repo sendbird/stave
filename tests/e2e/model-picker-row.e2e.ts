@@ -21,16 +21,27 @@ const PRESETS = [
   "Default effort",
 ] as const;
 
-async function openPresetModelPicker(page: Page, locale: keyof typeof LOCALES, preset: string) {
+async function openPresetModelPicker(page: Page, locale: keyof typeof LOCALES, preset: string, beforeOpen?: (trigger: Locator) => Promise<void>) {
   const copy = LOCALES[locale];
   await page.getByRole("button", { name: copy.edit(preset), exact: true }).click();
   const trigger = page.locator("form").getByRole("combobox", { name: copy.model });
   await page.evaluate(() => document.fonts.ready);
+  if (beforeOpen) await beforeOpen(trigger);
   await trigger.click();
   const listbox = page.getByRole("listbox");
   await expect(listbox.getByRole("option").first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   return { trigger, listbox };
+}
+
+async function settleAncestorMotion(locator: Locator) {
+  await locator.evaluate(async (node) => {
+    for (let ancestor: Element | null = node; ancestor; ancestor = ancestor.parentElement) {
+      await Promise.all(ancestor.getAnimations()
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => {})));
+    }
+  });
 }
 
 for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
@@ -151,14 +162,22 @@ test("the chosen model reads as chosen, like every other AUI picker", async ({ p
 test("the list opens below a picker that has room and never covers its own field", async ({ page }) => {
   // Room below for the search and a few rows: the list opens below and
   // scrolls, rather than flipping over the Type and Provider fields.
-  await page.setViewportSize({ width: 800, height: 760 });
+  const viewportHeight = 820;
+  await page.setViewportSize({ width: 800, height: viewportHeight });
   await page.goto("/tests/e2e/fixtures/task-presets.html?theme=dark");
-  let { trigger, listbox } = await openPresetModelPicker(page, "en", "Planning");
+  let { trigger, listbox } = await openPresetModelPicker(page, "en", "Planning", async (field) => {
+    // The editor enters from above; measure the final field position, not that animated position.
+    await settleAncestorMotion(field);
+    const geometry = await field.evaluate((node) => ({ room: innerHeight - node.getBoundingClientRect().bottom,
+      minimum: 13 * parseFloat(getComputedStyle(document.documentElement).fontSize) }));
+    expect(geometry.room).toBeGreaterThanOrEqual(geometry.minimum);
+  });
+  await expect(listbox.locator("xpath=ancestor::*[@data-side][1]")).toHaveAttribute("data-side", "bottom");
+  await settleAncestorMotion(listbox);
   let triggerBox = (await trigger.boundingBox())!;
   let popupBox = (await listbox.locator("xpath=ancestor::*[@data-side][1]").boundingBox())!;
-  await expect(listbox.locator("xpath=ancestor::*[@data-side][1]")).toHaveAttribute("data-side", "bottom");
   expect(popupBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height);
-  expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(760);
+  expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(viewportHeight);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.locator("form")).toHaveCount(0);
@@ -167,6 +186,8 @@ test("the list opens below a picker that has room and never covers its own field
   // field it belongs to.
   await page.setViewportSize({ width: 800, height: 560 });
   ({ trigger, listbox } = await openPresetModelPicker(page, "en", "Planning"));
+  await expect(listbox.locator("xpath=ancestor::*[@data-side][1]")).toHaveAttribute("data-side", "top");
+  await settleAncestorMotion(listbox);
   triggerBox = (await trigger.boundingBox())!;
   popupBox = (await listbox.locator("xpath=ancestor::*[@data-side][1]").boundingBox())!;
   expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(triggerBox.y);

@@ -21,6 +21,7 @@ import { projectTarsDecisions } from "../src/lib/tars/decisions";
 import { TarsControlOperationSchema, type TarsControlOperation, type TarsResponsibility, type TarsState } from "../src/lib/tars/types";
 import type { PersistenceRepositoryRegistryEntry } from "../electron/persistence/types";
 import { SETTINGS, testContext } from "./tars-test-context";
+import { tarsPlannerClock } from "../src/lib/tars/schedules";
 
 const NOW = "2026-11-05T00:00:00.000Z";
 const cleanup: Array<() => void> = [];
@@ -470,7 +471,8 @@ describe("the user's never-do rules", () => {
   test("without rules and at the default level the planner prompt is exactly what it was", async () => {
     const f = fixture();
     const message = f.conversations.create({ requestId: "plain", text: "What is running?" }, NOW);
-    const context = testContext(f.responsibilities, REGISTRY);
+    // Both prompts describe the same instant; wall-clock drift is not a guard change.
+    const context = { ...testContext(f.responsibilities, REGISTRY), clock: tarsPlannerClock(new Date(NOW), "UTC") };
     const plain = buildTarsPlannerPrompt(message, context, []);
     expect(buildTarsPlannerPrompt(message, { ...context, guard: tarsPlannerGuard(message, f.conversations.getSettings()) }, [])).toBe(plain);
     expect(plain).not.toContain("hardConstraints");
