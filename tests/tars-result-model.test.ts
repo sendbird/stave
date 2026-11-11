@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
-import { projectTarsResult, tarsResultOutcome } from "../src/lib/tars/result-model";
+import { summarizeTarsResultCriteria, projectTarsResult, tarsResultOutcome } from "../src/lib/tars/result-model";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 import { buildTarsResultFixtures } from "../src/dev/tars-preview/tars-result-fixtures";
 import { buildTarsSideViewFixtures } from "../src/dev/tars-preview/tars-side-fixtures";
@@ -128,4 +128,14 @@ describe("Tars result model", () => {
     expect(model.review).toEqual({ verdict: "passed", findings: 2, blocked: false });
     expect(model.staveChecks).toEqual(["bun test checkout"]);
   });
+});
+
+
+test("confirmation totals do not count reports, unknowns, unmet criteria or missing reports", () => {
+  expect(summarizeTarsResultCriteria([
+    { text: "checked", kind: "verifiedCheck" }, { text: "reviewed", kind: "verifiedReview" },
+    { text: "reported", kind: "reported" }, { text: "unmet", kind: "unmet" },
+    { text: "unknown", kind: "unverified" }, { text: "missing", kind: "notReported" },
+  ])).toEqual({ total: 6, confirmed: 2, reported: 1 });
+  expect(summarizeTarsResultCriteria([])).toEqual({ total: 0, confirmed: 0, reported: 0 });
 });

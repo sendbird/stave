@@ -621,7 +621,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   }
 
   // K3–K7 · Result cards: ended work the view still holds shows what it came to, where its notice would be one line.
-  const result = buildTarsResultFixtures(start);
+  const result = buildTarsResultFixtures(start, korean);
   for (const [code, id, en, ko, replyEn, replyKo] of [
     ["K3", result.ids.verified, "Result card: completed and verified", "결과 카드: 완료, 검증됨",
       "A check Stave ran or a passed review backs each criterion.", "Stave가 실행한 검사나 통과한 리뷰가 각 기준을 뒷받침합니다."],

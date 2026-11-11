@@ -23,6 +23,15 @@ export interface TarsResultCriterion {
   kind: TarsResultCriterionKind;
 }
 
+/** Only already classified, current check/review confirmations contribute; reports and unknowns never do. */
+export function summarizeTarsResultCriteria(criteria: readonly TarsResultCriterion[]) {
+  return {
+    total: criteria.length,
+    confirmed: criteria.filter(({ kind }) => kind === "verifiedCheck" || kind === "verifiedReview").length,
+    reported: criteria.filter(({ kind }) => kind === "reported").length,
+  };
+}
+
 export interface TarsResultChanges {
   /** Null when the run recorded changes without a usable count. */
   files: number | null;

@@ -209,7 +209,7 @@ test("an automatic follow-up's line heads its reply on the rail; a superseded on
       // The reply starts on the line's text column, and the rail runs from under the line's mark to the end of the reply.
       replyOnText: Math.abs(reply.left - body!.getBoundingClientRect().left) <= 1,
       railOnMark: Math.abs((rail.left + rail.right) / 2 - (mark.left + mark.right) / 2) <= 1,
-      railSpan: rail.top >= mark.bottom - 1 && Math.abs(rail.bottom - box.bottom) <= 1 && reply.bottom <= rail.bottom + 1,
+      railSpan: rail.height > 0 && rail.top >= mark.bottom - 1 && Math.abs(rail.bottom - box.bottom) <= 1 && reply.bottom <= rail.bottom + 1,
     };
   });
   expect(tie).toEqual({ replyOnText: true, railOnMark: true, railSpan: true });
