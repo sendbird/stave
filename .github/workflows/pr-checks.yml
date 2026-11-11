@@ -38,7 +38,8 @@ jobs:
       - run: bun run test:isolated
 
   ui-layout:
-    runs-on: ubuntu-latest
+    # Keep browser dependencies and font geometry on a stable OS baseline.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     # The layout suite runs one worker for stable geometry; four shards keep
     # each job within the timeout as layout regressions are added.
