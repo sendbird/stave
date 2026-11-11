@@ -23,7 +23,6 @@ import {
 } from "../src/lib/source-control-pr";
 import { DEFAULT_PROMPT_PR_DESCRIPTION } from "../src/lib/providers/prompt-defaults";
 import type { ProviderAccountSelection } from "../src/lib/providers/provider-account-selection";
-import { helperKeepsParentProvider } from "../src/lib/agent-runs/resources";
 import {
   cleanupAllScriptProcesses,
   getScriptStatuses,
@@ -101,7 +100,7 @@ import { createPullRequestWatchReader } from "./host-service/pull-request-watch-
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
 import { getProviderAccountRegistry } from "./provider-accounts/registry";
-import { createConstrainedHostRouter } from "./host-service/supervision/constrained-route-host";
+import { createHostConstrainedRouter } from "./host-service/supervision/agent-run-routing-host";
 import { withConstrainedRoutingCancellation } from "./providers/constrained-routing-cancellation";
 import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
@@ -2283,14 +2282,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "delegated-agent.resolve-route": {
       const persistence = ensureHostServicePersistenceReady();
-      const router = createConstrainedHostRouter({ assignment: (taskId) => assignRuntime.assignmentForTask(taskId),
+      const router = createHostConstrainedRouter({ runs: persistence.agentRuns, assignment: (taskId) => assignRuntime.assignmentForTask(taskId),
         settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list(),
         history: ({ workspaceId, taskId }) => persistence.loadTaskMessagesPage({ workspaceId, taskId, limit: 12 })?.messages ?? [],
-        parentModels: (taskId, providerId) => { const run = persistence.agentRuns.getActiveAgentRunForTask(taskId); const policy = run ? persistence.agentRuns.resourceConfig(run.id)?.policy : undefined;
-          if (!policy || policy.providerId === providerId) return policy?.allowedModels;
-          // Another provider: allowed unless the parent's model is pinned; the parent's catalog says nothing about it.
-          if (helperKeepsParentProvider(policy)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
-          return undefined; },
         cwd: resolveWorkspacePath,
         classify: (input, signal) => classifyUtilityRoute(input, undefined, undefined, signal) });
       await respond(request.id, await withConstrainedRoutingCancellation(request.params.requestId, (signal) => router(request.params, signal))); return;

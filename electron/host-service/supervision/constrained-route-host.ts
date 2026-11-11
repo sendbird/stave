@@ -9,7 +9,7 @@ import { DEFAULT_ROUTING_DECISION } from "../../../src/lib/providers/routing-dec
 import type { RouteClassificationRequest, UtilityInferenceMetadata } from "../../../src/lib/providers/utility-inference";
 import { exclusiveGatewayModels } from "../../../src/lib/providers/api-connection-routing";
 import type { ProviderAccountProfile } from "../../../src/lib/providers/provider-accounts";
-import { supportsAdaptiveEffort } from "../../../src/lib/agent-runs/resources";
+import { supportsAdaptiveEffort, helperKeepsParentProvider, type AdaptiveRunPolicy } from "../../../src/lib/agent-runs/resources";
 import { resolveApiConnectionModel } from "../../provider-accounts/gateway-runtime";
 import { withProviderAccountScope } from "../../provider-accounts/runtime-scope";
 
@@ -17,7 +17,7 @@ export function createConstrainedHostRouter(deps: {
   assignment: (taskId: string) => AgentAssignment | null;
   settings: () => AgentRouteSettings | null;
   profiles: () => ProviderAccountProfile[];
-  parentModels?: (taskId: string, providerId: "codex" | "claude-code") => string[] | undefined;
+  parentPolicy?: (taskId: string) => AdaptiveRunPolicy | undefined;
   history: (input: ConstrainedRouteInput) => readonly unknown[];
   cwd: (workspaceId: string) => Promise<string | null>;
   classify: (input: RouteClassificationRequest, signal?: AbortSignal) => Promise<{ ok: boolean; classification?: unknown; utility?: UtilityInferenceMetadata }>;
@@ -43,25 +43,28 @@ export function createConstrainedHostRouter(deps: {
       if (!model) throw new Error("Choose a model pinned on this API connection before starting.");
       const settings = deps.settings();
       const profile = resolveAutoRoutingProfile(settings?.routing ?? { autoRoutingEnabled: false });
-      const frozen = input.allowedModels ?? (input.parentTaskId ? deps.parentModels?.(input.parentTaskId, providerId) : undefined);
+      const parent = input.parentTaskId ? deps.parentPolicy?.(input.parentTaskId) : undefined;
+      if (parent && parent.providerId !== providerId && helperKeepsParentProvider(parent)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
+      const autoRouting = input.autoRouting ?? parent?.autoRouting ?? settings?.routing.autoRoutingEnabled ?? false;
+      const frozen = input.allowedModels ?? (parent?.providerId === providerId ? parent.allowedModels : undefined);
       const pool = (frozen ?? pins ?? getSdkModelOptions({ providerId })).filter((id) => !pins || Boolean(resolveApiConnectionModel({ runtime: providerId, models: pins, model: id })));
-      let allowedModels = settings?.routing.autoRoutingEnabled ? listEligibleRouteModels({ profile, providerId, exclusiveModels: pool }) : [...pool];
+      let allowedModels = autoRouting ? listEligibleRouteModels({ profile, providerId, exclusiveModels: pool }) : [...pool];
       const locked = input.modelPinned || agent?.model.mode === "fixed";
       const effort = fixed ? fixed.effort ?? input.effort : input.effort;
       const effortLocked = input.effortPinned || Boolean(fixed?.effort);
       if (!locked && effortLocked && effort) allowedModels = allowedModels.filter((id) => supportsAdaptiveEffort(providerId, id, effort));
       if (locked && frozen && !frozen.includes(model)) throw new Error("The model is outside the frozen routing catalog.");
       if (!locked && frozen && !allowedModels.includes(model)) { model = allowedModels[0]; if (!model) throw new Error("No model remains in the frozen routing catalog."); }
-      if (locked || !settings?.routing.autoRoutingEnabled) return { fingerprint: { providerId, model },
+      if (locked || !autoRouting) return { fingerprint: { providerId, model },
         runtimeOptions: routeEffortOverrides({ providerId, model, effort }), route: locked ? "pinned" : "task-model",
         rationale: locked ? "Pinned delegation route." : "Auto is disabled.", allowedModels: [model], selection: null };
-      const context = settings.classifier?.[providerId];
+      const context = settings?.classifier?.[providerId];
       const decisionConfig = agent?.model.mode === "auto" ? agent.model.decision ?? context?.routingDecision ?? DEFAULT_ROUTING_DECISION : context?.routingDecision ?? DEFAULT_ROUTING_DECISION;
       const cwd = context ? await deps.cwd(input.workspaceId) : null;
       let utility: UtilityInferenceMetadata | undefined;
       const classifyRoute = context ? createAgentRouteClassifier({ context: { ...context, routingDecision: decisionConfig, ...(cwd ? { cwd } : {}) },
         classify: async (request, token) => { const result = await deps.classify({ ...request, ...(input.requestId ? { requestId: input.requestId } : {}) }, token); utility = result.utility; return result; } }) : undefined;
-      const decision = await resolveAutoRoutingDecision({ settings: { ...settings.routing, autoRoutingProfile: { ...profile, signals: { ...profile.signals, providerSwitch: false } } },
+      const decision = await resolveAutoRoutingDecision({ settings: { autoRoutingEnabled: autoRouting, autoRoutingProfile: { ...profile, signals: { ...profile.signals, providerSwitch: false } } },
         runtimeOverrides: { autoRouting: true }, currentProviderId: providerId, currentModel: allowedModels.includes(model) ? model : allowedModels[0] ?? model, prompt: input.prompt,
         history: toRoutingHistory(deps.history(input)), signal, classifyRoute,
         taskClassHint: agent?.model.mode === "auto" ? agent.model.taskClass : undefined,

@@ -1121,7 +1121,7 @@
     "fields": {
       "autoRoutingEnabled": {
         "title": "Enable Auto routing",
-        "description": "Global kill switch for the model router behind the composer's Auto option."
+        "description": "Controls Auto routing for the composer and ordinary Agent runs. Tars Execution set to Automatic still uses the shared Auto policy."
       },
       "autoRoutingProfile": {
         "title": "Auto routing profile",

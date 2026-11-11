@@ -198,7 +198,7 @@ export function createHostTarsRuntime(args: {
         if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "The task's agent assignment is unavailable.");
         if (persistence.agentRuns.getLatestAgentRunForTask(row.taskId!))
           throw new TarsDetailError("executionExists", "This task already has an execution. Reconcile it before starting work.");
-      });
+      }, { tarsResponsibilityId: row.id });
       return detail.agentRun.id;
     },
     async observe(row) {

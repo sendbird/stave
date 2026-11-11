@@ -11,6 +11,8 @@ export const ConstrainedRouteInputSchema = z.object({
   providerId: z.enum(["codex", "claude-code"]), prompt: z.string().min(1).max(20_000),
   model: z.string().min(1).max(200).optional(), effort: z.string().max(40).optional(),
   modelPinned: z.boolean().optional(), effortPinned: z.boolean().optional(),
+  /** An execution's explicit Auto choice, independent of the app-wide toggle. */
+  autoRouting: z.boolean().optional(),
   accounts: ProviderAccountSelectionSchema.optional(),
   allowedModels: z.array(z.string().min(1).max(200)).min(1).max(64).optional(),
 }).strict();

@@ -2,7 +2,14 @@
 
 Stave Auto picks an eligible provider, model, and effort for each turn.
 It uses existing Stave models and requires no additional service or model
-installation. Auto itself remains opt-in.
+installation. Composer Auto and ordinary Agent runs follow **Enable Auto
+routing**, including when it is turned off during a run. Tars **Execution
+model: Automatic** explicitly uses the shared Auto policy even while that
+switch is off. This does not turn the switch on or change the saved policy.
+Its admitted Automatic choice survives restarts and applies to helpers within
+their role, provider, account and frozen model catalog. Fixed models and
+explicit model or effort pins take priority. **Model classification** still
+controls whether this policy calls the Routing decision model.
 
 ## Default behavior
 

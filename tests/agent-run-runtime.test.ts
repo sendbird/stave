@@ -55,6 +55,10 @@ import { describeDoneWhen } from "../src/lib/agent-runs/agent-run-status";
 import { createConstrainedHostRouter } from "../electron/host-service/supervision/constrained-route-host";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import type { AgentAssignment } from "../src/lib/agents/assign";
+import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adaptive-policy";
+import { createRoutingHostHarness } from "./fixtures/agent-run-routing-host";
+import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync";
+import { defaultSettings } from "../src/store/app-settings";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -1874,6 +1878,72 @@ test("a new persisted Run event invalidates an old route before dispatch", async
 });
 
 describe("Agent run team limits", () => {
+  for (const providerId of ["codex", "claude-code"] as const) {
+    test(`${providerId}: trusted Tars Automatic uses host admission, persisted policy and restart routing with global Auto off`, async () => {
+      const host = createRoutingHostHarness();
+      const light = providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5";
+      const strong = providerId === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
+      const extra = { freezeResources: host.freezeResources, routeConstrainedTurn: host.router };
+      const h = createHarness({ store: host.runs, extra });
+      h.setSnapshot({ providerId, model: light });
+      const admitted = host.admitTars(startInput({ origin: "agent" }), providerId);
+      const detail = await h.runtime.startAgentRun(admitted.input, undefined, admitted.admission);
+      const id = detail.agentRun.id;
+      await h.tick();
+      expect(host.runs.resourceConfig(id)?.policy.autoRouting).toBe(true);
+      expect(host.classified).toBe(1);
+      expect(h.runCalls[0]!.fingerprint).toEqual({ providerId, model: strong });
+      h.endTurn("turn-1"); h.runtime.stop();
+      // A new store/runtime reads the recorded admission; no host identity is resubmitted.
+      const restarted = createHarness({ store: new AgentRunStore(host.db), turns: h.turns, turnPrefix: "restarted", extra });
+      restarted.setSnapshot({ providerId, model: light });
+      await restarted.tick();
+      expect(host.classified).toBe(2);
+      expect(restarted.runCalls[0]!.fingerprint).toEqual({ providerId, model: strong });
+      // Helper admission uses the production parent-policy wiring with no explicit override.
+      expect(await host.router({ workspaceId: "ws-1", taskId: "child", parentTaskId: "task-1", providerId,
+        model: light, prompt: "Implement a small change" })).toMatchObject({ route: "auto", fingerprint: { model: strong } });
+      await restarted.runtime.cancel({ agentRunId: id }); host.db.close();
+    });
+    test(`${providerId}: ordinary composer Auto follows live global-off on continuation and restart`, async () => {
+      const host = createRoutingHostHarness(); host.saveSettings(true);
+      const model = providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5";
+      const extra = { freezeResources: host.freezeResources, routeConstrainedTurn: host.router };
+      const h = createHarness({ store: host.runs, extra }); h.setSnapshot({ providerId, model });
+      const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 10, routingIntent: { autoRouting: true } }));
+      expect(host.runs.resourceConfig(id)?.policy).not.toHaveProperty("autoRouting");
+      expect(host.classified).toBe(1);
+      host.saveSettings(false);
+      await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+      h.endTurn("turn-1"); await h.tick();
+      expect(h.runCalls).toHaveLength(2); expect(host.classified).toBe(1);
+      h.endTurn("turn-2"); h.runtime.stop();
+      const restarted = createHarness({ store: new AgentRunStore(host.db), turns: h.turns, turnPrefix: "restarted", extra });
+      restarted.setSnapshot({ providerId, model }); await restarted.tick();
+      expect(restarted.runCalls).toHaveLength(1); expect(host.classified).toBe(1);
+      expect(await host.router({ workspaceId: "ws-1", taskId: "child", parentTaskId: "task-1", providerId, model,
+        prompt: "Implement a small change" })).toMatchObject({ route: "task-model" });
+      await restarted.runtime.cancel({ agentRunId: id }); host.db.close();
+    });
+  }
+  test("host admission with another responsibility's identity refuses before persisting resources or dispatch", async () => {
+    const host = createRoutingHostHarness();
+    const h = createHarness({ store: host.runs, extra: { freezeResources: host.freezeResources, routeConstrainedTurn: host.router } });
+    const admitted = host.admitTars(startInput({ origin: "agent" }), "claude-code");
+    await expect(h.runtime.startAgentRun({ ...admitted.input, workflow: { ...admitted.input.workflow, id: "unrelated-workflow" } },
+      undefined, admitted.admission)).rejects.toThrow("owned run identity changed");
+    expect(host.runs.listActiveAgentRuns()).toHaveLength(0); expect(h.runCalls).toHaveLength(0);
+    host.db.close();
+  });
+  test("renderer routing intent and Tars-looking metadata cannot grant durable Auto admission", async () => {
+    const host = createRoutingHostHarness();
+    const h = createHarness({ store: host.runs, extra: { freezeResources: host.freezeResources, routeConstrainedTurn: host.router } });
+    const admitted = host.admitTars(startInput({ origin: "agent" }), "claude-code");
+    const detail = await h.runtime.startAgentRun(admitted.input); await h.tick();
+    expect(host.runs.resourceConfig(detail.agentRun.id)?.policy).not.toHaveProperty("autoRouting");
+    expect(host.classified).toBe(0);
+    await h.runtime.cancel({ agentRunId: detail.agentRun.id }); host.db.close();
+  });
   const policy = (providerId: "claude-code" | "codex", patch = {}) => ({
     version: 1 as const, profile: "balanced" as const, providerId,
     allowedModels: providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-sonnet-5-5", "claude-opus-5-5"],

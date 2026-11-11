@@ -31,15 +31,15 @@ test("automatic routing leaves the team free to review on the other provider; a 
   const freeze = (row: { providerId: "codex" | "claude-code"; model: string | null }, model: string) => {
     const resources = buildTarsExecutionResources(row);
     return freezeAdaptivePolicy({ providerId: row.providerId, model, agent: getBuiltinAgent("supervisor")!, settings: null, maxTurns: 20,
-      accounts: resources.accounts, draft: resources.routingIntent });
+      accounts: resources.accounts, draft: resources.routingIntent, autoRouting: resources.routingIntent?.autoRouting });
   };
   const automatic = freeze({ providerId: "codex", model: null }, "gpt-6.1-sol");
-  expect(automatic).toMatchObject({ modelLocked: false, effortLocked: false });
+  expect(automatic).toMatchObject({ modelLocked: false, effortLocked: false, autoRouting: true });
   expect(automatic.allowedModels.length).toBeGreaterThan(1);
   expect(helperKeepsParentProvider(automatic)).toBe(false);
   const reviewer = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-sonnet-5-5", agent: getBuiltinAgent("reviewer")!,
     settings: null, maxTurns: 20, delegated: true });
-  expect(constrainHelperResources(automatic, reviewer, "claude-sonnet-5-5").providerId).toBe("claude-code");
+  expect(constrainHelperResources(automatic, reviewer, "claude-sonnet-5-5")).toMatchObject({ providerId: "claude-code", autoRouting: true });
   const pinned = freeze({ providerId: "codex", model: "gpt-6.1-sol" }, "gpt-6.1-sol");
   expect(pinned).toMatchObject({ modelLocked: true, allowedModels: ["gpt-6.1-sol"] });
   expect(helperKeepsParentProvider(pinned)).toBe(true);
@@ -140,7 +140,8 @@ test("actual host preparation and Run admission route automatically by default, 
     const { createHostTarsRuntime } = await import("./electron/host-service/tars-host");
     const observed = {};
     let current;
-    const runtime = createHostTarsRuntime({ assignments, agentRuns: { startAgentRun: async (raw, guard) => {
+    const runtime = createHostTarsRuntime({ assignments, agentRuns: { startAgentRun: async (raw, guard, admission) => {
+      if (admission?.tarsResponsibilityId !== current.id) throw new Error("Missing host-owned Tars admission");
       guard(); const input = AgentRunStartInputSchema.parse(raw);
       const agent = persistence.agentAssignments.getByRequestId("tars-" + current.id).agent;
       const startModel = current.model ?? getDefaultModelForProvider({ providerId: current.providerId });
