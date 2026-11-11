@@ -1,3 +1,26 @@
+## [0.34.0](https://github.com/sendbird/stave/compare/v0.33.1...v0.34.0) (2026-11-11)
+
+This minor release includes the four merged changes since 0.33.1.
+
+### Changes
+
+- Tars keeps waiting questions and publication confirmations above the composer, preserves edits while navigating them, and shows ended work with its completion evidence and result links. Return summaries, knowledge and usage views help you resume work in context.
+- Tars work and outputs can be grouped by project from the tray title bar. Safe recorded controls and queue moves have guarded Undo; conversation and ended-work clearing, retention and their separate Undo keep active work available.
+- Tars proposes timed and recurring work through confirmation cards; new schedules stay paused unless you explicitly enable them. General, Models and Work settings organize accounts, models, autonomy, rules and limits, and empty standing-instruction drafts start with editable defaults.
+- Chat and Tars share a responsive conversation width and text scale. Model pickers align full names, wrapping notices and token prices; result cards interrupt timeline connectors; icon controls have action hints and the running-status strip opens and closes with reduced-motion support.
+- Subagent rows distinguish the requested or configured model from the model its response reported. Claude in-turn subagents and Claude/Codex delegated tasks preserve reported model evidence through replay; effort remains the requested or configured setting.
+- Crane pairing and job responses accept additive fields while still validating known fields, avoiding an invalid-response failure after the server has already paired the connector.
+- The retired Martin sync integration is removed from Settings, workspace cards, runtime, IPC and MCP. Crane's supported task and pairing paths remain available.
+
+### Upgrade Notes
+
+- Opening the database drops the retired sync outbox table and indexes; settings rehydration removes its saved toggles. These two cleanup migrations remain registered until 0.36.0.
+- If an earlier Crane pairing failed after the server exchanged its code, generate a fresh pairing code and pair again after updating.
+
+### References
+
+- [PR #938](https://github.com/sendbird/stave/pull/938), [PR #949](https://github.com/sendbird/stave/pull/949), [PR #950](https://github.com/sendbird/stave/pull/950), [PR #952](https://github.com/sendbird/stave/pull/952)
+
 ## [0.33.1](https://github.com/sendbird/stave/compare/v0.33.0...v0.33.1) (2026-11-10)
 
 This patch release includes the eight merged changes since 0.33.0.

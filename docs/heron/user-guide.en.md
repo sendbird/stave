@@ -4,12 +4,12 @@ title: Stave User Guide
 product: Stave
 brandSub: Guide
 versionLabel: v1
-status: Current · Stave 0.33.1
+status: Current · Stave 0.34.0
 statusTone: current
 captured: 2026-11-09
-updated: 2026-11-10
+updated: 2026-11-11
 recorder: jacob.kim
-footer: Stave User Guide v1 · Stave 0.33.1 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
+footer: Stave User Guide v1 · Stave 0.34.0 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
 
 @page start | Getting started | Stave at a glance | guide
@@ -17,7 +17,7 @@ footer: Stave User Guide v1 · Stave 0.33.1 · Source in the repository's docs/h
 
 ```meta
 Audience | Developers new to Stave | From installing to handing a goal to an agent
-Version | Stave 0.33.1 | the 0.33.1 release
+Version | Stave 0.34.0 | the 0.34.0 release
 Screens | Captures with synthetic data | English UI, in the repository's `docs/screenshots/guide/en`
 UI language | English (default) and Korean | Change it in Settings > General > Language
 ```
@@ -1031,7 +1031,7 @@ Screenshot links point at the `main` branch on GitHub. Once re-captured screensh
 
 ## What this edition checked and did not check
 
-- Labels and behavior were checked against the source and the Korean and English copy files in each change that altered a feature. 0.33.1 as a whole was not re-checked in one pass.
+- Labels and behavior were checked against the source and the Korean and English copy files in each change that altered a feature. 0.34.0 as a whole was not re-checked in one pass.
 - Screenshots were captured from development screens with synthetic data. Behavior with a real signed-in provider was not re-run for this edition.
 - The Lens screenshot comes from the browser build, so only the toolbar is shown.
 
