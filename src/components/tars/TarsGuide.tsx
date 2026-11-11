@@ -1,14 +1,17 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import * as stylex from "@stylexjs/stylex";
-import { CircleHelp } from "lucide-react";
-import { useId } from "react";
+import { ChevronRight, CircleHelp } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/aui/headless/collapsible";
+import { transition } from "@/components/aui/recipes/transition";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
 import { useTranslation } from "@/i18n";
 
-const CAN_DO = [1, 2, 3, 4, 5, 6] as const;
-const LIMITS = [1, 2, 3, 4, 5, 6] as const;
+const STEPS = [1, 2, 3] as const;
+const DETAILS = [3, 4, 5, 6] as const;
 const EXAMPLES = [1, 2, 3] as const;
 
 /** Example requests: one press fills the composer (`onExample`); nothing is sent. */
@@ -26,23 +29,34 @@ function TarsGuideExamples({ onExample }: { onExample: (text: string) => void })
   </section>;
 }
 
-/** What Tars does and what it will not do, with optional examples: the header's help popover. */
+/** The overview stays short; execution settings are available without crowding it. */
 export function TarsGuide({ onExample }: { onExample?: (text: string) => void }) {
   const { t } = useTranslation(["shell"]);
-  const id = useId();
-  // Examples lead: the popover focuses its first control on open, so the start of the guide stays in view.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   return <div className={sx(styles.root, textWrap.keepAll)} data-tars-guide="">
+    <p className={sx(styles.summary)}>{t("shell:tars.guide.summary")}</p>
+    <ol className={sx(styles.steps)} aria-label={t("shell:tars.guide.stepsTitle")} data-tars-guide-steps="">
+      {STEPS.map((n) => <li key={n}>
+        <strong className={sx(styles.stepTitle)}>{t(`shell:tars.guide.step${n}Title`)}</strong>
+        <p className={sx(styles.text)}>{t(`shell:tars.guide.step${n}Text`)}</p>
+      </li>)}
+    </ol>
     {onExample ? <TarsGuideExamples onExample={onExample} /> : null}
-    <div className={sx(styles.columns)}>
-      <section className={sx(styles.section)} aria-labelledby={`${id}-can`}>
-        <h3 id={`${id}-can`} className={sx(styles.heading)}>{t("shell:tars.guide.canDoTitle")}</h3>
-        <ul className={sx(styles.list)}>{CAN_DO.map((n) => <li key={n}>{t(`shell:tars.guide.canDo${n}`)}</li>)}</ul>
-      </section>
-      <section className={sx(styles.section)} aria-labelledby={`${id}-limits`}>
-        <h3 id={`${id}-limits`} className={sx(styles.heading)}>{t("shell:tars.guide.limitsTitle")}</h3>
-        <ul className={sx(styles.list)}>{LIMITS.map((n) => <li key={n}>{t(`shell:tars.guide.limit${n}`)}</li>)}</ul>
-      </section>
-    </div>
+    <ul className={sx(styles.list)} data-tars-guide-conditions="">
+      <li>{t("shell:tars.guide.limit1")}</li>
+      <li>{t("shell:tars.guide.limit2")}</li>
+    </ul>
+    <CollapsibleRoot open={detailsOpen} onOpenChange={setDetailsOpen}>
+      <CollapsibleTrigger render={<Button variant="ghost" size="sm" />} data-tars-guide-details-toggle="">
+        <ChevronRight aria-hidden className={sx(styles.chevron, transition.transform, detailsOpen && styles.chevronOpen)} />
+        {t("shell:tars.guide.detailsTitle")}
+      </CollapsibleTrigger>
+      <CollapsiblePanel>
+        <ul className={sx(styles.list, styles.details)} data-tars-guide-details="">
+          {DETAILS.map((n) => <li key={n}>{t(`shell:tars.guide.limit${n}`)}</li>)}
+        </ul>
+      </CollapsiblePanel>
+    </CollapsibleRoot>
   </div>;
 }
 
@@ -50,19 +64,26 @@ export function TarsGuide({ onExample }: { onExample?: (text: string) => void })
 export function TarsGuideButton({ onExample }: { onExample?: (text: string) => void }) {
   const { t } = useTranslation(["shell"]);
   const label: string = t("shell:tars.guide.help");
+  const popupRef = useRef<HTMLDivElement>(null);
   return <Popover>
-    <PopoverTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label} title={label} data-tars-guide-open="" />}>
+    <PopoverTrigger render={(props) => <Tooltip content={label}><Button {...props} variant="ghost" size="icon-sm" aria-label={label} data-tars-guide-open="" /></Tooltip>}>
       <CircleHelp />
     </PopoverTrigger>
-    <PopoverContent align="end" className={sx(styles.popover)} aria-label={label}>
+    <PopoverContent ref={popupRef} initialFocus={popupRef} align="end" className={sx(styles.popover)} aria-label={label}>
       <TarsGuide onExample={onExample} />
     </PopoverContent>
   </Popover>;
 }
 
 const styles = stylex.create({
-  root: { display: "flex", flexDirection: "column", gap: vars["--aui-space-20"], minWidth: 0, textAlign: "start" },
-  columns: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 16rem), 1fr))", gap: vars["--aui-space-20"], minWidth: 0 },
+  root: { display: "flex", flexDirection: "column", gap: vars["--aui-space-16"], minWidth: 0, textAlign: "start" },
+  summary: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
+  steps: { listStyleType: "decimal", margin: 0, paddingInlineStart: vars["--aui-space-20"], display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
+  stepTitle: { color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
+  text: { margin: 0 },
+  details: { marginBlockStart: vars["--aui-space-8"] },
+  chevron: { flexShrink: 0 },
+  chevronOpen: { transform: "rotate(90deg)" },
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
   heading: { margin: 0, color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-row"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"] },
   list: {

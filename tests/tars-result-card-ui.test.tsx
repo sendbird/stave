@@ -39,7 +39,7 @@ describe("Tars result card", () => {
     expect(criteria(html)).toEqual(["verifiedReview", "verifiedCheck"]);
     expect(html).toContain("Met · confirmed by review");
     expect(html).toContain("Met · confirmed by a check");
-    expect(html).toContain("Stave ran and saw pass: test");
+    expect(html).toContain("Passed checks run by Stave: test");
     expect(html).toContain("Added the CSV export with a header row");
     expect(html).toContain("3 files changed");
     expect(html).toContain(">+42<");
@@ -56,15 +56,16 @@ describe("Tars result card", () => {
     await applyAppLocale("en");
     const html = render(noticeOf(rowOf("reported")));
     expect(criteria(html)).toEqual(["reported", "reported"]);
-    expect(html.match(/Met · agent&#x27;s report only/g)).toHaveLength(2);
+    expect(html.match(/Reported met · unverified/g)).toHaveLength(2);
     expect(html).not.toContain("confirmed by");
     expect(html).not.toContain("data-tars-result-stave-checks");
     expect(html).not.toContain("data-tars-result-review");
     await applyAppLocale("ko");
     try {
       const ko = render(noticeOf(rowOf("reported")));
-      expect(ko.match(/충족 · 에이전트 보고만 있음/g)).toHaveLength(2);
-      expect(ko).not.toContain("확인");
+      expect(ko.match(/충족 보고 · 확인 안 됨/g)).toHaveLength(2);
+      expect(ko).not.toContain("검사로 확인");
+      expect(ko).not.toContain("리뷰로 확인");
       expect(render(noticeOf(rowOf("verified")))).toContain("충족 · 리뷰로 확인");
     } finally { await applyAppLocale("en"); }
   });
@@ -100,7 +101,7 @@ describe("Tars result card", () => {
     expect(html).toContain('data-tars-result="failed"');
     expect(html).toContain(">Failed<");
     expect(html).toContain('data-state="failed"');
-    expect(html).toContain("The current phase could not start.");
+    expect(html).toContain("The current stage could not start.");
     expect(html).toContain('data-tars-diagnostic=""');
     expect(html).not.toContain("data-tars-result-criterion");
     expect(html).not.toContain('data-tars-result-open="report"');

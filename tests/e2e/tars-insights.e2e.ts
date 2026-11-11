@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 const view = (page: Page) => page.getByTestId("tars-view");
@@ -89,7 +90,7 @@ test.describe("Tars: what it knows and what it spent", () => {
     await edit.focus();
     await page.keyboard.press("Enter");
     await expect(sheet(page, "knows")).toHaveCount(0);
-    await expect(page.getByRole("heading", { name: "Conversation settings" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tars settings" })).toBeVisible();
     await expect(page.getByLabel("Standing instructions")).toHaveValue(/Open every pull request as a draft/);
   });
 
@@ -101,6 +102,11 @@ test.describe("Tars: what it knows and what it spent", () => {
     await expect(body).toHaveAttribute("data-tars-usage-status", "ready");
     await expect(body).toHaveAttribute("data-tars-usage-window", "sevenDays");
     await expect(usage.locator("[data-tars-usage-work]")).toHaveCount(4);
+    const refresh = usage.getByRole("button", { name: "Refresh", exact: true });
+    await refresh.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("Refresh");
+    await refresh.click();
+    await expect(body).toHaveAttribute("data-tars-usage-status", "ready");
     // The Codex turns of the last 7 days report tokens only: no cost figure, no currency.
     await expect(usage.locator('[data-tars-usage-total="cost"]')).toHaveCount(0);
     await expect(usage.locator('[data-tars-usage-total="turns"]')).toHaveText("9");
@@ -132,6 +138,15 @@ test.describe("Tars: what it knows and what it spent", () => {
     const side = view(page).locator("[data-tars-side-view]");
     await expect(side).toBeVisible();
     await expect(side).toContainText("Fix the billing export on empty invoice lists");
+    await side.getByRole("button", { name: "Request", exact: true }).click();
+    const copy = side.getByRole("button", { name: "Copy task instructions", exact: true });
+    await copy.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("Copy task instructions");
+    const close = side.getByRole("button", { name: "Close side view", exact: true });
+    await close.hover();
+    await expect(page.getByRole("tooltip")).toHaveText("Close (Esc)");
+    await close.click();
+    await expect(side).toHaveCount(0);
   });
 
   test("without the usage bridge the view says so instead of showing numbers", async ({ page }) => {
@@ -160,3 +175,114 @@ test.describe("Tars: what it knows and what it spent", () => {
     }
   });
 });
+
+// A tooltip must describe the actual button on keyboard focus as well as hover.
+for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
+  test(`Tars icon hints and concise guide: ${theme} ${lang} ${density}`, async ({ page }) => {
+    const labels = JSON.parse(readFileSync(new URL(`../../src/locales/${lang}/shell.json`, import.meta.url), "utf8")).tars;
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/?stavePreview=tars&tray=true&insights=true&theme=${theme}&lang=${lang}&density=${density}`);
+      await expect(view(page)).toBeVisible();
+      await page.locator("[data-tars-composer]").getByRole("textbox").fill("");
+      await page.evaluate(() => document.fonts.ready);
+      const guide = view(page).locator("[data-tars-guide-open]");
+      for (const label of [labels.guide.help, labels.knows.menu, labels.clear.conversation.button, labels.conversation.settings, labels.close]) {
+        const button = view(page).getByRole("button", { name: label, exact: true });
+        const before = await button.boundingBox();
+        await button.hover();
+        const hint = page.getByRole("tooltip");
+        await expect(hint).toHaveCount(1);
+        await expect(hint).toHaveText(label);
+        await expect(button).not.toHaveAttribute("title");
+        await page.mouse.move(0, 0);
+        await button.focus();
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Shift+Tab");
+        await expect(button).toBeFocused();
+        await expect(hint).toHaveCount(1);
+        await expect(hint).toHaveText(label);
+        const after = await button.boundingBox();
+        expect(after?.width).toBe(before?.width);
+        expect(after?.height).toBe(before?.height);
+        expect(after?.x).toBe(before?.x);
+        expect(after?.y).toBe(before?.y);
+        const popup = await hint.boundingBox();
+        expect(popup!.x).toBeGreaterThanOrEqual(0);
+        expect(popup!.x + popup!.width).toBeLessThanOrEqual(width);
+        await page.keyboard.press("Escape");
+      }
+      await guide.focus();
+      await page.keyboard.press("Enter");
+      const content = page.locator("[data-tars-guide]");
+      await expect(content).toBeVisible();
+      await expect(page.getByRole("dialog", { name: labels.guide.help, exact: true })).toBeFocused();
+      await expect(content).toContainText(labels.guide.summary);
+      await expect(content.locator("[data-tars-guide-steps] > li")).toHaveCount(3);
+      await expect(content.locator("[data-tars-guide-conditions]")).toContainText(labels.guide.limit1);
+      await expect(content.locator("[data-tars-guide-conditions]")).toContainText(labels.guide.limit2);
+      const detailToggle = content.locator("[data-tars-guide-details-toggle]");
+      await expect(detailToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(content.locator("[data-tars-guide-details]")).toHaveCount(0);
+      const overview = await page.getByRole("dialog", { name: labels.guide.help, exact: true }).evaluate((node) => ({
+        scroll: node.scrollHeight, client: node.clientHeight, top: node.scrollTop,
+      }));
+      expect(overview.scroll).toBeLessThanOrEqual(overview.client + 1);
+      expect(overview.top).toBe(0);
+      // The disclosure owns keyboard focus; opening it preserves every execution condition.
+      await detailToggle.focus();
+      await page.keyboard.press("Enter");
+      await expect(detailToggle).toHaveAttribute("aria-expanded", "true");
+      const details = content.locator("[data-tars-guide-details]");
+      for (const n of [3, 4, 5, 6]) await expect(details).toContainText(labels.guide[`limit${n}`]);
+      await expect(details.getByRole("listitem")).toHaveCount(4);
+      await expect(detailToggle).toBeFocused();
+      // Expanded content scrolls inside the popup, never the page or sideways.
+      if (width === 390) {
+        const popup = page.getByRole("dialog", { name: labels.guide.help, exact: true });
+        const documentScroll = await page.evaluate(() => document.documentElement.scrollTop);
+        const last = details.getByRole("listitem").last();
+        await last.scrollIntoViewIfNeeded();
+        const geometry = await popup.evaluate((node) => ({ top: node.scrollTop, bottom: node.getBoundingClientRect().bottom }));
+        expect(geometry.top).toBeGreaterThan(0);
+        expect((await last.boundingBox())!.y + (await last.boundingBox())!.height).toBeLessThanOrEqual(geometry.bottom + 1);
+        expect(await page.evaluate(() => document.documentElement.scrollTop)).toBe(documentScroll);
+      }
+      await expect.poll(() => content.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+      await page.keyboard.press("Space");
+      await expect(detailToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(details).toHaveCount(0);
+      const box = await content.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      const messages = await page.locator("[data-tars-message]").count();
+      await content.getByRole("button", { name: labels.guide.exampleLabel2, exact: true }).click();
+      await expect(page.locator("[data-tars-composer]").getByRole("textbox")).toHaveText(labels.guide.example2);
+      await expect(page.locator("[data-tars-message]")).toHaveCount(messages);
+      await expect(page.locator("[data-tars-composer]").getByRole("textbox")).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(content).toHaveCount(0);
+      await guide.focus();
+      await page.keyboard.press("Enter");
+      await expect(content).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(content).toHaveCount(0);
+      await expect(guide).toBeFocused();
+      // The tooltip trigger must preserve the sheet's open and close handlers.
+      await view(page).getByRole("button", { name: labels.conversation.settings, exact: true }).click();
+      const close = page.getByRole("dialog").getByRole("button", { name: lang === "ko" ? "닫기" : "Close", exact: true });
+      await close.hover();
+      await expect(page.getByRole("tooltip")).toHaveText(lang === "ko" ? "닫기" : "Close");
+      await close.click();
+      await expect(close).toHaveCount(0);
+      if (width === 390) {
+        await view(page).locator("[data-tars-tray-indicator]").click();
+        const closeTray = page.getByRole("dialog").getByRole("button", { name: lang === "ko" ? "닫기" : "Close", exact: true });
+        await closeTray.hover();
+        await expect(page.getByRole("tooltip")).toHaveText(lang === "ko" ? "닫기" : "Close");
+        await closeTray.click();
+        await expect(closeTray).toHaveCount(0);
+      }
+    }
+  });
+}

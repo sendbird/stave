@@ -1110,13 +1110,13 @@
   },
   "tars": {
     "title": "Tars",
-    "description": "Your responsibilities, followed through across workspaces.",
+    "description": "Ask about your work and hand tasks to Tars across workspaces.",
     "identity": "Name and standing instructions",
     "name": "Name",
     "instructions": "Standing instructions",
-    "instructionsHint": "Instructions never grant permissions.",
+    "instructionsHint": "These instructions guide Tars; they do not give it extra permissions.",
     "save": "Save",
-    "delegate": "Delegate a responsibility",
+    "delegate": "Delegate work",
     "outcome": "Outcome",
     "assignment": "What should be done",
     "acceptance": "Done when (one criterion per line)",
@@ -1127,7 +1127,7 @@
     "provider": "Provider",
     "searchProviders": "Search providers",
     "noProviders": "No matching providers",
-    "maxTurns": "Turn limit per work unit, including helpers",
+    "maxTurns": "Turn limit per task, including helpers",
     "priority": "Priority (0–100, higher first)",
     "priorityValue": "Priority {{priority}}",
     "scope": "Tars may create isolated worktrees, execute, repair and review work within this goal. Publishing and external messages require a separate request.",
@@ -1161,8 +1161,8 @@
           "clear": "Tidy up"
         },
         "delegate": {
-          "label": "Fix a flaky test in a new workspace",
-          "prompt": "In the web workspace, fix the flaky date-picker test. Done means its test passes."
+          "label": "Fix a failing test in a new workspace",
+          "prompt": "In the web workspace, fix the date picker test that sometimes fails. Done means the test passes."
         },
         "schedule": {
           "label": "Check a branch every weekday morning",
@@ -1219,7 +1219,7 @@
     "openTask": "Open task",
     "resume": "Resume",
     "pause": "Pause",
-    "cancel": "Cancel responsibility",
+    "cancel": "Cancel work",
     "takeOver": "Take over",
     "handBack": "Hand back",
     "reverify": "Tars will verify this work again before completing it.",
@@ -1235,7 +1235,7 @@
       "outOfScope": "Tars could not confirm which registered workspace this work belongs to.",
       "ownershipLost": "This task is now controlled elsewhere, so Tars cannot continue it. Continue it in its task.",
       "runEnded": "This work has already finished running, so Tars cannot continue it. Open its task to check the result, or cancel this work and ask for new work.",
-      "runHeld": "This work is paused for a reason only its task can clear, such as using all its steps. Open its task to continue it, then hand it back.",
+      "runHeld": "This task is paused by a condition such as its turn limit. Open the task to resolve it, then hand it back to Tars.",
       "storageBusy": "Stave was busy saving other changes, so nothing changed. Try again.",
       "unknown": "Tars could not do this. Check the work’s current state and try again.",
       "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
@@ -1250,10 +1250,10 @@
     },
     "close": "Close Tars",
     "unavailable": "Tars requires the desktop app and its host connection.",
-    "failed": "The request failed. Your saved responsibilities remain available.",
-    "openFailed": "This responsibility’s task could not be opened.",
+    "failed": "The request failed. Your saved work is still available.",
+    "openFailed": "Could not open this task.",
     "retry": "Retry",
-    "loading": "Loading responsibilities…",
+    "loading": "Loading work…",
     "responsibilities": "Responsibilities",
     "empty": "Delegate an outcome with clear completion criteria to begin.",
     "states": {
@@ -1273,8 +1273,8 @@
       "activity": "Activity",
       "activityHint": "Owned work and its current state.",
       "noWork": "No work is running on your behalf yet. Describe an outcome in the conversation to get started.",
-      "settings": "Conversation settings",
-      "settingsDescription": "Changes apply to new messages and work.",
+      "settings": "Tars settings",
+      "settingsDescription": "Save changes for future messages and tasks.",
       "accountLabel": "Account",
       "searchAccounts": "Search accounts",
       "noAccounts": "No matching accounts",
@@ -1298,15 +1298,15 @@
         "handBack": "Hand back {{title}}",
         "acceptCompletion": "Accept {{title}} as done",
         "startNow": "Start {{title}} now",
-        "extend": "Give {{title}} more steps",
-        "retryStage": "Retry the current phase of {{title}}",
-        "skipStage": "Skip the current phase of {{title}}",
-        "signOff": "Approve the waiting phase of {{title}}",
+        "extend": "Give {{title}} more turns",
+        "retryStage": "Retry the current stage of {{title}}",
+        "skipStage": "Skip the current stage of {{title}}",
+        "signOff": "Approve the waiting stage of {{title}}",
         "approve": "Approve a request in {{title}}",
         "deny": "Deny a request in {{title}}",
         "answer": "Answer a question in {{title}}",
         "message": "Send your words to {{title}}",
-        "requestChanges": "Ask for changes to the waiting phase of {{title}}"
+        "requestChanges": "Ask for changes to the waiting stage of {{title}}"
       },
       "states": {
         "queued": "Queued",
@@ -1333,10 +1333,10 @@
           "handBack": "Handed back to Tars",
           "acceptCompletion": "Marked as done",
           "startNow": "Started",
-          "extend": "More steps added",
-          "retryStage": "Phase restarted",
-          "skipStage": "Phase skipped",
-          "signOff": "Phase approved",
+          "extend": "Turn limit increased",
+          "retryStage": "Stage restarted",
+          "skipStage": "Stage skipped",
+          "signOff": "Stage approved",
           "approve": "Request approved",
           "deny": "Request denied",
           "answer": "Answer sent",
@@ -1402,10 +1402,10 @@
         "handBack": "Hand back",
         "acceptCompletion": "Accept as done",
         "startNow": "Start now",
-        "extend": "Add steps",
-        "retryStage": "Retry phase",
-        "skipStage": "Skip phase",
-        "signOff": "Approve phase",
+        "extend": "Add turns",
+        "retryStage": "Retry stage",
+        "skipStage": "Skip stage",
+        "signOff": "Approve stage",
         "approve": "Approve request",
         "deny": "Deny request",
         "answer": "Answer question",
@@ -1447,12 +1447,12 @@
     "execution": {
       "model": "Execution model",
       "auto": "Automatic",
-      "autoDescription": "Stave Auto picks the model for each step of delegated work.",
-      "autoHint": "Stave picks a model for each step; reviews may use another provider.",
+      "autoDescription": "Stave picks a model for each stage of the task.",
+      "autoHint": "Stave chooses the models for the task and its review.",
       "pinnedHint": "All work and helpers use this model.",
-      "systemAccount": "This model runs with the {{provider}} System default account.",
-      "concurrency": "Concurrent responsibilities",
-      "concurrencyHint": "0 starts all eligible independent work. Set a limit to bound resource use; waiting work yields its slot."
+      "systemAccount": "Uses the {{provider}} account set as System default.",
+      "concurrency": "Tasks running at once",
+      "concurrencyHint": "Choose how many tasks Tars can work on at once. 0 adds no limit."
     },
     "agents": {
       "title": "Agents Tars may use",
@@ -1629,7 +1629,7 @@
         "timeline": "Timeline",
         "timelineLabel": "Open the timeline for {{title}}",
         "brief": "Request",
-        "briefLabel": "Open the request and instruction for {{title}}"
+        "briefLabel": "Open task request for {{title}}"
       },
       "branch": "Branch",
       "moveEarlier": "Do first",
@@ -1657,7 +1657,7 @@
       "agentAuto": "The lead agent picks who does this work.",
       "attempt": "Attempt {{attempt}}",
       "stagesPending": "Stages appear once the run starts.",
-      "stagesUnavailable": "Phase details are no longer available here.",
+      "stagesUnavailable": "Stage details are no longer available here.",
       "openStage": "Show {{title}} in Fleet",
       "completion": "Completion",
       "criteriaMet": "{{met}} of {{total}} criteria met",
@@ -1667,12 +1667,12 @@
       "openReview": "Open the findings of {{title}}",
       "openUnmet": "{{title}} cannot continue: open the report's unmet criteria",
       "openReport": "Open the result report",
-      "openBrief": "Open the request and Tars's instruction"
+      "openBrief": "Open task request"
     },
     "live": {
       "lastUpdate": "Last update {{time}}",
       "observed": "updated {{time}}",
-      "betweenTurns": "Waiting to take the next step",
+      "betweenTurns": "Waiting to continue",
       "turnNoStep": "Working · no activity reported yet",
       "turnUnknown": "No activity reported yet",
       "notObserved": "No progress information yet",
@@ -1680,8 +1680,8 @@
       "stale": "No update for {{duration}} · progress may be out of date",
       "staleStep": "Last activity: {{activity}}, {{duration}} ago · progress may be out of date",
       "staleUnknown": "No recent update · progress may be out of date",
-      "stage": "Phase {{position}} of {{total}} · {{title}}",
-      "stageAttempt": "Phase {{position}} of {{total}} · {{title}}, attempt {{attempt}}",
+      "stage": "Stage {{position}} of {{total}} · {{title}}",
+      "stageAttempt": "Stage {{position}} of {{total}} · {{title}}, attempt {{attempt}}",
       "recent": "Recent progress",
       "noRecent": "No progress recorded yet.",
       "stripLabel_one": "{{count}} piece of work running",
@@ -1697,7 +1697,7 @@
       "event": {
         "runStarted": "Work started",
         "turnStarted": "Started working on {{stage}}",
-        "turnFailed": "Could not start the next step",
+        "turnFailed": "Could not continue the task",
         "turnInterrupted": "Work was interrupted",
         "reported": "{{stage}}: agent reported done",
         "reportedBlocked": "{{stage}}: agent reported it cannot continue",
@@ -1714,7 +1714,7 @@
         "userWait": {
           "approval": "Waiting for your approval",
           "question": "Waiting for your answer",
-          "signOff": "Waiting for you to approve this phase"
+          "signOff": "Waiting for you to approve this stage"
         },
         "userWaitEnded": "No longer waiting for you",
         "waitRegistered": "Waiting for an outside event",
@@ -1759,11 +1759,11 @@
         "runtimeChanged": "Paused because the provider settings changed. Resume it to continue with the new settings.",
         "usageLimit": "Paused until the provider’s usage limit resets. It can continue after that.",
         "waitExpired": "Paused because what it was waiting for did not happen in time. Resume it, or tell Tars what to do.",
-        "limitReached": "It used all the steps it was given. Ask Tars to add more steps, or continue the work in its task."
+        "limitReached": "The task reached its turn limit. Ask Tars to add turns, or continue in the task view."
       },
       "stopReason": {
         "taskUnavailable": "Stopped because its task is no longer available. Cancel this work and ask Tars again.",
-        "turnCapReached": "Stopped after using all the steps it was given. Open its task to check the result.",
+        "turnCapReached": "Stopped at its turn limit. Open the task to check the result.",
         "acceptanceUnmet": "Stopped with some completion criteria unmet. Open the report to see what is missing.",
         "expired": "Stopped because it took too long. Open its task to check the result."
       },
@@ -1771,7 +1771,7 @@
       "acceptedWithoutVerification": "You accepted this as done without a Stave-verified check.",
       "workingChangesUnavailable": "The saved copy of your working changes is no longer in the repository, so Tars could not set up this work. Cancel it and ask again.",
       "runCancelled": "This work was cancelled. Changes already made stay.",
-      "turnStartFailed": "The current phase could not start. Ask Tars to retry it, or open its task to check.",
+      "turnStartFailed": "The current stage could not start. Ask Tars to retry it, or open its task to check.",
       "diagnostic": "Technical details"
     },
     "messageFailure": {
@@ -1796,7 +1796,7 @@
       "option": {
         "pause": "Pause",
         "resume": "Resume",
-        "cancel": "Cancel responsibility",
+        "cancel": "Cancel work",
         "takeover": "Take over",
         "handBack": "Hand back",
         "acceptCompletion": "Accept as done",
@@ -1805,10 +1805,10 @@
         "cancelRationale": "Ends its supervision. Changes already made stay.",
         "verifyRationale": "Puts a request for a fresh check in the message box. Nothing runs until you send it.",
         "startNow": "Start now",
-        "extend": "Add steps",
-        "retryStage": "Retry phase",
-        "skipStage": "Skip phase",
-        "signOff": "Approve phase",
+        "extend": "Add turns",
+        "retryStage": "Retry stage",
+        "skipStage": "Skip stage",
+        "signOff": "Approve stage",
         "approve": "Approve",
         "deny": "Deny",
         "answer": "Send answer",
@@ -1847,10 +1847,10 @@
           "handBack": "Hand this work back to Tars?",
           "acceptCompletion": "Accept this work as done?",
           "startNow": "Start this work now?",
-          "extend": "Give this work more steps?",
-          "retryStage": "Retry the current phase?",
-          "skipStage": "Skip the current phase?",
-          "signOff": "Approve the waiting phase?",
+          "extend": "Add more turns to this task?",
+          "retryStage": "Retry the current stage?",
+          "skipStage": "Skip the current stage?",
+          "signOff": "Approve the waiting stage?",
           "approve": "Approve this request?",
           "deny": "Deny this request?",
           "answer": "Send this answer?",
@@ -1879,15 +1879,15 @@
           "handBack": "Tars takes the work back and verifies it again before it counts as done.",
           "acceptCompletion": "Completes it without a Stave-verified check.",
           "startNow": "Tars starts this queued work now, beside work that is already running.",
-          "extend": "The work gets 10 more steps and continues where it stopped.",
-          "retryStage": "The phase that cannot continue or stopped making progress starts over.",
-          "skipStage": "The work moves on without finishing the current phase. This cannot be undone.",
-          "signOff": "The phase waiting for your approval starts.",
+          "extend": "Adds 10 turns to the limit so the task can continue.",
+          "retryStage": "The stage that cannot continue or stopped making progress starts over.",
+          "skipStage": "The work moves on without finishing the current stage. This cannot be undone.",
+          "signOff": "The stage waiting for your approval starts.",
           "approve": "The tool runs once with this request. This cannot be undone.",
           "deny": "The tool call is refused; the run continues without it.",
           "answer": "The question in the task gets this answer.",
           "message": "Your words go to the task. They are delivered when the task can receive them.",
-          "requestChanges": "The previous phase runs again with this feedback, then the phases after it."
+          "requestChanges": "The previous stage runs again with this feedback, then the stages after it."
         },
         "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
         "notNow": "Not now",
@@ -1905,8 +1905,8 @@
           "acceptCompletion": "Accept as done",
           "startNow": "Start now",
           "extend": "Add turns",
-          "retryStage": "Retry step",
-          "skipStage": "Skip step",
+          "retryStage": "Retry stage",
+          "skipStage": "Skip stage",
           "signOff": "Sign off",
           "approve": "Approve",
           "deny": "Deny",
@@ -1928,7 +1928,7 @@
     },
     "side": {
       "kinds": {
-        "brief": "Request and instruction",
+        "brief": "Task request",
         "report": "Result report",
         "changes": "Changes",
         "timeline": "Run timeline",
@@ -1955,19 +1955,19 @@
         "sentAt": "Sent {{time}}",
         "answered": "Sent {{time}} · your choice on Tars's question: {{question}}",
         "requestMissing": "This older work did not save your original message.",
-        "instruction": "Tars's instruction",
-        "instructionHint": "What Tars wrote for this work. The run receives it together with your message.",
-        "assignment": "Instruction as saved",
-        "assignmentHint": "The full instruction the run received; older work did not save your message separately.",
-        "context": "Attached in full",
-        "contextHint": "Too long for the run's instruction, so the run's lead receives it whole as context on every turn.",
+        "instruction": "Instructions from Tars",
+        "instructionHint": "Tars sends these instructions and your message to the agent doing the work.",
+        "assignment": "Saved task instructions",
+        "assignmentHint": "The full instructions sent to the agent. This older task did not save your message separately.",
+        "context": "Additional reference text",
+        "contextHint": "This full reference text accompanies every instruction sent to the agent leading the task.",
         "attachments_one": "{{count}} attachment",
         "attachments_other": "{{count}} attachments",
-        "attachmentsHint": "Files and images from your message. The run's lead receives them with its first turn.",
+        "attachmentsHint": "Files and images you sent with the request. The lead agent receives them when the task starts.",
         "criteria_one": "{{count}} completion criterion",
         "criteria_other": "{{count}} completion criteria",
         "copyRequest": "Copy your message",
-        "copyInstruction": "Copy the instruction",
+        "copyInstruction": "Copy task instructions",
         "copyContext": "Copy the attached text",
         "status": {
           "loading": "Loading the saved request…",
@@ -2041,10 +2041,10 @@
         "askCount_one": "Ask about {{count}} line",
         "askCount_other": "Ask about {{count}} lines",
         "askHint": "Quote the selected lines into the message box. Nothing is sent.",
-        "selectHint": "Select lines in the diff, then choose Ask about this.",
+        "selectHint": "Select changed lines, then choose Ask about this.",
         "quoteHeader": "About {{path}}, lines {{range}}:",
         "quoteHeaderRemoved": "About {{path}}, removed lines {{range}} (before the change):",
-        "live": "The execution workspace as it is now, read live; it is not frozen with the report.",
+        "live": "Shows the task's current files. They may differ from the files used for the saved report.",
         "refresh": "Refresh"
       }
     },
@@ -2058,10 +2058,10 @@
         "title": "Completion criteria",
         "verifiedCheck": "Met · confirmed by a check",
         "verifiedReview": "Met · confirmed by review",
-        "reported": "Met · agent's report only",
+        "reported": "Reported met · unverified",
         "unmet": "Not met",
         "unverified": "Not confirmed",
-        "staveChecks": "Stave ran and saw pass: {{checks}}",
+        "staveChecks": "Passed checks run by Stave: {{checks}}",
         "notReported": "Not reported"
       },
       "changes_one": "{{count}} file changed",
@@ -2139,27 +2139,28 @@
     },
     "guide": {
       "help": "How Tars works",
-      "canDoTitle": "What Tars can do",
-      "limitsTitle": "Limits",
-      "examplesTitle": "Try asking",
-      "canDo1": "Answers questions about your work from what Stave observed, even before you add a repository.",
-      "canDo2": "Turns an explicit request into bounded work in a registered workspace, with acceptance criteria.",
-      "canDo3": "Runs it with an agent team in a new workspace and branch, then reviews and verifies it.",
-      "canDo4": "Asks you to decide with a card you answer by click, number key or a short word.",
-      "canDo5": "Follows up by itself when work blocks, asks you or cannot be verified.",
-      "canDo6": "Shows each result's report, changes, timeline and review beside the conversation.",
-      "limit1": "Commits, pushes and opens a draft pull request only after you confirm its card each time; never merges or deploys.",
-      "limit2": "Works only while Stave is open and this computer is awake.",
-      "limit3": "Starts independent work concurrently. Set Concurrent responsibilities in Settings to add a limit; 0 adds no cap.",
-      "limit4": "Starts from the workspace's branch unless you turn on Include my working changes for that message; ignored files are never included.",
-      "limit5": "Uses Claude Code or Codex, and only saved agents you allowed in settings.",
-      "limit6": "Calls work done only with a check Stave saw pass or a passed review; otherwise it asks you.",
-      "example1": "What is running right now, and does anything need me?",
-      "example2": "In the web workspace, fix the flaky date-picker test. Done means its test passes.",
-      "example3": "Pause the date-picker work and show me what changed.",
-      "exampleLabel1": "What's running now?",
-      "exampleLabel2": "Fix a flaky test",
-      "exampleLabel3": "Pause and show changes"
+      "summary": "Ask about your work or give Tars a task.",
+      "stepsTitle": "How a task moves forward",
+      "step1Title": "Give a task",
+      "step1Text": "Name the work, workspace and what counts as done.",
+      "step2Title": "Follow progress",
+      "step2Text": "Tars works in a separate workspace and asks when it needs your input.",
+      "step3Title": "Check the result",
+      "step3Text": "Read the report and changes beside the conversation.",
+      "detailsTitle": "More about running tasks",
+      "examplesTitle": "Try a request",
+      "limit1": "Each commit, push or draft PR needs your confirmation. Tars never merges or deploys.",
+      "limit2": "Keep Stave open and this computer awake.",
+      "limit3": "Tasks can run at the same time. Set a limit in Settings; 0 adds no task limit.",
+      "limit4": "Work starts from the workspace branch. Turn on Include my working changes to include edits you haven't committed. Files ignored by Git are not copied.",
+      "limit5": "Uses Claude Code or Codex, and only saved agents you allow.",
+      "limit6": "Stave must confirm that a check passed, or a reviewer must approve the result. Otherwise Tars asks you.",
+      "example1": "What is running, and what needs my input?",
+      "example2": "In the web workspace, fix the date picker test that sometimes fails. Done means the test passes.",
+      "example3": "Pause the date picker test task and show me the changes.",
+      "exampleLabel1": "Check progress",
+      "exampleLabel2": "Fix a failing test",
+      "exampleLabel3": "Pause and see changes"
     },
     "publish": {
       "open": "Create draft PR",
@@ -2191,8 +2192,8 @@
         "decline": "Decline",
         "enterKey": "Enter",
         "escKey": "Esc",
-        "keysHint": "Enter opens the draft pull request. Esc declines.",
-        "bodyHint": "Built by Stave from the frozen report and sent as shown.",
+        "keysHint": "Enter confirms the commit, push and draft PR creation. Esc cancels this request.",
+        "bodyHint": "Drafted from the report saved when the task ended. This description is sent as shown.",
         "bodyView": {
           "label": "Show the pull request body as",
           "preview": "Preview",
@@ -2283,7 +2284,7 @@
     "instructionsEmptyHint": "Without standing instructions, Tars follows only its built-in rules. The default is a starting point you can edit.",
     "retention": {
       "label": "Keep ended work in the panel",
-      "hint": "Done cards and outputs of ended work leave the panel after this period. Nothing is deleted: Fleet and the work’s task keep it, and work whose draft PR is not finished stays.",
+      "hint": "Hides ended work from this panel after the selected time. It stays in Fleet and its task. Work with an unfinished draft PR stays visible.",
       "never": "Until I clear it",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days"
@@ -2328,8 +2329,8 @@
       "conversation": {
         "button": "Clear conversation",
         "title": "Clear the conversation?",
-        "description_one": "{{count}} message leaves this view, and Tars starts its recent memory fresh. Nothing is deleted: your work, decisions waiting for you and records stay, and Restore brings the conversation back.",
-        "description_other": "{{count}} messages leave this view, and Tars starts its recent memory fresh. Nothing is deleted: your work, decisions waiting for you and records stay, and Restore brings the conversation back.",
+        "description_one": "Hide {{count}} message from this view and from the conversation history Tars reads. Your work, pending decisions and records stay. Nothing is deleted; Restore brings the conversation back.",
+        "description_other": "Hide {{count}} messages from this view and from the conversation history Tars reads. Your work, pending decisions and records stay. Nothing is deleted; Restore brings the conversation back.",
         "confirm": "Clear conversation"
       },
       "lane": {
@@ -2391,23 +2392,19 @@
       "level": {
         "careful": {
           "label": "Careful",
-          "description": "Tars proposes, and you confirm every action that starts or reorders work."
+          "description": "Ask before starting tasks or changing their queue order."
         },
         "balanced": {
           "label": "Balanced",
-          "description": "The default. Tars starts the work you ask for; continuing, answering for you or ending work waits for you."
+          "description": "Default. Start tasks you request; ask before resuming, replying for you or ending work."
         },
         "handsOff": {
           "label": "Hands-off",
-          "description": "When you ask, Tars also resumes, retries and extends its own work at once, and leaves a record."
+          "description": "Also resume, retry and add turns when you ask. Each action is recorded."
         }
       },
       "table": {
         "label": "What Tars does at the {{level}} level",
-        "column": {
-          "when": "When Tars proposes it",
-          "actions": "Actions"
-        },
         "row": {
           "auto": "Does on its own",
           "confirm": "Asks you first",
@@ -2425,16 +2422,16 @@
         "takeover": "hand work over to you",
         "deny": "deny a tool request",
         "resume": "resume work",
-        "extend": "give work more steps",
-        "retryStage": "retry a phase",
+        "extend": "add turns to a task",
+        "retryStage": "retry a stage",
         "handBack": "take back work you took over",
-        "signOff": "approve a waiting phase",
+        "signOff": "approve a waiting stage",
         "answer": "answer a question in a task",
         "message": "send your words to a task",
-        "requestChanges": "ask for changes to a phase",
+        "requestChanges": "ask for changes to a stage",
         "clear": "clear the conversation or lists",
         "cancel": "cancel work",
-        "skipStage": "skip a phase",
+        "skipStage": "skip a stage",
         "acceptCompletion": "accept a completion Stave could not verify",
         "approve": "approve a tool request",
         "publish": "commit, push and open a draft pull request"
@@ -2448,10 +2445,10 @@
         "spendMoney": "spend money",
         "contactOthers": "message other people"
       },
-      "footnote": "A level never applies to what Tars starts by itself: after an automatic follow-up it can only ask, show a view or propose something for you to confirm.",
+      "footnote": "When Tars checks on work without a message from you, it can only ask questions, open views or request your confirmation.",
       "never": {
         "title": "Never do",
-        "hint": "Rules in your own words. Tars is told to treat them as hard limits, and Stave asks you first when a proposed action names a rule's repository, branch or action. They guide Tars's decisions; Stave does not block anything because of them.",
+        "hint": "Add rules for what Tars must avoid. Matching proposals require confirmation; rules do not automatically block actions.",
         "placeholder": "For example: never touch production branches",
         "inputLabel": "New rule",
         "add": "Add rule",
@@ -2488,13 +2485,14 @@
           "delegate": "Start work",
           "reprioritize": "Change priority"
         }
-      }
+      },
+      "detailsTitle": "Actions and confirmations"
     },
     "knows": {
       "menu": "Knowledge and usage",
       "open": "What Tars knows",
       "title": "What Tars knows",
-      "description": "Everything Tars carries from one message to the next, and where each part comes from.",
+      "description": "See the instructions and saved information available to Tars and its tasks.",
       "edit": "Edit",
       "source": {
         "you": "You wrote this",
@@ -2506,7 +2504,7 @@
       "savedAt": "Last saved {{time}}",
       "neverSaved": "Never saved",
       "everywhere": {
-        "title": "Everywhere",
+        "title": "All conversations and tasks",
         "hint": "Applies to every message and to all work."
       },
       "instructions": {
@@ -2537,13 +2535,13 @@
       },
       "memory": {
         "title": "Repository memory",
-        "use": "Tars does not read these itself. The tasks it starts here receive the relevant ones, at most {{max}} per turn.",
+        "use": "These memories go to tasks in this repository, not to the Tars conversation. Each request to the agent includes up to {{max}} relevant memories.",
         "empty": "No memories are saved for this repository.",
         "off": "Memory is turned off for this repository, so its tasks receive none.",
         "used_one": "{{count}} memory in use",
         "used_other": "{{count}} memories in use",
         "unused": "Not used yet",
-        "unusedHint": "Candidates waiting for your review, and memories not confirmed for a long time.",
+        "unusedHint": "Memories awaiting review, or not checked recently.",
         "showMore_one": "Show {{count}} more",
         "showMore_other": "Show {{count}} more",
         "loading": "Reading memories…",
@@ -2560,7 +2558,7 @@
     "usage": {
       "open": "Usage",
       "title": "Usage",
-      "description": "What the work Tars started spent, as the providers reported it. Nothing is estimated.",
+      "description": "Tokens, costs and time reported for tasks started by Tars. Estimates are not included.",
       "period": {
         "label": "Period",
         "today": "Today",
@@ -2587,14 +2585,14 @@
       "turns_one": "{{count}} turn",
       "turns_other": "{{count}} turns",
       "modelNotRecorded": "Model not recorded",
-      "empty": "No turns ran in this period.",
+      "empty": "No task activity in this period.",
       "replies_one": "Tars itself replied {{count}} time in this period. The tokens of its own replies are not recorded.",
       "replies_other": "Tars itself replied {{count}} times in this period. The tokens of its own replies are not recorded.",
       "repliesUnread": "Tars's own replies could not be counted. Their tokens are not recorded.",
-      "helpers": "Turns of helper tasks that a run starts are not counted.",
-      "truncated": "There were more turns than one report reads, so these totals are a lower bound.",
-      "omittedWorks_one": "{{count}} older piece of work was not read.",
-      "omittedWorks_other": "{{count}} older pieces of work were not read.",
+      "helpers": "Turns from helper tasks are not included.",
+      "truncated": "Some activity was not included. Actual usage may be higher than these totals.",
+      "omittedWorks_one": "{{count}} older task was not included.",
+      "omittedWorks_other": "{{count}} older tasks were not included.",
       "unavailable": "Usage cannot be read here.",
       "loadFailed": "Usage could not be read.",
       "loading": "Reading usage…",
@@ -2642,7 +2640,7 @@
           "next": "Next runs",
           "was": "Now"
         },
-        "startsPaused": "A new schedule is saved paused, so these runs happen only once it is on. Create keeps it paused until you turn it on; Create and turn on starts it now.",
+        "startsPaused": "Create saves the schedule paused. Create and turn on enables it to run at the times shown above.",
         "pausedNote": "This schedule is paused. It runs at these times once you turn it on.",
         "runNote": "Each run starts a new task in this workspace and asks you before risky actions. Schedules run only while Stave is open; a run missed while it was closed happens once when it opens.",
         "loading": "Reading the schedule…",
@@ -2727,6 +2725,14 @@
       "position": "Waiting · {{position}} of {{count}}",
       "previous": "Previous waiting item",
       "next": "Next waiting item"
+    },
+    "maxTurnsHint": "A turn is one request for an agent to work. The limit includes the lead agent and its helpers.",
+    "settings": {
+      "tabsLabel": "Tars settings categories",
+      "general": "General",
+      "models": "Models",
+      "work": "Work",
+      "limits": "Work limits"
     }
   }
 }

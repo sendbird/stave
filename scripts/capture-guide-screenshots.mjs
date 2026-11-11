@@ -623,14 +623,15 @@ const SHOTS = [
   },
   {
     name: "model-picker",
-    async capture({ page, locale, file }) {
-      await openApp(page, locale);
-      await quietChrome(page);
-      await page.evaluate(() => window.dispatchEvent(new CustomEvent("stave:open-model-selector", { detail: {} })));
-      const selector = page.locator('[role="dialog"]').filter({ has: page.locator('[role="tablist"]') }).last();
+    async capture({ page, locale, file, t }) {
+      // Render the shipping selector directly; the shell's session restore is
+      // independent of the model-row contract this image documents.
+      await openPreview(page, locale, "model-auto-tab&theme=dark");
+      await page.locator('[data-model-effort-control] button').first().click();
+      const selector = page.getByRole('dialog', { name: await t('composer:modelEffortSelector.ariaLabel3'), exact: true });
       await selector.waitFor();
       await settle(page);
-      await save(page, null, file, { clip: await unionClip(page, [selector, page.getByTestId("composer-workspace-bar")], 16, { top: 2 }) });
+      await save(page, selector, file, { padding: 16 });
     },
   },
   {

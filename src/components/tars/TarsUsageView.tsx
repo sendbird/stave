@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "@/i18n";
@@ -115,7 +116,7 @@ export function TarsUsageView({ state, onReload, onOpenWork }: { state: TarsUsag
         onValueChange={(value) => { const next = value[0] as TarsUsageWindow | undefined; if (next) setWindow(next); }} />
       {state.status === "ready" ? <div className={sx(styles.toolbarEnd)}>
         <span className={sx(styles.note)}>{t("shell:tars.usage.asOf", { time: formatDateTime(state.report.generatedAt) })}</span>
-        <Button type="button" variant="ghost" size="icon-sm" disabled={state.refreshing} aria-label={t("shell:tars.usage.refresh")} title={t("shell:tars.usage.refresh")} onClick={onReload}><RefreshCw aria-hidden /></Button>
+        <Tooltip content={t("shell:tars.usage.refresh")}><Button type="button" variant="ghost" size="icon-sm" disabled={state.refreshing} focusableWhenDisabled aria-label={t("shell:tars.usage.refresh")} onClick={onReload}><RefreshCw aria-hidden /></Button></Tooltip>
       </div> : null}
     </div>
     {state.status === "loading" ? <p className={sx(styles.note)} role="status">{t("shell:tars.usage.loading")}</p> : null}

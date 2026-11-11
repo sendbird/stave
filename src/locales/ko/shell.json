@@ -1104,13 +1104,13 @@
   },
   "tars": {
     "title": "Tars",
-    "description": "여러 워크스페이스에 걸친 일을 맡아 끝까지 확인합니다.",
+    "description": "여러 워크스페이스의 진행 상황을 묻고 일을 맡길 수 있습니다.",
     "identity": "이름과 상시 지침",
     "name": "이름",
     "instructions": "상시 지침",
-    "instructionsHint": "지시는 실행 권한을 부여하지 않습니다.",
+    "instructionsHint": "Tars의 작업 방향을 알려 주는 지침이며, 실행 권한을 추가하지는 않습니다.",
     "save": "저장",
-    "delegate": "책임 맡기기",
+    "delegate": "작업 맡기기",
     "outcome": "원하는 결과",
     "assignment": "해야 할 일",
     "acceptance": "완료 조건 (한 줄에 하나씩)",
@@ -1121,7 +1121,7 @@
     "provider": "프로바이더",
     "searchProviders": "프로바이더 검색",
     "noProviders": "일치하는 프로바이더가 없습니다",
-    "maxTurns": "작업당 턴 한도(도우미 포함)",
+    "maxTurns": "작업당 턴 한도(보조 에이전트 포함)",
     "priority": "우선순위 (0–100, 높을수록 먼저)",
     "priorityValue": "우선순위 {{priority}}",
     "scope": "이 목표 안에서 독립 워크트리 생성, 실행, 수정, 검수를 자동으로 진행합니다. 게시와 외부 메시지 전달은 별도 요청이 필요합니다.",
@@ -1152,8 +1152,8 @@
           "clear": "정리"
         },
         "delegate": {
-          "label": "새 워크스페이스에서 불안정한 테스트 고치기",
-          "prompt": "web 워크스페이스에서 불안정한 date-picker 테스트를 고쳐 줘. 그 테스트가 통과하면 완료야."
+          "label": "새 워크스페이스에서 실패하는 테스트 수정",
+          "prompt": "web 워크스페이스에서 가끔 실패하는 날짜 선택기 테스트를 고쳐 줘. 테스트가 통과하면 완료야."
         },
         "schedule": {
           "label": "평일 아침마다 브랜치 확인하기",
@@ -1206,10 +1206,10 @@
         "none": "등록된 저장소가 아직 없습니다. 사이드바의 ‘{{action}}’ 버튼으로 추가해 주세요. 그 전에는 {{name}}에게 질문만 할 수 있고 일을 맡길 수는 없습니다."
       }
     },
-    "openTask": "Task 열기",
+    "openTask": "작업 열기",
     "resume": "재개",
     "pause": "일시 정지",
-    "cancel": "책임 취소",
+    "cancel": "작업 취소",
     "takeOver": "직접 맡기",
     "handBack": "다시 맡기기",
     "reverify": "완료하기 전에 Tars가 이 작업을 다시 검증합니다.",
@@ -1223,9 +1223,9 @@
       "alreadyTakenOver": "이미 직접 맡은 작업입니다.",
       "notTakenOver": "직접 맡은 작업만 다시 맡길 수 있습니다.",
       "outOfScope": "이 작업이 어느 등록된 워크스페이스에 속하는지 Tars가 확인하지 못했습니다.",
-      "ownershipLost": "이 Task를 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 Task에서 계속하세요.",
-      "runEnded": "작업 실행이 이미 끝나 Tars가 이어서 진행할 수 없습니다. Task를 열어 결과를 확인하거나, 이 작업을 취소하고 새 작업을 요청하세요.",
-      "runHeld": "진행 횟수를 모두 쓴 경우처럼 Task에서만 풀 수 있는 이유로 작업이 멈춰 있습니다. Task를 열어 계속 진행한 뒤 다시 맡기세요.",
+      "ownershipLost": "이 작업을 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 작업에서 계속하세요.",
+      "runEnded": "작업 실행이 이미 끝나 Tars가 이어서 진행할 수 없습니다. 작업을 열어 결과를 확인하거나, 이 작업을 취소하고 새 작업을 요청하세요.",
+      "runHeld": "턴 한도처럼 작업 화면에서 해결해야 하는 이유로 멈췄습니다. 작업을 열어 해결한 뒤 Tars에게 다시 맡기세요.",
       "storageBusy": "Stave가 다른 변경을 저장하느라 바빠 아무것도 바뀌지 않았습니다. 다시 시도하세요.",
       "unknown": "Tars가 이 동작을 하지 못했습니다. 작업의 현재 상태를 확인하고 다시 시도하세요.",
       "notAcceptable": "Stave가 완료를 확인하지 못한 작업만 완료로 인정할 수 있습니다.",
@@ -1233,17 +1233,17 @@
       "notQueued": "대기 중인 작업만 대기열에서 순서를 바꿀 수 있습니다.",
       "queueEdge": "이미 대기열의 그쪽 끝에 있는 작업입니다.",
       "notStartable": "아직 시작하지 않은 대기 중인 작업만 지금 시작할 수 있습니다.",
-      "runRefused": "작업이 지금은 이 동작을 할 수 없습니다. Task를 열어 무엇을 기다리는지 확인하세요.",
+      "runRefused": "작업이 지금은 이 동작을 할 수 없습니다. 작업을 열어 무엇을 기다리는지 확인하세요.",
       "resumeFirst": "이 작업은 일시 정지되어 있습니다. 먼저 재개한 뒤 다시 시도하세요.",
-      "requestUnavailable": "그 요청은 더 이상 Task에서 기다리고 있지 않습니다. Task를 확인하거나 Tars에게 다시 요청하세요.",
-      "taskBusy": "Task가 지금 진행 중입니다. Task에서 직접 말하거나, 진행이 끝난 뒤 다시 요청하세요."
+      "requestUnavailable": "그 요청은 더 이상 작업에서 기다리고 있지 않습니다. 작업을 확인하거나 Tars에게 다시 요청하세요.",
+      "taskBusy": "작업이 지금 진행 중입니다. 작업에서 직접 말하거나, 진행이 끝난 뒤 다시 요청하세요."
     },
     "close": "Tars 닫기",
     "unavailable": "Tars는 데스크톱 앱과 호스트 연결이 필요합니다.",
-    "failed": "요청에 실패했습니다. 저장된 책임 목록은 유지됩니다.",
-    "openFailed": "이 책임의 Task를 열지 못했습니다.",
+    "failed": "요청에 실패했습니다. 저장된 작업은 그대로 유지됩니다.",
+    "openFailed": "이 작업을 열지 못했습니다.",
     "retry": "다시 시도",
-    "loading": "책임 목록을 불러오는 중…",
+    "loading": "맡긴 일을 불러오는 중…",
     "responsibilities": "맡긴 일",
     "empty": "원하는 결과와 명확한 완료 조건을 입력해 일을 맡겨 주세요.",
     "states": {
@@ -1263,8 +1263,8 @@
       "activity": "활동",
       "activityHint": "맡긴 일과 현재 진행 상태입니다.",
       "noWork": "아직 맡긴 일이 없습니다. 대화에서 원하는 결과를 이야기해 주세요.",
-      "settings": "대화 설정",
-      "settingsDescription": "변경한 설정은 새 메시지와 작업에 적용됩니다.",
+      "settings": "Tars 설정",
+      "settingsDescription": "저장한 설정은 새 메시지와 작업부터 적용됩니다.",
       "accountLabel": "계정",
       "searchAccounts": "계정 검색",
       "noAccounts": "일치하는 계정이 없습니다.",
@@ -1288,7 +1288,7 @@
         "handBack": "{{title}} 다시 맡기기",
         "acceptCompletion": "{{title}} 완료로 인정",
         "startNow": "{{title}} 지금 시작",
-        "extend": "{{title}}에 진행 횟수 추가",
+        "extend": "{{title}}의 턴 한도 늘리기",
         "retryStage": "{{title}}의 현재 단계 다시 시도",
         "skipStage": "{{title}}의 현재 단계 건너뛰기",
         "signOff": "{{title}}의 대기 중인 단계 승인",
@@ -1323,7 +1323,7 @@
           "handBack": "Tars에게 다시 맡김",
           "acceptCompletion": "완료로 처리됨",
           "startNow": "시작됨",
-          "extend": "진행 횟수 추가됨",
+          "extend": "턴 한도 늘림",
           "retryStage": "단계 다시 시작됨",
           "skipStage": "단계 건너뜀",
           "signOff": "단계 승인됨",
@@ -1392,14 +1392,14 @@
         "handBack": "다시 맡기기",
         "acceptCompletion": "완료 인정",
         "startNow": "지금 시작",
-        "extend": "진행 횟수 추가",
+        "extend": "턴 한도 늘리기",
         "retryStage": "단계 다시 시도",
         "skipStage": "단계 건너뛰기",
         "signOff": "단계 승인",
         "approve": "요청 승인",
         "deny": "요청 거절",
         "answer": "질문 답변",
-        "message": "Task에 전달",
+        "message": "작업에 전달",
         "requestChanges": "변경 요청"
       },
       "move": {
@@ -1429,7 +1429,7 @@
         "pending": "되돌리는 중…",
         "done": "되돌림",
         "unsupported": "이 기록은 되돌릴 수 없습니다.",
-        "stale": "작업이나 큐가 변경되어 되돌릴 수 없습니다. 이후 변경은 그대로 유지됩니다.",
+        "stale": "작업이나 대기열가 변경되어 되돌릴 수 없습니다. 이후 변경은 그대로 유지됩니다.",
         "outOfScope": "Tars가 이 워크스페이스에 더 이상 접근할 수 없습니다.",
         "failed": "되돌리기 결과를 확인하지 못했습니다. 다시 시도해 주세요."
       }
@@ -1437,12 +1437,12 @@
     "execution": {
       "model": "실행 모델",
       "auto": "자동",
-      "autoDescription": "맡긴 작업의 단계마다 Stave Auto가 모델을 고릅니다.",
-      "autoHint": "Stave가 단계마다 모델을 고르며, 리뷰는 다른 프로바이더에서 실행할 수 있습니다.",
+      "autoDescription": "작업 단계마다 Stave가 사용할 모델을 고릅니다.",
+      "autoHint": "작업과 리뷰에 사용할 모델을 Stave가 고릅니다.",
       "pinnedHint": "모든 작업과 도우미가 이 모델을 사용합니다.",
-      "systemAccount": "이 모델은 {{provider}}의 시스템 기본 계정으로 실행합니다.",
+      "systemAccount": "{{provider}}의 시스템 기본 계정을 사용합니다.",
       "concurrency": "동시에 실행할 작업 수",
-      "concurrencyHint": "0이면 실행 가능한 독립 작업을 모두 시작합니다. 자원 사용을 제한하려면 한도를 설정하세요. 응답을 기다리는 작업은 자리를 내어줍니다."
+      "concurrencyHint": "동시에 진행할 작업 수를 정합니다. 0이면 Tars가 별도 한도를 두지 않습니다."
     },
     "agents": {
       "title": "Tars가 쓸 수 있는 에이전트",
@@ -1515,7 +1515,7 @@
       "stagesDone": "{{total}}단계 중 {{finished}}단계 완료",
       "progressLabel": "단계 진행률",
       "turnsLeft_other": "남은 턴 {{count}}",
-      "helpers_other": "보조 Agent {{count}}개 작업 중",
+      "helpers_other": "보조 에이전트 {{count}}개 작업 중",
       "runPending": "실행 세부 정보를 아직 불러오지 않았습니다.",
       "attention": {
         "decision": "Tars 결정 대기",
@@ -1532,14 +1532,14 @@
         "answerInConversation": "대화에서 답하세요.",
         "startNow": "Tars가 대기 중인 이 작업을 지금 시작하자고 제안합니다.",
         "extend": "Tars가 이 실행에 턴을 더 주자고 제안합니다.",
-        "retryStage": "Tars가 현재 스테이지를 다시 시도하자고 제안합니다.",
-        "skipStage": "Tars가 현재 스테이지를 건너뛰자고 제안합니다.",
-        "signOff": "Tars가 대기 중인 스테이지를 승인하자고 제안합니다.",
-        "approve": "Tars가 이 작업 Task의 요청을 승인하자고 제안합니다.",
-        "deny": "Tars가 이 작업 Task의 요청을 거절하자고 제안합니다.",
-        "answer": "Tars가 이 작업 Task의 질문에 답을 제안합니다.",
-        "message": "Tars가 내 말을 이 작업 Task에 전달하자고 제안합니다.",
-        "requestChanges": "Tars가 대기 중인 스테이지에 변경을 요청하자고 제안합니다."
+        "retryStage": "Tars가 현재 단계를 다시 시도하자고 제안합니다.",
+        "skipStage": "Tars가 현재 단계를 건너뛰자고 제안합니다.",
+        "signOff": "Tars가 대기 중인 단계를 승인하자고 제안합니다.",
+        "approve": "Tars가 이 작업 작업의 요청을 승인하자고 제안합니다.",
+        "deny": "Tars가 이 작업 작업의 요청을 거절하자고 제안합니다.",
+        "answer": "Tars가 이 작업 작업의 질문에 답을 제안합니다.",
+        "message": "Tars가 내 말을 이 작업 작업에 전달하자고 제안합니다.",
+        "requestChanges": "Tars가 대기 중인 단계에 변경을 요청하자고 제안합니다."
       },
       "blockedDetail": "Tars가 이 작업을 끝내지 못했습니다. 확인한 뒤 어떻게 할지 정하세요.",
       "showInFleet": "Fleet에서 보기",
@@ -1558,8 +1558,8 @@
         "acceptCompletion": "완료 인정 확인",
         "startNow": "지금 시작 확인",
         "extend": "턴 추가 확인",
-        "retryStage": "스테이지 다시 시도 확인",
-        "skipStage": "스테이지 건너뛰기 확인",
+        "retryStage": "단계 다시 시도 확인",
+        "skipStage": "단계 건너뛰기 확인",
         "signOff": "승인 확인",
         "approve": "승인 확인",
         "deny": "거절 확인",
@@ -1611,7 +1611,7 @@
         "timeline": "타임라인",
         "timelineLabel": "{{title}} 타임라인 열기",
         "brief": "요청",
-        "briefLabel": "{{title}}의 요청과 위임 지시 열기"
+        "briefLabel": "{{title}} 작업 요청 열기"
       },
       "branch": "브랜치",
       "moveEarlier": "먼저 하기",
@@ -1648,12 +1648,12 @@
       "openReview": "{{title}}의 발견 사항 열기",
       "openUnmet": "{{title}} 진행 불가: 보고서의 미충족 기준 열기",
       "openReport": "결과 보고서 열기",
-      "openBrief": "요청과 Tars의 위임 지시 열기"
+      "openBrief": "작업 요청 열기"
     },
     "live": {
       "lastUpdate": "{{time}} 업데이트",
       "observed": "{{time}} 업데이트",
-      "betweenTurns": "다음 진행을 기다리는 중",
+      "betweenTurns": "계속 진행하기 위해 대기 중",
       "turnNoStep": "진행 중 · 아직 보고된 활동 없음",
       "turnUnknown": "아직 보고된 활동 없음",
       "notObserved": "아직 진행 정보 없음",
@@ -1673,7 +1673,7 @@
       "event": {
         "runStarted": "작업 시작됨",
         "turnStarted": "{{stage}} 진행 시작",
-        "turnFailed": "다음 진행을 시작하지 못함",
+        "turnFailed": "작업을 이어서 진행하지 못함",
         "turnInterrupted": "진행이 중단됨",
         "reported": "{{stage}}: 에이전트가 완료 보고",
         "reportedBlocked": "{{stage}}: 에이전트가 진행 불가 보고",
@@ -1711,43 +1711,43 @@
       "label": "{{name}}, {{status}}"
     },
     "detail": {
-      "waitingForUser": "Task가 답변이나 승인을 기다리고 있습니다.",
+      "waitingForUser": "작업이 답변이나 승인을 기다리고 있습니다.",
       "runPaused": "작업이 일시 정지되었습니다. 계속하려면 재개하세요.",
-      "runStopped": "작업이 멈췄습니다. Task를 열어 이유를 확인하세요.",
+      "runStopped": "작업이 멈췄습니다. 작업을 열어 이유를 확인하세요.",
       "incompleteReport": "모든 완료 기준을 충족했다는 보고 없이 작업이 끝났습니다. 보고서에서 빠진 부분을 확인하세요.",
       "staleVerification": "최종 확인이 시작된 뒤에 작업을 다시 맡겼습니다. Tars가 완료하려면 새로 확인해야 합니다.",
       "scopeUnregistered": "원본 워크스페이스가 더 이상 등록된 저장소에 속하지 않습니다.",
-      "taskIdentityChanged": "Tars가 시작하기 전에 Task가 바뀌었습니다. Tars에게 작업을 다시 시작해 달라고 하세요.",
-      "taskInUse": "Task가 이미 사용 중이라 Tars가 그 안에서 작업할 수 없습니다. Tars에게 작업을 다시 시작해 달라고 하세요.",
+      "taskIdentityChanged": "Tars가 시작하기 전에 작업이 바뀌었습니다. Tars에게 작업을 다시 시작해 달라고 하세요.",
+      "taskInUse": "작업이 이미 사용 중이라 Tars가 그 안에서 작업할 수 없습니다. Tars에게 작업을 다시 시작해 달라고 하세요.",
       "executionAgentUnavailable": "Supervisor 에이전트를 사용할 수 없어 Tars가 이 작업을 진행할 수 없습니다. 에이전트를 사용할 수 있게 한 뒤 다시 요청하세요.",
-      "assignmentUnavailable": "Task에 어떤 에이전트가 배정되었는지 확인하지 못했습니다. Task를 열어 확인하세요.",
-      "executionExists": "이 Task에는 이미 진행 중인 작업이 있습니다. Tars가 새로 시작하기 전에 그 작업을 확인합니다.",
-      "ownershipUnverified": "Tars가 이 Task를 계속 맡고 있는지 확인하지 못했습니다. Task를 열어 확인하세요.",
-      "ownershipChanged": "이 Task를 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 Task에서 계속하세요.",
-      "taskUnavailable": "Task를 사용할 수 없거나 저장소가 바뀌었습니다.",
-      "takenOverInTask": "직접 맡은 Task입니다. 해당 Task에서 계속하세요.",
+      "assignmentUnavailable": "작업에 어떤 에이전트가 배정되었는지 확인하지 못했습니다. 작업을 열어 확인하세요.",
+      "executionExists": "이 작업에는 이미 진행 중인 작업이 있습니다. Tars가 새로 시작하기 전에 그 작업을 확인합니다.",
+      "ownershipUnverified": "Tars가 이 작업을 계속 맡고 있는지 확인하지 못했습니다. 작업을 열어 확인하세요.",
+      "ownershipChanged": "이 작업을 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 작업에서 계속하세요.",
+      "taskUnavailable": "작업을 사용할 수 없거나 저장소가 바뀌었습니다.",
+      "takenOverInTask": "직접 맡은 작업입니다. 해당 작업에서 계속하세요.",
       "admissionWithdrawn": "실행이 시작되기 전에 작업이 일시 정지되거나 취소되었습니다.",
       "observationFailed": "Tars가 이 작업의 진행 상황을 확인하지 못했습니다.",
       "pauseReason": {
         "pausedByUser": "작업이 일시 정지되었습니다. 계속하려면 재개하세요.",
         "takenOver": "이 작업을 직접 맡았습니다. Tars가 이어서 하려면 다시 맡기세요.",
-        "taskIdentityChanged": "Task가 바뀌어 일시 정지되었습니다. Task를 확인한 뒤 재개하세요.",
+        "taskIdentityChanged": "작업이 바뀌어 일시 정지되었습니다. 작업을 확인한 뒤 재개하세요.",
         "runtimeChanged": "프로바이더 설정이 바뀌어 일시 정지되었습니다. 새 설정으로 계속하려면 재개하세요.",
         "usageLimit": "프로바이더 사용 한도가 초기화될 때까지 일시 정지되었습니다. 초기화되면 계속할 수 있습니다.",
         "waitExpired": "기다리던 일이 제시간에 일어나지 않아 일시 정지되었습니다. 재개하거나 Tars에게 어떻게 할지 알려 주세요.",
-        "limitReached": "주어진 진행 횟수를 모두 사용했습니다. Tars에게 진행 횟수를 늘려 달라고 하거나 Task에서 이어서 진행하세요."
+        "limitReached": "턴 한도를 모두 사용했습니다. Tars에게 한도를 늘려 달라고 하거나 작업 화면에서 이어서 진행하세요."
       },
       "stopReason": {
-        "taskUnavailable": "Task를 더 이상 사용할 수 없어 멈췄습니다. 이 작업을 취소하고 Tars에게 다시 요청하세요.",
-        "turnCapReached": "주어진 진행 횟수를 모두 사용해 멈췄습니다. Task를 열어 결과를 확인하세요.",
+        "taskUnavailable": "작업을 더 이상 사용할 수 없어 멈췄습니다. 이 작업을 취소하고 Tars에게 다시 요청하세요.",
+        "turnCapReached": "턴 한도를 모두 사용해 멈췄습니다. 작업을 열어 결과를 확인하세요.",
         "acceptanceUnmet": "일부 완료 기준을 충족하지 못한 채 멈췄습니다. 보고서에서 빠진 부분을 확인하세요.",
-        "expired": "너무 오래 걸려 멈췄습니다. Task를 열어 결과를 확인하세요."
+        "expired": "너무 오래 걸려 멈췄습니다. 작업을 열어 결과를 확인하세요."
       },
       "unverifiedCompletion": "에이전트는 완료했다고 보고했지만, 아직 검사나 리뷰로 확인되지 않았습니다. 완료로 인정하거나 Tars에게 확인을 요청하세요.",
       "acceptedWithoutVerification": "Stave 확인 없이 완료로 인정했습니다.",
       "workingChangesUnavailable": "저장해 둔 작업 중 변경 사항이 저장소에 더 이상 없어 Tars가 이 작업을 준비하지 못했습니다. 취소한 뒤 다시 요청하세요.",
       "runCancelled": "작업이 취소되었습니다. 이미 만든 변경은 그대로 남습니다.",
-      "turnStartFailed": "현재 단계를 시작하지 못했습니다. Tars에게 다시 시도해 달라고 하거나 Task를 열어 확인하세요.",
+      "turnStartFailed": "현재 단계를 시작하지 못했습니다. Tars에게 다시 시도해 달라고 하거나 작업을 열어 확인하세요.",
       "diagnostic": "기술 정보"
     },
     "messageFailure": {
@@ -1772,7 +1772,7 @@
       "option": {
         "pause": "일시 정지",
         "resume": "재개",
-        "cancel": "책임 취소",
+        "cancel": "작업 취소",
         "takeover": "직접 맡기",
         "handBack": "다시 맡기기",
         "acceptCompletion": "완료로 인정",
@@ -1781,7 +1781,7 @@
         "cancelRationale": "감독을 끝냅니다. 이미 만든 변경은 그대로 남습니다.",
         "verifyRationale": "새 확인 요청을 메시지 입력란에 넣습니다. 보내기 전에는 아무것도 실행되지 않습니다.",
         "startNow": "지금 시작",
-        "extend": "진행 횟수 추가",
+        "extend": "턴 한도 늘리기",
         "retryStage": "단계 다시 시도",
         "skipStage": "단계 건너뛰기",
         "signOff": "단계 승인",
@@ -1818,19 +1818,19 @@
         "title": {
           "pause": "이 작업을 일시 정지할까요?",
           "resume": "이 작업을 재개할까요?",
-          "cancel": "이 작업의 책임을 취소할까요?",
+          "cancel": "이 작업을 취소하시겠습니까?",
           "takeover": "이 작업을 직접 맡을까요?",
           "handBack": "이 작업을 Tars에게 다시 맡길까요?",
           "acceptCompletion": "이 작업을 완료로 인정할까요?",
           "startNow": "이 작업을 지금 시작할까요?",
-          "extend": "이 작업에 진행 횟수를 더 줄까요?",
+          "extend": "이 작업의 턴 한도를 늘리시겠습니까?",
           "retryStage": "현재 단계를 다시 시도할까요?",
           "skipStage": "현재 단계를 건너뛸까요?",
           "signOff": "대기 중인 단계를 승인할까요?",
           "approve": "이 요청을 승인할까요?",
           "deny": "이 요청을 거절할까요?",
           "answer": "이 답변을 보낼까요?",
-          "message": "이 내용을 Task에 보낼까요?",
+          "message": "이 내용을 작업에 보낼까요?",
           "requestChanges": "이 변경을 요청할까요?"
         },
         "unverifiedTitle": "Stave가 완료를 확인하지 못했습니다",
@@ -1855,14 +1855,14 @@
           "handBack": "Tars가 작업을 다시 맡고, 완료로 보기 전에 다시 검증합니다.",
           "acceptCompletion": "Stave가 확인한 검사 없이 완료 처리합니다.",
           "startNow": "Tars가 대기 중인 이 작업을 실행 중인 작업과 함께 지금 시작합니다.",
-          "extend": "작업에 진행 횟수 10회를 더 주고, 멈춘 곳부터 이어 갑니다.",
+          "extend": "턴 한도를 10회 늘려 멈춘 작업을 계속 진행합니다.",
           "retryStage": "진행할 수 없거나 멈춘 단계를 처음부터 다시 시도합니다.",
           "skipStage": "현재 단계를 끝내지 않고 다음으로 넘어갑니다. 되돌릴 수 없습니다.",
           "signOff": "승인을 기다리던 단계가 시작됩니다.",
           "approve": "도구가 이 요청대로 한 번 실행됩니다. 되돌릴 수 없습니다.",
           "deny": "도구 호출이 거절되고, 실행은 그것 없이 이어 갑니다.",
-          "answer": "Task의 질문에 이 답이 전달됩니다.",
-          "message": "내 말을 Task에 보냅니다. Task가 받을 수 있을 때 전달됩니다.",
+          "answer": "작업의 질문에 이 답이 전달됩니다.",
+          "message": "내 말을 작업에 보냅니다. 작업이 받을 수 있을 때 전달됩니다.",
           "requestChanges": "이전 단계가 이 피드백으로 다시 실행되고, 그 뒤 단계도 다시 진행됩니다."
         },
         "unverifiedEffect": "완료 인정과 취소는 되돌릴 수 없습니다. 검증 요청은 메시지 초안만 만듭니다.",
@@ -1887,7 +1887,7 @@
           "approve": "승인",
           "deny": "거절",
           "answer": "답변 보내기",
-          "message": "Task에 보내기",
+          "message": "작업에 보내기",
           "requestChanges": "변경 요청"
         },
         "showDetails": "세부 정보",
@@ -1904,7 +1904,7 @@
     },
     "side": {
       "kinds": {
-        "brief": "요청과 위임 지시",
+        "brief": "작업 요청",
         "report": "결과 보고서",
         "changes": "변경 사항",
         "timeline": "실행 기록",
@@ -1931,17 +1931,17 @@
         "sentAt": "{{time}}에 보냄",
         "answered": "{{time}}에 보냄 · Tars의 질문에 대한 선택: {{question}}",
         "requestMissing": "이전 작업이라 메시지 원문이 저장되어 있지 않습니다.",
-        "instruction": "Tars가 정리한 위임 지시",
-        "instructionHint": "Tars가 이 작업을 위해 작성한 지시입니다. 실행에는 보낸 메시지와 함께 전달됩니다.",
-        "assignment": "저장된 실행 지시",
-        "assignmentHint": "이전 작업이라 메시지를 따로 저장하지 않아, 실행이 받은 지시 전체를 보여 줍니다.",
-        "context": "전체 첨부 내용",
-        "contextHint": "실행 지시에 담기에는 길어서, 실행 리드가 매 턴 맥락으로 전체를 받습니다.",
+        "instruction": "Tars가 정리한 작업 내용",
+        "instructionHint": "Tars가 작업을 맡은 에이전트에게 메시지와 함께 전달하는 내용입니다.",
+        "assignment": "저장된 작업 내용",
+        "assignmentHint": "원래 메시지를 따로 저장하지 않아, 에이전트에게 전달된 작업 지시 전체를 보여 줍니다.",
+        "context": "추가 참고 내용",
+        "contextHint": "작업을 맡은 에이전트에게 요청할 때마다 이 참고 내용을 빠짐없이 전달합니다.",
         "attachments_other": "첨부 {{count}}개",
-        "attachmentsHint": "보낸 메시지에 첨부한 파일과 이미지입니다. 실행 리드가 첫 턴에 함께 받습니다.",
+        "attachmentsHint": "요청과 함께 보낸 파일과 이미지입니다. 작업을 맡은 에이전트에게 작업을 시작할 때 전달합니다.",
         "criteria_other": "완료 기준 {{count}}개",
         "copyRequest": "메시지 원문 복사",
-        "copyInstruction": "지시 복사",
+        "copyInstruction": "작업 내용 복사",
         "copyContext": "첨부 내용 복사",
         "status": {
           "loading": "저장된 요청을 불러오는 중입니다…",
@@ -2011,10 +2011,10 @@
         "ask": "이 부분 묻기",
         "askCount_other": "{{count}}줄 묻기",
         "askHint": "선택한 줄을 입력창에 인용합니다. 보내지는 않습니다.",
-        "selectHint": "diff에서 줄을 선택한 뒤 ‘이 부분 묻기’를 누르세요.",
+        "selectHint": "변경 사항에서 줄을 선택한 뒤 ‘이 부분 묻기’를 누르세요.",
         "quoteHeader": "{{path}} {{range}}행에 대해:",
         "quoteHeaderRemoved": "{{path}}에서 삭제된 {{range}}행(변경 전)에 대해:",
-        "live": "지금의 실행 워크스페이스를 바로 읽은 내용이며, 보고서처럼 고정되지 않습니다.",
+        "live": "현재 작업 파일을 보여 줍니다. 보고서를 저장한 뒤에 수정된 내용도 포함될 수 있습니다.",
         "refresh": "새로 고침"
       }
     },
@@ -2028,10 +2028,10 @@
         "title": "완료 기준",
         "verifiedCheck": "충족 · 검사로 확인",
         "verifiedReview": "충족 · 리뷰로 확인",
-        "reported": "충족 · 에이전트 보고만 있음",
+        "reported": "충족 보고 · 확인 안 됨",
         "unmet": "미충족",
         "unverified": "확인 안 됨",
-        "staveChecks": "Stave가 직접 실행해 통과를 확인: {{checks}}",
+        "staveChecks": "Stave가 실행한 검사 통과: {{checks}}",
         "notReported": "보고 없음"
       },
       "changes_other": "파일 {{count}}개 변경",
@@ -2051,10 +2051,10 @@
       "openTimelineFor": "{{title}} 타임라인 열기"
     },
     "delivery": {
-      "queued": "실행의 현재 턴이 끝나기를 기다리는 중입니다. 끝나면 Tars가 Task에 한 번 전달합니다.",
-      "delivering": "지금 Task에 전달하고 있습니다.",
-      "delivered": "턴이 끝난 뒤 Task에 전달했습니다.",
-      "failed": "Task에 전달하지 못했습니다.",
+      "queued": "실행의 현재 턴이 끝나기를 기다리는 중입니다. 끝나면 Tars가 작업에 한 번 전달합니다.",
+      "delivering": "지금 작업에 전달하고 있습니다.",
+      "delivered": "턴이 끝난 뒤 작업에 전달했습니다.",
+      "failed": "작업에 전달하지 못했습니다.",
       "cancelled": "전달하지 않았습니다. 그 전에 작업을 직접 맡았거나, 취소했거나, 작업이 끝났습니다."
     },
     "followUp": {
@@ -2102,27 +2102,28 @@
     },
     "guide": {
       "help": "Tars 사용 안내",
-      "canDoTitle": "Tars가 할 수 있는 일",
-      "limitsTitle": "한계",
-      "examplesTitle": "이렇게 물어보세요",
-      "canDo1": "Stave가 관찰한 내용으로 작업 현황에 답합니다. 저장소를 추가하기 전에도 대화할 수 있습니다.",
-      "canDo2": "명시적으로 요청한 일을 등록된 워크스페이스의 작업으로 만들고 완료 기준을 붙입니다.",
-      "canDo3": "새 워크스페이스와 브랜치에서 에이전트 팀이 실행하고, 독립 리뷰와 검증을 거칩니다.",
-      "canDo4": "결정이 필요하면 카드로 묻습니다. 클릭, 숫자 키, 짧은 답으로 고를 수 있습니다.",
-      "canDo5": "작업이 막히거나 확인을 요청하거나 완료를 검증하지 못하면 먼저 알려 줍니다.",
-      "canDo6": "결과 보고서, 변경 사항, 타임라인, 리뷰를 대화 옆에서 보여 줍니다.",
-      "limit1": "커밋, 푸시, Draft PR 생성은 매번 확인 카드에서 확인하신 뒤에만 하고, 병합하거나 배포하지 않습니다.",
-      "limit2": "Stave가 실행 중이고 컴퓨터가 깨어 있을 때만 작업합니다.",
-      "limit3": "독립 작업을 동시에 시작합니다. 설정에서 동시에 실행할 작업 수를 제한할 수 있으며, 0이면 별도 한도가 없습니다.",
-      "limit4": "메시지에서 작업 중인 변경 포함을 켜지 않으면 워크스페이스의 브랜치에서 시작합니다. 무시된 파일은 포함하지 않습니다.",
-      "limit5": "Claude Code와 Codex만 쓰고, 저장된 에이전트는 설정에서 허용한 것만 씁니다.",
-      "limit6": "Stave가 통과를 확인한 검사나 통과한 리뷰가 있어야 완료로 봅니다. 없으면 사용자에게 묻습니다.",
-      "example1": "지금 돌아가는 일이 뭐야? 내가 확인할 게 있어?",
-      "example2": "web 워크스페이스에서 불안정한 date-picker 테스트를 고쳐 줘. 그 테스트가 통과하면 완료야.",
-      "example3": "date-picker 작업 멈추고 바뀐 내용 보여 줘.",
-      "exampleLabel1": "지금 진행 중인 일",
-      "exampleLabel2": "불안정한 테스트 고치기",
-      "exampleLabel3": "멈추고 변경 내용 보기"
+      "summary": "작업 현황을 묻거나, 할 일을 맡기세요.",
+      "stepsTitle": "작업 진행 순서",
+      "step1Title": "일 맡기기",
+      "step1Text": "할 일, 워크스페이스, 완료 기준을 알려 주세요.",
+      "step2Title": "진행 확인하기",
+      "step2Text": "별도 워크스페이스에서 작업하고, 결정이 필요하면 카드로 묻습니다.",
+      "step3Title": "결과 보기",
+      "step3Text": "보고서와 변경 사항을 대화 옆에서 확인하세요.",
+      "detailsTitle": "작업 실행에 대해 더 보기",
+      "examplesTitle": "이렇게 요청하세요",
+      "limit1": "커밋·푸시·Draft PR은 매번 확인을 받습니다. 병합·배포는 하지 않습니다.",
+      "limit2": "Stave를 켜 두고 컴퓨터가 깨어 있어야 합니다.",
+      "limit3": "여러 작업을 동시에 진행할 수 있습니다. 설정에서 개수를 제한하며, 0이면 별도 한도가 없습니다.",
+      "limit4": "선택한 워크스페이스의 브랜치에서 시작합니다. 아직 커밋하지 않은 수정도 가져오려면 작업 중인 변경 포함을 켜세요. Git에서 제외한 파일은 복사하지 않습니다.",
+      "limit5": "Claude Code·Codex와 허용한 저장 에이전트만 사용합니다.",
+      "limit6": "검사 통과를 Stave가 확인했거나 리뷰를 통과해야 완료로 처리합니다. 확인할 수 없으면 사용자에게 묻습니다.",
+      "example1": "지금 진행 중인 일과 내가 확인할 걸 알려 줘.",
+      "example2": "web 워크스페이스에서 가끔 실패하는 날짜 선택기 테스트를 고쳐 줘. 테스트가 통과하면 완료야.",
+      "example3": "날짜 선택기 테스트 작업을 멈추고 변경 내용을 보여 줘.",
+      "exampleLabel1": "진행 상황 확인",
+      "exampleLabel2": "실패하는 테스트 수정",
+      "exampleLabel3": "멈추고 변경 보기"
     },
     "publish": {
       "open": "Draft PR 만들기",
@@ -2153,8 +2154,8 @@
         "decline": "거절",
         "enterKey": "Enter",
         "escKey": "Esc",
-        "keysHint": "Enter를 누르면 Draft PR을 엽니다. Esc를 누르면 거절합니다.",
-        "bodyHint": "고정된 결과 보고서로 Stave가 만들었고, 보이는 그대로 보냅니다.",
+        "keysHint": "Enter로 커밋·푸시·Draft PR 만들기를 확인하고, Esc로 취소합니다.",
+        "bodyHint": "작업이 끝났을 때 저장한 보고서로 만든 PR 설명입니다. 이 내용 그대로 게시합니다.",
         "bodyView": {
           "label": "PR 본문 보기 방식",
           "preview": "미리 보기",
@@ -2231,13 +2232,13 @@
     },
     "startNow": "지금 시작",
     "extend": "턴 추가",
-    "retryStage": "스테이지 다시 시도",
-    "skipStage": "스테이지 건너뛰기",
+    "retryStage": "단계 다시 시도",
+    "skipStage": "단계 건너뛰기",
     "signOff": "승인",
     "approve": "요청 승인",
     "deny": "요청 거절",
     "answer": "질문 답변",
-    "message": "Task에 전달",
+    "message": "작업에 전달",
     "requestChanges": "변경 요청",
     "instructionsDefault": "- 답이나 내가 내려야 할 결정을 먼저 말하고, 답변은 짧게 해 줘.\n- 작업을 맡기기 전에 목표와 완료 기준을 다시 확인하고, 목표나 대상 워크스페이스가 분명하지 않으면 먼저 물어봐 줘.\n- 검토하기 쉬운 작은 단위로 진행하고, 끝내려고 완료 기준을 낮추지 마.\n- 작업이 막히거나 내가 필요하면 무슨 일이 있었는지, 무엇을 권하는지, 내가 무엇을 정해야 하는지 말해 줘.\n- 관찰이 오래됐거나 알 수 없으면 추측하지 말고 그렇다고 말해 줘.",
     "instructionsUseDefault": "기본값 사용",
@@ -2245,7 +2246,7 @@
     "instructionsEmptyHint": "상시 지침이 없으면 Tars는 기본 규칙만 따릅니다. 기본값을 출발점으로 삼아 고칠 수 있습니다.",
     "retention": {
       "label": "끝난 작업을 패널에 두는 기간",
-      "hint": "이 기간이 지나면 끝난 작업의 카드와 산출물이 패널에서 빠집니다. 삭제되지 않으며 Fleet과 해당 Task에는 남습니다. Draft PR이 아직 끝나지 않은 작업은 그대로 둡니다.",
+      "hint": "선택한 기간이 지나면 끝난 작업을 패널에서 숨깁니다. Fleet과 작업에는 남으며, Draft PR 처리가 끝나지 않은 작업은 계속 표시합니다.",
       "never": "직접 정리할 때까지",
       "days_other": "{{count}}일"
     },
@@ -2276,7 +2277,7 @@
         "title": "화면에서 정리하시겠습니까?",
         "subtitle": "아무것도 삭제되지 않습니다. 남는 기록에서 되돌릴 수 있습니다.",
         "details": "정리할 항목",
-        "kept": "진행 중이거나 기다리는 작업, 결정을 기다리는 항목, Task에 전달을 기다리는 말은 항상 남습니다.",
+        "kept": "진행 중이거나 기다리는 작업, 결정을 기다리는 항목, 작업에 전달을 기다리는 말은 항상 남습니다.",
         "nothing": "지금 정리할 항목이 없습니다.",
         "keysHint": "Enter로 정리하고 Esc로 그대로 둡니다.",
         "decline": "나중에",
@@ -2286,7 +2287,7 @@
       "conversation": {
         "button": "대화 정리",
         "title": "대화를 정리하시겠습니까?",
-        "description_other": "메시지 {{count}}개가 이 화면에서 빠지고 Tars의 최근 대화 기억이 새로 시작됩니다. 삭제되는 것은 없습니다. 작업, 결정을 기다리는 항목과 기록은 그대로 남고 복원으로 대화를 되돌릴 수 있습니다.",
+        "description_other": "메시지 {{count}}개를 화면과 Tars가 다시 읽는 대화 내역에서 숨깁니다. 작업·대기 중인 결정·기록은 유지됩니다. 삭제되는 내용은 없으며 복원으로 대화를 되돌릴 수 있습니다.",
         "confirm": "대화 정리"
       },
       "lane": {
@@ -2345,23 +2346,19 @@
       "level": {
         "careful": {
           "label": "신중하게",
-          "description": "Tars가 제안하고, 작업을 시작하거나 순서를 바꾸는 모든 동작을 직접 확인합니다."
+          "description": "작업을 시작하거나 대기 순서를 바꾸기 전에 확인합니다."
         },
         "balanced": {
           "label": "균형 있게",
-          "description": "기본값입니다. 요청한 작업은 Tars가 시작하고, 이어서 진행하거나 대신 답하거나 작업을 끝내는 일은 확인을 기다립니다."
+          "description": "기본값입니다. 요청한 작업은 시작하고, 재개·대신 답하기·종료 전에는 확인합니다."
         },
         "handsOff": {
           "label": "맡겨 두기",
-          "description": "요청하면 Tars가 자기 작업을 바로 재개하고 다시 시도하고 단계를 더 주며, 기록을 남깁니다."
+          "description": "요청하면 재개·다시 시도·턴 추가도 바로 하고 기록을 남깁니다."
         }
       },
       "table": {
         "label": "{{level}} 단계에서 Tars가 하는 일",
-        "column": {
-          "when": "Tars가 제안했을 때",
-          "actions": "동작"
-        },
         "row": {
           "auto": "알아서 합니다",
           "confirm": "먼저 묻습니다",
@@ -2379,7 +2376,7 @@
         "takeover": "작업을 사용자에게 넘기기",
         "deny": "도구 요청 거부",
         "resume": "작업 재개",
-        "extend": "작업에 단계 더 주기",
+        "extend": "작업의 턴 한도 늘리기",
         "retryStage": "단계 다시 시도",
         "handBack": "사용자가 가져간 작업 다시 맡기",
         "signOff": "대기 중인 단계 승인",
@@ -2402,10 +2399,10 @@
         "spendMoney": "비용 지출",
         "contactOthers": "다른 사람에게 메시지 보내기"
       },
-      "footnote": "Tars가 스스로 시작한 일에는 단계가 적용되지 않습니다. 자동 후속 확인 뒤에는 묻거나, 화면을 보여 주거나, 확인할 제안을 하는 것만 할 수 있습니다.",
+      "footnote": "사용자 메시지 없이 자동으로 작업을 확인할 때는 질문·화면 열기·확인 요청만 할 수 있습니다.",
       "never": {
         "title": "하지 말 것",
-        "hint": "직접 쓰는 규칙입니다. Tars는 이 규칙을 넘지 말아야 할 한계로 전달받고, 제안한 동작이 규칙에 적힌 저장소·브랜치·동작과 겹치면 Stave가 먼저 묻습니다. 규칙은 Tars의 판단을 이끄는 것이며, Stave가 이 규칙만으로 동작을 막지는 않습니다.",
+        "hint": "피해야 할 일을 적으세요. 규칙과 겹치는 제안은 먼저 확인하며, 자동으로 차단하지는 않습니다.",
         "placeholder": "예: production 브랜치는 건드리지 않기",
         "inputLabel": "새 규칙",
         "add": "규칙 추가",
@@ -2440,13 +2437,14 @@
           "delegate": "작업 시작",
           "reprioritize": "우선순위 변경"
         }
-      }
+      },
+      "detailsTitle": "동작별 실행·확인 기준"
     },
     "knows": {
       "menu": "아는 것과 사용량",
       "open": "Tars가 아는 것",
       "title": "Tars가 아는 것",
-      "description": "Tars가 메시지와 메시지 사이에 계속 가지고 있는 내용과 그 출처입니다.",
+      "description": "Tars와 맡긴 작업에 전달되는 지침·저장 정보와 출처를 확인합니다.",
       "edit": "편집",
       "source": {
         "you": "직접 작성함",
@@ -2458,7 +2456,7 @@
       "savedAt": "마지막 저장 {{time}}",
       "neverSaved": "저장한 적 없음",
       "everywhere": {
-        "title": "모든 곳",
+        "title": "모든 대화와 작업",
         "hint": "모든 메시지와 모든 작업에 적용됩니다."
       },
       "instructions": {
@@ -2487,12 +2485,12 @@
       },
       "memory": {
         "title": "저장소 메모리",
-        "use": "Tars가 직접 읽지는 않습니다. Tars가 이 저장소에서 시작한 Task가 턴마다 관련 있는 메모리를 최대 {{max}}개 받습니다.",
+        "use": "저장소 메모리는 Tars 대화가 아니라 이 저장소의 작업에 전달됩니다. 에이전트에게 요청할 때마다 관련 메모리를 최대 {{max}}개 함께 전달합니다.",
         "empty": "이 저장소에 저장된 메모리가 없습니다.",
-        "off": "이 저장소는 메모리 사용이 꺼져 있어 Task가 메모리를 받지 않습니다.",
+        "off": "이 저장소는 메모리 사용이 꺼져 있어 작업이 메모리를 받지 않습니다.",
         "used_other": "사용 중인 메모리 {{count}}개",
         "unused": "아직 사용하지 않음",
-        "unusedHint": "검토를 기다리는 후보와 오랫동안 확인되지 않은 메모리입니다.",
+        "unusedHint": "검토 대기 중이거나 최근에 다시 확인하지 않은 메모리입니다.",
         "showMore_other": "{{count}}개 더 보기",
         "loading": "메모리를 읽는 중…",
         "loadFailed": "메모리를 읽지 못했습니다.",
@@ -2507,7 +2505,7 @@
     "usage": {
       "open": "사용량",
       "title": "사용량",
-      "description": "Tars가 시작한 작업이 쓴 양을 프로바이더가 보고한 그대로 보여 줍니다. 추정한 값은 없습니다.",
+      "description": "Tars가 맡긴 작업의 토큰·비용·소요 시간입니다. 보고된 값만 표시하며 추정치는 포함하지 않습니다.",
       "period": {
         "label": "기간",
         "today": "오늘",
@@ -2532,12 +2530,12 @@
       "tokens": "토큰 {{value}}",
       "turns_other": "턴 {{count}}개",
       "modelNotRecorded": "모델 기록 없음",
-      "empty": "이 기간에 실행된 턴이 없습니다.",
+      "empty": "이 기간에는 작업 실행 기록이 없습니다.",
       "replies_other": "이 기간에 Tars가 직접 답한 횟수는 {{count}}회입니다. Tars 자신의 답변에 쓰인 토큰은 기록되지 않습니다.",
       "repliesUnread": "Tars 자신의 답변 횟수를 세지 못했습니다. 답변에 쓰인 토큰은 기록되지 않습니다.",
-      "helpers": "실행 중에 시작된 보조 Task의 턴은 포함되지 않습니다.",
-      "truncated": "한 번에 읽는 양보다 턴이 많아 이 합계는 실제보다 적을 수 있습니다.",
-      "omittedWorks_other": "오래된 작업 {{count}}개는 읽지 않았습니다.",
+      "helpers": "보조 작업의 턴은 집계에 포함되지 않습니다.",
+      "truncated": "일부 실행 기록을 포함하지 못했습니다. 실제 사용량은 표시된 합계보다 많을 수 있습니다.",
+      "omittedWorks_other": "오래된 작업 {{count}}개는 집계에 포함되지 않았습니다.",
       "unavailable": "여기서는 사용량을 읽을 수 없습니다.",
       "loadFailed": "사용량을 읽지 못했습니다.",
       "loading": "사용량을 읽는 중…",
@@ -2585,7 +2583,7 @@
           "next": "다음 실행",
           "was": "현재"
         },
-        "startsPaused": "새 일정은 일시 정지된 상태로 저장되므로, 켠 뒤에야 위 시각에 실행됩니다. 만들기는 켤 때까지 일시 정지 상태로 두고, 만들고 켜기는 바로 시작합니다.",
+        "startsPaused": "만들기는 일정을 일시 정지 상태로 저장합니다. 만들고 켜기를 누르면 위에 표시된 시각에 실행됩니다.",
         "pausedNote": "일시 정지된 일정입니다. 켜면 위 시각에 실행됩니다.",
         "runNote": "실행할 때마다 이 워크스페이스에서 새 작업을 시작하며, 위험한 동작 전에는 사용자에게 묻습니다. 일정은 Stave가 열려 있을 때만 실행되고, 닫혀 있는 동안 놓친 실행은 다시 열 때 한 번 실행됩니다.",
         "loading": "일정을 읽는 중…",
@@ -2669,6 +2667,14 @@
       "position": "답변 대기 · {{count}}개 중 {{position}}번째",
       "previous": "이전 대기 항목",
       "next": "다음 대기 항목"
+    },
+    "maxTurnsHint": "턴은 에이전트에게 한 번 작업을 요청하는 단위입니다. 담당·보조 에이전트가 사용한 턴을 합산합니다.",
+    "settings": {
+      "tabsLabel": "Tars 설정 분류",
+      "general": "기본",
+      "models": "모델",
+      "work": "작업 방식",
+      "limits": "작업 한도"
     }
   }
 }

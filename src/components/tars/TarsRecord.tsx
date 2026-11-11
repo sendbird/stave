@@ -161,7 +161,7 @@ export function TarsRecordRow({ state, icon, actor, lead, subject, values, statu
       </div>
       {!fullWidthDetail ? detail : null}
     </div>
-    {fullWidthDetail && detail ? <div className={sx(styles.fullWidthDetail)}>{detail}</div> : null}
+    {fullWidthDetail && detail ? <div className={sx(styles.fullWidthDetail)} data-tars-record-surface="">{detail}</div> : null}
   </div>;
 }
 

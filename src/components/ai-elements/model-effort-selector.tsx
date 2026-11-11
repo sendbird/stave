@@ -248,14 +248,14 @@ function ModelOnlyList(args: {
               selected ? styles.modelRowSelected : styles.modelRowIdle,
             ]}
           >
-            <ModelIcon
+            <span className={sx(styles.modelRowMark)} data-model-option-icon=""><ModelIcon
               providerId={option.providerId}
               model={option.model}
               className={sx(styles.modelRowIcon)}
-            />
+            /></span>
             <span className={sx(styles.modelRowBody)}>
               <span className={sx(styles.modelRowTitleLine)}>
-                <span className={sx(styles.modelRowTitle)}>
+                <span className={sx(styles.modelRowTitle)} data-model-option-label="">
                   {presentation.label}
                 </span>
                 {option.isDefault ? (
@@ -271,6 +271,7 @@ function ModelOnlyList(args: {
               {/* The price ends the second line, so it never takes the name's room. */}
               {presentation.capabilities.length > 0 ? (
                 <span className={sx(styles.modelRowCapabilities)}>
+                  <span className={sx(styles.modelRowCapabilityList)}>
                   {presentation.capabilities.map((capability) => (
                     <span
                       key={capability}
@@ -279,11 +280,12 @@ function ModelOnlyList(args: {
                       {capability}
                     </span>
                   ))}
+                  </span>
                   <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />
                 </span>
               ) : (
                 <span className={sx(styles.modelRowDescriptionLine)}>
-                  <span className={sx(styles.modelRowDescription)}>
+                  <span className={sx(styles.modelRowDescription)} data-model-option-detail="">
                     {option.description || option.model}
                   </span>
                   <ModelPrice model={option.model} xstyle={styles.modelRowPrice} />

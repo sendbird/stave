@@ -63,7 +63,7 @@ describe("Tars tray UI", () => {
   test("the indicator and every lane header say the same number for the same lane, under the lane's own name", async () => {
     const f = fixtures();
     const model = trayOf(f);
-    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model, actions: noActions }));
     const header = (lane: string) => Number(new RegExp(`data-tars-lane-head="${lane}"(?:(?!data-tars-lane-head=).)*?data-tars-lane-count="(\\d+)"`).exec(html)?.[1]);
     const chip = describeTarsTrayCounts(model.counts);
     for (const [lane, word] of [["needsYou", "need"], ["running", "in progress"], ["done", "done"]] as const) {
@@ -103,13 +103,13 @@ describe("Tars tray UI", () => {
     const model = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [...f.attentionItems, signOff], runs: f.runs, pendingDecisions: f.pendingDecisions });
     expect(model.lanes.needsYou).toHaveLength(1);
     expect(model.counts.needsYou).toBe(2);
-    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model, actions: noActions }));
     expect(html).toContain('data-tars-lane-count="2"');
     expect(describeTarsTrayCounts(model.counts)).toContain("2 need you");
   });
 
   test("Needs you and Running are open, Done is folded, and every lane says its count", () => {
-    const html = renderToStaticMarkup(createElement(TarsTray, { model: trayOf(fixtures()), actions: noActions }));
+    const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model: trayOf(fixtures()), actions: noActions }));
     for (const label of ["Needs you", "Running", "Done"]) expect(html).toContain(label);
     expect(html).toContain('data-tars-card="release"');
     expect(html).toContain('data-tars-card="billing"');
@@ -170,7 +170,7 @@ describe("Tars tray UI", () => {
     expect(html).toContain("Tars proposes to resume this work.");
     const view = capture(() => TarsCardActions(props));
     // Confirm takes Resume's place: the same control never shows twice, and the rest sits in the menu.
-    expect(view.labels).toEqual(["Confirm resume", "Open task", "Take over", "Show in Fleet", "Cancel responsibility"]);
+    expect(view.labels).toEqual(["Confirm resume", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
     expect(view.html).not.toContain(">Resume<");
     expect(view.html).toContain('aria-label="More actions for Verify the release candidate"');
     view.press("Confirm resume");
@@ -377,7 +377,7 @@ describe("Tars tray card hierarchy", () => {
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: { ...noActions, onOpenSide() {} } }));
     const group = html.slice(html.indexOf("data-tars-monitor-views"));
-    expect(group).toContain('aria-label="Open the request and instruction for Fix the billing export on empty invoice lists"');
+    expect(group).toContain('aria-label="Open task request for Fix the billing export on empty invoice lists"');
     expect(group).toContain('aria-label="Open the timeline for Fix the billing export on empty invoice lists"');
     // Icon-only: the visible words live in the tooltip, not in the button.
     expect(group).not.toMatch(/data-tars-monitor-brief="billing"[^>]*>(?:(?!<\/button>).)*Request/);
@@ -389,7 +389,7 @@ describe("Tars tray lanes and card actions", () => {
     .map(([, lane, expanded, chevron]) => ({ lane, expanded, chevron }));
 
   test("each lane's chevron says open or closed as its trigger's aria-expanded does, leading the label", () => {
-    const html = renderToStaticMarkup(createElement(TarsTray, { model: trayOf(fixtures()), actions: noActions, outputs: [] }));
+    const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model: trayOf(fixtures()), actions: noActions, outputs: [] }));
     const heads = laneHeads(html);
     expect(heads.map((head) => head.lane)).toEqual(["needsYou", "running", "done", "outputs"]);
     for (const head of heads) expect(head.chevron).toBe(head.expanded === "true" ? "open" : "closed");
@@ -403,7 +403,7 @@ describe("Tars tray lanes and card actions", () => {
     const f = fixtures();
     const model = buildTarsTray({ responsibilities: f.responsibilities.filter((row) => row.id !== f.ids.billing && row.id !== f.ids.migration), attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
     expect(model.lanes.running).toHaveLength(0);
-    const html = renderToStaticMarkup(createElement(TarsTray, { model, actions: noActions }));
+    const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model, actions: noActions }));
     const running = laneHeads(html).find((head) => head.lane === "running")!;
     expect(running).toEqual({ lane: "running", expanded: "false", chevron: "closed" });
     const lane = html.slice(html.indexOf('data-tars-tray-lane="running"'), html.indexOf('data-tars-tray-lane="done"'));

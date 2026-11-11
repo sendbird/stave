@@ -49,14 +49,14 @@ describe("Tars live progress UI", () => {
     // Between turns: no invented activity, only the last update.
     const between = line(row, run, turn(8, { completedAt: msAt(8.5) }), msAt(10));
     expect(between).toContain('data-tars-live-freshness="recent"');
-    expect(between).toContain("Waiting to take the next step");
+    expect(between).toContain("Waiting to continue");
     expect(between).toContain("Last update 1m ago");
     expect(between).not.toContain("Running the tests");
     // No turn relayed yet (after a restart): unknown, never "no turn running".
     const unknown = line(row, run, null, msAt(10));
     expect(unknown).toContain('data-tars-live-turn="unknown"');
     expect(unknown).toContain("No activity reported yet");
-    expect(unknown).not.toContain("Waiting to take the next step");
+    expect(unknown).not.toContain("Waiting to continue");
     // An open turn that has not reported a step yet: said as such, never "Thinking · seen just now".
     const open = line(row, run, turn(0, { lastEventAt: msAt(10), orderedWorkItemIds: [], workItemsById: {} }), msAt(10));
     expect(open).toContain("Working · no activity reported yet");
@@ -136,7 +136,7 @@ describe("Tars live progress UI", () => {
     await applyAppLocale("ko");
     try {
       const ko = renderToStaticMarkup(createElement(TarsActivityNoticeLine, { notice: { activity, kind: "blocked" } }));
-      expect(ko).toContain("작업이 멈췄습니다. Task를 열어 이유를 확인하세요.");
+      expect(ko).toContain("작업이 멈췄습니다. 작업을 열어 이유를 확인하세요.");
       expect(ko).toContain("기술 정보");
     } finally { await applyAppLocale("en"); }
     // Tars's own fixed sentence has nothing to expand.
@@ -191,7 +191,7 @@ describe("Tars live progress UI", () => {
     const html = renderToStaticMarkup(element);
     expect(html).toContain('data-tars-running-strip="1"');
     expect(html).toContain("Fix the billing export on empty invoice lists");
-    expect(html).toMatch(/Phase 2 of 3 · [^<]+, attempt 2/);
+    expect(html).toMatch(/Stage 2 of 3 · [^<]+, attempt 2/);
     expect(html).toContain('data-tars-live-stage="2/3"');
     expect(html).toContain("data-tars-running-timeline");
     const three = [{ row, run }, { row: { ...row, id: "b" }, run }, { row: { ...row, id: "c" }, run }];

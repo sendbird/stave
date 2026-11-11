@@ -90,10 +90,12 @@ export const modelSelectorStyles = stylex.create({
   // description line). The inline gutter is the AUI item's `space8`, so the
   // row edge lines up with the group heading and the list padding.
   optionItem: {
-    gap: "0.75rem",
+    gap: 0,
     borderRadius: vars["--aui-radius-control"],
-    paddingBlock: "0.625rem",
+    paddingBlock: vars["--aui-space-8"],
   },
+  optionContent: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-12"], flex: 1, minWidth: 0 },
+  optionMark: { display: "flex", alignItems: "center", blockSize: "1lh", flexShrink: 0 },
   optionAccentIcon: {
     width: vars["--aui-control-icon-size-md"],
     height: vars["--aui-control-icon-size-md"],
@@ -111,25 +113,11 @@ export const modelSelectorStyles = stylex.create({
     flex: 1,
     flexDirection: "column",
   },
-  optionTitleRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.375rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  optionLabel: { fontWeight: vars["--aui-font-weight-medium"] },
-  // The published price ends the id line, muted, and drops below the id when
-  // both do not fit; absent for unpriced models.
-  optionPrice: { marginInlineStart: "auto" },
-  optionDescriptionLine: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "baseline",
-    columnGap: vars["--aui-space-8"],
-    minWidth: 0,
-  },
+  optionTitleRow: { display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: vars["--aui-space-8"], minWidth: 0 },
+  optionLabel: { fontWeight: vars["--aui-font-weight-medium"], minWidth: 0, overflowWrap: "anywhere" },
+  // The price has its own column; long notices wrap without leaving an orphan price row.
+  optionPrice: { justifySelf: "end" },
+  optionDescriptionLine: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "baseline", columnGap: vars["--aui-space-8"], minWidth: 0 },
   optionDefaultBadge: {
     flexShrink: 0,
     borderRadius: vars["--aui-radius-mark"],
@@ -153,13 +141,7 @@ export const modelSelectorStyles = stylex.create({
     lineHeight: vars["--aui-line-height-tight"],
     color: vars["--aui-color-warning-text"],
   },
-  optionDescription: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontSize: vars["--aui-font-size-caption"],
-    color: vars["--aui-color-text-muted"],
-  },
+  optionDescription: { minWidth: 0, overflowWrap: "anywhere", fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
   groupHeading: {
     display: "flex",
     alignItems: "center",

@@ -7,8 +7,10 @@ async function send(page: Page, text: string) {
   await editor(page).press("Enter");
 }
 async function openSettings(page: Page) {
-  await page.getByRole("button", { name: "Conversation settings", exact: true }).click();
-  return page.getByRole("dialog");
+  await page.getByRole("button", { name: "Tars settings", exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByRole("tab", { name: "Work", exact: true }).click();
+  return sheet;
 }
 /** The action keys a table row lists, as the page states them. */
 const rowActions = async (page: Page, row: string) =>
@@ -38,8 +40,10 @@ test("choosing Careful turns the next delegation into a proposal that starts onl
   expect(await rowActions(page, "auto")).toEqual(["show", "pause", "takeover", "deny"]);
   expect(await rowActions(page, "confirm")).toEqual(expect.arrayContaining(["delegate", "reprioritize", "startNow"]));
   expect(await rowActions(page, "always")).toEqual(["cancel", "skipStage", "acceptCompletion", "approve", "publish"]);
-  await expect(sheet.getByRole("group", { name: "What Tars does at the Careful level" }).getByRole("table")).toBeVisible();
-  await sheet.locator("[data-tars-autonomy-table]").scrollIntoViewIfNeeded();
+  await expect(sheet.locator("[data-tars-autonomy-details]")).toBeHidden();
+  await sheet.locator("[data-tars-autonomy-details-toggle]").click();
+  await expect(sheet.locator("[data-tars-autonomy-details]")).toBeVisible();
+  await sheet.locator("[data-tars-autonomy-details]").scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("tars-autonomy-settings-careful.png") });
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toHaveCount(0);
@@ -47,7 +51,7 @@ test("choosing Careful turns the next delegation into a proposal that starts onl
   // The next decision is held: a card, no flow, and the receipt is a proposal.
   await send(page, "Check the review again");
   const second = page.locator("[data-tars-message]").nth(1);
-  const card = second.locator('[data-tars-decision-kind="confirm"]');
+  const card = page.locator('[data-tars-decision-dock] [data-tars-decision-kind="confirm"]');
   await expect(card).toHaveAttribute("data-tars-decision-state", "waiting");
   await expect(card).toContainText("Start this work?");
   await expect(card).toContainText("Check the review");
@@ -77,7 +81,7 @@ test("a never-do rule that names the repository makes Stave ask first and shows 
   await page.goto("/?stavePreview=tars&receipt=applied");
   const sheet = await openSettings(page);
   const rules = sheet.locator("[data-tars-never-rules]");
-  await expect(rules).toContainText("They guide Tars's decisions; Stave does not block anything because of them.");
+  await expect(rules).toContainText("Matching proposals require confirmation; rules do not automatically block actions.");
   await rules.getByRole("textbox", { name: "New rule", exact: true }).fill("Never touch the preview repository");
   // Enter adds the rule and does not save the form.
   await rules.getByRole("textbox", { name: "New rule", exact: true }).press("Enter");
@@ -114,8 +118,10 @@ test("a never-do rule that names the repository makes Stave ask first and shows 
 for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
   test(`the autonomy settings fit the sheet in ${theme} ${lang}`, async ({ page }, testInfo) => {
     await page.goto(`/?stavePreview=tars&theme=${theme}&lang=${lang}`);
-    await page.getByRole("button", { name: lang === "ko" ? "대화 설정" : "Conversation settings", exact: true }).click();
+    await page.getByRole("button", { name: lang === "ko" ? "Tars 설정" : "Tars settings", exact: true }).click();
     const sheet = page.getByRole("dialog");
+    await sheet.getByRole("tab", { name: lang === "ko" ? "작업 방식" : "Work", exact: true }).click();
+    await sheet.locator("[data-tars-autonomy-details-toggle]").click();
     const block = sheet.locator("[data-tars-autonomy]");
     await expect(block).toBeVisible();
     await sheet.getByRole("radio").nth(2).click();
@@ -123,7 +129,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
     await block.scrollIntoViewIfNeeded();
     // Nothing in the block is wider than the sheet's column: the table wraps instead of scrolling sideways.
     const widths = await block.evaluate((node) => {
-      const table = node.querySelector("[data-tars-autonomy-table]")!;
+      const table = node.querySelector("[data-tars-autonomy-details]")!;
       return { block: node.getBoundingClientRect().width, table: table.getBoundingClientRect().width, scroll: table.scrollWidth, client: table.clientWidth };
     });
     expect(widths.table).toBeLessThanOrEqual(widths.block + 1);

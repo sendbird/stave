@@ -73,7 +73,7 @@ describe("schedule card", () => {
     expect(words).toContain(`Next runs ${nextRunsText()}`);
     // Two local times and the zone they are read in.
     expect(nextRunsText()).toMatch(/Nov \d{1,2}.*Nov \d{1,2}.*\(Asia\/Seoul\)$/);
-    expect(words).toContain("A new schedule is saved paused");
+    expect(words).toContain("Create saves the schedule paused");
     expect(words).toContain("asks you before risky actions");
     // Create (paused) is the Enter default; Create and turn on is offered beside it because the service allows it.
     expect(html).toContain('data-tars-schedule-confirm="paused"');

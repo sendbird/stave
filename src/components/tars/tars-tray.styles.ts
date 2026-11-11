@@ -38,10 +38,8 @@ export const tarsTrayStyles = stylex.create({
    * The tray's scroll container. Its inline pad is the focus ring's bleed
    * gutter (`space.4`), so a lane's chevron and its cards start on the panel
    * bar's icon edge (`space.16` with the trigger's and the cards' own pad), as
-   * the side view's body does. It has no top pad: a sticky lane header pins
-   * to the scroll container's content edge, so a pad there would leave a strip
-   * above the pinned header for cards to scroll through; the header's own
-   * block pad spaces the first lane from the panel bar.
+   * the side view's body does. It has no top pad: lane titles pin to the
+   * content edge, without a gap for scrolling cards to show through.
    */
   panelBody: { flex: 1, minHeight: 0, overflowY: "auto", paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-4"] },
   /** The narrow tray: anchored to its indicator, wider and taller than a default popover so a card fits. */
@@ -94,7 +92,7 @@ export const tarsTrayStyles = stylex.create({
    * inline gutter, so titles, cards and the chevron column line up.
    */
   cards: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, margin: 0, paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], listStyle: "none" },
-  groupingTools: { display: "flex", paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-12"] },
+  groupingIcon: { flexShrink: 0, inlineSize: vars["--aui-control-icon-size-md"], blockSize: vars["--aui-control-icon-size-md"] },
   projectTrigger: { display: "flex", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0, paddingInline: vars["--aui-space-12"] },
   projectName: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },
   cardItem: { minWidth: 0 },

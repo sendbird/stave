@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useCallback, useMemo, useState } from "react";
 import { BookOpenText } from "lucide-react";
 import { useTranslation } from "@/i18n";
@@ -53,7 +54,7 @@ export function TarsInsights({ identity, settings, bridge, onEditSettings, onOpe
   };
   return <>
     <DropdownMenu placement="bottom-end" trigger={<BookOpenText aria-hidden />}
-      triggerProps={{ render: <Button variant="ghost" size="icon-sm" disabled={!identity} aria-label={t("shell:tars.knows.menu")} title={t("shell:tars.knows.menu")} data-tars-insights="" /> }}
+      triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.knows.menu")}><Button {...props} variant="ghost" size="icon-sm" disabled={!identity} focusableWhenDisabled aria-label={t("shell:tars.knows.menu")} data-tars-insights="" /></Tooltip> }}
       groups={[{ items: [
         { label: t("shell:tars.knows.open"), onSelect: () => setView("knows") },
         { label: t("shell:tars.usage.open"), onSelect: () => setView("usage") },

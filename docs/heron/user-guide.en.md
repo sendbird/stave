@@ -204,6 +204,9 @@ Screens: [Kick off workspace](https://github.com/sendbird/stave/blob/main/docs/s
 3. Write what to do and what done looks like. Example: "Return to the original page after login, and add a passing redirect test."
 4. Select **Send**.
 
+Model names have their own line. Details and compatibility notices wrap beside
+the published token prices, when available.
+
 Screens: [Select model](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/model-picker.png)
 
 The composer has four trigger characters.
@@ -438,7 +441,9 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
-In the Work tray, **Group by project** adds folding project groups and card/output counts within each lane. Names come from registered projects or repository folders; missing ownership says **Unknown project**. Queued work keeps its order across all projects outside the groups. Drag and earlier/later actions still change that global queue. Clear and Undo apply to the whole lane. The grouping choice lasts while the tray is open.
+Open **How Tars works** in the header for three steps: give a task, follow progress and check the result. Confirmation requirements and keeping Stave open stay visible; **More about running tasks** expands the other conditions. Selecting an example fills the message box without sending it. Hover or focus an icon button to see its action.
+
+Beside the Work tray title, the **Group by project** icon adds folding project groups and card/output counts within each lane. Its tooltip names the option, and it highlights while on. Names come from registered projects or repository folders; missing ownership says **Unknown project**. Queued work keeps its order across all projects outside the groups. Drag and earlier/later actions still change that global queue. Clear and Undo apply to the whole lane. The grouping choice lasts while the tray is open.
 
 Open **Tars** in the sidebar to delegate an outcome across registered
 repositories. Unlike the saved Supervisor Agent, Tars keeps one personal
@@ -455,30 +460,35 @@ Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG,
 
 The attachments also go to the work the message delegates, so you can send a screenshot with "fix this" and the agent doing the work sees it. The work's run receives them with its first turn, as attached files and images, and does not send them again on later turns; its helpers get only what the lead passes on. When one message starts several works, each gets every attachment unless Tars gives a work only the ones it needs, such as one screenshot per bug. Queued work keeps them through a restart. If the saved attachments cannot be read when the work starts, its first turn waits with the reason instead of running without them. The work's **Request** view lists them by name.
 
-Open **Settings** in the header for the name, standing instructions,
-conversation model and account, execution model, the agents Tars may use and
-the turn limit each work unit can use. Initial model/account choices come from your app
+Open **Tars settings** in the header. **General** contains the name, standing
+instructions and ended-work retention. **Models** contains the conversation
+model and account, execution model and allowed agents. **Work** contains
+autonomy, rules and work limits. Draft edits survive switching tabs; **Save**
+applies all changes. Initial model/account choices come from your app
 settings and are saved for this conversation. The conversation model is only
 for talking with Tars. **Execution model** defaults to **Automatic**: Stave
 Auto routes delegated work, and reviews can run on the other provider. Pin a
 model only when every step and its review should stay on it. Tars runs work
 only on Claude or Codex.
 
+A turn is one request for an agent to work. The turn limit includes the lead agent and its helpers.
+
 **Standing instructions** start with a short default in your app language for a
-profile that has never used Tars. Otherwise the default is only offered: an
-empty field shows it as a placeholder with **Use default**, and an edited one
-offers **Reset to default**; either fills the field, and **Save** keeps it.
+profile that has never used Tars. Empty saved instructions also open with the
+default filled into the draft; custom text is preserved. **Reset to default**
+restores the default after an edit. You can clear the field, and **Use default**
+fills it again. Opening settings changes nothing until you choose **Save**.
 **Keep ended work in the panel** hides ended work's card and outputs from the
 tray once it last changed 1, 3, 7 (the default), 14 or 30 days ago, or keeps
 them **Until I clear it**.
 
-**How independently Tars acts** is one choice between three levels, and the
-table under it lists what Tars does on its own, asks first, always asks and
-never does at the level you picked. **Balanced** is the default and behaves as
+**How independently Tars acts** offers three levels.
+**Actions and confirmations** expands what Tars does on its own,
+asks first, always asks and never does at the level you picked. **Balanced** is the default and behaves as
 Tars did without levels. **Careful** also makes starting new work, changing the
 queue order and starting queued work now wait for your confirmation. **Hands-off**
-lets Tars resume work, retry a phase and give work more steps at once when you
-ask, leaving a record of each. At every level cancelling work, skipping a phase,
+lets Tars resume work, retry a stage and add turns to the task at once when you
+ask, leaving a record of each. At every level cancelling work, skipping a stage,
 accepting a completion Stave could not verify, approving a tool request and
 publishing wait for you, and an automatic follow-up gains nothing from a level.
 **Never do** holds rules in your own words, such as "never touch production
@@ -530,7 +540,7 @@ shows a schedule card with what will run and the next two runs in local time
 with the time zone, and its name and where it runs under **Details**; nothing
 is created until you confirm. A new
 schedule is saved paused: **Create** (Enter) keeps it paused, **Create and
-turn on** starts it now. It is a normal schedule in **Schedules**: each run
+turn on** enables it to run at the shown times. It is a normal schedule in **Schedules**: each run
 starts a new task in that workspace in the Guided permission mode, one run at
 a time, and only while Stave is open. Each run leaves a record in the
 conversation marked as started by the schedule, and **Schedules** under the
@@ -629,7 +639,8 @@ entry shows the moving mark with the number of running work and an amber count
 of what needs you; collapsed, it shows one dot, amber when something needs you,
 blue when work only runs. The conversation keeps only words, decisions and the
 moments work completes, is blocked or is cancelled, each with the state tag's
-word. Completed, blocked and failed work shows a result card there, aligned with the other conversation cards: the completion
+word. The timeline connector stops around result cards; text-only records still
+join on the rail. Completed, blocked and failed work shows a result card there, aligned with the other conversation cards: the completion
 criteria with what backs each one (**Met · confirmed by a check**, **Met · confirmed by
 review**, or **Met · agent's report only** when nothing Stave ran or reviewed confirms
 it), a two-line summary with **Open report**, the changed files with **View changes**,
@@ -712,7 +723,7 @@ the card again and continues from that step.
 A blocked card in the tray shows why and offers **Open report** (at the end of
 its **Blocked** line when the card lists the block), which opens
 the report on its unmet criteria with the next steps that work allows:
-**Resume**, **Take over** or **Cancel responsibility**, or for a completion Stave
+**Resume**, **Take over** or **Cancel work**, or for a completion Stave
 could not verify, its decision card. A blocked or stuck stage in the work flow
 shows its reason and opens the same place.
 
@@ -727,7 +738,7 @@ draft, with that choice, when you leave Tars and after a restart; attached
 files stay with it until Stave quits. A sent message clears it and a failed
 send keeps it, with **Retry** in a notice at the end of the conversation. If the draft cannot be saved, sending stops and keeps it, and
 quitting offers to keep Stave open, retry saving or quit without saving. **Pause**, **Resume**, **Take
-over**, **Hand back** and **Cancel responsibility** control owned work. You can
+over**, **Hand back** and **Cancel work** control owned work. You can
 also ask in words, such as "stop it" or "I'll take it from here"; both go
 through the same check, and each click leaves a record row in the
 conversation. Work Tars holds shows a **Tars** label in Fleet View and on the
@@ -742,7 +753,7 @@ verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
 saw a check pass on the current revision in the final stage, or its
 independent review passed on that same revision. Otherwise a decision card
-asks what to do: **Accept as done**, **Cancel responsibility**, or **Ask Tars
+asks what to do: **Accept as done**, **Cancel work**, or **Ask Tars
 for new verification work**, which only drafts that request in the message box.
 
 Waiting decisions and publish confirmations appear one at a time above the

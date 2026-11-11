@@ -62,8 +62,8 @@ for (const { name, query, ko } of [
     expect(await kinds("result-verified")).toEqual(["verifiedReview", "verifiedCheck"]);
     expect(await kinds("result-reported")).toEqual(["reported", "reported"]);
     await expect(card(page, "result-verified")).toContainText(ko ? "충족 · 검사로 확인" : "Met · confirmed by a check");
-    await expect(card(page, "result-reported")).toContainText(ko ? "충족 · 에이전트 보고만 있음" : "Met · agent's report only");
-    await expect(card(page, "result-reported")).not.toContainText(ko ? "확인" : "confirmed");
+    await expect(card(page, "result-reported")).toContainText(ko ? "충족 보고 · 확인 안 됨" : "Reported met · unverified");
+    await expect(card(page, "result-reported")).not.toContainText(ko ? "충족 · 검사로 확인" : "Met · confirmed by a check");
     // The draft pull request is a link; a cancel stays one row with no card.
     await expect(card(page, "result-published").getByRole("link")).toHaveAttribute("href", "https://github.com/example/web/pull/57");
     await expect(page.locator('[data-tars-activity="cancelled"]').first()).not.toHaveAttribute("data-tars-result", /.*/);
@@ -137,6 +137,37 @@ test("the card's text follows the chat font size", async ({ page }) => {
 
 for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {
   for (const density of ["regular", "compact"]) for (const width of [390, 1440]) {
+    test(`result surfaces interrupt connectors without inset or dangling lines: ${theme} ${lang} ${density} ${width}`, async ({ page }) => {
+      await open(page, `&theme=${theme}&lang=${lang}&density=${density}`, width);
+      // The same mixed run as the product: two result surfaces, then a plain cancellation.
+      const list = page.locator('[data-tars-records]:has([data-tars-result-card="search"])');
+      await list.scrollIntoViewIfNeeded();
+      const geometry = await list.evaluate((node) => {
+        const rect = (element: Element) => element.getBoundingClientRect();
+        const cards = [...node.querySelectorAll('[data-tars-result-card]')].map(rect);
+        const lines = [...node.children].flatMap((item) => [...item.querySelectorAll(':scope > span[aria-hidden="true"]')])
+          .map(rect).filter((box) => box.width > 0 && box.height > 0);
+        const edge = rect(node);
+        return { cards: cards.length, lines: lines.length,
+          insets: cards.map((box) => ({ left: box.left - edge.left, right: edge.right - box.right })),
+          intersections: lines.filter((line) => cards.some((card) => line.left < card.right && line.right > card.left && line.top < card.bottom && line.bottom > card.top)).length };
+      });
+      expect(geometry.cards).toBe(2);
+      expect(geometry.intersections).toBe(0);
+      // Neither the card-to-card gap nor the cancellation gets a disconnected stub.
+      expect(geometry.lines).toBe(0);
+      for (const inset of geometry.insets) {
+        expect(Math.abs(inset.left)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(inset.right)).toBeLessThanOrEqual(0.5);
+      }
+      // A sibling run made only of text records still uses the timeline rail.
+      const plain = page.locator('[data-tars-message="g-i"]').locator('xpath=following-sibling::ul[1]');
+      await plain.scrollIntoViewIfNeeded();
+      const joins = await plain.evaluate((node) => [...node.children].flatMap((item) => [...item.querySelectorAll(':scope > span[aria-hidden="true"]')])
+        .filter((line) => line.getBoundingClientRect().width > 0 && line.getBoundingClientRect().height > 0).length);
+      expect(joins).toBeGreaterThan(2);
+    });
+
     test(`publish fields share control height and label alignment: ${theme} ${lang} ${density} ${width}`, async ({ page }) => {
       await open(page, `&theme=${theme}&lang=${lang}&density=${density}`, width);
       const publish = page.locator('[data-tars-publish-card]:has([data-tars-publish-type])').first();

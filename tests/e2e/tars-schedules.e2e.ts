@@ -41,7 +41,7 @@ test.describe("Tars schedules", () => {
     await expect(rowText(page, "where")).toHaveText("Release check (main) · preview");
     await expect(rowText(page, "when")).toHaveText("Every weekday at 09:00");
     await expect(rowText(page, "next")).toHaveText("Tue, Nov 10, 9:00 AM and Wed, Nov 11, 9:00 AM (Asia/Seoul)");
-    await expect(card(page).locator("[data-tars-schedule-paused-note]")).toContainText("saved paused");
+    await expect(card(page).locator("[data-tars-schedule-paused-note]")).toContainText("Create saves the schedule paused");
     // Nothing exists before the confirmation.
     await expect(section(page).locator("[data-tars-schedules-count]")).toHaveText("0");
 

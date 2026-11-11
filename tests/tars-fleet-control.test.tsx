@@ -329,7 +329,7 @@ describe("Fleet controls on Tars-owned work", () => {
     try {
       const status = describeFleetTarsOutcome(outcome);
       expect(status.tone).toBe("error");
-      expect(status.text).toBe("이 Task를 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 Task에서 계속하세요.");
+      expect(status.text).toBe("이 작업을 이제 다른 곳에서 맡고 있어 Tars가 이어서 진행할 수 없습니다. 해당 작업에서 계속하세요.");
       expect(status.text).not.toContain(diagnostic);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     expect(describeFleetTarsOutcome(outcome).text).toContain("now controlled elsewhere");

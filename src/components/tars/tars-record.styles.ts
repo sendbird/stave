@@ -48,7 +48,13 @@ export const tarsRecordStyles = stylex.create({
   },
   /** A run that stands between exchanges pads like an exchange (`tarsMessageStyles.exchange`), so the transcript has one gap between entries. */
   listStandalone: { paddingBlock: vars["--aui-space-8"] },
-  item: { position: "relative", minWidth: 0 },
+  item: {
+    position: "relative", minWidth: 0,
+    // A full-width surface interrupts the rail. Its next item starts afresh,
+    // without an orphan connector above its mark; text-only records still join.
+    "--tars-rail-below": { default: "block", ":has([data-tars-record-surface])": "none" },
+    "--tars-rail-above": { default: "block", ":is(:has([data-tars-record-surface]) + *)": "none" },
+  },
   /**
    * Mark, then the text, then the outcome at the trailing edge. Narrow, the
    * outcome wraps under the text instead of squeezing it.
@@ -71,12 +77,14 @@ export const tarsRecordStyles = stylex.create({
   },
   /** The rail's segment from the row above down to this row's mark. */
   railAbove: {
+    display: "var(--tars-rail-above)",
     position: "absolute", insetInlineStart: `calc(${MARK_SLOT} / 2 - ${vars["--aui-border-width-hairline"]} / 2)`, insetBlockStart: 0,
     inlineSize: vars["--aui-border-width-hairline"], blockSize: `calc(${MARK_CENTER} - ${MARK_CLEARANCE})`,
     backgroundColor: vars["--aui-color-border-strong"], pointerEvents: "none",
   },
   /** The segment from this row's mark down to the row below. */
   railBelow: {
+    display: "var(--tars-rail-below)",
     position: "absolute", insetInlineStart: `calc(${MARK_SLOT} / 2 - ${vars["--aui-border-width-hairline"]} / 2)`,
     insetBlockStart: `calc(${MARK_CENTER} + ${MARK_CLEARANCE})`, insetBlockEnd: 0,
     inlineSize: vars["--aui-border-width-hairline"], backgroundColor: vars["--aui-color-border-strong"], pointerEvents: "none",

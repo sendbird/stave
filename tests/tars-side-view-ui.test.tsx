@@ -89,7 +89,7 @@ describe("blocked work navigation (A6)", () => {
     const search = f.responsibilities.find((row) => row.id === "search")!;
     const { actions, acted, fleet } = actionsRecording();
     const view = capture(() => TarsBlockedNextSteps({ row: search, decision: undefined, actions }));
-    expect(view.labels).toEqual(["Resume", "Take over", "Cancel responsibility", "Open task", "Show in Fleet"]);
+    expect(view.labels).toEqual(["Resume", "Take over", "Cancel work", "Open task", "Show in Fleet"]);
     view.press("Resume");
     view.press("Show in Fleet");
     expect(acted).toEqual(["resume"]);

@@ -125,8 +125,8 @@ describe("What Tars knows", () => {
     const html = renderToStaticMarkup(createElement(TarsRepositoryMemoryPanel, { state, onReload: noop, onSave: saved, onRemove: saved, onOpenTask: noop }));
     expect(html).toContain('data-tars-knows-memory="ready"');
     // Honest about who reads them: the tasks, not Tars.
-    expect(html).toContain("Tars does not read these itself.");
-    expect(html).toContain("at most 6 per turn");
+    expect(html).toContain("not to the Tars conversation");
+    expect(html).toContain("up to 6 relevant memories");
     expect(html).toContain("3 memories in use");
     const unused = html.indexOf("Not used yet");
     expect(unused).toBeGreaterThan(html.indexOf("Never push to a release branch"));
@@ -156,7 +156,7 @@ describe("What Tars knows", () => {
     await applyAppLocale("ko");
     const { repositories } = fixtures(true);
     const html = renderToStaticMarkup(createElement(TarsKnowsView, { identity, settings: null, agentNameOf: () => null, repositories, onEditSettings: noop }));
-    expect(html).toContain("모든 곳");
+    expect(html).toContain("모든 대화와 작업");
     expect(html).toContain("저장소별");
     expect(html).toContain("Tars가 기억하지 않는 것");
     expect(html).toContain(`최근 메시지 ${TARS_PLANNER_HISTORY_MESSAGES}개`);
@@ -196,7 +196,7 @@ describe("Usage", () => {
     expect(html).toContain(`1 of ${value.totals.sevenDays.turns} turns reported no token count.`);
     // What the figures leave out.
     expect(html).toContain("The tokens of its own replies are not recorded.");
-    expect(html).toContain("Turns of helper tasks that a run starts are not counted.");
+    expect(html).toContain("Turns from helper tasks are not included.");
     expect(html).toContain("Days are counted in your local time.");
   });
 
@@ -240,13 +240,13 @@ describe("Usage", () => {
     const empty = aggregateTarsUsage({ period, works: [], turns: [], replies: null, generatedAt: NOW.toISOString(), truncated: true, omittedWorks: 3 });
     const html = renderToStaticMarkup(createElement(TarsUsageView, { state: ready(empty), onReload: noop }));
     expect(html).toContain("data-tars-usage-empty");
-    expect(html).toContain("No turns ran in this period.");
+    expect(html).toContain("No task activity in this period.");
     // No turn reported tokens: the total says so instead of showing 0.
     expect(html).toContain("Not reported");
     expect(html).not.toContain("data-tars-usage-breakdown");
     expect(html).toContain("could not be counted");
-    expect(html).toContain("these totals are a lower bound");
-    expect(html).toContain("3 older pieces of work were not read.");
+    expect(html).toContain("Actual usage may be higher than these totals");
+    expect(html).toContain("3 older tasks were not included.");
     const render = (state: TarsUsageState) => renderToStaticMarkup(createElement(TarsUsageView, { state, onReload: noop }));
     expect(render({ status: "unavailable", report: null })).toContain("Usage cannot be read here.");
     const failed = render({ status: "failed", report: null });
@@ -260,6 +260,6 @@ describe("Usage", () => {
     const html = renderToStaticMarkup(createElement(TarsUsageView, { state: ready(await report()), onReload: noop, onOpenWork: noop }));
     for (const label of ["오늘", "7일", "30일", "토큰", "작업 시간", "작업별", "모델별"]) expect(html).toContain(`>${label}<`);
     expect(html).toContain("Tars 자신의 답변에 쓰인 토큰은 기록되지 않습니다.");
-    expect(html).toContain("보조 Task의 턴은 포함되지 않습니다.");
+    expect(html).toContain("보조 작업의 턴은 집계에 포함되지 않습니다.");
   });
 });

@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useId, useImperativeHandle, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "@/i18n";
@@ -80,10 +81,10 @@ export function TarsDecisionDock({ items, controller, busy, preferredId, onEmpty
     <div className={sx(styles.header)}>
       <p id={labelId} className={sx(styles.label)} role="status">{t("shell:tars.dock.position", { position: index + 1, count: items.length })}</p>
       <div className={sx(styles.navigation)}>
-        <Button size="xs" variant="quiet" iconOnly aria-label={t("shell:tars.dock.previous")} title={t("shell:tars.dock.previous")} disabled={busy || index === 0} onClick={() => show(ids[index - 1]!)}
-          data-tars-dock-previous=""><ChevronLeft aria-hidden="true" /></Button>
-        <Button size="xs" variant="quiet" iconOnly aria-label={t("shell:tars.dock.next")} title={t("shell:tars.dock.next")} disabled={busy || index === items.length - 1} onClick={() => show(ids[index + 1]!)}
-          data-tars-dock-next=""><ChevronRight aria-hidden="true" /></Button>
+        <Tooltip content={t("shell:tars.dock.previous")}><Button size="xs" variant="quiet" iconOnly focusableWhenDisabled aria-label={t("shell:tars.dock.previous")} disabled={busy || index === 0} onClick={() => show(ids[index - 1]!)}
+          data-tars-dock-previous=""><ChevronLeft aria-hidden="true" /></Button></Tooltip>
+        <Tooltip content={t("shell:tars.dock.next")}><Button size="xs" variant="quiet" iconOnly focusableWhenDisabled aria-label={t("shell:tars.dock.next")} disabled={busy || index === items.length - 1} onClick={() => show(ids[index + 1]!)}
+          data-tars-dock-next=""><ChevronRight aria-hidden="true" /></Button></Tooltip>
       </div>
     </div>
     <div className={sx(styles.body)} data-tars-dock-body="">

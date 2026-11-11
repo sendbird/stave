@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useState, type ReactNode } from "react";
 import { Ellipsis, Workflow } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -72,7 +73,7 @@ function NodeMenu({ title, target, onShowInFleet }: { title: string; target: Fle
   if (!target || !onShowInFleet) return null;
   return <DropdownMenu placement="bottom-end"
     trigger={<Ellipsis aria-hidden />}
-    triggerProps={{ render: <Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.flow.nodeMenu", { title })} title={t("shell:tars.tray.moreActionsHint")} /> }}
+    triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.tray.moreActionsHint")}><Button {...props} variant="ghost" size="icon-sm" aria-label={t("shell:tars.flow.nodeMenu", { title })} /></Tooltip> }}
     groups={[{ items: [{ label: t("shell:tars.tray.showInFleet"), onSelect: () => onShowInFleet(target) }] }]} />;
 }
 

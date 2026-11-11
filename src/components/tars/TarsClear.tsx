@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useId, useState, type KeyboardEvent } from "react";
 import { Eraser } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -124,7 +125,7 @@ export function TarsClearConversationButton({ count, busy, error, onClear }: { c
   const [open, setOpen] = useState(false);
   const label = t("shell:tars.clear.conversation.button");
   return <>
-    <Button variant="ghost" size="icon-sm" disabled={busy || count === 0} aria-label={label} title={label} data-tars-clear-conversation="" onClick={() => setOpen(true)}><Eraser /></Button>
+    <Tooltip content={label}><Button variant="ghost" size="icon-sm" disabled={busy || count === 0} focusableWhenDisabled aria-label={label} data-tars-clear-conversation="" onClick={() => setOpen(true)}><Eraser /></Button></Tooltip>
     <ConfirmDialog open={open} loading={busy} title={t("shell:tars.clear.conversation.title")}
       description={t("shell:tars.clear.conversation.description", { count })} confirmLabel={t("shell:tars.clear.conversation.confirm")}
       cancelLabel={t("shell:tars.clear.card.decline")} onCancel={() => setOpen(false)}

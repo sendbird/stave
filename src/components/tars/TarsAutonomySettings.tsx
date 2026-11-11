@@ -3,7 +3,9 @@ import { useTranslation } from "@/i18n";
 import { formatList } from "@/i18n/format";
 import { Button, Input } from "@/components/ui";
 import { RadioGroup } from "@/components/aui/components/RadioGroup";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/aui/components/Table";
+import { ChevronRight } from "lucide-react";
+import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/aui/headless/collapsible";
+import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
 import {
   TARS_ALWAYS_CONFIRMED, TARS_AUTONOMY_LEVELS, TARS_NEVER_RULE_MAX_CHARS, TARS_NEVER_RULES_MAX, TarsAutonomyLevelSchema, tarsAutonomySummary,
@@ -33,7 +35,7 @@ export function addTarsNeverRule(rules: readonly string[], text: string): string
 
 /**
  * How independently Tars acts: one of three levels with a line each, the
- * table of what that level does on its own, asks first and never does, and
+ * optional details of what it does on its own, asks first and never does, and
  * the user's own "never do" rules. Nothing here is saved until the form is.
  */
 export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, onRulesChange }: {
@@ -47,6 +49,7 @@ export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, on
   const rulesLabel = useId();
   const rulesHint = useId();
   const [draft, setDraft] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const table = tarsAutonomyTable(level);
   const full = rules.length >= TARS_NEVER_RULES_MAX;
   const add = () => {
@@ -71,21 +74,22 @@ export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, on
     <RadioGroup label={t("shell:tars.autonomy.title")} description={t("shell:tars.autonomy.hint")} value={level} disabled={disabled}
       onValueChange={(value) => { const parsed = TarsAutonomyLevelSchema.safeParse(value); if (parsed.success) onLevelChange(parsed.data); }}
       options={TARS_AUTONOMY_LEVELS.map((value) => ({ value, label: t(`shell:tars.autonomy.level.${value}.label`), description: t(`shell:tars.autonomy.level.${value}.description`) }))} />
-    <Table density="compact" minInlineSize={0} role="group" aria-label={t("shell:tars.autonomy.table.label", { level: t(`shell:tars.autonomy.level.${level}.label`) })} data-tars-autonomy-table="">
-      <TableHeader>
-        <TableRow>
-          <TableHead scope="col">{t("shell:tars.autonomy.table.column.when")}</TableHead>
-          <TableHead scope="col">{t("shell:tars.autonomy.table.column.actions")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => <TableRow key={row.id} data-tars-autonomy-row={row.id} data-tars-autonomy-actions={row.keys.join(",")}>
-          <TableCell xstyle={autonomy.when}>{t(`shell:tars.autonomy.table.row.${row.id}`)}</TableCell>
-          <TableCell xstyle={autonomy.actions}>{row.text}</TableCell>
-        </TableRow>)}
-      </TableBody>
-    </Table>
-    <p className={sx(styles.text)}>{t("shell:tars.autonomy.footnote")}</p>
+    <p className={sx(styles.text)}>{t("shell:tars.guide.limit1")}</p>
+    <CollapsibleRoot open={detailsOpen} onOpenChange={setDetailsOpen}>
+      <CollapsibleTrigger render={<Button type="button" variant="ghost" size="sm" />} data-tars-autonomy-details-toggle="">
+        <ChevronRight aria-hidden className={sx(autonomy.chevron, transition.transform, detailsOpen && autonomy.chevronOpen)} />
+        {t("shell:tars.autonomy.detailsTitle")}
+      </CollapsibleTrigger>
+      <CollapsiblePanel keepMounted>
+        <dl className={sx(autonomy.details)} aria-label={t("shell:tars.autonomy.table.label", { level: t(`shell:tars.autonomy.level.${level}.label`) })} data-tars-autonomy-details="">
+          {rows.map((row) => <div key={row.id} data-tars-autonomy-row={row.id} data-tars-autonomy-actions={row.keys.join(",")}>
+            <dt className={sx(autonomy.rowTitle)}>{t(`shell:tars.autonomy.table.row.${row.id}`)}</dt>
+            <dd className={sx(autonomy.actions)}>{row.text}</dd>
+          </div>)}
+        </dl>
+        <p className={sx(styles.text)}>{t("shell:tars.autonomy.footnote")}</p>
+      </CollapsiblePanel>
+    </CollapsibleRoot>
     <div className={sx(styles.field)} role="group" aria-labelledby={rulesLabel} aria-describedby={rulesHint} data-tars-never-rules="">
       <span id={rulesLabel}>{t("shell:tars.autonomy.never.title")}</span>
       <p id={rulesHint} className={sx(styles.text)}>{t("shell:tars.autonomy.never.hint")}</p>

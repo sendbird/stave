@@ -53,6 +53,8 @@ export const tarsLiveStyles = stylex.create({
    */
   stripSection: {
     display: "flex", flexDirection: "column", minWidth: 0,
+    // Match the tray's top gutter below the status band, before the raised input.
+    marginBlockEnd: vars["--aui-space-4"],
     [LIVE_SIZE]: SECONDARY, [LIVE_LEADING]: SECONDARY_LEADING,
   },
   stripToggle: { fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },

@@ -181,8 +181,8 @@ export function TarsRunningStrip({ items, onOpenSide, onShowAll }: {
         </span>
       </CollapsibleTrigger>
       {/* Mounted while folded, so each row keeps reading its progress for the summary's attention note. */}
-      <CollapsiblePanel keepMounted>
-        <ul className={sx(styles.strip)}>
+      <CollapsiblePanel keepMounted className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
+        <ul className={cx(sx(styles.strip), "atelier-motion-panel-inner")}>
           {shown.map((item) => <TarsRunningStripRow key={item.row.id} row={item.row} run={item.run} onOpenSide={onOpenSide} onStale={onStale} />)}
           {more > 0 ? <li className={sx(styles.stripRow)}>
             {onShowAll ? <Button variant="ghost" size="2xs" onClick={onShowAll} data-tars-running-more={more}>{t("shell:tars.live.more", { count: more })}</Button>

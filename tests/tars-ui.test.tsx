@@ -60,7 +60,7 @@ describe("Tars UI", () => {
     expect(done.visible).toEqual(["Open task"]);
     expect(done.labels).toEqual(["Open task", "Show in Fleet"]);
     expect(done.html).toContain('data-tars-lane="done"');
-    expect(done.html).not.toContain("Cancel responsibility");
+    expect(done.html).not.toContain("Cancel work");
   });
   test("queued transport reads finish before mutations and failure does not poison later requests", async () => {
     const queue = createTarsRequestQueue();
@@ -87,10 +87,10 @@ describe("Tars UI", () => {
     // One main action and Open task stay visible; the rest is in "More actions", Cancel last.
     const running = renderRow(rowProps(row));
     expect(running.visible).toEqual(["Pause", "Open task"]);
-    expect(running.labels).toEqual(["Pause", "Open task", "Take over", "Show in Fleet", "Cancel responsibility"]);
-    expect(renderRow(rowProps({ ...row, state: "paused" })).labels).toEqual(["Resume", "Open task", "Take over", "Show in Fleet", "Cancel responsibility"]);
+    expect(running.labels).toEqual(["Pause", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
+    expect(renderRow(rowProps({ ...row, state: "paused" })).labels).toEqual(["Resume", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
     const owned = renderRow(rowProps({ ...row, state: "takenOver" }));
-    expect(owned.labels).toEqual(["Hand back", "Open task", "Show in Fleet", "Cancel responsibility"]);
+    expect(owned.labels).toEqual(["Hand back", "Open task", "Show in Fleet", "Cancel work"]);
     expect(owned.html).toContain("Taken over");
     expect(owned.html).toContain("Owner: you");
     expect(renderRow(rowProps({ ...row, reverifyAfter: "2026-11-05T00:05:00.000Z" })).html).toContain("verify this work again");
@@ -144,7 +144,7 @@ describe("Tars UI", () => {
       expect(line("stale")).toContain("마지막으로 확인한 뒤 작업이 바뀌었습니다.");
       // A code this build does not know, or none, falls back to the generic translated reason.
       expect(line("futureReason")).toContain("Tars가 이 동작을 하지 못했습니다.");
-      expect(spoken("ownershipLost")).toContain("이 Task를 이제 다른 곳에서 맡고 있어");
+      expect(spoken("ownershipLost")).toContain("이 작업을 이제 다른 곳에서 맡고 있어");
       expect(spoken(null)).toContain("Tars가 이 동작을 하지 못했습니다.");
       for (const html of [line("takenOver"), line("futureReason"), spoken("ownershipLost"), spoken(null)]) expect(html).not.toContain(diagnostic);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }

@@ -10,25 +10,28 @@ import koShell from "../src/locales/ko/shell.json";
 afterEach(async () => { applyAppLocale("en"); await i18n.changeLanguage("en"); });
 
 describe("Tars guide", () => {
-  test("the full guide lists what Tars can do and its limits; examples only with a handler", () => {
+  test("the overview exposes three steps and essential conditions, with optional request examples", () => {
     const plain = renderToStaticMarkup(createElement(TarsGuide));
-    for (const n of [1, 2, 3, 4, 5, 6]) {
-      expect(plain).toContain(enShell.tars.guide[`canDo${n}` as keyof typeof enShell.tars.guide].replace("'", "&#x27;"));
-      expect(plain).toContain(enShell.tars.guide[`limit${n}` as keyof typeof enShell.tars.guide].replace("'", "&#x27;"));
+    expect(plain).toContain(enShell.tars.guide.summary);
+    for (const n of [1, 2, 3]) {
+      expect(plain).toContain(enShell.tars.guide[`step${n}Title` as keyof typeof enShell.tars.guide]);
+      expect(plain).toContain(enShell.tars.guide[`step${n}Text` as keyof typeof enShell.tars.guide]);
     }
+    for (const n of [1, 2]) expect(plain).toContain(enShell.tars.guide[`limit${n}` as keyof typeof enShell.tars.guide]);
+    for (const n of [3, 4, 5, 6]) expect(plain).not.toContain(enShell.tars.guide[`limit${n}` as keyof typeof enShell.tars.guide]);
+    expect(plain).toContain('aria-expanded="false"');
+    expect(plain).toContain(enShell.tars.guide.detailsTitle);
     expect(plain).not.toContain("data-tars-guide-examples");
     const withExamples = renderToStaticMarkup(createElement(TarsGuide, { onExample: () => {} }));
-    // Examples lead, so the popover's first focused control is at the top of its content.
-    expect(withExamples.indexOf("data-tars-guide-examples")).toBeLessThan(withExamples.indexOf(enShell.tars.guide.canDoTitle));
-    for (const n of [1, 2, 3]) expect(withExamples).toContain(enShell.tars.guide[`exampleLabel${n}` as keyof typeof enShell.tars.guide].replace("'", "&#x27;"));
-    // A chip carries its full request as the title; pressing it fills the composer with that text.
+    expect(withExamples.indexOf("data-tars-guide-steps")).toBeLessThan(withExamples.indexOf("data-tars-guide-examples"));
+    for (const n of [1, 2, 3]) expect(withExamples).toContain(enShell.tars.guide[`exampleLabel${n}` as keyof typeof enShell.tars.guide]);
     expect(withExamples).toContain(`title="${enShell.tars.guide.example2}"`);
   });
 
   test("Korean copy renders with the same keys", async () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const html = renderToStaticMarkup(createElement(TarsGuide, { onExample: () => {} }));
-    expect(html).toContain(koShell.tars.guide.canDoTitle);
+    expect(html).toContain(koShell.tars.guide.summary);
     expect(html).toContain(koShell.tars.guide.exampleLabel1);
     expect(Object.keys(koShell.tars.guide).sort()).toEqual(Object.keys(enShell.tars.guide).sort());
   });

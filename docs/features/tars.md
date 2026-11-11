@@ -8,6 +8,13 @@ follows it until the result is verified and comes back to you when a decision
 is needed. Its name, instructions, conversation and responsibilities persist
 across workspaces, tasks and restarts.
 
+The header's **How Tars works** button explains giving a task, following its
+progress and checking the result in three steps. Confirmation requirements and
+keeping Stave open stay visible; **More about running tasks** expands the remaining
+conditions. Selecting a request example fills the composer without sending it.
+Icon buttons show their action in a tooltip on hover or keyboard focus,
+including the header, side views, question navigation and attachment removal.
+
 ## How it works
 
 1. **You talk.** Open **Tars** at the top of the sidebar and write. There is
@@ -325,7 +332,7 @@ explicitly. Details are in [Decisions](#decisions).
 | **Resume** | Continues paused or blocked work. Never continues work you took over. |
 | **Take over** | Stops Tars's execution and makes the work yours; continue in its task. |
 | **Hand back** | Returns work you took over; Tars verifies it again before completing. |
-| **Cancel responsibility** | Ends supervision permanently. Changes, worktree, task and history stay. |
+| **Cancel work** | Ends supervision permanently. Changes, worktree, task and history stay. |
 | **Cancel message** | Stops a queued or running reply. Admitted work is not undone. |
 | **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
@@ -341,10 +348,10 @@ fit (for example, sign-off while no stage waits for it) is refused with
 
 | Ask | Effect on the run |
 |---|---|
-| "Give it more turns" (**Add steps**) | A run paused at its turn limit gets 10 more turns (shown to you as steps) and continues. |
-| "Retry it" (**Retry phase**) | A blocked or stuck current stage (shown as a phase) starts a fresh attempt. |
-| "Skip this stage" (**Skip phase**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
-| "Approve it" (**Approve phase**) | A stage waiting for your sign-off starts. |
+| "Give it more turns" (**Add turns**) | A run paused at its turn limit gets 10 more turns and continues. |
+| "Retry it" (**Retry stage**) | A blocked or stuck current stage starts a fresh attempt. |
+| "Skip this stage" (**Skip stage**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
+| "Approve it" (**Approve stage**) | A stage waiting for your sign-off starts. |
 | "Resume it" (**Resume**) | Also continues a run paused by a usage limit or an expired wait. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
 
 None of these apply to work you took over, including a run you took over in
@@ -427,7 +434,7 @@ no Undo. Clearing keeps its separate Undo.
 - **Agents**: the Supervisor's **Work** list includes Tars's work once you turn
   on **Show Tars work**.
 
-Use **Group by project** in the Work tray to fold work and outputs by project within each lane. Project counts count work cards or outputs, not attention requests. Registered project names are used when available, otherwise the repository folder name; missing ownership appears as **Unknown project**. Queued work stays outside project groups in its existing order across all projects; drag and earlier/later actions still change that global queue. Lane filters, Clear and Undo keep their existing scope. The grouping choice lasts while the tray is mounted.
+Use the **Group by project** icon beside the Work tray title to fold work and outputs by project within each lane. Its tooltip names the option, and it highlights while grouping is on. The title row stays above the scrolling list without a separate toolbar row. Project counts count work cards or outputs, not attention requests. Registered project names are used when available, otherwise the repository folder name; missing ownership appears as **Unknown project**. Queued work stays outside project groups in its existing order across all projects; drag and earlier/later actions still change that global queue. Lane filters, Clear and Undo keep their existing scope. The grouping choice lasts while the tray is open.
 
 ## FAQ and troubleshooting
 
@@ -633,7 +640,7 @@ fires and shows, and each run is a normal task in the workspace you named.
   title, and its name and where it runs (the workspace, its branch and
   repository) are under a collapsed **Details**. A new schedule is saved **paused**, as every schedule an agent
   proposes is: **Create** (Enter) keeps it paused until you turn it on, and
-  **Create and turn on** starts it now. **Not now** (Esc) leaves everything as
+  **Create and turn on** enables it to run at the shown times. **Not now** (Esc) leaves everything as
   it is. The same request confirmed twice (a retry, a double click) creates
   one schedule.
 - **What a run does.** At its time the Schedules service starts a new task in
@@ -759,7 +766,7 @@ Otherwise the responsibility is blocked with `unverifiedCompletion`; only the
 user's `acceptCompletion` (a click, or a model proposal the user confirms)
 completes it, recorded as `acceptedWithoutVerification`, and the run is not
 touched. The conversation shows this as a [decision card](#decisions) with
-**Accept as done**, **Cancel responsibility** and **Ask Tars for new
+**Accept as done**, **Cancel work** and **Ask Tars for new
 verification work**; the last only writes that request into the message box
 for you to send. While it waits, pause, resume, take over and hand back are
 refused for that work.
@@ -775,7 +782,7 @@ Control details beyond the [quick start table](#3-control-work):
   verification restarts that verification. It is refused when the run already
   ended while you held the work, when the run is paused for a reason only its
   task can clear, or when the final verification has no attempts left.
-- **Cancel responsibility** cancels a run still in progress but does not undo
+- **Cancel work** cancels a run still in progress but does not undo
   changes already made or delete its worktree, task or history.
 - **Start now** applies only to queued work you delegated earlier: right after
   the control settles, Tars prepares the worktree and task and starts the run
@@ -889,7 +896,9 @@ conversation's notices use the state's own word: **Completed**, **Blocked**,
 
 **Ended work shows what it came to.** Where work completes or stops, the
 conversation shows a result card, aligned with the conversation's outer edge, under the notice's row (the state, the work,
-its agent and how long the run worked). The card shows only what the run
+its agent and how long the run worked). The timeline connector stops at a
+full-width result surface and resumes between text-only records, so it never
+runs through a card. The card shows only what the run
 recorded:
 
 - The completion criteria, each with what backs it. **Met · confirmed by a
@@ -1342,13 +1351,19 @@ when Stave starts; unprocessed ones are kept.
 
 ## Settings and models
 
-Open the settings button (**Conversation settings**) in the conversation
+Open **Tars settings** in the conversation
 header to change the name, standing instructions, how long ended work stays in
 the panel, conversation model and account, execution model, the agents Tars may
-use and the turn limit per work unit.
+use and the turn limit per work unit. A turn is one request for an agent to
+work; the limit includes the lead agent and its helpers.
 Until you change them, the conversation uses Codex when it is available
 (otherwise Claude Code) with that provider's model from your app settings, and
 a turn limit of 30; the first send saves these choices for the conversation.
+Settings have three tabs: **General** (name, standing instructions and ended-work
+retention), **Models** (conversation model/account, execution model and allowed
+agents), and **Work** (autonomy, rules and work limits). Draft edits survive
+switching tabs. **Save** remains visible below the scrolling panel.
+
 Saving settings affects later messages and new work, not already admitted
 runs. Instructions do not grant new permissions.
 
@@ -1357,9 +1372,10 @@ the answer or the decision needed, restate the goal and completion criteria
 before delegating, prefer small reviewable work without lowering criteria, say
 what happened and what you need to decide when work blocks, and say when an
 observation is stale or unknown. A profile that has never used Tars starts with
-it. Otherwise it is only offered: while the field is empty it shows the default
-as a placeholder and **Use default** fills it; when you have edited it, **Reset
-to default** puts it back. Either fills the field only, and **Save** keeps it.
+it. An empty saved profile also opens with this default filled into the draft;
+existing custom text is preserved. **Reset to default** replaces a custom draft.
+Clearing the field remains an explicit edit, with **Use default** available to
+restore it. **Save** applies the draft; opening settings alone changes nothing.
 An empty field means Tars follows only its built-in rules.
 
 **Keep ended work in the panel** sets the retention period described in
@@ -1369,23 +1385,23 @@ An empty field means Tars follows only its built-in rules.
 
 **How independently Tars acts** is one choice between three levels. It decides
 which of Tars's proposals Stave applies at once and which wait for your
-confirmation on a card. The table under the choice lists, for the level you
-picked, what Tars does on its own, what it asks first, what it always asks
-and what it never does. Stave reads that table from the same rules it applies,
-so the table and the behavior cannot differ. A saved change applies from
+confirmation on a card. **Actions and confirmations** expands a list for the level you
+picked: what Tars does on its own, asks first, always asks and never does.
+The list reads the same policy Stave applies; confirmation requirements for
+commits, pushes and draft PRs remain visible while it is collapsed. A saved change applies from
 Tars's next decision, without a restart.
 
 | Level | What changes |
 | --- | --- |
 | **Careful** | Starting new work, changing the queue order and starting queued work now wait for your confirmation. A held delegation shows a **Start this work?** card with **Start work**; nothing is created until you confirm it. |
 | **Balanced** (default) | Exactly the behavior without levels: work you ask for starts, and continuing, answering for you or ending work waits for you. |
-| **Hands-off** | When you ask in your own words, Tars also resumes work, retries a phase and gives work more steps at once. Each leaves an applied record in the conversation. |
+| **Hands-off** | When you ask in your own words, Tars also resumes work, retries a stage and adds turns to the task at once. Each leaves an applied record in the conversation. |
 
 No level loosens a safeguard:
 
-- Cancelling work, skipping a phase, accepting a completion Stave could not
+- Cancelling work, skipping a stage, accepting a completion Stave could not
   verify, approving a tool request and publishing always wait for you.
-- Handing back work you took over, approving a waiting phase and anything Tars
+- Handing back work you took over, approving a waiting stage and anything Tars
   says for you in a task (an answer, your words, requested changes) also wait
   at every level.
 - Pausing work, handing it over to you and denying a tool request always apply
@@ -1443,9 +1459,9 @@ applies, each part with its source and the editor that changes it:
   - **Standing instructions**: the text as saved, whether you wrote it or it is
     Stave's default, and when it was last saved. Tars reads it with every
     message and hands it to the agents it starts. **Edit** opens
-    **Conversation settings**.
+    **Tars settings**.
   - **Agents Tars may hand work to**: the saved agents you allowed. Built-in
-    agents are always allowed. **Edit** opens **Conversation settings**.
+    agents are always allowed. **Edit** opens **Tars settings**.
 - **Per repository** (the first 12 registered repositories, which is what Tars
   is shown; more are counted)
   - **Branch naming rule**: the repository's own rule, or Stave's default when

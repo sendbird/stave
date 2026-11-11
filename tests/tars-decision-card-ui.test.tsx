@@ -159,7 +159,7 @@ describe("decision card states", () => {
     expect(html).toContain("Stave could not verify this completion");
     expect(html).toContain("Release check");
     expect(html).toContain("Can&#x27;t be undone");
-    for (const label of ["Accept as done", "Cancel responsibility", "Ask Tars for new verification work"]) expect(html).toContain(label);
+    for (const label of ["Accept as done", "Cancel work", "Ask Tars for new verification work"]) expect(html).toContain(label);
     expect(html).toContain("Nothing runs until you send it.");
     // Nothing is recommended, so nothing starts chosen and Answer waits for a choice.
     expect(html).not.toContain('checked=""');
@@ -178,7 +178,7 @@ describe("decision card states", () => {
     // One alert: what was not applied and why, after the options and before the footer; no record row inside the card.
     expect(html).toMatch(/<div[^>]*data-tars-decision-attempt="rejected"[^>]*role="status"/);
     expect(html).toContain('data-tars-record-source="click"');
-    expect(html).toContain("Not applied: Cancel responsibility");
+    expect(html).toContain("Not applied: Cancel work");
     expect(html).toContain("Tars could not do this. Check the work’s current state and try again.");
     expect(html).not.toContain("data-tars-record-state");
     expect(html.indexOf("data-tars-decision-options")).toBeLessThan(html.indexOf("data-tars-decision-attempt"));
@@ -310,7 +310,7 @@ describe("confirmation card", () => {
   test("Korean confirmation copy", async () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const { html } = rendered(proposal("cancel"), () => {}, { ...context, onDismiss: () => {} });
-    for (const text of ["이 작업의 책임을 취소할까요?", "되돌릴 수 없음", "세부 정보", "저장소", "워크스페이스", "작업 취소", "나중에"]) expect(html).toContain(text);
+    for (const text of ["이 작업을 취소하시겠습니까?", "되돌릴 수 없음", "세부 정보", "저장소", "워크스페이스", "작업 취소", "나중에"]) expect(html).toContain(text);
     expect(html).not.toContain("리비전");
   });
 });

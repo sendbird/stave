@@ -64,11 +64,12 @@ describe("the autonomy settings table", () => {
   test("the three levels are one labelled choice with a line each, and the chosen one is checked", () => {
     const { html } = settings("careful");
     expect(html).toContain("How independently Tars acts");
-    for (const text of ["Careful", "Balanced", "Hands-off", "Tars proposes, and you confirm every action that starts or reorders work.",
-      "The default.", "leaves a record"]) expect(html).toContain(text);
+    for (const text of ["Careful", "Balanced", "Hands-off", "Ask before starting tasks or changing their queue order.",
+      "Default.", "Each action is recorded"]) expect(html).toContain(text);
     expect(html.match(/role="radio"/g)).toHaveLength(3);
     expect(html).toContain('data-tars-autonomy="careful"');
-    // The table reads as a table, named for the chosen level, in plain words.
+    // Optional action details stay named for the chosen level and start collapsed.
+    expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('aria-label="What Tars does at the Careful level"');
     for (const text of ["Does on its own", "Asks you first", "Always asks, at every level", "Never does", "start new work", "cancel work", "force-push"]) expect(html).toContain(text);
   });
@@ -94,8 +95,8 @@ describe("the autonomy settings table", () => {
 describe("the never-do rule list", () => {
   test("says honestly what the rules do and do not do", () => {
     const { html } = settings("balanced");
-    expect(html).toContain("They guide Tars&#x27;s decisions; Stave does not block anything because of them.");
-    expect(html).toContain("Stave asks you first when a proposed action names a rule&#x27;s repository, branch or action");
+    expect(html).toContain("Matching proposals require confirmation; rules do not automatically block actions.");
+    expect(html).toContain("Add rules for what Tars must avoid.");
     expect(html).toContain("No rules yet.");
   });
 

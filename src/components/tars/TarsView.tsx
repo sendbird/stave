@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ListTodo, Settings, X } from "lucide-react";
 import { TarsGuideButton } from "./TarsGuide";
@@ -40,7 +41,7 @@ import { TarsBlockedNextSteps } from "./TarsBlockedNextSteps";
 import { TarsResultProvider } from "./TarsResultCard";
 import { useTarsExecutionPath, useTarsRunDetails } from "./use-tars-run-details";
 import { TarsSettings } from "./TarsSettings";
-import { TarsTray, TarsTrayStatusNote, TarsTrayToggle, type TarsTrayActions } from "./TarsTray";
+import { TarsTray, TarsTrayGroupingButton, TarsTrayStatusNote, TarsTrayToggle, type TarsTrayActions } from "./TarsTray";
 import { useTarsPublish } from "./use-tars-publish";
 import { TarsPublishEntry } from "./TarsPublishEntry";
 import { TarsLiveLineFor, TarsRunningStrip } from "./TarsLiveProgress";
@@ -112,6 +113,10 @@ export function TarsView() {
   // Showing or folding the tray is view-only: never recorded in the conversation.
   const [pinnedTrayOpen, setPinnedTrayOpen] = useState(true);
   const [trayPopoverOpen, setTrayPopoverOpen] = useState(false);
+  const [trayGrouped, setTrayGrouped] = useState(false);
+  useEffect(() => {
+    if (pinned ? !pinnedTrayOpen : !trayPopoverOpen) setTrayGrouped(false);
+  }, [pinned, pinnedTrayOpen, trayPopoverOpen]);
   const [openError, setOpenError] = useState(false);
   // A retried click keeps its request ID, so a lost acknowledgement cannot apply twice.
   const clicks = useRef(new Map<string, string>());
@@ -337,10 +342,11 @@ export function TarsView() {
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
     : <>{responsibilities.length ? <>
-      <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} surface={pinned ? "canvas" : "raised"} />
+      <TarsTray model={tray} actions={trayActions} outputs={outputs} clearing={trayClearing} surface={pinned ? "canvas" : "raised"} grouped={trayGrouped} />
     </> : <p className={sx(styles.text)}>{t("shell:tars.conversation.noWork")}</p>}{schedulesSection}</>;
   // Wide, the side view takes the tray's column and the tray folds to its indicator until the side view closes.
   const trayOpen = pinned ? pinnedTrayOpen && !side : trayPopoverOpen;
+  const trayGrouping = trayStatus === "ready" && responsibilities.length > 0 ? <TarsTrayGroupingButton grouped={trayGrouped} onChange={setTrayGrouped} /> : null;
   const onTrayOpenChange = (next: boolean) => {
     if (!pinned) { setTrayPopoverOpen(next); return; }
     if (side) { closeSide(); setPinnedTrayOpen(true); } else setPinnedTrayOpen(next);
@@ -373,14 +379,14 @@ export function TarsView() {
   };
   return <div ref={viewRef} className={sx(styles.root, textWrap.keepAll)} data-testid="tars-view" data-tars-tray-pinned={pinned ? "true" : "false"} onKeyDown={onKeyDown}>
     <GlobalPageHeader title={snapshot?.identity.name ?? t("shell:tars.title")} titleIcon={<TarsMark />} actions={<div className={sx(styles.actions)}>
-      <TarsTrayToggle pinned={pinned} counts={tray.counts} status={trayStatus} outputs={outputs.length} open={trayOpen} onOpenChange={onTrayOpenChange} panelId={trayId}>{trayBody}</TarsTrayToggle>
+      <TarsTrayToggle pinned={pinned} counts={tray.counts} status={trayStatus} outputs={outputs.length} open={trayOpen} onOpenChange={onTrayOpenChange} panelId={trayId} headerActions={trayGrouping}>{trayBody}</TarsTrayToggle>
       <TarsGuideButton onExample={(text) => controller.current?.insert(text)} />
       <TarsInsights identity={snapshot?.identity ?? null} settings={conversation.conversation?.settings ?? null} bridge={api} onEditSettings={() => setSettingsOpen(true)}
         onOpenWork={(id) => { const row = rowOf(id); if (row) openSide({ responsibilityId: id, kind: row.agentRunId ? "timeline" : "brief" }); }} />
       {clearing.available ? <TarsClearConversationButton count={clearCounts.conversation} busy={clearing.busy}
         error={clearing.errors.get("conversation") ?? null} onClear={() => clearing.clear(["conversation"], "click")} /> : null}
-      <Button variant="ghost" size="icon-sm" disabled={!snapshot} aria-label={t("shell:tars.conversation.settings")} title={t("shell:tars.conversation.settings")} onClick={() => setSettingsOpen(true)}><Settings /></Button>
-      <Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.close")} onClick={close}><X /></Button>
+      <Tooltip content={t("shell:tars.conversation.settings")}><Button variant="ghost" size="icon-sm" disabled={!snapshot} focusableWhenDisabled aria-label={t("shell:tars.conversation.settings")} onClick={() => setSettingsOpen(true)}><Settings /></Button></Tooltip>
+      <Tooltip content={t("shell:tars.close")}><Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.close")} onClick={close}><X /></Button></Tooltip>
     </div>} />
     {error || openError ? <div role="alert" className={sx(styles.errorBar)}><p>{error ?? t("shell:tars.openFailed")}</p><Button variant="secondary" size="xs" onClick={() => { setOpenError(false); void refresh(); }}>{t("shell:tars.retry")}</Button></div> : null}
     <div className={sx(styles.workspace)}>
@@ -398,7 +404,7 @@ export function TarsView() {
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}
       {pinned && pinnedTrayOpen ? <aside id={trayId} hidden={Boolean(sideView)} className={sx(trayStyles.panel, Boolean(sideView) && trayStyles.panelFolded)} aria-labelledby={`${trayId}-title`} data-tars-tray-panel="">
         <div className={sx(trayStyles.panelHeader, panelBarStyles.bar)}><h2 id={`${trayId}-title`} className={sx(panelBarStyles.headerTitle, trayStyles.panelTitle)}>
-          <ListTodo aria-hidden className={sx(panelBarStyles.headerIcon)} />{t("shell:tars.tray.title")}</h2></div>
+          <ListTodo aria-hidden className={sx(panelBarStyles.headerIcon)} />{t("shell:tars.tray.title")}</h2>{trayGrouping}</div>
         <div className={sx(trayStyles.panelBody)}>{trayBody}</div>
       </aside> : null}
     </div>

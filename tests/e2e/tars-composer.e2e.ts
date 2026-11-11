@@ -73,7 +73,12 @@ test("select, remove, send attachments only, retry the same snapshot, and replay
   await (await chosen).setFiles([{ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Selection snapshot 첨부 내용") },
     { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==", "base64") }]);
   await expect(composer.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
-  await composer.getByRole("button", { name: "Remove attached file screen.png", exact: true }).click();
+  const remove = composer.getByRole("button", { name: "Remove attached file screen.png", exact: true });
+  // Suppress the chip's inherited filename title over the removal action.
+  await expect(remove).toHaveAttribute("title", "");
+  await remove.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Remove attached file screen.png");
+  await remove.click();
   await expect(composer.getByText("screen.png", { exact: true })).toHaveCount(0);
   await picker.setInputFiles({ name: "archive.zip", mimeType: "application/zip", buffer: Buffer.from("not text") });
   await expect(composer.getByRole("alert")).toContainText("Could not attach files");
@@ -272,7 +277,7 @@ test("Tars body, supporting copy, report and settings remain readable across lay
       await page.screenshot({ path: testInfo.outputPath(`report-${lang}-${theme}-${width}.png`) });
       await page.keyboard.press('Escape');
     }
-    await page.getByRole('button', { name: lang === 'ko' ? '대화 설정' : 'Conversation settings', exact: true }).click();
+    await page.getByRole('button', { name: lang === 'ko' ? 'Tars 설정' : 'Tars settings', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });

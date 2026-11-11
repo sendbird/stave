@@ -36,6 +36,14 @@ test("one keyboard-active form, navigation preserves choices, answering advances
   await queue(page);
   await expect(page.locator("[data-tars-waiting-record]")).toHaveCount(3);
   await expect(page.getByRole("radiogroup")).toHaveCount(1);
+  const previous = dock(page).locator("[data-tars-dock-previous]");
+  await previous.hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Previous waiting item");
+  await expect(previous).toBeDisabled();
+  await previous.press("Enter");
+  await expect(dock(page).getByRole("status")).toContainText("1 of 3");
+  await dock(page).locator("[data-tars-dock-next]").hover();
+  await expect(page.getByRole("tooltip")).toHaveText("Next waiting item");
   const firstId = await active(page).getAttribute("data-tars-dock-item");
   await active(page).locator("[data-tars-decision]").focus();
   await page.keyboard.press("2");

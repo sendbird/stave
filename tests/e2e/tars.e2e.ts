@@ -88,22 +88,25 @@ test("reasoning leaves composer available for follow-ups and cancellation surviv
 
 test("global settings save once, survive reload and do not appear in the composer", async ({ page }) => {
   await page.goto("/?stavePreview=tars");
-  await page.getByRole("button", { name: "Conversation settings", exact: true }).click();
+  await page.getByRole("button", { name: "Tars settings", exact: true }).click();
   const sheet = page.getByRole("dialog");
   await sheet.getByRole("textbox", { name: "Name", exact: true }).fill("My representative");
   await sheet.getByRole("textbox", { name: "Standing instructions", exact: true }).fill("Keep status reports concise.");
-  await expect(sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true })).toHaveValue("0");
-  await sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true }).fill("48");
-  await sheet.getByRole("spinbutton", { name: "Turn limit per work unit" }).fill("12");
+  await sheet.getByRole("tab", { name: "Work", exact: true }).click();
+  await expect(sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true })).toHaveValue("0");
+  await sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true }).fill("48");
+  await sheet.getByRole("spinbutton", { name: "Turn limit per task, including helpers" }).fill("12");
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toHaveCount(0);
   await send(page, "What needs attention?");
   await page.reload();
   await expect(page.getByRole("heading", { name: "My representative", exact: true })).toBeVisible();
   await expect(composer(page).getByRole("spinbutton")).toHaveCount(0);
-  await page.getByRole("button", { name: "Conversation settings", exact: true }).click();
-  await expect(sheet.getByRole("spinbutton", { name: "Concurrent responsibilities", exact: true })).toHaveValue("48");
-  await expect(sheet.getByRole("spinbutton", { name: "Turn limit per work unit" })).toHaveValue("12");
+  await page.getByRole("button", { name: "Tars settings", exact: true }).click();
+  await sheet.getByRole("tab", { name: "Work", exact: true }).click();
+  await expect(sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true })).toHaveValue("48");
+  await expect(sheet.getByRole("spinbutton", { name: "Turn limit per task, including helpers" })).toHaveValue("12");
+  await sheet.getByRole("tab", { name: "General", exact: true }).click();
   await expect(sheet.getByRole("textbox", { name: "Standing instructions", exact: true })).toHaveValue("Keep status reports concise.");
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
   expect(saved.messages[0].maxTurns).toBe(12);
@@ -540,7 +543,7 @@ test("an unverified completion is a decision card: verification work goes to the
   // Answer is always the card's primary action; accepting or cancelling, which cannot be undone, gives it the danger tone.
   await expect(submit).toHaveAttribute("data-variant", "primary");
   await expect(submit).toHaveAttribute("data-tone", "default");
-  await card.getByText("Cancel responsibility", { exact: true }).click();
+  await card.getByText("Cancel work", { exact: true }).click();
   await expect(submit).toHaveAttribute("data-tone", "danger");
   await expect(submit).toHaveAttribute("data-variant", "primary");
   await card.getByText("Accept as done", { exact: true }).click();
@@ -948,9 +951,9 @@ test("queued work without a run shows the user's message, Tars's instruction and
   const queued = tray.locator('[data-tars-card="queue-auth"]');
   await expect(queued).toHaveAttribute("data-tars-lane", "running");
   // Queued: no task, no run and no timeline yet, but its request opens.
-  await expect(queued.getByRole("button", { name: "Open task" })).toHaveCount(0);
+  await expect(queued.getByRole("button", { name: "Open task", exact: true })).toHaveCount(0);
   await expect(queued.locator("[data-tars-monitor-timeline]")).toHaveCount(0);
-  await queued.getByRole("button", { name: "Open the request and instruction for Rotate the staging auth keys" }).click();
+  await queued.getByRole("button", { name: "Open task request for Rotate the staging auth keys" }).click();
   const side = sideView(page);
   await expect(side).toHaveAttribute("data-tars-side-view", "brief");
   await expect(side.getByRole("button", { name: "Request", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -980,7 +983,7 @@ test("queued work without a run shows the user's message, Tars's instruction and
   // Other work never shows this one's texts: older work says its message was not saved and shows its whole saved instruction.
   await page.keyboard.press("Escape");
   await expect(side).toHaveCount(0);
-  await tray.locator('[data-tars-card="queue-docs"]').getByRole("button", { name: /^Open the request and instruction for/ }).click();
+  await tray.locator('[data-tars-card="queue-docs"]').getByRole("button", { name: /^Open task request for/ }).click();
   await expect(side.locator('[data-tars-brief-missing="request"]')).toContainText("This older work did not save your original message.");
   await expect(side.locator('[data-tars-brief-text="instruction-assignment"]')).toContainText("Update every example in docs/api/*.md");
   await expect(side.locator('[data-tars-brief-text="request"]')).toHaveCount(0);

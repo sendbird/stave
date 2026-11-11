@@ -66,8 +66,8 @@ export const searchablePickerStyles = stylex.create({
     display: "flex",
     minInlineSize: 0,
   },
-  // A muted trailing value (a price, a count). It ends the line it sits on and
-  // drops below that line's text instead of truncating it.
+  // A muted trailing value (a price, a count) shares the detail's first line.
+  // The detail wraps in its own column without moving or clipping the value.
   itemMeta: {
     color: vars["--aui-color-text-muted"],
     flexShrink: 0,
@@ -89,31 +89,15 @@ export const searchablePickerStyles = stylex.create({
     flexWrap: "wrap",
     minInlineSize: 0,
   },
-  itemDetailRow: {
-    alignItems: "baseline",
-    columnGap: vars["--aui-space-8"],
-    display: "flex",
-    flexWrap: "wrap",
-    minInlineSize: 0,
-  },
+  itemDetailRow: { alignItems: "baseline", columnGap: vars["--aui-space-8"], display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", minInlineSize: 0 },
   badge: {
     alignSelf: "center",
     flexShrink: 0,
   },
   // No ink of its own: the row's colour is the list's, so a chosen row reads in
   // the accent like every other AUI picker, beside its check.
-  itemLabel: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  itemDetail: {
-    color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-caption"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
+  itemLabel: { minInlineSize: 0, overflowWrap: "anywhere" },
+  itemDetail: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], minInlineSize: 0, overflowWrap: "anywhere" },
   // A chip for a chosen value no option lists: the warning rim and ink say
   // "this no longer resolves" without hiding the value.
   chipMissing: {

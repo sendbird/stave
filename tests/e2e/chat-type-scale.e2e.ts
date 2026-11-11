@@ -79,6 +79,49 @@ for (const { name, query } of [{ name: "en light", query: "" }, { name: "ko dark
   }
 }
 
+for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (const density of ["regular", "compact"]) {
+  test(`the running status band has balanced space above the input: ${lang} ${theme} ${density}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    for (const width of [390, 1440]) for (const font of [16, 20]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/?stavePreview=tars&tray=true&live=true&lang=${lang}&theme=${theme}&density=${density}&messageFontSize=${font}`);
+      const strip = page.locator("[data-tars-running-strip]");
+      const toggle = strip.locator("[data-tars-running-toggle]");
+      await expect(toggle).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      for (const expanded of [false, true]) {
+        if (expanded) {
+          await toggle.focus();
+          await page.keyboard.press("Enter");
+          await expect(strip.locator("[data-tars-running]")).toBeVisible();
+        }
+        const geometry = await strip.evaluate((node) => {
+          const tray = node.parentElement!, field = tray.querySelector("form")!, toggle = node.querySelector("[data-tars-running-toggle]")!;
+          const icon = toggle.querySelector("[data-aui-inline-disclosure-icon]")!, summary = toggle.lastElementChild!;
+          const box = node.getBoundingClientRect(), trayBox = tray.getBoundingClientRect(), fieldBox = field.getBoundingClientRect();
+          const buttonBox = toggle.getBoundingClientRect(), iconBox = icon.getBoundingClientRect(), textBox = summary.getBoundingClientRect();
+          const center = (r: DOMRect) => r.top + r.height / 2;
+          return { top: box.top - trayBox.top - parseFloat(getComputedStyle(tray).borderTopWidth),
+            bottom: fieldBox.top - box.bottom, gutter: parseFloat(getComputedStyle(tray).paddingTop),
+            bandCenter: center(buttonBox) - (trayBox.top + parseFloat(getComputedStyle(tray).borderTopWidth) + fieldBox.top) / 2,
+            iconCenter: center(iconBox) - center(buttonBox), textCenter: center(textBox) - center(buttonBox),
+            overflow: tray.scrollWidth - tray.clientWidth };
+        });
+        // The outer tray owns the gutter. Fractional font rounding may differ by at most one CSS pixel.
+        expect(Math.abs(geometry.top - geometry.gutter)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geometry.bottom - geometry.gutter)).toBeLessThanOrEqual(1);
+        if (!expanded) expect(Math.abs(geometry.bandCenter)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geometry.iconCenter)).toBeLessThanOrEqual(1);
+        expect(Math.abs(geometry.textCenter)).toBeLessThanOrEqual(1);
+        expect(geometry.overflow).toBeLessThanOrEqual(1);
+      }
+      await toggle.focus();
+      await page.keyboard.press("Space");
+      await expect(strip.locator("[data-tars-running]")).toBeHidden();
+    }
+  });
+}
+
 test("code blocks: 4-column tabs, diff rows on the diff wash, readable language names", async ({ page }) => {
   await openGallery(page, "");
   const reply = page.locator('[data-tars-message="g-b4"]');

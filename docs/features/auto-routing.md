@@ -302,7 +302,8 @@ keeps later steps unavailable until they can be reached, says "Step n of 3",
 and moves focus to the new step when you continue or go back. A rule's
 target model is a searchable list (names and ids; with "Any eligible" each
 provider has its own section), and each model shows its list price where one
-is published.
+is published. Shared model pickers keep the full name on its own line, with
+wrapping details or compatibility notices beside the price on the next line.
 Historical model choice is evidence of preference, not proof of quality.
 
 ## Decision records

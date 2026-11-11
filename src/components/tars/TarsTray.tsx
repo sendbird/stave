@@ -1,5 +1,5 @@
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, FolderTree, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button, ExternalAnchor } from "@/components/ui";
 import { Accordion } from "@/components/aui/components/Accordion";
@@ -9,6 +9,7 @@ import { Popover } from "@/components/aui/components/Popover";
 import { runStyles } from "@/components/aui/components/RunMonitor";
 import { StatusDot } from "@/components/aui/components/StatusDot";
 import { Tooltip } from "@/components/aui/components/Tooltip";
+import { Toggle } from "@/components/aui/components/Toggle";
 import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
@@ -156,8 +157,8 @@ export function TarsTrayStatusNote({ status }: { status: Exclude<TarsTrayStatus,
  * the conversation; narrow, it opens the tray as a popover anchored under it,
  * which Esc and an outside click close, returning focus to the indicator.
  */
-export function TarsTrayToggle({ pinned, counts, status = "ready", outputs = 0, open, onOpenChange, panelId, children }: {
-  pinned: boolean; counts: TarsTrayModel["counts"]; status?: TarsTrayStatus; outputs?: number; open: boolean; onOpenChange: (open: boolean) => void; panelId: string; children: ReactNode;
+export function TarsTrayToggle({ pinned, counts, status = "ready", outputs = 0, open, onOpenChange, panelId, children, headerActions }: {
+  pinned: boolean; counts: TarsTrayModel["counts"]; status?: TarsTrayStatus; outputs?: number; open: boolean; onOpenChange: (open: boolean) => void; panelId: string; children: ReactNode; headerActions?: ReactNode;
 }) {
   const { t } = useTranslation(["shell"]);
   if (pinned) {
@@ -166,7 +167,7 @@ export function TarsTrayToggle({ pinned, counts, status = "ready", outputs = 0, 
       onClick={() => onOpenChange(!open)}><IndicatorLabel counts={counts} status={status} outputs={outputs} /></Button>;
   }
   return <Popover open={open} onOpenChange={onOpenChange} trigger={<IndicatorLabel counts={counts} status={status} outputs={outputs} />} triggerProps={{ size: "sm" }} placement="bottom-end"
-    padding={false} title={t("shell:tars.tray.title")} xstyle={styles.popover}>
+    padding={false} title={t("shell:tars.tray.title")} headerActions={headerActions} xstyle={styles.popover}>
     <div id={panelId} className={sx(styles.popoverBody, textWrap.keepAll)}>{children}</div>
   </Popover>;
 }
@@ -455,17 +456,26 @@ function TarsLaneHeader({ lane, count, open, surface, tools }: { lane: TarsTrayL
 /** What the tray sits on, which its sticky lane headers paint: the view's canvas when pinned, the popover's raised surface otherwise. */
 export type TarsTraySurface = "canvas" | "raised";
 
+/** A view-only toggle in the tray's title bar, shared by the panel and popover. */
+export function TarsTrayGroupingButton({ grouped, onChange }: { grouped: boolean; onChange: (next: boolean) => void }) {
+  const { t } = useTranslation(["shell"]);
+  const label = t("shell:tars.tray.grouping.toggle");
+  return <Tooltip content={label}><Toggle size="sm" iconOnly pressed={grouped} onPressedChange={onChange}
+    data-tars-group-projects="" icon={<FolderTree aria-hidden className={sx(styles.groupingIcon)} />}>
+    {label}
+  </Toggle></Tooltip>;
+}
+
 /**
  * Needs you, In progress and Done, each folding on its own, then the outputs;
  * the conversation beside it never moves. A lane opens by default unless it is
  * Done or empty; once the user folds or opens one, that choice holds for this
  * tray. Lane headers stay pinned while their lane scrolls.
  */
-export function TarsTray({ model, actions, outputs, clearing, surface = "canvas" }: {
-  model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[]; clearing?: TarsTrayClearing; surface?: TarsTraySurface;
+export function TarsTray({ model, actions, outputs, clearing, surface = "canvas", grouped }: {
+  model: TarsTrayModel; actions: TarsTrayActions; outputs?: readonly TarsOutput[]; clearing?: TarsTrayClearing; surface?: TarsTraySurface; grouped: boolean;
 }) {
   const { t } = useTranslation(["shell"]);
-  const [grouped, setGrouped] = useState(false);
   const registered = useAppStore((state) => state.recentRepositories);
   const repositoryPath = useAppStore((state) => state.repositoryPath);
   const repositoryName = useAppStore((state) => state.repositoryName);
@@ -499,9 +509,7 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
     {cards.map((card) => card.queue ? <TarsQueuedCardItem key={card.row.id} card={card} actions={actions} sortable={sortable} />
       : <li key={card.row.id} className={sx(styles.cardItem)}><TarsTrayCard card={card} actions={actions} /></li>)}
   </ul>;
-  return <><div className={sx(styles.groupingTools)}>
-    <Button variant="ghost" size="xs" aria-pressed={grouped} data-tars-group-projects="" onClick={() => setGrouped(!grouped)}>{t("shell:tars.tray.grouping.toggle")}</Button>
-  </div><Accordion.Root multiple value={value} onValueChange={onValueChange} data-tars-tray="">
+  return <Accordion.Root multiple value={value} onValueChange={onValueChange} data-tars-tray="">
     {LANES.map((lane) => {
       const cards = model.lanes[lane];
       const count = counts[lane] ?? 0;
@@ -525,5 +533,5 @@ export function TarsTray({ model, actions, outputs, clearing, surface = "canvas"
         {!outputs.length && clearing?.outputs.hidden ? null : grouped && outputs.length > 0 ? <TarsProjectGroups items={outputs} pathOf={outputPath} projects={projects} render={(items) => <TarsOutputList outputs={items} onOpenSide={actions.onOpenSide} />} /> : <TarsOutputList outputs={outputs} onOpenSide={actions.onOpenSide} />}
       </Accordion.Panel>
     </Accordion.Item> : null}
-  </Accordion.Root></>;
+  </Accordion.Root>;
 }

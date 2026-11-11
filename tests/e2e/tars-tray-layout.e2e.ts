@@ -271,7 +271,7 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
     }
     expect(parts.length).toBe(lanes.filter((head) => head.count > 0).length);
 
-    // Scrolled into the long Needs you lane, its header stays at the top, opaque on the tray's surface, with cards passing under it.
+    // The title-row grouping control stays above the scroll area; lane titles pin to its content edge.
     const scroller = await trayScroller(page);
     await scroller.evaluate((node: HTMLElement) => { node.scrollTop = 1200; });
     const sticky = await page.locator('[data-tars-lane-head="needsYou"]').evaluate((head, node) => {
@@ -283,6 +283,7 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
         surface: surface ? getComputedStyle(surface).backgroundColor : null };
     }, await scroller.asElement()!);
     expect(Math.abs(sticky.top - sticky.scrollerTop)).toBeLessThanOrEqual(1);
+    await expect(page.locator('[data-tars-group-projects]')).toBeVisible();
     expect(sticky.inHead).toBe(true);
     expect(sticky.background).toBe(sticky.surface);
     // Clear stays in the Outputs header row.
@@ -382,9 +383,41 @@ for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (con
     await openTray(page, { fixture: "tray", lang, theme, width });
     await page.evaluate((width) => { document.documentElement.dataset.uiDensity = width < 1088 ? "compact" : "regular"; }, width);
     const toggle = page.locator("[data-tars-group-projects]");
+    await expect(page.locator('[data-tars-tray-toolbar]')).toHaveCount(0);
+    const title = page.getByRole('heading', { name: lang === 'ko' ? '맡긴 일' : 'Work', exact: true });
+    const toolGeometry = await toggle.evaluate((node, title) => {
+      const icon = node.querySelector('svg')!.getBoundingClientRect();
+      const control = node.getBoundingClientRect();
+      const heading = (title as HTMLElement).getBoundingClientRect();
+      const text = [...node.querySelectorAll('span')].filter((span) => span.textContent?.trim()).map((span) => span.getBoundingClientRect());
+      return { height: control.height, width: control.width, iconWidth: icon.width, iconHeight: icon.height, center: (icon.top + icon.bottom - control.top - control.bottom) / 2,
+        titleCenter: (heading.top + heading.bottom - control.top - control.bottom) / 2, afterTitle: control.left >= heading.right,
+        visibleText: text.some((box) => box.width > 1 && box.height > 1) };
+    }, await title.elementHandle());
+    expect(Math.abs(toolGeometry.height - await tokenPx(page, '--aui-control-height-sm'))).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(toolGeometry.width - toolGeometry.height)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(toolGeometry.iconWidth - await tokenPx(page, '--aui-control-icon-size-md'))).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(toolGeometry.iconHeight - toolGeometry.iconWidth)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(toolGeometry.center)).toBeLessThanOrEqual(1);
+    expect(Math.abs(toolGeometry.titleCenter)).toBeLessThanOrEqual(1);
+    expect(toolGeometry.afterTitle).toBe(true);
+    expect(toolGeometry.visibleText).toBe(false);
+    const idle = await toggle.evaluate((node) => getComputedStyle(node).backgroundColor);
     const before = await page.locator("[data-tars-card]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-card")).sort());
-    await toggle.click();
+    await toggle.focus();
+    // A popover can initially autofocus this control without keyboard modality.
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
+    await expect(toggle).toBeFocused();
+    await expect(page.getByRole('tooltip')).toHaveCount(1);
+    await expect(page.getByRole('tooltip')).toContainText(lang === 'ko' ? '프로젝트별로 묶기' : 'Group by project');
+    await page.keyboard.press('Space');
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => toggle.evaluate((node) => getComputedStyle(node).backgroundColor)).not.toBe(idle);
+    await page.keyboard.press('Tab');
+    await expect(toggle).not.toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(toggle).toBeFocused();
     const group = page.locator('[data-tars-tray-lane="needsYou"] [data-tars-project]').first();
     await expect(group).toBeVisible();
     const trigger = group.locator(':scope > button');
@@ -405,9 +438,19 @@ for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (con
     await trigger.focus();
     await page.keyboard.press("Enter");
     await expect(group.locator('[data-tars-card]').first()).toBeVisible();
-    await toggle.click();
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect.poll(() => toggle.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe(idle);
     await expect(page.locator('[data-tars-project]')).toHaveCount(0);
     expect(await page.locator("[data-tars-card]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-card")).sort())).toEqual(before);
+    // Closing and reopening starts the tray's view option fresh, as before the control moved.
+    await page.keyboard.press('Space');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await page.locator('[data-tars-tray-indicator]').click();
+    await expect(toggle).toHaveCount(0);
+    await page.locator('[data-tars-tray-indicator]').click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 }
 
@@ -417,12 +460,12 @@ test("project grouping keeps global queue moves, output ownership and clearing t
   await page.evaluate(async () => {
     // @ts-expect-error browser imports use Vite optimized dependencies
     const reactModule = await import("/node_modules/.vite/deps/react.js");
-    const { createElement } = reactModule.default ?? reactModule;
+    const { createElement, Fragment } = reactModule.default ?? reactModule;
     // @ts-expect-error browser imports use Vite optimized dependencies
     const clientModule = await import("/node_modules/.vite/deps/react-dom_client.js");
     const { createRoot } = clientModule.default ?? clientModule;
     // @ts-expect-error browser imports use Vite's served source URLs
-    const { TarsTray } = await import("/src/components/tars/TarsTray.tsx");
+    const { TarsTray, TarsTrayGroupingButton } = await import("/src/components/tars/TarsTray.tsx");
     // @ts-expect-error browser imports use Vite's served source URLs
     const { buildTarsTray } = await import("/src/lib/tars/tray-model.ts");
     // @ts-expect-error browser imports use Vite's served source URLs
@@ -446,15 +489,18 @@ test("project grouping keeps global queue moves, output ownership and clearing t
     const root = createRoot(host);
     let filtered = false;
     let cleared = false;
+    let grouped = false;
     const log = (value: string) => { host.dataset.action = value; };
-    const render = () => root.render(createElement(TarsTray, {
+    const renderTray = (grouped: boolean) => createElement(TarsTray, { grouped,
       model: buildTarsTray({ responsibilities: rows.filter((row) => (!filtered || row.id !== "a") && (!cleared || row.id !== "done")), attentionItems: [], runs: {} }),
       outputs: [{ kind: "changes", responsibilityId: "a", title: "Owned output", files: 1 }, { kind: "changes", responsibilityId: "missing", title: "Unknown output", files: 2 }],
       actions: { busy: false, onAct: (_row: unknown, op: string) => log(op), onMove: (row: { id: string }, move: { direction: string }) => log(`${row.id}:${move.direction}`),
         onConfirm: () => {}, onOpenTask: () => {}, onShowInFleet: () => {}, onOpenSide: (target: { responsibilityId: string }) => log(target.responsibilityId) },
       clearing: { busy: false, done: { clearable: cleared ? 0 : 1, hidden: cleared ? 1 : 0, onUndo: cleared ? () => { cleared = false; render(); } : null }, outputs: { clearable: 0, hidden: 0, onUndo: null },
         onClear: () => { cleared = true; render(); } },
-    }));
+    });
+    const render = () => root.render(createElement(Fragment, null,
+      createElement(TarsTrayGroupingButton, { grouped, onChange: (next: boolean) => { grouped = next; render(); } }), renderTray(grouped)));
     const filter = document.createElement("button");
     filter.textContent = "Apply fixture filter";
     filter.onclick = () => { filtered = !filtered; render(); };

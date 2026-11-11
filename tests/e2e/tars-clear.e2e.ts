@@ -50,7 +50,7 @@ test.describe("Tars clear, retention and suggestions", () => {
     await view(page).locator("[data-tars-clear-conversation]").click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("Clear the conversation?");
-    await expect(dialog).toContainText("2 messages leave this view");
+    await expect(dialog).toContainText("Hide 2 messages from this view");
     await dialog.getByRole("button", { name: "Not now" }).click();
     await expect(view(page).locator("[data-tars-message]")).toHaveCount(2);
 
@@ -125,10 +125,11 @@ test.describe("Tars clear, retention and suggestions", () => {
     await expect(laneCount(page, "done")).toHaveText("0");
     await openLane(page, "done");
     await expect(lane(page, "done").locator("[data-tars-lane-hidden]")).toHaveText(/1 ended work item hidden \(cleared or past the retention period\)/);
-    await view(page).getByRole("button", { name: "Conversation settings" }).click();
+    await view(page).getByRole("button", { name: "Tars settings" }).click();
     const retention = page.getByLabel("Keep ended work in the panel");
-    await expect(retention).toHaveValue("7");
-    await retention.selectOption("0");
+    await expect(retention).toContainText("7 days");
+    await retention.click();
+    await page.getByRole("option", { name: "Until I clear it", exact: true }).click();
     await page.getByRole("button", { name: "Save" }).click();
     await expect(laneCount(page, "done")).toHaveText("1");
     await page.reload();
@@ -156,21 +157,34 @@ test.describe("Tars clear, retention and suggestions", () => {
     expect(overflow).toBeLessThanOrEqual(1);
   });
 
-  test("a new profile starts with the default standing instructions; an existing empty one is offered them", async ({ page }) => {
+  test("new and existing empty profiles show default instructions, custom edits can be saved or reset", async ({ page }) => {
     await page.goto("/?stavePreview=tars&newProfile=true");
-    await view(page).getByRole("button", { name: "Conversation settings" }).click();
+    await view(page).getByRole("button", { name: "Tars settings" }).click();
     const instructions = page.getByLabel("Standing instructions");
     await expect(instructions).toHaveValue(/^- Lead with the answer or the decision you need from me/);
     await expect(page.locator("[data-tars-instructions-default]")).toHaveCount(0);
 
     await page.evaluate(() => sessionStorage.clear());
     await page.goto("/?stavePreview=tars");
-    await view(page).getByRole("button", { name: "Conversation settings" }).click();
-    await expect(page.getByLabel("Standing instructions")).toHaveValue("");
-    await expect(page.getByLabel("Standing instructions")).toHaveAttribute("placeholder", /Lead with the answer/);
-    await page.getByRole("button", { name: "Use default" }).click();
+    await view(page).getByRole("button", { name: "Tars settings" }).click();
+    await expect(page.locator("[data-tars-instructions-default]")).toHaveCount(0);
     await expect(page.getByLabel("Standing instructions")).toHaveValue(/^- Lead with the answer/);
     await page.getByLabel("Standing instructions").fill("Answer in one line.");
     await expect(page.getByRole("button", { name: "Reset to default" })).toBeVisible();
+    await page.getByRole("tab", { name: "Models", exact: true }).click();
+    await page.getByRole("tab", { name: "General", exact: true }).click();
+    await expect(page.getByLabel("Standing instructions")).toHaveValue("Answer in one line.");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await view(page).getByRole("button", { name: "Tars settings" }).click();
+    await expect(page.getByLabel("Standing instructions")).toHaveValue("Answer in one line.");
+    await page.getByRole("button", { name: "Reset to default" }).click();
+    await expect(page.getByLabel("Standing instructions")).toHaveValue(/^- Lead with the answer/);
+    await page.getByLabel("Standing instructions").fill("");
+    await expect(page.getByRole("button", { name: "Use default" })).toBeVisible();
+    await page.getByRole("button", { name: "Use default" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.reload();
+    await view(page).getByRole("button", { name: "Tars settings" }).click();
+    await expect(page.getByLabel("Standing instructions")).toHaveValue(/^- Lead with the answer/);
   });
 });
