@@ -677,7 +677,7 @@ test("selected diff lines are quoted into the composer as context and nothing is
   const side = sideView(page);
   await expect(side).toHaveAttribute("data-tars-side-view", "changes");
   // The diff is the workspace now, not frozen with the report, and can be read again.
-  await expect(side.locator("[data-tars-changes-live]")).toContainText("read live");
+  await expect(side.locator("[data-tars-changes-live]")).toContainText("Shows the task's current files. They may differ from the files used for the saved report.");
   await side.locator("[data-tars-changes-refresh]").click();
   const diff = side.locator('[data-tars-diff="src/checkout/cards.ts"]');
   await expect(diff.getByRole("group")).toBeVisible();
@@ -725,7 +725,9 @@ test("a blocked card opens the report on its unmet criteria, inline under 40% of
   await page.getByRole("dialog").locator('[data-tars-open-report="search"]').click();
   const side = sideView(page);
   await expect(side).toHaveAttribute("data-tars-side-placement", "inline");
-  await expect(side.locator("[data-tars-report-unmet]")).toContainText("1 criterion not met");
+  await expect(side.locator("[data-tars-report-reason]")).toBeInViewport();
+  await expect(side.locator("[data-tars-report-unmet]")).toHaveAttribute("data-tars-report-unmet", "1");
+  await expect(side.locator("[data-tars-completion-warnings]")).toContainText("Unverified · The rebuild finishes in under two minutes.");
   await expect(side.locator("[data-tars-next-steps]").getByRole("button", { name: "Resume", exact: true })).toBeVisible();
   const box = await side.boundingBox();
   const viewBox = await view.boundingBox();
@@ -1004,7 +1006,7 @@ test("running work says what Stave observed in the tray, the flow, the composer 
   // The composer band: only the running fix, its stage and the turn's current step, from the relayed turn.
   await expect(view.locator("[data-tars-running]")).toHaveCount(1);
   await expect(band).toContainText("Fix the billing export on empty invoice lists");
-  await expect(band).toContainText(/Phase 2 of 3 · .+, attempt 2/);
+  await expect(band).toContainText(/Stage 2 of 3 · .+, attempt 2/);
   await expect(band.locator('[data-tars-live-freshness="live"]')).toContainText("Running the tests");
   // The folded flow under the delegating message and the tray card say the same observation.
   await expect(view.locator('[data-tars-flow="billing"] [data-tars-flow-live]')).toContainText("Running the tests");

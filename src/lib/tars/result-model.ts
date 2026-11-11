@@ -44,6 +44,8 @@ export interface TarsResultModel {
   durationMs: number | null;
   /** Whether a run was read and has ended: `frozen` has a report to open. */
   report: TarsReportModel["state"];
+  /** The same frozen projection the Report view reads. */
+  completion: TarsReportModel;
   /** The frozen report's criteria; empty until the run ended. */
   criteria: TarsResultCriterion[];
   /**
@@ -112,7 +114,7 @@ export function projectTarsResult(args: {
 }): TarsResultModel {
   const { outcome, row, run } = args;
   const report = projectTarsReport(row, run);
-  if (!run) return { outcome, durationMs: null, report: report.state, criteria: [], staveChecks: [], changes: null, review: null, summary: null };
+  if (!run) return { outcome, durationMs: null, report: report.state, completion: report, criteria: [], staveChecks: [], changes: null, review: null, summary: null };
   const review = projectTarsReview(run);
   const reviewed = reviewVerifies(row, run, review);
   const files = tarsRecordedChangeCount(run);
@@ -121,6 +123,7 @@ export function projectTarsResult(args: {
     outcome,
     durationMs: agentRunClockRunning(run) ? null : agentRunElapsedMs(run, args.now ?? Date.now()),
     report: report.state,
+    completion: report,
     criteria: report.state === "frozen" ? report.criteria.map((criterion) => ({ text: criterion.text, kind: criterionKind(criterion, reviewed) })) : [],
     staveChecks: [...new Set(report.evidenceGroups.flatMap((group) => group.evidence)
       .filter((item) => item.verified && item.freshness === "current")
@@ -128,6 +131,6 @@ export function projectTarsResult(args: {
     changes: files === 0 ? null : { files, lines: lines ? { insertions: lines.insertions, deletions: lines.deletions } : null },
     review: review && (review.verdict || review.findings.length || review.blocked)
       ? { verdict: review.verdict, findings: review.findings.length, blocked: Boolean(review.blocked) } : null,
-    summary: [...(run.report?.stages ?? [])].reverse().find((stage) => stage.summary)?.summary ?? null,
+    summary: report.summary,
   };
 }

@@ -67,6 +67,9 @@ export interface TarsReportModel {
   outcome: AgentRunReport["outcome"] | null;
   /** The run's own words for a stop or cancel, as written. */
   reason: string | null;
+  /** Final recorded stage summary, with full stage text available in the detail. */
+  summary: string | null;
+  summaries: Array<{ stageId: string; title: string; text: string }>;
   criteria: TarsReportCriterion[];
   unmet: TarsReportCriterion[];
   leftBehind: string[];
@@ -163,7 +166,7 @@ export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCrite
   const delegated = row.acceptanceCriteria.map((text): TarsReportCriterion => ({ text, required: true, status: "notReported", source: { kind: "none" } }));
   const report = detail?.report ?? null;
   if (!detail || !report) {
-    return { state: detail ? "pending" : "unavailable", frozenAt: null, outcome: null, reason: null, criteria: delegated,
+    return { state: detail ? "pending" : "unavailable", frozenAt: null, outcome: null, reason: null, summary: null, summaries: [], criteria: delegated,
       unmet: delegated, leftBehind: [], links: [], evidenceGroups: [], finalRevision: detail ? shortRevision(finalRevisionOf(detail)) : null,
       usage: detail?.usage ?? null };
   }
@@ -185,6 +188,8 @@ export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCrite
   });
   return {
     state: "frozen", frozenAt: report.endedAt, outcome: report.outcome, reason: report.reason,
+    summary: [...report.stages].reverse().find((stage) => stage.summary?.trim())?.summary ?? null,
+    summaries: report.stages.flatMap((stage) => stage.summary?.trim() ? [{ stageId: stage.stageId, title: stage.title, text: stage.summary }] : []),
     criteria, unmet: criteria.filter((criterion) => criterion.status !== "met"),
     leftBehind: report.leftBehind, links: report.links, evidenceGroups, finalRevision: shortRevision(final),
     usage: report.usage ?? detail.usage ?? null,

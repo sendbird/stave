@@ -1986,9 +1986,6 @@
           "stopped": "Run stopped"
         },
         "blockedTitle": "Blocked",
-        "unmetTitle_one": "{{count}} criterion not met",
-        "unmetTitle_other": "{{count}} criteria not met",
-        "allMet": "Every criterion is met.",
         "criteriaTitle": "Criteria",
         "status": {
           "met": "Met",
@@ -1997,7 +1994,6 @@
           "notReported": "Not reported"
         },
         "noReport": "The run did not report on this criterion.",
-        "leftBehind": "Left behind",
         "evidenceIn": "Evidence reported in {{stage}}",
         "source": {
           "agent": "Reported by the agent in {{stage}}",
@@ -2733,6 +2729,14 @@
       "models": "Models",
       "work": "Work",
       "limits": "Work limits"
+    },
+    "completion": {
+      "noSummary": "No final summary was recorded. Read the details for the reported result.",
+      "earlierNote": "Earlier stage note · {{stage}} · may be superseded",
+      "criteriaCount": "Criteria: {{met}} of {{total}} met · sources in details",
+      "stale": "Some checks do not verify the final revision. Read their source and revision in details.",
+      "acceptedWithoutVerification": "Completion was accepted without a Stave-verified check.",
+      "details": "Full summary, criteria and evidence"
     }
   }
 }
