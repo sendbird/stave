@@ -177,14 +177,18 @@ test.describe("Tars: what it knows and what it spent", () => {
 });
 
 // A tooltip must describe the actual button on keyboard focus as well as hover.
-for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
-  test(`Tars icon hints and concise guide: ${theme} ${lang} ${density}`, async ({ page }) => {
+for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) for (const width of [390, 1440]) {
+  test(`Tars icon hints and concise guide: ${theme} ${lang} ${density} ${width}`, async ({ page }) => {
     const labels = JSON.parse(readFileSync(new URL(`../../src/locales/${lang}/shell.json`, import.meta.url), "utf8")).tars;
-    for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/?stavePreview=tars&tray=true&insights=true&theme=${theme}&lang=${lang}&density=${density}`);
       await expect(view(page)).toBeVisible();
-      await page.locator("[data-tars-composer]").getByRole("textbox").fill("");
+      const composer = page.locator("[data-tars-composer]").getByRole("textbox");
+      await expect(composer).toHaveAttribute("aria-disabled", "false");
+      await composer.focus();
+      await composer.press("ControlOrMeta+A");
+      await composer.press("Backspace");
+      await expect(composer).toHaveText("");
       await page.evaluate(() => document.fonts.ready);
       const guide = view(page).locator("[data-tars-guide-open]");
       for (const label of [labels.guide.help, labels.knows.menu, labels.clear.conversation.button, labels.conversation.settings, labels.close]) {
@@ -283,6 +287,5 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
         await closeTray.click();
         await expect(closeTray).toHaveCount(0);
       }
-    }
   });
 }
