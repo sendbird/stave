@@ -86,10 +86,8 @@ import type {
   WakeUp,
   WakeUpOccurrence,
 } from "../../src/lib/supervision/wake-up-policy";
-import {
-  MartinSyncOutboxStore,
-  type MartinOutboxEntry,
-} from "./martin-sync-outbox-store";
+// temporary-migration: drop-retired-sync-outbox
+import { dropRetiredSyncOutbox } from "./retired-sync-outbox";
 import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
@@ -186,7 +184,6 @@ export class SqliteStore {
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
   private trackerIssues: TrackerIssuesStore;
-  private martinSyncOutbox: MartinSyncOutboxStore;
   private wakeUps: WakeUpStore;
   private automationState: AutomationStateStore;
   private repositoryMemories: RepositoryMemoryStore;
@@ -237,6 +234,8 @@ export class SqliteStore {
     this.db.pragma("busy_timeout = 5000");
     this.db.pragma("wal_autocheckpoint = 1000");
     this.bootstrap();
+    // temporary-migration: drop-retired-sync-outbox
+    dropRetiredSyncOutbox(this.db);
     this.notifications = new NotificationStore(
       this.db,
       () => this.loadRepositoryRegistry(),
@@ -257,7 +256,6 @@ export class SqliteStore {
       onUnreadableTaskRow: ({ source, taskRef }) =>
         console.warn("[persistence] skipped an unreadable tracker issue row", source, taskRef),
     });
-    this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
     this.agentRuns = new AgentRunStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
@@ -2773,77 +2771,6 @@ export class SqliteStore {
 
   pruneTrackerIssueKickoffs(cutoff: string) {
     return this.trackerIssues.pruneKickoffsBefore(cutoff);
-  }
-
-  enqueueMartinOutboxEntry(input: {
-    workspaceId: string;
-    projectRef: string;
-    kind: "event";
-    payloadJson: string;
-    now: string;
-  }) {
-    return this.martinSyncOutbox.enqueue(input);
-  }
-
-  upsertMartinLinksMergeEntry(input: {
-    workspaceId: string;
-    projectRef: string;
-    payloadJson: string;
-    nextAttemptAt: string;
-    now: string;
-  }) {
-    return this.martinSyncOutbox.upsertLinksMerge(input);
-  }
-
-  listDueMartinOutboxEntries(args: {
-    now: string;
-    limit: number;
-  }): MartinOutboxEntry[] {
-    return this.martinSyncOutbox.listDue(args);
-  }
-
-  markMartinOutboxDelivered(id: string, deliveredAt: string) {
-    this.martinSyncOutbox.markDelivered(id, deliveredAt);
-  }
-
-  markMartinOutboxRetry(id: string, attempts: number, nextAttemptAt: string) {
-    this.martinSyncOutbox.markRetry(id, attempts, nextAttemptAt);
-  }
-
-  markMartinOutboxFailed(id: string) {
-    this.martinSyncOutbox.markFailed(id);
-  }
-
-  setMartinOutboxWorkspaceHeld(
-    workspaceId: string,
-    held: boolean,
-    projectRef?: string,
-  ) {
-    return this.martinSyncOutbox.setWorkspaceHeld(
-      workspaceId,
-      held,
-      projectRef,
-    );
-  }
-
-  discardMartinOutboxWorkspaceEntries(args: {
-    workspaceId: string;
-    projectRef?: string;
-    exceptProjectRef?: string;
-  }) {
-    return this.martinSyncOutbox.discardWorkspaceEntries(args);
-  }
-
-  retryFailedMartinOutboxEntries() {
-    return this.martinSyncOutbox.retryFailed();
-  }
-
-  countMartinOutbox() {
-    return this.martinSyncOutbox.counts();
-  }
-
-  pruneMartinOutboxDeliveredBefore(cutoff: string) {
-    return this.martinSyncOutbox.pruneDeliveredBefore(cutoff);
   }
 
   listWakeUps() {

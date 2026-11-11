@@ -1152,10 +1152,6 @@
         "title": "Issues",
         "description": "Opens on tickets assigned to you. Choose which trackers Issues reads, the first tab, the refresh interval, and whether a kickoff starts immediately."
       },
-      "martinSync": {
-        "title": "Martin sync",
-        "description": "Push workspace events and resource links to a linked Martin project and pull its context snapshot."
-      },
       "claudeAccounts": {
         "title": "Claude accounts",
         "description": "Keep more than one Claude sign-in, such as work and personal: add one, sign in, and choose the account new turns use."

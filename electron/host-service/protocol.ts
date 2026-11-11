@@ -479,7 +479,6 @@ export type HostLocalMcpAction =
   | "respond-approval"
   | "respond-user-input"
   | "get-workspace-information"
-  | "set-workspace-martin-project"
   | "replace-workspace-notes"
   | "append-workspace-notes"
   | "write-workspace-plan-file"

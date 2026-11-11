@@ -30,8 +30,6 @@ export const READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_list_automation_information_references",
   "stave_list_wake_ups",
   "stave_get_wake_up",
-  "stave_martin_get_context",
-  "stave_martin_list_projects",
   "stave_get_agent_run",
   // Renders a page offscreen for the caller's own eyes; it saves and shows nothing.
   "stave_preview_html",
@@ -102,8 +100,6 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_respond_user_input",
   // A read-only task never waits on a person, and never takes new secrets.
   "stave_request_secret",
-  "stave_martin_link_project",
-  "stave_martin_unlink_project",
   "stave_lens_open_session",
   "stave_lens_close_session",
   "stave_lens_present_session",

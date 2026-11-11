@@ -16,7 +16,7 @@ function jsonResponse(value: unknown, init?: ResponseInit) {
 /**
  * The body Crane's exchange route answers with (`staveConnectorRow` in
  * Atelier's `apps/crane/src/server/stave-dispatch-auth.mjs`). Crane has sent
- * `scopes` on every connector row since the Martin scopes landed, so a fixture
+ * `scopes` on every connector row since Atelier added connector scopes, so a fixture
  * without it no longer describes the server.
  */
 const CRANE_EXCHANGE_RESPONSE = Object.freeze({

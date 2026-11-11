@@ -55,18 +55,20 @@ describe("AtelierConnectorCredentialVault", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  test("round-trips granted scopes with the encrypted credential", async () => {
+  // A pairing can carry scopes Stave does not act on. They must not make the
+  // vault unreadable, or Crane would lose a pairing that still holds its scope.
+  test("round-trips granted scopes, including ones Stave does not act on", async () => {
     const vault = createVault();
     await vault.saveCredential({
       baseUrl: "https://atelier.example.test",
       connector: CONNECTOR,
-      scopes: ["crane", "martin"],
+      scopes: ["crane", "other"],
       secret: "stc_test-only-connector-secret",
     });
     expect(await vault.getCredential()).toEqual({
       baseUrl: "https://atelier.example.test",
       connector: CONNECTOR,
-      scopes: ["crane", "martin"],
+      scopes: ["crane", "other"],
       secret: "stc_test-only-connector-secret",
     });
     expect(readFileSync(filePath, "utf8")).not.toContain(
