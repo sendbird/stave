@@ -104,10 +104,6 @@ import {
   buildReadOnlyAuxRuntimeOptions,
   resolveAuxLaneRuntime,
 } from "@/lib/providers/auxiliary-inference-policy";
-import {
-  collectMartinTriggerContext,
-  notifyMartinPrOpened,
-} from "@/lib/martin-sync/renderer-triggers";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1266,12 +1262,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (prResult.prUrl && submitWorkspaceId) {
       const state = useAppStore.getState();
-      notifyMartinPrOpened({
-        context: collectMartinTriggerContext(state, submitWorkspaceId),
-        settings: state.settings.martinSync,
-        prUrl: prResult.prUrl,
-        prTitle: title,
-      });
       void watchCreatedPullRequest({ state, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
     }
 

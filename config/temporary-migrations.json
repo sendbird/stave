@@ -1,5 +1,31 @@
 {
   "version": 1,
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
-  "migrations": []
+  "migrations": [
+    {
+      "id": "drop-retired-sync-outbox",
+      "description": "Martin sync was removed after 0.33.1. Opening the database drops its leftover martin_sync_outbox table and indexes; the statements are idempotent and run on every open. At expiry, delete the marked blocks; a profile that skipped these releases keeps an orphaned table that nothing reads.",
+      "introducedAfter": "0.33.1",
+      "removeInVersion": "0.36.0",
+      "files": [
+        "electron/persistence/retired-sync-outbox.ts",
+        "electron/persistence/sqlite-store.ts"
+      ],
+      "tests": [
+        "tests/retired-sync-outbox.test.ts"
+      ]
+    },
+    {
+      "id": "strip-retired-sync-settings",
+      "description": "Martin sync was removed after 0.33.1. Settings rehydration deletes the saved martinSync toggles, so the next settings save no longer carries them. At expiry, delete the marked block; a profile that skipped these releases keeps an unused martinSync key that nothing reads.",
+      "introducedAfter": "0.33.1",
+      "removeInVersion": "0.36.0",
+      "files": [
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/retired-sync-settings.test.ts"
+      ]
+    }
+  ]
 }

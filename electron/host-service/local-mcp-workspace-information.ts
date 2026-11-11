@@ -14,7 +14,6 @@ import {
   type WorkspaceInfoCustomField,
   type WorkspaceInfoFieldType,
   type WorkspaceInformationState,
-  type WorkspaceMartinProjectLink,
   type WorkspaceResourceUpsertResult,
   type WorkspaceTodoStatus,
 } from "../../src/lib/workspace-information";
@@ -226,16 +225,6 @@ export function createLocalMcpWorkspaceInformation({
   getWorkspaceInformation,
   updateWorkspaceInformationState,
 }: LocalMcpWorkspaceInformationDependencies) {
-  async function setWorkspaceMartinProject(args: {
-    workspaceId: string;
-    project: WorkspaceMartinProjectLink | null;
-  }) {
-    return updateWorkspaceInformationState({
-      workspaceId: args.workspaceId,
-      updater: (current) => ({ ...current, martinProject: args.project }),
-    });
-  }
-
   async function replaceWorkspaceNotes(args: { workspaceId: string; notes: string }) {
     return updateWorkspaceInformationState({
       workspaceId: args.workspaceId,
@@ -683,7 +672,6 @@ export function createLocalMcpWorkspaceInformation({
 
   return {
     getWorkspaceInformation,
-    setWorkspaceMartinProject,
     replaceWorkspaceNotes,
     appendWorkspaceNotes,
     clearWorkspaceNotes,

@@ -21,7 +21,6 @@ import {
   extractGitHubPullRequestReference,
   extractJiraIssueReference,
   extractSlackThreadReference,
-  type WorkspaceMartinProjectLink,
   type WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import { formatWorkspaceInfoTaskSeedPrompt } from "@/lib/workspace-information-task-seed";
@@ -86,7 +85,6 @@ export interface KickoffProposalDraft {
   degraded: boolean;
   sourceConfigId: string | null;
   model: string;
-  martinProject?: WorkspaceMartinProjectLink | null;
 }
 
 export interface KickoffSourceClassification {
@@ -601,7 +599,6 @@ export function buildWorkspaceInformationSeed(
   draft: KickoffProposalDraft,
 ): WorkspaceInformationState {
   const information = createEmptyWorkspaceInformation();
-  information.martinProject = draft.martinProject ?? null;
   information.notes = draft.notes.trim();
   information.todos = draft.todos.map((text) => ({
     ...createWorkspaceTodoItem(),

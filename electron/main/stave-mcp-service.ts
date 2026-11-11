@@ -79,16 +79,6 @@ export async function getWorkspaceInformation(args: { workspaceId: string }) {
   }>("get-workspace-information", args);
 }
 
-export async function setWorkspaceMartinProject(args: {
-  workspaceId: string;
-  project: import("../../src/lib/workspace-information").WorkspaceMartinProjectLink | null;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("set-workspace-martin-project", args);
-}
-
 export async function replaceWorkspaceNotes(args: {
   workspaceId: string;
   notes: string;

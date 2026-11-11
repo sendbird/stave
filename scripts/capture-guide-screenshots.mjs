@@ -162,7 +162,6 @@ function informationFor(copy) {
     ],
     amplifyLinks: [],
     slackThreads: [],
-    martinProject: null,
     notes: copy.notes,
     todos: copy.todos.map((text, index) => ({
       id: `todo-${index + 1}`,

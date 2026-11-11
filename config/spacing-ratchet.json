@@ -651,14 +651,6 @@
       "explorerStyles.resultLineNumber.marginTop = 2": 1,
       "explorerStyles.resultLineNumber.paddingInline = 6": 1
     },
-    "src/components/layout/workspace-information-martin-card.styles.ts": {
-      "workspaceInformationMartinCardStyles.head.gap = 10": 1,
-      "workspaceInformationMartinCardStyles.openProject.gap = 6": 1,
-      "workspaceInformationMartinCardStyles.staleNotice.paddingInline = 10": 1,
-      "workspaceInformationMartinCardStyles.searchBody.gap = 10": 1,
-      "workspaceInformationMartinCardStyles.resultRow.paddingInline = 10": 1,
-      "workspaceInformationMartinCardStyles.resultTitleRow.gap = 6": 1
-    },
     "src/components/layout/workspace-information-panel.styles.ts": {
       "workspaceInformationPanelStyles.sectionTrigger.paddingBlock = 10": 1,
       "workspaceInformationPanelStyles.linkRow.gap = 10": 1,

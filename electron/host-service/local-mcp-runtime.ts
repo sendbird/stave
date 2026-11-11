@@ -825,7 +825,6 @@ export async function getWorkspaceInformation(args: { workspaceId: string }) {
 }
 
 export const {
-  setWorkspaceMartinProject,
   replaceWorkspaceNotes,
   appendWorkspaceNotes,
   clearWorkspaceNotes,
