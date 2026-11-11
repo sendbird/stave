@@ -26,7 +26,17 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
           const rect = item.getBoundingClientRect(); return rect.left < box.left - 1 || rect.right > box.right + 1;
         }).map((item) => item.tagName) };
       });
-      expect(geometry).toEqual({ overflow: 0, escaped: [] });
+      const overflowDetails = geometry.overflow ? await root.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return [node, ...node.querySelectorAll<HTMLElement>('*')].filter((item) => {
+          const rect = item.getBoundingClientRect();
+          return getComputedStyle(item).position !== 'absolute'
+            && (item.scrollWidth > item.clientWidth || rect.left < box.left || rect.right > box.right);
+        }).map((item) => ({ tag: item.tagName, className: item.className, text: item.textContent?.slice(0, 80),
+          width: item.clientWidth, scrollWidth: item.scrollWidth, rect: item.getBoundingClientRect().toJSON(),
+          overflowX: getComputedStyle(item).overflowX, font: getComputedStyle(item).font }));
+      }) : [];
+      expect(geometry, `${surface} overflow: ${JSON.stringify(overflowDetails)}`).toEqual({ overflow: 0, escaped: [] });
       await page.keyboard.press('Enter');
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     }
