@@ -57,7 +57,9 @@ function place(row: TarsResponsibility) {
 
 /** Proposals for a responsibility that ended or moved past their revision no longer wait. */
 function isLiveDecision(decision: TarsPendingDecision, row: TarsResponsibility | undefined): row is TarsResponsibility {
-  return Boolean(row) && !isTarsResponsibilityTerminal(row!) && row!.revision === decision.expectedRevision;
+  return Boolean(row) && row!.state !== "cancelled" &&
+    (row!.state !== "completed" || (decision.kind ?? "confirm") === "confirm" && decision.operation === "message") &&
+    row!.revision === decision.expectedRevision;
 }
 
 export function collectTarsAttention(
@@ -101,8 +103,8 @@ export type TarsLane = "needsYou" | "running" | "done";
  * rest, including paused and user-held work, is running.
  */
 export function tarsLaneOf(row: TarsResponsibility, attentionResponsibilityIds: ReadonlySet<string>): TarsLane {
-  if (isTarsResponsibilityTerminal(row)) return "done";
-  return attentionResponsibilityIds.has(row.id) ? "needsYou" : "running";
+  if (attentionResponsibilityIds.has(row.id)) return "needsYou";
+  return isTarsResponsibilityTerminal(row) ? "done" : "running";
 }
 
 /** The fields of a Fleet attention row this rule reads. */

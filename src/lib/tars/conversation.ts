@@ -530,26 +530,29 @@ export const TarsQueueMoveActionSchema = z.object({
 export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
 
 /**
- * The user's words to a run whose task was busy (a turn running) when they
- * confirmed them: kept with the confirmation's record and said in the task
+ * The user's confirmed follow-up words: kept with the confirmation's record and said in the task
  * once that turn ends, exactly once, as their reply there.
  * - `queued`: waiting for the task's turn to end (or a paused run to resume).
  * - `delivering`: being said now, as the user turn `turnId`, minted and saved
  *   before the reply starts. After a restart it reached the task only if the
  *   run recorded that very turn; any other user turn says nothing about it.
+ * - `withdrawn`: the user withdrew only this request before it reached the task.
  * - `delivered`: said in the task.
  * - `failed`: the run refused it (`reason`, `error`).
  * - `cancelled`: the work was taken over, cancelled or completed, its run
  *   ended or changed owner first (`reason`).
- * `agentRunId` is the run it was confirmed for; it is never said to another.
+ * `agentRunId` is the receiving run. Only the same responsibility's recorded
+ * continuation may rebind a queued delivery to a newer run on the same task.
  */
 export const TarsMessageDeliverySchema = z.object({
-  status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled"]),
+  status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled", "withdrawn"]),
   agentRunId: IdSchema,
   turnId: IdSchema.optional(),
   reason: TarsControlReasonSchema.nullable(),
   error: ErrorSchema.nullable(),
   queuedAt: TimestampSchema,
+  /** User withdrawal remains a dispatch hold until the exact execution outcome can be read. */
+  withdrawRequestedAt: TimestampSchema.optional(),
   updatedAt: TimestampSchema,
 }).strict().superRefine((delivery, context) => {
   const settledOtherwise = delivery.status === "failed" || delivery.status === "cancelled";
@@ -593,7 +596,8 @@ export const TarsActionRecordSchema = z.object({
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
   if (record.undo && (record.status !== "applied" || (record.undo.kind === "queue" ? record.action.kind !== "move"
-    : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
+    : record.undo.kind === "delivery" ? record.action.kind !== "control" || record.action.operation !== "message" || !record.delivery
+      : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
     // i18n-ignore: persisted-state integrity diagnostic
     context.addIssue({ code: "custom", message: "Only reversible applied actions retain prior state." });
   const move = record.action.kind === "move";

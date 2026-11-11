@@ -126,6 +126,8 @@ export interface TarsDecisionView {
   record: TarsActionRecord | null;
   /** Words it sent to a busy task: where their delivery stands (`TarsMessageDelivery`); null otherwise. */
   delivery: TarsMessageDelivery | null;
+  /** The same saved record owns delivery withdrawal from every history surface. */
+  deliveryRecord?: TarsActionRecord | null;
   since: string;
   /** Invalid, asked by Tars and still the newest message: Tars asks once more by itself. */
   reask: boolean;
@@ -211,10 +213,10 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   }
   const retiredBySibling = (receipt: TarsActionReceipt, id: string) => tarsDecisionTargets(receipt)
     .some((target) => [...(settledBy.get(`${receipt.messageId}:${target}`) ?? [])].some((other) => other !== id));
-  function targetsOf(targets: TarsDecisionView["targets"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
+  function targetsOf(targets: TarsDecisionView["targets"], options: TarsDecisionView["options"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
     if (!targets.length) return "live";
     if (!rows) return "unknown";
-    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state); })) return "targetEnded";
+    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state) && !(row.state === "completed" && options.some((option) => option.kind === "control" && option.control.responsibilityId === target.responsibilityId && option.control.operation === "message")); })) return "targetEnded";
     return targets.some((target) => rows.get(target.responsibilityId)!.revision !== target.expectedRevision) ? "targetMoved" : "live";
   }
   /**
@@ -227,11 +229,12 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     origin: TarsMessageOrigin | undefined, movedOn = false): TarsDecisionView {
     const latest = view.messageId !== null ? lastMessage?.id === view.messageId : !lastMessage || lastMessage.createdAt <= view.since;
     // The control an answer applied keeps its record under the answer's request id (the proposal's own id for a confirmation).
-    const delivery = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record)?.delivery ?? null;
-    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery };
+    const deliveryRecord = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record) ?? null;
+    const delivery = deliveryRecord?.delivery ?? null;
+    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery, deliveryRecord };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
-    const targets = targetsOf(view.targets);
+    const targets = targetsOf(view.targets, view.options);
     if ((targets === "live" || targets === "unknown") && movedOn) return { ...base, state: "retired", why: "movedOn", checked: true, reask: false };
     if (targets === "live" || targets === "unknown") return { ...base, state: "waiting", why: null, checked: targets === "live", reask: false };
     // Only Tars's own questions are asked again, once per message, and only while nothing newer was said.

@@ -668,13 +668,15 @@ export class TarsConversationStore {
    * a control settled it first).
    */
   transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
-    next: { status: TarsMessageDeliveryStatus; turnId?: string; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
+    next: { status: TarsMessageDeliveryStatus; agentRunId?: string; turnId?: string; reason?: TarsControlReason; error?: string; withdrawRequestedAt?: string }, now: string): TarsActionRecord | null {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (!current?.delivery || !from.includes(current.delivery.status)) return null;
       const settledOtherwise = next.status === "failed" || next.status === "cancelled";
       const delivery: TarsMessageDelivery = { ...current.delivery, status: next.status,
         ...(next.turnId !== undefined ? { turnId: next.turnId } : {}),
+        ...(next.agentRunId !== undefined ? { agentRunId: next.agentRunId } : {}),
+        ...(next.withdrawRequestedAt !== undefined ? { withdrawRequestedAt: next.withdrawRequestedAt } : {}),
         reason: settledOtherwise ? next.reason ?? "unknown" : null, error: settledOtherwise ? (next.error ?? "The message was not delivered.").slice(0, 2_000) : null, updatedAt: now };
       const record = TarsActionRecordSchema.parse({ ...current, delivery, revision: current.revision + 1, updatedAt: now });
       const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
@@ -682,6 +684,32 @@ export class TarsConversationStore {
       if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
       this.changes.emit("conversation");
       return record;
+    });
+  }
+
+  /** Save the user's intent before reconciliation; unreadable execution must not admit this request later. */
+  requestDeliveryWithdrawal(requestId: string, expectedRevision: number, now: string): TarsActionRecord {
+    return this.write(() => {
+      const record = this.getAction(requestId);
+      if (record?.delivery?.withdrawRequestedAt) return record;
+      if (!record?.delivery || record.revision !== expectedRevision ||
+          !["queued", "delivering"].includes(record.delivery.status)) throw new TarsUndoActionRefused("stale");
+      return this.transitionDelivery(requestId, [record.delivery.status], { status: record.delivery.status, withdrawRequestedAt: now }, now)!;
+    });
+  }
+
+  /** Commit the local withdrawal and reservation release on the shared SQLite connection. */
+  withdrawDelivery(requestId: string, expectedRevision: number, effect: () => void, now: string): TarsActionRecord {
+    return this.write(() => {
+      const record = this.getAction(requestId);
+      if (!record?.delivery || record.revision !== expectedRevision ||
+          !["queued", "delivering"].includes(record.delivery.status)) throw new Error("The delivery changed before withdrawal.");
+      effect();
+      const withdrawn = this.transitionDelivery(requestId, [record.delivery.status], { status: "withdrawn" }, now)!;
+      const next = TarsActionRecordSchema.parse({ ...withdrawn, undo: { kind: "delivery", undoneAt: now } });
+      this.db.prepare("UPDATE tars_action_records SET body_json = ? WHERE request_id = ? AND revision = ?")
+        .run(JSON.stringify(next), requestId, next.revision);
+      return next;
     });
   }
 
@@ -741,7 +769,7 @@ export class TarsConversationStore {
       const current = this.getAction(requestId);
       if (current?.status === "applied") return current;
       const undo = apply();
-      const record = this.settleRecord(requestId, { status: "applied", ...(undo ? { undo } : {}), ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
+      const record = this.settleRecord(requestId, { status: "applied", ...(queue ? { undo: { kind: "delivery" as const } } : undo ? { undo } : {}), ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
         reason: null, error: null, queuedAt: now, updatedAt: now } } : {}) }, now);
       if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
       return record;

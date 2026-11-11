@@ -13,7 +13,7 @@ import { TarsRecordChip, TarsRecordDetail, TarsRecordRow, TarsRecordSub, TarsWor
  */
 function lineStatus(record: TarsActionRecord): TarsActionRecord["status"] {
   const delivery = record.delivery?.status;
-  if (!delivery || delivery === "delivered") return record.status;
+  if (!delivery || delivery === "delivered" || delivery === "withdrawn") return record.status;
   return delivery === "queued" || delivery === "delivering" ? "pending" : "rejected";
 }
 
@@ -21,7 +21,7 @@ function lineStatus(record: TarsActionRecord): TarsActionRecord["status"] {
 export const TARS_RECORD_STATE: Record<TarsActionRecord["status"], TarsRecordState> = { applied: "applied", pending: "pending", rejected: "refused" };
 
 const DELIVERY_STATE: Record<TarsMessageDelivery["status"], TarsRecordState> = {
-  queued: "pending", delivering: "running", delivered: "applied", failed: "refused", cancelled: "stopped",
+  queued: "pending", delivering: "running", delivered: "applied", failed: "refused", cancelled: "stopped", withdrawn: "stopped",
 };
 
 /**
@@ -29,12 +29,31 @@ const DELIVERY_STATE: Record<TarsMessageDelivery["status"], TarsRecordState> = {
  * said, said, or not said and why. A follow-on line under the record or the
  * decision that sent them, with its own mark.
  */
-export function TarsMessageDeliveryLine({ delivery }: { delivery: TarsMessageDelivery }) {
+export function TarsMessageDeliveryLine({ delivery, record }: { delivery: TarsMessageDelivery; record?: TarsActionRecord | null }) {
+  return record ? <TarsDeliveryWithdrawal record={record} /> : <DeliveryLine delivery={delivery} />;
+}
+
+function TarsDeliveryWithdrawal({ record }: { record: TarsActionRecord }) {
+  const { t } = useTranslation(["shell"]);
+  const undo = useTarsActionUndo(record);
+  const current = undo.record;
+  const checking = Boolean(current.delivery?.withdrawRequestedAt);
+  return <DeliveryLine delivery={current.delivery!}>
+    {undo.available ? <Button type="button" variant="ghost" size="2xs" disabled={undo.pending} onClick={() => void undo.undo()} data-tars-record-undo="delivery">
+      {t(undo.pending ? "shell:tars.record.undo.withdrawPending" : checking ? "shell:tars.record.undo.withdrawRetry" : "shell:tars.record.undo.withdrawAction")}
+    </Button> : null}
+    {undo.refusal ? <span role="status">{t(`shell:tars.record.undo.${undo.refusal}`)}</span> : null}
+  </DeliveryLine>;
+}
+
+function DeliveryLine({ delivery, children }: { delivery: TarsMessageDelivery; children?: import("react").ReactNode }) {
   const { t } = useTranslation(["shell"]);
   const notSent = delivery.status === "failed" || delivery.status === "cancelled";
   return <TarsRecordSub state={DELIVERY_STATE[delivery.status]} data-tars-delivery={delivery.status} role="status">
-    <span>{t(`shell:tars.delivery.${delivery.status}`)}</span>
+    <span>{t(delivery.withdrawRequestedAt && (delivery.status === "queued" || delivery.status === "delivering")
+      ? "shell:tars.record.undo.withdrawChecking" : `shell:tars.delivery.${delivery.status}`)}</span>
     {notSent ? <span data-tars-reason={delivery.reason ?? undefined}>{t(tarsControlReasonKey(delivery.reason))}</span> : null}
+    {children}
   </TarsRecordSub>;
 }
 
@@ -67,13 +86,13 @@ export function TarsActionRecordLine({ record, title }: { record: TarsActionReco
     {title ? <TarsWorkChip title={title} responsibilityId={action.responsibilityId} /> : null}
     {record.priority !== undefined ? <TarsRecordChip icon={ArrowDownUp} data-tars-record-priority-value="">{t("shell:tars.record.priority", { priority: record.priority })}</TarsRecordChip> : null}
   </>;
-  return <TarsRecordRow state={TARS_RECORD_STATE[status]} actor={actorOf(source)} lead={lead} values={values} status={undo.undone ? t("shell:tars.record.undo.done") : t(`shell:tars.record.status.${status}`)} at={record.createdAt}
+  return <TarsRecordRow state={TARS_RECORD_STATE[status]} actor={actorOf(source)} lead={lead} values={values} status={undo.undone ? t(record.delivery ? "shell:tars.record.undo.withdrawDone" : "shell:tars.record.undo.done") : t(`shell:tars.record.status.${status}`)} at={record.createdAt}
     data-tars-action-record={record.status} data-tars-record-kind={action.kind} data-tars-record-priority={record.priority} data-tars-record-source={source}
-    actions={undo.available ? <Button type="button" variant="ghost" size="2xs" disabled={undo.pending} onClick={() => void undo.undo()}
+    actions={!record.delivery && undo.available ? <Button type="button" variant="ghost" size="2xs" disabled={undo.pending} onClick={() => void undo.undo()}
       data-tars-record-undo="">{t(undo.pending ? "shell:tars.record.undo.pending" : "shell:tars.record.undo.action")}</Button> : null}
     detail={<>
       {record.status === "rejected" ? <TarsRecordDetail data-tars-reason={record.reason}>{t(tarsControlReasonKey(record.reason))}</TarsRecordDetail> : null}
       {undo.refusal ? <TarsRecordDetail role="status">{t(`shell:tars.record.undo.${undo.refusal}`)}</TarsRecordDetail> : null}
-      {record.delivery ? <TarsMessageDeliveryLine delivery={record.delivery} /> : null}
+      {record.delivery ? <TarsMessageDeliveryLine delivery={record.delivery} record={record} /> : null}
     </>} />;
 }

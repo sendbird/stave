@@ -172,7 +172,7 @@ export class TarsStore {
     }
     this.hasDecisionTables ||= hasTarsDecisionTables(this.db);
     const rows = new Map(responsibilities.map((entry) => [entry.id, entry]));
-    const live = (id: string, revision: number) => { const owner = rows.get(id); return Boolean(owner) && !isTarsResponsibilityTerminal(owner!) && owner!.revision === revision; };
+    const live = (id: string, revision: number, operation?: string) => { const owner = rows.get(id); return Boolean(owner) && (!isTarsResponsibilityTerminal(owner!) || owner!.state === "completed" && operation === "message") && owner!.revision === revision; };
     const proposals = [...readLatestTarsControls(this.db).values()].flat()
       .filter((receipt) => receipt.status === "proposed" && receipt.action.kind === "control");
     const settled = this.hasDecisionTables ? readSettledTarsTargets(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
@@ -181,7 +181,7 @@ export class TarsStore {
     const confirms = proposals.flatMap((receipt): TarsPendingDecision[] => {
       const { action } = receipt;
       if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) ||
-        answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision)) return [];
+        answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision, action.operation)) return [];
       return [{ responsibilityId: action.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: receipt.updatedAt }];
     });
@@ -202,7 +202,7 @@ export class TarsStore {
       if (receipt.action.kind !== "ask" || settlingAnswer(askAnswers, tarsAskDecisionId(receipt.messageId, receipt.actionIndex))) return [];
       const targets = receipt.action.options.flatMap((option) => option.effect.kind === "control" ? [option.effect] : []);
       if (!targets.length || targets.some((target) => askSettled.has(`${receipt.messageId}:${target.responsibilityId}`))) return [];
-      if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision))) return [];
+      if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision, target.operation))) return [];
       return [{ kind: "ask", responsibilityId: targets[0]!.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: null, expectedRevision: targets[0]!.expectedRevision, proposedAt: receipt.updatedAt,
         question: receipt.action.question, optionCount: receipt.action.options.length }];

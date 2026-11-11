@@ -71,7 +71,7 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
   const refuse = (reason: TarsControlReason, message: string): never => { throw new TarsControlRejection(reason, message); };
   if (!row) return refuse("notOwned", "The responsibility is not owned by the personal representative.");
   if (stage === "admission" && row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
-  if (row.state === "completed" || row.state === "cancelled") refuse("ended", "This responsibility has already ended.");
+  if ((row.state === "completed" && request.operation !== "message") || row.state === "cancelled") refuse("ended", "This responsibility has already ended.");
   const userOwned = row.state === "takenOver";
   // Its run already ended reporting success Stave could not verify: only the user's
   // acceptance or a cancel settles it; new work to verify it is a new request.
@@ -95,6 +95,7 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
       if (userOwned) refuse("takenOver", "You took over this work. Answer in its task, or hand it back first.");
       if (row.state === "paused") refuse("resumeFirst", "This work is paused. Resume it before answering in its task.");
       if (!row.agentRunId) refuse("runRefused", "This work has no run yet.");
+      if (!row.taskId || !row.executionWorkspaceId) refuse("ownershipLost", "The execution location is unavailable; no replacement workspace will be created.");
       if (row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
       const problem = tarsControlInputProblem(request.operation, request.input);
       if (problem) refuse("unknown", problem);

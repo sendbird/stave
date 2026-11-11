@@ -1436,12 +1436,18 @@
       "clear": "Clear",
       "undo": {
         "action": "Undo",
-        "pending": "Undoing…",
+        "pending": "Start status is unavailable. This request stays on hold until withdrawal can be checked.",
         "done": "Undone",
         "unsupported": "This record cannot be undone.",
         "stale": "The work or queue changed. Undo would overwrite newer work.",
         "outOfScope": "The workspace is no longer available to Tars.",
-        "failed": "Undo could not be confirmed. Try again."
+        "failed": "Undo could not be confirmed. Try again.",
+        "withdrawAction": "Withdraw request",
+        "withdrawPending": "Withdrawing…",
+        "withdrawRetry": "Check withdrawal",
+        "withdrawChecking": "Checking withdrawal; this request stays on hold.",
+        "withdrawDone": "Request withdrawn",
+        "started": "This request already started. Use the current run's controls."
       }
     },
     "execution": {
@@ -1886,7 +1892,7 @@
           "approve": "The tool runs once with this request. This cannot be undone.",
           "deny": "The tool call is refused; the run continues without it.",
           "answer": "The question in the task gets this answer.",
-          "message": "Your words go to the task. They are delivered when the task can receive them.",
+          "message": "Continues work in this task; completed work starts a fresh run for verification.",
           "requestChanges": "The previous stage runs again with this feedback, then the stages after it."
         },
         "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
@@ -2087,7 +2093,8 @@
       "delivering": "Saying it in the task now.",
       "delivered": "Said in the task after its turn ended.",
       "failed": "Not said in the task.",
-      "cancelled": "Not said: the work was taken over, cancelled or ended first."
+      "cancelled": "Not said: the work was taken over, cancelled or ended first.",
+      "withdrawn": "Request withdrawn before it started."
     },
     "followUp": {
       "line": {

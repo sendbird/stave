@@ -220,7 +220,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         subject={decision.kind === "confirm" ? undefined : subject} actor={actorOf(answer.source)} data-tars-record-source={answer.source} status={t(outcomeKey(decision, answer.status))}
         detail={<>
           {answer.status === "rejected" ? <TarsRecordDetail data-tars-reason={answer.reason ?? undefined}>{t(tarsControlReasonKey(answer.reason))}</TarsRecordDetail> : null}
-          {decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} /> : null}
+          {decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} record={decision.deliveryRecord ?? decision.record} /> : null}
         </>} />
       // No longer open: what was asked leads, and why it stopped waiting (and whether Tars asks again) is the line under it.
       : <TarsRecordRow ref={lineRef} focusable state="skipped" lead={subject} detail={<TarsRecordDetail>

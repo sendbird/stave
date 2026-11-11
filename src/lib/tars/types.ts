@@ -387,6 +387,17 @@ export const TarsQueueWaitSchema = z.discriminatedUnion("code", [
 ]);
 export type TarsQueueWait = z.infer<typeof TarsQueueWaitSchema>;
 
+/** Host-only identity of a fresh scope on the same execution task; saved before starting it. */
+export const TarsContinuationSchema = z.object({
+  requestId: IdSchema,
+  previousRunId: IdSchema,
+  previousInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS),
+  previousCriteria: z.array(z.string().min(1).max(500)).min(1).max(20),
+  text: z.string().trim().min(1).max(TARS_TASK_TEXT_MAX_CHARS),
+  requestedAt: z.iso.datetime(),
+}).strict();
+export type TarsContinuation = z.infer<typeof TarsContinuationSchema>;
+
 export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.extend({
   id: IdSchema,
   /** The execution model pin; null runs the work on automatic routing. */
@@ -406,6 +417,9 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   agentRunId: IdSchema.nullable(),
   /** A start may have committed without its acknowledgement; only a receipt read clears this reservation. */
   executionPending: z.boolean().optional(),
+  /** Earlier executions remain in the run store, including their reports and verification. */
+  previousRunIds: z.array(IdSchema).optional(),
+  continuation: TarsContinuationSchema.optional(),
   /** Set by a hand-back: completion needs a final verification started at or after this time. */
   reverifyAfter: z.iso.datetime().nullable(),
   /**
@@ -480,7 +494,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
-  executionPending: true,
+  executionPending: true, previousRunIds: true, continuation: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

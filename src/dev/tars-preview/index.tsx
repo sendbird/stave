@@ -1,3 +1,4 @@
+import { addTarsWithdrawalFixture } from "./tars-withdrawal-fixture";
 import { captureTarsControlUndo, captureTarsQueueUndo } from "@/lib/tars/action-undo";
 import { previewTarsActionUndo } from "./tars-action-undo-bridge";
 import { useLayoutEffect, useState } from "react";
@@ -154,7 +155,7 @@ export function TarsPreview() {
     const insights = params.get("insights") === "true" ? buildTarsInsightsFixtures({ now: new Date(), korean: params.get("lang") === "ko", responsibilities: snapshot.responsibilities }) : null;
     if (insights && !sessionStorage.getItem(identityKey)) snapshot = { ...snapshot, identity: { ...snapshot.identity, instructions: insights.instructions } };
     let sendFailed = false;
-    const conversationKey = gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
+    const conversationKey = params.has("withdrawal") ? `stave-preview-withdrawal-${params.get("withdrawal")}-${params.get("lang")}` : gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
     // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
     type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
@@ -166,6 +167,7 @@ export function TarsPreview() {
       ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
       : fixtures ? { settings: null, messages: [fixtures.message], receipts: [fixtures.receipt], activity: fixtures.activity, records: [] }
         : { settings: null, messages: [], receipts: [], activity: [], records: [] });
+    if (params.has("withdrawal")) addTarsWithdrawalFixture(snapshot, conversation, now, params.get("lang") === "ko");
     // Fleet's projection is not mounted here: publish its rows as the producer would. Tars rows come from the snapshot
     // through Fleet's own projection, so the tray's "needs you" follows every decision kind; other fixture rows are copied.
     const publishAttention = () => useFleetAttentionStore.setState({ snapshot: { ...EMPTY_FLEET_ATTENTION, queueStatus: "next",
@@ -267,7 +269,7 @@ export function TarsPreview() {
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
     const bridge: TarsBridgeApi = {
-      undoAction: previewTarsActionUndo({ conversation, getSnapshot: () => snapshot,
+      undoAction: previewTarsActionUndo({ conversation, deliveryOutcome: params.get("withdrawal") === "pending" ? "pending" : params.get("withdrawal") === "started" ? "started" : undefined, getSnapshot: () => snapshot,
         setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
         changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),

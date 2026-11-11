@@ -2265,7 +2265,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await undoTarsAction(request.params, {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
-        readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo,
+        readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo, withdrawDelivery: tarsRuntime.withdrawDelivery,
       }));
       return;
     }

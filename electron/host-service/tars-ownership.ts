@@ -1,3 +1,4 @@
+import { tarsExecutionScope } from "../../src/lib/tars/continuation";
 import path from "node:path";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
 import { AGENT_RUN_LIMITS, currentStageRecord, type AgentRun, type AgentRunPauseReason } from "../../src/lib/agent-runs/domain";
@@ -81,7 +82,7 @@ export function assertTarsRun(row: TarsResponsibility, run: AgentRun): void {
   if (run.leadTaskId !== row.taskId || run.workspaceId !== row.executionWorkspaceId ||
       path.resolve(run.repositoryPath) !== path.resolve(row.repositoryPath) ||
       run.origin !== "agent" || run.workflow.id !== `tars-${row.id}` ||
-      run.assignment !== row.instruction || (row.agentRunId && row.agentRunId !== run.id))
+      run.assignment !== (row.continuation && run.id === row.continuation.previousRunId ? row.continuation.previousInstruction : tarsExecutionScope(row).instruction) || (row.agentRunId && row.agentRunId !== run.id))
     throw new TarsOwnershipLostError("The owned run identity changed.");
 }
 
