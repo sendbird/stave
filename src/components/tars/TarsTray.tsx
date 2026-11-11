@@ -25,6 +25,8 @@ import { SortableDropIndicator, useSortableListMonitor, useSortableRow } from "@
 import { formatDateTime } from "@/i18n/format";
 import { tarsCardActions, tarsQueueMoves, type TarsCardAction, type TarsTrayAttentionInput, type TarsTrayAttentionRow, type TarsTrayCard as TarsTrayCardModel, type TarsTrayDecision, type TarsTrayModel, type TarsTrayStatus } from "@/lib/tars/tray-model";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
+import { describeTarsModelSelection } from "@/lib/tars/model-selection";
+import { isTarsWorkRunning } from "@/lib/tars/live-progress";
 import type { TarsOutput } from "@/lib/tars/outputs-model";
 import type { TarsSideViewKind, TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
@@ -245,6 +247,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const { t } = useTranslation(["shell"]);
   const { row, progress } = card;
   const terminal = card.lane === "done";
+  const modelSelection = describeTarsModelSelection(row, card.run);
   // What Stave observed: the turn's activity, how current it is, and the run's last few changes.
   const { live, now } = useTarsLiveProgress(row, card.run, { recentLimit: CARD_RECENT_LIMIT });
   const detail = describeTarsResponsibilityDetail(row);
@@ -322,6 +325,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
       {card.branch ? <span className={sx(styles.branch)} data-tars-branch={card.branch} title={card.branch}>
         <GitBranch aria-hidden className={sx(styles.branchIcon)} /><span className={sx(agentRunStyles.visuallyHidden)}>{t("shell:tars.tray.branch")}</span>
         <span className={sx(styles.branchName)}>{card.branch}</span></span> : null}
+      {isTarsWorkRunning(row) ? <span data-tars-model-selection="" title={t("shell:tars.tray.modelSelection")}>{modelSelection ?? t("shell:tars.tray.modelPending")}</span> : null}
     </>} actions={hasActions ? <TarsCardActions card={card} actions={actions} grip={grip} /> : undefined}>
     {body.length ? body : null}
   </TarsRunMonitor>;

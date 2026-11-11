@@ -434,6 +434,8 @@ no Undo. Clearing keeps its separate Undo.
 - **Agents**: the Supervisor's **Work** list includes Tars's work once you turn
   on **Show Tars work**.
 
+While work runs, its card shows the current attempt’s latest linked turn’s selected model and effort below the branch, for example **GPT-6.1 Sol · High**. An unreported effort is omitted; without a model selection the card says **Checking model**. These are routing selections, not provider-confirmed execution values. Paused, queued and ended work does not show a current model.
+
 Use the **Group by project** icon beside the Work tray title to fold work and outputs by project within each lane. Its tooltip names the option, and it highlights while grouping is on. The title row stays above the scrolling list without a separate toolbar row. Project counts count work cards or outputs, not attention requests. Registered project names are used when available, otherwise the repository folder name; missing ownership appears as **Unknown project**. Queued work stays outside project groups in its existing order across all projects; drag and earlier/later actions still change that global queue. Lane filters, Clear and Undo keep their existing scope. The grouping choice lasts while the tray is open.
 
 ## FAQ and troubleshooting

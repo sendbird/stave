@@ -443,6 +443,8 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 Open **How Tars works** in the header for three steps: give a task, follow progress and check the result. Confirmation requirements and keeping Stave open stay visible; **More about running tasks** expands the other conditions. Selecting an example fills the message box without sending it. Hover or focus an icon button to see its action.
 
+Running work cards show the selected model and effort below the branch, for example **GPT-6.1 Sol · High**. Effort is omitted when unreported; **Checking model** means the current turn selection is unavailable. This is the execution lead’s routing selection, not confirmation from the provider or the helpers’ models. Paused, queued and ended work does not show a current model.
+
 Beside the Work tray title, the **Group by project** icon adds folding project groups and card/output counts within each lane. Its tooltip names the option, and it highlights while on. Names come from registered projects or repository folders; missing ownership says **Unknown project**. Queued work keeps its order across all projects outside the groups. Drag and earlier/later actions still change that global queue. Clear and Undo apply to the whole lane. The grouping choice lasts while the tray is open.
 
 Open **Tars** in the sidebar to delegate an outcome across registered

@@ -531,3 +531,34 @@ test("project grouping keeps global queue moves, output ownership and clearing t
   await page.getByRole('button', { name: 'Apply fixture filter' }).click();
   await expect(running.locator('[data-tars-card]')).toHaveCount(4);
 });
+
+
+for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
+  test(`Tars model selection stays below its branch and inside the card (${theme}/${lang}/${density})`, async ({ page }) => {
+    for (const width of [560, 1600]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`/?stavePreview=tars&tray=true&theme=${theme}&lang=${lang}&density=${density}`);
+      await page.evaluate(() => document.fonts.ready);
+      if (width < 1088) await page.locator("[data-tars-tray-indicator]").click();
+      const card = page.locator('[data-tars-card="billing"]');
+      const model = card.locator("[data-tars-model-selection]");
+      await expect(model).toContainText("GPT-6.1 Sol");
+      await expect(model).toContainText(" · ");
+      await model.scrollIntoViewIfNeeded();
+      const boxes = await card.evaluate((node) => {
+        const line = node.querySelector("[data-tars-model-selection]")!;
+        const branch = node.querySelector("[data-tars-branch]")!;
+        const model = line.getBoundingClientRect(), source = branch.getBoundingClientRect(), card = node.getBoundingClientRect();
+        return { left: model.left, right: model.right, top: model.top, branchLeft: source.left, branchBottom: source.bottom,
+          cardLeft: card.left, cardRight: card.right, overflow: line.scrollWidth - line.clientWidth };
+      });
+      // Subpixel font/layout rounding is allowed; the line belongs to the same metadata column.
+      expect(Math.abs(boxes.left - boxes.branchLeft)).toBeLessThanOrEqual(1);
+      expect(boxes.top).toBeGreaterThanOrEqual(boxes.branchBottom - 1);
+      expect(boxes.left).toBeGreaterThanOrEqual(boxes.cardLeft);
+      expect(boxes.right).toBeLessThanOrEqual(boxes.cardRight + 1);
+      expect(boxes.overflow).toBeLessThanOrEqual(1);
+      await expect(page.locator('[data-tars-card="release"] [data-tars-model-selection]')).toHaveCount(0);
+    }
+  });
+}

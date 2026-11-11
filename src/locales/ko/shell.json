@@ -1481,6 +1481,8 @@
       "agentLockedHint": "에이전트를 바꾸면 Tars의 실행이 끝나므로 먼저 작업을 직접 맡으세요."
     },
     "tray": {
+      "modelSelection": "선택된 모델과 추론 강도",
+      "modelPending": "모델 확인 중",
       "title": "맡긴 일",
       "indicator": {
         "running_other": "실행 {{count}}",

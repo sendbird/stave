@@ -1491,6 +1491,8 @@
       "agentLockedHint": "Take the work over first: changing the agent would end Tars's run."
     },
     "tray": {
+      "modelSelection": "Selected model and effort",
+      "modelPending": "Checking model",
       "title": "Work",
       "indicator": {
         "running_one": "{{count}} running",
