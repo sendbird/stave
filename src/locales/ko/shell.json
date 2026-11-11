@@ -1255,7 +1255,8 @@
       "completed": "완료",
       "blocked": "진행 불가",
       "cancelled": "취소됨",
-      "takenOver": "직접 진행 중"
+      "takenOver": "직접 진행 중",
+      "resultReady": "결과 준비됨"
     },
     "conversation": {
       "workUpdate": "작업 업데이트",
@@ -2168,8 +2169,8 @@
       },
       "reason": {
         "notOwned": "Tars가 맡고 있는 작업이 아닙니다.",
-        "notCompleted": "완료된 작업만 게시할 수 있습니다.",
-        "notVerified": "Stave가 확인하지 않은 작업입니다. 검사 없이 완료로 처리했으므로 필요하면 직접 게시해 주세요.",
+        "notCompleted": "검증된 실행 결과만 게시할 수 있습니다.",
+        "notVerified": "이 실행의 검증된 결과가 없습니다. 검증 후 게시해 주세요.",
         "stale": "카드를 연 뒤 작업이 바뀌었습니다. 카드를 다시 열어 주세요.",
         "noWorkspace": "작업의 워크스페이스를 더 이상 찾을 수 없습니다.",
         "noChanges": "게시할 내용이 없습니다. 커밋하지 않은 변경도, 기준 브랜치보다 앞선 커밋도 없습니다.",
@@ -2177,7 +2178,7 @@
         "ghUnavailable": "GitHub CLI를 사용할 수 없습니다. 설치한 뒤 터미널에서 gh auth login을 실행하고 다시 시도하세요.",
         "wrongBranch": "워크스페이스가 작업 브랜치에 있지 않거나, 작업 브랜치가 기준 브랜치와 같습니다.",
         "alreadyPublished": "이미 Draft PR이 열려 있습니다.",
-        "inProgress": "이 작업을 이미 게시하고 있습니다.",
+        "inProgress": "게시나 후속 작업이 진행 중이거나 대기 중입니다. 끝난 뒤 다시 시도해 주세요.",
         "publishFailed": "게시 단계 하나가 실패했습니다.",
         "notByFollowUp": "자동 후속 확인은 게시를 제안할 수 없습니다. 직접 요청하실 때만 제안합니다.",
         "unknown": "작업을 게시하지 못했습니다."
@@ -2680,6 +2681,26 @@
       "stale": "최종 버전을 확인하지 못한 검사가 있습니다. 상세에서 출처와 버전을 확인하세요.",
       "acceptedWithoutVerification": "Stave 검증 없이 완료를 수락한 작업입니다.",
       "details": "전체 요약·완료 기준·검증 근거"
+    },
+    "goal": {
+      "target": "완료 목표: {{goal}}",
+      "kind": {
+        "unspecified": "완료 범위 미지정",
+        "design": "디자인 전달",
+        "implementation": "구현 및 검증",
+        "pullRequest": "PR 생성",
+        "merge": "머지 확인",
+        "confirmation": "사용자 확인"
+      },
+      "next": {
+        "execution": "실행 상황은 별도로 표시됩니다",
+        "complete": "요청한 목표를 완료했습니다",
+        "confirm": "실행 결과가 준비됐습니다. 완료 범위를 확인해 주세요",
+        "publish": "결과가 준비됐습니다. 게시를 확인하면 Draft PR을 만듭니다",
+        "publishFailed": "게시하지 못했습니다. 확인 카드에서 다시 시도해 주세요",
+        "mergeUnknown": "PR은 기록됐습니다. CI와 머지는 확인하지 않았습니다",
+        "publishing": "Draft PR 게시 중입니다. 실제 결과를 기다리고 있습니다"
+      }
     }
   }
 }

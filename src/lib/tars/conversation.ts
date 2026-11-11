@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TarsCompletionGoalSchema } from "./completion";
 import { AttachmentContextsSchema, type AttachmentContext } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
@@ -244,6 +245,7 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
     title: z.string().trim().min(1).max(120),
     instruction: z.string().trim().min(1).max(8_000),
     acceptanceCriteria: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+    completionGoal: TarsCompletionGoalSchema.optional(),
     priority: z.number().int().min(0).max(100),
     /** Optional: the host admits it against the saved allowlist and delegation ceiling. */
     agentId: TarsAgentIdSchema.optional(),
@@ -530,8 +532,7 @@ export const TarsQueueMoveActionSchema = z.object({
 export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
 
 /**
- * The user's words to a run whose task was busy (a turn running) when they
- * confirmed them: kept with the confirmation's record and said in the task
+ * The user's confirmed follow-up words: kept with the confirmation's record and said in the task
  * once that turn ends, exactly once, as their reply there.
  * - `queued`: waiting for the task's turn to end (or a paused run to resume).
  * - `delivering`: being said now, as the user turn `turnId`, minted and saved
@@ -541,7 +542,8 @@ export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
  * - `failed`: the run refused it (`reason`, `error`).
  * - `cancelled`: the work was taken over, cancelled or completed, its run
  *   ended or changed owner first (`reason`).
- * `agentRunId` is the run it was confirmed for; it is never said to another.
+ * `agentRunId` is the receiving run. Only the same responsibility's recorded
+ * continuation may rebind a queued delivery to a newer run on the same task.
  */
 export const TarsMessageDeliverySchema = z.object({
   status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled"]),

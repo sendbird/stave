@@ -13,6 +13,7 @@ const NOW = "2026-11-05T00:00:00.000Z";
 const cleanup: Array<() => Promise<void> | void> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
 const input = (requestId: string, repositoryPath: string, priority: number) => ({
+  completionGoal: "implementation" as const,
   requestId, title: `Work ${requestId}`, instruction: "Fix and verify it within this repository.", acceptanceCriteria: ["It works."],
   workspaceId: `source-${requestId}`, repositoryPath, providerId: "codex" as const, model: null, priority, maxTurns: 30,
 });

@@ -9,6 +9,7 @@ import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore, ty
 import {
   TarsOwnershipLostError, TarsRequestUnavailableError, TarsRunEndedError, TarsRunHeldError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError,
 } from "./tars-ownership";
+import { isTarsPublicationUnfinished } from "../../src/lib/tars/publication";
 import { tarsControlInputProblem } from "../../src/lib/tars/types";
 import { AGENT_RUN_LIMITS, AgentRunCommandError } from "../../src/lib/agent-runs/domain";
 
@@ -71,8 +72,11 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
   const refuse = (reason: TarsControlReason, message: string): never => { throw new TarsControlRejection(reason, message); };
   if (!row) return refuse("notOwned", "The responsibility is not owned by the personal representative.");
   if (stage === "admission" && row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
-  if (row.state === "completed" || row.state === "cancelled") refuse("ended", "This responsibility has already ended.");
+  if ((row.state === "completed" && request.operation !== "message") || row.state === "cancelled") refuse("ended", "This responsibility has already ended.");
+  if (isTarsPublicationUnfinished(row.publication)) refuse("runRefused", "Publication is in progress. Wait for its recorded outcome.");
   const userOwned = row.state === "takenOver";
+  if (row.state === "resultReady" && request.operation !== "acceptCompletion" && request.operation !== "cancel" && request.operation !== "message")
+    refuse("runEnded", "The execution ended. Continue this work through the follow-up flow, or confirm its requested endpoint.");
   // Its run already ended reporting success Stave could not verify: only the user's
   // acceptance or a cancel settles it; new work to verify it is a new request.
   if (row.state === "blocked" && row.detailCode === "unverifiedCompletion" &&
@@ -95,6 +99,7 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
       if (userOwned) refuse("takenOver", "You took over this work. Answer in its task, or hand it back first.");
       if (row.state === "paused") refuse("resumeFirst", "This work is paused. Resume it before answering in its task.");
       if (!row.agentRunId) refuse("runRefused", "This work has no run yet.");
+      if (!row.taskId || !row.executionWorkspaceId) refuse("ownershipLost", "The execution location is unavailable; no replacement workspace will be created.");
       if (row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
       const problem = tarsControlInputProblem(request.operation, request.input);
       if (problem) refuse("unknown", problem);
@@ -127,8 +132,11 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
       if (!userOwned) refuse("notTakenOver", "Only work you took over can be handed back.");
       return row;
     case "acceptCompletion":
+      if (row.executionPending) refuse("runRefused", "The continuation outcome must be reconciled before accepting completion.");
       // Only completion Stave could not verify waits for this decision.
-      if (row.state !== "blocked" || row.detailCode !== "unverifiedCompletion")
+      if (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
+        refuse("notAcceptable", "Accepting a result cannot establish an unobserved pull request or merge.");
+      if (row.state !== "resultReady" && (row.state !== "blocked" || row.detailCode !== "unverifiedCompletion"))
         refuse("notAcceptable", "Only work whose completion Stave could not verify can be accepted as done.");
       return row;
     case "startNow":

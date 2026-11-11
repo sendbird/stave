@@ -668,13 +668,14 @@ export class TarsConversationStore {
    * a control settled it first).
    */
   transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
-    next: { status: TarsMessageDeliveryStatus; turnId?: string; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
+    next: { status: TarsMessageDeliveryStatus; agentRunId?: string; turnId?: string; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (!current?.delivery || !from.includes(current.delivery.status)) return null;
       const settledOtherwise = next.status === "failed" || next.status === "cancelled";
       const delivery: TarsMessageDelivery = { ...current.delivery, status: next.status,
         ...(next.turnId !== undefined ? { turnId: next.turnId } : {}),
+        ...(next.agentRunId !== undefined ? { agentRunId: next.agentRunId } : {}),
         reason: settledOtherwise ? next.reason ?? "unknown" : null, error: settledOtherwise ? (next.error ?? "The message was not delivered.").slice(0, 2_000) : null, updatedAt: now };
       const record = TarsActionRecordSchema.parse({ ...current, delivery, revision: current.revision + 1, updatedAt: now });
       const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")

@@ -264,7 +264,7 @@ describe("words for a work whose task is busy", () => {
     expect(f.record(record.requestId).delivery).toMatchObject({ status: "failed", reason: "runRefused", error: "Resume the run before sending it a reply." });
     await f.tick();
     // The words are only ever the user's reply: no approval, answer or other task operation was sent for them.
-    expect(f.task.respondCalls.map((request) => request.operation)).toEqual(["message"]);
+    expect(f.task.respondCalls).toEqual([]);
     expect(f.current().pendingRequests).toBeUndefined();
   });
 

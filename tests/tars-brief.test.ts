@@ -131,7 +131,7 @@ describe("a delegated unit's saved request", () => {
     const reopened = open(f.file);
     const host = runtime(reopened.responsibilities);
     expect(await host.brief({ responsibilityId: row!.id })).toEqual(before);
-    expect(reopened.responsibilities.get(row!.id)?.state).toBe("completed");
+    expect(reopened.responsibilities.get(row!.id)?.state).toBe("resultReady");
     expect((await host.get()).responsibilities[0]).not.toHaveProperty("request");
   });
 

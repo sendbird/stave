@@ -762,7 +762,7 @@ required acceptance report must also complete, and the report's "met" must
 rest on more than the agent's own claim. The final stage needs a check Stave
 saw pass on the current revision (`classifyStageEvidence` +
 `isVerifiedEvidence`), or some stage needs a passed independent review.
-Otherwise the responsibility is blocked with `unverifiedCompletion`; only the
+Otherwise the responsibility is blocked with `unverifiedCompletion`; for local-result endpoints, only the
 user's `acceptCompletion` (a click, or a model proposal the user confirms)
 completes it, recorded as `acceptedWithoutVerification`, and the run is not
 touched. The conversation shows this as a [decision card](#decisions) with
@@ -770,6 +770,35 @@ touched. The conversation shows this as a [decision card](#decisions) with
 verification work**; the last only writes that request into the message box
 for you to send. While it waits, pause, resume, take over and hand back are
 refused for that work.
+
+The tray and result report show **Goal** separately from the execution report.
+An explicitly requested design delivery or implementation with validation can
+finish after the existing evidence checks. A PR goal stays **Result ready**
+until the host records the PR for that exact execution through the existing
+publish confirmation card. A failed publish remains unfinished and can retry
+from that card. A merge goal stays open after PR creation: neither CI nor merge
+is inferred from a PR link. This version does not observe merge completion.
+When the endpoint was not specified, Tars leaves the result ready for your
+confirmation instead of choosing a wider goal. Accepting an execution result
+cannot substitute for a missing PR or merge.
+
+Older saved completion records without an endpoint or explicit acceptance are
+shown conservatively as result ready. Their request, task, workspace, branch,
+reports and conversation remain intact. They need a current verification before
+publication; reading them does not rewrite their history. Further edits belong
+to the same responsibility: tell Tars what to correct and confirm the message
+card. For a completed or result-ready execution, that message starts a fresh
+Work, Review and Verify run in the existing task, workspace and branch.
+The original goal stays intact. The Outputs section retains earlier reports,
+reviews, artifact links and recorded PRs; opening a report keeps it bound to
+its own execution. Each follow-up requires new verification and publication
+confirmation. Earlier PRs remain in history and cannot complete the new run.
+Queued follow-ups survive restart and wait for capacity. Publishing waits until
+queued or uncertain follow-up work is resolved; a follow-up cannot start while
+publication is in progress. Ended results are not polled as active executions. A lost start response
+is reconciled with the saved run instead of starting twice. Paused, cancelled
+or taken-over work cannot restart through a message. Missing execution locations
+or changed ownership are refused without creating replacement work.
 
 Control details beyond the [quick start table](#3-control-work):
 

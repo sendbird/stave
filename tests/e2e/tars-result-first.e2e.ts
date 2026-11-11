@@ -121,3 +121,49 @@ for (const size of [16, 20]) test(`Result uses chat scale and Report keeps panel
     }
   }
 });
+
+
+for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (const density of ["regular", "compact"]) {
+  test(`result-ready goal and publish entry fit ${lang} ${theme} ${density}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`/?stavePreview=tars&outputs=true&goal=pullRequest&lang=${lang}&theme=${theme}&density=${density}`, { waitUntil: "domcontentloaded" });
+    const card = page.locator('[data-tars-card="checkout"]');
+    const goal = card.locator('[data-tars-goal="pullRequest"]');
+    await expect(goal).toContainText(lang === "ko" ? "완료 목표: PR 생성" : "Goal: Pull request creation");
+    await expect(card.locator('[data-tars-publish-open="checkout"]')).toBeVisible();
+    await expect(card.locator('[data-tars-attention="tars-blocked"]')).toHaveCount(0);
+    await expect(card.locator('[data-tars-attention="tars-decision"]')).toContainText(lang === "ko" ? "결과 준비됨" : "Result ready");
+    await page.evaluate(() => document.fonts.ready);
+    expect(await page.evaluate(() => document.fonts.check('13px "Geist Variable"'))).toBe(true);
+    for (const node of [goal, card]) {
+      const size = await node.evaluate((element) => ({ width: element.clientWidth, scroll: element.scrollWidth }));
+      // Subpixel text rounding is allowed; horizontal scrolling is not.
+      expect(size.scroll).toBeLessThanOrEqual(size.width + 1);
+    }
+    await page.locator('[data-tars-output="report"]').filter({ hasText: "Show the saved card first at checkout" }).getByRole("button").click();
+    const side = page.locator('[data-tars-side-view="report"]');
+    await expect(side.locator('[data-tars-goal="pullRequest"]')).toBeVisible();
+    await expect(side.locator('[data-tars-publish-open="checkout"]')).toBeVisible();
+    await page.setViewportSize({ width: 420, height: 900 });
+    await expect(side).toBeVisible();
+    // Responsive placement remounts the panel; measure after the new frame has a box.
+    await expect.poll(async () => side.evaluate((element) => element.clientWidth > 0 && element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  });
+}
+
+for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
+  test(`historical report opens its own execution ${lang} ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`/?stavePreview=tars&outputs=true&goal=pullRequest&history=true&lang=${lang}&theme=${theme}`, { waitUntil: "domcontentloaded" });
+    const reports = page.locator('[data-tars-output="report"]').filter({ hasText: "Show the saved card first at checkout" });
+    await expect(reports).toHaveCount(2);
+    await reports.last().getByRole("button").click();
+    const side = page.locator('[data-tars-side-view="report"]');
+    await expect(side).toContainText("Checkout shows the saved card first.");
+    await expect(side).not.toContainText("The follow-up correction is verified.");
+    await expect(side.locator('[data-tars-publish-open="checkout"]')).toHaveCount(0);
+    // Switching view kinds retains the historical execution identity.
+    await side.getByRole("button", { name: lang === "ko" ? "리뷰" : "Review", exact: true }).click();
+    await expect(page.locator('[data-tars-side-view="review"]')).toBeVisible();
+  });
+}

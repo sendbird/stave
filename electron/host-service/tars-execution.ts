@@ -1,3 +1,4 @@
+import { tarsGoalReached } from "../../src/lib/tars/completion";
 import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-context";
 import { tarsAttachmentSource } from "../../src/lib/tars/work-attachments";
@@ -156,7 +157,7 @@ export function tarsStageWait(record: Pick<AgentRunStageRecord, "status" | "bloc
  * A hand-back during the final stage restarts that attempt (`controlTarsRun`).
  */
 export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: readonly string[],
-  reverifyAfter?: string | null): TarsExecutionObservation {
+  reverifyAfter?: string | null, goal: Pick<TarsResponsibility, "completionGoal" | "publication"> = {}): TarsExecutionObservation {
   const run = detail.agentRun;
   // The run's own reason is a diagnostic: surfaces say the stop or cancel by code and keep the words expandable.
   if (run.state === "cancelled") return run.reasonDetail ? { state: "cancelled", detail: run.reasonDetail, detailCode: "runCancelled", detailParams: null }
@@ -182,7 +183,7 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
     if (!hasStaveVerifiedOutcome(detail, verification, reverifyAfter))
       return { state: "blocked", detail: "The run reported its criteria as met, but Stave has no verified check or passed review for it.",
         detailCode: "unverifiedCompletion" };
-    return { state: "completed", detail: null };
+    return { state: tarsGoalReached({ ...goal, agentRunId: run.id }) ? "completed" : "resultReady", detail: null, resultVerifiedRunId: run.id };
   }
   // The run's own takeover pause is human ownership, whichever surface took it.
   if (run.state === "paused" && run.pauseReason === "taken-over") return { state: "takenOver", detail: run.reasonDetail ?? null };

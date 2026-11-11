@@ -1,6 +1,7 @@
 import type { TarsUndoActionInput } from "./action-undo";
 import type { TarsUndoActionResult } from "./conversation";
 import { z } from "zod";
+import { TarsCompletionGoalSchema } from "./completion";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
 import type { TarsUsageInput, TarsUsageReport } from "./usage";
@@ -90,7 +91,7 @@ export const TarsAgentIdSchema = z.string().trim().min(1).max(80).regex(/^[A-Za-
 
 /** `takenOver`: the user owns the work; Tars never resumes it until an explicit hand-back. */
 export const TarsStateSchema = z.enum([
-  "queued", "preparing", "running", "waiting", "paused", "completed", "blocked", "cancelled", "takenOver",
+  "queued", "preparing", "running", "waiting", "paused", "resultReady", "completed", "blocked", "cancelled", "takenOver",
 ]);
 export type TarsState = z.infer<typeof TarsStateSchema>;
 
@@ -238,6 +239,8 @@ export const CreateTarsResponsibilityInputSchema = z.object({
   title: z.string().trim().min(1).max(120),
   instruction: z.string().trim().min(1).max(TARS_ASSIGNMENT_MAX_CHARS),
   acceptanceCriteria: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+  /** Explicit requested endpoint; absent on older or ambiguous delegations. */
+  completionGoal: TarsCompletionGoalSchema.optional(),
   workspaceId: IdSchema,
   repositoryPath: z.string().trim().min(1).max(4_096),
   providerId: z.enum(["claude-code", "codex"]),
@@ -387,6 +390,17 @@ export const TarsQueueWaitSchema = z.discriminatedUnion("code", [
 ]);
 export type TarsQueueWait = z.infer<typeof TarsQueueWaitSchema>;
 
+/** Host-only identity of a fresh scope on the same execution task; saved before starting it. */
+export const TarsContinuationSchema = z.object({
+  requestId: IdSchema,
+  previousRunId: IdSchema,
+  previousInstruction: z.string().min(1).max(TARS_ASSIGNMENT_MAX_CHARS),
+  previousCriteria: z.array(z.string().min(1).max(500)).min(1).max(20),
+  text: z.string().trim().min(1).max(TARS_TASK_TEXT_MAX_CHARS),
+  requestedAt: z.iso.datetime(),
+}).strict();
+export type TarsContinuation = z.infer<typeof TarsContinuationSchema>;
+
 export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.extend({
   id: IdSchema,
   /** The execution model pin; null runs the work on automatic routing. */
@@ -404,8 +418,15 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   taskId: IdSchema.nullable(),
   executionWorkspaceId: IdSchema.nullable(),
   agentRunId: IdSchema.nullable(),
+  /** The exact run whose result passed completion verification; cleared when execution resumes. */
+  resultVerifiedRunId: IdSchema.nullable().optional(),
+  /** Explicit user acceptance, distinct from execution ending. */
+  completionConfirmedAt: z.iso.datetime().optional(),
   /** A start may have committed without its acknowledgement; only a receipt read clears this reservation. */
   executionPending: z.boolean().optional(),
+  /** Earlier executions remain in the run store, including their reports and verification. */
+  previousRunIds: z.array(IdSchema).optional(),
+  continuation: TarsContinuationSchema.optional(),
   /** Set by a hand-back: completion needs a final verification started at or after this time. */
   reverifyAfter: z.iso.datetime().nullable(),
   /**
@@ -440,6 +461,8 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
    * No create request, control or renderer write can set it.
    */
   publication: TarsPublicationSchema.optional(),
+  /** Prior execution publications remain visible, never eligible as current completion evidence. */
+  publicationHistory: z.array(TarsPublicationSchema).optional(),
   /**
    * The run's own current stage attempt (`stageId#attempt`) when last
    * observed, while the run is active. A stage command (retry, skip, sign off)
@@ -480,7 +503,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
-  executionPending: true,
+  executionPending: true, resultVerifiedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

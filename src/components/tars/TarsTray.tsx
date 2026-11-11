@@ -1,3 +1,4 @@
+import { TarsGoalSummary } from "./TarsGoalSummary";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, FolderTree, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -175,6 +176,7 @@ export function TarsTrayToggle({ pinned, counts, status = "ready", outputs = 0, 
 /** The kind badge and short text of one attention row; Tars's kinds get Tars's words. */
 function describeAttention(row: TarsResponsibility, entry: TarsTrayAttentionRow<TarsTrayAttentionInput>) {
   const { item, decision } = entry;
+  if (row.state === "resultReady") return { label: i18n.t("shell:tars.states.resultReady"), text: i18n.t("shell:tars.states.resultReady") };
   if (item.kind === "tars-decision") {
     // A decision with several options is answered in the conversation; its row says what it asks.
     return { label: i18n.t("shell:tars.tray.attention.decision"), text: decision ? i18n.t(`shell:tars.tray.decision.${decision.operation}`)
@@ -265,11 +267,12 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const blockedEntry = card.attention.find((entry) => entry.item.kind === "tars-blocked");
   const detailInAttention = Boolean(blockedEntry);
   // A blocked card leads to what is unmet: from the end of the well's Blocked line when there is one, else under the card's lines.
-  const report = row.state === "blocked" && actions.onOpenSide ? <Button variant="ghost" size="xs" data-tars-open-report={row.id}
+  const report = (row.state === "blocked" || row.state === "resultReady") && actions.onOpenSide ? <Button variant="ghost" size="xs" data-tars-open-report={row.id}
     onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
     <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
   // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
   const body = [
+    <TarsGoalSummary key="goal" row={row} />,
     row.state === "queued" ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{describeTarsQueueWait(row)}</p> : null,
     !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
     tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
@@ -309,7 +312,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     </ul> : null,
     report && !blockedEntry ? <div key="report" className={sx(styles.actions)}>{report}</div> : null,
     // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
-    row.state === "completed" && (row.publication || (actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
+    (row.state === "completed" || row.state === "resultReady") && (row.publication || (actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
       <TarsPublishEntry row={row} onPublish={actions.onPublish} />
     </div> : null,
   ].filter(Boolean);
@@ -409,7 +412,7 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
           ? <ExternalAnchor href={output.url} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ExternalAnchor>
           : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputRow} disabled={!onOpenSide}
             aria-label={t("shell:tars.tray.outputs.open", { label, title: output.title })}
-            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, kind: OUTPUT_KIND[output.kind] })}>{content}</Button>}
+            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, agentRunId: output.agentRunId, kind: OUTPUT_KIND[output.kind] })}>{content}</Button>}
       </li>;
     })}
   </ul>;

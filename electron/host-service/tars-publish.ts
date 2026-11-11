@@ -27,7 +27,7 @@ export type TarsPublishRunner = (command: "git" | "gh", args: readonly string[],
 export interface TarsPublishWorkspace { path: string; base: string | null; repositoryName: string }
 
 export interface TarsPublishPorts {
-  conversations: Pick<TarsConversationStore, "recordPublish" | "settlePublish" | "getPublish" | "getReceipt" | "isPublishProposalOpen" | "listPublishes">;
+  conversations: Pick<TarsConversationStore, "recordPublish" | "settlePublish" | "getPublish" | "getReceipt" | "isPublishProposalOpen" | "listPublishes" | "hasOpenDelivery">;
   responsibilities: Pick<TarsStore, "get" | "patch" | "snapshot">;
   /** Null when the execution workspace is no longer registered or its directory is gone. */
   resolveWorkspace: (row: TarsResponsibility) => Promise<TarsPublishWorkspace | null>;
@@ -52,7 +52,10 @@ const refuse = (reason: TarsPublishReason, message: string): never => { throw ne
  */
 export function admitTarsPublish(row: TarsResponsibility | null, request: { expectedRevision: number }): TarsResponsibility {
   if (!row) return refuse("notOwned", "The responsibility is not owned by the personal representative.");
-  if (row.state !== "completed") refuse("notCompleted", "Only completed work can be published.");
+  if (row.executionPending) refuse("inProgress", "A continuation is still being reconciled. Wait for its result.");
+  if (row.state !== "completed" && row.state !== "resultReady") refuse("notCompleted", "Only verified execution results can be published.");
+  if (row.state === "resultReady" && (!row.agentRunId || row.resultVerifiedRunId !== row.agentRunId))
+    refuse("notVerified", "This restored result needs verification before publishing.");
   if (row.detailCode === "acceptedWithoutVerification")
     refuse("notVerified", "Stave did not verify this work; it was accepted as done without a check. Publish it yourself if you want it.");
   if (row.revision !== request.expectedRevision) refuse("stale", "The responsibility changed. Refresh before publishing.");
@@ -193,7 +196,12 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
     for (let attempt = 0; ; attempt += 1) {
       const row = ports.responsibilities.get(id);
       if (!row) throw new TarsPublishRejection("notOwned", "The responsibility is not owned by the personal representative.");
-      try { return ports.responsibilities.patch(id, row.revision, { publication }, now()); }
+      if (row.executionPending || ports.conversations.hasOpenDelivery(id))
+        refuse("inProgress", "Follow-up work is queued or starting. Wait for its result before publishing.");
+      if (publication.agentRunId && publication.agentRunId !== row.agentRunId)
+        throw new TarsPublishRejection("stale", "The execution changed during publication.");
+      try { return ports.responsibilities.patch(id, row.revision, { publication, ...(publication.state === "opened" && row.completionGoal === "pullRequest"
+          ? { state: "completed" as const } : {}) }, now()); }
       catch (error) {
         // Only a concurrent revision bump is retried; a lock wait or invalid state is not.
         if (attempt >= 2 || isTarsStorageBusy(error) || !/changed/i.test(error instanceof Error ? error.message : "")) throw error;
@@ -208,6 +216,7 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
     const git = (args: readonly string[]) => ports.run("git", args, cwd);
     const previous = row.publication ?? null;
     let publication: TarsPublication = {
+      ...(row.agentRunId ? { agentRunId: row.agentRunId } : {}),
       state: "committing", failedStep: null, commit: previous?.commit ?? null, branch: head, base,
       // A step already done keeps the words it was done with.
       commitMessage: previous?.commit ? previous.commitMessage : record.commitMessage, title: record.title,
@@ -284,6 +293,8 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
     // it was admitted at its revision before it started, so it continues instead of reading as stale.
     const admit = () => {
       const row = ports.responsibilities.get(record.responsibilityId);
+      if (ports.conversations.hasOpenDelivery(record.responsibilityId))
+        refuse("inProgress", "Follow-up work is queued. Wait for its result before publishing.");
       const startedHere = row?.publication !== undefined && isTarsPublicationUnfinished(row.publication) && row.publication.updatedAt >= record.createdAt;
       return admitTarsPublish(row, startedHere ? { expectedRevision: row!.revision } : record);
     };
@@ -342,7 +353,10 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
       const row = ports.responsibilities.get(responsibilityId);
       if (!row) throw new Error("The responsibility is not owned by the personal representative.");
       let reason: TarsPublishReason | null = null;
-      try { admitTarsPublish(row, { expectedRevision: row.revision }); } catch (error) { reason = error instanceof TarsPublishRejection ? error.reason : "unknown"; }
+      try {
+        if (ports.conversations.hasOpenDelivery(row.id)) refuse("inProgress", "Follow-up work is queued. Wait for its result before publishing.");
+        admitTarsPublish(row, { expectedRevision: row.revision });
+      } catch (error) { reason = error instanceof TarsPublishRejection ? error.reason : "unknown"; }
       const facts = reason === "notOwned" || reason === "noWorkspace" ? null : await inspect(row, ports);
       if (inflight.has(row.id)) reason ??= "inProgress";
       return TarsPublishPreviewSchema.parse({

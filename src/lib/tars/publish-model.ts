@@ -21,8 +21,9 @@ export interface TarsPublishProposalView {
 }
 
 /** Whether completed work can show a publish card now, from the saved row alone; the host checks the workspace and GitHub. */
-export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication"> | undefined) {
-  return Boolean(row && row.state === "completed" && row.detailCode !== "acceptedWithoutVerification" && row.executionWorkspaceId
+export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication" | "resultVerifiedRunId" | "agentRunId" | "executionPending"> | undefined) {
+  return Boolean(row && !row.executionPending && (row.state === "completed" || row.state === "resultReady") && row.detailCode !== "acceptedWithoutVerification" && row.executionWorkspaceId
+    && (row.state !== "resultReady" || Boolean(row.agentRunId && row.resultVerifiedRunId === row.agentRunId))
     && row.publication?.state !== "opened");
 }
 

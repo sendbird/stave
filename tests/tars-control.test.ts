@@ -155,9 +155,9 @@ describe("Tars control through the host path", () => {
         commands: [{ command: "bun test", exitCode: 0, toolCallId: "c1", turnId: "verify-turn", outcome: "succeeded",
           provenance: "provider-structured", sourceRevision: { status: "known", revision: "r1" } }] } as never }],
       report: { outcome: "completed", acceptanceCriteria: [{ text: "Search works", required: true, status: "met" }] } } as AgentRunDetail);
-    expect(tarsObservation(completed(NOW), ["Search works"]).state).toBe("completed");
+    expect(tarsObservation(completed(NOW), ["Search works"], null, { completionGoal: "implementation" }).state).toBe("completed");
     expect(tarsObservation(completed(NOW), ["Search works"], LATER)).toMatchObject({ state: "blocked", detail: expect.stringContaining("handed back") });
-    expect(tarsObservation(completed(LATER), ["Search works"], LATER).state).toBe("completed");
+    expect(tarsObservation(completed(LATER), ["Search works"], LATER, { completionGoal: "implementation" }).state).toBe("completed");
     const takenOver = { ...base, agentRun: { ...base.agentRun, state: "paused", pauseReason: "taken-over", reasonDetail: "You took over." }, events: [], report: null } as AgentRunDetail;
     expect(tarsObservation(takenOver)).toEqual({ state: "takenOver", detail: "You took over." });
   });

@@ -63,6 +63,8 @@ export type TarsPublishReason = z.infer<typeof TarsPublishReasonSchema>;
 
 /** The publish state saved on the responsibility, written only by the host. */
 export const TarsPublicationSchema = z.object({
+  /** The execution whose result the host published; absent on older records. */
+  agentRunId: IdSchema.optional(),
   state: TarsPublicationStateSchema,
   /** The step a retry resumes; only a failed publication has one. */
   failedStep: TarsPublicationStepSchema.nullable(),
