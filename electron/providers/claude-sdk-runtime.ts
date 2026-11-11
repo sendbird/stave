@@ -1,3 +1,4 @@
+import { attachBrowseClaudeServer } from "./browse-browser";
 import { runQuestionRequestId, RUN_QUESTION_WAIT_STOP_REASON } from "../../src/lib/agent-runs/persistent-question";
 import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
@@ -1274,7 +1275,7 @@ export function buildClaudeQueryOptions(args: {
       }
       return child;
     } } : {}),
-    extraArgs: args.providerBrowserRequested
+    extraArgs: args.providerBrowserRequested && args.runtimeOptions?.providerBrowserBackend !== "browse"
       ? { chrome: null }
       : { "no-chrome": null },
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
@@ -1348,7 +1349,9 @@ export function buildClaudeQueryOptions(args: {
             PostToolUse: [
               {
                 matcher: "^WebFetch$",
-                hooks: [claudeWebFetchAuthWallBrowserAttachedPostToolUseHook],
+                hooks: [args.runtimeOptions?.providerBrowserBackend === "browse"
+                  ? createClaudeWebFetchAuthWallPostToolUseHook("Stave: this fetch hit an authentication wall. Use the browse MCP tools with the signed-in session; do not replay writes or inspect credentials. If tools are missing, report browse is not installed or connected and point to Settings > Browser. Do not substitute Lens.")
+                  : claudeWebFetchAuthWallBrowserAttachedPostToolUseHook],
               },
             ],
           }
@@ -3263,6 +3266,7 @@ export async function streamClaudeWithSdk(
       agentInstructions: args.runtimeOptions?.agentInstructions,
       // Gates the Lens block: its tools only exist when the Stave local MCP
       // is registered, so this must be resolved before the prompt is built.
+      providerBrowserBackend: args.runtimeOptions?.providerBrowserBackend,
       hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,
     });
     const claudePermissionMode = resolveClaudePermissionMode({
@@ -3281,6 +3285,12 @@ export async function streamClaudeWithSdk(
       autoFallbackDomains: parseProviderBrowserDomains(
         args.runtimeOptions?.providerBrowserAutoFallbackDomains,
       ),
+    });
+    resolvedMcpServers.mcpServers = attachBrowseClaudeServer({
+      requested: providerBrowserRequested,
+      backend: args.runtimeOptions?.providerBrowserBackend,
+      servers: resolvedMcpServers.mcpServers,
+      createServer: (command): McpServerConfig => ({ type: "stdio", command, args: ["mcp"] }),
     });
     // Observe effective modes without changing the requested permission policy.
     const claudeAutoModeNotice = createClaudeAutoModeNotice();

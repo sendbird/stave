@@ -433,6 +433,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * `@web` as a one-shot retry after a fetch or Lens page read is blocked.
    * Enabled by default; an explicitly saved opt-out is preserved.
    */
+  providerBrowserBackend: "native" | "browse";
   providerBrowserAutoFallback: boolean;
   /** Opt in to attaching Chrome up front for known hosts in automatic mode. */
   providerBrowserAutoArm: boolean;
@@ -842,6 +843,7 @@ export const defaultSettings: AppSettings = {
   claudeForkSession: false,
   claudeStrictMcpConfig: false,
   claudeFastMode: false,
+  providerBrowserBackend: "native",
   providerBrowserAutoFallback: true,
   providerBrowserAutoArm: false,
   providerBrowserAlwaysOn: false,

@@ -282,3 +282,26 @@ export function buildProviderBrowserFallbackPrompt(args: {
     target
   );
 }
+
+export type ProviderBrowserBackend = "native" | "browse";
+export const BROWSE_MCP_SERVER_NAME = "browse";
+export function resolveProviderBrowserBackend(value: unknown): ProviderBrowserBackend {
+  return value === "browse" ? "browse" : "native";
+}
+export function isBrowseMcpToolName(name: string) {
+  return name.trim().toLowerCase().startsWith("mcp__browse__");
+}
+
+export function buildBrowseBrowserInstructions(provider: "claude-code" | "codex") {
+  const tools = provider === "codex" ? "tools from server browse (MCP prefix mcp__browse__; Stave displays calls as browse:status or browse:execute). Discover and use the tool names exposed by your runtime" : "mcp__browse__* tools";
+  return [
+    "## Stave browser and web search tooling",
+    "- Use ordinary web search for public research. For @web, use the browse MCP tools: " + tools + ". Do not substitute Lens, native Chrome tools, or a URL launcher.",
+    "- Browser access is available only on interactive primary browser turns (@web, Automatic fallback/known hosts, or Always); never on unattended automation or secondary read-only analysis.",
+    "- Start with status. When sharedSession is true, create your own session with session_new and pass session on every subsequent call.",
+    "- Prefer session_adopt for a tab the user lent with the toolbar button; otherwise use tabs opened in your own session.",
+    "- For login, 2FA, or payment, call handoff() through execute, let the user finish, and wait for them to click Continue. Normal tool approvals still apply.",
+    "- Never read or expose cookies, passwords, or tokens.",
+    "- If browse tools are missing, say browse is not installed or not connected and point to Settings > Browser. Do not substitute Lens.",
+  ].join("\n");
+}

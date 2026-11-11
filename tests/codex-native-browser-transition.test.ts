@@ -111,3 +111,39 @@ describe("Codex browser inventory on resumed conversations", () => {
     } finally { lifetime.clear(); }
   });
 });
+
+test("reloads browse inventory on attach, detach, and backend changes", async () => {
+  let loaded = false;
+  let attached = false;
+  let reloads = 0;
+  const lifetime = new CodexThreadLifetime(async () => { reloads++; loaded = false; }, () => {});
+  const client = {
+    threadLifetime: lifetime,
+    async request<T>(_method: string, params: unknown): Promise<T> {
+      if (!loaded) {
+        attached = Boolean((params as { config: Record<string, unknown> }).config["mcp_servers.browse.command"]);
+        loaded = true;
+      }
+      return { thread: { id: "browse-inventory-thread" } } as T;
+    },
+  };
+  try {
+    for (const [backend, requested, expectedReloads] of [
+      ["browse", false, 0], ["browse", true, 1], ["browse", true, 1],
+      ["browse", false, 2], ["browse", true, 3], ["native", false, 4],
+    ] as const) {
+      const result = await ensureCodexThread({
+        client, executablePath: "/tmp/codex-browse-test", taskId: "browse-inventory-transitions", cwd: "/tmp/project",
+        runtimeOptions: { providerBrowserBackend: backend },
+        configOverrides: {
+          ...buildCodexNativeBrowserTurnConfigOverrides({ requested: false, userEnabled: false }),
+          ...(requested ? { "mcp_servers.browse.command": "/tmp/bin/browse", "mcp_servers.browse.args": ["mcp"] } : {}),
+        },
+      });
+      expect(attached).toBe(requested);
+      expect(reloads).toBe(expectedReloads);
+      expect(result.threadId).toBe("browse-inventory-thread");
+      result.releaseThread();
+    }
+  } finally { lifetime.clear(); }
+});

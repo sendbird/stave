@@ -278,3 +278,24 @@ describe("provider browser automatic fallback", () => {
     ).toBe(true);
   });
 });
+
+test("browse never inherits native Chrome automatic approval", async () => {
+  const { isBrowseMcpToolName, resolveProviderBrowserBackend, buildBrowseBrowserInstructions } = await import("../src/lib/provider-browser");
+  expect(resolveProviderBrowserBackend(undefined)).toBe("native");
+  expect(resolveProviderBrowserBackend("browse")).toBe("browse");
+  expect(isBrowseMcpToolName("mcp__browse__execute")).toBe(true);
+  expect(isClaudeChromeToolName("mcp__browse__execute")).toBe(false);
+  for (const provider of ["claude-code", "codex"] as const) {
+    const instructions = buildBrowseBrowserInstructions(provider);
+    for (const rule of ["status", "session_new", "sharedSession", "session_adopt", "handoff()", "Continue", "Settings > Browser", "Do not substitute Lens"]) expect(instructions).toContain(rule);
+  }
+});
+
+test("native instruction bytes match the pre-feature baseline", async () => {
+  const { createHash } = await import("node:crypto");
+  const { CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS } = await import("../electron/providers/claude-browser-instructions");
+  const { CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS } = await import("../electron/providers/codex-runtime-config");
+  const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+  expect(digest(CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS)).toBe("50eb7f3613ca668ed71c942ec8ff5569b498ad84d9258d9803d23dd6fa464314");
+  expect(digest(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS)).toBe("4da2e8f1d6b6f71db357b102d2a7dbd3ae417915e9dd9b0d9ad975eda56510c3");
+});

@@ -158,6 +158,9 @@ export async function ensureCodexThread(args: {
     CODEX_NATIVE_BROWSER_PLUGIN_ID,
     CODEX_CUA_PLUGIN_ID,
   ].map((id) => args.configOverrides?.[`plugins.${id}.enabled`]);
+  if (args.runtimeOptions?.providerBrowserBackend === "browse") {
+    browserOverrides.push(args.configOverrides?.["mcp_servers.browse.command"], args.configOverrides?.["mcp_servers.browse.args"]);
+  }
   const browserProfile = browserOverrides.some((value) => value !== undefined)
     ? JSON.stringify(browserOverrides)
     : undefined;

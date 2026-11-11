@@ -1446,7 +1446,7 @@
     "additionalAutoArmHosts": "Additional auto-arm hosts",
     "commaOrSpaceSeparatedSubdomainsMatch": "Comma- or space-separated; subdomains match. Always included:",
     "browserAccess": "Browser access",
-    "useTheActiveProviderSNative": "Use the active provider's native external Chrome connection to reference existing tabs and signed-in page state.",
+    "useTheActiveProviderSNative": "Use the selected browser connection for interactive browser turns.",
     "perPrompt": "Per prompt",
     "sendAnInteractivePromptContaining": "Send an interactive prompt containing",
     "chromeAccessIsAttemptedForThat": ". Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
@@ -1471,7 +1471,19 @@
         "label": "Always",
         "description": "Attaches Chrome to every interactive turn. The agent opens it on its own when a page needs your signed-in session."
       }
-    }
+    },
+    "connection": "Browser connection",
+    "nativeConnection": "Provider Chrome connection (Claude Code, Codex)",
+    "browseConnection": "browse extension",
+    "browseSetup": "Add the browse extension from the Chrome Web Store, then run `browse install` in your terminal to pair it. Tool actions follow your permission mode.",
+    "checkConnection": "Check connection",
+    "checking": "Checking…",
+    "checkFailed": "Could not check browse. Check your installation and try again.",
+    "notInstalled": "browse is not installed. Install the CLI, then run `browse install`.",
+    "relayStopped": "browse is installed; the relay is stopped. Connect the extension to continue.",
+    "noBrowsers": "Relay is running; no browser is connected.",
+    "connected": "Connected: {{browsers}}",
+    "browseRestrictions": "Send @web to use browse on an interactive turn. For login, 2FA, or payment, finish in the browser and click Continue after the agent hands control to you. Never share cookies, passwords, or tokens. Unattended automation and secondary analysis do not receive a Stave-added browse connection."
   },
   "duration": {
     "seconds_one": "{{count}} second",

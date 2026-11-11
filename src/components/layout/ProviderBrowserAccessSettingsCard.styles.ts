@@ -4,6 +4,12 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** Provider browser-access status cards inside the Browser access settings card. */
 export const providerBrowserAccessSettingsCardStyles = stylex.create({
+  browseSetup: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: vars["--aui-space-8"],
+  },
   grid: {
     display: "grid",
     gap: vars["--aui-space-12"],

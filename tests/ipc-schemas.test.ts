@@ -1082,3 +1082,11 @@ describe("repository memory restore IPC schema", () => {
     ).toBe(false);
   });
 });
+
+test("browser backend crosses IPC with a strict enum and status has no arguments", async () => {
+  const { BrowseStatusArgsSchema } = await import("../electron/main/ipc/schemas");
+  expect(BrowseStatusArgsSchema.safeParse({}).success).toBe(true);
+  expect(BrowseStatusArgsSchema.safeParse({ command: "install" }).success).toBe(false);
+  for (const backend of ["browse", "native"]) expect(StreamTurnArgsSchema.safeParse({ providerId: "codex", prompt: "@web", runtimeOptions: { providerBrowserBackend: backend } }).success).toBe(true);
+  expect(StreamTurnArgsSchema.safeParse({ providerId: "codex", prompt: "@web", runtimeOptions: { providerBrowserBackend: "other" } }).success).toBe(false);
+});

@@ -1233,6 +1233,7 @@ export interface ProviderRuntimeOptions {
   /**
    * Allows one browser retry after a blocked fetch or Lens page read.
    */
+  providerBrowserBackend?: "native" | "browse";
   providerBrowserAutoFallback?: boolean;
   /** Opt in to known-host activation before trying Lens or plain fetching. */
   providerBrowserAutoArm?: boolean;

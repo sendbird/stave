@@ -77,6 +77,7 @@ export const RuntimeOptionsObjectSchema = z
     claudeEnableFileCheckpointing: z.boolean().optional(),
     claudeForkSession: z.boolean().optional(),
     claudeStrictMcpConfig: z.boolean().optional(),
+    providerBrowserBackend: z.enum(["native", "browse"]).optional(),
     providerBrowserAutoFallback: z.boolean().optional(),
     providerBrowserAutoArm: z.boolean().optional(),
     providerBrowserAlwaysOn: z.boolean().optional(),

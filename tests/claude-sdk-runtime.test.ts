@@ -3023,3 +3023,23 @@ test("a rejected usage window becomes a terminal usage limit; a successful resul
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: false } as never, currentStopReason: rejected })).toBeUndefined();
   expect(resolveClaudeStreamTerminalStopReason({ abortRequested: true, currentStopReason: rejected })).toBe("user_abort");
 });
+
+test("browse replaces browser guidance and keeps native Chrome off", () => {
+  const common = { cwd: workspaceRoot, claudeExecutablePath: "", providerBrowserRequested: true };
+  expect(buildClaudeQueryOptions({ ...common, runtimeOptions: { providerBrowserBackend: "browse" } }).extraArgs).toEqual({ "no-chrome": null });
+  expect(buildClaudeQueryOptions(common).extraArgs).toEqual(buildClaudeQueryOptions({ ...common, runtimeOptions: { providerBrowserBackend: "native" } }).extraArgs);
+  expect(buildClaudeSystemPrompt({ cwd: workspaceRoot })).toEqual(buildClaudeSystemPrompt({ cwd: workspaceRoot, providerBrowserBackend: "native" }));
+  const browse = buildClaudeSystemPrompt({ cwd: workspaceRoot, providerBrowserBackend: "browse" }).join("\n");
+  expect(browse).toContain("mcp__browse__*");
+  expect(browse).not.toContain("mcp__claude-in-chrome__");
+});
+
+test("adds browse only on requested turns with an executable, preserving user servers", async () => {
+  const { attachBrowseClaudeServer } = await import("../electron/providers/browse-browser");
+  const args = { requested: true, backend: "browse", servers: {}, createServer: (command: string) => ({ type: "stdio", command, args: ["mcp"] }), resolveExecutable: () => "/tmp/bin/browse" };
+  expect(attachBrowseClaudeServer(args)).toEqual({ browse: { type: "stdio", command: "/tmp/bin/browse", args: ["mcp"] } });
+  expect(attachBrowseClaudeServer({ ...args, requested: false })).toEqual({});
+  expect(attachBrowseClaudeServer({ ...args, backend: "native" })).toEqual({});
+  expect(attachBrowseClaudeServer({ ...args, resolveExecutable: () => null })).toEqual({});
+  for (const servers of [{ browse: { command: "custom", args: [] } }, { custom: { command: "/tmp/bin/browse", args: ["mcp"] } }]) expect(attachBrowseClaudeServer({ ...args, servers })).toBe(servers);
+});

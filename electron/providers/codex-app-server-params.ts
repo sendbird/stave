@@ -33,7 +33,7 @@ type CodexRequest = (
  * nested VALUE — see `buildCodexMcpDisableConfigOverrides`.
  */
 export type CodexConfigOverrideValue =
-  string | boolean | number | { [key: string]: CodexConfigOverrideValue };
+  string | boolean | number | CodexConfigOverrideValue[] | { [key: string]: CodexConfigOverrideValue };
 
 export type CodexConfigOverrides = Record<string, CodexConfigOverrideValue>;
 

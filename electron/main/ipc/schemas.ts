@@ -1604,3 +1604,5 @@ export {
   RepositoryMemoryRestoreArgsSchema as ProjectMemoryRestoreArgsSchema,
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";
+
+export const BrowseStatusArgsSchema = z.object({}).strict();

@@ -291,10 +291,26 @@ edge memory -> turn
 | Files and images        | The paperclip in the composer (**Attach files**); paste or drop files on the composer | A drop shows **Drop to attach** and attaches the way a paste does |
 | Other tasks             | `@` and part of a task title, or drag a task from the sidebar | Choose **Latest reply** or **Recent conversation**; up to 5 per message     |
 | Skills                  | Type `$` and pick one                                        | The skill's whole SKILL.md goes with the message                             |
-| `@web`                  | Write `@web` in the message                                  | Uses the provider's Chrome integration; scope in Settings > Browser > Mentions |
+| `@web`                  | Write `@web` in the message                                  | Uses the selected browser connection; scope in Settings > Browser > Mentions |
 | Information panel       | Keep notes, todos and links there                            | Jira and PR links pasted into a prompt are added to the panel automatically  |
 | Repository instructions | Settings > Projects > Repository > **Repository Instructions** | Included in every Claude and Codex turn in this repository                 |
 | Repository memory       | Information > **Memory**                                     | Collection is off by default; 280 characters per entry, up to 6 per turn. Forgetting asks nothing; **Undo** in the notice that follows restores the entry. Search and kind chips appear from 8 entries |
+
+In Settings > Browser > Mentions > Browser access, choose Provider Chrome connection (Claude Code, Codex)
+(default) or browse extension for Claude Code and Codex. Install the browse CLI
+(`@opencode/browse`), add its extension from the Chrome Web Store, then run
+`browse install` to pair. Check connection reads installation, relay, and
+connected browser status on demand without storing the result. The same browser
+mode applies to either connection; unattended automation and secondary read-only
+runs never receive a Stave-added browser connection. OpenCode, Cursor, and Kiro
+are excluded from this managed `@web` connection. A server in your provider's
+own configuration remains under that provider's control.
+
+For browse login, 2FA, or payment, the agent hands control to you. Finish in the
+browser and click Continue. Tool calls follow your normal permission mode.
+Missing browse tools are reported with a pointer to Settings > Browser; Lens
+is not substituted. Never share cookies, passwords, or tokens with the agent.
+
 
 ```callout note "For the Information panel to reach the AI"
 The Information panel, task context and the latest turn summary are attached to a turn only while **Settings > MCP > Local MCP Server** is on. If the AI seems unaware of your notes or links, check this first.

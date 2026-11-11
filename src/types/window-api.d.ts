@@ -1422,6 +1422,7 @@ interface WindowTerminalApi {
 }
 
 interface WindowToolingApi {
+  checkBrowseConnection?: () => Promise<import("@/lib/browse-status").BrowseConnectionStatus>;
   getStatus?: (args: ToolingStatusRequest) => Promise<ToolingStatusSnapshot>;
   syncOriginMain?: (args: { cwd?: string }) => Promise<SyncOriginMainResult>;
   getAppUpdateStatus?: () => Promise<AppUpdateStatusSnapshot>;

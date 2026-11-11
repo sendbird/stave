@@ -9,7 +9,7 @@ import { ProviderBrowserAccessSettingsCard } from "../ProviderBrowserAccessSetti
 
 /** When the agent may use the provider's Chrome, with or without `@web`. */
 export function MentionsSection() {
-  const [autoFallback, alwaysOn, autoArm, autoFallbackDomains] = useAppStore(
+  const [autoFallback, alwaysOn, autoArm, autoFallbackDomains, backend] = useAppStore(
     useShallow(
       (state) =>
         [
@@ -17,6 +17,7 @@ export function MentionsSection() {
           state.settings.providerBrowserAlwaysOn,
           state.settings.providerBrowserAutoArm,
           state.settings.providerBrowserAutoFallbackDomains,
+          state.settings.providerBrowserBackend,
         ] as const,
     ),
   );
@@ -26,6 +27,8 @@ export function MentionsSection() {
   return (
     <SectionStack>
       <ProviderBrowserAccessSettingsCard
+        backend={backend}
+        onBackendChange={(value) => updateSettings({ patch: { providerBrowserBackend: value } })}
         mode={browserMode}
         autoArm={autoArm}
         onAutoArmChange={(value) =>

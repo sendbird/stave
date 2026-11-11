@@ -417,3 +417,10 @@ describe("provider browser automatic fallback runtime options", () => {
     ).toMatchObject({ providerBrowserAutoFallback: false });
   });
 });
+
+test("passes the browser backend to both supported runtimes", () => {
+  expect(defaultSettings.providerBrowserBackend).toBe("native");
+  for (const provider of ["claude-code", "codex"] as const) {
+    expect(buildProviderRuntimeOptions({ provider, model: "", settings: { ...settings, providerBrowserBackend: "browse" } }).providerBrowserBackend).toBe("browse");
+  }
+});

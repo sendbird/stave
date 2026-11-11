@@ -93,3 +93,27 @@ describe("Codex config override keys", () => {
     assertNoQuotedKeys(overrides ?? {});
   });
 });
+
+test("browse uses array values and reaches start and resume without native plugins", async () => {
+  const { resolveBrowseCodexOverrides } = await import("../electron/providers/browse-browser");
+  const { buildCodexThreadStartParams, buildCodexThreadResumeParams } = await import("../electron/providers/codex-app-server-params");
+  const { buildCodexDeveloperInstructions } = await import("../electron/providers/codex-runtime-config");
+  const args = { requested: true, backend: "browse", cwd: "/tmp/workspace", request: async () => ({ config: { mcp_servers: {} } }), resolveExecutable: () => "/tmp/bin/browse" };
+  const overrides = await resolveBrowseCodexOverrides(args);
+  expect(overrides).toEqual({ "mcp_servers.browse.command": "/tmp/bin/browse", "mcp_servers.browse.args": ["mcp"] });
+  const configOverrides = { ...overrides, ...buildCodexNativeBrowserTurnConfigOverrides({ requested: false, userEnabled: true }) };
+  const common = { cwd: args.cwd, runtimeOptions: { providerBrowserBackend: "browse" as const }, configOverrides };
+  for (const params of [buildCodexThreadStartParams(common), buildCodexThreadResumeParams({ ...common, threadId: "thread" })]) {
+    const config = params.config as Record<string, unknown>;
+    expect(config["mcp_servers.browse.args"]).toEqual(["mcp"]);
+    expect(config["plugins.chrome@openai-bundled.enabled"]).toBe(false);
+    expect(config["plugins.unified-computer-use@openai-bundled.enabled"]).toBe(false);
+  }
+  expect(await resolveBrowseCodexOverrides({ ...args, requested: false })).toEqual({});
+  expect(await resolveBrowseCodexOverrides({ ...args, backend: "native" })).toEqual({});
+  expect(await resolveBrowseCodexOverrides({ ...args, resolveExecutable: () => null })).toEqual({});
+  expect(await resolveBrowseCodexOverrides({ ...args, request: async () => ({ config: { mcp_servers: { browse: { command: "custom" } } } }) })).toEqual({});
+  expect(await resolveBrowseCodexOverrides({ ...args, request: async () => { throw new Error("unavailable"); } })).toEqual({});
+  expect(buildCodexDeveloperInstructions({})).toBe(buildCodexDeveloperInstructions({ runtimeOptions: { providerBrowserBackend: "native" } }));
+  expect(buildCodexDeveloperInstructions(common)).toContain("session_adopt");
+});

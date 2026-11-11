@@ -1,8 +1,10 @@
+import { checkBrowseConnection } from "../../providers/browse-browser";
 import { ipcMain } from "electron";
 import { invokeHostService } from "../host-service-client";
 import {
   SyncOriginMainArgsSchema,
   ToolingStatusArgsSchema,
+  BrowseStatusArgsSchema,
 } from "./schemas";
 import {
   inspectWorkspaceSyncStatus,
@@ -13,6 +15,10 @@ import {
 } from "../utils/app-update";
 
 export function registerToolingHandlers() {
+  ipcMain.handle("tooling:browse-status", async (_event, args: unknown) => {
+    BrowseStatusArgsSchema.parse(args);
+    return checkBrowseConnection();
+  });
   ipcMain.handle("tooling:get-status", async (_event, args: unknown) => {
     const parsed = ToolingStatusArgsSchema.safeParse(args);
     if (!parsed.success) {

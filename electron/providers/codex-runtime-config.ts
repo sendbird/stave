@@ -1,3 +1,4 @@
+import { buildBrowseBrowserInstructions } from "../../src/lib/provider-browser";
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { createHash } from "node:crypto";
 import {
@@ -188,7 +189,7 @@ export function buildCodexDeveloperInstructions(args: {
   if (agentInstructions) {
     parts.push(agentInstructions);
   }
-  parts.push(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+  parts.push(args.runtimeOptions?.providerBrowserBackend === "browse" ? buildBrowseBrowserInstructions("codex") : CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
   if (args.hasStaveLocalMcp) {
     parts.push(CODEX_STAVE_LENS_INSTRUCTIONS);
   }

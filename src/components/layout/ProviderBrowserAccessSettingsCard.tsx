@@ -1,8 +1,9 @@
+import type { BrowseConnectionStatus } from "@/lib/browse-status";
 import { i18n, useTranslation, Trans } from "@/i18n";
 import { useEffect, useState } from "react";
 
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { Badge, Textarea } from "@/components/ui";
+import { Badge, Button, Textarea } from "@/components/ui";
 import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
 import {
   PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS,
@@ -92,6 +93,8 @@ function AutoFallbackDomainsField(args: {
 }
 
 export function ProviderBrowserAccessSettingsCard(args: {
+  backend?: "native" | "browse";
+  onBackendChange?: (backend: "native" | "browse") => void;
   mode: ProviderBrowserMode;
   autoArm: boolean;
   onAutoArmChange: (value: boolean) => void;
@@ -100,6 +103,19 @@ export function ProviderBrowserAccessSettingsCard(args: {
   onAutoFallbackDomainsChange: (value: string) => void;
 }) {
   const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
+  const [status, setStatus] = useState<BrowseConnectionStatus | null>(null);
+  const [checking, setChecking] = useState(false);
+  async function checkConnection() {
+    setChecking(true);
+    try {
+      const check = window.api?.tooling?.checkBrowseConnection;
+      setStatus(check ? await check() : { installed: false, relay: "stopped", browsers: [], error: "status-failed" });
+    } catch {
+      setStatus({ installed: false, relay: "stopped", browsers: [], error: "status-failed" });
+    } finally {
+      setChecking(false);
+    }
+  }
   return (
     <SettingsCard
       id="settings-field-browser-access"
@@ -108,10 +124,34 @@ export function ProviderBrowserAccessSettingsCard(args: {
       description={t("settings:providerBrowserAccessSettingsCard.useTheActiveProviderSNative")}
       titleAccessory={<Badge variant="outline">{t("settings:providerBrowserAccessSettingsCard.perPrompt")}</Badge>}
     >
-      <div className={sx(styles.grid)}>
+      <LabeledField title={t("settings:providerBrowserAccessSettingsCard.connection")} layout="stacked">
+        <ChoiceButtons<"native" | "browse">
+          value={args.backend ?? "native"}
+          onChange={(value) => { setStatus(null); args.onBackendChange?.(value); }}
+          columns={2}
+          options={[
+            { value: "native", label: t("settings:providerBrowserAccessSettingsCard.nativeConnection") },
+            { value: "browse", label: t("settings:providerBrowserAccessSettingsCard.browseConnection") },
+          ]}
+        />
+      </LabeledField>
+      {args.backend === "browse" ? (
+        <div className={sx(styles.noteCard, styles.browseSetup)}>
+          <p>{t("settings:providerBrowserAccessSettingsCard.browseSetup")}</p>
+          <Button variant="outline" disabled={checking} onClick={() => void checkConnection()}>
+            {t(checking ? "settings:providerBrowserAccessSettingsCard.checking" : "settings:providerBrowserAccessSettingsCard.checkConnection")}
+          </Button>
+          {status ? <p role="status">{t(status.error
+            ? "settings:providerBrowserAccessSettingsCard.checkFailed"
+            : !status.installed ? "settings:providerBrowserAccessSettingsCard.notInstalled"
+            : status.relay === "stopped" ? "settings:providerBrowserAccessSettingsCard.relayStopped"
+            : status.browsers.length === 0 ? "settings:providerBrowserAccessSettingsCard.noBrowsers"
+            : "settings:providerBrowserAccessSettingsCard.connected", { browsers: status.browsers.map((browser) => browser.name).join(", ") })}</p> : null}
+        </div>
+      ) : <div className={sx(styles.grid)}>
         <ProviderBrowserSetupCard providerId="claude-code" />
         <ProviderBrowserSetupCard providerId="codex" />
-      </div>
+      </div>}
       <LabeledField
         title={t("settings:providerBrowserAccessSettingsCard.mode.title")}
         description={t("settings:providerBrowserAccessSettingsCard.mode.description")}
@@ -157,10 +197,10 @@ export function ProviderBrowserAccessSettingsCard(args: {
         </>
       ) : null}
       <div className={sx(styles.noteCard)}>
-        <p>
+        {args.backend === "browse" ? <p>{t("settings:providerBrowserAccessSettingsCard.browseRestrictions")}</p> : <><p>
           <Trans t={t} i18nKey="settings:messages.interactiveBrowser" components={{ code: <code /> }} /></p>
         <p className={sx(styles.noteSpacer)}>
-          <Trans t={t} i18nKey="settings:messages.browserRestrictions" components={{ code: <code /> }} /></p>
+          <Trans t={t} i18nKey="settings:messages.browserRestrictions" components={{ code: <code /> }} /></p></>}
       </div>
     </SettingsCard>
   );

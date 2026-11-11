@@ -1,3 +1,4 @@
+import { buildBrowseBrowserInstructions } from "../../src/lib/provider-browser";
 /**
  * The system prompt Stave gives every Claude session: a cacheable static prefix
  * (turn rules, the user's base prompt, response style, browser and Lens policy)
@@ -48,6 +49,7 @@ export function buildClaudeSystemPrompt(args: {
    * Whether the Stave local MCP is registered for this session. The Lens block
    * is included only then, because its tools do not otherwise exist.
    */
+  providerBrowserBackend?: "native" | "browse";
   hasStaveLocalMcp?: boolean;
   /** Instructions of the Agent the task runs as; see `ProviderRuntimeOptions.agentInstructions`. */
   agentInstructions?: string;
@@ -75,7 +77,7 @@ export function buildClaudeSystemPrompt(args: {
   // than only on `@web` turns: the model needs to know *not* to reach for
   // Chrome — and not to substitute Lens or desktop control for it — on the
   // turns where the browser is deliberately off.
-  staticParts.push(CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+  staticParts.push(args.providerBrowserBackend === "browse" ? buildBrowseBrowserInstructions("claude-code") : CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
   if (args.hasStaveLocalMcp) {
     staticParts.push(CLAUDE_STAVE_LENS_INSTRUCTIONS);
   }

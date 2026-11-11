@@ -1,7 +1,7 @@
 # Provider Browser Access
 
-`@web` lets an interactive Stave task use the active provider's native browser
-integration. It does not launch a Stave-managed Chrome profile and it does not
+`@web` lets an interactive Stave task use the selected browser connection.
+It does not launch a Stave-managed Chrome profile and it does not
 copy browser credentials into Stave.
 
 ## Provider behavior
@@ -47,6 +47,35 @@ may ask for site access or confirmation before it reads or changes a page.
 read-only analysis. Use ordinary web search for public research,
 or Lens when the current repository's rendered UI needs workspace-scoped visual
 inspection.
+
+## Browser connections
+
+Settings > Browser > Mentions > Browser access offers **Provider Chrome connection (Claude Code, Codex)**
+(the default) or **browse extension** for Claude Code and Codex. OpenCode,
+Cursor, and Kiro are excluded from this managed connection: they do not have
+Stave's `@web` gating. Servers in a provider's own configuration remain under
+that provider's control, including on turns where Stave adds no server.
+
+To use browse, install its CLI (npm package `@opencode/browse`), add the browse
+extension from the Chrome Web Store, and run `browse install` to pair it.
+**Check connection** runs observational `browse status --json` with a five-second
+command timeout. It shows installation, relay, and connected browser names only
+on demand; Stave never persists the result. It does not start the relay or pair
+an extension.
+
+On an eligible browser turn, browse replaces the built-in integration: Claude
+keeps `--no-chrome`; Codex keeps the Chrome and CUA plugins disabled. Stave adds
+`browse mcp` only if the executable resolves, and avoids duplicating a server
+already resolved from the user's configuration. Non-browser turns, secondary
+read-only runs, and unattended automations receive no Stave-added browse server.
+
+The agent starts with `status`, creates its own session with `session_new` when
+`sharedSession` is true, and passes that session on subsequent calls. Prefer
+`session_adopt` for a tab lent through the extension toolbar. For login, 2FA, or
+payment, the agent calls `handoff()` and waits for you to finish and click
+**Continue**. Browse tools follow the normal permission mode; Stave does not
+automatically approve them. If tools are missing, check Settings > Browser;
+Lens is not a replacement for this connection.
 
 ## Browser modes
 
@@ -117,7 +146,7 @@ succeed.
 
 Settings > Browser > Mentions holds only the Browser access card. It sets the
 browser mode and the known-host option, and shows the setup path for Claude
-Code and Codex. Stave does not persist or display a browser connection status: each
+Code and Codex. For built-in Chrome, Stave does not display a connection status: each
 `@web` turn attempts Chrome access directly, and any failure is reported in
 that conversation. Because the extension is provider-owned, Stave cannot
 install it, enable it, or grant site access from Settings.

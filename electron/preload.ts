@@ -1,3 +1,4 @@
+import { BrowseConnectionStatusSchema } from "../src/lib/browse-status";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
@@ -2560,6 +2561,7 @@ contextBridge.exposeInMainWorld("api", {
     },
   },
   tooling: {
+    checkBrowseConnection: async () => BrowseConnectionStatusSchema.parse(await ipcRenderer.invoke("tooling:browse-status", {})),
     getStatus: (args: ToolingStatusRequest) =>
       ipcRenderer.invoke(
         "tooling:get-status",

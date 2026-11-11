@@ -1436,7 +1436,7 @@
     "additionalAutoArmHosts": "추가 자동 활성화 호스트",
     "commaOrSpaceSeparatedSubdomainsMatch": "쉼표나 공백으로 구분합니다. 하위 도메인도 일치합니다. 항상 포함됨:",
     "browserAccess": "브라우저 접근",
-    "useTheActiveProviderSNative": "활성 프로바이더의 외부 Chrome 연결로 기존 탭과 로그인된 페이지 상태를 참조합니다.",
+    "useTheActiveProviderSNative": "대화형 브라우저 턴에 사용할 연결을 선택하세요.",
     "perPrompt": "프롬프트별",
     "sendAnInteractivePromptContaining": "다음이 포함된 대화형 프롬프트를 보냅니다:",
     "chromeAccessIsAttemptedForThat": ". 해당 턴에서 Chrome 접근을 시도하며 실패하면 대화에 알립니다. 사이트 승인은 프로바이더의 확장 프로그램에서 관리합니다. Stave는 대신 설치하거나 활성화하거나 접근 권한을 부여할 수 없습니다.",
@@ -1461,7 +1461,19 @@
         "label": "항상",
         "description": "모든 대화형 턴에 Chrome을 연결합니다. 로그인된 세션이 필요한 페이지는 에이전트가 알아서 Chrome으로 엽니다."
       }
-    }
+    },
+    "connection": "브라우저 연결",
+    "nativeConnection": "프로바이더 Chrome 연결 (Claude Code, Codex)",
+    "browseConnection": "browse 확장 프로그램",
+    "browseSetup": "Chrome 웹 스토어에서 browse 확장 프로그램을 추가한 뒤 터미널에서 `browse install`을 실행해 연결하세요. 도구 실행에는 현재 권한 모드가 적용됩니다.",
+    "checkConnection": "연결 확인",
+    "checking": "확인 중…",
+    "checkFailed": "browse 연결을 확인하지 못했습니다. 설치 상태를 확인하고 다시 시도하세요.",
+    "notInstalled": "browse가 설치되어 있지 않습니다. CLI를 설치한 뒤 `browse install`을 실행하세요.",
+    "relayStopped": "browse가 설치되어 있지만 릴레이가 중지되어 있습니다. 확장 프로그램을 연결하세요.",
+    "noBrowsers": "릴레이가 실행 중이지만 연결된 브라우저가 없습니다.",
+    "connected": "연결됨: {{browsers}}",
+    "browseRestrictions": "대화형 턴에서 browse를 쓰려면 @web을 입력하세요. 로그인, 2단계 인증 또는 결제가 필요해 에이전트가 제어를 넘기면 브라우저에서 직접 완료한 뒤 Continue를 누르세요. 쿠키, 비밀번호, 토큰을 전달하지 마세요. 무인 자동화와 보조 분석에는 Stave가 browse 연결을 추가하지 않습니다."
   },
   "duration": {
     "seconds_other": "{{count}}초",

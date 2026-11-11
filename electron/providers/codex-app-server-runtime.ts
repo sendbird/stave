@@ -1,3 +1,4 @@
+import { resolveBrowseCodexOverrides } from "./browse-browser";
 import { runQuestionRequestId, RUN_QUESTION_WAIT_STOP_REASON } from "../../src/lib/agent-runs/persistent-question";
 import { mapCodexRateLimitUpdates } from "./codex-rate-limit-updates";
 import { mapCodexAsyncQuestions } from "./codex-async-questions";
@@ -1884,11 +1885,12 @@ export async function streamCodexWithAppServer(
 
     const nativeBrowserPluginEnabled =
       await resolveCodexNativeBrowserPluginEnabled({
-        requested: providerBrowserRequested,
+        requested: providerBrowserRequested && runtimeOptions?.providerBrowserBackend !== "browse",
         cwd: runtimeCwd,
         request: client.request.bind(client),
       });
 
+    const browseOverrides = await resolveBrowseCodexOverrides({ requested: providerBrowserRequested, backend: runtimeOptions?.providerBrowserBackend, cwd: runtimeCwd, request: client.request.bind(client) });
     const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
     const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
     const nativeSlashCommandTurn = Boolean(
@@ -1902,8 +1904,9 @@ export async function streamCodexWithAppServer(
     const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
       base: {
         ...(secondaryConfigOverrides ?? {}),
+        ...browseOverrides,
         ...buildCodexNativeBrowserTurnConfigOverrides({
-          requested: providerBrowserRequested,
+          requested: providerBrowserRequested && runtimeOptions?.providerBrowserBackend !== "browse",
           userEnabled: nativeBrowserPluginEnabled,
         }),
         ...(toolsDisabled ? CODEX_TOOLLESS_CONFIG_OVERRIDES : {}),
