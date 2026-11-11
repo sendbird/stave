@@ -22,17 +22,11 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
       const geometry = await root.evaluate((node) => {
         const box = node.getBoundingClientRect();
         const children = [...node.querySelectorAll<HTMLElement>('p, li, a, button')].filter((item) => item.getBoundingClientRect().height > 0);
-        return { overflow: node.scrollWidth - node.clientWidth, width: box.width, clientWidth: node.clientWidth,
-          overflowing: [...node.querySelectorAll<HTMLElement>('*')].filter((item) => item.clientWidth > 0 && item.scrollWidth > item.clientWidth)
-            .map((item) => ({ tag: item.tagName, marker: [...item.attributes].filter((attr) => attr.name.startsWith('data-tars')).map((attr) => attr.name),
-              width: item.getBoundingClientRect().width, scrollWidth: item.scrollWidth, clientWidth: item.clientWidth,
-              right: item.getBoundingClientRect().right - box.right, font: getComputedStyle(item).fontFamily })),
-          escaped: children.filter((item) => {
+        return { overflow: node.scrollWidth - node.clientWidth, escaped: children.filter((item) => {
           const rect = item.getBoundingClientRect(); return rect.left < box.left - 1 || rect.right > box.right + 1;
         }).map((item) => item.tagName) };
       });
-      expect(geometry.overflow, `${surface}: ${JSON.stringify(geometry)}`).toBe(0);
-      expect(geometry.escaped).toEqual([]);
+      expect(geometry).toEqual({ overflow: 0, escaped: [] });
       await page.keyboard.press('Enter');
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     }

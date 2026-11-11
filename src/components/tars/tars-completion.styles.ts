@@ -3,7 +3,8 @@ import { chatType } from "@/components/ai-elements/chat-type.stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 export const tarsCompletionStyles = stylex.create({
-  overview: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0 },
+  // Fractional glyph metrics keep long tokens inside their line on Linux too.
+  overview: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, textRendering: "geometricPrecision" },
   lead: { margin: 0, minWidth: 0, overflowWrap: "anywhere", whiteSpace: "pre-wrap", fontSize: vars["--aui-font-size-body"], lineHeight: vars["--aui-line-height-relaxed"], color: vars["--aui-color-text"] },
   meta: { margin: 0, overflowWrap: "anywhere", fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-normal"], color: vars["--aui-color-text-muted"] },
   warnings: { display: "grid", gap: vars["--aui-space-8"], margin: 0, padding: 0, listStyle: "none", color: vars["--aui-color-warning-text"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-normal"] },
