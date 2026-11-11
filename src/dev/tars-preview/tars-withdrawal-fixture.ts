@@ -9,7 +9,7 @@ export function addTarsWithdrawalFixture(snapshot: TarsSnapshot, conversation: P
     requestId: "original-work", title: korean ? "기존 결과의 오류 표시 보완" : "Add error states to the existing result",
     instruction: "Preserve the original completed scope", acceptanceCriteria: ["Original result remains intact"],
     state: "completed", revision: 1, taskId: "withdraw-task", agentRunId: "withdraw-old-run", executionWorkspaceId: "withdraw-execution" });
-  if (capacity) snapshot.responsibilities.find(row => row.id === id)!.queueWait = { code: "capacity", active: 2, limit: 2 };
+  snapshot.responsibilities.find(row => row.id === id)!.queueWait = capacity ? { code: "capacity", active: 2, limit: 2 } : { code: "unknown" };
   conversation.settings ??= { providerId: "codex", model: "preview", maxTurns: 30 };
   if (!conversation.records.some(record => record.requestId === requestId)) conversation.records.push({
     requestId, requestHash: "a".repeat(64), source: "click", action: { kind: "control", responsibilityId: id,

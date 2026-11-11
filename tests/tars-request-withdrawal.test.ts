@@ -9,6 +9,7 @@ import { createTarsRuntime, type TarsRuntimePorts } from "../electron/host-servi
 import { undoTarsAction } from "../electron/host-service/tars-action-undo";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { actTars } from "../electron/host-service/tars-control";
+import { TarsRunRefusedError } from "../electron/host-service/tars-ownership";
 
 const NOW = "2026-11-12T00:00:00.000Z";
 const cleanup: Array<() => void> = [];
@@ -19,6 +20,7 @@ function fixture() {
   let latest: string | null = null, unreadable = false, busy = true, starts = 0, scopeMissing = false;
   const scopeChecks: string[] = [];
   let beforeStart: (() => Promise<void>) | undefined;
+  let beforeReconcile: (() => Promise<void>) | undefined;
   let afterStart: (() => void) | undefined;
   function open() {
     const db = new Database(path.join(dir, "state.sqlite"));
@@ -29,7 +31,7 @@ function fixture() {
       findRun: async () => latest, startRun: async () => { throw new Error("Unexpected initial start"); },
       observe: async () => ({ state: "running", detail: null }), controlRun: async () => { throw new Error("Never cancel a run"); },
       respondTask: async () => "queued", deliverMessage: async () => "busy", hasUserTurn: () => false,
-      reconcileContinuation: async () => { if (unreadable) throw new Error("Unreadable execution"); return latest; },
+      reconcileContinuation: async () => { await beforeReconcile?.(); if (unreadable) throw new Error("Unreadable execution"); return latest; },
       continueWork: async (_row, _scope, assertAdmitted) => {
         await beforeStart?.();
         assertAdmitted?.();
@@ -63,6 +65,7 @@ function fixture() {
   return { get current() { return current; }, row, queue, tick, withdraw, scopeChecks, starts: () => starts,
     free: () => { busy = false; }, unreadable: (value = true) => { unreadable = value; }, scopeMissing: () => { scopeMissing = true; },
     beforeStart: (fn: () => Promise<void>) => { beforeStart = fn; }, afterStart: (fn: () => void) => { afterStart = fn; },
+    beforeReconcile: (fn: () => Promise<void>) => { beforeReconcile = fn; },
     restart: () => { current.close(); current = open(); } };
 }
 
@@ -134,6 +137,22 @@ test("withdrawal during host preflight prevents start at the final admission gua
   const withdrawing = f.withdraw(record.requestId); release();
   await ticking; expect((await withdrawing).refusal).toBeNull();
   f.restart(); await f.tick(); expect(f.starts()).toBe(0);
+});
+
+test("withdrawal during uncertain-start reconciliation settles as withdrawn rather than a failed request", async () => {
+  const f = fixture(); const record = await f.queue("reconcile-race");
+  f.current.store.patch(f.row().id, f.row().revision, { executionPending: true }, NOW);
+  f.restart();
+  f.beforeStart(async () => { throw new TarsRunRefusedError("Start refused"); });
+  let entered!: () => void, release!: () => void;
+  const ready = new Promise<void>(resolve => { entered = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  f.beforeReconcile(async () => { entered(); await gate; });
+  const ticking = f.tick(); await ready;
+  const withdrawing = f.withdraw(record.requestId); release();
+  await ticking; expect((await withdrawing).refusal).toBeNull();
+  expect(f.current.messages.getAction(record.requestId)?.delivery?.status).toBe("withdrawn");
+  f.restart(); f.free(); await f.tick(); expect(f.starts()).toBe(0);
 });
 
 

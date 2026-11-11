@@ -469,3 +469,11 @@ test("completed work with a pending follow-up displays the scheduler's capacity 
   }
   applyAppLocale("en"); await i18n.changeLanguage("en");
 });
+
+test("completed follow-ups without a confirmed wait reason preserve delivery wording and omit the tray wait line", () => {
+  const f = fixtures();
+  const row = { ...f.responsibilities[0]!, state: "completed" as const, queueWait: { code: "unknown" as const } };
+  const model = buildTarsTray({ responsibilities: [row], attentionItems: [], runs: {} });
+  const html = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.done[0]!, actions: noActions }));
+  expect(html).not.toContain("data-tars-queue-wait");
+});

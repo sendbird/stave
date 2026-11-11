@@ -389,6 +389,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             let existing: string | null;
             try { existing = await ports.reconcileContinuation(row, continuation); }
             catch { ports.onError?.(error); return; }
+            if (withdrawal.requested(requestId)) return;
             if (existing) {
               row = patch(row, tarsContinuationRunPatch(row, continuation, existing));
               move(["queued", "delivering"], { status: "delivered", agentRunId: existing }); return;
