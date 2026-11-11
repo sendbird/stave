@@ -10,11 +10,26 @@ import type { buildTarsTrayFixtures } from "./tars-fixtures";
 import type { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
 import { tarsGalleryCodeReply } from "./tars-code-languages-fixture";
+import { buildTarsResultFixtures } from "./tars-result-fixtures";
 
 type ControlAction = Extract<TarsDecisionAction, { kind: "control" }>;
 type ReceiptOutcome = { status: "applied"; responsibilityId: string } | { status: "proposed" | "pending" } | { status: "rejected"; reason: TarsActionReason };
 /** The host keeps full attachment snapshots; a window reads summaries (`tarsMessageView`). */
 type GalleryConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
+
+/**
+ * `spreadUntil`: each family of cases is one run of two-minute slots on its
+ * own day and hour, so the transcript shows several days (one of them more
+ * than two days back, which names its date) and several runs within a day.
+ * Today's runs count back from that moment, so nothing lands in the future;
+ * opened in the small hours, they fall on yesterday instead.
+ */
+const GALLERY_DAYS = [
+  { match: /^A/, daysAgo: 6, clock: [9, 30] }, { match: /^B/, daysAgo: 6, clock: [14, 10] },
+  { match: /^C/, daysAgo: 2, clock: [10, 0] }, { match: /^D/, daysAgo: 2, clock: [16, 20] },
+  { match: /^E/, daysAgo: 1, clock: [9, 5] }, { match: /^F/, daysAgo: 1, clock: [13, 40] }, { match: /^G/, daysAgo: 1, clock: [18, 15] },
+  { match: /^[HIJ]$/, minutesBefore: 240 }, { match: /^K/, minutesBefore: 120 }, { match: /^[LM]/, minutesBefore: 40 },
+] as const satisfies ReadonlyArray<{ match: RegExp } & ({ daysAgo: number; clock: readonly [number, number] } | { minutesBefore: number })>;
 
 /** A 1×1 PNG: the transcript shows an attachment's name, never its pixels. */
 const PIXEL_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -32,13 +47,16 @@ const DIAGNOSTIC = "Preview diagnostic: the host refused this.";
  *   control for, and the folded outcomes come before the waiting cards.
  * Work comes from the tray and side-view fixtures plus a few rows of its own,
  * so the tray beside the conversation shows the work each card names.
- * Times count from an hour after `start`, two minutes per case.
+ * Times count from an hour after `start`, two minutes per case; with
+ * `spreadUntil` they spread over the week before it instead (`GALLERY_DAYS`).
  */
-export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
+export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUntil }: {
   start: Date;
   korean: boolean;
   tray: ReturnType<typeof buildTarsTrayFixtures>;
   side: ReturnType<typeof buildTarsSideViewFixtures>;
+  /** Spread the cases over the days before this moment, so the transcript's day rules show. */
+  spreadUntil?: Date;
 }) {
   const l = (en: string, ko: string) => korean ? ko : en;
   const history = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();
@@ -95,11 +113,24 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
   const publications: TarsPublishRecord[] = [];
   const pendingDecisions: TarsPendingDecision[] = [];
   let section = 0;
+  const spreadCount = new Map<(typeof GALLERY_DAYS)[number], number>();
+  /** Where a case starts: its two-minute slot after the last, or with `spreadUntil` the next slot in its family's run. */
+  function slotOf(code: string) {
+    const group = spreadUntil ? GALLERY_DAYS.find((entry) => entry.match.test(code)) : undefined;
+    if (!spreadUntil || !group) return galleryStart + section * 120_000;
+    const nth = spreadCount.get(group) ?? 0;
+    spreadCount.set(group, nth + 1);
+    const day = new Date(spreadUntil);
+    if ("minutesBefore" in group) return spreadUntil.getTime() - (group.minutesBefore - nth * 2) * 60_000;
+    day.setDate(day.getDate() - group.daysAgo);
+    day.setHours(group.clock[0], group.clock[1] + nth * 2, 0, 0);
+    return day.getTime();
+  }
   /** The next case: its two-minute slot and the label its user message starts with. */
   function begin(code: string, en: string, ko: string) {
     section += 1;
     cases.push(`${code} · ${en}`);
-    const slot = galleryStart + section * 120_000;
+    const slot = slotOf(code);
     return { at: (second = 0) => new Date(slot + second * 1000).toISOString(), label: `${code} · ${l(en, ko)}` };
   }
   function said(id: string, at: string, text: string, reply: string, actions: TarsDecisionAction[] = [], extra: Partial<TarsMessage> = {}) {
@@ -589,6 +620,27 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
       expectedRevision: audit.revision, proposedAt: c.at(10), optionCount: 3 });
   }
 
+  // K3–K7 · Result cards: ended work the view still holds shows what it came to, where its notice would be one line.
+  const result = buildTarsResultFixtures(start);
+  for (const [code, id, en, ko, replyEn, replyKo] of [
+    ["K3", result.ids.verified, "Result card: completed and verified", "결과 카드: 완료, 검증됨",
+      "A check Stave ran or a passed review backs each criterion.", "Stave가 실행한 검사나 통과한 리뷰가 각 기준을 뒷받침합니다."],
+    ["K4", result.ids.reported, "Result card: completed, agent's report only", "결과 카드: 완료, 에이전트 보고만 있음",
+      "Nothing Stave ran or reviewed confirms these, so the card says so.", "Stave가 실행하거나 리뷰한 것이 없어 카드가 그렇게 표시합니다."],
+    ["K5", result.ids.published, "Result card: completed with a draft PR", "결과 카드: 완료, Draft PR 있음",
+      "The draft pull request is a link on the card.", "Draft PR은 카드에 링크로 표시됩니다."],
+    ["K6", result.ids.stalled, "Result card: blocked, with the run's own words", "결과 카드: 진행 불가, 실행이 남긴 설명 포함",
+      "The card says why, keeps the run's own words one click away and offers the next steps.", "카드가 이유를 말하고, 실행이 남긴 설명은 한 번 눌러 볼 수 있으며, 다음에 할 수 있는 일을 보여 줍니다."],
+    ["K7", result.ids.failed, "Result card: failed to start", "결과 카드: 시작 실패",
+      "A run that could not go on reads as failed, with the provider's diagnostic folded.", "더 진행할 수 없는 실행은 실패로 표시하고, 프로바이더의 진단은 접어 둡니다."],
+  ] as const) {
+    const c = begin(code, en, ko);
+    const target = result.responsibilities.find((entry) => entry.id === id)!;
+    said(`g-${code.toLowerCase()}`, c.at(), `${c.label}`, l(replyEn, replyKo));
+    activity.push({ id: `gallery-activity-${target.id}`, responsibilityId: target.id, revision: target.revision, title: target.title, state: target.state, detail: target.detail,
+      detailCode: target.detailCode, detailParams: target.detailParams, createdAt: c.at(10) });
+  }
+
   // L · Publishing completed work as a draft pull request.
   const publishRecord = (patch: Pick<TarsPublishRecord, "requestId" | "responsibilityId" | "expectedRevision" | "status" | "createdAt"> & Partial<TarsPublishRecord>,
     target: TarsResponsibility): TarsPublishRecord => {
@@ -655,11 +707,11 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
   }
 
   const responsibilities = [...byId.values()].map((entry) => entry.id === docs.id ? docs : entry)
-    .concat([upload, audit, settingsStore, runtime, packages, webhook, onboarding, landing]);
+    .concat([upload, audit, settingsStore, runtime, packages, webhook, onboarding, landing], result.responsibilities);
   const followUps: TarsFollowUpState[] = [{ responsibilityId: search.id, kind: "blocked", status: "exhausted", at: null },
     { responsibilityId: release.id, kind: "waitExpired", status: "nextCheck", at: new Date(Math.max(Date.now(), galleryStart) + 55 * 60_000).toISOString() }];
   const conversation: GalleryConversation = { settings, messages, receipts, records, answers, activity, events, publications };
-  const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs };
+  const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs, ...result.runs };
   // Named so a confirmation card can say where the work runs.
   const workspaceNames = Object.fromEntries(responsibilities.flatMap((entry) => entry.executionWorkspaceId
     ? [[entry.executionWorkspaceId, entry.branchName ?? `tars/${entry.id}`]] : []));

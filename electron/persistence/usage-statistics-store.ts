@@ -6,6 +6,7 @@ import {
   type UsageSeriesPoint, type UsageStatisticsArgs, type UsageStatisticsReport, type UsageTurn,
 } from "../../src/lib/providers/usage-statistics";
 import { METRIC_SUMS, TURN_METRICS, USAGE_CTE } from "./usage-statistics-query";
+import { readTaskTurnUsage } from "./task-turn-usage";
 import type { BridgeEvent } from "../providers/types";
 
 interface UsageDatabase {
@@ -113,6 +114,11 @@ export class UsageStatisticsStore {
     // A year's minute-grained observations is bounded independently of turn history.
     const before = new Date(Date.parse(observedAt) - 366 * 86_400_000).toISOString();
     this.db.prepare("DELETE FROM usage_quota_observations WHERE observed_at < ?").run(before);
+  }
+
+  /** The completed turns of the named tasks in a period, read by task and bounded (`task-turn-usage.ts`). */
+  readTaskTurns(args: Parameters<typeof readTaskTurnUsage>[1]) {
+    return readTaskTurnUsage(this.db, args);
   }
 
   read(args: UsageStatisticsArgs): UsageStatisticsReport {

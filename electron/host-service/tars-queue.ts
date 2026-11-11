@@ -1,3 +1,4 @@
+import { captureTarsQueueUndo } from "../../src/lib/tars/action-undo";
 import { assertTarsSource } from "../main/tars-scope";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -69,8 +70,11 @@ export async function reprioritizeTars(rawInput: unknown, ports: TarsReprioritiz
     let record = ports.conversations.recordMove(input, now());
     if (record.status === "pending") {
       try {
-        record = ports.conversations.applyMove(input.requestId, () =>
-          applyTarsQueueMove(ports.responsibilities, input, ports.readRegistry(), now()), now());
+        record = ports.conversations.applyMove(input.requestId, () => {
+          const before = ports.responsibilities.snapshot().responsibilities;
+          const priority = applyTarsQueueMove(ports.responsibilities, input, ports.readRegistry(), now());
+          return { priority, undo: captureTarsQueueUndo(before, ports.responsibilities.snapshot().responsibilities) };
+        }, now());
         ports.requestTick();
       } catch (error) {
         // A lock wait changed nothing: the pending record stays retryable.

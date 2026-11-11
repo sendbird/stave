@@ -57,7 +57,7 @@
     "check:doc-paths": "node scripts/check-doc-paths.mjs",
     "check:design-system": "bun scripts/check-design-system-migration.mjs",
     "check:ui-layout": "bun run check:style-channel && bun run check:design-system",
-    "test:ui-layout": "playwright test tests/e2e/tars-composer.e2e.ts tests/e2e/tars-tray-layout.e2e.ts tests/e2e/icon-text-alignment.e2e.ts tests/e2e/layout-spacing.e2e.ts tests/e2e/trace-row-alignment.e2e.ts tests/e2e/transcript-column.e2e.ts tests/e2e/task-preset-effort.e2e.ts tests/e2e/toast-host-position.e2e.ts tests/e2e/agent-motion.e2e.ts --workers=1 --trace=retain-on-failure",
+    "test:ui-layout": "playwright test tests/e2e/tars-running-motion.e2e.ts tests/e2e/model-picker-row.e2e.ts tests/e2e/tars-settings-layout.e2e.ts tests/e2e/tars-insights.e2e.ts tests/e2e/tars-decision-dock.e2e.ts tests/e2e/tars-action-undo.e2e.ts tests/e2e/tars-composer.e2e.ts tests/e2e/chat-type-scale.e2e.ts tests/e2e/tars-tray-layout.e2e.ts tests/e2e/tars-record-alignment.e2e.ts tests/e2e/tars-transcript-rail.e2e.ts tests/e2e/tars-result-card.e2e.ts tests/e2e/tars-start.e2e.ts tests/e2e/icon-text-alignment.e2e.ts tests/e2e/layout-spacing.e2e.ts tests/e2e/trace-row-alignment.e2e.ts tests/e2e/transcript-column.e2e.ts tests/e2e/transcript-width.e2e.ts tests/e2e/task-preset-effort.e2e.ts tests/e2e/toast-host-position.e2e.ts tests/e2e/agent-motion.e2e.ts --workers=1 --trace=retain-on-failure",
     "check:style-channel": "node scripts/check-style-channel.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:max-lines-ratchet": "node scripts/check-max-lines-ratchet.mjs",

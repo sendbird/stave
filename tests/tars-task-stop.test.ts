@@ -84,8 +84,8 @@ describe("Stop on a task whose run Tars holds", () => {
       expect(records.map((record) => [record.source, record.status, record.action.operation])).toEqual([["task", "applied", "pause"]]);
       applyAppLocale("ko"); await i18n.changeLanguage("ko");
       try {
-        expect([i18n.t("shell:tars.record.operation.pause"), i18n.t(`shell:tars.record.source.${records[0]!.source}`), i18n.t("shell:tars.record.status.applied")])
-          .toEqual(["일시 정지", "작업 화면", "적용됨"]);
+        expect([i18n.t("shell:tars.record.operation.pause"), i18n.t(`shell:tars.record.by.you.${records[0]!.source}`), i18n.t("shell:tars.record.status.applied")])
+          .toEqual(["일시 정지", "작업 화면에서 직접 한 일입니다", "적용됨"]);
       } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     } finally { host.close(); }
   });
@@ -124,7 +124,7 @@ describe("Stop on a task whose run Tars holds", () => {
       expect(abortedTurns).toEqual([]);
       expect(useAppStore.getState().activeTurnIdsByTask["task-1"]).toBe("turn-1");
       expect(toasts).toEqual([{ title: "Tars가 이 조작을 적용하지 않았습니다",
-        description: "Tars가 이 조작을 적용하지 못했습니다. 작업의 현재 상태를 확인하고 다시 시도하세요." }]);
+        description: "Tars가 이 동작을 하지 못했습니다. 작업의 현재 상태를 확인하고 다시 시도하세요." }]);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
   });
 

@@ -24,7 +24,7 @@ export function TarsPublishEntry({ row, onPublish }: { row: TarsResponsibility; 
   if (!isTarsPublishable(row) || !onPublish) return null;
   return <>
     {publication?.state === "failed" ? <span className={sx(styles.text, styles.error)} data-tars-publish-entry="failed">{t("shell:tars.publish.status.failed")}</span> : null}
-    <Button type="button" variant="ghost" size="2xs" title={t("shell:tars.publish.openHint")} data-tars-publish-open={row.id} onClick={() => onPublish(row)}>
+    <Button type="button" variant="ghost" size="xs" title={t("shell:tars.publish.openHint")} data-tars-publish-open={row.id} onClick={() => onPublish(row)}>
       <GitPullRequestDraft aria-hidden />{t("shell:tars.publish.open")}</Button>
   </>;
 }

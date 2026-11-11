@@ -2,8 +2,8 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /**
  * A model row's price must never take the room of the model's name: the name
- * owns its line, and the price ends the id line, dropping below the id when
- * both do not fit. Measured on the rendered boxes, not on DOM text that an
+ * owns its line. The detail wraps in its own column beside the price, so the
+ * price stays on the detail's first line. Measured on rendered boxes, not text an
  * ellipsis can hide.
  */
 
@@ -21,15 +21,67 @@ const PRESETS = [
   "Default effort",
 ] as const;
 
-async function openPresetModelPicker(page: Page, locale: keyof typeof LOCALES, preset: string) {
+async function openPresetModelPicker(page: Page, locale: keyof typeof LOCALES, preset: string, beforeOpen?: (trigger: Locator) => Promise<void>) {
   const copy = LOCALES[locale];
   await page.getByRole("button", { name: copy.edit(preset), exact: true }).click();
   const trigger = page.locator("form").getByRole("combobox", { name: copy.model });
+  await page.evaluate(() => document.fonts.ready);
+  if (beforeOpen) await beforeOpen(trigger);
   await trigger.click();
   const listbox = page.getByRole("listbox");
   await expect(listbox.getByRole("option").first()).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   return { trigger, listbox };
+}
+
+async function settleAncestorMotion(locator: Locator) {
+  await locator.evaluate(async (node) => {
+    for (let ancestor: Element | null = node; ancestor; ancestor = ancestor.parentElement) {
+      await Promise.all(ancestor.getAnimations()
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => {})));
+    }
+  });
+}
+
+for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
+  test(`composer model rows keep long notices, prices and first-line icons aligned (${lang} ${theme})`, async ({ page }, testInfo) => {
+    await page.goto(`/?stavePreview=model-auto-tab&modelRows=true&lang=${lang}&theme=${theme}`);
+    await page.locator('[data-model-effort-control] button').first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("tab", { name: /^OpenCode/ }).click();
+    const row = dialog.getByRole("option").filter({ has: page.locator('[data-model-option-label]', { hasText: "Claude Fable 5.2" }) });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText(lang === "ko" ? "확인되지 않았습니다" : "Runtime support unconfirmed");
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [390, 1440]) for (const density of ["regular", "compact"]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.evaluate((density) => { document.documentElement.dataset.uiDensity = density; }, density);
+      // Resize/density updates can replace the row; trial click waits for the current actionable node.
+      await row.click({ trial: true });
+      const values = await row.evaluate((node) => {
+        const label = node.querySelector<HTMLElement>("[data-model-option-label]")!;
+        const detail = node.querySelector<HTMLElement>("[data-model-option-detail]")!;
+        const price = node.querySelector<HTMLElement>("[data-model-price]")!;
+        const icon = node.querySelector<HTMLElement>("[data-model-option-icon] > :first-child")!;
+        const l = label.getBoundingClientRect(), d = detail.getBoundingClientRect(), p = price.getBoundingClientRect(), i = icon.getBoundingClientRect();
+        return { icon: Math.abs(i.top + i.height / 2 - l.top - parseFloat(getComputedStyle(label).lineHeight) / 2),
+          price: Math.abs(d.top - p.top), overflow: node.scrollWidth - node.clientWidth,
+          detail: detail.scrollWidth - detail.clientWidth, label: label.scrollWidth - label.clientWidth };
+      });
+      expect(values.icon).toBeLessThanOrEqual(1);
+      expect(values.price).toBeLessThanOrEqual(1);
+      expect(values.overflow).toBeLessThanOrEqual(1);
+      expect(values.detail).toBeLessThanOrEqual(1);
+      expect(values.label).toBeLessThanOrEqual(1);
+      await page.screenshot({ path: testInfo.outputPath(`composer-model-${width}-${density}.png`) });
+    }
+    const search = dialog.getByRole("textbox");
+    await search.fill("claude-fable-5-2");
+    await expect(row).toBeVisible();
+    await row.click();
+    await expect(dialog).toHaveCount(0);
+  });
 }
 
 /** Overflow of the element's own text past its box, in CSS pixels. */
@@ -60,7 +112,7 @@ async function expectPricedRowsKeepTheirNames(listbox: Locator) {
     ]);
     // The price sits below the name, never beside it, and stays inside the row.
     expect(metaBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height - 1);
-    expect(metaBox!.y).toBeGreaterThanOrEqual(detailBox!.y - 1);
+    expect(Math.abs(metaBox!.y - detailBox!.y)).toBeLessThanOrEqual(1);
     expect(metaBox!.x + metaBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width + 1);
     expect(metaBox!.y + metaBox!.height).toBeLessThanOrEqual(rowBox!.y + rowBox!.height + 1);
   }
@@ -111,14 +163,22 @@ test("the chosen model reads as chosen, like every other AUI picker", async ({ p
 test("the list opens below a picker that has room and never covers its own field", async ({ page }) => {
   // Room below for the search and a few rows: the list opens below and
   // scrolls, rather than flipping over the Type and Provider fields.
-  await page.setViewportSize({ width: 800, height: 760 });
+  const viewportHeight = 820;
+  await page.setViewportSize({ width: 800, height: viewportHeight });
   await page.goto("/tests/e2e/fixtures/task-presets.html?theme=dark");
-  let { trigger, listbox } = await openPresetModelPicker(page, "en", "Planning");
+  let { trigger, listbox } = await openPresetModelPicker(page, "en", "Planning", async (field) => {
+    // The editor enters from above; measure the final field position, not that animated position.
+    await settleAncestorMotion(field);
+    const geometry = await field.evaluate((node) => ({ room: innerHeight - node.getBoundingClientRect().bottom,
+      minimum: 13 * parseFloat(getComputedStyle(document.documentElement).fontSize) }));
+    expect(geometry.room).toBeGreaterThanOrEqual(geometry.minimum);
+  });
+  await expect(listbox.locator("xpath=ancestor::*[@data-side][1]")).toHaveAttribute("data-side", "bottom");
+  await settleAncestorMotion(listbox);
   let triggerBox = (await trigger.boundingBox())!;
   let popupBox = (await listbox.locator("xpath=ancestor::*[@data-side][1]").boundingBox())!;
-  expect(await listbox.locator("xpath=ancestor::*[@data-side][1]").getAttribute("data-side")).toBe("bottom");
   expect(popupBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height);
-  expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(760);
+  expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(viewportHeight);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.locator("form")).toHaveCount(0);
@@ -127,6 +187,8 @@ test("the list opens below a picker that has room and never covers its own field
   // field it belongs to.
   await page.setViewportSize({ width: 800, height: 560 });
   ({ trigger, listbox } = await openPresetModelPicker(page, "en", "Planning"));
+  await expect(listbox.locator("xpath=ancestor::*[@data-side][1]")).toHaveAttribute("data-side", "top");
+  await settleAncestorMotion(listbox);
   triggerBox = (await trigger.boundingBox())!;
   popupBox = (await listbox.locator("xpath=ancestor::*[@data-side][1]").boundingBox())!;
   expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(triggerBox.y);
@@ -156,3 +218,44 @@ test("the dialog model selector keeps the name's line and moves the price to the
     expect(priceBox.x + priceBox.width).toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
   }
 });
+
+for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
+  test(`model compatibility notices wrap beside the price, icon aligns to the title (${lang} ${theme})`, async ({ page }, testInfo) => {
+    await page.goto(`/?stavePreview=aui-regressions&lang=${lang}&theme=${theme}`);
+    await page.getByRole("button", { name: "Claude Opus 5", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    const row = dialog.getByRole("option").filter({ has: page.locator('[data-model-option-label]', { hasText: "Claude Fable 5.2" }) });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText(lang === "ko" ? "이상이 필요합니다" : "Requires Claude Code");
+    await page.evaluate(() => document.fonts.ready);
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await row.click({ trial: true });
+      const measures = await row.evaluate((node) => {
+        const label = node.querySelector<HTMLElement>("[data-model-option-label]")!;
+        const detail = node.querySelector<HTMLElement>("[data-model-option-detail]")!;
+        const price = node.querySelector<HTMLElement>("[data-model-price]")!;
+        const icon = node.querySelector<HTMLElement>("[data-model-option-icon] > :first-child")!;
+        const bounds = node.getBoundingClientRect(), l = label.getBoundingClientRect(), d = detail.getBoundingClientRect(), p = price.getBoundingClientRect(), i = icon.getBoundingClientRect();
+        return { labelOverflow: label.scrollWidth - label.clientWidth, detailOverflow: detail.scrollWidth - detail.clientWidth,
+          iconDifference: Math.abs(i.top + i.height / 2 - l.top - parseFloat(getComputedStyle(label).lineHeight) / 2),
+          priceDifference: Math.abs(p.top - d.top), rowOverflow: node.scrollWidth - node.clientWidth,
+          detailLines: d.height / parseFloat(getComputedStyle(detail).lineHeight), priceRight: p.right, rowRight: bounds.right };
+      });
+      expect(measures.iconDifference).toBeLessThanOrEqual(1);
+      expect(measures.priceDifference).toBeLessThanOrEqual(1);
+      expect(measures.labelOverflow).toBeLessThanOrEqual(1);
+      expect(measures.detailOverflow).toBeLessThanOrEqual(1);
+      expect(measures.rowOverflow).toBeLessThanOrEqual(1);
+      expect(measures.detailLines).toBeGreaterThan(1);
+      expect(measures.priceRight).toBeLessThanOrEqual(measures.rowRight + 1);
+      await page.screenshot({ path: testInfo.outputPath(`model-notice-${width}.png`) });
+    }
+    const search = dialog.getByRole("combobox");
+    await search.fill("claude-fable-5-2");
+    await expect(row).toBeVisible();
+    await row.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Claude Fable 5.2", exact: true })).toBeVisible();
+  });
+}

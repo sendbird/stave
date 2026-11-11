@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { Tooltip } from "./Tooltip";
 import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
 import type * as React from "react";
@@ -65,6 +66,8 @@ export type PopoverTriggerProps = Omit<
 export type PopoverProps = Omit<PopoverRootProps, "children"> & {
   children: React.ReactNode;
   description?: React.ReactNode;
+  /** Compact controls beside the title and before Close. */
+  headerActions?: React.ReactNode;
   /** Internal surface air: `regular` or `compact`. @default "regular" */
   density?: PopoverDensity;
   /**
@@ -85,6 +88,7 @@ export type PopoverProps = Omit<PopoverRootProps, "children"> & {
 export function Popover({
   children,
   description,
+  headerActions,
   density: densityProp = "regular",
   padding = true,
   placement,
@@ -162,7 +166,7 @@ export function Popover({
               />
               <div
                 {...themeSlotProps("popover-popup", "header")}
-                className={sx(styles.header, flush && styles.headerFlush)}
+                className={sx(styles.header, headerActions != null && styles.headerWithActions, flush && styles.headerFlush)}
               >
                 <div
                   className={sx(
@@ -185,27 +189,32 @@ export function Popover({
                     </PopoverDescription>
                   ) : null}
                 </div>
-                <PopoverClose
-                  {...themeSlotProps("popover-popup", "close")}
-                  className={sx(
-                    surfaceChrome.quietIconButton,
-                    controlSquares.sm,
-                    focusRing.ring,
-                  )}
-                  aria-label={i18n.t("ui:popover.close")}
-                  // 16px glyph in the 32px quiet square, same as Dialog's close —
-                  // it shipped at 14px, which read as a different (weaker) button
-                  // on an otherwise identical surface. Sized through the tokenized
-                  // control-icon custom property rather than a literal `size`.
-                  data-aui-control-icon-button="true"
-                  style={
-                    {
-                      "--aui-control-icon-size": controlIconSizes.md,
-                    } as React.CSSProperties
-                  }
-                >
-                  <X aria-hidden />
-                </PopoverClose>
+                <div className={sx(styles.headerControls)}>
+                  {headerActions}
+                  <Tooltip content={i18n.t("ui:popover.close")}>
+                    <PopoverClose
+                      {...themeSlotProps("popover-popup", "close")}
+                      className={sx(
+                        surfaceChrome.quietIconButton,
+                        controlSquares.sm,
+                        focusRing.ring,
+                      )}
+                      aria-label={i18n.t("ui:popover.close")}
+                      // 16px glyph in the 32px quiet square, same as Dialog's close —
+                      // it shipped at 14px, which read as a different (weaker) button
+                      // on an otherwise identical surface. Sized through the tokenized
+                      // control-icon custom property rather than a literal `size`.
+                      data-aui-control-icon-button="true"
+                      style={
+                        {
+                          "--aui-control-icon-size": controlIconSizes.md,
+                        } as React.CSSProperties
+                      }
+                    >
+                      <X aria-hidden />
+                    </PopoverClose>
+                  </Tooltip>
+                </div>
               </div>
               <div
                 {...themeSlotProps("popover-popup", "body")}
@@ -296,6 +305,8 @@ const styles = stylex.create({
     gap: vars["--aui-space-12"],
     justifyContent: "space-between",
   },
+  headerWithActions: { alignItems: "center" },
+  headerControls: { display: "flex", alignItems: "center", flexShrink: 0, gap: vars["--aui-space-8"] },
   /**
    * The header's own gutter on a `flush` surface, and the ONE inner gutter the
    * flush anatomy declares: `space16` inline (the padding the regular content

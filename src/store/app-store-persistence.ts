@@ -93,6 +93,7 @@ import {
   normalizeFleetBoardLayout,
   normalizeTurnActivityPlacement,
   normalizeComposerLayoutMode,
+  normalizeConversationWidth,
   normalizeEditorHtmlViewMode,
   normalizeUiDensity,
   type AppSettings,
@@ -329,6 +330,9 @@ export function createAppStorePersistenceOptions() {
       );
       state.settings.composerLayout = normalizeComposerLayoutMode(
         raw.composerLayout,
+      );
+      state.settings.conversationWidth = normalizeConversationWidth(
+        raw.conversationWidth,
       );
       state.settings.editorHtmlViewMode = normalizeEditorHtmlViewMode(
         raw.editorHtmlViewMode,

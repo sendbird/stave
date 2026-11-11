@@ -1,3 +1,4 @@
+import { TarsUndoActionInputSchema } from "../../../src/lib/tars/action-undo";
 import { ipcMain } from "electron";
 import { z } from "zod";
 import {
@@ -13,7 +14,11 @@ import {
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
+import { TarsUsageInputSchema, TarsUsageReportSchema } from "../../../src/lib/tars/usage";
 import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
+import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
+import { TarsAwayStateSchema } from "../../../src/lib/tars/away-state";
+import { TarsScheduleConfirmInputSchema, TarsSchedulePreviewInputSchema, TarsScheduleToggleInputSchema } from "../../../src/lib/tars/schedules";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -43,6 +48,20 @@ export function registerTarsHandlers() {
     const input = CancelTarsMessageInputSchema.parse(rawInput);
     return tarsMessageView(await (await getTarsConversationService()).cancelMessage(input));
   });
+  // Clearing hides views only; main checks a confirmed proposal against the saved one and settles both together.
+  ipcMain.handle(TARS_IPC.clear, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).clear(TarsClearInputSchema.parse(rawInput)));
+  ipcMain.handle(TARS_IPC.undoClear, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).undoClear(TarsUndoClearInputSchema.parse(rawInput)));
+  ipcMain.handle(TARS_IPC.configureView, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).configureView(TarsViewSettingsSchema.parse(rawInput)));
+  // When the user last saw the conversation, and the summary on screen. View state only: it changes no work and is never announced.
+  ipcMain.handle(TARS_IPC.getAway, async (_event, rawInput: unknown) => {
+    z.undefined().parse(rawInput);
+    return (await getTarsConversationService()).getAway();
+  });
+  ipcMain.handle(TARS_IPC.saveAway, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).saveAway(TarsAwayStateSchema.parse(rawInput)));
   // An answer names a saved decision and an option index; main reads the option and controls go to the host's act path.
   ipcMain.handle(TARS_IPC.answer, async (_event, rawInput: unknown) => {
     const input = TarsAnswerInputSchema.parse(rawInput);
@@ -62,12 +81,32 @@ export function registerTarsHandlers() {
     invokeHostService("tars.publish", TarsPublishInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.publishPreview, (_event, input: unknown) =>
     invokeHostService("tars.publish-preview", TarsPublishPreviewInputSchema.parse(input)));
+  // A schedule card's confirmation names its proposal only; the host reads the saved proposal and checks everything again.
+  ipcMain.handle(TARS_IPC.schedule, (_event, input: unknown) =>
+    invokeHostService("tars.schedule", TarsScheduleConfirmInputSchema.parse(input)));
+  ipcMain.handle(TARS_IPC.schedulePreview, (_event, input: unknown) =>
+    invokeHostService("tars.schedule-preview", TarsSchedulePreviewInputSchema.parse(input)));
+  ipcMain.handle(TARS_IPC.scheduleToggle, (_event, input: unknown) =>
+    invokeHostService("tars.schedule-toggle", TarsScheduleToggleInputSchema.parse(input)));
+  ipcMain.handle(TARS_IPC.schedules, (_event, input: unknown) => {
+    z.undefined().parse(input);
+    return invokeHostService("tars.schedules", undefined);
+  });
+  ipcMain.handle(TARS_IPC.undoAction, (_event, input: unknown) =>
+    invokeHostService("tars.undo-action", TarsUndoActionInputSchema.parse(input)));
   // A queue move from the tray takes the host's reprioritize admission; there is no direct priority write.
   ipcMain.handle(TARS_IPC.reprioritize, (_event, input: unknown) =>
     invokeHostService("tars.reprioritize", TarsReprioritizeInputSchema.parse(input)));
   // A brief names one responsibility; its saved message can be long, so it is read on demand instead of riding on every snapshot.
   ipcMain.handle(TARS_IPC.getBrief, (_event, input: unknown) =>
     invokeHostService("tars.brief", TarsBriefInputSchema.parse(input)));
+  // Usage is read on demand from saved turn rows; nothing is written and nothing is estimated.
+  ipcMain.handle(TARS_IPC.getUsage, async (_event, rawInput: unknown) => {
+    const input = TarsUsageInputSchema.parse(rawInput);
+    // Loaded on first use, so registering these handlers does not load main's persistence module.
+    const { getTarsUsageReport } = await import("../tars-usage-instance");
+    return TarsUsageReportSchema.parse(await getTarsUsageReport(input));
+  });
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));
 }

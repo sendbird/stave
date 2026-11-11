@@ -155,7 +155,8 @@
     "copy": "코드",
     "alt": "첨부 파일",
     "messageAttachment": "첨부 파일",
-    "removeAttachment": "첨부 파일 삭제"
+    "removeAttachment": "첨부 파일 삭제",
+    "codeScrollRegion": "코드, 가로로 스크롤"
   },
   "modelEffortGrid": {
     "getEffortShortLabel": "중간",

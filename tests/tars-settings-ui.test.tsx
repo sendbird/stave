@@ -82,31 +82,32 @@ describe("Tars settings agent allowlist", () => {
     const identity = { id: "personal" as const, name: "Tars", instructions: "", updatedAt: NOW };
     const automatic = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30 } }));
-    expect(automatic).toContain("Concurrent responsibilities");
-    expect(automatic).toContain("0 starts all eligible independent work");
+    expect(automatic).toContain("Tasks running at once");
+    expect(automatic).toContain("0 adds no limit");
     expect(automatic).toContain("Conversation model");
     expect(automatic).toContain("Execution model");
     expect(automatic).toContain("Automatic");
-    expect(automatic).toContain("Stave picks a model for each step; reviews may use another provider.");
+    expect(automatic).toContain("Stave chooses the models for the task and its review.");
     // The model picker lists only Claude and Codex, so no line restates it; nor do the runtime limits the guide already states.
     expect(automatic).not.toContain("Delegated work uses Claude or Codex.");
     expect(automatic).not.toContain("Work continues while Stave is running");
-    expect(automatic).toContain("Turn limit per work unit, including helpers");
+    expect(automatic).toContain("Turn limit per task, including helpers");
+    expect(automatic).toContain("A turn is one request for an agent to work.");
     // "Changes apply to new messages and work" is the sheet's description now, not one more paragraph in the form.
     expect(automatic).not.toContain("Changes apply to new messages and work");
-    expect(automatic).toContain("Instructions never grant permissions.");
+    expect(automatic).toContain("These instructions guide Tars; they do not give it extra permissions.");
     expect(automatic).toContain('data-tars-agent-allowlist=""');
     const pinned = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30, executionModel: { providerId: "claude-code", model: "claude-sonnet-5-5" }, allowedAgentIds: ["release-notes"] } }));
     expect(pinned).toContain("All work and helpers use this model.");
     expect(pinned).not.toContain("Choose Automatic to allow routing");
-    expect(pinned).toContain("This model runs with the Claude System default account.");
+    expect(pinned).toContain("Uses the Claude account set as System default.");
     // A saved choice whose agent is not in this library stays listed so it can be removed.
     expect(pinned).toContain("This agent is no longer available.");
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const korean = renderToStaticMarkup(createElement(TarsSettings, { identity, busy: false, onSave: async () => true,
       initial: { providerId: "codex", model: "gpt-6.1-sol", maxTurns: 30 } }));
-    expect(korean).toContain("리뷰는 다른 프로바이더에서 실행할 수 있습니다.");
+    expect(korean).toContain("작업과 리뷰에 사용할 모델을 Stave가 고릅니다.");
   });
 
   test("a refused agent shows its translated reason and the chosen agent's name, never the host diagnostic", async () => {
@@ -117,10 +118,49 @@ describe("Tars settings agent allowlist", () => {
       error: "Host diagnostic text.", reason: "agentNotAllowed", revision: 2, createdAt: NOW, updatedAt: NOW };
     const html = () => renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [receipt], name: "Tars", busy: false, onCancel() {},
       agentNameOf: (id) => id === "release-notes" ? "Release notes" : undefined }));
-    expect(html()).toContain("Agent: Release notes");
+    // The agent is a value chip with its name; "Agent: …" is its tooltip.
+    expect(html()).toMatch(/data-tars-delegate-agent="release-notes"[^>]*>.*Release notes/);
     expect(html()).toContain("This saved agent is not allowed for Tars.");
     expect(html()).not.toContain("Host diagnostic text.");
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     expect(html()).toContain("Tars에 허용하지 않은 저장 에이전트입니다.");
+  });
+});
+
+describe("Tars settings standing instructions and retention", () => {
+  const initial = { providerId: "codex" as const, model: "gpt-6.1-sol", maxTurns: 30 };
+  const identity = (instructions: string) => ({ id: "personal" as const, name: "Tars", instructions, updatedAt: NOW });
+  const settings = (instructions: string, view: { retentionDays: number } | null = { retentionDays: 7 }) =>
+    renderToStaticMarkup(createElement(TarsSettings, { identity: identity(instructions), busy: false, onSave: async () => true, initial, view: view as never }));
+
+  test("prefills empty instructions, preserves custom text, and offers reset only for custom text", () => {
+    const empty = settings("");
+    expect(empty).toContain("placeholder=\"- Lead with the answer or the decision you need from me");
+    expect(empty).toContain(">- Lead with the answer or the decision you need from me");
+    expect(empty).not.toContain("data-tars-instructions-default");
+    const edited = settings("Answer in one line.");
+    expect(edited).toContain(">Answer in one line.</textarea>");
+    expect(edited).toContain('data-tars-instructions-default="reset"');
+    expect(edited).toContain("Reset to default");
+    expect(settings(i18n.t("shell:tars.instructionsDefault"))).not.toContain("data-tars-instructions-default");
+  });
+
+  test("shows the retention choice with every offered period, and hides it on bridges without view settings", () => {
+    const html = settings("", { retentionDays: 14 });
+    expect(html).toContain("Keep ended work in the panel");
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain("14 days");
+    expect(settings("", null)).not.toContain("Keep ended work in the panel");
+  });
+
+  test("speaks Korean, where the Korean default counts as the default", async () => {
+    applyAppLocale("ko"); await i18n.changeLanguage("ko");
+    const html = settings("");
+    expect(html).toContain("끝난 작업을 패널에 두는 기간");
+    expect(html).not.toContain("data-tars-instructions-default");
+    expect(html).toContain("7일");
+    expect(settings(i18n.t("shell:tars.instructionsDefault", { lng: "ko" }))).not.toContain("data-tars-instructions-default");
+    // The English default is also the default, so switching languages offers no needless reset.
+    expect(settings(i18n.t("shell:tars.instructionsDefault", { lng: "en" }))).not.toContain("data-tars-instructions-default");
   });
 });

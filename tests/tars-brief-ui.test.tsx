@@ -60,8 +60,8 @@ describe("the request view", () => {
     const row = queued("queue-auth");
     const html = renderToStaticMarkup(createElement(TarsBriefPanel, { row, state: ready(buildTarsBrief(row)), onRetry() {} }));
     expect(html).toContain("Your message");
-    expect(html).toContain("Tars&#x27;s instruction");
-    expect(html).toContain("The run receives it together with your message.");
+    expect(html).toContain("Instructions from Tars");
+    expect(html).toContain("Tars sends these instructions and your message to the agent doing the work.");
     // Both texts appear whole, newlines and the code block included, each in its own block.
     expect(html).toContain(`data-tars-brief-text="request">${escaped(row.request!.text)}</div>`);
     expect(html).toContain(`data-tars-brief-text="instruction-delegated">${escaped(row.delegatedInstruction!)}</div>`);
@@ -71,7 +71,7 @@ describe("the request view", () => {
     expect(html).toContain("The previous key stays valid\nfor 24 hours.");
     expect(html).not.toContain("data-tars-brief-missing");
     expect(html).toContain('aria-label="Copy your message"');
-    expect(html).toContain('aria-label="Copy the instruction"');
+    expect(html).toContain('aria-label="Copy task instructions"');
   });
 
   test.each(["en", "ko"] as const)("says in %s how many files and images the work carries, by name", async (locale) => {
@@ -80,7 +80,7 @@ describe("the request view", () => {
     const html = renderToStaticMarkup(createElement(TarsBriefPanel, { row, state: ready(buildTarsBrief(row)), onRetry() {} }));
     expect(html).toContain('data-tars-brief-part="attachments"');
     expect(html).toContain(locale === "en" ? "2 attachments" : "첨부 2개");
-    expect(html).toContain(locale === "en" ? "The run&#x27;s lead receives them with its first turn." : "실행 리드가 첫 턴에 함께 받습니다.");
+    expect(html).toContain(locale === "en" ? "The lead agent receives them when the task starts." : "작업을 맡은 에이전트에게 작업을 시작할 때 전달합니다.");
     expect(html).toContain('data-tars-brief-attachment="image">staging-login-error.png</li>');
     expect(html).toContain('data-tars-brief-attachment="file">staging-deploy.yaml</li>');
     // Work that carries none shows no such section.
@@ -104,11 +104,11 @@ describe("the request view", () => {
     const html = renderToStaticMarkup(createElement(TarsBriefPanel, { row, state: ready(buildTarsBrief(row)), onRetry() {} }));
     expect(html).toContain('data-tars-brief-missing="request"');
     expect(html).toContain("This older work did not save your original message.");
-    expect(html).toContain("Instruction as saved");
+    expect(html).toContain("Saved task instructions");
     expect(html).toContain(`data-tars-brief-text="instruction-assignment">${escaped(row.instruction)}</div>`);
-    expect(html).toContain("Attached in full");
+    expect(html).toContain("Additional reference text");
     expect(html).toContain("The complete attached text.\nSecond line.");
-    expect(html).not.toContain("Tars&#x27;s instruction<");
+    expect(html).not.toContain("Instructions from Tars<");
   });
 
   test("keeps the criteria in view while loading, after a failed read (with Retry) and on a bridge that cannot read", async () => {
@@ -135,7 +135,7 @@ describe("the request view", () => {
     const html = renderToStaticMarkup(createElement(TarsBriefPanel, { row, state: ready(buildTarsBrief(row)), onRetry() {} }));
     expect(html).toContain("보낸 메시지 원문");
     expect(html).toContain("원문이 저장되어 있지 않습니다");
-    expect(html).toContain("저장된 실행 지시");
+    expect(html).toContain("저장된 작업 내용");
     expect(html).toContain("완료 기준 2개");
     await applyAppLocale("en");
   });
@@ -157,7 +157,7 @@ describe("where the request view opens", () => {
       placement: { placement: "column" }, records: [], cwd: null, takeFocus: false, onKind() {}, onClose() {}, onQuote() {},
       loadBrief: async () => buildTarsBrief(row) }));
     expect(html).toContain('data-tars-side-view="brief"');
-    expect(html).toContain("Request and instruction");
+    expect(html).toContain("Task request");
     // The read starts once mounted; the static render shows the loading line and the criteria from the snapshot.
     expect(html).toContain('data-tars-brief="loading"');
     expect(html).toContain("Only staging changes.");
@@ -175,7 +175,7 @@ describe("where the request view opens", () => {
     expect(card.queue).not.toBeNull();
     expect(renderToStaticMarkup(createElement(TarsTrayCard, { card, actions }))).toContain(`data-tars-monitor-brief="${row.id}"`);
     const view = capture(() => TarsRunMonitor({ row, onOpenSide: actions.onOpenSide }));
-    view.press(`Open the request and instruction for ${row.title}`);
+    view.press(`Open task request for ${row.title}`);
     expect(opened).toEqual([{ responsibilityId: row.id, kind: "brief" }]);
     for (const other of cards) expect(renderToStaticMarkup(createElement(TarsTrayCard, { card: other, actions }))).toContain(`data-tars-monitor-brief="${other.row.id}"`);
     // Without a side view (Fleet's own surfaces) there is nothing to open.
@@ -190,7 +190,7 @@ describe("where the request view opens", () => {
     const opened: TarsSideViewTarget[] = [];
     const view = capture(() => TarsFlowNodes({ flow, onOpenSide: (target) => opened.push(target) }));
     expect(view.html).toContain("data-tars-flow-request");
-    view.press("Open the request and Tars's instruction");
+    view.press("Open task request");
     expect(opened).toEqual([{ responsibilityId: "billing", kind: "brief" }]);
   });
 });

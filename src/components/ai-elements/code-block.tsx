@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import type { HTMLAttributes } from "react";
-import { createContext, memo, useContext, useEffect, useState } from "react";
+import { createContext, memo, useContext, useEffect, useRef, useState, type RefObject } from "react";
 import { Check, Copy } from "lucide-react";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { transition } from "@/components/aui/recipes/transition";
@@ -55,7 +55,7 @@ export function CodeBlock({ code, language, showLineNumbers, isStreaming, fontSi
   useTranslation();
   return (
     <CodeBlockContext.Provider value={{ code }}>
-      <div className={cx(sx(styles.root), className)} {...props}>
+      <div className={cx(sx(styles.root), className)} data-code-block="" {...props}>
         {children}
         <CodeBlockContent
           code={code}
@@ -89,6 +89,47 @@ interface CodeBlockContentProps {
   isStreaming?: boolean;
 }
 
+/**
+ * A code block whose lines are wider than it scrolls sideways inside its
+ * `<pre>`. While it does, the side with more code fades out
+ * (`data-scroll-fade`, `.stave-code-scroll` in `globals.css`), since an overlay
+ * scrollbar stays hidden until something scrolls, and the `<pre>` is a named
+ * region in the tab order, so the keyboard can reach it and move it with the
+ * arrow keys.
+ */
+function useCodeScrollRegion(ref: RefObject<HTMLElement | null>, content: string, label: string) {
+  useEffect(() => {
+    const host = ref.current;
+    const pre = host instanceof HTMLPreElement ? host : host?.querySelector("pre");
+    if (!pre) return;
+    pre.classList.add("stave-code-scroll");
+    const update = () => {
+      const hidden = pre.scrollWidth - pre.clientWidth;
+      if (hidden > 1) {
+        pre.tabIndex = 0;
+        pre.setAttribute("role", "region");
+        pre.setAttribute("aria-label", label);
+        const before = pre.scrollLeft > 1;
+        const after = pre.scrollLeft < hidden - 1;
+        pre.dataset.scrollFade = before && after ? "both" : before ? "start" : "end";
+      } else {
+        pre.removeAttribute("tabindex");
+        pre.removeAttribute("role");
+        pre.removeAttribute("aria-label");
+        delete pre.dataset.scrollFade;
+      }
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(pre);
+    pre.addEventListener("scroll", update, { passive: true });
+    return () => {
+      observer.disconnect();
+      pre.removeEventListener("scroll", update);
+    };
+  }, [ref, content, label]);
+}
+
 export const CodeBlockContent = memo(function CodeBlockContent({ code, language, isStreaming, fontSize }: CodeBlockContentProps) {
   useTranslation();
   const resolvedLang = resolveCodeBlockLanguage(language);
@@ -101,6 +142,8 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
   const textScale = useMessageTextScale();
   const settingsCodeFontSize = useAppStore((state) => state.settings.messageCodeFontSize);
   const messageCodeFontSize = fontSize ?? scaleMessageCodeFontSize(textScale, settingsCodeFontSize);
+  const scrollHost = useRef<HTMLDivElement & HTMLPreElement>(null);
+  useCodeScrollRegion(scrollHost, html ?? code, i18n.t("composer:message.codeScrollRegion"));
 
   useEffect(() => {
     if (isStreaming || !resolvedLang) {
@@ -134,6 +177,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
   if (html && resolvedLang) {
     return (
       <div
+        ref={scrollHost}
         className={sx(styles.content)}
         style={{ fontSize: `${messageCodeFontSize}px` }}
         // Shiki output is sanitised — no user content reaches dangerouslySetInnerHTML
@@ -145,6 +189,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language,
   // Fallback: plain text while highlighter loads
   return (
     <pre
+      ref={scrollHost}
       className={sx(styles.fallbackPre, !resolvedLang && styles.plainPre)}
       style={{ fontSize: `${messageCodeFontSize}px` }}
     >

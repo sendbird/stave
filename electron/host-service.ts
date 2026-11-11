@@ -1,3 +1,4 @@
+import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
 import { findAutomationWorkspace } from "./host-service/automation-workspace-location";
@@ -91,9 +92,10 @@ import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/sup
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
-import { applyTarsDecision } from "./host-service/tars-decisions";
+import { applyTarsDecision, confirmTarsProposal, type TarsDecisionPorts } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
 import { reprioritizeTars } from "./host-service/tars-queue";
+import { createTarsScheduler, recordTarsScheduleRuns } from "./host-service/tars-schedules";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
@@ -607,6 +609,10 @@ const automationRuntime = createAutomationRuntime({
   emitUnattendedAutomationsChanged: (payload) => {
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
+  // A run a Tars schedule started is recorded in Tars's conversation as started by that schedule.
+  onStateSaved: (state) => {
+    recordTarsScheduleRuns(ensureHostServicePersistenceReady().tars.schedules, state, new Date().toISOString());
+  },
 });
 const agentRunRuntime = createHostAgentRunRuntime({
   // Read on each tick, after `assignRuntime` below exists.
@@ -676,6 +682,14 @@ const tarsRuntime = createHostTarsRuntime({
 });
 // Publishing runs beside the runtime's queue: a push never holds up observation or controls.
 const tarsPublisher = createHostTarsPublisher({ agentRuns: agentRunRuntime });
+// Schedules Tars sets up are the Schedules service's own records; this only admits and records what the user confirmed.
+const tarsScheduler = (() => {
+  const persistence = ensureHostServicePersistenceReady();
+  return createTarsScheduler({
+    schedules: persistence.tars.schedules, conversations: persistence.tarsConversations, automations: automationRuntime,
+    readRegistry: () => persistence.loadRepositoryRegistry(), findWorkspace: findAutomationWorkspace,
+  });
+})();
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -2197,14 +2211,17 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.invoke":
       await respond(request.id, await (request.params.action === "get" ? tarsRuntime.get() : tarsRuntime[request.params.action](request.params.args)));
       return;
-    case "tars.apply-decision": {
+    case "tars.apply-decision":
+    case "tars.confirm-proposal": {
       const persistence = ensureHostServicePersistenceReady();
-      await respond(request.id, await applyTarsDecision(request.params, {
+      // One set of ports: a held work proposal the user confirmed is admitted exactly as an unheld one.
+      const ports: TarsDecisionPorts = {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
         readRegistry: () => persistence.loadRepositoryRegistry(),
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
+        scheduleRefusal: (action, requestId) => tarsScheduler.proposalRefusal(action, requestId),
         snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
           workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
           ref: tarsWorkingChangesRef(messageId, workspaceId),
@@ -2212,12 +2229,15 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
           message: `chore(tars): start from working changes\n\nSnapshot of the uncommitted changes in workspace ${workspaceId} for Tars message ${messageId}.`,
           date,
         }),
-      }));
+      };
+      await respond(request.id, request.method === "tars.confirm-proposal"
+        ? await confirmTarsProposal(request.params, ports) : await applyTarsDecision(request.params, ports));
       return;
     }
     case "tars.act":
       await respond(request.id, await actTars(request.params, {
         conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime,
+        responsibilities: ensureHostServicePersistenceReady().tars,
       }));
       return;
     case "tars.publish":
@@ -2229,6 +2249,26 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.brief":
       await respond(request.id, await tarsRuntime.brief(request.params));
       return;
+    case "tars.schedule":
+      await respond(request.id, await tarsScheduler.confirm(request.params));
+      return;
+    case "tars.schedule-preview":
+      await respond(request.id, await tarsScheduler.preview(request.params));
+      return;
+    case "tars.schedule-toggle":
+      await respond(request.id, await tarsScheduler.toggle(request.params));
+      return;
+    case "tars.schedules":
+      await respond(request.id, await tarsScheduler.list());
+      return;
+    case "tars.undo-action": {
+      const persistence = ensureHostServicePersistenceReady();
+      await respond(request.id, await undoTarsAction(request.params, {
+        conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo,
+      }));
+      return;
+    }
     case "tars.reprioritize": {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await reprioritizeTars(request.params, {
@@ -2289,6 +2329,8 @@ async function main() {
   tarsRuntime.start();
   // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
   tarsPublisher.recover();
+  // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
+  void tarsScheduler.recover();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

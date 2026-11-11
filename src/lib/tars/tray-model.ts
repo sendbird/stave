@@ -5,7 +5,6 @@ import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttentionRows, tarsLaneOf, type TarsAttentionRowLike, type TarsLane } from "./attention";
 import { projectTarsRunProgress, tarsFleetTarget, tarsRunOf, type TarsRunProgress } from "./flow-model";
 import { tarsConfirmationRequestId } from "./conversation";
-import type { TarsSideViewTarget } from "./side-view";
 import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState, type TarsPendingDecision, type TarsResponsibility, type TarsSnapshot } from "./types";
 import { tarsQueueOf } from "./queue-order";
 import { isTarsWorkRunning } from "./live-progress";
@@ -123,13 +122,14 @@ export function tarsBranchOf(row: Pick<TarsResponsibility, "id" | "branchName" |
 const holdsActiveSlot = isTarsWorkRunning;
 
 /**
- * What the header indicator counts. `needsYou` counts Fleet's rows for Tars
- * work, so the tray and Fleet show the same number. `running` counts only work
- * that is actually running (in any lane), never queued, paused, waiting or
- * taken-over work; `waiting` counts the in-progress lane's work that is not
- * running and not held by the user, `yours` the work the user took over.
+ * What the header indicator and the lane headers count, one number per lane.
+ * `needsYou` counts Fleet's rows for Tars work (one card may hold several), so
+ * the tray and Fleet show the same number; `inProgress` and `done` count the
+ * cards in their lanes. `running` counts only work that is actually running,
+ * in any lane, never queued, paused, waiting or taken-over work; it is the
+ * navigation status's number, not a lane's.
  */
-export interface TarsTrayCounts { needsYou: number; running: number; waiting: number; yours: number; done: number }
+export interface TarsTrayCounts { needsYou: number; inProgress: number; done: number; running: number }
 
 export interface TarsTrayModel<T extends TarsTrayAttentionInput = TarsTrayAttentionInput> {
   counts: TarsTrayCounts;
@@ -168,6 +168,8 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   followUps?: readonly TarsFollowUpState[];
   /** The time follow-up lines are judged at; times already past show nothing. */
   now?: string;
+  /** Ended work whose Done card was cleared or passed retention (`TarsSnapshot.cleared.done`); it leaves the Done lane. */
+  clearedDone?: readonly string[];
 }): TarsTrayModel<T> {
   const { responsibilities, attentionItems, runs } = args;
   const { rows, responsibilityIds } = selectTarsAttentionRows(attentionItems, responsibilities);
@@ -192,8 +194,10 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   }
   const lanes: Record<TarsLane, TarsTrayCard<T>[]> = { needsYou: [], running: [], done: [] };
   const queued = tarsQueueOf(responsibilities).map((row) => row.id);
+  const cleared = new Set(args.clearedDone ?? []);
   for (const row of responsibilities) {
     const lane = tarsLaneOf(row, responsibilityIds);
+    if (lane === "done" && cleared.has(row.id)) continue;
     const run = tarsRunOf(row, runs);
     const live = run && !isTarsResponsibilityTerminal(row) && isActiveAgentRunState(run.agentRun.state) ? run : undefined;
     lanes[lane].push({
@@ -215,13 +219,11 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   }
   // Work that started leads its lane; queued work follows in the order it will start, so the cards a user reorders stay together.
   for (const lane of Object.values(lanes)) lane.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
-  const inProgress = lanes.running;
   const counts: TarsTrayCounts = {
     needsYou: rows.length,
-    running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,
-    waiting: inProgress.filter((card) => !holdsActiveSlot(card.row) && card.row.state !== "takenOver").length,
-    yours: inProgress.filter((card) => card.row.state === "takenOver").length,
+    inProgress: lanes.running.length,
     done: lanes.done.length,
+    running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,
   };
   return { counts, lanes };
 }
@@ -284,69 +286,4 @@ export function tarsStepCount(progress: Pick<TarsRunProgress, "stages" | "curren
   if (progress.total <= 0) return null;
   const position = progress.current ? progress.stages.indexOf(progress.current) + 1 : progress.finished;
   return { position, total: progress.total };
-}
-
-/** What happened to one piece of work while the user was away. */
-export type TarsRecapKind = "needsYou" | "failed" | "done";
-
-export interface TarsRecapItem {
-  responsibilityId: string;
-  title: string;
-  kind: TarsRecapKind;
-  at: string;
-  /** Where its link opens the side view. */
-  side: TarsSideViewTarget;
-}
-
-export interface TarsRecap {
-  since: string;
-  counts: Record<TarsRecapKind, number>;
-  /** The most recent changes first, needs you before the rest, at most `limit`. */
-  items: TarsRecapItem[];
-  /** Changes not listed. */
-  more: number;
-}
-
-const RECAP_ORDER: Record<TarsRecapKind, number> = { needsYou: 0, failed: 1, done: 2 };
-
-/**
- * "While you were away": work that came to need the user, ended without
- * finishing, or finished between `since` (the last time the Tars view was
- * visible) and `until` (when it opened again). Null when there is no earlier
- * visit or nothing changed, so the recap never says "0 done". A cancel the
- * user applied is theirs, not a failure.
- */
-export function buildTarsRecap(args: {
-  model: Pick<TarsTrayModel, "lanes">;
-  since: string | null;
-  until: string;
-  pendingDecisions?: readonly Pick<TarsPendingDecision, "responsibilityId" | "proposedAt">[];
-  cancelledByYou?: ReadonlySet<string>;
-  limit?: number;
-}): TarsRecap | null {
-  const { since, until } = args;
-  if (!since || since >= until) return null;
-  const within = (at: string | null | undefined) => Boolean(at && at > since && at <= until);
-  const items: TarsRecapItem[] = [];
-  for (const card of args.model.lanes.needsYou) {
-    const proposed = (args.pendingDecisions ?? []).filter((decision) => decision.responsibilityId === card.row.id).map((decision) => decision.proposedAt);
-    const at = [card.row.updatedAt, ...proposed].filter(within).sort().at(-1);
-    if (!at) continue;
-    items.push({ responsibilityId: card.row.id, title: card.row.title, kind: "needsYou", at,
-      side: card.row.state === "blocked" ? { responsibilityId: card.row.id, kind: "report", focus: { unmet: true } } : { responsibilityId: card.row.id, kind: "timeline" } });
-  }
-  for (const card of args.model.lanes.done) {
-    const { row } = card;
-    if (!within(row.updatedAt)) continue;
-    if (row.state === "completed") items.push({ responsibilityId: row.id, title: row.title, kind: "done", at: row.updatedAt, side: { responsibilityId: row.id, kind: "report" } });
-    else if (row.state === "cancelled" && !args.cancelledByYou?.has(row.id)) {
-      items.push({ responsibilityId: row.id, title: row.title, kind: "failed", at: row.updatedAt, side: { responsibilityId: row.id, kind: "timeline" } });
-    }
-  }
-  if (!items.length) return null;
-  items.sort((a, b) => RECAP_ORDER[a.kind] - RECAP_ORDER[b.kind] || b.at.localeCompare(a.at));
-  const counts: Record<TarsRecapKind, number> = { needsYou: 0, failed: 0, done: 0 };
-  for (const item of items) counts[item.kind] += 1;
-  const limit = args.limit ?? 4;
-  return { since, counts, items: items.slice(0, limit), more: Math.max(0, items.length - limit) };
 }

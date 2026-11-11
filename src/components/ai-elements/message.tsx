@@ -39,15 +39,16 @@ import {
 } from "./code-block";
 import { MarkdownMessage, MessageFileLink } from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
+import { codeBlockLanguageLabel } from "./code-block-language";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
   scaleMessageCodeFontSize,
+  chatTypeScaleVars,
   scaleMessageFontSize,
   useMessageTextScale,
 } from "./message-text-scale";
 import { PromptTokenChip } from "./prompt-token-chip";
 import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
-import { TranscriptWideBlock } from "./transcript-wide";
 
 interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
@@ -139,6 +140,7 @@ export function MessageContent({
     <div
       className={cx(sx(styles.content), className)}
       style={{
+        ...chatTypeScaleVars(messageFontSize),
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
       }}
@@ -258,6 +260,7 @@ export function MessageResponse({
       <div
         className={cx(sx(styles.responseBody), className)}
         style={{
+          ...chatTypeScaleVars(messageFontSize),
           fontSize: `${messageFontSize}px`,
           lineHeight: MESSAGE_BODY_LINE_HEIGHT,
           ...style,
@@ -340,7 +343,7 @@ export function MessageResponse({
                     }
                   />
                 ) : null}
-                <span className={sx(styles.codeLanguage)}>{language ?? i18n.t("composer:message.copy")}</span>
+                <span className={sx(styles.codeLanguage)}>{language ? codeBlockLanguageLabel(language) : i18n.t("composer:message.copy")}</span>
               </CodeBlockTitle>
               <CodeBlockActions>
                 <CodeBlockCopyButton />
@@ -348,14 +351,13 @@ export function MessageResponse({
             </CodeBlockHeader>
           </CodeBlock>
         );
-        return (
-          <TranscriptWideBlock>
-            {language?.toLowerCase() === "mermaid" ? (
-              <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
-            ) : (
-              block
-            )}
-          </TranscriptWideBlock>
+        // Code and diagrams keep the column's edges: a long line scrolls
+        // inside the block and a diagram scales down, so neither sticks out
+        // past the prose around it.
+        return language?.toLowerCase() === "mermaid" ? (
+          <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
+        ) : (
+          block
         );
       }}
       className={className}

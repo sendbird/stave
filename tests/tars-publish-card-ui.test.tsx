@@ -54,7 +54,17 @@ describe("publish card", () => {
   test("shows where the work goes, the editable words, the body and its tags", () => {
     const { html } = rendered();
     for (const text of ["Open a draft pull request?", "Show the saved card first at checkout", "example/web", "main", "feat/checkout-saved-card-3fa9c1", "2 files",
-      "Draft PR", "Can&#x27;t be undone", "## Acceptance criteria", "Open draft PR", "Decline"]) expect(html).toContain(text);
+      "Draft PR", "Can&#x27;t be undone", "Acceptance criteria", "Open draft PR", "Decline"]) expect(html).toContain(text);
+    // The body reads as rendered markdown first, with the switch to the raw text that is sent; no waiting badge.
+    expect(html).toMatch(/data-tars-publish-body="" data-tars-publish-body-view="preview"/);
+    expect(html).toMatch(/<h2[^>]*>Acceptance criteria<\/h2>/);
+    expect(html).not.toContain("## Acceptance criteria");
+    expect(html).toContain("data-tars-publish-body-toggle");
+    for (const text of ["Preview", "Raw text"]) expect(html).toContain(text);
+    expect(html).not.toContain("Awaiting your confirmation");
+    // Open draft PR is the card's primary action, in the danger tone because it can't be undone; Enter stays its key.
+    const confirm = html.match(/<button[^>]*data-tars-publish-confirm=""[^>]*>/)?.[0] ?? "";
+    for (const attribute of ['data-variant="primary"', 'data-tone="danger"', 'aria-keyshortcuts="Enter"']) expect(confirm).toContain(attribute);
     // Prefilled from the title as a Conventional Commit subject, in editable fields.
     expect(html.match(/value="feat: show the saved card first at checkout"/g)).toHaveLength(2);
     expect(html).not.toContain("readonly");
@@ -134,12 +144,13 @@ describe("publish record and entry", () => {
 
   test("folds to one line: the pull request it opened, or why it was not published with Retry", () => {
     const opened = renderToStaticMarkup(createElement(TarsPublishRecordLine, { record: record({}), title: "Checkout" }));
-    expect(tarsRecordText(opened)).toContain("Draft PR #12 opened Checkout click");
+    expect(tarsRecordText(opened)).toContain("Draft PR #12 opened Checkout PR #12");
+    expect(opened).toContain('aria-label="You did this in Tars"');
     expect(opened).toContain('href="https://github.com/example/web/pull/12"');
     const failed = renderToStaticMarkup(createElement(TarsPublishRecordLine, { record: record({ status: "rejected", reason: "publishFailed", error: "fatal: unable to access remote", url: null, number: null }),
       row: row({ publication: { state: "failed", failedStep: "push", commit: "f00ba12", branch: "b", base: "main", commitMessage: "feat: x", title: "feat: x", url: null, number: null,
         error: "fatal: unable to access remote", reason: "publishFailed", updatedAt: NOW } }), onRetry: () => {} }));
-    expect(tarsRecordText(failed)).toContain("Not published click");
+    expect(tarsRecordText(failed)).toContain("Not published");
     expect(failed).toContain("A publish step failed.");
     expect(failed).toContain("Stopped at: Push");
     expect(failed).toContain("fatal: unable to access remote");

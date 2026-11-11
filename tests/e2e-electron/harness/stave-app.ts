@@ -161,54 +161,62 @@ export async function seedRepository(
     settings?: Record<string, unknown>;
   },
 ): Promise<void> {
+  // Apply after the old renderer's beforeunload flush and before the new app
+  // rehydrates. Consume the seed once so later reloads retain actual test state.
+  await page.addInitScript(() => {
+    const seed = window.sessionStorage.getItem("stave:e2e:repository-seed");
+    if (!seed) return;
+    window.sessionStorage.removeItem("stave:e2e:repository-seed");
+    const input = JSON.parse(seed) as {
+      repositoryPath: string;
+      settings?: Record<string, unknown>;
+    };
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify([
+        {
+          id: "ws-e2e",
+          name: "e2e",
+          updatedAt: "2026-03-06T01:00:00.000Z",
+          snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} },
+        },
+      ]),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath: input.repositoryPath,
+          repositoryName: "stave-e2e",
+          workspaces: [
+            {
+              id: "ws-e2e",
+              name: "e2e",
+              updatedAt: "2026-03-06T01:00:00.000Z",
+            },
+          ],
+          activeWorkspaceId: "ws-e2e",
+          workspaceBranchById: { "ws-e2e": "main" },
+          workspacePathById: { "ws-e2e": input.repositoryPath },
+          workspaceDefaultById: { "ws-e2e": true },
+          ...(input.settings ? { settings: input.settings } : {}),
+        },
+        version: 0,
+      }),
+    );
+  });
   const write = () =>
     page.evaluate((input) => {
-      window.localStorage.setItem(
-        "stave:workspace-fallback:v1",
-        JSON.stringify([
-          {
-            id: "ws-e2e",
-            name: "e2e",
-            updatedAt: "2026-03-06T01:00:00.000Z",
-            snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} },
-          },
-        ]),
-      );
-      window.localStorage.setItem(
-        "stave-store",
-        JSON.stringify({
-          state: {
-            repositoryPath: input.repositoryPath,
-            repositoryName: "stave-e2e",
-            workspaces: [
-              {
-                id: "ws-e2e",
-                name: "e2e",
-                updatedAt: "2026-03-06T01:00:00.000Z",
-              },
-            ],
-            activeWorkspaceId: "ws-e2e",
-            workspaceBranchById: { "ws-e2e": "main" },
-            workspacePathById: { "ws-e2e": input.repositoryPath },
-            workspaceDefaultById: { "ws-e2e": true },
-            ...(input.settings ? { settings: input.settings } : {}),
-          },
-          version: 0,
-        }),
-      );
+      window.sessionStorage.setItem("stave:e2e:repository-seed", JSON.stringify(input));
     }, args);
 
   /*
    * Seed, reload, and confirm the project actually stuck — retrying the whole
    * cycle if it did not.
    *
-   * Injecting through `localStorage` races the app's real hydration: startup
-   * rehydrates synchronously and then runs `hydrateWorkspaces`, which can, on a
-   * warm relaunch, land before the persisted project is in place and leave the
-   * store project-less. The Lens affordance is disabled without a project, so a
-   * test that proceeded here would fail for a reason unrelated to Lens. Re-
-   * seeding is idempotent and cheap, so a few attempts turn the race into a
-   * short delay instead of a flake.
+   * Hydration must register the requested project, not merely enable Lens for
+   * some previously selected project. Keep the bounded retry for startup
+   * hydration, and check the main-process registry used by host admissions.
    */
   const lensButton = page.getByRole("button", { name: "Lens", exact: true });
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -216,12 +224,19 @@ export async function seedRepository(
     await page.reload({ waitUntil: "domcontentloaded" });
     try {
       await expect(lensButton).toBeEnabled({ timeout: 15_000 });
+      await expect.poll(() =>
+        page.evaluate(async (repositoryPath) => {
+          const registry = await window.api!.persistence!.loadRepositoryRegistry!();
+          return registry.activeRepositoryPath === repositoryPath && registry.repositories.some((entry) =>
+            (entry as { repositoryPath: string }).repositoryPath === repositoryPath);
+        }, args.repositoryPath),
+      ).toBe(true);
       return;
     } catch {
       // Hydration clobbered the seed; write it again and reload.
     }
   }
-  throw new Error("the seeded project never enabled the Lens affordance");
+  throw new Error("the seeded project never became active in the repository registry");
 }
 
 /**

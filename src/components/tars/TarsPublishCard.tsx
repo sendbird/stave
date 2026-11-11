@@ -1,7 +1,10 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { GitPullRequestDraft } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Button, Input } from "@/components/ui";
+import { Button as AuiButton } from "@/components/aui/components/Button";
+import { ToggleGroup } from "@/components/aui/components/ToggleGroup";
+import { MessageResponse } from "@/components/ai-elements/message";
 import { Badge } from "@/components/aui/components/Badge";
 import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
 import { Kbd } from "@/components/aui/components/Kbd";
@@ -18,6 +21,7 @@ import { tarsPublishContinuesFrom } from "@/lib/tars/publish-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 import { tarsPublishStyles as publishStyles } from "./tars-publish.styles";
+import { TarsWorkChip } from "./TarsRecord";
 
 export interface TarsPublishWords { commitMessage: string; title: string }
 
@@ -38,6 +42,8 @@ export interface TarsPublishCardProps {
   error?: string | null;
   /** A card the user opened takes focus on its commit message; a proposal never takes focus by itself. */
   autoFocus?: boolean;
+  /** Shown under the description: the user's own rule that matched this proposal, when the host found one. */
+  notice?: ReactNode;
   /** Absent: the card shows what it would publish without the button. */
   onPublish?: (words: TarsPublishWords, source: TarsPublishSource) => void;
   /** Decline and Esc: nothing is published. */
@@ -66,7 +72,7 @@ export function tarsPublishCardKey(event: Pick<KeyboardEvent<HTMLElement>, "key"
  * the pull request title, and shows the body the host built from the frozen
  * report. Enter publishes, Esc declines; there is no standing permission.
  */
-export function TarsPublishCard({ id, row, preview, previewState, initial, busy = false, error, autoFocus = false, onPublish, onDecline }: TarsPublishCardProps) {
+export function TarsPublishCard({ id, row, preview, previewState, initial, busy = false, error, autoFocus = false, onPublish, onDecline, notice }: TarsPublishCardProps) {
   const { t } = useTranslation(["shell"]);
   const titleId = useId();
   const subtitleId = useId();
@@ -76,6 +82,8 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
   const [commitMessage, setCommitMessage] = useState(() => initial?.commitMessage ?? tarsDefaultCommitSubject(row.title));
   const [title, setTitle] = useState(() => initial?.title ?? tarsDefaultCommitSubject(row.title));
   const [missing, setMissing] = useState(false);
+  // The body reads as its rendered markdown by default; the raw text is one toggle away and is exactly what is sent.
+  const [bodyView, setBodyView] = useState<"preview" | "raw">("preview");
   useEffect(() => { if (autoFocus) messageRef.current?.focus(); }, [autoFocus]);
   const reason = previewState === "ready" ? preview?.reason ?? null : null;
   const ready = previewState === "ready" && preview !== null && reason === null;
@@ -123,15 +131,17 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
       <IconTile size="sm" tone="danger" xstyle={styles.icon}><GitPullRequestDraft aria-hidden size={iconTileGlyphSizes.sm} /></IconTile>
       <div className={sx(styles.heading)}>
         <p id={titleId} className={sx(styles.title)}>{t("shell:tars.publish.card.title")}</p>
-        <p id={subtitleId} className={sx(styles.subtitle)}>{row.title}</p>
+        {/* The work, as the chip every decision card names it with. */}
+        <div id={subtitleId} className={sx(styles.subtitle)}><TarsWorkChip title={row.title} responsibilityId={row.id} /></div>
       </div>
+      {/* The buttons say the card waits; the tags say only what they do not: a draft, and that it can't be undone. */}
       <div className={sx(styles.tags)}>
         <Badge size="md" variant="outlined" data-tars-publish-draft-tag="">{t("shell:tars.publish.card.draftTag")}</Badge>
         <Badge size="md" tone="danger" variant="outlined" data-tars-decision-risk-tag="">{t("shell:tars.publish.card.risk")}</Badge>
-        <Badge size="md" tone="warning">{t("shell:tars.conversation.receipts.proposed")}</Badge>
       </div>
     </div>
     <p className={sx(styles.detail)}>{t("shell:tars.publish.card.description")}</p>
+    {notice}
     <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.publish.card.details")} data-tars-publish-rows={rows.map((entry) => entry.key).join(",")}>
       {rows.map((entry) => <div key={entry.key} className={sx(styles.row)} data-tars-publish-row={entry.key}>
         <dt className={sx(styles.rowLabel)}>{entry.label}</dt>
@@ -144,7 +154,7 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
       <div className={sx(publishStyles.commitLine)}>
         <label className={sx(publishStyles.field, publishStyles.typeField)}>
           <span className={sx(publishStyles.label)}>{t("shell:tars.publish.card.rows.commitType")}</span>
-          <NativeSelect controlOnly size="sm" value={type} disabled={busy} data-tars-publish-type=""
+          <NativeSelect controlOnly size="md" value={type} disabled={busy} data-tars-publish-type=""
             onChange={(event) => changeType(event.target.value as TarsCommitType)}
             options={[...(type ? [] : [{ value: "", label: "—" }]), ...TARS_COMMIT_TYPES.map((value) => ({ value, label: value }))]} />
         </label>
@@ -163,10 +173,22 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
       </label>
       {missing ? <p className={sx(styles.error)} role="alert">{t("shell:tars.publish.card.required")}</p> : null}
       <div className={sx(publishStyles.field)}>
-        <span id={`${titleId}-body`} className={sx(publishStyles.label)}>{t("shell:tars.publish.card.rows.body")}</span>
+        <div className={sx(publishStyles.bodyHeader)}>
+          <span id={`${titleId}-body`} className={sx(publishStyles.label)}>{t("shell:tars.publish.card.rows.body")}</span>
+          {/* How to read the body; what is sent is the same text either way. */}
+          <ToggleGroup density="compact" aria-label={t("shell:tars.publish.card.bodyView.label")} value={[bodyView]} data-tars-publish-body-toggle=""
+            onValueChange={(next) => { const view = next[0]; if (view === "preview" || view === "raw") setBodyView(view); }}
+            options={[{ value: "preview", label: t("shell:tars.publish.card.bodyView.preview") }, { value: "raw", label: t("shell:tars.publish.card.bodyView.raw") }]} />
+        </div>
         {/* Focusable so a keyboard can scroll it; it keeps its own Enter. */}
-        <pre role="region" tabIndex={0} aria-labelledby={`${titleId}-body`} className={sx(publishStyles.body, focusRing.ring)} data-tars-publish-body="">
-          {previewState === "loading" ? t("shell:tars.publish.card.loading") : preview?.body ?? ""}</pre>
+        {previewState === "loading" || bodyView === "raw" || !preview
+          ? <pre role="region" tabIndex={0} aria-labelledby={`${titleId}-body`} className={sx(publishStyles.body, publishStyles.bodyRaw, focusRing.ring)}
+            data-tars-publish-body="" data-tars-publish-body-view="raw">
+            {previewState === "loading" ? t("shell:tars.publish.card.loading") : preview?.body ?? ""}</pre>
+          // The shared markdown renderer, as Tars's replies read; links in it are not workspace files.
+          : <div role="region" tabIndex={0} aria-labelledby={`${titleId}-body`} className={sx(publishStyles.body, focusRing.ring)}
+            data-tars-publish-body="" data-tars-publish-body-view="preview">
+            <MessageResponse fileLinkContext="none">{preview.body}</MessageResponse></div>}
         <p className={sx(publishStyles.hint)}>{t("shell:tars.publish.card.bodyHint")}</p>
       </div>
     </div>}
@@ -177,11 +199,12 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
           {t("shell:tars.publish.card.decline")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.escKey")}</Kbd></span>
         </Button>
         {reason || previewState === "failed" || !onPublish ? null
-          // Irreversible, so never the filled primary: Enter on this explicit card is its only default.
-          : <Button type="button" size="xs" variant="outline" aria-keyshortcuts="Enter" disabled={!ready || busy} data-tars-publish-confirm=""
-            onClick={() => publish("click")}>
+          // The card's main action, so the primary button; it can't be undone, so it wears the danger tone. Enter on this card the user
+          // opened is its only default, as before.
+          : <AuiButton type="button" size="xs" variant="primary" tone="danger" aria-keyshortcuts="Enter" disabled={!ready || busy} data-tars-publish-confirm=""
+            data-tars-decision-tone="danger" onClick={() => publish("click")}>
             {t("shell:tars.publish.card.publish")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.enterKey")}</Kbd></span>
-          </Button>}
+          </AuiButton>}
       </div>
     </div>
     {error ? <p className={sx(styles.error)} role="alert">{error}</p> : null}

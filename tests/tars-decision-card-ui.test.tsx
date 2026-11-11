@@ -40,6 +40,8 @@ const key = (value: string, patch: Record<string, unknown> = {}) => {
   return { event: { key: value, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, target: null, nativeEvent: { isComposing: false },
     preventDefault: () => { prevented = true; }, ...patch }, prevented: () => prevented };
 };
+/** The opening tag of the first button carrying `attribute`, so a test reads its attributes in any order. */
+const buttonTag = (html: string, attribute: string) => html.match(new RegExp(`<button[^>]*${attribute}[^>]*>`))?.[0] ?? "";
 const focusedOption = (index: number) => ({ closest: () => ({ getAttribute: () => String(index) }) });
 /** A key pressed on one of the card's own buttons (Answer, Not now). */
 const onButton = { closest: (selector: string) => selector.includes("button") ? {} : null };
@@ -101,6 +103,11 @@ describe("decision card keys", () => {
     const direct: number[] = [];
     handleTarsDecisionKey(key("Enter", { target: focusedOption(0) }).event as never, proposal("cancel"), (index) => direct.push(index));
     expect(direct).toEqual([0]);
+    // Enter on another control in the card (Details, the work chip, Open task, Not now) presses that control and confirms nothing.
+    const onControl = key("Enter", { target: { closest: (selector: string) => selector.includes("button") ? {} : null } });
+    handleTarsDecisionKey(onControl.event as never, proposal("pause"), (index) => direct.push(index));
+    expect(onControl.prevented()).toBe(false);
+    expect(direct).toEqual([0]);
   });
 });
 
@@ -110,7 +117,8 @@ describe("decision card states", () => {
     expect(html).toContain('data-tars-decision-state="waiting"');
     expect(html).toContain("Should I pause the release check?");
     expect(html).toContain("About Release check");
-    expect(html).toContain("Waiting for your answer");
+    // The buttons already say it waits: no waiting badge.
+    expect(html).not.toContain("Waiting for your answer");
     expect(html).toContain('role="radiogroup"');
     expect((html.match(/type="radio"/g) ?? []).length).toBe(2);
     expect(tarsRecordText(html)).toContain("Pause it now Staging first.");
@@ -130,15 +138,18 @@ describe("decision card states", () => {
     const answer: TarsDecisionAnswer = { decisionId: "ask:message:0", optionIndex: 1, source: "words", effect: { kind: "reply" }, label: "Keep it running",
       status: "applied", reason: null, error: null, actRequestId: null, messageId: "answer", revision: 2, createdAt: NOW, updatedAt: NOW };
     const answered = rendered(ask({ state: "answered", answer })).html;
-    expect(tarsRecordText(answered)).toContain("Keep it running Should I pause the release check? words Answered");
+    // Who answered and how is the person glyph's sentence, not a source word in the line.
+    expect(tarsRecordText(answered)).toContain("Keep it running Should I pause the release check? Answered");
+    expect(answered).toContain('data-tars-record-actor="you"');
+    expect(answered).toContain('aria-label="You answered in the conversation"');
     expect(answered).not.toContain("<button");
     const invalid = rendered(ask({ state: "invalid", why: "targetMoved", reask: true })).html;
     expect(invalid).toContain("No longer valid: the work changed after this was asked.");
-    expect(invalid).toContain("Tars will ask again.");
+    expect(invalid).toContain("Tars will check whether this question is still needed.");
     expect(invalid).not.toContain("<button");
     expect(rendered(ask({ state: "invalid", why: "targetEnded", reasked: true })).html).toContain("Tars asked again below.");
     const rejected = rendered(ask({ state: "answered", answer: { ...answer, optionIndex: 0, label: "Pause it now", source: "click", status: "rejected", reason: "stale", error: "Stale." } })).html;
-    expect(tarsRecordText(rejected)).toContain("Pause it now Should I pause the release check? click Not applied");
+    expect(tarsRecordText(rejected)).toContain("Pause it now Should I pause the release check? Not applied");
     expect(rejected).toContain("This work changed after you last saw it.");
   });
 
@@ -148,7 +159,7 @@ describe("decision card states", () => {
     expect(html).toContain("Stave could not verify this completion");
     expect(html).toContain("Release check");
     expect(html).toContain("Can&#x27;t be undone");
-    for (const label of ["Accept as done", "Cancel responsibility", "Ask Tars for new verification work"]) expect(html).toContain(label);
+    for (const label of ["Accept as done", "Cancel work", "Ask Tars for new verification work"]) expect(html).toContain(label);
     expect(html).toContain("Nothing runs until you send it.");
     // Nothing is recommended, so nothing starts chosen and Answer waits for a choice.
     expect(html).not.toContain('checked=""');
@@ -160,13 +171,19 @@ describe("decision card states", () => {
     expect(korean).toContain("Tars에게 새 검증 작업 요청");
   });
 
-  test("a refused attempt stays on record above the open options; a proposed cancel has no Enter hint", () => {
+  test("a refused attempt is an inline alert under the open options, not a record; a proposed cancel has no Enter hint", () => {
     const failure: TarsDecisionAnswer = { decisionId: "unverified:goal:4", optionIndex: 1, source: "click", effect: { kind: "control", responsibilityId: "goal", expectedRevision: 4, operation: "cancel" },
       label: null, status: "rejected", reason: "unknown", error: "Unreachable.", actRequestId: "answer:unverified:goal:4", messageId: null, revision: 2, createdAt: NOW, updatedAt: NOW };
     const html = rendered(unverified({ failure })).html;
-    expect(html).toContain('data-tars-decision-attempt="rejected"');
-    expect(tarsRecordText(html)).toContain("Cancel responsibility click Not applied");
-    // The options are radios; Answer is the card's one button here.
+    // One alert: what was not applied and why, after the options and before the footer; no record row inside the card.
+    expect(html).toMatch(/<div[^>]*data-tars-decision-attempt="rejected"[^>]*role="status"/);
+    expect(html).toContain('data-tars-record-source="click"');
+    expect(html).toContain("Not applied: Cancel work");
+    expect(html).toContain("Tars could not do this. Check the work’s current state and try again.");
+    expect(html).not.toContain("data-tars-record-state");
+    expect(html.indexOf("data-tars-decision-options")).toBeLessThan(html.indexOf("data-tars-decision-attempt"));
+    expect(html.indexOf("data-tars-decision-attempt")).toBeLessThan(html.indexOf("data-tars-decision-submit"));
+    // The options are radios; nothing is known about where this runs, so there is no Details and the only button is Answer.
     expect((html.match(/<button/g) ?? []).length).toBe(1);
     expect((html.match(/type="radio"/g) ?? []).length).toBe(3);
     const cancel = rendered(ask({ id: "confirm:message:0", kind: "confirm", question: null, recommended: null,
@@ -190,28 +207,49 @@ const goal = { id: "goal", title: "Release check", repositoryPath: "/tmp/work/st
 const context: TarsDecisionCardContext = { rowOf: (id) => id === "goal" ? goal : undefined, workspaceNameOf: (id) => id === "exec-1" ? "Release branch" : undefined };
 
 describe("confirmation card", () => {
-  test("a proposed cancel shows its icon, title, the work, a risk tag, detail rows and Confirm with its key", () => {
+  test("a proposed cancel leads with what will happen: the title, the work, the effect; where it runs waits behind Details", () => {
     const { html } = rendered(proposal("cancel"), () => {}, context);
-    expect(html).toContain("Cancel this work?");
-    expect(html).toContain("Release check");
+    // Effect first: title, then the work, then the effect sentence, before Details and the buttons.
+    const order = ["Cancel this work?", "Release check", "data-tars-decision-effect", "data-tars-decision-details", "data-tars-decision-option"].map((text) => html.indexOf(text));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html).toMatch(/data-tars-decision-effect="">Ends Tars&#x27;s supervision. Changes already made stay.</);
     expect(html).toContain('data-tars-decision-risk="irreversible"');
-    expect(html).toContain("Can&#x27;t be undone");
-    expect(html).toContain('data-tars-decision-rows="repository,workspace,revision,effect"');
-    expect(html).toContain("stave-app");
+    // "Can't be undone" once, in the header; no waiting badge.
+    expect(html.match(/Can&#x27;t be undone/g)?.length).toBe(1);
+    expect(html).not.toContain("Awaiting your confirmation");
+    // Details is collapsed: its trigger says so and its rows (repository, workspace) sit in the closed panel.
+    expect(html).toContain('data-tars-decision-details="closed"');
+    expect(buttonTag(html, "data-tars-decision-details-toggle")).toContain('aria-expanded="false"');
+    expect(html).toMatch(/data-tars-decision-details-toggle=""[^>]*>(?:(?!<\/button>).)*Details/);
+    expect(html).toContain('data-tars-decision-rows="repository,workspace"');
     expect(html).toContain('title="/tmp/work/stave-app"');
-    expect(html).toContain("Release branch");
-    expect(html).toContain(">r3<");
-    expect(html).toContain("Ends Tars&#x27;s supervision. Changes already made stay.");
-    // No default for an irreversible effect: Confirm is outlined, keyed 1 only.
-    expect(html).toContain('aria-keyshortcuts="1"');
+    // The revision binds the decision for the host; people never see it as a row.
+    expect(html).toContain('data-tars-decision-revision="3"');
+    expect(html).not.toContain(">r3<");
+    // The main action is the primary button in the danger tone, named by its verb, keyed 1 only: no Enter default for an irreversible effect.
+    const confirm = buttonTag(html, 'data-tars-decision-option="0"');
+    for (const attribute of ['data-variant="primary"', 'data-tone="danger"', 'aria-keyshortcuts="1"']) expect(confirm).toContain(attribute);
+    expect(html).toMatch(/data-tars-decision-option="0"[^>]*>(?:(?!<\/button>).)*Cancel work/);
     expect(html).not.toContain("Enter</kbd>");
+    expect(html).not.toContain(">Confirm<");
+  });
+
+  test("a reversible confirm's button is the neutral primary with Enter, named by what it does", () => {
+    const { html } = rendered(proposal("pause"), () => {}, context);
+    const confirm = buttonTag(html, 'data-tars-decision-option="0"');
+    for (const attribute of ['data-variant="primary"', 'data-tone="default"', 'aria-keyshortcuts="1 Enter"']) expect(confirm).toContain(attribute);
+    expect(html).toMatch(/data-tars-decision-option="0"[^>]*>(?:(?!<\/button>).)*Pause/);
+    expect(html).toContain("Enter</kbd>");
+    expect(html).not.toContain("data-tars-decision-risk-tag");
   });
 
   test("a reversible proposal has no risk tag; unknown target rows are left out, never guessed", () => {
     const { html } = rendered(proposal("pause"));
     expect(html).toContain("Pause this work?");
     expect(html).not.toContain("data-tars-decision-risk-tag");
-    expect(html).toContain('data-tars-decision-rows="revision,effect"');
+    // Nothing known about where it runs: no Details at all.
+    expect(html).not.toContain("data-tars-decision-rows");
     expect(describeTarsDecisionTarget(proposal("pause"), {})).toEqual({ repository: null, repositoryPath: null, workspace: null, revision: 3 });
     // The execution workspace names the place, falling back to the request's own workspace.
     expect(describeTarsDecisionTarget(proposal("pause"), { rowOf: () => ({ ...goal, executionWorkspaceId: null }), workspaceNameOf: (id) => id === "home" ? "Home" : undefined }).workspace).toBe("Home");
@@ -248,9 +286,12 @@ describe("confirmation card", () => {
       workspaceId: "exec-1", toolName: "Bash", summary, truncated: true }] } as TarsResponsibility;
     const opened: unknown[] = [];
     const cut = rendered(approve, () => {}, { ...context, rowOf: () => row, onOpenTask: (target) => opened.push(target) });
-    expect(cut.html).toContain('data-tars-decision-rows="repository,workspace,revision,request,effect"');
-    // The request ends in the mark, keeps its line break, and the note says only its start is shown.
-    expect(cut.html).toContain("set -e\necho step-0 &amp;&amp; echo step-1…");
+    expect(cut.html).toContain('data-tars-decision-rows="repository,workspace"');
+    // The request is labelled with its tool and shown in a code block (mono, wrapped): it ends in the mark, keeps its line break,
+    // and the note says only its start is shown.
+    expect(cut.html).toContain("Request from Bash");
+    expect(cut.html).toMatch(/<pre[^>]*data-tars-decision-command=""><code[^>]*>Run the release script — set -e\necho step-0 &amp;&amp; echo step-1…<\/code><\/pre>/);
+    expect(cut.html.indexOf("data-tars-decision-command")).toBeLessThan(cut.html.indexOf("data-tars-decision-truncated"));
     expect(cut.html).toContain('data-tars-decision-truncated=""');
     expect(cut.html).toContain("Only the start is shown; open its task to read the whole request.");
     expect(cut.html).toContain('data-tars-decision-open-task=""');
@@ -269,6 +310,7 @@ describe("confirmation card", () => {
   test("Korean confirmation copy", async () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     const { html } = rendered(proposal("cancel"), () => {}, { ...context, onDismiss: () => {} });
-    for (const text of ["이 작업의 책임을 취소할까요?", "되돌릴 수 없음", "저장소", "워크스페이스", "리비전", "효과", "나중에"]) expect(html).toContain(text);
+    for (const text of ["이 작업을 취소하시겠습니까?", "되돌릴 수 없음", "세부 정보", "저장소", "워크스페이스", "작업 취소", "나중에"]) expect(html).toContain(text);
+    expect(html).not.toContain("리비전");
   });
 });

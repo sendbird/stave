@@ -12,6 +12,7 @@ import { listAgents } from "../../src/lib/agents/library";
 import { tarsPlannerAgents } from "../../src/lib/tars/agents";
 import { tarsExecutionTarget } from "../../src/lib/tars/execution-resources";
 import { notifyTarsChanged } from "./tars-events";
+import { tarsPlannerClock } from "../../src/lib/tars/schedules";
 
 let instance: Promise<ReturnType<typeof createTarsConversationService>> | null = null;
 let stopping = false;
@@ -29,7 +30,10 @@ export function getTarsConversationService() {
       responsibilities: store.tars,
       context: async (message) => {
         const execution = tarsExecutionTarget(message);
-        return { ...observeTarsContext(store, new Date().toISOString()), cwd,
+        const observedAt = new Date();
+        return { ...observeTarsContext(store, observedAt.toISOString(), message), cwd, clock: tarsPlannerClock(observedAt),
+          // The Schedules service lives in the host; an unreadable list is said to be unreadable, never empty.
+          schedules: await invokeHostService("tars.schedules", undefined).catch(() => null),
           agents: tarsPlannerAgents({ agents: listAgents({ custom: getCustomAgents(), activeOnly: true }),
             allowedAgentIds: message.allowedAgentIds ?? [], executionProviderId: execution.providerId, executionModel: execution.model }) };
       },
@@ -37,6 +41,8 @@ export function getTarsConversationService() {
       applyDecision: (input) => invokeHostService("tars.apply-decision", input),
       // Decision answers that control work take the same host path as a click.
       act: (input) => invokeHostService("tars.act", input),
+      // A confirmed work proposal is admitted by the host from its saved receipt.
+      confirmProposal: (input) => invokeHostService("tars.confirm-proposal", input),
       onError: () => console.error("[tars] conversation scheduling failed"),
     });
     // The host moves responsibilities; a move can invalidate a waiting decision, which Tars asks about once.

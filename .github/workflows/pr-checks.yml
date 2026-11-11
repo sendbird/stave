@@ -40,12 +40,12 @@ jobs:
   ui-layout:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # The layout suite runs one worker for stable geometry; two shards keep
+    # The layout suite runs one worker for stable geometry; four shards keep
     # each job within the timeout as layout regressions are added.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,7 +56,7 @@ jobs:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
       - run: bunx --bun playwright install --with-deps chromium
-      - run: bun run test:ui-layout --shard=${{ matrix.shard }}/2
+      - run: bun run test:ui-layout --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

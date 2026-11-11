@@ -126,11 +126,11 @@ test("a blocked run gets exactly one automatic follow-up planner turn", async ({
     const fakeCli = path.join(import.meta.dirname, "harness", "fake-claude-cli.cjs");
     const wrapper = path.join(fakeDir, "claude");
     const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=${quote("currentMessage,became blocked")} exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
+    await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR=${quote(fakeDir)} FAKE_CLAUDE_REPLY_FILE=${quote(replyFile)} FAKE_CLAUDE_PROMPT_MARKERS=${quote("currentMessage,delegated work cannot continue")} exec ${quote(process.execPath)} ${quote(fakeCli)} "$@"\n`);
     await chmod(wrapper, 0o755);
-    // Only the follow-up message's own text says "became blocked"; the planner's instructions never do.
+    // Only the follow-up message's own text says "delegated work cannot continue"; the planner's instructions never do.
     const followUpCalls = async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean)
-      .map((line) => JSON.parse(line)).filter((entry) => entry.markers?.currentMessage && entry.markers?.["became blocked"]).length;
+      .map((line) => JSON.parse(line)).filter((entry) => entry.markers?.currentMessage && entry.markers?.["delegated work cannot continue"]).length;
     stave = await launchStave({ userDataDir: profileDir, env: { STAVE_CLAUDE_CLI_PATH: wrapper } });
     await seedRepository(stave.page, { repositoryPath, settings: { autoRoutingEnabled: false } });
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input),
@@ -150,8 +150,13 @@ test("a blocked run gets exactly one automatic follow-up planner turn", async ({
       return { state: row.state, run: Boolean(row.agentRunId) };
     }, { timeout: 90_000 }).toEqual({ state: "running", run: true });
     expect(await followUpCalls()).toBe(0);
+    // Admission precedes the host's first task write. Deleting before the
+    // provider starts lets that write recreate the task instead of blocking it.
+    await expect.poll(async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean)
+      .map((line) => JSON.parse(line)).filter((entry) => entry.runTurn).length, { timeout: 60_000 }).toBe(2);
     // The execution task disappears under the run: the host observes it blocked, an event that needs Tars's judgment.
-    await stave.page.evaluate((workspaceId) => window.api!.persistence!.closeWorkspace!({ workspaceId }), row.executionWorkspaceId!);
+    expect(await stave.page.evaluate((workspaceId) => window.api!.persistence!.closeWorkspace!({ workspaceId }), row.executionWorkspaceId!)).toEqual({ ok: true });
+    expect((await stave.page.evaluate((workspaceId) => window.api!.persistence!.loadWorkspace!({ workspaceId }), row.executionWorkspaceId!)).snapshot).toBeNull();
     await expect.poll(async () => (await stave!.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)?.state,
       { timeout: 30_000 }).toBe("blocked");
     await expect.poll(followUpCalls, { timeout: 60_000 }).toBe(1);

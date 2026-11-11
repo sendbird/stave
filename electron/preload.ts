@@ -1,3 +1,5 @@
+import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
+import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
@@ -138,7 +140,13 @@ import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversa
   TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
+import { TarsUsageInputSchema, TarsUsageReportSchema } from "../src/lib/tars/usage";
 import { SaveTarsComposerDraftInputSchema, TarsComposerDraftSchema } from "../src/lib/tars/composer-draft";
+import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../src/lib/tars/clearing";
+import { TarsAwayStateSchema } from "../src/lib/tars/away-state";
+import {
+  TarsScheduleConfirmInputSchema, TarsScheduleListSchema, TarsSchedulePreviewInputSchema, TarsSchedulePreviewSchema, TarsScheduleResultSchema, TarsScheduleToggleInputSchema,
+} from "../src/lib/tars/schedules";
 import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
@@ -824,10 +832,21 @@ const tarsApi: TarsBridgeApi = {
   answer: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.answer, TarsAnswerInputSchema.parse(input))),
   publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
+  undoAction: async (input) => TarsUndoActionResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoAction, TarsUndoActionInputSchema.parse(input))),
   reprioritize: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.reprioritize, TarsReprioritizeInputSchema.parse(input))),
   getBrief: async (input) => TarsBriefSchema.parse(await ipcRenderer.invoke(TARS_IPC.getBrief, TarsBriefInputSchema.parse(input))),
+  getUsage: async (input) => TarsUsageReportSchema.parse(await ipcRenderer.invoke(TARS_IPC.getUsage, TarsUsageInputSchema.parse(input))),
   getDraft: async () => TarsComposerDraftSchema.nullable().parse(await ipcRenderer.invoke(TARS_IPC.getDraft)),
   saveDraft: async (input) => { await ipcRenderer.invoke(TARS_IPC.saveDraft, SaveTarsComposerDraftInputSchema.parse(input)); },
+  clear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.clear, TarsClearInputSchema.parse(input))),
+  undoClear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoClear, TarsUndoClearInputSchema.parse(input))),
+  configureView: async (input) => TarsViewSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureView, TarsViewSettingsSchema.parse(input))),
+  getAway: async () => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.getAway)),
+  saveAway: async (input) => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.saveAway, TarsAwayStateSchema.parse(input))),
+  previewSchedule: async (input) => TarsSchedulePreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedulePreview, TarsSchedulePreviewInputSchema.parse(input))),
+  confirmSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedule, TarsScheduleConfirmInputSchema.parse(input))),
+  toggleSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.scheduleToggle, TarsScheduleToggleInputSchema.parse(input))),
+  listSchedules: async () => TarsScheduleListSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedules)),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);

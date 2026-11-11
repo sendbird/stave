@@ -3033,7 +3033,23 @@ interface WindowApi {
    * (`tars:get-brief`) reads one responsibility's saved message and Tars's
    * instruction, which the snapshot leaves out. `getDraft` / `saveDraft`
    * (`tars:get-draft` / `tars:save-draft`) keep the composer draft across
-   * views and restarts. `onChanged` pushes `tars:changed`
+   * views and restarts. `clear` / `undoClear` (`tars:clear` /
+   * `tars:undo-clear`) hide and restore the conversation view, the tray's
+   * Done cards or its outputs, and `configureView` (`tars:configure-view`)
+   * saves how long ended work stays in the tray; nothing is deleted.
+   * `undoAction` (`tars:undo-action`) restores only host-snapshotted reversible
+   * records, rejecting changed work or queue membership. It never resumes a run.
+   * `getAway` / `saveAway` (`tars:get-away` / `tars:save-away`) keep when
+   * the user last saw the conversation and the "while you were away" summary
+   * on screen (`TarsAwayState`); saving is idempotent and never announced.
+   * `getUsage` (`tars:get-usage`) reads what Tars's work spent in a period
+   * from saved turn rows; it changes nothing.
+   * `previewSchedule` / `confirmSchedule` (`tars:schedule-preview` /
+   * `tars:schedule`) read and confirm a schedule card, `toggleSchedule`
+   * (`tars:schedule-toggle`) is the pause switch of a schedule Tars created
+   * and `listSchedules` (`tars:schedules`) lists those schedules; they are
+   * records of Stave's Schedules service, which stores and runs them.
+   * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
   tars?: TarsBridgeApi;

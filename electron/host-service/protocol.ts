@@ -1046,14 +1046,25 @@ export interface HostServiceRequestMap {
   "tars.invoke": { action: "get" | "create" | "updateIdentity"; args: unknown };
   /** Main-only admission of a persisted decision; no model-supplied action payload. */
   "tars.apply-decision": import("../../src/lib/tars/conversation").ApplyTarsDecisionInput;
+  /** Main-only confirmation of a held work proposal; names the saved receipt, never an action. */
+  "tars.confirm-proposal": import("../../src/lib/tars/conversation").ConfirmTarsProposalInput;
   /** A direct control, admitted on the same path as a proposed control. */
   "tars.act": import("../../src/lib/tars/conversation").TarsActInput;
+  "tars.undo-action": import("../../src/lib/tars/action-undo").TarsUndoActionInput;
   /** One publish card's confirmation, from a word proposal or a click; the host admits and runs it. */
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishInput;
   /** What a publish card shows; read only. */
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "tars.brief": import("../../src/lib/tars/brief").TarsBriefInput;
+  /** One schedule card's confirmation; the host reads the saved proposal and applies it through the Schedules service. */
+  "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleConfirmInput;
+  /** What a schedule card shows; read only. */
+  "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreviewInput;
+  /** The pause switch of a schedule Tars created. */
+  "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleToggleInput;
+  /** The schedules Tars created, as the Schedules service has them now. */
+  "tars.schedules": undefined;
   "agent-run.invoke": {
     action: HostAgentRunAction;
     args: unknown;
@@ -1264,11 +1275,17 @@ export interface HostServiceResponseMap {
   "wake-up.invoke": unknown;
   "tars.invoke": import("../../src/lib/tars/types").TarsSnapshot;
   "tars.apply-decision": import("../../src/lib/tars/conversation").TarsActionReceipt[];
+  "tars.confirm-proposal": import("../../src/lib/tars/conversation").TarsActionReceipt;
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
+  "tars.undo-action": import("../../src/lib/tars/conversation").TarsUndoActionResult;
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishResult;
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.brief": import("../../src/lib/tars/brief").TarsBrief;
+  "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleResult;
+  "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreview;
+  "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleResult;
+  "tars.schedules": import("../../src/lib/tars/schedules").TarsScheduleList;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
   "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;

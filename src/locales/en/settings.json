@@ -122,6 +122,17 @@
         "description": "Mono and Korean font families and the Information panel scale. Saved values apply even while this is collapsed."
       }
     },
+    "layout": {
+      "title": "Layout",
+      "description": "How wide the conversation reads in tasks and Tars.",
+      "conversationWidth": {
+        "title": "Conversation width",
+        "description": "The widest the messages and the message box grow in tasks and Tars. Each choice steps wider as the conversation area gets wider, and a narrow area always uses its full width.",
+        "narrow": "Narrow",
+        "default": "Default",
+        "wide": "Wide"
+      }
+    },
     "behavior": {
       "title": "Behavior",
       "description": "Toggle chat features and display preferences.",

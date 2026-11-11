@@ -1,3 +1,5 @@
+import { captureTarsControlUndo } from "../../src/lib/tars/action-undo";
+import type { TarsStore } from "../persistence/tars-store";
 import {
   parseTarsConfirmationRequestId, TarsActInputSchema, type TarsActInput, type TarsActResult, type TarsActionRecord,
   type TarsControlAction, type TarsControlOperation, type TarsControlReason,
@@ -152,7 +154,7 @@ export function tarsControlRejection(error: unknown): TarsControlRejectionOutcom
 }
 
 export function tarsActionLedger(conversations: TarsConversationStore, requestId: string,
-  now: () => string, proposal?: TarsProposalRef): TarsControlLedger<TarsActionRecord> {
+  now: () => string, proposal?: TarsProposalRef, responsibilities?: TarsStore): TarsControlLedger<TarsActionRecord> {
   return {
     key: `click:${requestId}`,
     settled: () => {
@@ -164,7 +166,12 @@ export function tarsActionLedger(conversations: TarsConversationStore, requestId
     ...(proposal ? { admit: () => {
       if (!conversations.isCurrentProposal(proposal)) throw new TarsControlRejection("stale", TARS_PROPOSAL_SUPERSEDED);
     } } : {}),
-    apply: (effect) => conversations.applyAction(requestId, effect, now(), proposal),
+    apply: (effect) => conversations.applyAction(requestId, () => {
+      const record = conversations.getAction(requestId)!;
+      const before = responsibilities?.get(record.action.responsibilityId) ?? null;
+      effect();
+      return captureTarsControlUndo(record.action, before, responsibilities?.get(record.action.responsibilityId) ?? null);
+    }, now(), proposal),
     queue: (effect, agentRunId) => conversations.applyAction(requestId, effect, now(), proposal, { agentRunId }),
     reject: ({ reason, error }) => conversations.rejectAction(requestId, reason, error, now(), proposal),
   };
@@ -191,6 +198,7 @@ function confirmedProposal(conversations: TarsConversationStore, input: TarsActI
 }
 
 interface TarsActPorts {
+  responsibilities?: TarsStore;
   conversations: TarsConversationStore;
   runtime: {
     act<R>(request: TarsControlRequest, ledger: TarsControlLedger<R>): Promise<R>;
@@ -207,7 +215,7 @@ export async function actTars(rawInput: unknown, ports: TarsActPorts): Promise<T
     const confirmation = confirmedProposal(ports.conversations, input);
     const request: TarsActInput = confirmation?.input ? { ...input, input: confirmation.input } : input;
     ports.conversations.recordAction(request, now());
-    const record = await ports.runtime.act(request, tarsActionLedger(ports.conversations, input.requestId, now, confirmation?.ref));
+    const record = await ports.runtime.act(request, tarsActionLedger(ports.conversations, input.requestId, now, confirmation?.ref, ports.responsibilities));
     return { record, snapshot: await ports.runtime.get() };
   } catch (error) {
     // The fixed message lets callers retry the same request ID after a lock wait.

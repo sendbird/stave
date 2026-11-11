@@ -1,3 +1,4 @@
+import { transcriptMeasure } from "@/components/ai-elements/transcript-measure.stylex";
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/aui/tokens/tokens.stylex";
@@ -136,8 +137,9 @@ export const composerFramePreviewStyles = stylex.create({
     blockSize: 0,
     inlineSize: "100%",
   },
+  // The real framed composer's measure: the transcript column and its two wing tracks.
   composerMeasureWide: {
-    maxWidth: "72rem",
+    maxWidth: `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * 3.125rem)`,
   },
   composerMeasureSqueezed: {
     maxWidth: 820,

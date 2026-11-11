@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent, type ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { ChartNoAxesGantt, FileDiff, FileText, ScrollText, SearchCheck, X, type LucideIcon } from "lucide-react";
@@ -85,7 +86,7 @@ export function TarsSideView(props: TarsSideViewProps) {
           <KindIcon aria-hidden className={sx(panelBarStyles.headerIcon)} />
           <span className={sx(styles.headingText)}>{t(`shell:tars.side.kinds.${target.kind}`)}</span>
         </h2>
-        <Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.side.close")} title={t("shell:tars.side.closeHint")} onClick={props.onClose}><X /></Button>
+        <Tooltip content={t("shell:tars.side.closeHint")}><Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.side.close")} onClick={props.onClose}><X /></Button></Tooltip>
       </div>
       <div className={sx(styles.context)}>
         <p id={subjectId} className={sx(styles.subject)} title={row.title} data-tars-side-subject="">{row.title}</p>

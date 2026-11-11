@@ -167,32 +167,35 @@ export function ModelSelector(args: ModelSelectorProps) {
       onSelect={() => selectOption(option)}
       className={sx(styles.optionItem)}
     >
-      {option.isAuto ? (
-        <Sparkles className={sx(styles.optionAccentIcon)} />
-      ) : (
-        <ModelIcon
-          providerId={option.providerId}
-          model={option.model}
-          className={sx(styles.optionIcon)}
-        />
-      )}
-      <div className={sx(styles.optionBody)}>
-        <span className={sx(styles.optionTitleRow)}>
-          <span className={sx(styles.optionLabel)} data-model-option-label="">{option.label}</span>
-          {option.isDefault ? (
-            <span className={sx(styles.optionDefaultBadge)}>{i18n.t("composer:modelSelector.copy")}</span>
-          ) : null}
-          {option.badge ? (
-            <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
-          ) : null}
+      <div className={sx(styles.optionContent)}>
+        <span className={sx(styles.optionMark)} data-model-option-icon="">{option.isAuto ? (
+          <Sparkles className={sx(styles.optionAccentIcon)} />
+        ) : (
+          <ModelIcon
+            providerId={option.providerId}
+            model={option.model}
+            className={sx(styles.optionIcon)}
+          />
+        )}
         </span>
-        {/* The price ends the id line, so it never takes the name's room. */}
-        <span className={sx(styles.optionDescriptionLine)}>
-          <span className={sx(styles.optionDescription)}>
-            {option.description || option.model}
+        <div className={sx(styles.optionBody)}>
+          <span className={sx(styles.optionTitleRow)}>
+            <span className={sx(styles.optionLabel)} data-model-option-label="">{option.label}</span>
+            {option.isDefault ? (
+              <span className={sx(styles.optionDefaultBadge)}>{i18n.t("composer:modelSelector.copy")}</span>
+            ) : null}
+            {option.badge ? (
+              <span className={sx(styles.optionNoticeBadge)} title={option.description}>{option.badge}</span>
+            ) : null}
           </span>
-          {option.isAuto ? null : <ModelPrice model={option.model} xstyle={styles.optionPrice} />}
-        </span>
+          {/* The price ends the id line, so it never takes the name's room. */}
+          <span className={sx(styles.optionDescriptionLine)}>
+            <span className={sx(styles.optionDescription)} data-model-option-detail="">
+              {option.description || option.model}
+            </span>
+            {option.isAuto ? null : <ModelPrice model={option.model} xstyle={styles.optionPrice} />}
+          </span>
+        </div>
       </div>
     </CommandItem>
   );
@@ -258,9 +261,8 @@ export function ModelSelector(args: ModelSelectorProps) {
         <Command className={sx(styles.command)}>
           <CommandInput autoFocus placeholder={i18n.t("composer:modelSelector.placeholder")} />
           {/*
-            Each option row is 3.5rem tall (py-2.5 + a 20px label and a 16px
-            description line), so the 17.5rem cap keeps roughly five rows in
-            view and everything below reachable by scrolling.
+            Rows grow when names or compatibility notices wrap. The list
+            keeps its height cap, with every option reachable by scrolling.
           */}
           <CommandList className={sx(styles.commandList)}>
             <CommandEmpty>{i18n.t("composer:modelSelector.modelSelector3")}</CommandEmpty>

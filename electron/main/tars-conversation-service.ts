@@ -1,10 +1,11 @@
 import {
   CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
-  TarsConversationSchema, TarsConversationSettingsSchema, TARS_CONFIRMED_OPERATIONS, tarsConfirmationRequestId, isTarsAnswerRetryable,
-  type TarsMessage, type ApplyTarsDecisionInput, type TarsActInput, type TarsActResult, type TarsAnswerResult, type TarsDecisionAnswer,
+  TarsConversationSchema, TarsConversationSettingsSchema, TarsControlReasonSchema, isTarsHoldableAction, tarsConfirmationRequestId, isTarsAnswerRetryable,
+  type TarsMessage, type ApplyTarsDecisionInput, type ConfirmTarsProposalInput, type TarsActInput, type TarsActResult, type TarsActionReceipt,
+  type TarsAnswerResult, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
 import {
-  isTarsReservedMessageRequestId, parseTarsDecisionId, projectTarsDecisions, tarsAnswerActRequestId,
+  isTarsReservedMessageRequestId, isTarsWorkProposal, parseTarsDecisionId, projectTarsDecisions, tarsAnswerActRequestId,
   tarsAnswerMessageRequestId, tarsAskDecisionId, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "../../src/lib/tars/decisions";
 import { admitTarsFollowUps, claimTarsMessage, releaseTarsFollowUpStart, supersedeStaleTarsFollowUp, tarsAutomaticStartDeferral } from "./tars-follow-up";
@@ -14,12 +15,15 @@ import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/ta
 import type { createSecondaryRunCoordinator } from "./runs/secondary-run-coordinator";
 import { processTarsMessage, tarsMessageRunIdentity, type TarsPlannerContext } from "./tars-planner";
 import { isTarsAgentCatalogPending, TarsAgentCatalogPendingError } from "../../src/lib/tars/agents";
+import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema, parseTarsClearProposalRequestId } from "../../src/lib/tars/clearing";
+import { filterTarsConversationView, tarsClearKeeps } from "../../src/lib/tars/clear-view";
+import { TarsAwayStateSchema } from "../../src/lib/tars/away-state";
 
 type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
 interface ConversationPorts {
   conversations: TarsConversationStore;
   coordinator: Coordinator;
-  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events">;
+  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events" | "view"> & Partial<Pick<TarsStore, "schedules">>;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
   /**
@@ -28,6 +32,11 @@ interface ConversationPorts {
    * control work are refused as not waiting.
    */
   act?: (input: TarsActInput) => Promise<TarsActResult>;
+  /**
+   * The host's admission of a held work proposal the user confirmed
+   * (`tars.confirm-proposal`). Absent, such a confirmation is refused.
+   */
+  confirmProposal?: (input: ConfirmTarsProposalInput) => Promise<TarsActionReceipt>;
   /**
    * False until the renderer synced the saved agents. A message that allows
    * saved agents waits for them instead of reasoning with an incomplete list.
@@ -102,23 +111,44 @@ export function createTarsConversationService(ports: ConversationPorts) {
   }
 
   /** The saved state every decision is projected from, read by exact identity where the window could miss it. */
-  function decisions() {
-    // Decisions read words, receipts and origins: never attachment content.
-    const messages = ports.conversations.listViews(DECISION_WINDOW);
-    const receipts = messages.flatMap((message) => ports.conversations.listReceipts(message.id));
+  function decisions(sources = readDecisionMessages()) {
+    const { messages, receipts } = sources;
     const snapshot = ports.responsibilities.snapshot();
     const activity = ports.responsibilities.listActivity(DECISION_WINDOW);
     const ids = [
       ...receipts.flatMap((receipt) => receipt.action.kind === "ask" ? [tarsAskDecisionId(receipt.messageId, receipt.actionIndex)]
-        : receipt.action.kind === "control" ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []),
+        : receipt.action.kind === "control" || isTarsWorkProposal(receipt) ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []),
       ...activity.map((event) => tarsUnverifiedDecisionId(event.responsibilityId, event.revision)),
       ...snapshot.responsibilities.map((row) => tarsUnverifiedDecisionId(row.id, row.revision)),
     ];
     const answers = ports.conversations.getAnswers(ids);
     const records = ports.conversations.getActions(receipts.flatMap((receipt) =>
-      receipt.action.kind === "control" && TARS_CONFIRMED_OPERATIONS.has(receipt.action.operation)
+      receipt.action.kind === "control" && isTarsHoldableAction(receipt.action)
         ? [tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)] : []));
     return projectTarsDecisions({ messages, receipts, records, answers, activity, responsibilities: snapshot.responsibilities });
+  }
+
+  /** Decisions read words, receipts and origins: never attachment content. */
+  function readDecisionMessages() {
+    const messages = ports.conversations.listViews(DECISION_WINDOW);
+    return { messages, receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)) };
+  }
+
+  /** What a conversation clear keeps in view, from every saved decision rather than the cleared view. */
+  function clearKeeps() {
+    const sources = readDecisionMessages();
+    return { keeps: tarsClearKeeps({ decisions: decisions(sources), receipts: sources.receipts }), messages: sources.messages };
+  }
+
+  /** When the active conversation clear happened; the view and Tars's recent history start after it. */
+  function clearedAt() {
+    return ports.responsibilities.view.activeConversationClear()?.createdAt ?? null;
+  }
+
+  /** Tars's history boundary: the active clear's time and the messages it kept because they were under way. */
+  function historyAfter() {
+    const active = ports.responsibilities.view.activeConversationClear();
+    return active ? { at: active.createdAt, keep: active.inProgress ?? [] } : null;
   }
 
   /**
@@ -139,6 +169,15 @@ export function createTarsConversationService(ports: ConversationPorts) {
         : { status: "rejected", reason: record.reason, error: record.error ?? "The control was not applied." }, now());
     }
     const parsed = parseTarsDecisionId(answer.decisionId);
+    if (effect.kind === "proposal") {
+      // The host applies the saved action of the receipt this decision names, admitted again now.
+      if (!ports.confirmProposal || parsed?.kind !== "confirm") throw new Error("The host proposal path is unavailable.");
+      const settled = await ports.confirmProposal({ messageId: parsed.messageId, actionIndex: parsed.actionIndex });
+      if (settled.status === "pending" || settled.status === "proposed") return answer;
+      const reason = TarsControlReasonSchema.safeParse(settled.reason);
+      return ports.conversations.settleAnswer(answer.decisionId, settled.status === "applied" ? { status: "applied" }
+        : { status: "rejected", reason: reason.success ? reason.data : null, error: settled.error ?? "The proposal was not applied." }, now());
+    }
     const receipt = parsed && parsed.kind === "ask" ? ports.conversations.getReceipt(parsed.messageId, parsed.actionIndex) : null;
     if (receipt?.action.kind !== "ask") throw new Error("The question for this answer was not found.");
     const option = receipt.action.options[answer.optionIndex];
@@ -235,7 +274,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false) throw new TarsAgentCatalogPendingError();
       activeMessageId = message.id;
       try {
-        await processTarsMessage(message.id, { ...ports, isStopped: () => stopped,
+        await processTarsMessage(message.id, { ...ports, isStopped: () => stopped, historyAfter,
           supersedeStale: (id) => supersedeStaleTarsFollowUp({ events: ports.responsibilities.events, conversations: ports.conversations,
             responsibilities: ports.responsibilities, now }, id),
           claim: (id, revision, at) => claimTarsMessage({ events: ports.responsibilities.events, conversations: ports.conversations, responsibilities: ports.responsibilities }, id, revision, at),
@@ -297,11 +336,55 @@ export function createTarsConversationService(ports: ConversationPorts) {
       const { limit, activityLimit } = GetTarsConversationInputSchema.parse(rawInput);
       // A window reads this on every change: attachment summaries only, the content stays for the planner.
       const messages = ports.conversations.listViews(limit);
-      return TarsConversationSchema.parse({ settings: ports.conversations.getSettings(),
+      const view = ports.responsibilities.view;
+      const active = view.activeConversationClear();
+      const conversation = { settings: ports.conversations.getSettings(),
         activity: ports.responsibilities.listActivity(activityLimit), messages,
         receipts: messages.flatMap((message) => ports.conversations.listReceipts(message.id)),
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
-        events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit) });
+        events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit),
+        clears: view.listClears(active?.createdAt ?? null, limit), trayClears: view.listTrayClears(),
+        // Schedule confirmations and the runs Tars's schedules started, written by the host on the same file.
+        ...(ports.responsibilities.schedules ? { schedules: ports.responsibilities.schedules.listRecords(limit), scheduleRuns: ports.responsibilities.schedules.listRuns(limit) } : {}),
+        view: { retentionDays: view.getSettings().retentionDays, clearedAt: active?.createdAt ?? null, clearRequestId: active?.requestId ?? null } };
+      // A cleared conversation hides what came before, never what still needs the user.
+      return TarsConversationSchema.parse(active ? filterTarsConversationView(conversation, { clearedAt: active.createdAt, inProgress: active.inProgress ?? [], keeps: clearKeeps().keeps }) : conversation);
+    },
+    /**
+     * Applies one clear from a button or a confirmed Tars proposal
+     * (`clear:<message>:<index>`, settled with it). Hides, never deletes; the
+     * same request id returns the saved record.
+     */
+    clear(rawInput: unknown) {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      const input = TarsClearInputSchema.parse(rawInput);
+      const proposal = parseTarsClearProposalRequestId(input.requestId);
+      const at = now();
+      const previous = clearedAt();
+      return ports.responsibilities.view.clear(input, { responsibilities: ports.responsibilities.snapshot().responsibilities, now: at,
+        hiddenMessages: () => {
+          const { keeps, messages } = clearKeeps();
+          const kept = messages.filter((message) => keeps.messageIds.has(message.id) && message.createdAt <= at && (!previous || message.createdAt > previous)
+            && message.state !== "queued" && message.state !== "reasoning").length;
+          return ports.conversations.countSettledBetween(previous, at) - kept;
+        },
+        inProgress: () => ports.conversations.listInProgressIds(),
+        ...(proposal ? { proposal: { ...proposal, settle: () => { ports.conversations.settleClearProposal(proposal, input.scopes, at); } } } : {}) });
+    },
+    undoClear(rawInput: unknown) {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      return ports.responsibilities.view.undo(TarsUndoClearInputSchema.parse(rawInput).requestId, now());
+    },
+    configureView(rawInput: unknown) {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      return ports.responsibilities.view.configure(TarsViewSettingsSchema.parse(rawInput));
+    },
+    /** When the user last saw the conversation and the summary on screen: view state, readable and writable while the service is stopped. */
+    getAway() {
+      return ports.responsibilities.view.getAway();
+    },
+    saveAway(rawInput: unknown) {
+      return ports.responsibilities.view.saveAway(TarsAwayStateSchema.parse(rawInput));
     },
     /** The composer draft is the user's words, not reasoning work: it stays readable and writable while the service is stopped. */
     getDraft() {
@@ -326,9 +409,10 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (view?.state === "answered") return { answer: view.answer, refusal: "alreadyAnswered" };
       if (!view || view.state !== "waiting" || !view.checked) return { answer: null, refusal: "notWaiting" };
       const option = view.options[input.optionIndex];
-      if (!option || option.kind === "verify" || (option.kind === "control" && !ports.act)) return { answer: null, refusal: "invalidOption" };
+      if (!option || option.kind === "verify" || (option.kind === "control" && !ports.act) || (option.kind === "proposal" && !ports.confirmProposal))
+        return { answer: null, refusal: "invalidOption" };
       const recorded = ports.conversations.recordAnswer({ decisionId: view.id, optionIndex: input.optionIndex, source: input.source,
-        effect: option.kind === "control" ? { kind: "control", ...option.control } : { kind: "reply" },
+        effect: option.kind === "control" ? { kind: "control", ...option.control } : { kind: option.kind },
         label: option.label, actRequestId: option.kind === "control" ? tarsAnswerActRequestId(view.id) : null }, now());
       if (recorded.refusal) return recorded;
       return { answer: await settleAnswer(recorded.answer), refusal: null };

@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { observeTarsContext } from "../electron/main/tars-context";
 import { buildTarsPlannerPrompt } from "../electron/main/tars-planner";
@@ -8,6 +8,8 @@ import { BUILTIN_PLANNER_AGENTS, REGISTRY, SETTINGS } from "./tars-test-context"
 import type { PersistenceRepositoryRegistryEntry } from "../electron/persistence/types";
 import type { AgentRun } from "../src/lib/agent-runs/domain";
 import { TARS_DEFAULT_BRANCH_NAMING_RULE } from "../src/lib/tars/branch-name";
+import type { TarsResponsibility } from "../src/lib/tars/types";
+import type { TarsMessage } from "../src/lib/tars/conversation";
 
 const NOW = "2026-11-05T00:00:00.000Z";
 
@@ -88,4 +90,61 @@ test("each repository carries its saved branch naming rule, bounded, or the kick
   expect(observed.repositories.map((repository) => repository.branchNamingRule)).toEqual([
     "Use <JIRA-KEY>/<kebab-description>.", "x".repeat(1_000), TARS_DEFAULT_BRANCH_NAMING_RULE]);
   db.close();
+});
+
+describe("planner work selection keeps new and live work ahead of old ended work", () => {
+  const OLD = "2026-01-01T00:00:00.000Z";
+  const at = (minute: number) => new Date(Date.parse(NOW) + minute * 60_000).toISOString();
+  const ports = (tars: TarsStore) => ({ tars, loadRepositoryRegistry: () => REGISTRY, loadWorkspaceShellSummary: () => null,
+    agentRuns: { getLatestAgentRunForTask: () => null } });
+  function add(tars: TarsStore, key: string, state: TarsResponsibility["state"], options: { priority?: number; createdAt?: string; updatedAt?: string } = {}) {
+    const created = tars.create({ requestId: key, title: `Work ${key}`, instruction: `Do ${key}`, acceptanceCriteria: ["Verified"],
+      workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex", priority: options.priority ?? 50 }, options.createdAt ?? NOW);
+    return state === "queued" ? created : tars.patch(created.id, created.revision, { state }, options.updatedAt ?? options.createdAt ?? NOW);
+  }
+
+  test("one new running item reaches the planner past 25 old completed items, with the omitted count kept", () => {
+    const db = new Database(":memory:"); const tars = new TarsStore(db);
+    for (let i = 0; i < 25; i++) add(tars, `old-${i}`, "completed", { priority: 90, createdAt: OLD });
+    const running = add(tars, "new", "running", { createdAt: NOW });
+    // The store's own order would put the running item last, past the cap.
+    expect(tars.snapshot().responsibilities.at(-1)?.id).toBe(running.id);
+    const observed = observeTarsContext(ports(tars), NOW).observation;
+    expect(observed.responsibilities[0]?.id).toBe(running.id);
+    expect(observed.responsibilities).toHaveLength(20);
+    expect(observed.omittedResponsibilities).toBe(6);
+    db.close();
+  });
+
+  test("live work comes in urgency order, then ended work by most recent update", () => {
+    const db = new Database(":memory:"); const tars = new TarsStore(db);
+    const endedOld = add(tars, "ended-old", "completed", { priority: 99, createdAt: OLD, updatedAt: at(1) });
+    const endedNew = add(tars, "ended-new", "cancelled", { priority: 99, createdAt: OLD, updatedAt: at(5) });
+    const queued = add(tars, "queued", "queued", { priority: 80 });
+    const paused = add(tars, "paused", "paused", { priority: 70 });
+    const blocked = add(tars, "blocked", "blocked", { priority: 60 });
+    const waiting = add(tars, "waiting", "waiting", { priority: 40 });
+    const running = add(tars, "running", "running", { priority: 10 });
+    const ids = observeTarsContext(ports(tars), NOW).observation.responsibilities.map((row) => row.id);
+    expect(ids).toEqual([running.id, waiting.id, blocked.id, paused.id, queued.id, endedNew.id, endedOld.id]);
+    db.close();
+  });
+
+  test("work the message names by title or id, or a follow-up is about, comes first even when it ended", () => {
+    const db = new Database(":memory:"); const tars = new TarsStore(db);
+    const byTitle = add(tars, "title", "completed", { createdAt: OLD });
+    const byId = add(tars, "id", "completed", { createdAt: OLD });
+    const followed = add(tars, "followed", "cancelled", { createdAt: OLD });
+    for (let i = 0; i < 25; i++) add(tars, `live-${i}`, "running", { priority: 90 });
+    const named = observeTarsContext(ports(tars), NOW, { text: `Reopen WORK TITLE and look at ${byId.id}` }).observation;
+    expect(named.responsibilities.slice(0, 2).map((row) => row.id).sort()).toEqual([byTitle.id, byId.id].sort());
+    expect(named.responsibilities.map((row) => row.id)).not.toContain(followed.id);
+    expect(named.omittedResponsibilities).toBe(8);
+    const followUp = observeTarsContext(ports(tars), NOW, { text: "", origin: { kind: "followUp", eventKey: "event", responsibilityId: followed.id,
+      reason: "blocked", observedRevision: followed.revision, summary: "" } as unknown as TarsMessage["origin"] }).observation;
+    expect(followUp.responsibilities[0]?.id).toBe(followed.id);
+    // Without a message the same store shows only live work.
+    expect(observeTarsContext(ports(tars), NOW).observation.responsibilities.every((row) => row.state === "running")).toBe(true);
+    db.close();
+  });
 });

@@ -637,9 +637,6 @@
       "custom-spinner": 1,
       "line-height": 2
     },
-    "src/components/ai-elements/message-markdown.styles.ts": {
-      "line-height": 1
-    },
     "src/components/ai-elements/composer-option.styles.ts": {
       "icon-metric": 4,
       "line-height": 2
@@ -731,9 +728,6 @@
     "src/components/session/side-chat/side-chat-panel.styles.ts": {
       "icon-metric": 2,
       "line-height": 3
-    },
-    "src/components/session/side-chat/SideQuestionComposerControl.tsx": {
-      "icon-metric": 1
     },
     "src/components/session/ChatInputComposer.tsx": {
       "icon-metric": 6

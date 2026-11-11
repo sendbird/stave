@@ -92,7 +92,8 @@ test.describe("transcript column", () => {
         const frame = document.querySelector("[data-composer-frame]");
         const composerCard =
           frame?.querySelector(":scope > div:not([data-composer-frame-slot])") ?? document.querySelector(".prompt-input-shell");
-        return { reply: box(reply), bubble: box(bubble ?? null), composer: box(composerCard) };
+        const surface = document.querySelector('[data-testid="session-area"]')!.getBoundingClientRect().width;
+        return { reply: box(reply), bubble: box(bubble ?? null), composer: box(composerCard), surface };
       });
       expect(geometry.reply).not.toBeNull();
       expect(geometry.bubble).not.toBeNull();
@@ -101,7 +102,9 @@ test.describe("transcript column", () => {
       // so they can differ only by sub-pixel rounding of the shared centre.
       expect(Math.abs(geometry.reply!.center - geometry.composer!.center)).toBeLessThanOrEqual(2);
       expect(Math.abs(geometry.bubble!.right - geometry.reply!.right)).toBeLessThanOrEqual(2);
-      expect(geometry.reply!.right - geometry.reply!.left).toBeLessThanOrEqual(760.5);
+      // The default width scale: 48rem, then 52rem from a 64rem surface (`transcript-width.ts`).
+      const cap = (geometry.surface >= 90 * 16 ? 56 : geometry.surface >= 64 * 16 ? 52 : 48) * 16;
+      expect(geometry.reply!.right - geometry.reply!.left).toBeLessThanOrEqual(cap + 0.5);
     });
   }
 

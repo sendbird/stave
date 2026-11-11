@@ -29,7 +29,7 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "The work is queued", actions: [receipt.action] };
     const html = render({ ...message, state: "answered", decision, reply: decision.reply }, [receipt]);
     expect(html).toContain("My representative");
-    expect(html).toContain("Accepted for execution");
+    expect(html).toContain("Work added");
     expect(html).not.toContain("Completed");
     expect(html).not.toContain("Cancel message");
   });
@@ -46,9 +46,9 @@ describe("persistent conversation UI", () => {
     expect(html).not.toContain("data-tars-mark");
     expect(html).not.toContain(">My representative<");
   });
-  test("the time is one short relative stamp, out of the flow, that the keyboard can reach", () => {
+  test("the time is the clock beside the user's bubble, before it, as a button the keyboard can reach", () => {
     const html = render({ ...message, state: "answered", reply: "Done.", decision: { reply: "Done.", actions: [] } });
-    expect(html).toMatch(/data-tars-message-time=""><button type="button"[^>]*><time dateTime="2026-11-05T00:00:00.000Z">[^<]+<\/time><\/button>/);
+    expect(html).toMatch(/data-tars-message-time="edge"><button type="button"[^>]*><time dateTime="2026-11-05T00:00:00.000Z">\d{1,2}:\d{2}\s[AP]M<\/time><\/button><\/span><div[^>]*data-tars-user-bubble=""/);
     // No full date line under the bubble any more: the card behind the stamp gives it.
     expect(html).not.toContain("Nov 5, 2026");
     expect(html).not.toContain("data-tars-message-meta");
@@ -105,7 +105,37 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "It is yours now.", actions: [control] };
     const html = render({ ...message, text: "내가 할게", state: "answered", decision, reply: decision.reply },
       [{ ...receipt, action: control, responsibilityId: "goal" }]);
-    expect(tarsRecordText(html)).toContain("Take over goal Accepted for execution");
+    expect(tarsRecordText(html)).toContain("Take over goal Taken over by you");
     expect(html).toContain("내가 할게");
+  });
+});
+
+describe("automatic follow-up", () => {
+  const origin = { kind: "followUp" as const, eventKey: "blocked:goal:3", responsibilityId: "goal", reason: "blocked" as const, observedRevision: 3, summary: "goal is blocked." };
+  const followUp = (patch: Partial<TarsMessage>) => render({ ...message, text: "Automatic follow-up: blocked.", origin, ...patch });
+
+  test("its line heads Tars's reply as one item: the reply hangs from the line's mark on the rail's text column", () => {
+    const html = followUp({ state: "answered", reply: "The rebuild stopped.", decision: { reply: "The rebuild stopped.", actions: [] } });
+    // One group, named by the line, with the line first and the reply inside its body; no user bubble.
+    expect(html).toMatch(/<div role="group" aria-label="Tars follow-up · Work cannot continue: goal"[^>]*data-tars-record-thread="">/);
+    const head = html.indexOf('data-tars-follow-up="blocked"');
+    const body = html.indexOf("data-tars-record-thread-body");
+    const reply = html.indexOf("data-tars-reply");
+    expect(head).toBeGreaterThan(0);
+    expect(head).toBeLessThan(body);
+    expect(body).toBeLessThan(reply);
+    // The rail runs on from the line's mark beside the reply.
+    expect(html.slice(html.indexOf("data-tars-record-thread"), head)).toContain('aria-hidden="true"');
+    expect(html).not.toContain("data-tars-user-bubble");
+  });
+
+  test("a follow-up the work outran is one compact item: its line and why, with no Cancelled status", () => {
+    const html = followUp({ state: "cancelled", reply: null });
+    expect(html).toContain('data-tars-follow-up="blocked"');
+    expect(html).toContain('data-tars-record-state="skipped"');
+    expect(html).toMatch(/data-tars-follow-up-superseded=""[^>]*>Tars skipped this follow-up because the work changed first\.</);
+    expect(html).not.toContain("data-tars-message-state");
+    expect(html).not.toContain("data-tars-record-thread-body");
+    expect(html.match(/data-tars-record-state=/g)).toHaveLength(1);
   });
 });

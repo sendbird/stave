@@ -39,8 +39,14 @@ export function tarsRecordedChangeCount(detail: AgentRunDetail): number | null {
 }
 
 /** Newest work first; within one responsibility, report, changes, review, its draft pull request, then links. */
-export function buildTarsOutputs(args: { responsibilities: readonly TarsResponsibility[]; runs: Readonly<Record<string, AgentRunDetail>> }): TarsOutput[] {
-  const rows = [...args.responsibilities].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
+export function buildTarsOutputs(args: {
+  responsibilities: readonly TarsResponsibility[];
+  runs: Readonly<Record<string, AgentRunDetail>>;
+  /** Ended work whose outputs were cleared or passed retention (`TarsSnapshot.cleared.outputs`); its outputs leave the list. */
+  cleared?: readonly string[];
+}): TarsOutput[] {
+  const cleared = new Set(args.cleared ?? []);
+  const rows = args.responsibilities.filter((row) => !cleared.has(row.id)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id));
   return rows.flatMap((row): TarsOutput[] => {
     const run = tarsRunOf(row, args.runs);
     const base = { responsibilityId: row.id, title: row.title };

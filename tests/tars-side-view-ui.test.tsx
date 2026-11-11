@@ -60,7 +60,7 @@ describe("blocked work navigation (A6)", () => {
     const card = tray.lanes.needsYou.concat(tray.lanes.running, tray.lanes.done).find((entry) => entry.row.id === "search")!;
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
-    expect(view.html).toContain("The run stopped with a required criterion unmet.");
+    expect(view.html).toContain("Stopped with some completion criteria unmet. Open the report to see what is missing.");
     view.press("Open report");
     expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
     // Without a side view (Fleet's own surfaces), the card has no report link.
@@ -76,7 +76,7 @@ describe("blocked work navigation (A6)", () => {
     const card = Object.values(tray.lanes).flat().find((entry) => entry.row.id === "search")!;
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
-    expect(view.html.split("The run stopped with a required criterion unmet.").length - 1).toBe(1);
+    expect(view.html.split("Stopped with some completion criteria unmet. Open the report to see what is missing.").length - 1).toBe(1);
     expect(view.html).toMatch(/data-tars-attention="tars-blocked"(?:(?!<\/li>).)*data-tars-open-report="search"/);
     expect(view.html.split("data-tars-open-report=").length - 1).toBe(1);
     view.press("Open report");
@@ -89,7 +89,7 @@ describe("blocked work navigation (A6)", () => {
     const search = f.responsibilities.find((row) => row.id === "search")!;
     const { actions, acted, fleet } = actionsRecording();
     const view = capture(() => TarsBlockedNextSteps({ row: search, decision: undefined, actions }));
-    expect(view.labels).toEqual(["Resume", "Take over", "Cancel responsibility", "Open task", "Show in Fleet"]);
+    expect(view.labels).toEqual(["Resume", "Take over", "Cancel work", "Open task", "Show in Fleet"]);
     view.press("Resume");
     view.press("Show in Fleet");
     expect(acted).toEqual(["resume"]);
@@ -129,10 +129,10 @@ describe("blocked work navigation (A6)", () => {
 describe("tray outputs", () => {
   test("the indicator counts outputs only when there are some; needs you keeps its own count", async () => {
     await applyAppLocale("en");
-    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, waiting: 0, yours: 0, done: 1 }, "ready", 6)).toBe("1 needs you · 1 done · 6 outputs");
-    expect(describeTarsTrayCounts({ needsYou: 1, running: 0, waiting: 0, yours: 0, done: 1 }, "ready", 0)).toBe("1 needs you · 1 done");
+    expect(describeTarsTrayCounts({ needsYou: 1, inProgress: 0, running: 0, done: 1 }, "ready", 6)).toBe("1 needs you · 1 done · 6 outputs");
+    expect(describeTarsTrayCounts({ needsYou: 1, inProgress: 0, running: 0, done: 1 }, "ready", 0)).toBe("1 needs you · 1 done");
     await applyAppLocale("ko");
-    expect(describeTarsTrayCounts({ needsYou: 0, running: 1, waiting: 0, yours: 0, done: 0 }, "ready", 2)).toBe("실행 1 · 산출물 2");
+    expect(describeTarsTrayCounts({ needsYou: 0, inProgress: 1, running: 1, done: 0 }, "ready", 2)).toBe("진행 중 1 · 산출물 2");
     await applyAppLocale("en");
   });
 
@@ -143,8 +143,9 @@ describe("tray outputs", () => {
     const opened: TarsSideViewTarget[] = [];
     const view = capture(() => TarsOutputList({ outputs, onOpenSide: (target) => opened.push(target) }));
     expect(view.html).toContain('href="https://example.com/acme/shop/pull/42"');
-    view.press("Changes · 2 files");
-    view.press("Review · passed");
+    // A row reads as what it is, then whose work it came from.
+    view.press(view.labels.find((label) => label.startsWith("Changes · 2 files"))!);
+    view.press(view.labels.find((label) => label.startsWith("Review · passed"))!);
     expect(opened).toEqual([{ responsibilityId: "checkout", kind: "changes" }, { responsibilityId: "checkout", kind: "review" }]);
     expect(renderToStaticMarkup(createElement(TarsOutputList, { outputs: [] }))).toContain("Nothing has been produced yet.");
   });
@@ -246,7 +247,28 @@ describe("side-view panels", () => {
     const receipt = { ...f.receipts[0]!, messageId: "message-show", action: { kind: "show" as const, responsibilityId: "checkout", view: "changes" as const } };
     const html = renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [receipt], name: "Tars", busy: false, onCancel() {},
       titleOf: () => "Show the saved card first at checkout" }));
-    expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout Accepted for execution");
+    expect(tarsRecordText(html)).toContain("Open the changes Show the saved card first at checkout View opened");
     expect(i18n.language).toBe("en");
+  });
+});
+
+describe("tray output rows", () => {
+  test("every output row states its kind with a glyph and whether it opens the side view or the browser", async () => {
+    await applyAppLocale("en");
+    const f = fixtures();
+    const outputs = buildTarsOutputs({ responsibilities: f.responsibilities, runs: f.runs });
+    const html = renderToStaticMarkup(createElement(TarsOutputList, { outputs, onOpenSide() {} }));
+    const rows = [...html.matchAll(/<li[^>]*data-tars-output="(\w+)" data-tars-output-opens="(side|external)">(.*?)<\/li>/g)];
+    expect(rows.length).toBe(outputs.length);
+    const glyph = { report: "lucide-file-text", changes: "lucide-file-diff", review: "lucide-search-check", pullRequest: "lucide-git-pull-request", link: "lucide-link" } as const;
+    for (const [, kind, opens, row] of rows) {
+      expect(row).toContain(glyph[kind as keyof typeof glyph]);
+      const external = kind === "link" || kind === "pullRequest";
+      expect(opens).toBe(external ? "external" : "side");
+      // The row itself is the opener, and its end glyph says where it opens.
+      expect(row).toMatch(external ? /^<a [^>]*href=/ : /^<button /);
+      expect(row).toContain(external ? "lucide-arrow-up-right" : "lucide-panel-right");
+      if (external) expect(row).toContain("Opens in your browser");
+    }
   });
 });
