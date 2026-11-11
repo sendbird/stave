@@ -26,7 +26,10 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
           const rect = item.getBoundingClientRect(); return rect.left < box.left - 1 || rect.right > box.right + 1;
         }).map((item) => item.tagName) };
       });
-      expect(geometry).toEqual({ overflow: 0, escaped: [] });
+      // CSSOM scroll/client widths are integers. Use the same one-CSS-pixel
+      // precision as the descendant bounds above (compact density on Linux).
+      expect(geometry.overflow).toBeLessThanOrEqual(1);
+      expect(geometry.escaped).toEqual([]);
       await page.keyboard.press('Enter');
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     }
