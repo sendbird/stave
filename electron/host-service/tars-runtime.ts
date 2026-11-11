@@ -64,7 +64,7 @@ export interface TarsRuntimePorts {
    */
   respondTask: (row: TarsResponsibility, request: TarsControlRequest, options?: { canQueue?: boolean; queueBehind?: boolean }) => Promise<void | "queued">;
   /** The delivery queue: messages kept for a busy task, on their records. Absent, a busy task refuses a message. */
-  messages?: Pick<TarsConversationStore, "getAction" | "listDeliveryHeads" | "hasOpenDelivery" | "transitionDelivery" | "cancelOpenDeliveries" | "withdrawDelivery" | "requestDeliveryWithdrawal">;
+  messages?: Pick<TarsConversationStore, "getAction" | "listDeliveryHeads" | "listOpenDeliveryResponsibilityIds" | "hasOpenDelivery" | "transitionDelivery" | "cancelOpenDeliveries" | "withdrawDelivery" | "requestDeliveryWithdrawal">;
   /**
    * Says one queued message in the work's task as the user's reply, started as
    * the user turn `turnId`, after rechecking ownership, once no turn runs and
@@ -136,9 +136,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   const withdrawal = createTarsWithdrawal({ ports, enqueue, patch, reachedTask, now, requestTick });
   function snapshot() {
     const value = tarsSnapshotForWindow(ports.store.snapshot());
+    const open = new Set(ports.messages?.listOpenDeliveryResponsibilityIds() ?? []);
     const limit = ports.concurrencyLimit?.() ?? 0;
     const active = value.responsibilities.filter((row) => occupiesSlot(row) || row.state === "queued" && operations.has(row.id)).length;
-    return { ...value, responsibilities: value.responsibilities.map((row) => row.state === "queued" || row.state === "completed" && ports.messages?.hasOpenDelivery(row.id)
+    return { ...value, responsibilities: value.responsibilities.map((row) => row.state === "queued" || row.state === "completed" && open.has(row.id)
       ? { ...row, queueWait: limit > 0 && active >= limit && !occupiesSlot(row) && !operations.has(row.id) ? { code: "capacity" as const, active, limit }
         : queueWaits.get(row.id)?.code === "storageBusy" ? { code: "storageBusy" as const } : { code: "unknown" as const } } : row) };
   }
@@ -247,7 +248,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     if (stopped) return;
     const rows = ports.store.snapshot().responsibilities;
     const previousWaits = JSON.stringify([...queueWaits]);
-    const queuedIds = new Set(rows.filter((row) => row.state === "queued" || row.state === "completed" && ports.messages?.hasOpenDelivery(row.id)).map((row) => row.id));
+    const open = new Set(ports.messages?.listOpenDeliveryResponsibilityIds() ?? []);
+    const queuedIds = new Set(rows.filter((row) => row.state === "queued" || row.state === "completed" && open.has(row.id)).map((row) => row.id));
     for (const id of queueWaits.keys()) if (!queuedIds.has(id)) queueWaits.delete(id);
     const limit = ports.concurrencyLimit?.() ?? 0;
     let active = rows.filter((row) => occupiesSlot(row) || row.state === "queued" && operations.has(row.id)).length;
@@ -348,8 +350,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       }
       const id = action.responsibilityId;
       let row = ports.store.get(id);
-      const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2]) =>
-        queue.transitionDelivery(requestId, from, next, now());
+      const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2], effect?: () => void) =>
+        queue.transitionDelivery(requestId, from, next, now(), effect);
       // Settle a reply already recorded by its old run before considering a completed-work continuation.
       if (delivery.status === "delivering") {
         const reached = reachedTask(requestId, delivery);
@@ -371,7 +373,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         if (!row.taskId || !row.executionWorkspaceId || !row.agentRunId) throw new TarsOwnershipLostError("The execution location is unavailable.");
         const continuation = row.continuation?.requestId === requestId ? row.continuation
           : { requestId, previousRunId: row.agentRunId, previousInstruction: tarsExecutionScope(row).instruction, previousCriteria: tarsExecutionScope(row).acceptanceCriteria, text: action.input.text, requestedAt: now() };
-        const uncertainStart = row.executionPending === true;
+        let uncertainStart = row.executionPending === true;
         // Reserve synchronously before host I/O. An uncertain start keeps this slot after restart.
         row = patch(row, { continuation, executionPending: true });
         let runId: string;
@@ -382,13 +384,23 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         } catch (error) {
           if (withdrawal.requested(requestId) || isTarsStorageBusy(error)) return;
           const rejection = tarsControlRejection(error);
+          // A prior failed receipt may have rolled back with its reservation release. Reconcile before retaining that slot.
+          if (uncertainStart && rejection.reason === "runRefused" && ports.reconcileContinuation) {
+            let existing: string | null;
+            try { existing = await ports.reconcileContinuation(row, continuation); }
+            catch { ports.onError?.(error); return; }
+            if (existing) {
+              row = patch(row, tarsContinuationRunPatch(row, continuation, existing));
+              move(["queued", "delivering"], { status: "delivered", agentRunId: existing }); return;
+            }
+            uncertainStart = false;
+          }
           // An unknown acknowledgement failure may follow a committed run start. Keep the saved scope retryable.
           if (rejection.reason === "unknown" && !(error instanceof TarsDetailError) || uncertainStart && rejection.reason === "runRefused") {
-            patch(row, { ...tarsDetailFromError(error) });
+            // The request's uncertain outcome cannot rewrite the completed result's verification or detail.
             ports.onError?.(error); return;
           }
-          move(["queued", "delivering"], { status: "failed", ...rejection });
-          patch(row, { executionPending: false });
+          move(["queued", "delivering"], { status: "failed", ...rejection }, () => patch(row!, { executionPending: false }));
           return;
         }
         // A persisted scope and the run's own identity reconcile a crash before this acknowledgement.

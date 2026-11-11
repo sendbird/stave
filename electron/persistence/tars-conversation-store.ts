@@ -661,6 +661,13 @@ export class TarsConversationStore {
       AND json_extract(body_json, '$.action.responsibilityId') = ? LIMIT 1`).get(responsibilityId) != null;
   }
 
+  /** One queue scan for a scheduler pass or snapshot, independent of the number of completed works. */
+  listOpenDeliveryResponsibilityIds(): string[] {
+    return this.db.prepare(`SELECT DISTINCT json_extract(body_json, '$.action.responsibilityId') AS id
+      FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering')`)
+      .all().map(row => (row as { id: string }).id);
+  }
+
   /**
    * Moves one message's delivery on, only from the given statuses, in one
    * immediate transaction: the delivery queue's compare-and-set. Returns the
@@ -668,7 +675,8 @@ export class TarsConversationStore {
    * a control settled it first).
    */
   transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
-    next: { status: TarsMessageDeliveryStatus; agentRunId?: string; turnId?: string; reason?: TarsControlReason; error?: string; withdrawRequestedAt?: string }, now: string): TarsActionRecord | null {
+    next: { status: TarsMessageDeliveryStatus; agentRunId?: string; turnId?: string; reason?: TarsControlReason; error?: string; withdrawRequestedAt?: string }, now: string,
+    effect?: () => void): TarsActionRecord | null {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (!current?.delivery || !from.includes(current.delivery.status)) return null;
@@ -682,6 +690,7 @@ export class TarsConversationStore {
       const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
         .run(record.revision, JSON.stringify(record), requestId, current.revision);
       if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
+      effect?.();
       this.changes.emit("conversation");
       return record;
     });

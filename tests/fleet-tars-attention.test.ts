@@ -291,3 +291,15 @@ test("a completed-work message confirmation remains actionable through Fleet and
   expect(project({ tars: snapshot([row], [decision()]) }).items).toHaveLength(0);
   expect(project({ tars: snapshot([row], [decision({ operation: "message", expectedRevision: 3 })]) }).items).toHaveLength(0);
 });
+
+
+test("a completed-work message option stays in Fleet and tray attention as a question", () => {
+  const row = tarsResponsibility({ state: "completed" });
+  const tars = snapshot([row], [decision({ kind: "ask", operation: null, question: "Continue this result?", optionCount: 2 })]);
+  const projection = project({ tars });
+  expect(projection.blockingItems).toHaveLength(1);
+  expect(collectTarsAttention(tars)[0]?.prompt).toEqual({ kind: "ask", question: "Continue this result?" });
+  expect(projection.blockingItems[0]?.tarsDecision).toBeUndefined();
+  const tray = buildTarsTray({ responsibilities: tars.responsibilities, attentionItems: projection.items, pendingDecisions: tars.pendingDecisions, runs: {} });
+  expect(tray.counts.needsYou).toBe(1); expect(tray.lanes.needsYou[0]?.row.id).toBe(row.id);
+});

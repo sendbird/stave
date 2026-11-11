@@ -4,10 +4,11 @@ for (const [theme, lang, density] of [["light", "en", "regular"], ["dark", "ko",
   for (const width of [390, 1440]) {
     test(`request withdrawal remains contained and survives reload at ${width}px (${theme} ${lang} ${density})`, async ({ page }) => {
       await page.setViewportSize({ width, height: 1000 });
-      await page.goto(`/?stavePreview=tars&withdrawal=true&theme=${theme}&lang=${lang}&density=${density}`);
+      await page.goto(`/?stavePreview=tars&withdrawal=true&capacity=true&theme=${theme}&lang=${lang}&density=${density}`);
       const record = page.getByTestId("tars-transcript").locator('[data-tars-action-record][data-tars-record-kind="control"]').filter({ has: page.locator('[data-tars-delivery="queued"]') }).last();
       const button = record.locator('[data-tars-record-undo="delivery"]');
       await expect(button).toHaveText(lang === "en" ? "Withdraw request" : "요청 철회");
+      await expect(record).toContainText(lang === "en" ? "2 active / 2 allowed" : "실행 2개 / 한도 2개");
       await button.scrollIntoViewIfNeeded(); await page.evaluate(() => document.fonts.ready);
       const geometry = await record.evaluate(node => {
         const box = node.getBoundingClientRect();

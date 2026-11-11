@@ -167,7 +167,7 @@ export function TarsPreview() {
       ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
       : fixtures ? { settings: null, messages: [fixtures.message], receipts: [fixtures.receipt], activity: fixtures.activity, records: [] }
         : { settings: null, messages: [], receipts: [], activity: [], records: [] });
-    if (params.has("withdrawal")) addTarsWithdrawalFixture(snapshot, conversation, now, params.get("lang") === "ko");
+    if (params.has("withdrawal")) addTarsWithdrawalFixture(snapshot, conversation, now, params.get("lang") === "ko", params.get("capacity") === "true");
     // Fleet's projection is not mounted here: publish its rows as the producer would. Tars rows come from the snapshot
     // through Fleet's own projection, so the tray's "needs you" follows every decision kind; other fixture rows are copied.
     const publishAttention = () => useFleetAttentionStore.setState({ snapshot: { ...EMPTY_FLEET_ATTENTION, queueStatus: "next",

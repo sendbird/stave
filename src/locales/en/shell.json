@@ -1436,7 +1436,7 @@
       "clear": "Clear",
       "undo": {
         "action": "Undo",
-        "pending": "Start status is unavailable. This request stays on hold until withdrawal can be checked.",
+        "pending": "Undoing…",
         "done": "Undone",
         "unsupported": "This record cannot be undone.",
         "stale": "The work or queue changed. Undo would overwrite newer work.",
@@ -1447,7 +1447,8 @@
         "withdrawRetry": "Check withdrawal",
         "withdrawChecking": "Checking withdrawal; this request stays on hold.",
         "withdrawDone": "Request withdrawn",
-        "started": "This request already started. Use the current run's controls."
+        "started": "This request already started. Use the current run's controls.",
+        "withdrawUncertain": "Start status is unavailable. This request stays on hold until withdrawal can be checked."
       }
     },
     "execution": {

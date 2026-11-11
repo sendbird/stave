@@ -270,7 +270,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
   // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
   const body = [
-    row.state === "queued" ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{describeTarsQueueWait(row)}</p> : null,
+    row.state === "queued" || row.state === "completed" && row.queueWait ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{describeTarsQueueWait(row)}</p> : null,
     !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
     tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
     !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title compact /> : null,

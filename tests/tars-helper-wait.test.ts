@@ -57,6 +57,7 @@ function runHostScenario() {
     import { tmpdir } from "node:os";
     import path from "node:path";
     import { TarsStore } from "./electron/persistence/tars-store";
+    import { TarsConversationStore } from "./electron/persistence/tars-conversation-store";
     import { TEAM, helperAuthority, helperRunDetail, leadRunDetail } from "./tests/fixtures/tars-helper-runs";
     const directory = mkdtempSync(path.join(tmpdir(), "tars-helper-wait-"));
     const filename = path.join(directory, "store.sqlite");
@@ -74,7 +75,7 @@ function runHostScenario() {
       repositoryPath: TEAM.repositoryPath };
     const persistence = {
       tars,
-      tarsConversations: { getSettings: () => null },
+      tarsConversations: new TarsConversationStore(db),
       agentAssignments: { getByTaskId: () => assignment, getByRequestId: () => assignment },
       agentRuns: {
         getLatestAgentRunForTask: (task) => task === taskId ? lead().agentRun : null,
@@ -94,7 +95,7 @@ function runHostScenario() {
     const { createHostTarsRuntime } = await import("./electron/host-service/tars-host");
     const agentRuns = { get: async ({ agentRunId }) => agentRunId === TEAM.leadRunId ? lead() : helper };
     let runtime = createHostTarsRuntime({ agentRuns, assignments: {} });
-    const restart = () => { runtime.stop(); db.close(); db = new Database(filename); tars = new TarsStore(db); persistence.tars = tars;
+    const restart = () => { runtime.stop(); db.close(); db = new Database(filename); tars = new TarsStore(db); persistence.tars = tars; persistence.tarsConversations = new TarsConversationStore(db);
       runtime = createHostTarsRuntime({ agentRuns, assignments: {} }); };
     const tick = async () => { runtime.requestTick(); await runtime.drain(); };
     const look = () => ({ row: tars.get(id), asks: tars.events.listRecent(100).filter((event) => event.kind === "stageAsksUser").length });

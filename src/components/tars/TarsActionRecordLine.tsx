@@ -1,3 +1,5 @@
+import { useTarsSnapshotStore } from "@/store/tars-snapshot-store";
+import { describeTarsQueueWait } from "@/lib/tars/detail";
 import { Button } from "@/components/ui";
 import { useTarsActionUndo } from "./use-tars-action-undo";
 import { ArrowDownUp } from "lucide-react";
@@ -37,21 +39,23 @@ function TarsDeliveryWithdrawal({ record }: { record: TarsActionRecord }) {
   const { t } = useTranslation(["shell"]);
   const undo = useTarsActionUndo(record);
   const current = undo.record;
+  const row = useTarsSnapshotStore(state => state.snapshot?.responsibilities.find(item => item.id === record.action.responsibilityId));
+  const wait = current.delivery?.status === "queued" && row?.state === "completed" && row.queueWait ? describeTarsQueueWait(row) : null;
   const checking = Boolean(current.delivery?.withdrawRequestedAt);
-  return <DeliveryLine delivery={current.delivery!}>
+  return <DeliveryLine delivery={current.delivery!} wait={wait}>
     {undo.available ? <Button type="button" variant="ghost" size="2xs" disabled={undo.pending} onClick={() => void undo.undo()} data-tars-record-undo="delivery">
       {t(undo.pending ? "shell:tars.record.undo.withdrawPending" : checking ? "shell:tars.record.undo.withdrawRetry" : "shell:tars.record.undo.withdrawAction")}
     </Button> : null}
-    {undo.refusal ? <span role="status">{t(`shell:tars.record.undo.${undo.refusal}`)}</span> : null}
+    {undo.refusal ? <span role="status">{undo.refusal === "pending" ? t("shell:tars.record.undo.withdrawUncertain") : t(`shell:tars.record.undo.${undo.refusal}`)}</span> : null}
   </DeliveryLine>;
 }
 
-function DeliveryLine({ delivery, children }: { delivery: TarsMessageDelivery; children?: import("react").ReactNode }) {
+function DeliveryLine({ delivery, children, wait }: { delivery: TarsMessageDelivery; children?: import("react").ReactNode; wait?: string | null }) {
   const { t } = useTranslation(["shell"]);
   const notSent = delivery.status === "failed" || delivery.status === "cancelled";
   return <TarsRecordSub state={DELIVERY_STATE[delivery.status]} data-tars-delivery={delivery.status} role="status">
-    <span>{t(delivery.withdrawRequestedAt && (delivery.status === "queued" || delivery.status === "delivering")
-      ? "shell:tars.record.undo.withdrawChecking" : `shell:tars.delivery.${delivery.status}`)}</span>
+    <span>{delivery.withdrawRequestedAt && (delivery.status === "queued" || delivery.status === "delivering")
+      ? t("shell:tars.record.undo.withdrawChecking") : wait ?? t(`shell:tars.delivery.${delivery.status}`)}</span>
     {notSent ? <span data-tars-reason={delivery.reason ?? undefined}>{t(tarsControlReasonKey(delivery.reason))}</span> : null}
     {children}
   </TarsRecordSub>;

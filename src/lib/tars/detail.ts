@@ -121,9 +121,9 @@ export function describeTarsWorkingChanges(row: Pick<TarsResponsibility, "workin
     : i18n.t("shell:tars.workingChanges.clean");
 }
 
-/** Only scheduler evidence explains a queued row; another running row alone proves nothing. */
+/** Only scheduler evidence explains queued work or a completed work's queued follow-up. */
 export function describeTarsQueueWait(row: Pick<TarsResponsibility, "state" | "queueWait">): string | null {
-  if (row.state !== "queued") return null;
+  if (row.state !== "queued" && !(row.state === "completed" && row.queueWait)) return null;
   const wait = row.queueWait;
   if (wait?.code === "capacity") return i18n.t("shell:tars.queueWait.capacity", { active: wait.active, limit: wait.limit });
   return i18n.t(wait?.code === "storageBusy" ? "shell:tars.queueWait.storageBusy" : "shell:tars.queueWait.unknown");

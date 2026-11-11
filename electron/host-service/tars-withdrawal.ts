@@ -1,4 +1,4 @@
-import { TarsUndoActionInputSchema } from "../../src/lib/tars/action-undo";
+import { TarsUndoActionInputSchema, TarsUndoActionRefused } from "../../src/lib/tars/action-undo";
 import type { TarsMessageDelivery, TarsUndoActionResult } from "../../src/lib/tars/conversation";
 import type { TarsContinuation, TarsResponsibility, TarsResponsibilityPatch } from "../../src/lib/tars/types";
 import type { TarsRuntimePorts } from "./tars-runtime";
@@ -87,6 +87,10 @@ export function createTarsWithdrawal(deps: {
           return result(null);
         };
         return await (serialized ? reconcile() : deps.enqueue(id, reconcile));
+      } catch (error) {
+        if (error instanceof TarsUndoActionRefused)
+          return { record: queue?.getAction(input.requestId) ?? null, refusal: error.reason };
+        throw error;
       } finally {
         const count = pending.get(input.requestId)! - 1;
         if (count) pending.set(input.requestId, count); else pending.delete(input.requestId);
