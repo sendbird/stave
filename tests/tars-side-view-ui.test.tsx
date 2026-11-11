@@ -136,7 +136,7 @@ describe("tray outputs", () => {
     await applyAppLocale("en");
   });
 
-  test("each output opens its side-view kind; a recorded link opens where it points", async () => {
+  test("each output opens its execution and side-view kind; a recorded link opens where it points", async () => {
     await applyAppLocale("en");
     const f = fixtures();
     const outputs = buildTarsOutputs({ responsibilities: f.responsibilities, runs: f.runs });
@@ -146,7 +146,8 @@ describe("tray outputs", () => {
     // A row reads as what it is, then whose work it came from.
     view.press(view.labels.find((label) => label.startsWith("Changes · 2 files"))!);
     view.press(view.labels.find((label) => label.startsWith("Review · passed"))!);
-    expect(opened).toEqual([{ responsibilityId: "checkout", kind: "changes" }, { responsibilityId: "checkout", kind: "review" }]);
+    expect(opened).toEqual([{ responsibilityId: "checkout", agentRunId: "run-checkout", kind: "changes" },
+      { responsibilityId: "checkout", agentRunId: "run-checkout", kind: "review" }]);
     expect(renderToStaticMarkup(createElement(TarsOutputList, { outputs: [] }))).toContain("Nothing has been produced yet.");
   });
 });
