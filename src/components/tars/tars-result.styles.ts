@@ -15,7 +15,7 @@ export const tarsResultStyles = stylex.create({
   meta: { minWidth: 0, color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" },
   card: {
     display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, maxInlineSize: "100%", boxSizing: "border-box",
-    marginBlock: 0, padding: vars["--aui-space-12"],
+    marginBlock: 0, padding: vars["--aui-space-16"],
     borderWidth: vars["--aui-border-width-hairline"], borderStyle: "solid", borderColor: vars["--aui-color-border-subtle"],
     borderRadius: vars["--aui-radius-panel"], backgroundColor: vars["--aui-color-surface"], color: vars["--aui-color-text"],
   },
@@ -45,11 +45,6 @@ export const tarsResultStyles = stylex.create({
   toneVerified: { color: vars["--aui-color-success-text"] },
   toneReported: { color: vars["--aui-color-text-muted"] },
   toneUnmet: { color: vars["--aui-color-danger-text"] },
-  /** The report's last summary, at most two lines; the report has it whole. */
-  summary: {
-    margin: 0, minWidth: 0, color: vars["--aui-color-text"], overflowWrap: "anywhere",
-    display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden",
-  },
   /** Changed files, the review and the pull request on one wrapping line. */
   facts: {
     display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-12"], rowGap: vars["--aui-space-4"], minWidth: 0, margin: 0,

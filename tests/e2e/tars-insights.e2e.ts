@@ -95,6 +95,8 @@ test.describe("Tars: what it knows and what it spent", () => {
   });
 
   test("Usage opens by keyboard, switches period by keyboard and shows money only for a period with a reported cost", async ({ page }) => {
+    // The fixture's recent turns span 80 minutes; keep them on the same local day.
+    await page.clock.setFixedTime(new Date(2026, 10, 12, 12));
     await page.goto("/?stavePreview=tars&tray=true&insights=true");
     await openByKeyboard(page, "usage");
     const usage = sheet(page, "usage");
