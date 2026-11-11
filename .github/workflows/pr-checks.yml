@@ -38,7 +38,8 @@ jobs:
       - run: bun run test:isolated
 
   ui-layout:
-    runs-on: ubuntu-latest
+    # Keep browser dependencies on a supported, fixed runner image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     # The layout suite runs one worker for stable geometry; four shards keep
     # each job within the timeout as layout regressions are added.
@@ -55,7 +56,9 @@ jobs:
         with:
           bun-version: 1.3.12
       - run: bun install --frozen-lockfile
-      - run: bunx --bun playwright install --with-deps chromium
+      # The hosted image supplies Chromium libraries; product fonts are bundled.
+      # Browser launch still validates native dependencies during the tests.
+      - run: bunx --bun playwright install chromium
       - run: bun run test:ui-layout --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v4
         if: failure()
