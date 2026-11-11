@@ -540,6 +540,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             if (runId === "busy") throw new TarsRunRefusedError("The continuation outcome cannot be verified yet.");
             if (runId) row = adoptContinuation(row, runId, row.continuation);
           }
+          // A reconciled continuation already received its assignment, even when this control stops its Run.
+          if (request.operation === "cancel" && row.agentRunId && row.continuation && row.agentRunId !== row.continuation.previousRunId)
+            ports.messages?.transitionDelivery(row.continuation.requestId, ["queued", "delivering"],
+              { status: "delivered", agentRunId: row.agentRunId }, now());
           // Preparation may have recorded an execution identity while this control waited.
           if (!row.agentRunId && row.taskId && row.executionWorkspaceId) {
             const agentRunId = await ports.findRun(row);

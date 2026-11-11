@@ -174,6 +174,7 @@ try {
     expect(response.record.status).toBe("applied");
     expect(persistence.tars.get(id)).toMatchObject({ state: "cancelled", agentRunId: "next-3" });
     expect(persistence.agentRuns.getAgentRun("next-3")?.state).toBe("cancelled");
+    expect(persistence.tarsConversations.getAction("cancel-after-start")?.delivery).toMatchObject({ status: "delivered", agentRunId: "next-3" });
     await restart(); await tick();
     expect(starts).toBe(3);
   }
