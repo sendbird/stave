@@ -57,7 +57,8 @@ for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
     for (const width of [390, 1440]) for (const density of ["regular", "compact"]) {
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate((density) => { document.documentElement.dataset.uiDensity = density; }, density);
-      await row.scrollIntoViewIfNeeded();
+      // Resize/density updates can replace the row; trial click waits for the current actionable node.
+      await row.click({ trial: true });
       const values = await row.evaluate((node) => {
         const label = node.querySelector<HTMLElement>("[data-model-option-label]")!;
         const detail = node.querySelector<HTMLElement>("[data-model-option-detail]")!;
@@ -229,7 +230,7 @@ for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      await row.scrollIntoViewIfNeeded();
+      await row.click({ trial: true });
       const measures = await row.evaluate((node) => {
         const label = node.querySelector<HTMLElement>("[data-model-option-label]")!;
         const detail = node.querySelector<HTMLElement>("[data-model-option-detail]")!;
