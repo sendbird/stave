@@ -308,3 +308,28 @@ describe("extend a turn-limit pause", () => {
     for (const additionalTurns of [0, -1, 1.5, NaN]) expect(refusal(() => extendAgentRun({ aggregate: paused, additionalTurns, now: AGENT_RUN_NOW })).code).toBe("invalid-state");
   });
 });
+
+
+test("corrected stage reports retain saved originals alongside revised artifacts", () => {
+  const original = { label: "Original", url: "stave-render://frame/0123456789abcdef-00000000-0000-4000-8000-000000000000?net=blocked" };
+  const revised = { label: "Revised", url: "stave-render://frame/0123456789abcdef-00000000-0000-4000-8000-000000000001?net=blocked" };
+  const running = patchCurrent(agentRunFixture(), { status: "running" });
+  const first = recordStageReport({ aggregate: running, expected: identity(running), report: { outcome: "complete", summary: "First", decisions: [], evidence: [], artifacts: [original] }, turnId: "turn", now: AGENT_RUN_NOW });
+  const corrected = applyChange(running, first);
+  const second = recordStageReport({ aggregate: corrected, expected: identity(corrected), report: { outcome: "complete", summary: "Revised", decisions: [], evidence: [], artifacts: [revised] }, turnId: "turn", now: AGENT_RUN_NOW });
+  expect(second.upserts[0]!.report).toMatchObject({ artifacts: [original, revised] });
+});
+
+test("stage retries retain their own saved versions without taking another stage's artifacts", () => {
+  const saved = (suffix: string) => ({ label: "Comparison", url: `stave-render://frame/0123456789abcdef-00000000-0000-4000-8000-00000000000${suffix}?net=blocked` });
+  const running = patchCurrent(agentRunFixture(), { status: "running" });
+  const current = currentStageRecord(running);
+  const first = saved("0"), foreign = saved("1"), revised = saved("2");
+  const priorReport = { outcome: "complete" as const, summary: "Prior", decisions: [], evidence: [], artifacts: [first], reportedAt: AGENT_RUN_NOW.toISOString(), turnId: "prior" };
+  const cancelled = patchCurrent(running, { status: "stuck", report: priorReport });
+  const retried = patchCurrent(applyChange(cancelled, retryStage({ aggregate: cancelled, expected: identity(cancelled), now: AGENT_RUN_NOW })), { status: "running" });
+  retried.stages.push({ ...current, stageId: "another-stage", report: { ...priorReport, artifacts: [foreign] }, status: "completed" });
+  const recorded = recordStageReport({ aggregate: retried, expected: identity(retried), report: { outcome: "complete", summary: "Retry", artifacts: [revised] }, turnId: "turn", now: AGENT_RUN_NOW });
+  expect(recorded.upserts[0]!.report).toMatchObject({ artifacts: [first, revised] });
+  expect(retried.stages.find((stage) => stage.stageId === "another-stage")!.report).toMatchObject({ artifacts: [foreign] });
+});

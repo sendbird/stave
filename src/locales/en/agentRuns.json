@@ -1190,5 +1190,26 @@
     "wallClockTook": "{{explain}} It took {{duration}} from start to end.",
     "soFar": "{{value1}} active so far",
     "reportLabel": "Active"
+  },
+  "artifacts": {
+    "saved": "Saved comparison",
+    "description": "Saved HTML. Available without the original workspace or a running server.",
+    "presentation": {
+      "componentRender": "Agent-reported: actual components rendered. This label does not verify the result.",
+      "example": "Example data or illustrative mockup; not a live app.",
+      "capture": "Captured image; not an interactive app.",
+      "unspecified": "Rendering source not reported. Do not treat this as proof of a running app."
+    },
+    "liveRequirements": "The real app requires its workspace, configured process, and any login or backend. The saved comparison remains available if it cannot start.",
+    "startApp": "Start real app",
+    "starting": "Starting…",
+    "openApp": "Open real app",
+    "launchFailed": "The app could not start. Check Workspace Tools, login and backend availability. The saved comparison is still shown below.",
+    "missing": "The saved HTML is unavailable.",
+    "loading": "Loading saved HTML…",
+    "liveLink": "Live link · requires a running server",
+    "version": "{{label}} · version {{version}} · {{time}}",
+    "unknownTime": "time unavailable",
+    "localOnly": "Saved locally in Stave; open in the app"
   }
 }

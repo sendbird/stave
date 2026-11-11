@@ -1,3 +1,7 @@
+import path from "node:path";
+import { archiveReportArtifacts } from "./report-artifacts";
+import { createInlineRenderStore } from "../../main/inline-render/inline-render-store";
+import { resolveHostServiceUserDataPath } from "../persistence";
 /**
  * Builds the agent run runtime from the host service's real dependencies, so
  * `electron/host-service.ts` only wires it.
@@ -142,6 +146,7 @@ export function createHostAgentRunRuntime(args: {
     readTurnEnding,
   });
   return createAgentRunRuntime({
+    archiveReportArtifacts: async (request) => archiveReportArtifacts({ ...request, workspacePath: await resolveWorkspacePath(request.workspaceId), store: createInlineRenderStore({ rootDir: () => path.join(resolveHostServiceUserDataPath(), "inline-renders") }) }),
     taskAgent: args.taskAgent,
     listWorkspaceActionScripts: async (workspaceId) => {
       for (const repository of await localMcpRuntime.listKnownRepositories()) {

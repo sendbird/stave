@@ -1568,3 +1568,47 @@ When the agent itself blocks on the failing check, Tars shows the work as
 waiting for you, so its automatic follow-up came only after an hour without
 change; a stage that asks you is now followed up at once (see Automatic
 follow-up). One planner turn failed once without a recorded cause.
+
+
+## Saved HTML outputs
+
+An agent can report a local `file://` HTML artifact from its execution workspace.
+Before accepting the stage report, Stave archives the document and its local
+images, stylesheets (including CSS imports and fonts), and standalone JavaScript
+in app data. It embeds those assets into the saved HTML; no report server stays
+running. The report and **Outputs** open the saved page directly in an isolated,
+network-blocked in-app preview. Execution workspace cleanup and app restarts do
+not remove these saved copies. Identical source/content reuses its saved ID within the run. Changed content
+gets a distinct saved ID. Repeated labels show a version number and saved time. Corrected reports and retried stages retain saved
+originals alongside new versions, up to 100 artifacts per run. Each report call
+can add up to 10. Existing frozen
+reports keep their original links; a stopped localhost server cannot be recovered
+without the source files. Report artifacts remain in local app data until that
+app data is removed; clearing an Outputs view hides entries, not their saved files.
+
+The preview identifies agent-reported actual component renders, example data,
+captures, or an unspecified source. These labels are declarations, not a Stave
+verification of the page's contents. A static comparison cannot prove that the
+real app, login or backend works.
+
+An artifact may also name an existing Workspace Tools process and HTTP URL via
+`livePreview`. **Start real app** runs that configured process only after a click;
+**Open real app** then opens its URL. The workspace, login and backend still need
+to be available. A process-start receipt does not prove server readiness. When
+starting fails, the saved comparison remains visible. Ordinary HTTP links stay
+live external links; Stave does not fetch or archive a running application.
+
+Static exports are bounded to 100 reads and 3 MiB of source assets, and the
+existing 5,120,000-character saved HTML limit. Missing, remote or out-of-workspace
+assets (including escaping symlinks) fail the report call so the agent can repair
+and retry. Export modules, responsive images (`srcset`), nested documents, and
+preload dependencies into a standalone static page first. Runtime network calls
+are blocked in the saved preview. Generated HTML is not an archive of a running
+server or its authenticated state.
+
+Saved HTML provenance and timestamps are assigned by the host. Helpers can hand
+a local export path inside the execution workspace to the lead task; they cannot
+promote another task's inline render. `livePreview` is supported only on saved or
+local HTML artifacts. HTTP links must omit it. Root-relative asset paths require
+a static export with relative paths. Markdown copied outside Stave describes
+saved artifacts as local-only and omits their app-specific URI.

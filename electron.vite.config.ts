@@ -10,6 +10,8 @@ const srcAlias = {
 
 const mainExternalDeps = [
   "electron",
+  // Keep parser source external: the ESM shim scans bundle text for imports.
+  "acorn",
   "better-sqlite3",
   "node-pty",
   "@anthropic-ai/claude-agent-sdk",

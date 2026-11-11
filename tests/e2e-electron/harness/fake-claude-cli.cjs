@@ -112,11 +112,48 @@ async function answerPermissionsTurn() {
   finish(`Permissions: ${outcomes.join(", ")}.`);
 }
 
+// Opt-in fixture tool reporting over the real grant-bearing MCP connection.
+// Never record the config or headers: they contain authentication metadata.
+async function reportArtifactFixture() {
+  const configAt = args.indexOf("--mcp-config");
+  const config = JSON.parse(args[configAt + 1]);
+  const server = Object.values(config.mcpServers).find((entry) => entry.headers?.["x-stave-agent-run-key"]);
+  if (!server?.url) throw new Error("Fixture stage connection missing");
+  let id = 0;
+  const call = async (name, input) => {
+    const response = await fetch(server.url, { method: "POST", headers: { ...server.headers, "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method: "tools/call", params: { name, arguments: input } }) });
+    const result = await response.json();
+    if (!response.ok || result.error || result.result?.isError) throw new Error("Fixture report refused: " + JSON.stringify(result.result?.content ?? result.error));
+    return result.result.structuredContent;
+  };
+  const briefing = (await call("stave_get_agent_run", {})).agentRun;
+  const acceptanceCriteria = [{ text: "Static exports saved.", status: "met", required: true }];
+  if (briefing.currentStage.title !== "Work") throw new Error("Unexpected fixture stage");
+  const file = path.join(process.cwd(), "comparison.html");
+  fs.writeFileSync(path.join(process.cwd(), "style.css"), 'h1{color:#3355aa}body{font:20px system-ui}');
+  fs.writeFileSync(path.join(process.cwd(), "page.js"), 'var savedShared="한글";window.savedLabel="export "+savedShared;');
+  fs.writeFileSync(path.join(process.cwd(), "consumer.js"), 'document.querySelector("h1").dataset.loaded=savedShared === "한글" ? "yes" : "no";');
+  fs.writeFileSync(path.join(process.cwd(), "async.js"), 'document.documentElement.dataset.async="yes";');
+  fs.writeFileSync(path.join(process.cwd(), "dot.svg"), '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#3355aa"/></svg>');
+  for (const title of ["Original static export", "Revised static export"]) {
+    fs.writeFileSync(file, `<!doctype html><head><link rel="stylesheet" href="style.css"><script defer src="page.js"></script><script defer src="consumer.js"></script><script async src="async.js"></script></head><body><h1>${title}</h1><img src="dot.svg"></body>`);
+    await call("stave_report_stage", { summary: "Fixture static export reported over real MCP; not a live provider result.", acceptanceCriteria,
+      artifacts: [{ label: title, url: require("node:url").pathToFileURL(file).href, presentation: "example" }] });
+  }
+  fs.writeFileSync(path.join(dir, "artifact-reported"), JSON.stringify({ cwd: process.cwd() }));
+  // Keep the grant alive until the test cancels the run, freezing its real reports.
+}
+
 function answerTurn(line) {
   const turn = recordTurn(line);
   write({ type: "system", subtype: "init", session_id: sessionId, uuid: randomUUID(), cwd: process.cwd(), tools: [], mcp_servers: [],
     model: "claude-sonnet-fake", permissionMode: "default", slash_commands: [], apiKeySource: "none", claude_code_version: "99.0.0",
     output_style: "default", agents: [], skills: [], plugins: [] });
+  if (runTurn && process.env.FAKE_CLAUDE_ARTIFACT_REPORT === "1") {
+    void reportArtifactFixture().catch((error) => { fs.writeFileSync(path.join(dir, "artifact-error"), error.message); finish("Fixture reporting failed."); });
+    return;
+  }
   if (line.includes("[permissions]")) {
     void answerPermissionsTurn();
     return;

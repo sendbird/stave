@@ -126,9 +126,16 @@ function networkDirectives(policy: InlineRenderNetworkPolicy): string[] {
  */
 export function buildInlineRenderCsp(
   policy: InlineRenderNetworkPolicy,
-  options?: { delivery?: "header" | "meta" },
+  options?: { delivery?: "header" | "meta"; embeddedScripts?: boolean },
 ): string {
-  const directives = [...networkDirectives(policy), ...COMMON_DIRECTIVES];
+  const network = networkDirectives(policy);
+  // Saved local scripts may use data URLs to preserve parser/defer/async semantics.
+  // This grants no network origin and the frame remains opaque and sandboxed.
+  if (options?.embeddedScripts && policy === "blocked") {
+    const index = network.findIndex((directive) => directive.startsWith("script-src "));
+    network[index] = network[index]!.replace("script-src ", "script-src data: ");
+  }
+  const directives = [...network, ...COMMON_DIRECTIVES];
   if ((options?.delivery ?? "header") === "header") {
     directives.unshift(`sandbox ${INLINE_RENDER_FRAME_SANDBOX}`);
   }

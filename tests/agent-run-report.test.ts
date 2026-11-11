@@ -83,6 +83,26 @@ describe("evidence provenance", () => {
 });
 
 describe("run report", () => {
+  test("keeps saved retry versions but only the latest live links, without versioning external labels", () => {
+    const saved = (suffix: string) => ({
+      label: "Preview",
+      url: `stave-render://frame/0123456789abcdef-00000000-0000-4000-8000-00000000000${suffix}?net=blocked`,
+    });
+    const original = saved("0");
+    const revised = saved("1");
+    const live = { label: "Preview", url: "http://localhost:3001" };
+    const aggregate = ended("completed", [
+      record("build", { report: { ...COMPLETE_REPORT, artifacts: [original, { label: "Preview", url: "http://localhost:3000" }] } }),
+      record("build", { attempt: 2, report: { ...COMPLETE_REPORT, artifacts: [revised, live] } }),
+    ]);
+    const report = buildAgentRunReport({ aggregate, workspace: NO_WORKSPACE, endedAt: AGENT_RUN_NOW });
+    expect(report.links.map((link) => link.url)).toEqual([original.url, revised.url, live.url]);
+    expect(report.links.slice(0, 2).map((link) => link.label)).toEqual([
+      expect.stringContaining("version 1"), expect.stringContaining("version 2"),
+    ]);
+    expect(report.links.at(-1)?.label).toBe("Preview");
+  });
+
   test("a completed run reports every stage, verified evidence, links and the latest criteria", () => {
     const aggregate = ended("completed", [
       record("understand", { report: COMPLETE_REPORT }),

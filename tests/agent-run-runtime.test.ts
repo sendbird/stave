@@ -1017,12 +1017,17 @@ describe("run runtime: failures and restarts", () => {
 describe("run runtime: Stave action stages", () => {
   test("a real nonzero script blocks its stage even when stdout claims success", async () => {
     const store = new AgentRunStore(new Database(":memory:"));
-    const performAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => "/tmp", runScript: async () => {
+    let actionSettled!: () => void;
+    const actionFinished = new Promise<void>((resolve) => { actionSettled = resolve; });
+    const executeAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => "/tmp", runScript: async () => {
       const observed = await observeWorkspaceScript({ cwd: "/tmp", readRevision: async () => ({ status: "unknown", reason: "unavailable" }), run: () => runCommandArgs({ cwd: "/tmp", command: process.execPath, commandArgs: ["-e", "console.log('all tests passed; exit 0'); process.exit(7)"] }) });
       return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
     } });
+    const performAction: typeof executeAction = async (request) => { try { return await executeAction(request); } finally { actionSettled(); } };
     const harness = createHarness({ store, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
     const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
+    // Wait for the real subprocess, rather than assuming it finishes within 300ms.
+    await actionFinished;
     for (let attempt = 0; attempt < 30 && harness.current(id).status !== "blocked"; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
     }
@@ -1037,14 +1042,18 @@ describe("run runtime: Stave action stages", () => {
       git("init"); writeFileSync(join(cwd, "tracked.txt"), "original"); git("add", ".");
       git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "test: record workspace");
       const store = new AgentRunStore(new Database(":memory:"));
-      const performAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
+      let actionSettled!: () => void;
+      const actionFinished = new Promise<void>((resolve) => { actionSettled = resolve; });
+      const executeAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
         const observed = await observeWorkspaceScript({ cwd, run: () => runCommandArgs({ cwd, command: process.execPath, commandArgs: ["-e", "process.exit(0)"] }) });
         return { ok: true, definitionHash: "a".repeat(64), exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
       } });
+      const performAction: typeof executeAction = async (request) => { try { return await executeAction(request); } finally { actionSettled(); } };
       const harness = createHarness({ store, workspacePath: cwd, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
       const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
       await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } });
       harness.endTurn("turn-1"); await harness.tick();
+      await actionFinished;
       for (let attempt = 0; attempt < 30 && harness.aggregate(id).agentRun.state !== "completed"; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
       }
@@ -3481,4 +3490,46 @@ describe("run runtime: hand-back restarts the started current stage", () => {
     expect(h.aggregate(id)).toEqual(before);
     h.runtime.stop();
   });
+});
+
+
+test("archives artifacts before report persistence and leaves a failed archive retryable", async () => {
+  let fail = true;
+  const h = createHarness({ extra: { archiveReportArtifacts: async (request) => {
+    expect(request.taskId).toBeTruthy();
+    if (fail) throw new Error("asset missing");
+    return { artifacts: request.artifacts.map((artifact) => ({ ...artifact, url: "https://example.com/archived", sourceUrl: artifact.url })), discard: async () => {} };
+  } } });
+  const id = await startedAgentRun(h);
+  const report = { ...COMPLETE, artifacts: [{ label: "Original", url: "file:///tmp/repo-ws/report.html", presentation: "example" }] };
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report })).rejects.toThrow("asset missing");
+  expect(h.current(id).report).toBeNull();
+  fail = false;
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report });
+  expect(h.current(id).report).toMatchObject({ artifacts: [{ url: "https://example.com/archived", sourceUrl: report.artifacts[0]!.url, presentation: "example" }] });
+});
+
+test("refuses a stale report before saving and discards a rejected batch without deleting existing reports", async () => {
+  let archives = 0, discards = 0;
+  const h = createHarness({ extra: { archiveReportArtifacts: async () => {
+    archives++;
+    return { artifacts: Array.from({ length: 101 }, (_, index) => ({ label: "Saved", url: `https://example.com/${index}` })), discard: async () => { discards++; } };
+  } } });
+  const id = await startedAgentRun(h);
+  await expect(h.runtime.reportStage({ agentRunKey: "missing", report: COMPLETE })).rejects.toThrow();
+  expect(archives).toBe(0);
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE })).rejects.toThrow("100");
+  expect(discards).toBe(1);
+  expect(h.current(id).report).toBeNull();
+});
+
+test("a failure after the report commits never discards its now-referenced saved pages", async () => {
+  let discards = 0;
+  const h = createHarness({ extra: { archiveReportArtifacts: async () => ({ artifacts: [{ label: "Saved", url: "https://example.com/saved" }], discard: async () => { discards++; } }) } });
+  const id = await startedAgentRun(h);
+  const apply = h.store.apply.bind(h.store);
+  h.store.apply = (...args) => { apply(...args); throw new Error("post-commit delivery failed"); };
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE })).rejects.toThrow("post-commit");
+  expect(h.current(id).report).toMatchObject({ artifacts: [{ label: "Saved", url: "https://example.com/saved" }] });
+  expect(discards).toBe(0);
 });

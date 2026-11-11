@@ -288,6 +288,7 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   isReportingAvailable: (options?: { fresh?: boolean }) => Promise<boolean>;
   resolveAgentRunGrant: (agentRunKey: string) => AgentRunStageGrant | null;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
+  archiveReportArtifacts?: (args: { artifacts: import("../../../src/lib/agent-runs/artifacts").ReportArtifact[]; previousArtifacts: import("../../../src/lib/agent-runs/artifacts").ReportArtifact[]; workspaceId: string; agentRunId: string; taskId: string; turnId: string }) => Promise<import("./report-artifacts").ArchivedReportArtifacts>;
   readHeadSha: (cwd: string) => Promise<string | null>;
   readWorkspaceRevision?: (cwd: string) => Promise<import("../../../src/lib/agent-runs/verification-contract").WorkspaceRevision>;
   collectStageFacts: (args: {
@@ -2757,24 +2758,35 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           const unreported = unreportedStageCriteria(aggregate, record, input);
           if (unreported.length) refuse(describeUnreportedCriteria(unreported));
         }
-        // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
-        const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
-        const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
-        const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
-        const next = applyChange(
-          recordStageReport({
-            aggregate,
-            expected: { stageId: grant.stageId, attempt: grant.attempt },
-            report: { outcome: "complete", ...input },
-            workspaceRevision,
-            turnId: grant.turnId,
-            now: now(),
-          }),
-        );
-        return receipt(
-          next,
-          "Recorded. Stave acts on it when this turn ends, and checks the commands and tool calls you cited against this stage's turns.",
-        );
+        // Refuse stale grants/report limits before allocating any saved entries.
+        recordStageReport({ aggregate, expected: { stageId: grant.stageId, attempt: grant.attempt }, report: { outcome: "complete", ...input, artifacts: [] }, turnId: grant.turnId, now: now() });
+        const archived = await deps.archiveReportArtifacts?.({ artifacts: input.artifacts, previousArtifacts: aggregate.stages.flatMap((entry) => entry.report?.outcome === "complete" ? entry.report.artifacts : []), workspaceId: aggregate.agentRun.workspaceId, agentRunId: aggregate.agentRun.id, taskId: aggregate.agentRun.leadTaskId, turnId: grant.turnId });
+        const artifacts = archived?.artifacts ?? input.artifacts;
+        try {
+          // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
+          const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
+          const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
+          const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
+          const next = applyChange(
+            recordStageReport({
+              aggregate,
+              expected: { stageId: grant.stageId, attempt: grant.attempt },
+              report: { outcome: "complete", ...input, artifacts },
+              workspaceRevision,
+              turnId: grant.turnId,
+              now: now(),
+            }),
+          );
+          return receipt(
+            next,
+            "Recorded. Stave acts on it when this turn ends, and checks the commands and tool calls you cited against this stage's turns.",
+          );
+        } catch (error) {
+          // A post-commit notification/read failure must not remove pages already recorded.
+          const persisted = store.getAggregate(aggregate.agentRun.id)?.stages.find((entry) => entry.stageId === record.stageId && entry.attempt === record.attempt);
+          if (!persisted || persisted.reportRevision <= record.reportRevision) await archived?.discard();
+          throw error;
+        }
       }),
     blockStage: ({ agentRunKey, block }) =>
       enqueueGrant(agentRunKey, () => {
