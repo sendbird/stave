@@ -2032,7 +2032,22 @@
         "unmet": "미충족",
         "unverified": "확인 안 됨",
         "staveChecks": "Stave가 실행한 검사 통과: {{checks}}",
-        "notReported": "보고 없음"
+        "notReported": "보고 없음",
+        "short": {
+          "verifiedCheck": "검사 통과",
+          "verifiedReview": "리뷰 확인",
+          "reported": "보고됨",
+          "unmet": "미충족",
+          "unverified": "미확인",
+          "notReported": "보고 없음"
+        },
+        "confirmedCount_other": "{{count}}/{{total}} 확인됨",
+        "reportedCount_other": "{{count}}/{{total}} 충족 보고",
+        "evidence": "근거와 리뷰",
+        "openReview": "리뷰 열기",
+        "evidenceNote": "검사 또는 이 결과에 대한 리뷰로 확인한 항목을 집계합니다. 여기에 나열된 검사는 단계 전체의 근거이며 모든 기준을 직접 증명하지는 않습니다.",
+        "evidenceFor": "{{title}}의 근거와 리뷰",
+        "openReviewFor": "{{title}} 리뷰 열기"
       },
       "changes_other": "파일 {{count}}개 변경",
       "changesUncounted": "파일 변경됨",

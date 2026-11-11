@@ -1,5 +1,4 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { Check, CircleCheck, CircleDashed, CircleX, type LucideIcon } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { Button } from "@/components/ui";
@@ -10,9 +9,10 @@ import { describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic 
 import { selectTarsActivityNotices, tarsRunOf, type TarsActivityNotice } from "@/lib/tars/flow-model";
 import { isTarsPublicationUnfinished } from "@/lib/tars/publication";
 import { isTarsPublishable } from "@/lib/tars/publish-model";
-import { projectTarsResult, tarsResultOutcome, type TarsResultCriterionKind, type TarsResultModel, type TarsResultOutcome } from "@/lib/tars/result-model";
+import { projectTarsResult, tarsResultOutcome, type TarsResultModel, type TarsResultOutcome } from "@/lib/tars/result-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { TarsActivity, TarsResponsibility } from "@/lib/tars/types";
+import { TarsResultCriteria } from "./TarsResultCriteria";
 import { TarsBlockedNextSteps } from "./TarsBlockedNextSteps";
 import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { TarsPublishEntry } from "./TarsPublishEntry";
@@ -82,16 +82,6 @@ export function useTarsResult(notice: TarsActivityNotice): TarsResultView | null
 
 const ROW_STATE: Record<TarsResultOutcome, TarsRecordState> = { completed: "applied", blocked: "halted", failed: "failed" };
 
-const CRITERION = {
-  verifiedCheck: { icon: CircleCheck, tone: "toneVerified", label: "shell:tars.result.criteria.verifiedCheck" },
-  verifiedReview: { icon: CircleCheck, tone: "toneVerified", label: "shell:tars.result.criteria.verifiedReview" },
-  // A plain check in the quiet ink: met by the agent's word, so it never wears the verified mark.
-  reported: { icon: Check, tone: "toneReported", label: "shell:tars.result.criteria.reported" },
-  unmet: { icon: CircleX, tone: "toneUnmet", label: "shell:tars.result.criteria.unmet" },
-  unverified: { icon: CircleDashed, tone: "toneReported", label: "shell:tars.result.criteria.unverified" },
-  notReported: { icon: CircleDashed, tone: "toneReported", label: "shell:tars.result.criteria.notReported" },
-} as const satisfies Record<TarsResultCriterionKind, { icon: LucideIcon; tone: "toneVerified" | "toneReported" | "toneUnmet"; label: string }>;
-
 const REVIEW_KEY = { passed: "shell:tars.result.review.passed", "changes-requested": "shell:tars.result.review.changesRequested" } as const;
 
 /**
@@ -141,23 +131,7 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
     fullWidthDetail detail={body ? <div role="group" aria-label={t("shell:tars.result.label", { title: row.title })} className={sx(styles.card)} data-tars-result-card={row.id}>
       {reason ? <p className={sx(styles.reason)} data-tars-result-reason="">{reason}</p> : null}
       {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
-      {model.criteria.length ? <div className={sx(styles.group)}>
-        <p className={sx(styles.groupLabel)}>{t("shell:tars.result.criteria.title")}</p>
-        <ul className={sx(styles.criteria)} aria-label={t("shell:tars.result.criteria.title")}>
-          {model.criteria.map((criterion) => {
-            const { icon: Icon, tone, label } = CRITERION[criterion.kind];
-            return <li key={criterion.text} className={sx(styles.criterion)} data-tars-result-criterion={criterion.kind}>
-              <span className={sx(styles.criterionMark, styles[tone])}><Icon aria-hidden="true" className={sx(styles.criterionIcon)} /></span>
-              <span className={sx(styles.criterionText)}>{criterion.text}</span>
-              <span className={sx(styles.criterionState, styles[tone])}>{t(label)}</span>
-            </li>;
-          })}
-        </ul>
-        {model.staveChecks.length ? <p className={sx(styles.checks)} data-tars-result-stave-checks="">
-          <span className={sx(styles.criterionMark, styles.toneVerified)}><CircleCheck aria-hidden="true" className={sx(styles.criterionIcon)} /></span>
-          <span className={sx(styles.fact)}>{t("shell:tars.result.criteria.staveChecks", { checks: model.staveChecks.join(" · ") })}</span>
-        </p> : null}
-      </div> : null}
+      {model.criteria.length ? <TarsResultCriteria model={model} title={row.title} onOpenReview={model.review && openSide ? () => open({ kind: "review" }) : undefined} /> : null}
       {model.summary ? <p className={sx(styles.summary)} data-tars-result-summary="">{model.summary}</p> : null}
       {facts ? <div className={sx(styles.facts)} data-tars-result-facts="">
         {model.changes ? <span className={sx(styles.fact)} data-tars-result-changes="">

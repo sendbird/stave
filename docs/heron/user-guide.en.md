@@ -641,9 +641,13 @@ blue when work only runs. The conversation keeps only words, decisions and the
 moments work completes, is blocked or is cancelled, each with the state tag's
 word. The timeline connector stops around result cards; text-only records still
 join on the rail. Completed, blocked and failed work shows a result card there, aligned with the other conversation cards: the completion
-criteria with what backs each one (**Met · confirmed by a check**, **Met · confirmed by
-review**, or **Met · agent's report only** when nothing Stave ran or reviewed confirms
-it), a two-line summary with **Open report**, the changed files with **View changes**,
+criteria with short **Check passed**, **Reviewed**, **Reported**, **Not met**,
+**Unconfirmed** or **Not reported** badges. The header counts confirmed criteria;
+agent-only results say **2/2 reported met**. **Evidence & review** unfolds the full
+sources and stage-wide checks, with **Open review** for the recorded review.
+Only a check or review of the final version confirms an item. More space above
+Completed separates it from the preceding result. The card also shows a two-line
+summary with **Open report**, the changed files with **View changes**,
 the review's result and the draft pull request. Blocked or failed work adds the reason,
 the tool's own message under **Technical details** and the controls it admits, such as
 **Resume**. A cancel stays one line. Updates arrive as soon as Tars saves them, without

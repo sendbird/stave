@@ -61,9 +61,11 @@ for (const { name, query, ko } of [
     const kinds = (id: string) => card(page, id).locator("[data-tars-result-criterion]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-result-criterion")));
     expect(await kinds("result-verified")).toEqual(["verifiedReview", "verifiedCheck"]);
     expect(await kinds("result-reported")).toEqual(["reported", "reported"]);
-    await expect(card(page, "result-verified")).toContainText(ko ? "충족 · 검사로 확인" : "Met · confirmed by a check");
-    await expect(card(page, "result-reported")).toContainText(ko ? "충족 보고 · 확인 안 됨" : "Reported met · unverified");
-    await expect(card(page, "result-reported")).not.toContainText(ko ? "충족 · 검사로 확인" : "Met · confirmed by a check");
+    await expect(card(page, "result-verified")).toContainText(ko ? "검사 통과" : "Check passed");
+    await expect(card(page, "result-reported")).toContainText(ko ? "보고됨" : "Reported");
+    await expect(card(page, "result-reported")).not.toContainText(ko ? "검사 통과" : "Check passed");
+    await expect(card(page, "result-verified").locator("[data-tars-result-count]")).toHaveText(ko ? "2/2 확인됨" : "2/2 confirmed");
+    await expect(card(page, "result-reported").locator("[data-tars-result-count]")).toHaveText(ko ? "2/2 충족 보고" : "2/2 reported met");
     // The draft pull request is a link; a cancel stays one row with no card.
     await expect(card(page, "result-published").getByRole("link")).toHaveAttribute("href", "https://github.com/example/web/pull/57");
     await expect(page.locator('[data-tars-activity="cancelled"]').first()).not.toHaveAttribute("data-tars-result", /.*/);
@@ -126,7 +128,12 @@ test("the card's buttons open their views by keyboard, with a visible focus ring
 test("the card's text follows the chat font size", async ({ page }) => {
   const size = async (query: string) => {
     await open(page, query, 1440);
-    return card(page, "result-verified").locator("[data-tars-result-criterion]").first().evaluate((node) => parseFloat(getComputedStyle(node).fontSize));
+    return card(page, "result-verified").locator("[data-tars-result-criterion]").first().evaluate((node) => {
+      const font = parseFloat(getComputedStyle(node).fontSize);
+      const badge = parseFloat(getComputedStyle(node.lastElementChild!).fontSize);
+      if (font !== badge) throw new Error(`Criterion font ${font} differs from badge font ${badge}`);
+      return font;
+    });
   };
   const regular = await size("");
   const large = await size("&messageFontSize=20");
@@ -156,6 +163,18 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {
       expect(geometry.intersections).toBe(0);
       // Neither the card-to-card gap nor the cancellation gets a disconnected stub.
       expect(geometry.lines).toBe(0);
+      // A result following another surface starts a fresh group: 4 + 16 + 4 AUI spacing.
+      const gap = await list.evaluate((node) => {
+        const rows = [...node.querySelectorAll('[data-tars-result]')];
+        return rows[1]!.querySelector('[data-tars-record-header]')!.getBoundingClientRect().top
+          - rows[0]!.querySelector('[data-tars-result-card]')!.getBoundingClientRect().bottom;
+      });
+      const token = await list.evaluate(async () => {
+        const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
+        const probe = document.createElement("div"); probe.style.height = vars["--aui-space-24"]; document.body.append(probe);
+        const height = probe.getBoundingClientRect().height; probe.remove(); return height;
+      });
+      expect(Math.abs(gap - token)).toBeLessThanOrEqual(0.5);
       for (const inset of geometry.insets) {
         expect(Math.abs(inset.left)).toBeLessThanOrEqual(0.5);
         expect(Math.abs(inset.right)).toBeLessThanOrEqual(0.5);
@@ -196,3 +215,62 @@ for (const [theme, lang] of [["light", "en"], ["dark", "ko"]] as const) {
     });
   }
 }
+
+
+test("compact badges retain source details and review navigation behind a keyboard disclosure", async ({ page }) => {
+  await open(page, "&lang=en", 390);
+  const verified = card(page, "result-verified");
+  const trigger = verified.locator("[data-tars-result-evidence] button[aria-expanded]");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(verified.locator("[data-tars-result-stave-checks]")).toHaveCount(0);
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(verified).toContainText("Met · confirmed by review");
+  await expect(verified).toContainText("Met · confirmed by a check");
+  await expect(verified.locator("[data-tars-result-stave-checks]")).toContainText("test");
+  await containment(page, result(page, "result-verified"));
+  await verified.locator('[data-tars-result-open="review"]').click();
+  await expect(page.locator("[data-tars-side-view]")).toHaveAttribute("data-tars-side-view", "review");
+});
+
+// Exercise both an ended result and the same notice while its run details are still unread.
+test("result group spacing moves absolute rails with their marks after a text record", async ({ page }) => {
+  await open(page, "", 390);
+  for (const loaded of [false, true]) {
+    await page.evaluate(async (loaded) => {
+      const reactPath = "/node_modules/.vite/deps/react.js";
+      const clientPath = "/node_modules/.vite/deps/react-dom_client.js";
+      const { default: { createElement: h } } = await import(reactPath);
+      const { default: { createRoot } } = await import(clientPath);
+      const { TarsRecordList, TarsRecordRow } = await import("/src/components/tars/TarsRecord.tsx");
+      const { TarsResultProvider } = await import("/src/components/tars/TarsResultCard.tsx");
+      const { TarsActivityNoticeLine } = await import("/src/components/tars/TarsFlowBlock.tsx");
+      const { buildTarsResultFixtures } = await import("/src/dev/tars-preview/tars-result-fixtures.ts");
+      const fixtures = buildTarsResultFixtures(new Date("2026-11-05T00:00:00Z"));
+      const row = fixtures.responsibilities.find((r) => r.id === fixtures.ids.verified)!;
+      const activity = { id: "rail-regression", responsibilityId: row.id, revision: row.revision, title: row.title, state: row.state,
+        detail: null, createdAt: row.updatedAt };
+      const host = document.createElement("div"); host.dataset.testid = "result-rail-regression"; host.style.width = "360px"; document.body.append(host);
+      createRoot(host).render(h(TarsResultProvider, { responsibilities: [row], runs: loaded ? fixtures.runs : {}, activity: [activity], records: [],
+        actions: { busy: false, onAct: () => undefined, onConfirm: () => undefined, onOpenTask: () => undefined, onShowInFleet: () => undefined },
+        children: h(TarsRecordList, null, h(TarsRecordRow, { state: "applied", lead: "Previous record" }),
+          h(TarsActivityNoticeLine, { notice: { activity, kind: "completed" } }), h(TarsRecordRow, { state: "applied", lead: "Next record" })) }));
+    }, loaded);
+    const host = page.getByTestId("result-rail-regression");
+    await expect(host.locator("[data-tars-result]")).toHaveCount(1);
+    await page.evaluate(() => document.fonts.ready);
+    const rails = await host.locator("[data-tars-records] > li").nth(1).evaluate(async (item) => {
+      const { vars } = await import("/src/components/aui/tokens/tokens.stylex.ts");
+      const probe = document.createElement("div"); probe.style.height = `calc(${vars["--aui-space-8"]} + ${vars["--aui-space-2"]})`; document.body.append(probe);
+      const clearance = probe.getBoundingClientRect().height; probe.remove();
+      const mark = item.querySelector('[data-tars-result] > span')!.getBoundingClientRect();
+      const lines = [...item.querySelectorAll(':scope > span[aria-hidden="true"]')].map(e => e.getBoundingClientRect()).filter(r => r.width && r.height);
+      return { center: (mark.top + mark.bottom) / 2, clearance, lines: lines.map(r => ({ top:r.top, bottom:r.bottom })) };
+    });
+    expect(rails.lines.length).toBe(loaded ? 1 : 2);
+    expect(Math.abs(rails.lines[0]!.bottom - (rails.center - rails.clearance))).toBeLessThanOrEqual(0.5);
+    if (!loaded) expect(Math.abs(rails.lines[1]!.top - (rails.center + rails.clearance))).toBeLessThanOrEqual(0.5);
+    await host.evaluate(node => node.remove());
+  }
+});

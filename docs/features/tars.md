@@ -901,14 +901,17 @@ full-width result surface and resumes between text-only records, so it never
 runs through a card. The card shows only what the run
 recorded:
 
-- The completion criteria, each with what backs it. **Met · confirmed by a
-  check** is a criterion whose own Stave check passed on the revision the run
-  ended on. **Met · confirmed by review** is one the independent review passed
-  on that revision. **Met · agent's report only** is everything else that was
-  reported met: nothing Stave ran or reviewed confirms it. **Not met**,
-  **Not confirmed** and **Not reported** are the report's own statuses. Checks
-  Stave ran and saw pass are named on one line under the list; they back the
-  result as a whole and never turn a single criterion into a verified one.
+- The completion criteria with short source badges: **Check passed**, **Reviewed**,
+  **Reported**, **Not met**, **Unconfirmed** or **Not reported**. The header counts
+  only criteria confirmed by a current check or review; an agent-only result
+  says **2/2 reported met**, never **2/2 confirmed**. A result starts a new group
+  with extra space above its state and work name; narrow columns put badges
+  below wrapping criteria.
+- **Evidence & review** unfolds the full source wording and the checks Stave
+  saw pass on the final revision. These checks support the stage as a whole,
+  not every criterion. **Open review** opens the recorded review. A stale or
+  missing review, an unmet criterion or a failed check never increases the
+  confirmed count. A criterion with its own failed check is not lifted by review.
 - The last summary from the report, cut to two lines, with **Open report**.
 - The changed files with lines added and removed, and **View changes**; the
   review's result; and the draft pull request as a link, or **Create draft
