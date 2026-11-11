@@ -642,12 +642,11 @@ moments work completes, is blocked or is cancelled, each with the state tag's
 word. The timeline connector stops around result cards; text-only records still
 join on the rail. Completed, blocked and failed work shows a result card there, aligned with the other conversation cards: the completion
 criteria with short **Check passed**, **Reviewed**, **Reported**, **Not met**,
-**Unconfirmed** or **Not reported** badges. The header counts confirmed criteria;
-agent-only results say **2/2 reported met**. **Evidence & review** unfolds the full
-sources and stage-wide checks, with **Open review** for the recorded review.
-Only a check or review of the final version confirms an item. More space above
-Completed separates it from the preceding result. The card also shows a two-line
-summary with **Open report**, the changed files with **View changes**,
+**Unconfirmed** or **Not reported** badges under **Full summary, criteria and evidence**.
+The detail header counts confirmed criteria; agent-only results say **2/2 reported met**.
+**Evidence & review** unfolds sources and stage-wide checks, with **Open review**.
+Only checks or reviews of the final version confirm an item. More space above
+Completed separates it from the preceding result. The card and **Report** open with a short final summary and the recorded output links. Expand the details for the full stage summaries, criteria, sources, revisions and evidence. Missing summaries are labeled explicitly. Unmet or unverified criteria, remaining work and explicit limitations in the summary stay visible, including completion accepted without a Stave check. Earlier-stage limitations appear as stage-labeled historical notes that may have changed later, rather than current unresolved warnings. Stop or cancellation reasons appear before the summary. Result text follows your chat font size; Report uses the panel font size. The card also shows **Open report**, the changed files with **View changes**,
 the review's result and the draft pull request. Blocked or failed work adds the reason,
 the tool's own message under **Technical details** and the controls it admits, such as
 **Resume**. A cancel stays one line. Updates arrive as soon as Tars saves them, without

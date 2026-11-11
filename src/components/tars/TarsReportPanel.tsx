@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { ArrowUpRight } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
@@ -11,6 +10,9 @@ import { describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic,
 import { describeUsageLong } from "@/lib/agent-runs/usage";
 import type { TarsCriterionSource, TarsCriterionStatus, TarsReportEvidence, TarsReportModel, TarsRevisionFreshness } from "@/lib/tars/report-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
+import { TarsCompletionOverview } from "./TarsCompletionOverview";
+import { TarsResultDetails } from "./TarsResultDetails";
+import { tarsCompletionStyles as completionStyles } from "./tars-completion.styles";
 import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { tarsSideViewStyles as styles } from "./tars-side-view.styles";
 
@@ -49,13 +51,13 @@ function Evidence({ items }: { items: readonly TarsReportEvidence[] }) {
  * what the run left behind. It is the run's frozen report, never live text.
  * `actions` are the next steps a blocked responsibility admits.
  */
-export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
-  model: TarsReportModel; row: TarsResponsibility; focusUnmet?: boolean; actions?: ReactNode;
+export function TarsReportPanel({ model, row, focusUnmet, actions, publish, outputs }: {
+  model: TarsReportModel; row: TarsResponsibility; focusUnmet?: boolean; actions?: ReactNode; outputs?: ReactNode;
   /** Completed work's way to its draft pull request: the link once open, else the button that opens its confirmation card. */
   publish?: ReactNode;
 }) {
   const { t } = useTranslation(["shell"]);
-  const unmetRef = useRef<HTMLElement>(null);
+  const unmetRef = useRef<HTMLDivElement>(null);
   const ids = useId();
   const blocked = row.state === "blocked";
   useEffect(() => {
@@ -67,10 +69,13 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
   const workingChanges = describeTarsWorkingChanges(row);
   // Sections sit on the section rhythm; the lead says how the run ended and why, then when the report was taken.
   return <div className={sx(styles.stack)} data-tars-report={model.state}>
-    <div className={sx(styles.summary)} data-tars-report-summary="">
+    <div ref={unmetRef} className={sx(styles.summary, styles.anchor)} data-tars-report-summary="">
       {model.outcome ? <div className={sx(styles.row)}><Badge size="md" tone={model.outcome === "completed" ? "success" : model.outcome === "stopped" ? "danger" : "neutral"}>
         {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge></div> : null}
       {model.outcome && model.reason ? <p className={sx(styles.text)} data-tars-report-reason="">{model.reason}</p> : null}
+      {model.state === "frozen" ? <section className={sx(styles.section)} data-tars-report-unmet={model.unmet.length}>
+        <TarsCompletionOverview model={model} row={row} outputs={outputs} />
+      </section> : null}
       {model.state === "frozen"
         ? <p className={sx(styles.meta)} data-tars-report-frozen={model.frozenAt ?? ""}>
           {t("shell:tars.side.report.frozenAt", { time: model.frozenAt ? formatDateTime(model.frozenAt) : "" })}
@@ -87,13 +92,11 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
       {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
       {actions}
     </section> : null}
-    {/* What is still owed leads; met work needs no heading of its own. */}
-    {model.unmet.length ? <section ref={unmetRef} className={sx(styles.section, styles.anchor)} aria-labelledby={`${ids}-unmet`} data-tars-report-unmet={model.unmet.length}>
-      <h3 id={`${ids}-unmet`} className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.unmetTitle", { count: model.unmet.length })}</h3>
-      <ul className={sx(raisedPanel.panel, styles.panelList)}>
-        {model.unmet.map((criterion) => <li key={criterion.text} className={sx(raisedPanel.row, styles.criterionText)}>{criterion.text}</li>)}
-      </ul>
-    </section> : <p className={sx(styles.meta)} data-tars-report-unmet={0}>{t("shell:tars.side.report.allMet")}</p>}
+    <TarsResultDetails key={row.id} label={t("shell:tars.completion.details")}>
+      {model.summaries.map((summary) => <section key={summary.stageId} className={sx(styles.section)}>
+        <h3 className={sx(styles.sectionTitle)}>{summary.title}</h3>
+        <p className={sx(completionStyles.lead)} data-tars-full-summary={summary.stageId}>{summary.text}</p>
+      </section>)}
     <section className={sx(styles.section)} aria-labelledby={`${ids}-criteria`}>
       <h3 id={`${ids}-criteria`} className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.criteriaTitle")}</h3>
       <ul className={sx(raisedPanel.panel, styles.panelList)}>
@@ -107,19 +110,17 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish }: {
         </li>)}
       </ul>
     </section>
-    {/* Evidence belongs to the stage that reported it, not to one criterion: shown once, under its stage. */}
-    {model.evidenceGroups.map((group) => <section key={group.stageId} className={sx(styles.section)} aria-label={t("shell:tars.side.report.evidenceIn", { stage: group.stageTitle })}
-      data-tars-evidence-group={group.stageId}>
-      <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.evidenceIn", { stage: group.stageTitle })}</h3>
-      <div className={sx(raisedPanel.panel, styles.evidencePanel)}><Evidence items={group.evidence} /></div>
-    </section>)}
-    {model.leftBehind.length ? <section className={sx(styles.section)} aria-labelledby={`${ids}-left`}>
-      <h3 id={`${ids}-left`} className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.leftBehind")}</h3>
-      <ul className={sx(raisedPanel.panel, styles.panelList)}>{model.leftBehind.map((item) => <li key={item} className={sx(raisedPanel.row, styles.criterionText)}>{item}</li>)}</ul>
-    </section> : null}
-    {model.links.length ? <div className={sx(styles.row)}>
-      {model.links.map((link) => <a key={link.url} className={sx(agentRunStyles.link)} href={link.url} target="_blank" rel="noreferrer">
-        {link.label}<ArrowUpRight aria-hidden className={sx(agentRunStyles.iconSm)} /></a>)}
-    </div> : null}
+    <TarsReportEvidenceGroups model={model} />
+    </TarsResultDetails>
   </div>;
+}
+
+/** Stage evidence is shared with Result; source, command and revision stay intact. */
+export function TarsReportEvidenceGroups({ model }: { model: TarsReportModel }) {
+  const { t } = useTranslation(["shell"]);
+  return <>{model.evidenceGroups.map((group) => <section key={group.stageId} className={sx(styles.section)}
+    aria-label={t("shell:tars.side.report.evidenceIn", { stage: group.stageTitle })} data-tars-evidence-group={group.stageId}>
+    <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.report.evidenceIn", { stage: group.stageTitle })}</h3>
+    <div className={sx(raisedPanel.panel, styles.evidencePanel)}><Evidence items={group.evidence} /></div>
+  </section>)}</>;
 }

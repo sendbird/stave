@@ -1960,8 +1960,6 @@
           "stopped": "실행 중단됨"
         },
         "blockedTitle": "진행 불가",
-        "unmetTitle_other": "충족하지 못한 기준 {{count}}개",
-        "allMet": "모든 기준을 충족했습니다.",
         "criteriaTitle": "기준",
         "status": {
           "met": "충족",
@@ -1970,7 +1968,6 @@
           "notReported": "보고 없음"
         },
         "noReport": "실행이 이 기준을 보고하지 않았습니다.",
-        "leftBehind": "남은 일",
         "evidenceIn": "{{stage}} 단계에서 보고한 근거",
         "source": {
           "agent": "{{stage}} 단계에서 에이전트가 보고",
@@ -2690,6 +2687,14 @@
       "models": "모델",
       "work": "작업 방식",
       "limits": "작업 한도"
+    },
+    "completion": {
+      "noSummary": "기록된 최종 요약이 없습니다. 상세에서 보고된 결과를 확인하세요.",
+      "earlierNote": "이전 단계 기록 · {{stage}} · 이후 변경되었을 수 있음",
+      "criteriaCount": "완료 기준 {{total}}개 중 {{met}}개 충족 · 출처는 상세에서 확인",
+      "stale": "최종 버전을 확인하지 못한 검사가 있습니다. 상세에서 출처와 버전을 확인하세요.",
+      "acceptedWithoutVerification": "Stave 검증 없이 완료를 수락한 작업입니다.",
+      "details": "전체 요약·완료 기준·검증 근거"
     }
   }
 }

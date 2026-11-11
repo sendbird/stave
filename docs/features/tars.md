@@ -901,18 +901,16 @@ full-width result surface and resumes between text-only records, so it never
 runs through a card. The card shows only what the run
 recorded:
 
-- The completion criteria with short source badges: **Check passed**, **Reviewed**,
-  **Reported**, **Not met**, **Unconfirmed** or **Not reported**. The header counts
-  only criteria confirmed by a current check or review; an agent-only result
-  says **2/2 reported met**, never **2/2 confirmed**. A result starts a new group
-  with extra space above its state and work name; narrow columns put badges
-  below wrapping criteria.
-- **Evidence & review** unfolds the full source wording and the checks Stave
-  saw pass on the final revision. These checks support the stage as a whole,
-  not every criterion. **Open review** opens the recorded review. A stale or
-  missing review, an unmet criterion or a failed check never increases the
-  confirmed count. A criterion with its own failed check is not lifted by review.
-- The last summary from the report, cut to two lines, with **Open report**.
+- Under **Full summary, criteria and evidence**, completion criteria use short
+  **Check passed**, **Reviewed**, **Reported**, **Not met**, **Unconfirmed** or
+  **Not reported** badges. The detail header counts criteria confirmed by a
+  current check or review; agent-only results say **2/2 reported met**.
+  **Evidence & review** unfolds full sources and stage-wide checks, with
+  **Open review**. Stale or failed checks and missing reviews never increase
+  the confirmed count. Extra space above the result state separates groups;
+  narrow columns place badges below wrapping criteria.
+- A short excerpt of the final recorded summary and the report's output links first, with **Open report**. No summary is invented when none was recorded.
+- **Full summary, criteria and evidence** expands the complete stage summaries, criteria and stage evidence. The Report view uses the same order: summary and outputs first, full detail folded. Unmet, unverified and unreported criteria, recorded remaining work, explicit caveats in the final summary, stale checks and completion accepted without a Stave check stay visible above the fold. The criterion count summarizes met statuses without implying a source; the details distinguish agent reports, checks and reviews. Empty criterion sets have no count. Earlier-stage caveats remain visible as historical notes labeled with their stage and may have been superseded; they are not presented as current unresolved warnings. Stop or cancellation reasons precede the summary. Result text follows the chat font size, while Report text keeps the panel scale.
 - The changed files with lines added and removed, and **View changes**; the
   review's result; and the draft pull request as a link, or **Create draft
   PR** where the work can be published.
