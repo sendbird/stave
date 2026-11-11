@@ -104,10 +104,6 @@ import {
   type CraneConnectorSettings,
 } from "@/lib/crane-connector/types";
 import {
-  DEFAULT_MARTIN_SYNC_SETTINGS,
-  type MartinSyncSettings,
-} from "@/lib/martin-sync/types";
-import {
   DEFAULT_JIRA_CONNECTOR_SETTINGS,
   type JiraConnectorSettings,
 } from "@/lib/jira-connector/types";
@@ -409,8 +405,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   accountsOnboarding: AccountsOnboardingSettings;
   /** Optional outbound-only Crane dispatch connector. Secrets stay in Electron main. */
   craneConnector: CraneConnectorSettings;
-  /** Martin workspace sync toggles. Secrets stay in Electron main. */
-  martinSync: MartinSyncSettings;
   /**
    * Jira Cloud tracker connector. Site, JQL, and project mappings live here;
    * the email and API token never leave the Electron main vault.
@@ -824,7 +818,6 @@ export const defaultSettings: AppSettings = {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
     repositoryMappings: [],
   },
-  martinSync: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
   jiraConnector: {
     ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
     repositoryMappings: [],

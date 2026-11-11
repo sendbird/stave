@@ -13,7 +13,6 @@ import {
   normalizeWorkspaceSettleAfterDays,
   normalizeWorkspaceSettlementMap,
 } from "@/lib/fleet/workspace-settlement";
-import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
 import { normalizeTrackerIssuesSettings } from "@/lib/tracker-issues/settings";
 import {
@@ -278,12 +277,16 @@ export function createAppStorePersistenceOptions() {
           appShellMode?: unknown;
         }
       ).appShellMode;
+      // temporary-migration: strip-retired-sync-settings
+      // Martin sync was removed; drop its toggles from older saved settings.
+      delete (state.settings as AppSettings & { martinSync?: unknown })
+        .martinSync;
+      // end temporary-migration: strip-retired-sync-settings
       // Migrate legacy fastModeVisible → per-provider fields.
       const raw = state.settings as any;
       state.settings.craneConnector = normalizeCraneConnectorSettings(
         raw.craneConnector,
       );
-      state.settings.martinSync = normalizeMartinSyncSettings(raw.martinSync);
       state.settings.jiraConnector = normalizeJiraConnectorSettings(
         raw.jiraConnector,
       );

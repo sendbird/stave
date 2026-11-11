@@ -3,7 +3,6 @@ import type { StoreApi } from "zustand";
 import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";
 import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
-import { maybeRefreshMartinContext } from "@/lib/martin-sync/renderer-triggers";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import {
@@ -726,10 +725,6 @@ export function createWorkspaceManagementActions(args: {
           switchMetricToken,
         });
       }
-      maybeRefreshMartinContext({
-        workspaceId,
-        martinProject: get().workspaceInformation.martinProject,
-      });
     },
     moveWorkspaceInRepositoryList: ({ repositoryPath, workspaceId, direction }) => {
       const normalizedRepositoryPath = repositoryPath.trim();

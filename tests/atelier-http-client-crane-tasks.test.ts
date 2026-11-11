@@ -232,6 +232,32 @@ describe("AtelierConnectorHttpClient Crane task routes", () => {
       `${String(networkError)}${JSON.stringify(networkError)}`,
     ).not.toContain("stc_");
   });
+
+  test("sends requests to the API host of the configured Atelier UI host", async () => {
+    const requests: Request[] = [];
+    const client = new AtelierConnectorHttpClient({
+      baseUrl: "https://atelier.sdix.io/",
+      fetch: (async (input, init) => {
+        requests.push(new Request(input, init));
+        return jsonResponse(await readFixture("task-list.json"));
+      }) as typeof fetch,
+    });
+    await client.listCraneTasks({ secret: SECRET });
+    expect(new URL(requests[0]!.url).origin).toBe("https://api.atelier.sdix.io");
+  });
+
+  test("requires HTTPS except explicit localhost development", () => {
+    expect(
+      () => new AtelierConnectorHttpClient({ baseUrl: "http://atelier.example.test" }),
+    ).toThrow("HTTPS");
+    expect(
+      () =>
+        new AtelierConnectorHttpClient({
+          baseUrl: "http://localhost:8181",
+          allowInsecureLocalhost: true,
+        }),
+    ).not.toThrow();
+  });
 });
 
 describe("Crane tracker source", () => {
@@ -307,7 +333,7 @@ describe("Crane tracker source", () => {
     expect(
       await signalDeps(
         makeDeps({
-          credential: { baseUrl: BASE_URL, scopes: ["martin"], secret: SECRET },
+          credential: { baseUrl: BASE_URL, scopes: ["other"], secret: SECRET },
         }),
       ),
     ).toBe("unpaired");
@@ -441,7 +467,7 @@ describe("Crane tracker source", () => {
   test("refuses a call when the pairing lost the Crane scope", async () => {
     const source = createCraneTrackerSource(
       makeDeps({
-        credential: { baseUrl: BASE_URL, scopes: ["martin"], secret: SECRET },
+        credential: { baseUrl: BASE_URL, scopes: ["other"], secret: SECRET },
       }),
     );
     const thrown = await source

@@ -146,7 +146,7 @@ every mapping and data migration.
 
 Kept as they are: Task, Turn, Workspace, Worker, Advisor, Fleet, Work queue,
 Macro, Preset, Skill, Kickoff, Memory, Information, Action required, Ledger,
-Receipt, Occurrence. Names owned by other systems are untouched: Jira and Martin
+Receipt, Occurrence. Names owned by other systems are untouched: Jira
 projects, the Crane `crane-tasks-v1` wire contract, and provider progress
 heartbeats. Mission copy uses **Stuck**, because "stalled" already names an
 idle provider turn.

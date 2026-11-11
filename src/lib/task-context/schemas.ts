@@ -901,18 +901,6 @@ const WorkspaceTurnSummarySchema = z.object({
 const WorkspaceInformationSchema = z.object({
   resumeBrief: WorkspaceResumeBriefSchema.nullable().optional(),
   intentAnchorIds: z.array(z.string()).optional(),
-  martinProject: z
-    .object({
-      ref: z.string(),
-      slug: z.string(),
-      name: z.string(),
-      url: z.string(),
-      linkedAt: z.string(),
-      lastPulledAt: z.string().nullable(),
-      stale: z.boolean().optional(),
-    })
-    .nullable()
-    .optional(),
   jiraIssues: z.array(WorkspaceJiraIssueSchema).optional().default([]),
   craneIssues: z.array(WorkspaceCraneIssueSchema).optional().default([]),
   confluencePages: z

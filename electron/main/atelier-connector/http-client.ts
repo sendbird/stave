@@ -1,26 +1,5 @@
 import { z } from "zod";
 
-import {
-  AtelierConnectorScopeSchema,
-  type AtelierConnectorScope,
-} from "../../../src/lib/atelier-connector/types";
-import {
-  MartinContextBundleV1Schema,
-  MartinProjectListResponseV1Schema,
-  STAVE_SYNC_CONTRACT_VERSION,
-  StaveSyncEventsRequestV1Schema,
-  StaveSyncEventsResponseV1Schema,
-  StaveSyncLinksMergeRequestV1Schema,
-  StaveSyncLinksMergeResponseV1Schema,
-  toMartinProjectSummary,
-  type MartinContextBundleV1,
-  type StaveSyncEventV1,
-  type StaveSyncLinkV1,
-} from "../../../src/lib/martin-sync/contract";
-import {
-  CraneConnectorMetadataSchema,
-  type CraneConnectorMetadata,
-} from "../../../src/lib/crane-connector/types";
 import { normalizeCraneConnectorBaseUrl } from "../crane-connector/http-client";
 import { atelierApiBaseUrl } from "../../../src/lib/atelier-connector/hosts";
 import { CraneStaveJobV1Schema } from "../../../src/lib/crane-connector/contract";
@@ -33,29 +12,8 @@ import {
 import type { TrackerStatusCategory } from "../../../src/lib/tracker-issues/types";
 
 const DEFAULT_MAX_RESPONSE_BYTES = 24_000;
-const SYNC_MAX_RESPONSE_BYTES = 64_000;
-const CONTEXT_BUNDLE_MAX_RESPONSE_BYTES = 512 * 1_024;
 const RETRY_AFTER_MS_MAX = 5 * 60 * 1_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
-
-/*
- * Like the dispatch client's schemas, these strip unknown properties instead of
- * rejecting them: the exchange has already consumed the pairing code and
- * revoked the previous connector by the time it answers, so rejecting an
- * additive field would strand a pairing Crane already shows as connected.
- */
-const ServerConnectorSchema = z.object({
-  ...CraneConnectorMetadataSchema.shape,
-  secretPrefix: z.string().trim().min(1).max(16),
-  revokedAt: z.string().datetime({ offset: true }).nullable(),
-  scopes: z.array(AtelierConnectorScopeSchema).min(1).max(2).optional(),
-});
-
-const ExchangeResponseSchema = z.object({
-  connector: ServerConnectorSchema,
-  secret: z.string().trim().startsWith("stc_").max(128),
-  pollRetryMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
-});
 
 const ErrorResponseSchema = z
   .object({
@@ -173,24 +131,8 @@ async function readBoundedJson(
   }
 }
 
-function toPublicMetadata(
-  connector: z.infer<typeof ServerConnectorSchema>,
-): CraneConnectorMetadata {
-  return {
-    id: connector.id,
-    name: connector.name,
-    protocolVersion: connector.protocolVersion,
-    appVersion: connector.appVersion,
-    capabilities: connector.capabilities,
-    createdAt: connector.createdAt,
-    lastSeenAt: connector.lastSeenAt,
-  };
-}
-
 export class AtelierConnectorHttpClient {
-  /** The configured Atelier URL: pages and links people open. */
-  private readonly uiBaseUrl: string;
-  /** Where requests go: the API host derived from `uiBaseUrl`. */
+  /** Where requests go: the API host derived from the configured Atelier URL. */
   private readonly apiBaseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly requestTimeoutMs: number;
@@ -201,10 +143,11 @@ export class AtelierConnectorHttpClient {
     allowInsecureLocalhost?: boolean;
     requestTimeoutMs?: number;
   }) {
-    this.uiBaseUrl = normalizeAtelierBaseUrl(args.baseUrl, {
-      allowInsecureLocalhost: args.allowInsecureLocalhost,
-    });
-    this.apiBaseUrl = atelierApiBaseUrl(this.uiBaseUrl);
+    this.apiBaseUrl = atelierApiBaseUrl(
+      normalizeAtelierBaseUrl(args.baseUrl, {
+        allowInsecureLocalhost: args.allowInsecureLocalhost,
+      }),
+    );
     this.fetchImpl = args.fetch ?? fetch;
     this.requestTimeoutMs = Math.max(
       1,
@@ -267,118 +210,6 @@ export class AtelierConnectorHttpClient {
       throw new AtelierConnectorHttpError("invalid_response", response.status);
     }
     return parsed.data;
-  }
-
-  async exchangePairingCode(args: {
-    code: string;
-    name: string;
-    appVersion: string;
-    requestedScopes: AtelierConnectorScope[];
-    signal?: AbortSignal;
-  }) {
-    const response = await this.request({
-      path: "/api/crane/stave/connectors/exchange",
-      method: "POST",
-      body: {
-        code: args.code,
-        name: args.name,
-        protocolVersion: 1,
-        appVersion: args.appVersion,
-        capabilities: ["run_task"],
-        requestedScopes: args.requestedScopes,
-      },
-      signal: args.signal,
-      schema: ExchangeResponseSchema,
-    });
-    return {
-      connector: toPublicMetadata(response.connector),
-      secret: response.secret,
-      pollRetryMs: response.pollRetryMs,
-      scopes:
-        response.connector.scopes ?? (["crane"] as AtelierConnectorScope[]),
-    };
-  }
-
-  async listMartinProjects(args: {
-    secret: string;
-    query?: string;
-    limit?: number;
-    signal?: AbortSignal;
-  }) {
-    const search = new URLSearchParams();
-    if (args.query) search.set("query", args.query);
-    if (args.limit !== undefined) search.set("limit", String(args.limit));
-    const suffix = search.size > 0 ? `?${search}` : "";
-    const response = await this.request({
-      path: `/api/martin/stave/projects${suffix}`,
-      secret: args.secret,
-      signal: args.signal,
-      schema: MartinProjectListResponseV1Schema,
-      maxResponseBytes: SYNC_MAX_RESPONSE_BYTES,
-    });
-    return response.projects.map((project) =>
-      toMartinProjectSummary(project, this.uiBaseUrl),
-    );
-  }
-
-  async getMartinContextBundle(args: {
-    secret: string;
-    projectRef: string;
-    signal?: AbortSignal;
-  }): Promise<MartinContextBundleV1> {
-    return this.request({
-      path: `/api/martin/stave/projects/${encodeURIComponent(args.projectRef)}/context-bundle`,
-      secret: args.secret,
-      signal: args.signal,
-      schema: MartinContextBundleV1Schema,
-      maxResponseBytes: CONTEXT_BUNDLE_MAX_RESPONSE_BYTES,
-    });
-  }
-
-  async postMartinEvents(args: {
-    secret: string;
-    projectRef: string;
-    events: StaveSyncEventV1[];
-    signal?: AbortSignal;
-  }) {
-    const body = StaveSyncEventsRequestV1Schema.parse({
-      contract: STAVE_SYNC_CONTRACT_VERSION,
-      events: args.events,
-    });
-    const response = await this.request({
-      path: `/api/martin/stave/projects/${encodeURIComponent(args.projectRef)}/events`,
-      method: "POST",
-      secret: args.secret,
-      body,
-      signal: args.signal,
-      schema: StaveSyncEventsResponseV1Schema,
-      maxResponseBytes: SYNC_MAX_RESPONSE_BYTES,
-    });
-    return response.results;
-  }
-
-  async mergeMartinLinks(args: {
-    secret: string;
-    projectRef: string;
-    links: StaveSyncLinkV1[];
-    signal?: AbortSignal;
-  }) {
-    const body = StaveSyncLinksMergeRequestV1Schema.parse({
-      contract: STAVE_SYNC_CONTRACT_VERSION,
-      links: args.links,
-    });
-    const response = await this.request({
-      path: `/api/martin/stave/projects/${encodeURIComponent(args.projectRef)}/links/merge`,
-      method: "POST",
-      secret: args.secret,
-      body,
-      signal: args.signal,
-      schema: StaveSyncLinksMergeResponseV1Schema,
-      maxResponseBytes: SYNC_MAX_RESPONSE_BYTES,
-    });
-    const counts = { inserted: 0, updated: 0, skipped: 0 };
-    for (const result of response.results) counts[result.action] += 1;
-    return { ok: true as const, ...counts };
   }
 
   /**

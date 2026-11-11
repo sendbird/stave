@@ -52,15 +52,6 @@ export {
   CraneDispatchApprovalResponseSchema as CraneDispatchApproveArgsSchema,
   CraneDispatchDeclineResponseSchema as CraneDispatchDeclineArgsSchema,
 } from "../../../src/lib/crane-connector/types";
-export { AtelierConnectorPairArgsSchema } from "../../../src/lib/atelier-connector/types";
-export {
-  MartinLinkProjectArgsSchema,
-  MartinListProjectsArgsSchema,
-  MartinSyncConfigureArgsSchema,
-  MartinSyncEnqueueArgsSchema,
-  MartinSyncLinksChangedArgsSchema,
-  MartinWorkspaceArgsSchema,
-} from "../../../src/lib/martin-sync/types";
 export {
   TrackerIssueAttachStaveTaskArgsSchema,
   TrackerIssueKickoffArgsSchema,

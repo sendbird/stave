@@ -164,7 +164,7 @@ As-built:
 
 - [x] A TypeScript language-service codemod
       (rename-repositories.ts (removed)): seeds every declaration
-      whose name contains "project" and is not a Martin/Jira/provider concept,
+      whose name contains "project" and is not a Jira/provider concept,
       then renames each symbol with `findRenameLocations`. Merges the two edits
       that land on one shorthand/aliased span, and follows renamed compound
       names into string literals (Pick keys, tool names, test titles). Foreign
@@ -210,7 +210,7 @@ BREAKING CHANGE footer lists the three renamed MCP tools.
 
 - Codemod rule set `repositories`, AST-scoped:
   - identifiers `project*` → `repository*` (never `projection`)
-  - protect `martinProject`, `jiraProject*`, Jira filter fields, the
+  - protect `jiraProject*`, Jira filter fields, the
     TypeScript `project` config, and the cross-repository contracts
     (`stave-sync-v1`, `stave-dispatch-v1`)
 - Temporary migrations:
@@ -242,7 +242,6 @@ copy.
 
 - [ ] Denylist:
   - Jira project fields and filter chip ("Project" stays: it is Jira's)
-  - `martinProject` and `stave_martin_*_project`
   - `package.json` and `tsconfig` "project" keys
   - `scripts/` references to the TypeScript "project"
 - [ ] SQLite: `ALTER TABLE … RENAME COLUMN project_path TO repository_path` for

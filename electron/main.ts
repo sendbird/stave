@@ -35,7 +35,6 @@ import {
 } from "./main/quit-state";
 import { stopCraneConnectorRuntime } from "./main/crane-connector/service";
 import { STAVE_LOCAL_MCP_OWNER_PID_ENV } from "./main/stave-local-mcp-manifest";
-import { stopMartinSyncRuntime } from "./main/martin-sync/service";
 import {
   startTrackerIssuesRuntime,
   stopTrackerIssuesRuntime,
@@ -112,7 +111,6 @@ function runBeforeQuitCleanup() {
 
     const results = await Promise.allSettled([
       Promise.resolve(stopCraneConnectorRuntime()),
-      Promise.resolve(stopMartinSyncRuntime()),
       Promise.resolve(stopTrackerIssuesRuntime()),
       Promise.resolve(stopStorageCleanupRuntime()),
       stopStaveMcpServer(),

@@ -21,10 +21,6 @@ import {
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
 } from "@/lib/providers/auxiliary-inference-policy";
 import { AUX_INFERENCE_DEFAULT_FIELD_ID } from "@/components/layout/settings-dialog-auxiliary-inference-shared-default";
-import {
-  DEFAULT_MARTIN_SYNC_SETTINGS,
-  MartinSyncSettingsSchema,
-} from "@/lib/martin-sync/types";
 import { STANDALONE_CLI_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-standalone-cli-card";
 import { DENSITY_SETTING_FIELD_ID } from "@/components/layout/settings-sections/settings-dialog-density-card";
 import { AUTO_ROUTING_SETTING_FIELD_ID, ROUTING_DECISION_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
@@ -367,29 +363,6 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "include",
   } satisfies SettingDefinition<"trackerIssues">,
-  {
-    key: "martinSync",
-    sectionId: "integrations",
-    fieldId: "settings-field-martin-sync",
-    titleKey: "settings:sections.fields.martinSync.title",
-    descriptionKey: "settings:sections.fields.martinSync.description",
-    keywords: [
-      "martin",
-      "atelier",
-      "sync",
-      "project",
-      "events",
-      "links",
-      "outbox",
-      "connector",
-    ],
-    schema: MartinSyncSettingsSchema,
-    defaultValue: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
-    scope: "app",
-    sensitivity: "sensitive",
-    applyMode: "immediate",
-    importExport: "exclude",
-  } satisfies SettingDefinition<"martinSync">,
   // Account selections are machine-local profile ids, so they never travel in
   // an export. An API connection is an account under each runtime it serves:
   // picking it selects it.

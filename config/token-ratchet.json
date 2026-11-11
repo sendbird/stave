@@ -145,11 +145,6 @@
       "icon-metric": 2,
       "line-height": 2
     },
-    "src/components/layout/workspace-information-martin-card.styles.ts": {
-      "control-metric": 3,
-      "icon-metric": 5,
-      "line-height": 1
-    },
     "src/components/layout/cli-session-panel.styles.ts": {
       "icon-metric": 2,
       "tracking": 1,
@@ -371,9 +366,6 @@
     "src/components/layout/issues/issues-row.styles.ts": {
       "icon-metric": 10,
       "control-metric": 4
-    },
-    "src/components/layout/settings-dialog-martin-sync.styles.ts": {
-      "custom-spinner": 1
     },
     "src/components/layout/explorer-entry-icon.styles.ts": {
       "radius": 1,
