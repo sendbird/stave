@@ -9,8 +9,9 @@ test('only frozen final text leads; every stage summary stays whole', () => {
   const run = f.runs[row.agentRunId!]!;
   const finalStage = run.report!.stages.find((stage) => stage.stageId === 'review')!;
   expect(run.report!.stages.at(-1)!.status).toBe('skipped');
-  const original = finalStage.summary!;
-  expect(projectTarsReport(row, run).summary).toBe(original);
+  // The work's own words lead; the passed review that ended the run keeps its own place.
+  const workSummary = run.report!.stages.find((stage) => stage.stageId === 'work')!.summary!;
+  expect(projectTarsReport(row, run).summary).toBe(workSummary);
   expect(projectTarsReport(row, { ...run, report: null }).summary).toBeNull();
   const text = 'Exported invoices with stable columns.\n\nNot verified on production data.';
   finalStage.summary = text;

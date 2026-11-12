@@ -33,6 +33,18 @@ describe("result report projection", () => {
     expect(model.links).toEqual([{ label: "Draft pull request #42", url: "https://example.com/acme/shop/pull/42", source: "agent" }]);
   });
 
+  test("the headline is the work's own summary when a passed review ended the run, and the review's only when nothing else reported", () => {
+    const f = fixtures();
+    const run = runOf(f, "checkout");
+    const reviewId = run.agentRun.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")!.id;
+    const work = run.report!.stages.find((stage) => stage.stageId !== reviewId)!;
+    // The fix stage was skipped: the review is the last stage with words.
+    const stages = [{ ...work, summary: "Added multiply and its test." }, { ...work, stageId: reviewId, title: "Review", summary: "Independent review passed with no findings." }];
+    expect(projectTarsReport(rowOf(f, "checkout"), { ...run, report: { ...run.report!, stages } }).summary).toBe("Added multiply and its test.");
+    expect(projectTarsReport(rowOf(f, "checkout"), { ...run, report: { ...run.report!, stages: [{ ...stages[0]!, summary: "" }, stages[1]!] } }).summary)
+      .toBe("Independent review passed with no findings.");
+  });
+
   test("evidence stays with the stage that reported it, once, labelled by source and revision", () => {
     const f = fixtures();
     const model = projectTarsReport(rowOf(f, "checkout"), runOf(f, "checkout"));

@@ -48,12 +48,14 @@ function explicitCaveats(text: string | null): string[] {
 
 /** Structured remaining work stays verbatim, regardless of prose extraction. */
 export function tarsSummaryCaveats(model: TarsReportModel) {
-  return [...new Set([...explicitCaveats(model.summary), ...model.leftBehind])];
+  // A passed review that ended the run is its last word, so its caveats still stand beside the work's headline.
+  const last = model.summaries.at(-1)?.text;
+  return [...new Set([...explicitCaveats(model.summary), ...(last && last !== model.summary ? explicitCaveats(last) : []), ...model.leftBehind])];
 }
 
 /** Earlier notes are historical context, never claims that a limitation remains unresolved. */
 export function tarsEarlierSummaryCaveats(model: TarsReportModel) {
-  return model.summaries.slice(0, -1).flatMap((stage) => {
+  return model.summaries.slice(0, -1).filter((stage) => stage.text !== model.summary).flatMap((stage) => {
     const caveats = explicitCaveats(stage.text);
     return caveats.length ? [{ ...stage, caveats }] : [];
   });
