@@ -42,7 +42,12 @@ function fixture(filename = ":memory:", completionGoal: "pullRequest" | "merge" 
   const calls: string[][] = [];
   const ports = { responsibilities, conversations, now, resolveWorkspace: async () => ({ path: "/tmp/execution", base: "main", repositoryName: "repo" }),
     run: async (command: "gh" | "git", args: readonly string[]) => {
-      expect(command).toBe("gh"); calls.push([...args]);
+      expect(command).toBe("gh");
+      if (args[0] === "auth") return { ok: true, code: 0, stdout: "", stderr: "" };
+      if (args[0] === "api") return { ok: true, code: 0, stdout: JSON.stringify({ data: { repository: { pullRequest: {
+        headRefOid: live.headRefOid, reviewThreads: { nodes: [], totalCount: 0 }, reviews: { nodes: [] },
+      } } } }), stderr: "" };
+      calls.push([...args]);
       if (unavailable) return { ok: false, code: 1, stdout: "", stderr: "gh auth login" };
       if (args[1] === "ready") live.isDraft = false;
       return { ok: true, code: 0, stdout: JSON.stringify(live), stderr: "" };

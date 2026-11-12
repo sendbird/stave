@@ -21,9 +21,9 @@ export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
 export const TARS_WAIT_FOLLOW_UP_MS = 60 * 60_000;
 
-export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "decisionInvalidated", "ciFailed", "ciPassed", "ciUnavailable"]);
+export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "decisionInvalidated", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice"]);
 /** The kinds an automatic follow-up message can carry; an invalidated decision keeps its own re-ask message. */
-export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "ciFailed", "ciPassed", "ciUnavailable"]);
+export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice"]);
 export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
 
 /**
@@ -129,6 +129,14 @@ export function classifyTarsTransition(previous: Pick<TarsResponsibility, Transi
 export function isTarsEventCurrent(event: Pick<TarsEvent, "kind" | "observedState" | "observedRevision"> & { episode?: string; attempt?: string | null },
   row: Pick<TarsResponsibility, "state" | "detailCode" | "revision" | "stageAsksUser"> & Partial<Pick<TarsResponsibility, "detailParams">> & { publication?: TarsResponsibility["publication"]; agentRunId?: string | null } | null) {
   if (!row || row.revision < event.observedRevision || row.state !== event.observedState) return false;
+  if (event.kind === "prChangesRequested" || event.kind === "prReviewNotice") {
+    const publication = row.publication;
+    const feedback = publication?.watch?.feedback;
+    return (row.state === "completed" || row.state === "resultReady") && publication?.state === "opened"
+      && !publication.watch?.stopped?.match(/closed|merged/) && row.agentRunId === event.attempt
+      && publication.agentRunId === row.agentRunId && feedback?.headSha === publication.commit
+      && publication.checks?.headSha === publication.commit && feedback?.episode === event.episode;
+  }
   if (event.kind.startsWith("ci")) {
     const checks = row.publication?.checks;
     return (row.state === "completed" || row.state === "resultReady") && row.publication?.state === "opened" && !row.publication.watch?.stopped?.match(/closed|merged/)

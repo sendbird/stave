@@ -307,6 +307,11 @@ export class TarsStore {
         this.events.record({ ...observed, kind: ciKind, episode: ciEpisode! }, now);
         this.journal(next, now, checks);
       }
+      const feedback = next.publication?.watch?.feedback;
+      if (feedback && feedback.headSha === next.publication?.commit && feedback.episode !== previous.publication?.watch?.feedback?.episode
+        && !next.publication.watch?.stopped?.match(/closed|merged/)) {
+        this.events.record({ ...observed, kind: feedback.requestedChanges ? "prChangesRequested" : "prReviewNotice", episode: feedback.episode }, now);
+      }
       const kind = classifyTarsTransition(previous, next);
       if (kind) this.events.record({ ...observed, kind }, now);
       return next;

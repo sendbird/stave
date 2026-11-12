@@ -22,6 +22,18 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, origin: FollowUp
   // A schedule makes work start by itself later; only the user's own words set one up, change one or list them.
   if (action.kind === "schedule") return "An automatic follow-up cannot propose or change a schedule; only the user's own request can.";
   const ci = origin.reason === "ciFailed" && responsibilities.get(origin.responsibilityId)?.publication?.checks?.state === "failed";
+  const review = origin.reason === "prChangesRequested";
+  if (review && action.kind === "control") {
+    const target = responsibilities.get(action.responsibilityId);
+    const publication = target?.publication;
+    return action.operation === "message" && (target?.state === "completed" || target?.state === "resultReady")
+      && !target.executionPending && publication?.state === "opened" && publication.agentRunId === target.agentRunId
+      && !publication.watch?.stopped?.match(/closed|merged/)
+      && publication.checks?.headSha === publication.commit && publication.watch?.feedback?.headSha === publication.commit && publication.watch.feedback.requestedChanges
+      && origin.eventKey === `prChangesRequested:${target.id}:${publication.watch.feedback.episode}`
+      && (publication.watch.reviewRounds ?? 0) >= 1 && (publication.watch.reviewRounds ?? 0) <= 2
+      ? null : "A review follow-up can only continue its published work once, on the same branch and PR.";
+  }
   if (ci && action.kind === "control") {
     const target = responsibilities.get(action.responsibilityId);
     return origin.responsibilityId === target?.id && action.operation === "message" && (target?.state === "completed" || target?.state === "resultReady")

@@ -1,3 +1,4 @@
+import { readTarsPrFeedback } from "./tars-pr-feedback";
 import { parseTarsPrChecks, tarsPrWatchEpisode, TarsPrReviewInputSchema } from "../../src/lib/tars/pr-checks";
 import { parseTarsDecisionId } from "../../src/lib/tars/decisions";
 import type { TarsPublication } from "../../src/lib/tars/publication";
@@ -61,8 +62,11 @@ export function createTarsPrWatcher(ports: Ports) {
       }
       try {
         const live = await read(row);
+        const feedback = (row.state === "completed" || row.state === "resultReady") && !row.executionPending
+          && row.agentRunId === publication.agentRunId && !live.closed && live.branch === publication.branch && live.checks.headSha === publication.commit
+          ? await readTarsPrFeedback(publication, live.cwd, ports.run) : undefined;
         const delay = TARS_PR_POLL_MS[Math.min(watch.polls, TARS_PR_POLL_MS.length - 1)]!;
-        save(row, { ...publication, checks: live.checks, watch: { ...watch, polls: watch.polls + 1,
+        save(row, { ...publication, checks: live.checks, watch: { ...watch, ...(feedback ? { feedback } : {}), polls: watch.polls + 1,
           nextAt: new Date(Date.parse(at) + delay).toISOString(),
           stopped: live.merged ? "merged" : live.closed || live.branch !== publication.branch ? "closed" : null } });
       } catch (error) {
