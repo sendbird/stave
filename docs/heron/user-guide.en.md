@@ -900,6 +900,9 @@ in its reply's place; **Edit and resend** puts its words back in the message box
 to send as a new message. A timeout (five minutes per attempt), a cut-short
 answer or a passing model problem is retried once by itself, and the message
 says it is trying once more; anything else, or a second failure, is not retried.
+Before a Codex model turn starts, temporary workspace-routing discovery failures
+get up to two short retries. If starting still fails, Stave shows a short error
+so you can try again. An executing turn is never replayed by this recovery.
 If one action in Tars's reply is malformed, only that action is left out, and
 the message says how many were; the reply and the other actions stay. A queued
 message says why it waits (an earlier action's result, or your saved agents

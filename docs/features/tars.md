@@ -331,6 +331,9 @@ reports on the work.
   rate limit, an overload, a dropped connection) is retried once by itself, with
   the same input, and the message says so while it retries; a second failure,
   a refusal, an account problem or a reply Stave cannot read fails the message.
+  Before a Codex model turn starts, temporary workspace-routing discovery
+  failures get up to two short retries. If starting still fails, Stave shows a
+  short error so you can try again; it does not replay an executing turn.
 - **One malformed action never costs the reply.** If one of the actions Tars
   returns does not match its rules (or goes past a reply's limit, such as a
   second question), only that action is left out and the message says how many

@@ -7,6 +7,7 @@ import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { TarsConversation, TarsConversationSettings } from "@/lib/tars/conversation";
 import type { TarsControlOperation, TarsResponsibility, TarsSnapshot } from "@/lib/tars/types";
 import { launchStave, seedRepository } from "./harness/stave-app";
+import enShell from "../../src/locales/en/shell.json";
 
 /**
  * Tars on the real providers, end to end. No provider or IPC stand-ins: the
@@ -227,7 +228,12 @@ async function trayAndFlow(page: Page, id: string, testInfo: TestInfo, name: str
     cardText: (await card.first().innerText({ timeout: 5_000 }).catch(() => ""))?.slice(0, 600),
     attention: await page.locator("[data-tars-attention]").count(),
     outputs: await page.locator("[data-tars-output]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-output"))),
-    records: (await view.innerText()).split("\n").filter((line) => / · (click|Fleet|task view|key|words)$/.test(line.trim())),
+    records: await view.locator("[data-tars-action-record]:visible").evaluateAll(nodes => nodes.map(node => ({
+      lead: node.querySelector("[data-tars-record-lead]")?.textContent?.trim(),
+      actor: node.querySelector("[data-tars-record-actor]")?.getAttribute("aria-label"),
+      source: node.getAttribute("data-tars-record-source"),
+      status: node.getAttribute("data-tars-action-record"),
+    }))),
   };
   await page.screenshot({ path: testInfo.outputPath(`${name}-tars.png`) });
   return result;
@@ -452,7 +458,9 @@ test("B: clicks — pause, resume, take over and hand back a live run", async ({
       JSON.stringify(records.map((record) => record.slice(0, 2))) === JSON.stringify([["b-pause", "applied"], ["b-resume", "applied"], ["b-takeover", "applied"], ["b-resume-taken", "rejected"], ["b-hand-back", "applied"]])
       && conversation.messages.filter((row) => row.origin === undefined).length === 1, { records, messages: conversation.messages.length });
     const ui = await trayAndFlow(page, id, testInfo, "B");
-    check(expectations, "the records show in the conversation view", ["Paused · click", "Resumed · click", "Taken over · click", "Handed back · click"].every((line) => ui.records.some((text) => text.includes(line))), ui.records);
+    check(expectations, "the records show in the conversation view", (["pause", "resume", "takeover", "handBack"] as const).every(operation => ui.records.some(record =>
+      record.lead === enShell.tars.record.operation[operation] && record.actor === enShell.tars.record.by.you.click
+      && record.source === "click" && record.status === "applied")), ui.records);
     entry.planner = plannerRecord(conversation);
     entry.turns = { tars: conversation.messages.length, run: detail?.agentRun.turnCount ?? null, maxTurns: detail?.agentRun.maxTurns ?? null };
     entry.usage = await usageOf(page, detail);
