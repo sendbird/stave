@@ -126,6 +126,8 @@ export interface TarsDecisionView {
   record: TarsActionRecord | null;
   /** Words it sent to a busy task: where their delivery stands (`TarsMessageDelivery`); null otherwise. */
   delivery: TarsMessageDelivery | null;
+  /** The same saved record owns delivery withdrawal from every history surface. */
+  deliveryRecord?: TarsActionRecord | null;
   since: string;
   /** Invalid, asked by Tars and still the newest message: Tars asks once more by itself. */
   reask: boolean;
@@ -228,8 +230,9 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     origin: TarsMessageOrigin | undefined, movedOn = false): TarsDecisionView {
     const latest = view.messageId !== null ? lastMessage?.id === view.messageId : !lastMessage || lastMessage.createdAt <= view.since;
     // The control an answer applied keeps its record under the answer's request id (the proposal's own id for a confirmation).
-    const delivery = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record)?.delivery ?? null;
-    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery };
+    const deliveryRecord = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record) ?? null;
+    const delivery = deliveryRecord?.delivery ?? null;
+    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery, deliveryRecord };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
     const targets = targetsOf(view.targets, view.options);

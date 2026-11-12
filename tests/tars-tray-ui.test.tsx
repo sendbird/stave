@@ -455,3 +455,25 @@ describe("Tars tray lanes and card actions", () => {
     expect(html).toMatch(/data-tars-monitor-count="2\/3"[^>]*><span aria-hidden="true">2\/3<\/span><span[^>]*>Stage 2 of 3<\/span>/);
   });
 });
+
+
+test("completed work with a pending follow-up displays the scheduler's capacity evidence", async () => {
+  const f = fixtures();
+  for (const language of ["en", "ko"] as const) {
+    applyAppLocale(language); await i18n.changeLanguage(language);
+    const row = { ...f.responsibilities[0]!, state: "completed" as const, queueWait: { code: "capacity" as const, active: 2, limit: 2 } };
+    const model = buildTarsTray({ responsibilities: [row], attentionItems: [], runs: {} });
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.done[0]!, actions: noActions }));
+    expect(html).toContain('data-tars-queue-wait="capacity"');
+    expect(html).toContain(language === "en" ? "Execution limit reached" : "동시 실행 한도에 도달");
+  }
+  applyAppLocale("en"); await i18n.changeLanguage("en");
+});
+
+test("completed follow-ups without a confirmed wait reason preserve delivery wording and omit the tray wait line", () => {
+  const f = fixtures();
+  const row = { ...f.responsibilities[0]!, state: "completed" as const, queueWait: { code: "unknown" as const } };
+  const model = buildTarsTray({ responsibilities: [row], attentionItems: [], runs: {} });
+  const html = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.done[0]!, actions: noActions }));
+  expect(html).not.toContain("data-tars-queue-wait");
+});

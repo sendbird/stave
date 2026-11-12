@@ -374,8 +374,7 @@ your reply exactly once, after that turn ends and nothing else waits there (a
 paused run keeps them until it resumes). Under the card a line says **Waiting
 for the run's current turn to end**, then **Said in the task after its turn
 ended**, or that they were not said and why: taking the work over, cancelling
-it or its completion first cancels them, and so does its run ending or
-changing owner; a run that refuses them leaves them **Not said in the task**.
+it or explicitly accepting its unverified completion first cancels them, and so does its run changing owner; a run that refuses them leaves them **Not said in the task**. Automatic, verified completion instead lets queued follow-ups continue in the same execution task. A stopped run, incomplete report or stale or missing verification does not authorize continuation; the delivery settles with its reason and keeps the requested words in the record.
 Several are said in order, each after the turn the previous one started; words
 you confirm while earlier ones for the same work still wait are kept behind
 them even if the task is free by then. One work's words never wait for
@@ -389,6 +388,45 @@ words that were being said and did not reach the run, and handing the work
 back never says words kept from before you took it over. Your words are only
 your reply in the task: they grant no permission and never answer a waiting
 approval or question.
+
+### Continue existing work
+
+Completed follow-ups obey the configured concurrent-responsibility limit and keep their confirmed words queued across restart until capacity is available. An uncertain start acknowledgement retains one reserved slot and reconciles the same scope. A definitive failure before start settles that delivery instead of silently retrying it.
+
+Use **Withdraw request** on a pending message's record to withdraw only those
+words. This keeps the completed work, previous run reports and other queued
+requests. The request cannot start after withdrawal, including after a restart.
+If its start acknowledgement is uncertain, Stave first checks that exact
+request's execution. A confirmed new run is kept and the record opens the
+current task, where you can use its existing controls. If Stave cannot establish
+whether it started, withdrawal stays pending across restart and blocks new
+dispatch for those words until reconciliation succeeds; it never guesses or
+cancels the previous completed run.
+
+Corrections and additions such as "add error handling to that work" use the
+existing responsibility's **Send to task** confirmation. Tars considers the
+original request, delegation, conversation and observed execution identity;
+independent work still receives a new delegation. If more than one earlier
+work could be meant, Tars asks which one before proposing a mutation.
+
+Confirmed messages are saved before dispatch and delivered in order to the
+actual execution task, which can be in a different workspace from the source
+you originally selected. If that work completes before delivery, or you ask to
+improve already completed work, the message starts a fresh Work, Review and
+Verify execution in the same task and workspace. The branch, code, conversation
+and artifacts stay there. The original delegation stays unchanged; previous
+run IDs, reports and verification remain in the run store. The new run has its
+own follow-up assignment and verification, so an earlier success cannot finish
+it. A restart reconciles the saved scope with its run instead of starting it
+again.
+
+A follow-up does not resume paused, cancelled, taken-over or user-owned work.
+Use the existing ownership controls first where available. If the execution
+task, workspace or assignment cannot be reused, delivery reports a reason;
+Stave never silently falls back to the source or a replacement workspace.
+Follow-up text uses the existing 8,000-character message limit. Attachments on
+a new conversation message are not forwarded by this text-only control; add
+needed files in the execution task.
 
 A request that is no longer waiting, or a set of requests that changed since
 you saw it, is refused instead of answering something else. These answers are

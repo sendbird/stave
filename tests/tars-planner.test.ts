@@ -298,3 +298,25 @@ for (const providerId of ["claude-code", "codex"] as const) {
     f.database.close();
   });
 }
+
+test.each(["correction", "independent", "ambiguous"] as const)("representative request classification retains execution identity: %s", async (kind) => {
+  let target = "";
+  const f = fixture(async () => JSON.stringify(kind === "correction"
+    ? { reply: "Confirm the follow-up for the existing work.", actions: [{ kind: "control", responsibilityId: target, expectedRevision: 2, operation: "message", input: { text: "그 작업의 오류 표시도 보완해줘" } }] }
+    : kind === "independent" ? { reply: "A separate request starts separate work.", actions: [action] }
+    : { reply: "어느 작업을 이어서 할까요?", actions: [] }));
+  const created = f.responsibilities.create({ requestId: "existing", title: "Split shared components", instruction: "Split components and verify behavior",
+    acceptanceCriteria: ["Existing behavior remains"], workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex",
+    request: { messageId: "original-message", text: "공통 컴포넌트 분리 작업을 맡길게", sentAt: NOW }, delegatedInstruction: "Split components and verify behavior" }, NOW);
+  target = created.id;
+  f.responsibilities.patch(target, created.revision, { state: "completed", taskId: "actual-task", executionWorkspaceId: "actual-worktree", agentRunId: "previous-run" }, NOW);
+  const current = f.conversations.create({ requestId: kind, text: kind === "correction" ? "그 작업의 오류 표시도 보완해줘" : kind === "independent" ? "별도로 검색 기능을 고쳐줘" : "그거 이어서 해줘" }, NOW);
+  await processTarsMessage(current.id, f.ports);
+  const prompt = f.requests[0]!.input.prompt;
+  expect(prompt).toContain("actual-task"); expect(prompt).toContain("actual-worktree");
+  expect(prompt).toContain("original-message"); expect(prompt).toContain("공통 컴포넌트 분리 작업을 맡길게");
+  expect(f.conversations.get(current.id)?.decision?.actions[0]?.kind).toBe(kind === "correction" ? "control" : kind === "independent" ? "delegate" : undefined);
+  // Scripted provider outputs exercise contract and persistence, not live model judgment.
+  expect(f.responsibilities.snapshot().responsibilities).toHaveLength(1);
+  f.database.close();
+});

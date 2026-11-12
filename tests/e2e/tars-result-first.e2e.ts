@@ -26,10 +26,29 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
           const rect = item.getBoundingClientRect(); return rect.left < box.left - 1 || rect.right > box.right + 1;
         }).map((item) => item.tagName) };
       });
+      const overflowDetails = geometry.overflow ? await root.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return [node, ...node.querySelectorAll<HTMLElement>('*')].filter((item) => {
+          const rect = item.getBoundingClientRect();
+          return getComputedStyle(item).position !== 'absolute'
+            && (item.scrollWidth > item.clientWidth || rect.left < box.left || rect.right > box.right);
+        }).map((item) => ({ tag: item.tagName, className: item.className, text: item.textContent?.slice(0, 80),
+          width: item.clientWidth, scrollWidth: item.scrollWidth, rect: item.getBoundingClientRect().toJSON(),
+          overflowX: getComputedStyle(item).overflowX, font: getComputedStyle(item).font }));
+      }) : [];
       // CSSOM scroll/client widths are integers. Use the same one-CSS-pixel
       // precision as the descendant bounds above (compact density on Linux).
-      expect(geometry.overflow).toBeLessThanOrEqual(1);
+      expect(geometry.overflow, `${surface} overflow: ${JSON.stringify(overflowDetails)}`).toBeLessThanOrEqual(1);
       expect(geometry.escaped).toEqual([]);
+      // Preserved trailing spaces must wrap too, rather than hang outside a text box.
+      const textOverflow = await root.locator('[data-tars-completion-warnings] li, [data-tars-full-summary]').evaluateAll((nodes) => nodes.map((node) => {
+        const box = node.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        return Math.max(0, ...[...range.getClientRects()].map((rect) => Math.max(box.left - rect.left, rect.right - box.right)));
+      }));
+      // One Chromium layout unit; do not round a real fractional overflow away.
+      for (const overflow of textOverflow) expect(overflow, `${surface} text fragment overflow`).toBeLessThanOrEqual(1 / 64);
       await page.keyboard.press('Enter');
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     }

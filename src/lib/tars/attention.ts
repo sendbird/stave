@@ -58,7 +58,7 @@ function place(row: TarsResponsibility) {
 /** Proposals for a responsibility that ended or moved past their revision no longer wait. */
 function isLiveDecision(decision: TarsPendingDecision, row: TarsResponsibility | undefined): row is TarsResponsibility {
   return Boolean(row) && row!.state !== "cancelled" &&
-    (row!.state !== "completed" || (decision.kind ?? "confirm") === "confirm" && decision.operation === "message") &&
+    (row!.state !== "completed" || decision.kind === "ask" || (decision.kind ?? "confirm") === "confirm" && decision.operation === "message") &&
     row!.revision === decision.expectedRevision;
 }
 

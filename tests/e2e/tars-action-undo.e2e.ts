@@ -65,3 +65,27 @@ test("stale Undo preserves newer work; a durable receipt resolves a lost acknowl
   await expect(records.last()).not.toContainText("Undo could not be confirmed.");
   await expect(records.last().locator("[data-tars-record-undo]")).toHaveCount(0);
 });
+
+
+for (const lang of ["en", "ko"] as const) {
+  test(`queue undo keeps its own pending label (${lang})`, async ({ page }) => {
+    await page.goto(`/?stavePreview=tars&tray=true&queue=true&lang=${lang}`);
+    const grip = page.locator('[data-tars-queue-grip="queue-docs"]');
+    await grip.focus(); await page.keyboard.press("Alt+ArrowUp");
+    const record = page.getByTestId("tars-transcript").locator('[data-tars-record-kind="move"]').last();
+    const undo = record.locator("[data-tars-record-undo]");
+    await expect(undo).toBeVisible();
+    await page.evaluate(() => {
+      const api = window.api.tars!, actual = api.undoAction!;
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      Object.assign(window, { releaseQueueUndo: release });
+      api.undoAction = async input => { await held; return actual(input); };
+    });
+    await undo.click();
+    await expect(undo).toBeDisabled();
+    await expect(undo).toHaveText(lang === "en" ? "Undoing…" : "되돌리는 중…");
+    await page.evaluate(() => (window as unknown as { releaseQueueUndo(): void }).releaseQueueUndo());
+    await expect(record).toContainText(lang === "en" ? "Undone" : "되돌림");
+  });
+}

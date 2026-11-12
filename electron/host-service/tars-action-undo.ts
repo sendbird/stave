@@ -1,4 +1,4 @@
-import { canUndoTarsAction, isUnstartedTarsWork, TarsUndoActionInputSchema, TarsUndoActionRefused } from "../../src/lib/tars/action-undo";
+import { canUndoTarsAction, isUnstartedTarsWork, isTarsDeliveryAction, TarsUndoActionInputSchema, TarsUndoActionRefused } from "../../src/lib/tars/action-undo";
 import type { TarsUndoActionResult } from "../../src/lib/tars/conversation";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
 import { isTarsStorageBusy, TarsStorageBusyError } from "../persistence/tars-conversation-store";
@@ -12,6 +12,8 @@ interface UndoPorts {
   readRegistry(): PersistenceRepositoryRegistryEntry[];
   /** Runs on the responsibility's existing runtime queue; releases a local hold only after restoration succeeds. */
   serialize<T>(responsibilityId: string, restore: () => T): Promise<T>;
+  /** Request-local withdrawal uses the runtime queue and its final run-admission fence. */
+  withdrawDelivery?: (input: unknown) => Promise<TarsUndoActionResult>;
   now?: () => string;
 }
 
@@ -19,6 +21,7 @@ interface UndoPorts {
 export async function undoTarsAction(rawInput: unknown, ports: UndoPorts): Promise<TarsUndoActionResult> {
   const input = TarsUndoActionInputSchema.parse(rawInput);
   const initial = ports.conversations.getAction(input.requestId);
+  if (initial && isTarsDeliveryAction(initial)) return ports.withdrawDelivery?.(input) ?? { record: initial, refusal: "unsupported" };
   if (!initial || initial.status !== "applied" || !initial.undo) return { record: initial, refusal: "unsupported" };
   return ports.serialize(initial.action.responsibilityId, () => {
     try {
@@ -45,7 +48,7 @@ export async function undoTarsAction(rawInput: unknown, ports: UndoPorts): Promi
             if (row.state !== "queued") throw new TarsUndoActionRefused("stale");
           }
           for (const prior of undo.priorities) store.patch(prior.id, prior.afterRevision, { priority: prior.before }, now);
-        } else {
+        } else if (undo.kind === "unstarted") {
           const row = scope(current.action.responsibilityId, undo.afterRevision);
           const expectedState = current.action.kind === "control" && current.action.operation === "pause" ? "paused" : "takenOver";
           if (row.state !== expectedState || !isUnstartedTarsWork(row)) throw new TarsUndoActionRefused("stale");

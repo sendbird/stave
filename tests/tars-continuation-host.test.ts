@@ -94,14 +94,22 @@ test("actual host continuation reuses execution identity, persists a separate wo
     owned = persistence.tars.patch(owned.id, owned.revision, { continuation: scope }, now);
     writeFileSync(path.join(directory, "artifact.txt"), "existing artifact");
     registry[0].workspaces.shift(); // Removing the source does not remove the actual execution location.
+    const beforeStart = await ports.reconcileContinuation(owned, scope);
+    let withdrawn = false, raceRefused = false;
+    beforeAdmission = () => { withdrawn = true; };
+    try { await ports.continueWork(owned, scope, () => { if (withdrawn) throw new Error("Request withdrawn during preflight"); }); }
+    catch { raceRefused = true; }
+    beforeAdmission = null;
+    const startsBeforeActual = starts;
     const id = await ports.continueWork(owned, scope);
     const replay = await ports.continueWork(owned, scope);
+    const reconciled = await ports.reconcileContinuation(owned, scope);
     const next = persistence.agentRuns.getAgentRun(id);
     const savedAssignment = persistence.agentAssignments.getByTaskId(owned.taskId);
     const stagePrompt = compileAgentRunStagePrompt(persistence.agentRuns.getAggregate(id));
     const agentPrompt = compileTaskAgentRole({ agent: savedAssignment.agent, providerId: provider,
       standards: savedAssignment.standards, role: savedAssignment.role ?? "primary" });
-    console.log(JSON.stringify({ results, id, replay, starts, next, stagePrompt, agentPrompt, savedAssignmentText: savedAssignment.assignment, original: persistence.agentRuns.getAgentRun("old-success"),
+    console.log(JSON.stringify({ results, id, replay, starts, next, beforeStart, raceRefused, startsBeforeActual, reconciled, stagePrompt, agentPrompt, savedAssignmentText: savedAssignment.assignment, original: persistence.agentRuns.getAgentRun("old-success"),
       artifact: readFileSync(path.join(directory, "artifact.txt"), "utf8") }));
     db.close(); rmSync(directory, { recursive: true, force: true });
   `;
@@ -110,6 +118,8 @@ test("actual host continuation reuses execution identity, persists a separate wo
   const output = JSON.parse(result.stdout.toString());
   expect(output.results).toEqual([{ refused: ["TarsRunRefusedError", "missing", "archived", "owner"], busy: "busy" }, { refused: ["TarsRunRefusedError", "missing", "archived", "owner"], busy: "busy" }]);
   expect(output.starts).toBe(1); expect(output.id).toBe(output.replay);
+  expect(output.beforeStart).toBeNull(); expect(output.raceRefused).toBe(true); expect(output.startsBeforeActual).toBe(0);
+  expect(output.reconciled).toBe(output.id);
   expect(output.next).toMatchObject({ workspaceId: "execution", leadTaskId: "success-task", assignment: "Add and verify error handling" });
   expect(output.next.workflow.stages.map((stage: { id: string }) => stage.id)).toEqual(["work", "review", "verify"]);
   expect(output.original).toMatchObject({ state: "completed", assignment: "Original delegation" });

@@ -3,6 +3,7 @@ import type { AgentRunPauseReason, AgentRunStopReason } from "@/lib/agent-runs/d
 import { parseAgentRunTurnStartFailure } from "@/lib/agent-runs/turn-start-failure";
 import { TARS_MESSAGE_FAILURE_TEXT, TarsMessageFailureCodeSchema, type TarsMessage, type TarsMessageFailureCode } from "./conversation";
 import { TarsDetailCodeSchema, type TarsDetailCode, type TarsResponsibility } from "./types";
+import { hasEndedTarsExecution } from "./continuation";
 
 /** The fields a detail line reads; a responsibility and an activity entry both carry them. */
 export type TarsDetailFields = Pick<TarsResponsibility, "detail" | "detailCode" | "detailParams">;
@@ -121,10 +122,12 @@ export function describeTarsWorkingChanges(row: Pick<TarsResponsibility, "workin
     : i18n.t("shell:tars.workingChanges.clean");
 }
 
-/** Only scheduler evidence explains a queued row; another running row alone proves nothing. */
+/** Only scheduler evidence explains queued work or an ended execution's queued follow-up. */
 export function describeTarsQueueWait(row: Pick<TarsResponsibility, "state" | "queueWait">): string | null {
-  if (row.state !== "queued") return null;
+  const ended = hasEndedTarsExecution(row);
+  if (row.state !== "queued" && !(ended && row.queueWait)) return null;
   const wait = row.queueWait;
+  if (ended && wait?.code === "unknown") return null;
   if (wait?.code === "capacity") return i18n.t("shell:tars.queueWait.capacity", { active: wait.active, limit: wait.limit });
   return i18n.t(wait?.code === "storageBusy" ? "shell:tars.queueWait.storageBusy" : "shell:tars.queueWait.unknown");
 }

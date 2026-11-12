@@ -441,6 +441,23 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
+When you check earlier work and ask for a correction or addition, Tars proposes
+**Send to task** for that work instead of another workspace. Confirm the words
+on its card. Messages wait in order for the same execution task. Completed
+work starts a fresh reviewed and verified run there, keeping its branch, code,
+conversation, artifacts and previous run reports. Independent requests still
+start new work; an ambiguous reference gets a short question. Paused,
+cancelled or taken-over work does not restart from a follow-up alone. If its
+execution location cannot be reused, Stave reports why instead of replacing it.
+Follow-ups use the existing text message limit; attach any new files directly
+in the execution task.
+
+A pending message's record offers **Withdraw request**. It withdraws only that
+request and keeps earlier completed work and the other requests. If Stave is
+still confirming whether execution started, withdrawal remains pending and
+prevents a new start across restart. Stave keeps an execution already started;
+open its task to use the existing controls instead.
+
 Open **How Tars works** in the header for three steps: give a task, follow progress and check the result. Confirmation requirements and keeping Stave open stay visible; **More about running tasks** expands the other conditions. Selecting an example fills the message box without sending it. Hover or focus an icon button to see its action.
 
 Running work cards show the selected model and effort below the branch, for example **GPT-6.1 Sol · High**. Effort is omitted when unreported; **Checking model** means the current turn selection is unavailable. This is the execution lead’s routing selection, not confirmation from the provider or the helpers’ models. Paused, queued and ended work does not show a current model.
@@ -761,7 +778,7 @@ command palette, run line) go through Tars too: the run is paused rather than
 cancelled, and the record names where you pressed it, such as "Pause ·
 Verified result · Fleet · Applied" or "… · task view · Applied". Once Tars has paused the work, **Stop** ends only your
 own turn. Take the work over before changing its agent in the composer. Asking Tars to run queued work now ("바로 실행해") starts it at once. Resume, hand back and cancel asked in words wait for you as a
-decision card whose button says what it does, such as **Resume** or **Cancel work**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or it ended first. Words confirmed while earlier ones for the same work still wait are said after them, in order, and are not said after you hand the work back. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
+decision card whose button says what it does, such as **Resume** or **Cancel work**. So do words you ask Tars to pass to running work ("tell it to go ahead"). If its task is in the middle of a turn, Stave keeps them and says them there once that turn ends: the card shows **Waiting for the run's current turn to end**, then **Said in the task after its turn ended**, or that they were not said because you took the work over, cancelled it or explicitly accepted its unverified completion first. Automatic, verified completion instead continues queued follow-ups in the same task, subject to the configured concurrent-work limit. A stopped run, incomplete report or stale or missing verification leaves the words unsent with a reason; the record keeps their text. Words confirmed while earlier ones for the same work still wait are said after them, in order, and are not said after you hand the work back. They survive a restart and are never said twice, and they grant no permission. Work you take over stays yours until you hand it back, and Tars
 verifies handed-back work again before completing it. A run reporting its
 criteria as met is not enough on its own: Tars completes work only when Stave
 saw a check pass on the current revision in the final stage, or its

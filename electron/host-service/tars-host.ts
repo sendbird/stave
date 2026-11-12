@@ -7,7 +7,7 @@ import {
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
-import type { TarsChangedEvent, TarsResponsibility } from "../../src/lib/tars/types";
+import type { TarsChangedEvent, TarsResponsibility, TarsContinuation } from "../../src/lib/tars/types";
 import { createTarsChangeBatcher } from "../persistence/tars-changes";
 import { buildTarsExecutionResources } from "../../src/lib/tars/execution-resources";
 import type { AssignRuntime } from "./supervision/assign-runtime";
@@ -113,6 +113,40 @@ export function createHostTarsRuntime(args: {
     const waiting = persistence.tars.snapshot().responsibilities.some((other) => other.id !== row.id && !other.executionWorkspaceId
       && other.workingChanges?.kind === "snapshot" && other.workingChanges.ref === ref && !isTarsResponsibilityTerminal(other));
     if (!waiting) await releaseTarsWorkingChangesRef(row.repositoryPath, ref).catch(() => undefined);
+  }
+  /**
+   * Read-only proof of this request's execution, shared by dispatch, cancellation and request withdrawal.
+   * A committed continuation is found before checking the live location, so cancellation stops the actual
+   * Run even after its workspace was archived or unregistered.
+   */
+  async function readContinuation(row: TarsResponsibility, continuation: TarsContinuation, reconcileOnly = false) {
+    const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
+    if (!latest) throw new TarsOwnershipLostError("The previous execution cannot be verified.");
+    const scope = tarsExecutionScope(row, true);
+    const workflow = tarsWorkflow(scope, continuation.requestedAt);
+    // i18n-ignore: durable model-facing scope identity, not a new user instruction
+    workflow.purpose += `\nContinuation request: ${continuation.requestId}`;
+    if (latest.id !== continuation.previousRunId) {
+      // Adopt only this exact scope, never an unrelated newer run on the same task.
+      assertTarsRun({ ...scope, agentRunId: latest.id }, latest);
+      if (latest.workflow.createdAt !== continuation.requestedAt || latest.workflow.purpose !== workflow.purpose) throw new TarsOwnershipLostError("Another execution owns this task.");
+      return { task: null, scope, workflow, existingRunId: latest.id };
+    }
+    assertTarsRun(row, latest);
+    if (reconcileOnly) return { task: null, scope, workflow, existingRunId: null };
+    if (latest.state !== "completed") throw new TarsRunEndedError();
+    // Reuse the registered execution worktree, even if the original source workspace was removed.
+    await validateScope({ ...row, workspaceId: row.executionWorkspaceId! });
+    const repositories = await tasks.listKnownRepositories();
+    const execution = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath))
+      ?.workspaces.find((item) => item.id === row.executionWorkspaceId);
+    if (!execution || !existsSync(execution.path)) throw new TarsOwnershipLostError("The execution workspace is unavailable.", "taskUnavailable");
+    const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
+    if (!task.exists || task.archived || task.providerId !== row.providerId ||
+        path.resolve(task.repositoryPath ?? "") !== path.resolve(row.repositoryPath))
+      throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
+    if (!hasAssignment(row)) throw new TarsOwnershipLostError("The task's assignment is unavailable.");
+    return { task, scope, workflow, existingRunId: null };
   }
   return createTarsRuntime({
     store: persistence.tars,
@@ -324,40 +358,19 @@ export function createHostTarsRuntime(args: {
       await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text, turnId }, guard);
       return "sent";
     },
-    async continueWork(row, continuation, reconcileOnly = false) {
+    reconcileContinuation: async (row, continuation) => (await readContinuation(row, continuation, true)).existingRunId,
+    async continueWork(row, continuation, assertAdmitted) {
       let startRequested = false;
       try {
-        const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
-        if (!latest) throw new TarsOwnershipLostError("The previous execution cannot be verified.");
-        const scope = tarsExecutionScope(row, true);
-        const workflow = tarsWorkflow(scope, continuation.requestedAt);
-        // i18n-ignore: durable model-facing scope identity, not a new user instruction
-        workflow.purpose += `\nContinuation request: ${continuation.requestId}`;
-        if (latest.id !== continuation.previousRunId) {
-          // Adopt only this exact scope, never an unrelated newer run on the same task.
-          assertTarsRun({ ...scope, agentRunId: latest.id }, latest);
-          if (latest.workflow.createdAt !== continuation.requestedAt || latest.workflow.purpose !== workflow.purpose) throw new TarsOwnershipLostError("Another execution owns this task.");
-          return latest.id;
-        }
-        assertTarsRun(row, latest);
-        if (reconcileOnly) return null;
-        if (latest.state !== "completed") throw new TarsRunEndedError();
-        // Reuse the registered execution worktree, even if the original source workspace was removed.
-        await validateScope({ ...row, workspaceId: row.executionWorkspaceId! });
-        const repositories = await tasks.listKnownRepositories();
-        const execution = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath))
-          ?.workspaces.find((item) => item.id === row.executionWorkspaceId);
-        if (!execution || !existsSync(execution.path)) throw new TarsOwnershipLostError("The execution workspace is unavailable.", "taskUnavailable");
-        const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
-        if (!task.exists || task.archived || task.providerId !== row.providerId ||
-            path.resolve(task.repositoryPath ?? "") !== path.resolve(row.repositoryPath))
-          throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
-        if (!hasAssignment(row)) throw new TarsOwnershipLostError("The task's assignment is unavailable.");
+        const { task, scope, workflow, existingRunId } = await readContinuation(row, continuation);
+        if (existingRunId) return existingRunId;
+        if (!task) throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
         if (task.activeTurnId || task.pendingApprovalCount || task.pendingUserInputCount) return "busy";
         const previous = await args.agentRuns.get({ agentRunId: continuation.previousRunId });
         const previousReport = previous.report ? { outcome: previous.report.outcome,
           criteria: previous.report.acceptanceCriteria.slice(0, 20), links: previous.report.links.slice(0, 12),
           leftBehind: previous.report.leftBehind.slice(0, 12) } : null;
+        assertAdmitted?.();
         startRequested = true;
         const detail = await args.agentRuns.startAgentRun({
           workspaceId: row.executionWorkspaceId!, leadTaskId: row.taskId!, origin: "agent",
@@ -372,6 +385,7 @@ export function createHostTarsRuntime(args: {
               guidance: "Continue in this existing workspace and task. Inspect the conversation, code, artifacts and previous run reports. Preserve earlier results; report and verify this follow-up scope separately." }) }] },
           consent: { checkIns: "when-stuck", permissionMode: "auto", authorizedEffectStageIds: [] },
         }, () => {
+          assertAdmitted?.();
           const current = persistence.tars.get(row.id);
           if (!current || current.revision !== row.revision || !hasEndedTarsExecution(current) ||
               current.continuation?.requestId !== continuation.requestId || !hasAssignment(current))

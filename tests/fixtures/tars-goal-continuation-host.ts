@@ -24,7 +24,9 @@ const cancelledLocation = process.argv[3];
 const provider = process.argv[2] as "codex" | "claude-code";
 const directory = mkdtempSync(path.join(tmpdir(), "stave-goal-continuation-"));
 const filename = path.join(directory, "store.sqlite");
-let clock = Date.parse("2026-11-12T00:00:00.000Z");
+// The host stamps continuation requests with the real clock; keep fixture time ahead of it so a
+// verification finished here always starts after its own request, whatever day the suite runs.
+let clock = Math.max(Date.parse("2026-11-12T00:00:00.000Z"), Date.now());
 const now = () => new Date(clock += 1_000).toISOString();
 let db: Database;
 let persistence: ReturnType<typeof open>;

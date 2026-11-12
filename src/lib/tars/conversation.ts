@@ -538,6 +538,7 @@ export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
  * - `delivering`: being said now, as the user turn `turnId`, minted and saved
  *   before the reply starts. After a restart it reached the task only if the
  *   run recorded that very turn; any other user turn says nothing about it.
+ * - `withdrawn`: the user withdrew only this request before it reached the task.
  * - `delivered`: said in the task.
  * - `failed`: the run refused it (`reason`, `error`).
  * - `cancelled`: the work was taken over, cancelled or completed, its run
@@ -546,12 +547,14 @@ export type TarsQueueMoveAction = z.infer<typeof TarsQueueMoveActionSchema>;
  * continuation may rebind a queued delivery to a newer run on the same task.
  */
 export const TarsMessageDeliverySchema = z.object({
-  status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled"]),
+  status: z.enum(["queued", "delivering", "delivered", "failed", "cancelled", "withdrawn"]),
   agentRunId: IdSchema,
   turnId: IdSchema.optional(),
   reason: TarsControlReasonSchema.nullable(),
   error: ErrorSchema.nullable(),
   queuedAt: TimestampSchema,
+  /** User withdrawal remains a dispatch hold until the exact execution outcome can be read. */
+  withdrawRequestedAt: TimestampSchema.optional(),
   updatedAt: TimestampSchema,
 }).strict().superRefine((delivery, context) => {
   const settledOtherwise = delivery.status === "failed" || delivery.status === "cancelled";
@@ -595,7 +598,8 @@ export const TarsActionRecordSchema = z.object({
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
   if (record.undo && (record.status !== "applied" || (record.undo.kind === "queue" ? record.action.kind !== "move"
-    : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
+    : record.undo.kind === "delivery" ? record.action.kind !== "control" || record.action.operation !== "message" || !record.delivery
+      : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
     // i18n-ignore: persisted-state integrity diagnostic
     context.addIssue({ code: "custom", message: "Only reversible applied actions retain prior state." });
   const move = record.action.kind === "move";
