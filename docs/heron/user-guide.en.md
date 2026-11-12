@@ -444,7 +444,7 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 In **Issues**, **Ask Tars** drafts a GitHub, Jira or Crane issue's title, link and body excerpt with its mapped target. Enable GitHub in **Settings > Integrations > Issues** after `gh auth login`; it reads up to 200 assigned issues without writing back. The kickoff form can remember the GitHub repository mapping.
 
-In a Markdown editor's **More** menu, **Ask Tars** attaches the current document, including `.stave/context/plans/*.md` (32 KB total text). In Tars, **Attach document link** adds an HTTPS link without fetching its contents. Existing draft text and files stay; edit your direction and send to start. Pasted Slack thread links tell the execution lead to read with your Slack tools read-only, or ask for pasted text if unavailable; no Slack token setup is needed.
+In a Markdown editor's **More** menu, **Ask Tars** attaches the current document, including `.stave/context/plans/*.md` (32 KB total text). To share a document by link, paste the link into your message. Existing draft text and files stay; edit your direction and send to start. Pasted Slack thread links tell the execution lead to read with your Slack tools read-only, or ask for pasted text if unavailable; no Slack token setup is needed.
 
 
 Tars keeps status replies to four short lines: Done, Not working, Needs you and Next, omitting empty items. Results show a one-line headline; open Full summary for the original text, criteria, evidence and diagnostics. Long record lines show their full text on hover.

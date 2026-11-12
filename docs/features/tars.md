@@ -30,9 +30,9 @@ in with `gh auth login`; it reads up to 200 assigned issues and never writes bac
 Remember a GitHub repository mapping in the issue kickoff form when needed.
 In a Markdown editor's **More** menu, **Ask Tars** attaches the current contents,
 including plan files under `.stave/context/plans/` (32 KB total text limit).
-Tars's **Attach document link** adds an HTTPS link attachment; it does not fetch
-the document while drafting. Edit your direction and send; opening a draft
-starts no work and preserves existing draft text and attachments.
+To share a document by link, paste the link into the message. Edit your
+direction and send; opening a draft starts no work and preserves existing draft
+text and attachments.
 Pasted Slack thread links stay source links. The execution lead is instructed
 to read them read-only with your Slack tools, or ask you to paste the text if
 access is unavailable. Stave has no Slack token flow.

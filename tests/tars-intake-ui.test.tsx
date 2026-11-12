@@ -2,7 +2,6 @@ import { afterEach, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { openTarsIntake } from "../src/components/tars/ask-tars";
-import { TarsDocumentLink } from "../src/components/tars/TarsDocumentLink";
 import { TrackerIssueDetailPane } from "../src/components/layout/issues/TrackerIssueDetailPane";
 import { useAppStore } from "../src/store/app.store";
 import { resetTarsDraftForTests, useTarsDraftStore } from "../src/store/tars-draft-store";
@@ -43,7 +42,4 @@ test.each(["en", "ko"] as const)("issue action and document link control are loc
     now: new Date("2026-11-12T00:00:00Z"), onKickoff() {}, onAttach() {}, onOpenStaveTask() {},
     attachTargetLabel: null, messageFontSize: 14, messageCodeFontSize: 13 }));
   expect(pane).toContain(locale === "en" ? "Ask Tars" : "Tars에게 요청");
-  const link = renderToStaticMarkup(createElement(TarsDocumentLink, { disabled: true }));
-  expect(link).toContain(`aria-label="${locale === "en" ? "Attach document link" : "문서 링크 첨부"}"`);
-  expect(link).toContain("disabled");
 });

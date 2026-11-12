@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { parseGitHubIssue } from "../electron/main/tracker-issues/github-source";
-import { buildTarsDocumentDraft, buildTarsDocumentLinkDraft, buildTarsIssueDraft,
+import { buildTarsDocumentDraft, buildTarsIssueDraft,
   recognizeTarsSlackLinks, tarsSourceLinkGuidance, TARS_ISSUE_EXCERPT_MAX_CHARS } from "../src/lib/tars/intake";
 import { stageTarsIntake } from "../src/store/tars-intake";
 import { beginTarsDraftSend, resetTarsDraftForTests, setTarsDraftText, useTarsDraftStore } from "../src/store/tars-draft-store";
@@ -76,14 +76,6 @@ describe("Tars intake drafts", () => {
     setTarsDraftText("x".repeat(32_000));
     expect(() => stageTarsIntake(draft)).toThrow();
     expect(useTarsDraftStore.getState().text).toHaveLength(32_000);
-  });
-  test("document URL attaches a link without fetching or claiming to have its content", () => {
-    const draft = buildTarsDocumentLinkDraft({ url: "https://docs.example.test/prd", request: "Plan from this document." });
-    expect(draft.text).toContain("https://docs.example.test/prd");
-    expect(draft.attachments[0]).toMatchObject({ filePath: "document-link.md", content: expect.stringContaining("has not been fetched") });
-    for (const url of ["http://docs.example.test/prd", "file:///tmp/prd.md", "https://user:pass@docs.example.test/prd", "https://docs.example.test/" + "x".repeat(2_048)]) {
-      expect(() => buildTarsDocumentLinkDraft({ url, request: "Plan." })).toThrow();
-    }
   });
   test.each(["en", "ko"])("uses localized direction in %s", async (locale) => {
     await i18n.changeLanguage(locale);

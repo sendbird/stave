@@ -2986,9 +2986,6 @@
       "ask": "Ask Tars",
       "issueRequest": "Work on this issue. Use the source as context and verify the result.",
       "documentRequest": "Use the attached document as context. Help me turn it into a plan; ask before starting implementation.",
-      "documentLink": "Attach document link",
-      "url": "Document URL",
-      "linkHint": "Adds a link to your draft. Review your direction and send when ready.",
       "failed": "Could not add this source. Use an HTTPS link or a Markdown file up to 32 KB; keep room in your draft and attachments.",
       "issueBodyUnavailable": "The issue body could not be read. The draft includes its title and link."
     }
