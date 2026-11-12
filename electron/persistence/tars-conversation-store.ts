@@ -826,7 +826,7 @@ export class TarsConversationStore {
     if (!latest.some((entry) => entry.messageId === ref.messageId && entry.actionIndex === ref.actionIndex)) return false;
     // Dismissed by the user, withdrawn by Tars, or the user said something newer: it no longer waits (`projectTarsDecisions`).
     const answer = this.getAnswer(tarsConfirmationRequestId(ref.messageId, ref.actionIndex));
-    if ((answer && isTarsDecisionClosure(answer)) || readMovedOnTarsMessages(this.db, [ref.messageId]).has(ref.messageId)) return false;
+    if ((answer && isTarsDecisionClosure(answer)) || readMovedOnTarsMessages(this.db, [ref.messageId]).has(`${ref.messageId}:${receipt.action.responsibilityId}`)) return false;
     // Its own confirmation record exists while it is checked, so it is left out.
     return !readSettledTarsTargets(this.db, [ref.messageId], tarsConfirmationRequestId(ref.messageId, ref.actionIndex)).has(`${ref.messageId}:${receipt.action.responsibilityId}`);
   }

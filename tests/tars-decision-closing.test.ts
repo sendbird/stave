@@ -151,8 +151,8 @@ describe("dismissing a waiting card", () => {
   });
 });
 
-describe("waiting cards expire when the conversation moves on", () => {
-  test("a control proposal and a question retire once the user sends a newer message, in the card and the snapshot alike", async () => {
+describe("waiting cards follow their own work", () => {
+  test("unrelated messages keep both decisions; addressing one work retires only its proposal in the card and snapshot", async () => {
     const f = fixture();
     const paused = f.responsibility("paused");
     const other = f.responsibility("paused");
@@ -161,12 +161,17 @@ describe("waiting cards expire when the conversation moves on", () => {
     const message = await f.send("What needs me?");
     expect(f.responsibilities.snapshot().pendingDecisions.map((decision) => decision.kind ?? "confirm").sort()).toEqual(["ask", "confirm"]);
     await f.send("Unrelated: what is on the release branch?");
+    expect(f.decisions().filter((view) => view.messageId === message.id).map((view) => view.state)).toEqual(["waiting", "waiting"]);
+    expect(f.responsibilities.snapshot().pendingDecisions).toHaveLength(2);
+    expect(f.fleetRows()).toHaveLength(2);
+    f.queue.push({ reply: "Here is that work.", actions: [{ kind: "show", responsibilityId: paused.id, view: "report" }] });
+    await f.send("Show that work's report.");
     expect(f.decisions().filter((view) => view.messageId === message.id)).toEqual([
       expect.objectContaining({ kind: "confirm", state: "retired", why: "movedOn" }),
-      expect.objectContaining({ kind: "ask", state: "retired", why: "movedOn" }),
+      expect.objectContaining({ kind: "ask", state: "waiting", why: null }),
     ]);
-    expect(f.responsibilities.snapshot().pendingDecisions).toEqual([]);
-    expect(f.fleetRows()).toEqual([]);
+    expect(f.responsibilities.snapshot().pendingDecisions).toEqual([expect.objectContaining({ responsibilityId: other.id })]);
+    expect(f.fleetRows()).toHaveLength(1);
   });
 
   test("Tars's own follow-up about other work does not retire a waiting proposal", async () => {
@@ -204,7 +209,8 @@ describe("Tars withdrawing its own decision", () => {
     f.queue.push({ reply: "Confirm to resume.", actions: [resume(row)] });
     const message = await f.send("Resume it");
     const decisionId = tarsConfirmationRequestId(message.id, 0);
-    // The user moved on: the proposal no longer waits, so there is nothing to withdraw.
+    // An explicitly dismissed proposal no longer waits, so there is nothing to withdraw.
+    f.service.dismissDecision({ decisionId, source: "click" });
     await f.send("Something else");
     const late = await f.followUp(row, [{ kind: "withdraw", decisionId }, { kind: "withdraw", decisionId: "ask:missing:0" }]);
     expect(f.conversations.listReceipts(late.id).map((receipt) => [receipt.status, receipt.reason])).toEqual([["rejected", "stale"], ["rejected", "notOwned"]]);

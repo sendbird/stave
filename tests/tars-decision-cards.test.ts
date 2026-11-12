@@ -324,9 +324,9 @@ describe("review follow-ups", () => {
     expect(bindTarsShortAnswer("1", selectAnswerableTarsDecisions(f.decisions()))).toMatchObject({ optionIndex: 0 });
     await f.send("Actually, what is it doing now?");
     const answerable = selectAnswerableTarsDecisions(f.decisions());
-    // The user moved on: the proposal no longer waits, and words go to Tars as a message.
-    expect(f.decisions().find((view) => view.kind === "confirm")).toMatchObject({ state: "retired", why: "movedOn" });
-    expect(answerable).toEqual([]);
+    // The older decision stays available by click; a short answer belongs to the newest message only.
+    expect(f.decisions().find((view) => view.kind === "confirm")).toMatchObject({ state: "waiting", why: null, latest: false });
+    expect(answerable).toHaveLength(1);
     for (const word of ["1", "응", "yes"]) expect(bindTarsShortAnswer(word, answerable)).toBeNull();
   });
 

@@ -385,10 +385,11 @@ export type TarsRetryCause = z.infer<typeof TarsRetryCauseSchema>;
 
 /**
  * Why a queued message has not started: an earlier message's action whose
- * outcome is not known yet (`earlierAction`), or the saved agents it allows
- * have not loaded (`agentCatalog`). Either wait is bounded.
+ * outcome is unknown (`earlierAction`), an answer's delivery (`earlierAnswer`),
+ * storage contention (`storageBusy`), or saved agents loading (`agentCatalog`).
+ * Action, answer and catalog waits are bounded; storage keeps retrying at a capped delay.
  */
-export const TarsQueueWaitReasonSchema = z.enum(["earlierAction", "agentCatalog"]);
+export const TarsQueueWaitReasonSchema = z.enum(["earlierAction", "earlierAnswer", "storageBusy", "agentCatalog"]);
 export type TarsQueueWaitReason = z.infer<typeof TarsQueueWaitReasonSchema>;
 
 /**
