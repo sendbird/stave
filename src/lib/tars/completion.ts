@@ -9,7 +9,7 @@ export type TarsCompletionGoal = z.infer<typeof TarsCompletionGoalSchema>;
 /** A verified execution result can finish only the endpoint it actually establishes. */
 export function tarsGoalReached(row: Pick<TarsResponsibility, "completionGoal" | "publication" | "agentRunId">): boolean {
   return row.completionGoal === "design" || row.completionGoal === "implementation" ||
-    row.completionGoal === "pullRequest" && row.publication?.state === "opened" &&
+    (row.completionGoal === "pullRequest" || row.completionGoal === "merge" && row.publication?.watch?.stopped === "merged") && row.publication?.state === "opened" &&
       Boolean(row.agentRunId && row.publication.agentRunId === row.agentRunId);
 }
 

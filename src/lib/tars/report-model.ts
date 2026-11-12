@@ -80,6 +80,7 @@ export interface TarsReportModel {
   evidenceGroups: TarsReportEvidenceGroup[];
   /** The revision the run ended on, shortened. */
   finalRevision: string | null;
+  publicationRevision?: WorkspaceRevision;
   /** What the run spent: the frozen report's usage, else the live run's; null when the host read none. */
   usage: AgentRunUsage | null;
 }
@@ -208,7 +209,7 @@ export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCrite
     summary: resultSummary(detail, report.stages),
     summaries: report.stages.flatMap((stage) => stage.summary?.trim() ? [{ stageId: stage.stageId, title: stage.title, text: stage.summary }] : []),
     criteria, unmet: criteria.filter((criterion) => criterion.status !== "met"),
-    leftBehind: report.leftBehind, links: report.links, evidenceGroups, finalRevision: shortRevision(final),
+    leftBehind: report.leftBehind, links: report.links, evidenceGroups, finalRevision: shortRevision(final), publicationRevision: final,
     usage: report.usage ?? detail.usage ?? null,
   };
 }

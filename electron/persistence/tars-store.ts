@@ -1,3 +1,4 @@
+import { tarsPrWatchEpisode } from "../../src/lib/tars/pr-checks";
 import { tarsGoalReached } from "../../src/lib/tars/completion";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -296,11 +297,13 @@ export class TarsStore {
       const checks = next.publication?.checks;
       const oldChecks = previous.publication?.checks;
       const ciKind = checks && next.publication?.state === "opened" && checks.headSha === next.publication.commit
-        && !next.publication.watch?.stopped?.match(/closed|expired/)
-        && (checks.state !== oldChecks?.state || checks.headSha !== oldChecks?.headSha)
+        && !next.publication.watch?.stopped?.match(/closed|merged/)
+        && (checks.state !== "unavailable" || Boolean(next.publication.watch?.stopped))
+        && (checks.state !== oldChecks?.state || checks.headSha !== oldChecks?.headSha || next.publication.watch?.stopped !== previous.publication?.watch?.stopped || next.publication.watch?.noticeAt !== previous.publication?.watch?.noticeAt)
         ? ({ failed: "ciFailed", passed: "ciPassed", unavailable: "ciUnavailable" } as const)[checks.state as "failed" | "passed" | "unavailable"] : undefined;
-      if (ciKind && !this.events.get(`${ciKind}:${next.id}:${checks!.headSha}`)) {
-        this.events.record({ ...observed, kind: ciKind, episode: checks!.headSha! }, now);
+      const ciEpisode = ciKind === "ciUnavailable" ? tarsPrWatchEpisode(checks!.headSha!, next.publication?.watch?.startedAt) : checks?.headSha;
+      if (ciKind && !this.events.get(`${ciKind}:${next.id}:${ciEpisode}`)) {
+        this.events.record({ ...observed, kind: ciKind, episode: ciEpisode! }, now);
         this.journal(next, now, checks);
       }
       const kind = classifyTarsTransition(previous, next);

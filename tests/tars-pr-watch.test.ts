@@ -8,6 +8,7 @@ import { TarsStore } from "../electron/persistence/tars-store";
 import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
 import { createTarsPrWatcher, TARS_PR_WATCH_MS } from "../electron/host-service/tars-pr-watch";
 import { admitTarsFollowUps } from "../electron/main/tars-follow-up";
+import { tarsGoalReached } from "../src/lib/tars/completion";
 import { parseTarsPrChecks } from "../src/lib/tars/pr-checks";
 import { projectTarsDecisions, bindTarsShortAnswer } from "../src/lib/tars/decisions";
 import { tarsActionMode } from "../src/lib/tars/autonomy";
@@ -24,14 +25,14 @@ const START = "2026-11-12T00:00:00.000Z", SHA = "a".repeat(40), SHA2 = "b".repea
 const cleanup: Array<() => void> = [];
 afterEach(() => { for (const clean of cleanup.splice(0)) clean(); });
 const checks = (conclusion = "SUCCESS", name = "unit") => [{ name, status: "COMPLETED", conclusion }];
-function fixture(filename = ":memory:") {
+function fixture(filename = ":memory:", completionGoal: "pullRequest" | "merge" = "pullRequest") {
   let at = Date.parse(START);
   const now = () => new Date(at).toISOString();
   const db = new Database(filename); cleanup.push(() => { if (!db.closed) db.close(); });
   const conversations = new TarsConversationStore(db); conversations.configure(SETTINGS);
   const responsibilities = new TarsStore(db, { now });
   const created = responsibilities.create({ requestId: "work", title: "Repair checks", instruction: "Repair and verify.",
-    acceptanceCriteria: ["Checks pass"], completionGoal: "pullRequest", workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, now());
+    acceptanceCriteria: ["Checks pass"], completionGoal, workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, now());
   let row = responsibilities.get(created.id)!;
   if (!row.publication) row = responsibilities.patch(row.id, row.revision, { state: "completed", agentRunId: "run", taskId: "task",
     executionWorkspaceId: "execution", publication: { agentRunId: "run", state: "opened", failedStep: null, commit: SHA, branch: "tars/work", base: "main",
@@ -294,4 +295,72 @@ test("a closure observed while marking ready is preserved when its outcome is sa
   } });
   await watcher.confirm({ decisionId: answer.decisionId });
   expect(f.get().publication?.watch).toMatchObject({ stopped: "closed", polls: 10, reviewChoice: "ready" });
+});
+
+
+test("a transient network failure retries with backoff and recovers across watcher reconstruction", async () => {
+  const f = fixture(); let attempts = 0;
+  const ports = { ...f.ports, run: async (...args: Parameters<typeof f.ports.run>) => {
+    if (attempts++ === 0) return { ok: false, code: 1, stdout: "", stderr: "network timeout" };
+    return f.ports.run(...args);
+  } };
+  await createTarsPrWatcher(ports).tick();
+  expect(f.get().publication?.watch).toMatchObject({ stopped: null, polls: 1, nextAt: "2026-11-12T00:01:00.000Z" });
+  await createTarsPrWatcher(ports).tick(); expect(attempts).toBe(1);
+  f.advance(60_000); await createTarsPrWatcher(ports).tick();
+  expect(f.get().publication?.checks?.state).toBe("passed");
+});
+
+test("expiry posts one persisted notice with an explicit rearm preserving the fix budget", async () => {
+  const f = fixture(); f.live.statusCheckRollup = checks("");
+  await f.watcher.tick(); f.advance(TARS_PR_WATCH_MS); await f.watcher.tick(); f.admit();
+  await createTarsPrWatcher(f.ports).tick(); f.admit();
+  expect(f.conversations.list(200).filter(m => m.reply?.includes("monitoring stopped after three hours"))).toHaveLength(1);
+  const question = f.view().find(v => v.state === "waiting")!;
+  expect(question.options[0]).toMatchObject({ kind: "prReview", effect: { choice: "watch" } });
+  const answer = f.answer(); await f.watcher.confirm({ decisionId: answer.decisionId });
+  expect(f.get().publication?.watch).toMatchObject({ stopped: null, polls: 0, fixRounds: 0, startedAt: f.now() });
+  await f.watcher.confirm({ decisionId: answer.decisionId });
+  await f.watcher.tick(); expect(f.calls).toHaveLength(2);
+  f.advance(TARS_PR_WATCH_MS); await createTarsPrWatcher(f.ports).tick(); f.admit();
+  expect(f.conversations.list(200).filter(m => m.reply?.includes("monitoring stopped after three hours"))).toHaveLength(2);
+});
+
+test("terminal authentication failure offers rearm and preserves exhausted CI rounds", async () => {
+  const f = fixture(); f.unavailable(); await f.watcher.tick(); f.admit();
+  const current = f.get(); f.patch({ publication: { ...current.publication!, watch: { ...current.publication!.watch!, fixRounds: 2 } } });
+  const answer = f.answer(); await f.watcher.confirm({ decisionId: answer.decisionId });
+  expect(f.get().publication?.watch).toMatchObject({ stopped: null, fixRounds: 2 });
+});
+
+test("observed merge completes only the verified matching execution's merge goal", async () => {
+  for (const merged of [false, true]) {
+    const f = fixture(":memory:", "merge"); f.patch({ state: "resultReady", resultVerifiedRunId: "run" });
+    f.live.state = merged ? "MERGED" : "CLOSED";
+    await f.watcher.tick();
+    expect(f.get().publication?.watch?.stopped).toBe(merged ? "merged" : "closed");
+    expect(f.get().state).toBe(merged ? "completed" : "resultReady");
+    expect(tarsGoalReached(f.get())).toBe(merged);
+    expect(f.calls.every(args => args[1] === "view")).toBe(true);
+  }
+});
+
+
+test("a legacy stopped watch gains one actionable notice after restart", async () => {
+  const f = fixture();
+  f.patch({ publication: { ...f.get().publication!, checks: { state: "unavailable", failing: [], checkedAt: START, headSha: SHA },
+    watch: { startedAt: START, nextAt: START, polls: 1, stopped: "unavailable", fixRounds: 2 } } });
+  await createTarsPrWatcher(f.ports).tick(); f.admit();
+  await createTarsPrWatcher(f.ports).tick(); f.admit();
+  expect(f.view().filter(v => v.state === "waiting" && v.options.some(o => o.kind === "prReview" && o.effect.choice === "watch"))).toHaveLength(1);
+  expect(f.calls).toHaveLength(0);
+});
+
+
+test("GitHub rate limiting retries instead of stopping as an authorization failure", async () => {
+  const f = fixture();
+  await createTarsPrWatcher({ ...f.ports, run: async () => ({ ok: false, code: 1, stdout: "", stderr: "HTTP 403: API rate limit exceeded" }) }).tick();
+  expect(f.get().publication?.watch).toMatchObject({ stopped: null, polls: 1 });
+  f.advance(60_000); await createTarsPrWatcher(f.ports).tick();
+  expect(f.get().publication?.checks?.state).toBe("passed");
 });

@@ -295,7 +295,7 @@ export function tarsPullRequestNumber(url: string): number | null {
 export function tarsCanUpdatePublication(row: { state: string; agentRunId?: string | null; resultVerifiedRunId?: string | null;
   publication?: TarsPublication; executionPending?: boolean }) {
   return Boolean(row.publication?.state === "opened" && row.publication.number && row.publication.url
-    && row.publication.watch?.stopped !== "closed" && row.publication.agentRunId && row.agentRunId
+    && !["closed", "merged"].includes(row.publication.watch?.stopped ?? "") && row.publication.agentRunId && row.agentRunId
     && row.publication.agentRunId !== row.agentRunId && row.resultVerifiedRunId === row.agentRunId
     && row.state === "resultReady" && !row.executionPending);
 }

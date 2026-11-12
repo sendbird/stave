@@ -2284,7 +2284,7 @@
       "reason": {
         "notOwned": "Tars does not hold this work.",
         "notCompleted": "Only verified execution results can be published.",
-        "notVerified": "Stave has no verified result for this execution. Verify it before publishing.",
+        "notVerified": "The workspace must be clean and match the verified revision. Commit and verify the current work before publishing.",
         "stale": "The work changed since this card was shown. Open it again.",
         "noWorkspace": "The work's workspace is no longer available.",
         "noChanges": "There is nothing to publish: no uncommitted change and no commit ahead of the base branch.",
@@ -2884,6 +2884,17 @@
       "empty": "Empty notes or value"
     },
     "prChecks": {
+      "stoppedUnavailable": "PR monitoring stopped: access unavailable",
+      "leaveStopped": "Leave monitoring stopped",
+      "leaveStoppedHint": "Keep the PR available for manual review.",
+      "expired": "PR monitoring expired",
+      "closed": "PR closed",
+      "merged": "PR merged",
+      "expiredNotice": "PR #{{number}}: monitoring stopped after three hours. You can keep watching.",
+      "retryNotice": "PR #{{number}}: checks are temporarily unavailable. Tars will retry automatically.",
+      "watchQuestion": "Keep watching PR #{{number}}?",
+      "watch": "Keep watching",
+      "watchHint": "Watch for another three hours without resetting automatic fix limits.",
       "pending": "PR checks pending",
       "passed": "PR checks passed",
       "failed_one": "PR checks: {{count}} failure",
