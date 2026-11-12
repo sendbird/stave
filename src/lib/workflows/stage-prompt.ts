@@ -36,9 +36,10 @@ export interface StagePromptInput {
   agentNames?: Readonly<Record<string, string>>;
 }
 
+// i18n-ignore: model-facing stage reporting contract
 const REPORTING_CONTRACT = [
   "Before you end this turn, call `stave_report_stage` with a short summary, the decisions you made and why, the evidence you gathered, and the status of each acceptance criterion. If you cannot finish this stage, call `stave_block_stage` instead and name exactly what is missing.",
-  "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran. Provider results may lack an exit code or a workspace revision; only a successful Stave script check of unchanged work supplies current verification.",
+  "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran. When this stage requires final checks, run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks: their results are not this lead turn's verification. Skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. Provider results may lack an exit code or a workspace revision; use a successful Stave script check of unchanged work for current verification.",
   "Stave matches each reported criterion to its stage criterion by exact text: copy every criterion's text below into `text` unchanged, and put evidence and caveats in `evidence`, never in `text`.",
   "Required criteria must be met to fulfill the assignment. Label additional, optional checks with required: false and their actual status; do not downgrade user requirements or stage requirements to optional.",
   "Do only this stage. Stave starts the next stage after your report, so do not begin later stages in this turn.",
@@ -71,7 +72,7 @@ function delegatedStageRule(stage: AiStage, agentName: string | undefined): stri
     stage.pinCommit
       ? "If this assignment changed repository files, commit only that work first. Do not create an empty commit for research or an answer. Pass `workspace: { mode: \"same-workspace\" }` and `expectedHead` set to the commit `git rev-parse HEAD` prints now, and include the exact work scope and any artifacts to review. Stave refuses to start the delegated task if the workspace moves off that commit; do not change files until it ends."
       : "Pass the workspace the agent should work in.",
-    "Wait for the delegated task to end, read its result with `stave_list_delegated_tasks`, and report this stage from that result. Do not do the stage's work yourself. When it did the stage's work and found problems, such as a review's findings, report this stage complete with those problems if a later stage of this workflow fixes them; otherwise do not report it complete with problems you did not resolve. When it failed to do the stage's work, do not report it complete.",
+    "Wait for the delegated task to end, read its result with `stave_list_delegated_tasks`, and report this stage from that result. Do not replace the assigned agent's implementation or independent review yourself. Integrating accepted changes, committing and running final checks are the lead's job. When it did the stage's work and found problems, such as a review's findings, report this stage complete with those problems if a later stage of this workflow fixes them; otherwise do not report it complete with problems you did not resolve. When it failed to do the stage's work, do not report it complete.",
   ].join(" ");
 }
 

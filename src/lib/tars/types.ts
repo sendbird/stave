@@ -237,6 +237,8 @@ export const TarsIdentitySchema = UpdateTarsIdentityInputSchema.extend({
 }).strict();
 export type TarsIdentity = z.infer<typeof TarsIdentitySchema>;
 
+export const TARS_DEFAULT_MAX_TURNS = 60;
+
 export const CreateTarsResponsibilityInputSchema = z.object({
   requestId: IdSchema.regex(/^[A-Za-z0-9._:-]+$/),
   title: z.string().trim().min(1).max(120),
@@ -251,7 +253,7 @@ export const CreateTarsResponsibilityInputSchema = z.object({
   /** Captured at admission; later renderer settings cannot change queued execution. */
   runtimeHints: SecondaryRunRuntimeHintsSchema.optional(),
   priority: PrioritySchema.default(50),
-  maxTurns: z.number().int().min(1).max(100).default(30),
+  maxTurns: z.number().int().min(1).max(100).default(TARS_DEFAULT_MAX_TURNS),
 }).strict();
 export type CreateTarsResponsibilityInput = z.input<typeof CreateTarsResponsibilityInputSchema>;
 

@@ -24,7 +24,7 @@ export const TARS_EXECUTION_POLICY = "Work only within this delegated responsibi
 export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): string {
   return row.model
     // i18n-ignore: model-facing instructions
-    ? "Every helper, including the reviewer, stays on this provider and model the user pinned. Report the same-provider review."
+    ? "Every helper, including the reviewer, stays on this provider and model the user pinned. Pass `provider` and `model` explicitly to `stave_delegate_task`, using the pinned provider and model from Run team limits, including when passing `agentConfigId: \"reviewer\"`; this overrides an Auto agent's provider preference. Report the same-provider review."
     // i18n-ignore: model-facing instructions
     : "Auto picks each unit's model and effort. Run the review on the provider that did not write the change; helpers may use Claude or Codex.";
 }
@@ -32,11 +32,11 @@ export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): stri
 /**
  * How much a stage checks. The work stage runs the narrowest checks while it
  * works and the full checks once on its final revision; the reviewer confirms
- * that evidence and runs only checks covering the changed files, so one
- * revision is never run through the whole suite twice.
+ * that evidence and runs only permitted checks covering the changed files.
+ * Helper checks do not replace the lead's recorded final verification.
  */
 // i18n-ignore: model-facing instructions
-export const TARS_REVIEW_CHECK_SCOPE = "Check reported evidence against the diff. Run repository checks for changed files; broaden only for missing, failed or stale evidence.";
+export const TARS_REVIEW_CHECK_SCOPE = "Check reported evidence against the diff. Run checks for changed files only when your read-only policy permits those exact commands; otherwise report the check limitation and inspect the available evidence. Broaden only for missing, failed or stale evidence.";
 
 /**
  * The run's initial context: the user's whole message when it did not fit
@@ -69,12 +69,12 @@ function tarsAttachmentsGuidance(names: readonly string[]): string {
 /**
  * The Tars-specific part of the execution lead's instructions. They follow
  * the Supervisor's own instructions (`tarsExecutionAgentInstructions`) and
- * take precedence where they differ: publication is Tars's, not the run's.
+ * replace conflicting routing and publication advice before dispatch.
  */
 export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" | "agentId"> & Partial<Pick<TarsResponsibility, "workingChanges" | "attachments">>): string {
   return [TARS_EXECUTION_POLICY,
     // i18n-ignore: model-facing instructions
-    "You are the execution lead of one responsibility Tars delegated. Your Supervisor instructions apply; where they differ, these Tars rules win. Publication is not part of this run: do not push, open or update a pull request, or call Shipper, even when the goal mentions one. Tars offers publication to the user after you report. Commit verified work on this workspace's branch so the review has a commit range.",
+    "You are the execution lead of one responsibility Tars delegated. Publication is not part of this run: do not push, open or update a pull request, or call Shipper, even when the goal mentions one. Commit verified work on this workspace's branch so the review has a commit range. In every helper brief, including in-turn subagents and the reviewer, include: do not push or open pull requests. Integrating accepted changes, committing and final checks are your job as lead.",
     tarsReviewGuidance(row),
     ...(row.agentId
       // i18n-ignore: model-facing instructions
@@ -99,15 +99,23 @@ export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" 
  */
 export function tarsExecutionAgentInstructions(supervisor: string,
   row: Parameters<typeof tarsExecutionInstructions>[0]): string {
-  return [supervisor.trim(), tarsExecutionInstructions(row)].filter(Boolean).join("\n\n");
+  // Replace conflicting Supervisor paragraphs before they reach the model.
+  const instructions = supervisor.trim().split("\n\n").flatMap((paragraph) => {
+    if (paragraph.startsWith("Commit verified work on your own working branch.")) return [];
+    if (paragraph.startsWith("Route by usage, capability, then continuity.")) {
+      return [paragraph.replace(/ Starting points:.*?(?= After two failed attempts)/, "")];
+    }
+    return [paragraph.replace("; visual findings go to Claude, logic findings to Codex", "")];
+  });
+  return [...instructions, tarsExecutionInstructions(row)].filter(Boolean).join("\n\n");
 }
 
 /** How the work stage checks: narrow while working, the full checks once on the final revision. */
 // i18n-ignore: model-facing instructions
-const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. Commit first, then run the repository's full checks once on that final commit; never rerun a check that already passed on that revision.";
+const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks yourself in the reporting turn via `stave_run_workspace_script` when configured. Rerun helper checks; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
 
 // i18n-ignore: model-facing instructions
-const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: Tars completes the work only on a check Stave saw pass there, and a commit after a check makes it stale.";
+const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
 
 /** A shared stage with Tars's own words after its instruction. */
 const withInstruction = (stage: WorkflowStage, extra: string): WorkflowStage =>
@@ -134,12 +142,12 @@ export function tarsWorkflow(row: TarsResponsibility, now: string): Workflow {
     // Repeating it as workflow constraints sends the same policy twice per stage.
     stages: [
       { id: "work", title: "Work", kind: "ai", // i18n-ignore: canonical stage title
-        instruction: withCommitForReview(work, "behavior-changes"),
+        instruction: withCommitForReview(`${work} Helper briefs: do not push or open pull requests.`, "behavior-changes"),
         ...(row.agentId ? { agentConfigId: row.agentId } : {}),
         doneWhen: "The requested result is done and verified on its final revision, with each required criterion's evidence.", // i18n-ignore: model-facing
         acceptanceCriteria: row.acceptanceCriteria.map((text) => ({ text, required: true })),
       },
-      withInstruction(review!, `${tarsReviewGuidance(row)} ${TARS_REVIEW_CHECK_SCOPE}`),
+      withInstruction(review!, `${TARS_REVIEW_CHECK_SCOPE} Do not push or open pull requests.`),
       withInstruction(fix!, TARS_FIX_CHECKS),
     ],
   };

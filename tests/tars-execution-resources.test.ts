@@ -52,10 +52,10 @@ test("execution instructions and the review stage restore cross-provider review 
   expect(tarsExecutionInstructions({ model: null, agentId: null })).toContain("Run the review on the provider that did not write the change");
   const automatic = tarsWorkflow(row, "2026-11-05T00:00:00.000Z");
   expect(automatic.stages[1]).toMatchObject({ agentConfigId: "reviewer" });
-  expect(automatic.stages[1]?.kind === "ai" && automatic.stages[1].instruction).toContain("provider that did not write the change");
+  expect(automatic.stages[1]?.kind === "ai" && automatic.stages[1].instruction).not.toContain("provider that did not write the change");
   const pinned = tarsWorkflow({ ...row, model: "gpt-6.1-sol" }, "2026-11-05T00:00:00.000Z");
   const pinnedReview = pinned.stages[1]?.kind === "ai" ? pinned.stages[1].instruction : "";
-  expect(pinnedReview).toContain("stays on this provider and model");
+  expect(pinnedReview).not.toContain("stays on this provider and model");
   expect(pinnedReview).not.toContain("provider that did not write the change");
   expect(tarsExecutionInstructions({ model: "gpt-6.1-sol", agentId: null })).toContain("stays on this provider and model");
 });
@@ -178,14 +178,14 @@ test("actual host preparation and Run admission route automatically by default, 
     expect(row.models).toBeGreaterThan(1);
     expect(row.idle).toMatchObject({ provider: row.providerId, model: null, autoRouting: true });
     expect(row.instructions).toContain("Run the review on the provider that did not write the change");
-    expect(row.review).toContain("provider that did not write the change");
+    expect(row.review).not.toContain("provider that did not write the change");
   }
   expect(rows["codex-auto"]).toMatchObject({ providerId: "codex", account: ACCOUNT, accounts: { codexAccountProfileId: ACCOUNT } });
   expect(rows["claude-auto"]).toMatchObject({ providerId: "claude-code", account: "system-default" });
   expect(rows["codex-pinned"]).toMatchObject({ providerId: "codex", model: "gpt-6.1-sol", locked: true, models: 1, helpersKeepProvider: true,
     account: ACCOUNT, routingIntent: { model: "gpt-6.1-sol", modelProviderId: "codex", autoRouting: false },
     idle: { model: "gpt-6.1-sol", autoRouting: false } });
-  expect(rows["codex-pinned"].review).toContain("stays on this provider and model");
+  expect(rows["codex-pinned"].review).not.toContain("stays on this provider and model");
   // A pin on the other provider runs there with that provider's System default account.
   expect(rows["cross-pinned"]).toMatchObject({ providerId: "claude-code", model: "claude-sonnet-5-5", locked: true,
     account: "system-default", accounts: { claudeAccountProfileId: "system-default" } });

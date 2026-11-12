@@ -51,15 +51,15 @@ describe("Tars execution workflow", () => {
     const workflow = tarsWorkflow(row(), NOW);
     const [work, review, fix] = [0, 1, 2].map((index) => instructionOf(workflow, index));
     expect(work).toContain("narrowest checks that cover what changed");
-    expect(work).toContain("never rerun a check that already passed on that revision");
+    expect(work).toContain("skip only checks you ran on this revision in this reporting turn that Stave recorded");
     expect(fix).toContain("Commit your fix first, then run the full checks once on that final commit");
-    expect(work).toContain("Commit first, then run the repository's full checks once on that final commit");
+    expect(work).toContain("After committing, run final checks yourself in the reporting turn");
     expect(review).toContain(TARS_REVIEW_CHECK_SCOPE);
     expect(review).not.toMatch(/full (checks|suite)/);
     // The old blanket permission to rerun every script is gone.
     expect(review).not.toContain("test, lint and typecheck scripts");
-    expect(review).toContain("provider that did not write the change");
-    expect(instructionOf(tarsWorkflow(row({ model: "gpt-6.1-sol" }), NOW), 1)).toContain("stays on this provider and model");
+    expect(review).not.toContain("provider that did not write the change");
+    expect(instructionOf(tarsWorkflow(row({ model: "gpt-6.1-sol" }), NOW), 1)).not.toContain("stays on this provider and model");
   });
 
   test("the lead runs the Supervisor's own instructions with the Tars rules after them, within the agent limit", () => {
@@ -67,9 +67,11 @@ describe("Tars execution workflow", () => {
     const composed = tarsExecutionAgentInstructions(supervisor, { model: null, agentId: "implementer",
       workingChanges: { kind: "snapshot", commit: "0123456789abcdef", ref: "refs/stave/x" } as never,
       attachments: { items: Array.from({ length: 8 }, (_, index) => ({ name: `attachment-${index}-with-a-long-file-name.png` })) } as never });
-    expect(composed.startsWith(supervisor)).toBe(true);
+    expect(composed).not.toContain("Starting points:");
+    expect(composed).not.toContain("visual findings go to Claude");
+    expect(composed).not.toContain("open or update a draft pull request through Shipper");
     expect(composed).toContain("Do small or tightly coupled work yourself");
-    expect(composed).toContain("these Tars rules win");
+    expect(composed).not.toContain("these Tars rules win");
     expect(composed).toContain("do not push, open or update a pull request, or call Shipper");
     expect(composed).toContain("Commit verified work on this workspace's branch");
     expect(composed.length).toBeLessThanOrEqual(AGENT_CONFIG_LIMITS.instructions);

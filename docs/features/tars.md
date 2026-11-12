@@ -61,15 +61,20 @@ including the header, side views, question navigation and attachment removal.
 6. **Work, then review only when needed.** The run has one **Work** stage the
    Supervisor owns: it plans, does small or tightly coupled work itself,
    delegates only independent or large units, runs the narrowest checks while
-   it works and the full checks once on the final revision, and commits
-   verified work on the execution workspace's own branch. Work that changed no
-   files (an answer or research) ends after its report. Changed files go to an
-   independent read-only **Review** on the provider that did not write them;
+   it works, commits on the execution workspace's own branch, then runs final
+   checks itself in the reporting turn through Stave workspace check scripts
+   when configured. Checks a helper ran are repeated by the lead. Work that
+   changed no files (an answer or research) ends after its report. Changed files go to an
+   independent read-only **Review** on the provider that did not write them
+   (the pinned provider and model when you fixed a model);
    the **Fix review findings** stage runs only when that review asks for
    changes. The Reviewer confirms the reported evidence and runs only checks
-   covering the changed files with the repository's own test, lint and
-   typecheck scripts (taken from its `package.json`), broader ones only when
-   that evidence is missing, failed or stale; it still cannot write files. The
+   covering the changed files when its read-only policy permits those commands.
+   Claude reviewers may run the approved test, lint and typecheck scripts from
+   `package.json`; other commands require existing permission. When no check
+   is allowed, the reviewer reports that limitation and inspects the evidence.
+   Broader checks require missing, failed or stale evidence; it still cannot
+   write files. The
    agent's own claim is not enough: Tars completes the work only on a check
    Stave saw pass on the revision the run ended on, a passed independent review
    of that revision, or work Stave saw change no files. Otherwise it asks you
@@ -101,8 +106,10 @@ request that was interrupted is not run again automatically.
 
 **When it runs.** Tars works only while the Stave desktop app is running. It
 does not execute while Stave is closed or the computer is asleep; it catches up
-when Stave starts again. The browser-only development runtime has no Tars
-service.
+when Stave starts again. While agent runs or Tars executions are active, Stave
+holds an app-suspension blocker and releases it when idle; the display may turn
+off. A closed lid can still put a Mac to sleep. The browser-only development
+runtime has no Tars service.
 
 ## Edit workspace information
 
@@ -229,8 +236,10 @@ reports on the work.
 
 ## Limits
 
-- **Publishing through the host only.** Delegated work does not commit, push, open
-  pull requests, merge, deploy, send messages or spend money. Stave itself
+- **Publishing through the host only.** Delegated work commits verified changes
+  on its execution branch. Neither
+  the lead nor its helpers may push, open pull requests, merge, deploy, send
+  messages or spend money. Stave itself
   commits, pushes and opens a **draft** pull request automatically for a verified
   PR goal or matching saved allow rule at Balanced or Hands-off, or after you confirm a publish card; nothing is ever
   merged, deployed or force-pushed. Agents that publish or deliver outside the
@@ -288,7 +297,7 @@ reports on the work.
   Cursor, Kiro and OpenCode are not supported.
 - **Agent allowlist.** Saved agents are usable only after you allow them in
   settings (none at first). The host still refuses an unsuitable one.
-- **Turn limit.** Every work unit gets the whole turn limit (default 30, 1 to
+- **Turn limit.** Every work unit gets the whole turn limit (default 60, 1 to
   100); its run and its helpers share it. One message proposes at most 8
   work units.
 - **Follow-up timing.** One follow-up per change. A running run whose stage
@@ -595,7 +604,8 @@ Accept it, cancel it, or ask Tars for new verification work.
 
 **Tars did not follow up.** It follows up once per change; plain waits wait an
 hour; at most six follow-ups start per hour (the card shows **Next check**);
-automatic turns stop at the turn-limit number until you act again; nothing
+the automatic-turn counter pauses follow-ups at the configured limit (subject
+to the accounting limitation in [Automatic follow-up](#automatic-follow-up)); nothing
 follows up while Stave is closed, for work you paused or took over, or for a
 change you already wrote about.
 
@@ -614,8 +624,10 @@ its task can clear (such as its turn limit), or the stage it would restart
 automatically, to avoid repeated cost. Send it again.
 
 **Does Tars cost usage while idle?** Unchanged observations and reads start no
-model call. Each message and each automatic follow-up is one call on the
-conversation model; delegated work uses the execution model.
+model call. Each message or automatic follow-up starts one reasoning job on
+the conversation model. It may make an initial call plus two inspection rounds,
+with one transient retry per round: up to six provider attempts. Delegated work
+uses the execution model.
 
 ---
 
@@ -1536,8 +1548,11 @@ changes of the same work are combined into one. Follow-ups are limited:
   Tars, Fleet or the task. When their number reaches the turn limit in
   settings, Tars stops following up and says so in the conversation and on the
   card; your next action starts the count again. This count is separate from
-  the turns of delegated work, which it does not use up. Each follow-up is one
-  call on the conversation model.
+  the turns of delegated work, which it does not use up. One follow-up counts
+  as one automatic turn even when it uses inspection rounds or transient retries
+  (up to six provider attempts). Currently, saved automatic action records and
+  decision closures can also restart this count; it is not a hard cap on autonomous
+  activity until that accounting limitation is corrected.
 
 A waiting card shows **Next check** with the time Tars follows up if nothing
 changes before then; it never shows a time that has passed, and shows nothing
@@ -1554,7 +1569,7 @@ use and the turn limit per work unit. A turn is one request for an agent to
 work; the limit includes the lead agent and its helpers.
 Until you change them, the conversation uses Codex when it is available
 (otherwise Claude Code) with that provider's model from your app settings, and
-a turn limit of 30; the first send saves these choices for the conversation.
+a turn limit of 60; the first send saves these choices for the conversation.
 Settings have three tabs: **General** (name, standing instructions and ended-work
 retention), **Models** (conversation model/account, execution model and allowed
 agents), and **Work** (autonomy, rules and work limits). Draft edits survive
