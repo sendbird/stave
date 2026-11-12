@@ -1,3 +1,4 @@
+import { askTarsAboutIssue } from "@/components/tars/ask-tars";
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
@@ -22,7 +23,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
+import { TrackerSourceIcon } from "./TrackerSourceIcon";
 import { groupTrackerIssuesForBoard } from "@/lib/tracker-issues/board";
 import { trackerIssueKey } from "@/lib/tracker-issues/client-store";
 import { useTrackerIssueLinks } from "@/lib/tracker-issues/client-state";
@@ -93,7 +94,7 @@ const BOARD_STATES: Record<TrackerStatusCategory, WorkflowState> = {
 
 /** Shared read-only board anatomy with host-owned ticket actions. */
 export function IssuesBoard(props: IssuesBoardProps) {
-  const { t: tI18n } = useTranslation(["issues"]);
+  const { t: tI18n } = useTranslation(["issues", "shell"]);
   const columns = groupTrackerIssuesForBoard(props.items);
   const loading = props.loading === true;
 
@@ -181,7 +182,7 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
   onOpenStaveTask: (key: string) => void;
   attachTargetLabel: string | null;
 }) {
-  const { t: tI18n } = useTranslation(["issues"]);
+  const { t: tI18n } = useTranslation(["issues", "shell"]);
   const { task } = props.item;
   const key = trackerIssueKey(task.source, task.ref);
   // Same contract as the list row: the pushed mirror wins once a kickoff lands,
@@ -236,8 +237,8 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
         <div className={sx(taskLayoutStyles.boardCardTop)}>
           <span className={sx(taskLayoutStyles.boardCardKeyGroup)}>
             <span title={TRACKER_SOURCE_LABELS[task.source]}>
-              <ServiceLinkIcon
-                kind={task.source === "crane" ? "crane" : "jira"}
+              <TrackerSourceIcon
+                source={task.source}
                 className={sx(trackerVisualStyles.icon)}
               />
             </span>
@@ -336,6 +337,9 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
       </ContextMenuTrigger>
 
       <ContextMenuContent>
+        <ContextMenuItem onSelect={() => void askTarsAboutIssue(task)}>
+          {tI18n("shell:tars.intake.ask")}
+        </ContextMenuItem>
         <ContextMenuItem onSelect={() => props.onKickoff(key)}>
           {tI18n("issues:issuesBoard.kickOffInStave")}</ContextMenuItem>
         <ContextMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
@@ -363,7 +367,7 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
           {tI18n("issues:issuesBoard.copyLink")}</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          disabled={props.attachTargetLabel === null}
+          disabled={props.attachTargetLabel === null || task.source === "github"}
           onSelect={() => props.onAttach(key)}
         >
           {props.attachTargetLabel

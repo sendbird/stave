@@ -21,6 +21,22 @@ when requested. Result and report headlines show one plain sentence; **Full
 summary…** keeps the complete summary, criteria, evidence and diagnostics.
 Long record and Activity descriptions stay on one line with their full text on hover.
 
+## Give Tars work from a source
+
+In **Issues**, choose **Ask Tars** on a GitHub, Jira or Crane issue to draft its
+title, link and a bounded body excerpt, with a mapped repository/workspace
+suggestion. Enable GitHub in **Settings > Integrations > Issues** after signing
+in with `gh auth login`; it reads up to 200 assigned issues and never writes back.
+Remember a GitHub repository mapping in the issue kickoff form when needed.
+In a Markdown editor's **More** menu, **Ask Tars** attaches the current contents,
+including plan files under `.stave/context/plans/` (32 KB total text limit).
+Tars's **Attach document link** adds an HTTPS link attachment; it does not fetch
+the document while drafting. Edit your direction and send; opening a draft
+starts no work and preserves existing draft text and attachments.
+Pasted Slack thread links stay source links. The execution lead is instructed
+to read them read-only with your Slack tools, or ask you to paste the text if
+access is unavailable. Stave has no Slack token flow.
+
 ## How it works
 
 1. **You talk.** Open **Tars** at the top of the sidebar and write. There is

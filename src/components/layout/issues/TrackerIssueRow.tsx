@@ -1,3 +1,4 @@
+import { askTarsAboutIssue } from "@/components/tars/ask-tars";
 import { useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
@@ -13,7 +14,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
+import { TrackerSourceIcon } from "./TrackerSourceIcon";
 import { useTrackerIssueLinks } from "@/lib/tracker-issues/client-state";
 import { trackerIssueKey } from "@/lib/tracker-issues/client-store";
 import {
@@ -72,7 +73,7 @@ export interface TrackerIssueRowProps {
 export const TrackerIssueRow = memo(function TrackerIssueRow(
   props: TrackerIssueRowProps,
 ) {
-  const { t: tI18n } = useTranslation(["issues"]);
+  const { t: tI18n } = useTranslation(["issues", "shell"]);
   const { item, now } = props;
   const { task } = item;
   const key = trackerIssueKey(task.source, task.ref);
@@ -122,8 +123,8 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
           {...stylex.props(styles.sourceIcon)}
           title={TRACKER_SOURCE_LABELS[task.source]}
         >
-          <ServiceLinkIcon
-            kind={task.source === "crane" ? "crane" : "jira"}
+          <TrackerSourceIcon
+            source={task.source}
             className={stylex.props(styles.icon15).className}
           />
         </span>
@@ -194,8 +195,8 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
                 : tI18n("issues:trackerIssueRow.mirrorsJiraIssue")
             }
           >
-            <ServiceLinkIcon
-              kind="jira"
+            <TrackerSourceIcon
+              source="jira"
               className={stylex.props(styles.icon15).className}
             />
             {jiraLink.key ?? "Jira"}
@@ -256,6 +257,9 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
       </ContextMenuTrigger>
 
       <ContextMenuContent>
+        <ContextMenuItem onSelect={() => void askTarsAboutIssue(task)}>
+          {tI18n("shell:tars.intake.ask")}
+        </ContextMenuItem>
         <ContextMenuItem onSelect={() => props.onKickoff(key)}>
           {tI18n("issues:trackerIssueRow.kickOffInStave")}</ContextMenuItem>
         <ContextMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
@@ -283,7 +287,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
           {tI18n("issues:trackerIssueRow.copyLink")}</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
-          disabled={props.attachTargetLabel === null}
+          disabled={props.attachTargetLabel === null || task.source === "github"}
           onSelect={() => props.onAttach(key)}
         >
           {props.attachTargetLabel
