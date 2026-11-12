@@ -758,7 +758,12 @@ could not verify, its decision card. A blocked or stuck stage in the work flow
 shows its reason and opens the same place.
 
 Work runs in an
-isolated worktree with execution, independent review and verification.
+isolated worktree on its own branch, led by the Supervisor: it plans, does
+small work itself, runs the narrowest checks while it works and the full checks
+once at the end, and commits verified work on that branch. An independent
+review on the other provider runs only when files changed, and a fix stage only
+when that review asks for changes. Nothing is pushed until you confirm
+publishing.
 Uncommitted source changes are not copied unless you turn on **Include my
 working changes**, the icon button next to **Send**, for that message: Stave
 then snapshots the workspace's uncommitted changes (ignored files stay out)
@@ -825,14 +830,28 @@ reason on the line under it. Answering twice applies
 once, and a different answer to an answered decision is refused; if Stave
 could not apply your choice for another reason, the card stays open. If the work
 changes before you answer, the card says it is no longer valid and Tars asks
-again once by itself. Decision cards also wait in **Needs you** and in Fleet
+again once by itself. Every waiting card also has **Dismiss**: it closes the
+card for good without choosing, applies nothing and removes the decision from
+**Needs you** and Fleet; the card folds to a "Dismissed" record. Dismissing
+Stave's check for an unverified completion leaves the work blocked in the tray
+with its own controls. A question or a proposed control also stops waiting
+when you send a newer message ("the conversation moved on"), and Tars can
+withdraw one of its own earlier cards that no longer fits ("Withdrawn by
+Tars"). Decision cards also wait in **Needs you** and in Fleet
 View; cards with several options open Tars from Fleet. In **Agents**, the
 Supervisor's work list hides what Tars delegated; turn on **Show Tars work** to
 include it. **Cancel message**, the icon button beside **Thinking** or
 **Queued**, stops unfinished reasoning; it does not undo admitted work. A
 message Tars could not answer, including interrupted reasoning, shows a notice
-in its reply's place and is not run again automatically; **Edit and resend**
-puts its words back in the message box to send as a new message.
+in its reply's place; **Edit and resend** puts its words back in the message box
+to send as a new message. A timeout (five minutes per attempt), a cut-short
+answer or a passing model problem is retried once by itself, and the message
+says it is trying once more; anything else, or a second failure, is not retried.
+If one action in Tars's reply is malformed, only that action is left out, and
+the message says how many were; the reply and the other actions stay. A queued
+message says why it waits (an earlier action's result, or your saved agents
+loading) and waits at most a minute: then it goes on, or, when your saved
+agents still have not loaded, it stops with that reason so you can resend it.
 
 Higher numeric priorities start first, with oldest first on a tie. Independent
 responsibilities start concurrently, including work in separate worktrees of

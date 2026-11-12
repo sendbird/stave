@@ -90,13 +90,20 @@ stage keeps the run waiting: open it from **Subagents** and answer or retry
 it there.
 
 For goals with separate parts, assign **Lead**, which splits the work across
-agents and checks each result before it reports. **Supervisor** goes one step
-further: it owns the goal from plan to verified result, picks each part's
-provider and model from what the work needs and how much account usage each
-provider has left, integrates the parts itself, and asks only about scope,
-undecided product or design choices, destructive actions and publishing. It
-runs on Auto with no preferred provider and a 60-turn shared budget; a fixed
-or pinned model would keep its helpers on its own provider.
+agents and checks each result before it reports. **Supervisor** works like
+Lead but owns one goal until it is really done: it plans, does small or tightly
+coupled work itself and delegates only independent or large parts, picking
+each part's provider and model from what the work needs and how much account
+usage each provider has left. It runs the narrowest checks while it works and
+the full checks once on the final revision, commits verified work on its own
+branch, and opens or updates a draft pull request through Shipper only when
+the goal asks for one. It never pushes to the default branch, merges or
+releases without your request, and asks only about scope, correctness or
+authority. Stave reviews its committed result on the other provider only when
+the work changed files (Review before done: behavior changes), and skips the
+fix stage when that review passes. It runs on Auto with no preferred provider
+and a 60-turn shared budget; a fixed or pinned model would keep its helpers on
+its own provider.
 
 ## When To Use It
 

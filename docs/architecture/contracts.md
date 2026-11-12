@@ -760,6 +760,22 @@ the other decisions of its message on the same responsibility only, and
 `isCurrentProposal` applies that rule to every confirmation. Typed messages may
 not use `answer:` or `reask:` request ids.
 
+`window.api.tars.dismissDecision` (`tars:dismiss-decision`,
+`TarsDismissInputSchema`: a decision id and `source` `click` or `key`) closes
+one waiting decision without an option. Main checks that it waits and records
+an applied answer with `effect: { kind: "dismiss" }` (`closeDecision`); the same
+dismissal again returns it, an answered decision returns `alreadyAnswered` and
+anything else `notWaiting`. It never reaches the host. The model's `withdraw`
+action (`TarsWithdrawActionSchema`: a `confirm:` or `ask:` decision id only)
+records `effect: { kind: "withdraw", messageId, actionIndex }` with source
+`tars` in the host's admission, settling its receipt `applied` with no
+responsibility, or `rejected` (`stale`, `notOwned`) when the decision no longer
+waits or is not Tars's own. A closure chooses no option, applies nothing and
+retires no sibling. A control proposal and a question also stop waiting once a
+later message exists that is not an automatic follow-up
+(`readMovedOnTarsMessages`); the projection, `pendingDecisions` and
+`isCurrentProposal` read that one rule.
+
 The model's `show` action (`TarsShowActionSchema`: `responsibilityId` and
 `view`, one of `report`, `changes`, `timeline` or `review`; no other field
 parses, and one reply holds at most one show) opens the Tars side view. It is
@@ -990,11 +1006,13 @@ A model-proposed `resume`, `handBack` or `cancel` is checked and saved as a
 `proposed` receipt; only the user's confirming click (`confirm:<message>:<index>`
 request ID, same `act` path, repeating the proposal exactly) applies it, and
 that click's outcome settles the proposal in the same transaction. Pause and
-takeover apply at once. A hand-back during the final stage always replaces its
+takeover apply at once. A hand-back during a stage that may end the run (the
+last stage, or a review whose pass skips the fix stage) always replaces its
 started attempt: a running or user-paused run is held first, then the run's
 `restartStageAndResume` restarts and resumes it in one transition, so a refused
-resume changes nothing. Completion needs a final attempt that started after the
-hand-back. Decisions, controls and
+resume changes nothing. Completion needs an attempt of the last stage that ran
+(`tarsFinalStageRecord`) that started after the hand-back, or unchanged work
+Stave read after it. Decisions, controls and
 responsibility requests have no host request deadline, and main never fences a
 control receipt after a failed delivery: it stays pending until the host's
 idempotent retry settles the run effect and the receipt together. Such an
