@@ -1,3 +1,4 @@
+import type { TarsPublishInput } from "../src/lib/tars/publication";
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
 import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
@@ -45,12 +46,13 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
   const responsibilities = new TarsStore(database);
   const ledger = new RunLedgerStore(database);
   const runControls: string[] = [];
+  const runCaps: Array<number | undefined> = [];
   const prompts: string[] = [];
   const queue = [...replies];
   const runtime = createTarsRuntime({ store: responsibilities, now: () => NOW, validateScope: async () => {},
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
     startRun: async (row) => `run-${row.id}`, observe: async () => ({ state: "running", detail: null }),
-    controlRun: async (_row, operation) => { runControls.push(operation); },
+    controlRun: async (_row, operation, autoExtendMaxTurns) => { runControls.push(operation); runCaps.push(autoExtendMaxTurns); },
     respondTask: async (_row, request) => { runControls.push(request.operation); return "sent"; } });
   const coordinator = createSecondaryRunCoordinator({
     getLedger: () => ({ getRunAggregate: ledger.getAggregate.bind(ledger), claimRunStep: ledger.claimStep.bind(ledger),
@@ -100,7 +102,7 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
   const decisions = () => projectTarsDecisions({ messages: conversations.list(100), receipts: conversations.list(100).flatMap((message) => conversations.listReceipts(message.id)),
     records: conversations.listActions(100), answers: conversations.listAnswers(100), activity: responsibilities.listActivity(100),
     responsibilities: responsibilities.snapshot().responsibilities });
-  return { database, conversations, responsibilities, runtime, service, ports, runControls, prompts, responsibility, admit, send, decisions, ticks: () => ticks };
+  return { database, conversations, responsibilities, runtime, service, ports, runControls, runCaps, prompts, responsibility, admit, send, decisions, ticks: () => ticks };
 }
 
 /** The base policy for every action before autonomy overrides, written out by hand. */
@@ -501,4 +503,99 @@ describe("the user's never-do rules", () => {
     expect(data.autonomy.appliesAtOnce).toEqual(expect.arrayContaining(["resume", "retryStage", "message", "requestChanges"]));
     expect(data.autonomy.appliesAtOnce).toEqual(tarsAutonomySummary("balanced").auto);
   });
+});
+
+describe("saved allow rules", () => {
+  const rule = { key: "extend" as const, repositoryPath: "/tmp/billing" };
+  test("only matching repositories at automatic levels skip confirmation, for either origin", () => {
+    for (const level of TARS_AUTONOMY_LEVELS) for (const origin of ["user", "automatic"] as const) {
+      for (const repositoryPath of ["/tmp/billing", "/tmp/other", null]) {
+        expect(tarsActionMode("extend", level, origin, { allowRules: [rule], repositoryPath }))
+          .toBe(level !== "careful" && repositoryPath === rule.repositoryPath ? "auto" : "confirm");
+        expect(tarsActionMode("publish", level, origin, { allowRules: [{ key: "publish", repositoryPath: null }], repositoryPath }))
+          .toBe(level === "careful" ? "confirm" : "auto");
+      }
+      for (const key of TARS_ALWAYS_CONFIRMED) expect(tarsActionMode(key, level, origin, { allowRules: [{ key, repositoryPath: null }] })).toBe("confirm");
+    }
+  });
+  test("never-do rules win over standing permission", () => {
+    expect(tarsActionDisposition({ key: "extend", level: "handsOff", context: { allowRules: [rule], repositoryPath: rule.repositoryPath },
+      matches: matchTarsNeverRules(["Never extend"], { key: "extend" }) })).toBe("confirm");
+  });
+  test("strict schema accepts 24 rules, rejects unknown keys, missing scopes, bad paths and overflow; SQLite retains the rules", () => {
+    const allowRules = Array.from({ length: 24 }, (_, index) => ({ ...rule, repositoryPath: `/tmp/repo-${index}` }));
+    expect(TarsConversationSettingsSchema.safeParse({ ...SETTINGS, allowRules }).success).toBe(true);
+    for (const invalid of [[...allowRules, rule], [{ key: "merge", repositoryPath: null }], [{ key: "publish" }],
+      [{ ...rule, repositoryPath: " " }], [{ ...rule, repositoryPath: "x".repeat(4097) }], [{ ...rule, extra: true }]]) {
+      expect(TarsConversationSettingsSchema.safeParse({ ...SETTINGS, allowRules: invalid }).success).toBe(false);
+    }
+    const f = fixture({ allowRules: [rule, { key: "publish", repositoryPath: null }] });
+    expect(new TarsConversationStore(f.database).getSettings()?.allowRules).toEqual([rule, { key: "publish", repositoryPath: null }]);
+  });
+  test("host uses current settings, so removing an allow rule affects an already-sent message", async () => {
+    const f = fixture({ allowRules: [{ key: "resume", repositoryPath: "/tmp/billing" }], neverDo: ["Never resume"] });
+    const row = f.responsibility("paused");
+    const { receipts } = await f.admit([{ kind: "control", operation: "resume", responsibilityId: row.id, expectedRevision: row.revision }]);
+    expect(receipts[0]?.status).toBe("proposed");
+    expect(f.runControls).toEqual([]);
+    const message = f.conversations.create({ requestId: "before-removal", text: "Extend it." }, NOW);
+    f.conversations.configure({ ...SETTINGS, allowRules: [] });
+    expect(tarsPlannerGuard(message, f.conversations.getSettings()).allowRules).toBeUndefined();
+  });
+  test("planner lists include global and scoped rules and never-do precedence", () => {
+    const f = fixture({ allowRules: [rule, { key: "publish", repositoryPath: null }] });
+    const message = f.conversations.create({ requestId: "allow-prompt", text: "Continue." }, NOW);
+    const prompt = (neverDo: string[] = []) => JSON.parse(buildTarsPlannerPrompt(message,
+      { ...testContext(f.responsibilities, REGISTRY), guard: { ...tarsPlannerGuard(message, f.conversations.getSettings()), neverDo } }, []).split("\n\n").at(-1)!);
+    const data = prompt();
+    expect(data.autonomy.appliesAtOnce).toContain("publish");
+    expect(data.autonomy.waitsForConfirm).toContain("extend");
+    expect(data.autonomy.repositoryPolicies[0].appliesAtOnce).toContain("extend");
+    expect(data.autonomy.repositoryPolicies[0].waitsForConfirm).not.toContain("extend");
+    expect(prompt(["Never publish"]).autonomy.waitsForConfirm).toContain("publish");
+    expect(prompt(["Never touch billing"]).autonomy.repositoryPolicies[0].waitsForConfirm).toContain("extend");
+  });
+});
+
+for (const origin of ["user", "automatic"] as const) test(`${origin}: saved extension permission reaches execution beyond the default automatic cap`, async () => {
+  const f = fixture({ allowRules: [{ key: "extend", repositoryPath: "/tmp/billing" }] });
+  f.ports.readRunBudget = () => ({ maxTurns: 90 });
+  const row = f.responsibility("blocked");
+  const followUp = origin === "automatic" ? { kind: "followUp" as const, eventKey: "blocked-event", reason: "blocked" as const,
+    responsibilityId: row.id, observedRevision: row.revision, summary: "More turns needed." } : undefined;
+  const result = await f.admit([{ kind: "control", operation: "extend", responsibilityId: row.id, expectedRevision: row.revision }], followUp);
+  expect(result.receipts[0]?.status).toBe("applied");
+  expect(f.runControls).toEqual(["extend"]);
+  expect(f.runCaps).toEqual([undefined]);
+  const next = f.responsibility("blocked");
+  const queued = f.conversations.create({ requestId: "remove-before-admission", text: "Extend it." }, NOW);
+  f.conversations.configure({ ...SETTINGS, allowRules: [] });
+  const claimed = f.conversations.claim(queued.id, queued.revision, NOW);
+  const message = f.conversations.answer(claimed.id, claimed.revision, { reply: "More turns.", actions: [
+    { kind: "control", operation: "extend", responsibilityId: next.id, expectedRevision: next.revision },
+  ] }, NOW);
+  expect((await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports))[0]?.status).toBe("proposed");
+  expect(f.runControls).toEqual(["extend"]);
+});
+
+test("saved draft-publication permission reaches the publish boundary for either origin, retaining never-do and verification guards", async () => {
+  for (const level of TARS_AUTONOMY_LEVELS) for (const never of [false, true]) for (const origin of ["user", "automatic"] as const) {
+    const f = fixture({ autonomy: level, allowRules: [{ key: "publish", repositoryPath: "/tmp/billing" }], ...(never ? { neverDo: ["Never publish"] } : {}) });
+    let row = f.responsibility("resultReady");
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    const publishes: TarsPublishInput[] = [];
+    // Record arrival at the publisher without any Git or network effects.
+    Object.assign(f.ports, { publish: async (input: TarsPublishInput) => {
+      publishes.push(input); return { record: f.conversations.recordPublish(input, null, NOW) };
+    } });
+    const followUp = origin === "automatic" ? { kind: "followUp" as const, eventKey: "result-event", reason: "resultReady" as const,
+      responsibilityId: row.id, observedRevision: row.revision, summary: "Result verified." } : undefined;
+    await f.admit([{ kind: "publish", responsibilityId: row.id, expectedRevision: row.revision }], followUp);
+    expect(publishes).toHaveLength(level !== "careful" && !never ? 1 : 0);
+    if (publishes.length) expect(publishes[0]?.source).toBe("automatic");
+    const unverified = f.responsibility("resultReady");
+    const refused = await f.admit([{ kind: "publish", responsibilityId: unverified.id, expectedRevision: unverified.revision }]);
+    expect(refused.receipts[0]?.status).toBe("rejected");
+    expect(publishes).toHaveLength(level !== "careful" && !never ? 1 : 0);
+  }
 });

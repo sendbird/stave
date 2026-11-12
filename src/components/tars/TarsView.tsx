@@ -1,3 +1,4 @@
+import { TarsAllowRulesProvider } from "./TarsAllowRules";
 import { ReportArtifactPreviewProvider } from "@/components/agent-runs/ReportArtifactLink";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -405,12 +406,14 @@ function TarsViewContent() {
       {/* A notice for ended work reads the work, its run and the tray's handlers from here, to show its result card. */}
       <TarsResultProvider responsibilities={responsibilities} runs={runs} activity={conversation.conversation?.activity} records={records} actions={trayActions}
         agentNameOf={(id) => agentNames.get(id)}>
+      <TarsAllowRulesProvider settings={conversation.conversation?.settings ?? initialSettings} configure={conversation.configure} busy={conversation.busy}
+        repositoryOf={(id) => workspaces.some((workspace) => workspace.id === id) ? repositoryPath ?? undefined : registered.find((entry) => entry.workspaces.some((workspace) => workspace.id === id))?.repositoryPath}>
       <TarsStartContext value={startInfo}><TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} onDismissDecision={dismissDecision} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
         schedule={scheduling.available ? scheduling.context : undefined} onOpenScheduleRun={(run) => { if (run.taskId) void openTask(run, run.taskId, run.workspaceId); }}
-        composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} /></TarsStartContext>
+        composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} /></TarsStartContext></TarsAllowRulesProvider>
       </TarsResultProvider>
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}

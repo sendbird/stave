@@ -2215,7 +2215,7 @@
       "step3Text": "Read the report and changes beside the conversation.",
       "detailsTitle": "More about running tasks",
       "examplesTitle": "Try a request",
-      "limit1": "Requested draft PRs open automatically after verification at Balanced or Hands-off. Other publication asks first. Tars never merges or deploys.",
+      "limit1": "Requested draft PRs open automatically after verification at Balanced or Hands-off. Other publication asks first unless you saved an allow rule. Tars never merges or deploys.",
       "limit2": "Keep Stave open and this computer awake.",
       "limit3": "Tasks can run at the same time. Set a limit in Settings; 0 adds no task limit.",
       "limit4": "Work starts from the workspace branch. Turn on Include my working changes to include edits you haven't committed. Files ignored by Git are not copied.",
@@ -2513,11 +2513,10 @@
         "deploy": "deploy",
         "forcePush": "force-push",
         "deleteBranches": "delete branches, worktrees or tasks",
-        "alwaysAllow": "create an “always allow” rule",
         "spendMoney": "spend money",
         "contactOthers": "message other people"
       },
-      "footnote": "Balanced and Hands-off also apply to automatic follow-ups. Add turns automatically up to twice the original task budget; overruns ask first. Verified results open a draft PR automatically only when your original goal asks for a PR or merge. Other publication asks first. Resume and retry offer Undo to pause the same run; instructions already sent cannot be undone.",
+      "footnote": "Balanced and Hands-off also apply to automatic follow-ups. Without a saved allow rule, extra turns beyond twice the original budget and publication without a verified PR goal ask first. Saved allow rules never bypass Never-do rules or actions that always need confirmation. Resume and retry offer Undo to pause the same run; instructions already sent cannot be undone.",
       "never": {
         "title": "Never do",
         "hint": "Add rules for what Tars must avoid. Matching proposals require confirmation; rules do not automatically block actions.",
@@ -2562,7 +2561,18 @@
           "workspace": "Confirm edit"
         }
       },
-      "detailsTitle": "Actions and confirmations"
+      "detailsTitle": "Actions and confirmations",
+      "allow": {
+        "button": "Always allow",
+        "title": "Always allowed",
+        "hint": "At Balanced and Hands-off, saved rules skip confirmations for that action and repository. Never-do rules and actions that always need confirmation take precedence. Keep up to 24 rules.",
+        "rule": "{{action}} in {{repo}}",
+        "record": "Always allowed: {{action}} in {{repo}}",
+        "anyRepository": "any repository",
+        "undo": "Undo",
+        "failed": "The allow rule could not be saved. Try again.",
+        "empty": "No saved allow rules."
+      }
     },
     "knows": {
       "menu": "Knowledge and usage",

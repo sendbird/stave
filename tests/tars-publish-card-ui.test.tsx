@@ -1,3 +1,6 @@
+import { TarsAllowRulesProvider, TarsAlwaysAllowButton } from "../src/components/tars/TarsAllowRules";
+import { SETTINGS } from "./tars-test-context";
+import type { TarsConversationSettings } from "../src/lib/tars/conversation";
 import { afterEach, describe, expect, test } from "bun:test";
 import { tarsRecordText } from "./tars-record-text";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
@@ -69,7 +72,7 @@ describe("publish card", () => {
     expect(html.match(/value="feat: show the saved card first at checkout"/g)).toHaveLength(2);
     expect(html).not.toContain("readonly");
     expect(html).toContain('data-tars-publish-rows="repository,base,head,changedFiles"');
-    // No standing permission exists, and nothing offers it.
+    // Without conversation settings, this isolated card offers no standing permission.
     expect(html.toLowerCase()).not.toContain("always");
   });
 
@@ -167,4 +170,18 @@ describe("publish record and entry", () => {
     expect(renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ state: "running" }), onPublish: () => {} }))).toBe("");
     expect(renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ detailCode: "acceptedWithoutVerification" }), onPublish: () => {} }))).toBe("");
   });
+});
+
+test("Always allow on the draft PR card saves its repository and publishes the words already reviewed", async () => {
+  const { tree, calls } = rendered({ initial: { commitMessage: "fix: reviewed commit", title: "fix: reviewed title" } });
+  const allow = elements(tree).find((element) => element.type === TarsAlwaysAllowButton)!;
+  const saved: TarsConversationSettings[] = [];
+  let button: ReactNode = null;
+  function Capture() { button = TarsAlwaysAllowButton(allow.props as Parameters<typeof TarsAlwaysAllowButton>[0]); return button; }
+  const html = renderToStaticMarkup(createElement(TarsAllowRulesProvider, { settings: SETTINGS, busy: false,
+    configure: async (settings) => { saved.push(settings); return settings; }, children: createElement(Capture) }));
+  expect(html).toContain("Always allow");
+  await ((button as ReactElement<{ onClick: () => Promise<void> }>).props.onClick)();
+  expect(saved[0]?.allowRules).toEqual([{ key: "publish", repositoryPath: "/tmp/web" }]);
+  expect(calls.publish).toEqual([[{ commitMessage: "fix: reviewed commit", title: "fix: reviewed title" }, "click"]]);
 });

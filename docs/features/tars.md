@@ -232,7 +232,7 @@ reports on the work.
 - **Publishing through the host only.** Delegated work does not commit, push, open
   pull requests, merge, deploy, send messages or spend money. Stave itself
   commits, pushes and opens a **draft** pull request automatically for a verified
-  PR goal at Balanced or Hands-off, or after you confirm a publish card; there is no "always allow", and nothing is ever
+  PR goal or matching saved allow rule at Balanced or Hands-off, or after you confirm a publish card; nothing is ever
   merged, deployed or force-pushed. Agents that publish or deliver outside the
   workspace, such as Shipper, are never used. This is enforced by refusing
   publishing agents and by authorizing no publishing stage; it is not a shell
@@ -305,7 +305,7 @@ reports on the work.
   choice. Your words reach the run only while no turn runs in its task;
   otherwise say them in the task or ask again after the turn.
 - **Never through Tars.** Merging, deploying, force-pushing, deleting
-  branches, worktrees or tasks, "always allow" rules, spending money and
+  branches, worktrees or tasks, permanent tool approvals, spending money and
   messaging other people are not available through Tars at all.
 - **Message limits.** A message holds up to 32,000 characters and at most 32
   messages can be outstanding. A message too long to sit in the run's
@@ -1582,21 +1582,29 @@ already sent to a run and consumed turn budgets cannot be undone. Pending
 message delivery retains its existing withdrawal control.
 
 After execution verifies, an automatic follow-up may offer publication without
-another user message. Only an originally requested PR or merge endpoint can
-authorize automatic publication, and only after verification of the current
-run. Other publication remains a confirmation card. Existing revision,
+another user message. An originally requested PR or merge endpoint authorizes automatic publication
+after verification of the current run. A saved allow rule can also permit draft
+publication for other eligible results. Existing revision,
 workspace, base/branch and default-branch guards still apply. There is no
 force-push, automatic merge or deploy.
 
 Automatic follow-ups never delegate new work, reorder the queue, answer a
 question for you or reclaim work you paused or took over. Pausing, taking over
 and denying a tool request remain immediate at every level. Tars never deletes
-branches, worktrees or tasks, grants permanent approval, spends money or
+branches, worktrees or tasks, grants permanent tool approval, spends money or
 messages other people.
 
 Stave uses the more careful of the level saved now and the level that was saved
 when you sent the message, so lowering the level takes effect immediately and a
 message never carries a looser level than your settings.
+
+**Always allow** on an eligible waiting confirmation applies the action and saves
+permission for that action in the card's repository (up to 24 rules). At
+Balanced and Hands-off this skips confirmation for user requests and automatic
+follow-ups, including eligible draft publication; Careful is unchanged.
+Always-confirmed actions and matching **Never do** rules take precedence.
+The saved record offers **Undo**; Settings lists rules with **Remove**. Both
+remove only the permission, without reverting the applied action.
 
 **Never do** holds up to 12 rules in your own words, such as "never touch
 production branches". Tars receives them as hard constraints. Stave also asks

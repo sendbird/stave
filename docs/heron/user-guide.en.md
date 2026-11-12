@@ -542,6 +542,13 @@ deploys. Cancel, skip, accept completion, approve a tool request, hand back
 work you took over, sign off, answer for you and clear always need confirmation.
 Pause, take over and deny always apply immediately. Automatic follow-ups never
 start new work or reclaim work you paused or took over.
+**Always allow** on an eligible confirmation applies the action and saves a rule
+for its repository (up to 24). Balanced and Hands-off skip that confirmation
+for user requests and automatic follow-ups, including eligible draft PRs.
+Careful, always-confirmed actions and matching Never-do rules keep asking.
+The record's **Undo** and Settings' **Remove** delete only the saved rule;
+they do not revert the action.
+
 **Never do** holds rules in your own words, such as "never touch production
 branches". Tars receives them as hard limits, and Stave asks you first and shows
 the rule on the card when a proposed action names the rule's repository, branch

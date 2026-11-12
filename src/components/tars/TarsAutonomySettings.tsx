@@ -9,7 +9,7 @@ import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
 import {
   TARS_ALWAYS_CONFIRMED, TARS_AUTONOMY_LEVELS, TARS_NEVER_RULE_MAX_CHARS, TARS_NEVER_RULES_MAX, TarsAutonomyLevelSchema, tarsAutonomySummary,
-  type TarsActionKey, type TarsAutonomyLevel, type TarsUnavailableAction,
+  type TarsAllowRule, type TarsActionKey, type TarsAutonomyLevel, type TarsUnavailableAction,
 } from "@/lib/tars/autonomy";
 import { tarsStyles as styles } from "./tars.styles";
 import { tarsAutonomyStyles as autonomy } from "./tars-autonomy.styles";
@@ -38,9 +38,11 @@ export function addTarsNeverRule(rules: readonly string[], text: string): string
  * optional details of what it does on its own, asks first and never does, and
  * the user's own "never do" rules. Nothing here is saved until the form is.
  */
-export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, onRulesChange }: {
+export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, onRulesChange, allowRules = [], onAllowRulesChange }: {
   level: TarsAutonomyLevel;
   rules: readonly string[];
+  allowRules?: readonly TarsAllowRule[];
+  onAllowRulesChange?: (rules: TarsAllowRule[]) => void;
   disabled?: boolean;
   onLevelChange: (level: TarsAutonomyLevel) => void;
   onRulesChange: (rules: string[]) => void;
@@ -91,6 +93,18 @@ export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, on
         <p className={sx(styles.text)}>{t("shell:tars.autonomy.footnote")}</p>
       </CollapsiblePanel>
     </CollapsibleRoot>
+    <div className={sx(styles.field)} data-tars-allow-rules="">
+      <span>{t("shell:tars.autonomy.allow.title")}</span>
+      <p className={sx(styles.text)}>{t("shell:tars.autonomy.allow.hint")}</p>
+      {allowRules.length ? <ul className={sx(autonomy.rules)}>{allowRules.map((rule, index) => {
+        const label = t("shell:tars.autonomy.allow.rule", { action: t(`shell:tars.autonomy.action.${rule.key}`), repo: rule.repositoryPath ?? t("shell:tars.autonomy.allow.anyRepository") });
+        return <li key={`${rule.key}:${rule.repositoryPath}`} className={sx(autonomy.rule)}>
+          <span className={sx(autonomy.ruleText)}>{label}</span>
+          <Button type="button" variant="ghost" size="2xs" disabled={disabled || !onAllowRulesChange} aria-label={t("shell:tars.autonomy.never.remove", { rule: label })}
+            onClick={() => onAllowRulesChange?.(allowRules.filter((_, position) => position !== index))}>{t("shell:tars.autonomy.never.removeShort")}</Button>
+        </li>;
+      })}</ul> : <p className={sx(styles.text)}>{t("shell:tars.autonomy.allow.empty")}</p>}
+    </div>
     <div className={sx(styles.field)} role="group" aria-labelledby={rulesLabel} aria-describedby={rulesHint} data-tars-never-rules="">
       <span id={rulesLabel}>{t("shell:tars.autonomy.never.title")}</span>
       <p id={rulesHint} className={sx(styles.text)}>{t("shell:tars.autonomy.never.hint")}</p>

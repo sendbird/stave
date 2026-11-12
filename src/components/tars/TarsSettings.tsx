@@ -131,6 +131,7 @@ export function TarsSettings({ identity, initial, busy, view: initialView = null
       <Tabs.Panel value="work" mount="eager" xstyle={layout.panel} data-tars-settings-panel="work">
         <div className={sx(layout.stack)}>
           <TarsAutonomySettings level={settings.autonomy ?? TARS_DEFAULT_AUTONOMY} rules={settings.neverDo ?? []} disabled={busy}
+            allowRules={settings.allowRules ?? []} onAllowRulesChange={(allowRules) => setSettings({ ...settings, allowRules })}
             onLevelChange={(autonomy) => setSettings({ ...settings, autonomy })}
             onRulesChange={(neverDo) => setSettings(neverDo.length ? { ...settings, neverDo } : withoutKey(settings, "neverDo"))} />
           <section className={sx(styles.section)} aria-label={t("shell:tars.settings.limits")}>

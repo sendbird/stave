@@ -52,6 +52,18 @@ export const TARS_ACTION_KEYS = [
 ] as const;
 export type TarsActionKey = (typeof TARS_ACTION_KEYS)[number];
 
+/** Saved standing permission; null scopes it to every repository. */
+export const TARS_ALLOW_RULES_MAX = 24;
+export const TarsAllowRuleSchema = z.object({
+  key: z.enum(TARS_ACTION_KEYS),
+  repositoryPath: z.string().trim().min(1).max(4_096).nullable(),
+}).strict();
+export type TarsAllowRule = z.infer<typeof TarsAllowRuleSchema>;
+export const TarsAllowRulesSchema = z.array(TarsAllowRuleSchema).max(TARS_ALLOW_RULES_MAX);
+export function sameTarsAllowRule(left: TarsAllowRule, right: TarsAllowRule): boolean {
+  return left.key === right.key && left.repositoryPath === right.repositoryPath;
+}
+
 /** `auto`: the host applies it when Tars proposes it. `confirm`: it waits for the user on a card. */
 export type TarsActionMode = "auto" | "confirm";
 /** Whose message proposed the action: the user's own words (or their chosen answer), or a follow-up Tars started by itself. */
@@ -75,8 +87,14 @@ function defaultMode(key: TarsActionKey): TarsActionMode {
 
 /** Evidence read by the host at admission, never supplied by the model. */
 export interface TarsActionContext {
+  allowRules?: readonly TarsAllowRule[];
+  repositoryPath?: string | null;
   responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> | null;
   extend?: { admittedMaxTurns: number; currentMaxTurns: number; additionalTurns?: number } | null;
+}
+
+export function tarsHasAllowRule(key: TarsActionKey, context: TarsActionContext): boolean {
+  return Boolean(context.allowRules?.some((rule) => rule.key === key && (rule.repositoryPath === null || rule.repositoryPath === context.repositoryPath)));
 }
 
 /** One recovery allowance, bounded by twice the original budget, prevents repeated extensions from growing without limit. */
@@ -106,6 +124,7 @@ export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | nu
   const chosen = TarsAutonomyLevelSchema.safeParse(level).success ? level! : TARS_DEFAULT_AUTONOMY;
   if (TARS_ALWAYS_CONFIRMED.has(key)) return "confirm";
   if (chosen !== "careful") {
+    if (tarsHasAllowRule(key, context)) return "auto";
     if (REVERSIBLE_APPLIED.has(key)) return "auto";
     if (key === "extend") return tarsCanAutoExtend(context.extend) ? "auto" : "confirm";
     if (key === "publish") return tarsCanAutoPublish(context.responsibility) ? "auto" : "confirm";
@@ -134,7 +153,7 @@ export function tarsEffectiveAutonomy(saved: TarsAutonomyLevel | null | undefine
 }
 
 /** What Stave offers no action for, so Tars cannot do it at any level. */
-export const TARS_UNAVAILABLE_ACTIONS = ["merge", "deploy", "forcePush", "deleteBranches", "alwaysAllow", "spendMoney", "contactOthers"] as const;
+export const TARS_UNAVAILABLE_ACTIONS = ["merge", "deploy", "forcePush", "deleteBranches", "spendMoney", "contactOthers"] as const;
 export type TarsUnavailableAction = (typeof TARS_UNAVAILABLE_ACTIONS)[number];
 
 /** What Settings shows for a level: read from `tarsActionMode`, the same function the host admits with. */

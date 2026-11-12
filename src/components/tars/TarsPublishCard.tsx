@@ -21,6 +21,7 @@ import { tarsPublishContinuesFrom } from "@/lib/tars/publish-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 import { tarsPublishStyles as publishStyles } from "./tars-publish.styles";
+import { TarsAlwaysAllowButton } from "./TarsAllowRules";
 import { TarsWorkChip } from "./TarsRecord";
 
 export interface TarsPublishWords { commitMessage: string; title: string }
@@ -70,7 +71,7 @@ export function tarsPublishCardKey(event: Pick<KeyboardEvent<HTMLElement>, "key"
  * completed responsibility. It says where the work goes (repository, base
  * and head branch, changed files), lets the user edit the commit message and
  * the pull request title, and shows the body the host built from the frozen
- * report. Enter publishes, Esc declines; there is no standing permission.
+ * report. Enter publishes, Esc declines; standing permission is a separate click.
  */
 export function TarsPublishCard({ id, row, preview, previewState, initial, busy = false, error, autoFocus = false, onPublish, onDecline, notice }: TarsPublishCardProps) {
   const { t } = useTranslation(["shell"]);
@@ -198,6 +199,7 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
         <Button type="button" size="2xs" variant="ghost" aria-keyshortcuts="Escape" disabled={busy} data-tars-publish-decline="" onClick={onDecline}>
           {t("shell:tars.publish.card.decline")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.escKey")}</Kbd></span>
         </Button>
+        {onPublish ? <TarsAlwaysAllowButton actionKey="publish" repositoryPath={row.repositoryPath} disabled={!ready || busy} onApply={() => publish("click")} /> : null}
         {reason || previewState === "failed" || !onPublish ? null
           // The card's main action, so the primary button; it can't be undone, so it wears the danger tone. Enter on this card the user
           // opened is its only default, as before.

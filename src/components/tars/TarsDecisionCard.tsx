@@ -1,3 +1,5 @@
+import { TarsAlwaysAllowButton } from "./TarsAllowRules";
+import { tarsActionKey } from "@/lib/tars/autonomy";
 import { describeTarsWorkspaceAction } from "./TarsWorkspaceReceipt";
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, Info, MessageCircleQuestion, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, X, type LucideIcon } from "lucide-react";
@@ -282,6 +284,10 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         <span className={sx(styles.optionLabel)}>{confirmLabel(decision, option)}</span>
         <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{index + 1}</Kbd>{recommended ? <Kbd size="sm">{t("shell:tars.decision.enterKey")}</Kbd> : null}</span>
       </AuiButton>
+      <TarsAlwaysAllowButton actionKey={option.kind === "control" ? option.control.operation : option.kind === "proposal" ? tarsActionKey(option.action) : null}
+        repositoryPath={describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf }).repositoryPath}
+        workspaceId={option.kind === "proposal" && (option.action.kind === "delegate" || option.action.kind === "workspace") ? option.action.workspaceId : undefined}
+        disabled={!answerable} onApply={() => choose(index, "click")} />
     </li>;
   };
   // A question's options: one radio row each (label, why on its own line, its number key), like every other question in Stave.

@@ -12,7 +12,7 @@ import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
 import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
 import { TarsClearActionSchema, TarsClearRecordSchema, TarsConversationViewSchema } from "./clearing";
 import {
-  TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, TarsAutonomyLevelSchema, TarsNeverRuleMatchSchema, TarsNeverRulesSchema, tarsActionKey,
+  TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, TarsAutonomyLevelSchema, TarsNeverRuleMatchSchema, TarsNeverRulesSchema, TarsAllowRulesSchema, tarsActionKey,
 } from "./autonomy";
 import { TarsScheduleActionSchema, TarsScheduleReasonSchema, TarsScheduleRecordSchema, TarsScheduleRunSchema } from "./schedules";
 
@@ -78,6 +78,8 @@ export const TarsConversationSettingsSchema = z.object({
   autonomy: TarsAutonomyLevelSchema.optional(),
   /** The user's "never do" rules: hard constraints for the planner and a reason for the host to ask first. Absent: none. */
   neverDo: TarsNeverRulesSchema.optional(),
+  /** Standing permissions, read from current settings at admission so removal takes effect immediately. */
+  allowRules: TarsAllowRulesSchema.optional(),
 }).strict();
 export type TarsConversationSettings = z.infer<typeof TarsConversationSettingsSchema>;
 

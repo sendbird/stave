@@ -6,7 +6,7 @@ import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema, ConfirmTarsProposalInputSchema } from "../../src/lib/tars/conversation";
 import type { TarsActionReason, TarsActionReceipt, TarsDecisionAction, TarsMessage } from "../../src/lib/tars/conversation";
 import {
-  matchTarsNeverRules, tarsActionDisposition, tarsActionKey, tarsEffectiveAutonomy, tarsRepositoryName,
+  matchTarsNeverRules, tarsHasAllowRule, tarsActionDisposition, tarsActionKey, tarsEffectiveAutonomy, tarsRepositoryName,
   TARS_AUTO_EXTEND_MULTIPLIER, type TarsActionOrigin, type TarsNeverRuleMatch,
 } from "../../src/lib/tars/autonomy";
 import { isTarsWorkProposal, type TarsWorkProposalAction } from "../../src/lib/tars/decisions";
@@ -137,20 +137,21 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
     if (action.kind === "delegate" || action.kind === "workspace") {
       const registry = ports.readRegistry();
       const repository = registry.find((entry) => entry.workspaces.some((workspace) => workspace.id === action.workspaceId));
-      return { repository: repository?.repositoryName || tarsRepositoryName(repository?.repositoryPath),
+      return { repositoryPath: repository?.repositoryPath, repository: repository?.repositoryName || tarsRepositoryName(repository?.repositoryPath),
         branches: [action.kind === "delegate" ? action.branchName : null, repository?.workspaceBranchById?.[action.workspaceId]] };
     }
     const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
-    return { repository: tarsRepositoryName(row?.repositoryPath), branches: [row?.branchName] };
+    return { repositoryPath: row?.repositoryPath, repository: tarsRepositoryName(row?.repositoryPath), branches: [row?.branchName] };
   };
   return (action: TarsDecisionAction): { confirm: boolean; matches: TarsNeverRuleMatch[] } => {
     // A schedule change is outside the level's table: it always waits for the user's confirmation on its card.
     const key = action.kind === "schedule" ? null : tarsActionKey(action);
     if (!key) return { confirm: true, matches: [] };
-    const matches = rules.length ? matchTarsNeverRules(rules, { key, ...subject(action) }) : [];
+    const target = subject(action);
+    const matches = rules.length ? matchTarsNeverRules(rules, { key, ...target }) : [];
     const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
     const run = key === "extend" && row?.agentRunId ? ports.readRunBudget?.(row.agentRunId) : null;
-    const context = { responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
+    const context = { allowRules: saved?.allowRules, repositoryPath: target.repositoryPath, responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
     return { confirm: tarsActionDisposition({ key, level, origin, matches, context }) === "confirm", matches };
   };
 }
@@ -415,7 +416,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
       if (action.kind === "control") {
         // Words take the same admission, run control and atomic outcome as a click.
         const row = ports.responsibilities.get(action.responsibilityId);
-        const request = action.operation === "extend" && row ? { ...action, autoExtendMaxTurns: row.maxTurns * TARS_AUTO_EXTEND_MULTIPLIER } : action;
+        const request = action.operation === "extend" && row && !tarsHasAllowRule("extend", { allowRules: ports.conversations.getSettings()?.allowRules, repositoryPath: row.repositoryPath }) ? { ...action, autoExtendMaxTurns: row.maxTurns * TARS_AUTO_EXTEND_MULTIPLIER } : action;
         receipts.push(await ports.control(request, tarsAutoControlLedger(ports, message.id, index, intent.revision,
           action, now, () => !tarsAdmissionGuard(ports, message)(action).confirm)));
         continue;

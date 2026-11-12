@@ -31,6 +31,7 @@ import { TarsActivityNoticeLine, TarsFlowBlock } from "./TarsFlowBlock";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { describeTarsDecisionSubject, TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
 import { tarsDockStyles as dockStyles } from "./tars-decision-dock.styles";
+import { TarsAllowRuleRecords } from "./TarsAllowRules";
 import { TarsDecisionDock, TarsWaitingRecord, type TarsDecisionDockController, type TarsDockItem } from "./TarsDecisionDock";
 import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
@@ -462,6 +463,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         {/* The transcript, with the "while you were away" summary where the user left. */}
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
           decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
+        <TarsAllowRuleRecords />
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}
