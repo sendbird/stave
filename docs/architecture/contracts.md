@@ -704,7 +704,8 @@ same connection:
 - `unverifiedCompletion`: a responsibility blocked with `unverifiedCompletion`
   until its decision `unverified:<responsibility>:<revision>` is answered or
   the row changes (`messageId`, `actionIndex` and `operation` are null).
-- `ask`: an unanswered `ask` receipt of the newest message whose control
+- `ask`: an unanswered `ask` receipt not retired by a later message addressing
+  the same responsibilities, whose control
   options all target current revisions (`operation` null, `question` and
   `optionCount` for display). A question about no work stays in the
   conversation only.
@@ -722,8 +723,10 @@ snapshot's responsibilities; the conversation card, the short-answer binding,
 the answer path and the re-ask scan all read it. A decision binds to its
 targets (responsibility id and revision for every control option). It is
 `waiting`, `answered`, `invalid` (a target moved past its revision or ended)
-or `retired` (a newer proposal, a later message, a sibling answered, or work
-settled elsewhere). Without a snapshot a target-bound decision is not offered.
+or `retired` (a newer proposal, a later user message addressing the same
+responsibilities, a sibling answered, or work settled elsewhere). Unrelated
+messages keep the decision waiting; only the latest message accepts short
+answers. Without a snapshot a target-bound decision is not offered.
 
 The model's `ask` action (`TarsAskActionSchema`) has a question, 2–4 options
 (unique `label` up to 60 characters, one-line `rationale`, `effect`) and an
@@ -894,19 +897,20 @@ Main processes pending events only when no user message is queued
 (`admitTarsFollowUps`). It reads the decisions projection once, outside the
 write lock; if a message arrived since, invalidated decisions wait for the
 next pass. Per responsibility, the newest event that still stands
-(`isTarsEventCurrent`, and the user has not spoken since) is chosen, the rest
+(`isTarsEventCurrent`, and the user has not addressed that responsibility since) is chosen, the rest
 are `coalesced` or `superseded`; paused, taken-over and ended work never stands.
 One IMMEDIATE transaction then creates the message
 `followup:<event key>` with `origin: { kind: "followUp", eventKey,
 responsibilityId, reason, observedRevision, summary }` and settles the event
 `followedUp`, so a crash never creates two. Budget: once the automatic
-messages (`followUp` and `reask`) since the last user-typed message or chosen
-reply reach the saved `maxTurns`, the event is saved `exhausted` and no model
+messages (`followUp` and `reask`) since the last user action reach
+`TARS_FOLLOW_UP_CAP` (20), independently of execution `maxTurns`, the event is saved `exhausted` and no model
 call starts; past `TARS_FOLLOW_UP_WINDOW_CAP` automatic messages in
 `TARS_FOLLOW_UP_WINDOW_MS`, events stay `pending` and the service sets one
 timer for when the window opens. The count restarts at the user's last action:
-a user-typed message or chosen reply, or any row in `tars_action_records`
-(clicks, Confirm) or `tars_decision_answers`. Right before the planner call
+a user-typed message or chosen reply, or a user-sourced row in `tars_action_records`
+(clicks, Confirm) or `tars_decision_answers`. Automatic controls and Tars-authored
+withdrawals never restart it. Right before the planner call
 (`supersedeStale` → `supersedeStaleTarsFollowUp`), a follow-up whose event no
 longer stands is cancelled and its event set `superseded`, with no model call.
 `applyTarsDecision` refuses, with reason `notByFollowUp` (allowed on every

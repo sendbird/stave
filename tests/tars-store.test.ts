@@ -66,7 +66,9 @@ describe("Tars durable responsibilities", () => {
   test("repeated admission is idempotent after normalization and refuses a changed mandate", () => {
     const { store } = open();
     const created = store.create(input, NOW);
-    expect(store.create({ ...input, title: ` ${input.title} `, model: null, priority: 50, maxTurns: 30 }, LATER)).toEqual(created);
+    expect(created.maxTurns).toBe(60);
+    expect(store.create({ ...input, title: ` ${input.title} `, model: null, priority: 50, maxTurns: 60 }, LATER)).toEqual(created);
+    expect(() => store.create({ ...input, maxTurns: 30 }, LATER)).toThrow("different responsibility");
     expect(() => store.create({ ...input, repositoryPath: "/tmp/other-repository" }, LATER)).toThrow("different responsibility");
     expect(() => store.create({ ...input, instruction: "Publish the search fix." }, LATER)).toThrow("different responsibility");
     expect(store.snapshot().responsibilities).toHaveLength(1);

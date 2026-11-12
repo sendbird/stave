@@ -402,8 +402,8 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
       { status: "queued", agentRunId: "run-gallery-webhook", reason: null, error: null, queuedAt: c.at(20), updatedAt: c.at(20) });
   }
 
-  // F · Confirmation cards of every kind. Each was the newest proposal for its work, and later messages moved the
-  // conversation on, so each now reads as no longer waiting; the release check's resume waits again in the last message (M).
+  // F · Confirmation cards of every kind. Later messages retire only proposals for the same work;
+  // unrelated confirmations keep waiting alongside the newest message (M).
   function waiting(code: string, en: string, ko: string, ask: [string, string], reply: [string, string], actions: ControlAction[]) {
     const c = begin(code, en, ko);
     propose(`g-${code.toLowerCase()}`, c.at(), `${c.label}: ${l(...ask)}`, l(...reply), actions);
@@ -469,7 +469,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
     record(`answer:${decisionId}`, c.at(20), "words", pause, { status: "applied" });
   }
   {
-    const c = begin("G3", "Question passed: the conversation moved on", "지나간 질문: 대화가 넘어감");
+    const c = begin("G3", "Waiting question: reply only, without a work target", "대기 중인 질문: 작업 대상 없는 답변 선택");
     const message = said("g-g3", c.at(), `${c.label}: ${l("what should the retry limit be?", "재시도 한도는 얼마가 좋을까?")}`, l("Pick one:", "하나를 골라 주세요."), [{ kind: "ask",
       question: l("How many times should the webhook sender retry a failed delivery?", "웹훅 전송이 실패하면 몇 번까지 다시 시도할까요?"),
       options: [{ label: l("Three times", "세 번"), rationale: l("Matches the payment provider.", "결제 대행사와 같습니다."), effect: { kind: "reply" } },
@@ -710,7 +710,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   const followUps: TarsFollowUpState[] = [{ responsibilityId: search.id, kind: "blocked", status: "exhausted", at: null },
     { responsibilityId: release.id, kind: "waitExpired", status: "nextCheck", at: new Date(Math.max(Date.now(), galleryStart) + 55 * 60_000).toISOString() }];
   const conversation: GalleryConversation = { settings, messages, receipts, records, answers, activity, events, publications };
-  // The tray and dock describe the same live decisions, including retirement when later messages arrive.
+  // The tray and dock share work-bound decisions; unrelated later messages do not retire them.
   const pendingDecisions: TarsPendingDecision[] = projectTarsDecisions({ ...conversation, answers, responsibilities })
     .filter((decision) => decision.state === "waiting").flatMap((decision) => decision.targets.map((target) => ({
       kind: decision.kind, ...target, messageId: decision.messageId, actionIndex: decision.actionIndex,

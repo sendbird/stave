@@ -29,7 +29,7 @@ test("Tars IPC validates scope-bearing input before dispatch and awaits host res
   expect(output.handlers).not.toContain("tars:control");
   expect(output.created.runtime).toBe("desktop");
   expect(output.calls).toHaveLength(1);
-  expect(output.calls[0]).toMatchObject(["tars.invoke", { action: "create", args: { workspaceId: "workspace-a", repositoryPath: "/tmp/registered", maxTurns: 30, priority: 50 } }]);
+  expect(output.calls[0]).toMatchObject(["tars.invoke", { action: "create", args: { workspaceId: "workspace-a", repositoryPath: "/tmp/registered", maxTurns: 60, priority: 50 } }]);
 });
 
 test("conversation IPC rejects invented authority, action bodies, invalid cancellation and pagination before dispatch", () => {

@@ -74,7 +74,23 @@ function open(filename: string) {
 test("scenario 1: priority orders admission without delaying independent work or recreating its prepared ownership", async () => {
   const { store } = open(persisted());
   const execution = world();
-  const runtime = createTarsRuntime(execution.ports(store));
+  const ports = execution.ports(store);
+  let releaseWorkspace!: () => void;
+  const workspaceGate = new Promise<void>((resolve) => { releaseWorkspace = resolve; });
+  let started!: () => void;
+  const independentStarted = new Promise<void>((resolve) => { started = resolve; });
+  const runtime = createTarsRuntime({ ...ports,
+    prepareWorkspace: async (row, signal) => {
+      const id = await ports.prepareWorkspace(row, signal);
+      if (row.requestId === "b") await workspaceGate;
+      return id;
+    },
+    startRun: async (row, assertAdmitted) => {
+      const id = await ports.startRun(row, assertAdmitted);
+      if (row.requestId === "a") started();
+      return id;
+    },
+  });
   const tick = async () => { runtime.requestTick(); await runtime.drain(); };
   // Repository A's work had started preparing (its next action: start its run) when the host stopped.
   const first = store.create(input("a", "/tmp/repository-a", 60), NOW);
@@ -83,13 +99,18 @@ test("scenario 1: priority orders admission without delaying independent work or
   const second = store.create(input("b", "/tmp/repository-b", 40), NOW);
   // The user raises repository B's work above it, as the admitted reprioritize action does.
   store.patch(second.id, second.revision, { priority: 90 }, NOW);
-  await tick();
-  expect(execution.calls).toEqual(["workspace:b", "run:b", "run:a"]);
+  const ticking = tick();
+  await independentStarted;
+  // B is admitted first by priority. Its slow preparation must not hold A's recovered run.
+  try { expect(execution.calls).toEqual(["workspace:b", "run:a"]); }
+  finally { releaseWorkspace(); }
+  await ticking;
+  expect(execution.calls).toEqual(["workspace:b", "run:a", "run:b"]);
   expect(store.get(second.id)).toMatchObject({ state: "running", agentRunId: "run-b" });
   // A continues its own next action before B ends, retaining its prepared task and worktree.
   expect(store.get(first.id)).toMatchObject({ state: "running", taskId: preparing.taskId, executionWorkspaceId: "execution-a", agentRunId: "run-a", priority: 60 });
   await tick();
-  expect(execution.calls).toEqual(["workspace:b", "run:b", "run:a"]);
+  expect(execution.calls).toEqual(["workspace:b", "run:a", "run:b"]);
   expect(execution.created).toEqual({ workspaces: 1, tasks: 1, runs: 2 });
   runtime.stop();
 });

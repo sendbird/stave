@@ -58,9 +58,14 @@ test("waiting, dismissed, invalid and withdrawn decisions share the canonical li
     expect(withdrawn[0]?.content).toMatchObject({ kind: "decision", decision: { state: "withdrawn" } });
     expect(withdrawn[0]?.doneByTars).toBe(true);
     const laterMessage = { ...message, id: "later", createdAt: "2026-11-12T13:00:00.000Z", decision: { reply: "Next", actions: [] } };
-    const retired = projectTarsActivity({ ...conversation, messages: [message, laterMessage] }, [row]);
+    const stillWaiting = projectTarsActivity({ ...conversation, messages: [message, laterMessage] }, [row]);
+    expect(stillWaiting[0]?.content).toMatchObject({ kind: "decision", decision: { state: "waiting", latest: false } });
+    expect(groupTarsActivity(stillWaiting, "needsYou").flatMap(group => group.entries)).toHaveLength(1);
+    const addressed = { ...laterMessage, id: "same-work", createdAt: "2026-11-12T14:00:00.000Z",
+      decision: { reply: "Here is the work", actions: [{ kind: "show" as const, responsibilityId: row.id, view: "report" as const }] } };
+    const retired = projectTarsActivity({ ...conversation, messages: [message, laterMessage, addressed] }, [row]);
     expect(retired[0]?.content).toMatchObject({ kind: "decision", decision: { state: "retired" } });
-    expect(retired[0]?.at).toBe(laterMessage.createdAt);
+    expect(retired[0]?.at).toBe(addressed.createdAt);
     expect(groupTarsActivity(retired, "needsYou")).toEqual([]);
     const invalid = projectTarsActivity({ ...conversation, activity: [
       { id: "created", responsibilityId: row.id, title: row.title, revision: row.revision, state: row.state, detail: null, createdAt: NOW },

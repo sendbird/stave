@@ -1,7 +1,7 @@
 import { tarsWorkspaceRecordId } from "./workspace-action";
 import type { TarsActionRecord, TarsActionReceipt, TarsConversation, TarsInspectAction } from "./conversation";
 import { canUndoTarsAction } from "./action-undo";
-import { projectTarsDecisions, type TarsDecisionView } from "./decisions";
+import { projectTarsDecisions, tarsTargetsMovedOn, type TarsDecisionView } from "./decisions";
 import type { TarsActivity, TarsResponsibility } from "./types";
 import type { TarsPublishRecord } from "./publication";
 
@@ -67,7 +67,9 @@ export function projectTarsActivity(conversation: TarsConversation, responsibili
     const revision = decision.targets[0]?.expectedRevision ?? 0;
     const change = conversation.activity.filter((item) => item.responsibilityId === target && item.revision > revision && item.createdAt >= decision.since)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
-    const movedOn = decision.state === "retired" && decision.why === "movedOn" ? conversation.messages.find((item) => item.createdAt > decision.since) : null;
+    const later = conversation.messages.slice(conversation.messages.findIndex((message) => message.id === decision.messageId) + 1);
+    const movedOn = decision.state === "retired" && decision.why === "movedOn"
+      ? later.find((_, index) => tarsTargetsMovedOn(decision.targets.map((target) => target.responsibilityId), later.slice(0, index + 1))) : null;
     add({ id: `decision:${decision.id}`, at: closure?.createdAt ?? decision.answer?.createdAt ?? decision.record?.createdAt
       ?? ((decision.state === "invalid" || decision.state === "retired") ? movedOn?.createdAt ?? change?.createdAt ?? decision.since : decision.since),
       responsibilityId: target, origin: closure?.source === "tars" || !closure && !decision.answer && !decision.record ? "tars" : "you",

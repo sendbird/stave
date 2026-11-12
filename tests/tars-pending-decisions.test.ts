@@ -104,7 +104,7 @@ describe("Tars pending decisions in the snapshot", () => {
   });
 
   test("a proposal stops waiting when its responsibility moved on or ended", async () => {
-    // One message each, in its own conversation: a newer message would retire the older proposal by itself.
+    // Exercise revision changes and ended work independently.
     const f = fixture();
     const moved = f.responsibility("paused");
     await f.propose(moved, "resume");
@@ -119,17 +119,18 @@ describe("Tars pending decisions in the snapshot", () => {
     expect(g.store.snapshot().pendingDecisions).toEqual([]);
   });
 
-  test("a proposal stops waiting once the user sends a newer message, in the snapshot and for a confirmation", async () => {
+  test("an unrelated newer message keeps a proposal waiting and confirmable", async () => {
     const f = fixture();
     const row = f.responsibility("paused");
     const message = await f.propose(row, "resume");
     expect(f.store.snapshot().pendingDecisions).toHaveLength(1);
     // The user says something newer, unrelated to the proposal.
     f.conversations.create({ requestId: "later", text: "What is the release doing now?" }, LATER);
+    expect(f.store.snapshot().pendingDecisions).toEqual([expect.objectContaining({ messageId: message.id, responsibilityId: row.id })]);
+    expect(f.conversations.isCurrentProposal({ messageId: message.id, actionIndex: 0 })).toBe(true);
+    expect((await f.confirm(row, message.id, "resume")).record).toMatchObject({ status: "applied" });
+    expect(f.controls).toEqual(["resume"]);
     expect(f.store.snapshot().pendingDecisions).toEqual([]);
-    expect(f.conversations.isCurrentProposal({ messageId: message.id, actionIndex: 0 })).toBe(false);
-    expect((await f.confirm(row, message.id, "resume")).record).toMatchObject({ status: "rejected", reason: "stale" });
-    expect(f.controls).toEqual([]);
   });
 
   test("a store without the conversation tables has no pending decisions", () => {

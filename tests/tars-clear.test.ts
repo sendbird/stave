@@ -248,8 +248,9 @@ describe("conversation clears", () => {
     const prompt = f.requests.at(-1)!.input.prompt;
     expect(prompt).toContain("What is next?");
     expect(prompt).not.toContain("An older remark about the weather.");
-    // Saying something new moved on from the question, so it no longer holds its place.
-    expect(f.service.getConversation().messages.map((message) => message.requestId)).toEqual(["after"]);
+    // An unrelated message does not retire the waiting question or hide it behind the clear.
+    expect(f.service.getConversation().messages.map((message) => message.requestId)).toEqual(["ask", "after"]);
+    expect(f.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ kind: "ask", messageId: ask.id }));
     // Nothing was deleted.
     expect(f.conversations.list(100).map((message) => message.requestId)).toEqual(["older", "ask", "after"]);
 

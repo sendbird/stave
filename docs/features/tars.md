@@ -304,7 +304,8 @@ reports on the work.
   stops to ask you is followed up at once; a plain wait (a paused run, a usage
   limit, a tool approval or question waiting in the task) only after an hour
   without change. At most six follow-ups start per hour, and automatic turns
-  since your last action toward Tars stop at the turn-limit number. A
+  since your last user action toward Tars stop at a separate cap of 20,
+  independent of execution turn limits. Automatic controls and withdrawals do not restart the count. A
   follow-up never starts new work, starts queued work now, pauses, takes over,
   hands back, skips a stage or accepts work as done.
 - **Answers in the task are once and yours.** Tars answers a tool approval

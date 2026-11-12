@@ -561,7 +561,8 @@ describe("saved allow rules", () => {
 
 for (const origin of ["user", "automatic"] as const) test(`${origin}: saved extension permission reaches execution beyond the default automatic cap`, async () => {
   const f = fixture({ allowRules: [{ key: "extend", repositoryPath: "/tmp/billing" }] });
-  f.ports.readRunBudget = () => ({ maxTurns: 90 });
+  // Beyond twice the new 60-turn default: permission, not the default allowance, admits this extension.
+  f.ports.readRunBudget = () => ({ maxTurns: 130 });
   const row = f.responsibility("blocked");
   const followUp = origin === "automatic" ? { kind: "followUp" as const, eventKey: "blocked-event", reason: "blocked" as const,
     responsibilityId: row.id, observedRevision: row.revision, summary: "More turns needed." } : undefined;

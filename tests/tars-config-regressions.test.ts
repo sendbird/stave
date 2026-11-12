@@ -90,5 +90,7 @@ test("8: Tars claims cover execution commits, bounded rounds/retries and logical
   expect(docs.replace(/\s+/g, " ")).toContain("Delegated work commits verified changes on its execution branch");
   expect(docs).toContain("up to six provider attempts");
   expect(docs).toContain("one automatic turn even when it uses inspection rounds or transient retries");
-  expect(docs).toContain("saved automatic action records and");
+  const claims = docs.replace(/\s+/g, " ");
+  expect(claims).toContain("At the separate cap of 20 automatic follow-ups, independent of execution turn limits");
+  expect(claims).toContain("Automatic controls and Tars-authored withdrawals never reset this count");
 });

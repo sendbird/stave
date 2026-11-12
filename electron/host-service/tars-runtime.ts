@@ -294,6 +294,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       if (!OWNED.has(row.state)) continue;
       const before = JSON.stringify([row.state, row.agentRunId, row.executionPending]);
       void enqueue(row.id, () => reconcile(row)).catch((error) => ports.onError?.(error)).finally(() => {
+        if (stopped) return;
         const current = ports.store.get(row.id);
         if (current && before !== JSON.stringify([current.state, current.agentRunId, current.executionPending])) requestTick();
       });
@@ -312,6 +313,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       if (!reserved) active++;
       queueWaits.delete(row.id);
       void enqueue(row.id, () => prepare(ports.store.get(row.id)!)).catch((error) => ports.onError?.(error)).finally(() => {
+        if (stopped) return;
         const current = ports.store.get(row.id);
         if (current && current.state !== "running" && current.state !== "preparing" && current.state !== "queued") requestTick();
         ports.onQueueChanged?.();
