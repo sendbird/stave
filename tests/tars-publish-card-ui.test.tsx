@@ -168,3 +168,23 @@ describe("publish record and entry", () => {
     expect(renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ detailCode: "acceptedWithoutVerification" }), onPublish: () => {} }))).toBe("");
   });
 });
+
+for (const locale of ["en", "ko"] as const) test(`PR entry translates check states and uses pending for a different head (${locale})`, async () => {
+  await applyAppLocale(locale);
+  const publication = { state: "opened" as const, failedStep: null, commit: "a".repeat(40), branch: "work", base: "main",
+    commitMessage: "fix: checks", title: "fix: checks", url: "https://github.com/example/web/pull/12", number: 12,
+    error: null, reason: null, updatedAt: NOW };
+  const copy = locale === "en" ? { pending: "PR checks pending", passed: "PR checks passed", failed: "PR checks: 2 failures", none: "No PR checks reported", unavailable: "PR checks unavailable" }
+    : { pending: "PR 검사 대기 중", passed: "PR 검사 통과", failed: "PR 검사 2개 실패", none: "보고된 PR 검사 없음", unavailable: "PR 검사 확인 불가" };
+  for (const state of ["pending", "passed", "failed", "none", "unavailable"] as const) {
+    const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ publication: { ...publication,
+      checks: { state, failing: state === "failed" ? ["lint", "unit"] : [], checkedAt: NOW, headSha: publication.commit } } }) }));
+    expect(html).toContain(`data-tars-pr-checks="${state}"`);
+    expect(html).toContain(copy[state]);
+    expect(html).toContain(publication.url);
+  }
+  const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ publication: { ...publication,
+    checks: { state: "passed", failing: [], checkedAt: NOW, headSha: "b".repeat(40) } } }) }));
+  expect(html).toContain('data-tars-pr-checks="pending"');
+  expect(html).not.toContain(copy.passed);
+});

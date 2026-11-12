@@ -1453,6 +1453,7 @@ async function shutdown() {
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
   wakeUpRuntime.stop();
+  tarsPublisher.watcher.stop();
   tarsRuntime.stop();
   agentRunRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
@@ -2242,6 +2243,10 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         responsibilities: ensureHostServicePersistenceReady().tars,
       }));
       return;
+    case "tars.pr-review":
+      await tarsPublisher.watcher.confirm(request.params);
+      await respond(request.id, { ok: true });
+      return;
     case "tars.publish":
       await respond(request.id, await tarsPublisher.publish(request.params));
       return;
@@ -2328,6 +2333,7 @@ async function main() {
   tarsRuntime.start();
   // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
   tarsPublisher.recover();
+  tarsPublisher.watcher.start();
   // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
   void tarsScheduler.recover();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({

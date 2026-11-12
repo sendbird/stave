@@ -770,7 +770,13 @@ and head branch, the changed files, the commit message and pull request title
 report, rendered as markdown; **Raw text** shows exactly what is sent. **Open
 draft PR** or Enter publishes; **Decline** or Esc publishes
 nothing. Stave then commits, pushes the work's branch and opens a draft pull
-request; it never merges, deploys or force-pushes. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
+request; it never merges, deploys or force-pushes. After opening the PR,
+Tars watches its checks for up to three hours, with one-to-five-minute intervals.
+At Balanced or Hands-off, it can continue the same work to fix CI at most twice
+and update the same PR after verification. Further failures ask you. When all
+reported checks pass, choose **Mark ready for review** or **Keep as draft**;
+marking ready always requires your choice. If GitHub CLI is unavailable,
+Tars says so once and stops monitoring. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
 request appears in **Outputs** and the report. If a step fails, **Retry** opens
 the card again and continues from that step.
 

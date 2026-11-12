@@ -1051,6 +1051,8 @@ export interface HostServiceRequestMap {
   /** A direct control, admitted on the same path as a proposed control. */
   "tars.act": import("../../src/lib/tars/conversation").TarsActInput;
   "tars.undo-action": import("../../src/lib/tars/action-undo").TarsUndoActionInput;
+  /** Main-only application of a saved, explicit PR review choice. */
+  "tars.pr-review": { decisionId: string };
   /** One publish card's confirmation, from a word proposal or a click; the host admits and runs it. */
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishInput;
   /** What a publish card shows; read only. */
@@ -1278,6 +1280,7 @@ export interface HostServiceResponseMap {
   "tars.confirm-proposal": import("../../src/lib/tars/conversation").TarsActionReceipt;
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.undo-action": import("../../src/lib/tars/conversation").TarsUndoActionResult;
+  "tars.pr-review": { ok: true };
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishResult;
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;

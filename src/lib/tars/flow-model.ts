@@ -136,6 +136,8 @@ export function selectTarsActivityNotices(activity: readonly TarsActivity[], rec
   const lastState = new Map<string, TarsState>();
   const notices: TarsActivityNotice[] = [];
   for (const event of [...activity].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.revision - b.revision)) {
+    // PR checks have their own conversation notice; they never repeat a completion announcement.
+    if (event.prChecks) continue;
     const previous = lastState.get(event.responsibilityId);
     lastState.set(event.responsibilityId, event.state);
     // A detail edit on the same state is not a new event.

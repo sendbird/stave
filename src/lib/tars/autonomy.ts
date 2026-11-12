@@ -1,3 +1,4 @@
+import { tarsCanUpdatePublication } from "./publication";
 import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
 import { z } from "zod";
 import type { TarsControlOperation, TarsResponsibility } from "./types";
@@ -97,7 +98,7 @@ export function tarsCanAutoPublish(row: TarsActionContext["responsibility"]): bo
   return Boolean(row && (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
     && row.state === "resultReady" && row.agentRunId && row.resultVerifiedRunId === row.agentRunId
     && row.executionWorkspaceId && !row.executionPending && row.detailCode !== "acceptedWithoutVerification"
-    && row.publication?.state !== "opened");
+    && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
 }
 
 /** Both origins use the same policy; follow-up scope is separately enforced by host admission. Missing evidence asks first. */

@@ -1,5 +1,5 @@
 import {
-  isTarsPublicationUnfinished, parseTarsPublishProposalRequestId, tarsPublicationResumeStep, tarsPublishHeadBranch, tarsPullRequestNumber,
+  tarsCanUpdatePublication, isTarsPublicationUnfinished, parseTarsPublishProposalRequestId, tarsPublicationResumeStep, tarsPublishHeadBranch, tarsPullRequestNumber,
   TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema,
   type TarsPublication, type TarsPublicationStep, type TarsPublishPreview, type TarsPublishReason, type TarsPublishRecord, type TarsPublishResult,
 } from "../../src/lib/tars/publication";
@@ -59,7 +59,7 @@ export function admitTarsPublish(row: TarsResponsibility | null, request: { expe
   if (row.detailCode === "acceptedWithoutVerification")
     refuse("notVerified", "Stave did not verify this work; it was accepted as done without a check. Publish it yourself if you want it.");
   if (row.revision !== request.expectedRevision) refuse("stale", "The responsibility changed. Refresh before publishing.");
-  if (row.publication?.state === "opened") refuse("alreadyPublished", "Its draft pull request is already open.");
+  if (row.publication?.state === "opened" && !tarsCanUpdatePublication(row)) refuse("alreadyPublished", "Its draft pull request is already open.");
   if (!row.executionWorkspaceId) refuse("noWorkspace", "The work has no execution workspace.");
   return row;
 }
@@ -107,7 +107,7 @@ function statusPaths(stdout: string) {
 }
 
 async function inspect(row: TarsResponsibility, ports: TarsPublishPorts): Promise<TarsPublishFacts> {
-  const head = tarsPublishHeadBranch(row);
+  const head = row.publication?.number ? row.publication.branch : tarsPublishHeadBranch(row);
   const facts: TarsPublishFacts = { cwd: null, base: null, head, repository: null, repositoryUrl: null, dirty: [], changedFiles: null, ahead: null, reason: null, error: null };
   const stop = (reason: TarsPublishReason, error: string) => { facts.reason ??= reason; facts.error ??= error; return facts; };
   const workspace = row.executionWorkspaceId ? await ports.resolveWorkspace(row) : null;
@@ -154,6 +154,14 @@ async function inspect(row: TarsResponsibility, ports: TarsPublishPorts): Promis
     if (typeof parsed.nameWithOwner === "string" && parsed.nameWithOwner) facts.repository = parsed.nameWithOwner.slice(0, 300);
     if (typeof parsed.url === "string" && /^https?:\/\/\S+$/.test(parsed.url)) facts.repositoryUrl = parsed.url.slice(0, 2_048);
   } catch { /* The repository resolved; its name stays the folder's. */ }
+  if (row.publication?.number && row.publication.url) {
+    const current = await ports.run("gh", ["pr", "view", String(row.publication.number), "--json", "state,headRefName,url"], workspace.path);
+    try {
+      const live = JSON.parse(current.stdout);
+      if (!current.ok || live.state !== "OPEN" || live.headRefName !== facts.head || live.url !== row.publication.url)
+        stop("alreadyPublished", "The original pull request is no longer open on this branch.");
+    } catch { stop("alreadyPublished", "The original pull request could not be verified."); }
+  }
   return facts;
 }
 
@@ -214,13 +222,16 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
     const base = facts.base!;
     const head = facts.head;
     const git = (args: readonly string[]) => ports.run("git", args, cwd);
-    const previous = row.publication ?? null;
+    const updating = tarsCanUpdatePublication(row);
+    const previous = updating ? null : row.publication ?? null;
+    const openPr = row.publication?.number && row.publication.url ? row.publication : null;
     let publication: TarsPublication = {
+      ...(openPr?.watch ? { watch: openPr.watch } : {}),
       ...(row.agentRunId ? { agentRunId: row.agentRunId } : {}),
       state: "committing", failedStep: null, commit: previous?.commit ?? null, branch: head, base,
       // A step already done keeps the words it was done with.
       commitMessage: previous?.commit ? previous.commitMessage : record.commitMessage, title: record.title,
-      url: null, number: null, error: null, reason: null, updatedAt: now(),
+      url: openPr?.url ?? null, number: openPr?.number ?? null, error: null, reason: null, updatedAt: now(),
     };
     let step = tarsPublicationResumeStep(previous) ?? "commit";
     const advance = (patch: Partial<TarsPublication>) => {
@@ -257,6 +268,15 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
         if (!pushed.ok) fail("publishFailed", diagnostic(pushed, "git push failed."));
         advance({ state: "pushed" });
         step = "pr";
+      }
+      if (openPr) {
+        const current = await ports.run("gh", ["pr", "view", String(openPr.number), "--json", "state,headRefName,url"], cwd);
+        let live: { state?: string; headRefName?: string; url?: string } = {};
+        try { live = JSON.parse(current.stdout); } catch { /* Fail closed below. */ }
+        if (!current.ok || live.state !== "OPEN" || live.headRefName !== head || live.url !== openPr.url)
+          fail("alreadyPublished", "The original pull request is no longer open on this branch.");
+        advance({ state: "opened", url: openPr.url, number: openPr.number, existing: true });
+        return publication;
       }
       const listed = await ports.run("gh", tarsPublishCommands.existing(head), cwd);
       if (!listed.ok && (ghMissing(listed) || ghSignedOut(listed))) fail("ghUnavailable", diagnostic(listed, "GitHub CLI is unavailable."));

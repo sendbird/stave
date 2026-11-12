@@ -165,7 +165,7 @@ export function observeTarsContext(store: ObservationPorts,
     const instruction = row.delegatedInstruction ? excerpt(row.delegatedInstruction, TARS_INSTRUCTION_EXCERPT_CHARS) : null;
     const followUpScope = observedFollowUpScope(row, store);
     return { id: row.id, revision: row.revision, title: row.title, workspaceId: row.workspaceId, repositoryPath: row.repositoryPath,
-      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId,
+      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId, resultVerifiedRunId: row.resultVerifiedRunId ?? null,
       previousRunIds: row.previousRunIds ?? [],
       ...(followUpScope ? { followUpScope: excerpt(followUpScope, 500).text } : {}), priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
       // The user's message that admitted it, in `requests`; "notStored" when Stave has no copy of it.
@@ -176,7 +176,8 @@ export function observeTarsContext(store: ObservationPorts,
       ...(row.attachments ? { attachments: row.attachments.items.map((item) => excerpt(item.name, 200).text) } : {}),
       requiresReverification: row.reverifyAfter !== null,
       // Whether its draft pull request is open, failed or underway; a URL only once opened.
-      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),
+      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url, agentRunId: row.publication.agentRunId,
+        branch: row.publication.branch, checks: row.publication.checks, fixRounds: row.publication.watch?.fixRounds ?? 0 } } : {}),
       source: "persisted-personal-responsibility", acceptanceCriteria: tarsExecutionScope(row).acceptanceCriteria.slice(0, 3),
       // What the user's run commands need: why it paused, how many turns are left and which stage it is on.
       // stageAsksUser only when the stage really asks; stageWait says what it waits for (a gate asks nothing).

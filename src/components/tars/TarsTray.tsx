@@ -318,7 +318,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     </ul> : null,
     report && !blockedEntry ? <div key="report" className={sx(styles.actions)}>{report}</div> : null,
     // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
-    (row.state === "completed" || row.state === "resultReady") && (row.publication || (actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
+    (row.publication || ((row.state === "completed" || row.state === "resultReady") && actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
       <TarsPublishEntry row={row} onPublish={actions.onPublish} />
     </div> : null,
   ].filter(Boolean);

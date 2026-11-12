@@ -25,7 +25,7 @@ type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
 interface ConversationPorts {
   conversations: TarsConversationStore;
   coordinator: Coordinator;
-  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events" | "view"> & Partial<Pick<TarsStore, "schedules">>;
+  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "patch" | "events" | "view"> & Partial<Pick<TarsStore, "schedules">>;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   inspect?: TarsInspectionReader;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
@@ -35,6 +35,8 @@ interface ConversationPorts {
    * control work are refused as not waiting.
    */
   act?: (input: TarsActInput) => Promise<TarsActResult>;
+  /** Explicit saved choice only; no planner action or automatic disposition exists. */
+  confirmPrReview?: (decisionId: string) => Promise<void>;
   /**
    * The host's admission of a held work proposal the user confirmed
    * (`tars.confirm-proposal`). Absent, such a confirmation is refused.
@@ -231,6 +233,16 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (record.status === "pending") return answer;
       return ports.conversations.settleAnswer(answer.decisionId, record.status === "applied" ? { status: "applied" }
         : { status: "rejected", reason: record.reason, error: record.error ?? "The control was not applied." }, now());
+    }
+    if (effect.kind === "prReview") {
+      if (!ports.confirmPrReview) throw new Error("The host PR review path is unavailable.");
+      try {
+        await ports.confirmPrReview(answer.decisionId);
+        return ports.conversations.settleAnswer(answer.decisionId, { status: "applied" }, now());
+      } catch (error) {
+        return ports.conversations.settleAnswer(answer.decisionId, { status: "rejected", reason: "unknown",
+          error: (error instanceof Error ? error.message : "PR review failed.").slice(0, 2_000) }, now());
+      }
     }
     const parsed = parseTarsDecisionId(answer.decisionId);
     if (effect.kind === "proposal") {
@@ -509,10 +521,10 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (view?.state === "answered") return { answer: view.answer, refusal: "alreadyAnswered" };
       if (!view || view.state !== "waiting" || !view.checked) return { answer: null, refusal: "notWaiting" };
       const option = view.options[input.optionIndex];
-      if (!option || option.kind === "verify" || (option.kind === "control" && !ports.act) || (option.kind === "proposal" && !ports.confirmProposal))
+      if (!option || option.kind === "verify" || (option.kind === "control" && !ports.act) || (option.kind === "proposal" && !ports.confirmProposal) || (option.kind === "prReview" && (!ports.confirmPrReview || input.source === "words")))
         return { answer: null, refusal: "invalidOption" };
       const recorded = ports.conversations.recordAnswer({ decisionId: view.id, optionIndex: input.optionIndex, source: input.source,
-        effect: option.kind === "control" ? { kind: "control", ...option.control } : { kind: option.kind },
+        effect: option.kind === "control" ? { kind: "control", ...option.control } : option.kind === "prReview" ? option.effect : { kind: option.kind },
         label: option.label, actRequestId: option.kind === "control" ? tarsAnswerActRequestId(view.id) : null }, now());
       if (recorded.refusal) return recorded;
       return { answer: await settleAnswer(recorded.answer), refusal: null };

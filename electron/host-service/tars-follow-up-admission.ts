@@ -20,6 +20,12 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, origin: FollowUp
   if (action.kind === "clear") return "An automatic follow-up cannot propose clearing; only the user's own request can.";
   // A schedule makes work start by itself later; only the user's own words set one up, change one or list them.
   if (action.kind === "schedule") return "An automatic follow-up cannot propose or change a schedule; only the user's own request can.";
+  const ci = origin.reason === "ciFailed" && responsibilities.get(origin.responsibilityId)?.publication?.checks?.state === "failed";
+  if (ci && action.kind === "control") {
+    const target = responsibilities.get(action.responsibilityId);
+    return origin.responsibilityId === target?.id && action.operation === "message" && (target?.state === "completed" || target?.state === "resultReady")
+      && (target.publication?.watch?.fixRounds ?? 0) >= 1 && (target.publication?.watch?.fixRounds ?? 0) <= 2 ? null : "A CI follow-up can only continue the published work once, on its existing branch.";
+  }
   const row = (id: string) => responsibilities.get(id);
   const outOfReach = (id: string) => OUT_OF_REACH.has(row(id)?.state ?? "cancelled");
   // Stave's unverified-completion card already offers accept and cancel for this work.

@@ -18,9 +18,9 @@ export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
 export const TARS_WAIT_FOLLOW_UP_MS = 60 * 60_000;
 
-export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated"]);
+export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "ciFailed", "ciPassed", "ciUnavailable"]);
 /** The kinds an automatic follow-up message can carry; an invalidated decision keeps its own re-ask message. */
-export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired"]);
+export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "ciFailed", "ciPassed", "ciUnavailable"]);
 export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
 
 /**
@@ -115,9 +115,16 @@ export function classifyTarsTransition(previous: Pick<TarsResponsibility, "detai
 }
 
 /** Whether the responsibility still stands where the event saw it; anything else supersedes the event. */
-export function isTarsEventCurrent(event: Pick<TarsEvent, "kind" | "observedState" | "observedRevision">,
-  row: Pick<TarsResponsibility, "state" | "detailCode" | "revision" | "stageAsksUser"> | null) {
+export function isTarsEventCurrent(event: Pick<TarsEvent, "kind" | "observedState" | "observedRevision"> & { episode?: string; attempt?: string | null },
+  row: Pick<TarsResponsibility, "state" | "detailCode" | "revision" | "stageAsksUser"> & { publication?: TarsResponsibility["publication"]; agentRunId?: string | null } | null) {
   if (!row || row.revision < event.observedRevision || row.state !== event.observedState) return false;
+  if (event.kind.startsWith("ci")) {
+    const checks = row.publication?.checks;
+    return (row.state === "completed" || row.state === "resultReady") && row.publication?.state === "opened" && !row.publication.watch?.stopped?.match(/closed|expired/)
+      && row.agentRunId === event.attempt && row.publication.agentRunId === row.agentRunId
+      && row.publication.commit === event.episode && checks?.headSha === event.episode
+      && checks?.state === ({ ciFailed: "failed", ciPassed: "passed", ciUnavailable: "unavailable" } as Record<string, string>)[event.kind];
+  }
   if (event.kind === "waitExpired") return row.state === "waiting" && row.revision === event.observedRevision;
   // New words from the same asking stage keep its episode; a plain wait since does not.
   if (event.kind === "stageAsksUser") return isTarsStageAskingUser(row);

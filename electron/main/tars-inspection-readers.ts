@@ -28,13 +28,13 @@ export function createTarsInspectionReader(store: Pick<SqliteStore, "tars" | "lo
     if (view === "pullRequest") {
       // A failed live read does not erase the saved publication or claim its checks passed.
       const publication = row.publication ?? null;
-      if (!publication?.url) return { source: "saved-publication", publication, liveChecks: "unavailable" };
+      if (!publication?.url) return { source: "saved-publication", publication, checks: publication?.checks ?? null, liveChecks: "unavailable" };
       try {
         const result = await invoke("scm.get-pr-status-for-url", { cwd: cwdOf(row), url: publication.url });
         current(saved);
         return { source: "saved-publication-and-live-pr", publication,
-          live: result.ok ? result.pr : null, liveChecks: result.ok && result.pr ? "read" : "unavailable" };
-      } catch { return { source: "saved-publication", publication, liveChecks: "unavailable" }; }
+          checks: publication.checks ?? null, live: result.ok ? result.pr : null, liveChecks: result.ok && result.pr ? "read" : "unavailable" };
+      } catch { return { source: "saved-publication", publication, checks: publication?.checks ?? null, liveChecks: "unavailable" }; }
     }
     if (!row.agentRunId || !row.taskId || !row.executionWorkspaceId) throw new Error("No execution is recorded.");
     const result = await invoke("agent-run.invoke", { action: "get", args: { agentRunId: row.agentRunId } }) as AgentRunInvokeResult<AgentRunDetail>;

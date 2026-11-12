@@ -330,6 +330,10 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         // An option that could never apply is refused now, with its reason, instead of a dead button.
         let rejection: ReturnType<typeof tarsControlRejection> | null = null;
         for (const option of action.options) {
+          if (option.effect.kind === "prReview") {
+            rejection = { reason: "runRefused", error: "PR review choices are offered by the host after checks pass." };
+            break;
+          }
           if (option.effect.kind !== "control") continue;
           try { admitTarsControl(ports.responsibilities.get(option.effect.responsibilityId), option.effect); }
           catch (error) { rejection = tarsControlRejection(error); break; }
@@ -413,6 +417,11 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       if (action.kind === "control") {
+        if (message.origin?.kind === "followUp" && message.origin.reason === "ciFailed" && receipts.some((entry) => entry.action.kind === "control" && entry.action.operation === "message")) {
+          receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
+            { status: "rejected", reason: "notByFollowUp", error: "Only one CI continuation is allowed per head." }, now()));
+          continue;
+        }
         // Words take the same admission, run control and atomic outcome as a click.
         const row = ports.responsibilities.get(action.responsibilityId);
         const request = action.operation === "extend" && row ? { ...action, autoExtendMaxTurns: row.maxTurns * TARS_AUTO_EXTEND_MULTIPLIER } : action;

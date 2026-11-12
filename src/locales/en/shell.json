@@ -2162,7 +2162,10 @@
         "verificationFailed": "Tars follow-up · Completion checks incomplete: {{title}}",
         "stageAsksUser": "Tars follow-up · Needs your answer or approval: {{title}}",
         "stageGate": "Tars follow-up · A Stave check stopped progress: {{title}}",
-        "waitExpired": "Tars follow-up · No update while waiting: {{title}}"
+        "waitExpired": "Tars follow-up · No update while waiting: {{title}}",
+        "ciFailed": "CI failed for {{title}}",
+        "ciPassed": "PR checks finished for {{title}}",
+        "ciUnavailable": "PR checks unavailable for {{title}}"
       },
       "exhausted": "Tars stopped checking on {{title}} automatically because it reached its limit for automatic follow-ups. Send a message to continue.",
       "superseded": "Tars skipped this follow-up because the work changed first."
@@ -2864,6 +2867,27 @@
       "refused": "Workspace information could not be edited. Check that the workspace and target item still exist, then try again.",
       "change": "Change to apply",
       "empty": "Empty notes or value"
+    },
+    "prChecks": {
+      "pending": "PR checks pending",
+      "passed": "PR checks passed",
+      "failed_one": "PR checks: {{count}} failure",
+      "failed_other": "PR checks: {{count}} failures",
+      "none": "No PR checks reported",
+      "unavailable": "PR checks unavailable",
+      "passedNotice": "PR #{{number}}: all checks passed",
+      "unavailableNotice": "PR #{{number}}: checks are unavailable. Check that GitHub CLI is installed and signed in. Monitoring has stopped.",
+      "question": "PR #{{number}} passed its checks. Mark it ready for review?",
+      "ready": "Mark ready for review",
+      "readyHint": "Remove draft status so reviewers can review this PR.",
+      "keepDraft": "Keep as draft",
+      "keepHint": "Keep the PR in draft status.",
+      "limit": "PR #{{number}} has used its two automatic CI-fix attempts. Failing checks remain.",
+      "limitQuestion": "How should Tars continue PR #{{number}} ({{title}})?",
+      "continue": "Continue fixing CI on the same branch",
+      "continueHint": "Ask Tars to continue this work with your direction.",
+      "stop": "Keep the draft and stop fixing CI",
+      "stopHint": "Leave the current changes for your review."
     }
   }
 }

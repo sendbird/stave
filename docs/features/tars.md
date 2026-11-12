@@ -1273,7 +1273,18 @@ already exists for the branch. Each step is saved on the work, so **Retry**
 continues where it stopped, and a restart in the middle turns it into a
 retryable stop. The card folds to a record row such as "Draft PR #12 opened ·
 Show the saved card first at checkout · click" with **Open on GitHub**; the pull request becomes an output in the tray's **Outputs** and a link
-in the report. Stave never merges, marks it ready or deploys.
+in the report. Stave never merges or deploys.
+
+After a PR opens, the host reads its checks immediately, then at one-minute
+intervals backing off to five minutes, for at most three hours across restarts. It stops on closure or
+unavailable GitHub CLI access, with one notice. Cards and `inspect pullRequest`
+show the saved check summary. At Balanced or Hands-off, a failing published
+head can trigger at most two automatic CI-fix continuations in the same task,
+workspace, branch and PR; Careful asks first. Each new execution must pass
+Stave verification before it can update the PR. Further failures ask you.
+Once all reported checks pass for the published head, Tars offers **Mark ready
+for review** or **Keep as draft**. Only your explicit choice marks it ready;
+zero reported checks do not count as passing. Merge remains unavailable.
 
 ### Decisions
 

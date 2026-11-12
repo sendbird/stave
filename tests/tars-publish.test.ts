@@ -41,6 +41,7 @@ function fakeRepository() {
       if (state.gh === "signedOut") return no("You are not logged into any GitHub hosts. Run gh auth login to authenticate.");
       if (args[0] === "repo") return state.gh === "notGitHub" ? no("none of the git remotes configured for this repository point to a known GitHub host")
         : ok(JSON.stringify({ nameWithOwner: "example/web", url: "https://github.com/example/web" }));
+      if (args[0] === "pr" && args[1] === "view") return ok(JSON.stringify({ state: state.existing ? "OPEN" : "CLOSED", headRefName: state.branch, url: state.existing?.url }));
       if (args[0] === "pr" && args[1] === "list") return ok(JSON.stringify(state.existing ? [state.existing] : []));
       if (args[0] === "pr" && args[1] === "create") {
         if (state.fail.create > 0) { state.fail.create--; return no("GraphQL: was submitted too quickly"); }
@@ -513,4 +514,43 @@ test("a queued message blocks publication both before and after asynchronous ins
     expect(f.responsibilities.get(blocker.id)?.state).toBe("running");
     runtime.stop(); await runtime.drain();
   }
+});
+
+
+test("a verified continuation updates the same open PR, with no second create or ready command", async () => {
+  const f = fixture();
+  let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+  row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+  expect((await f.confirm(row)).record.status).toBe("applied");
+  row = f.responsibilities.get(row.id)!;
+  row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, watch: {
+    startedAt: NOW, nextAt: NOW, polls: 1, stopped: null, fixRounds: 1 } } }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "running", agentRunId: "continued-run" }, NOW);
+  expect(row.publication?.number).toBe(12);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "resultReady" }, NOW);
+  expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+  expect(f.repo.commands("push")).toHaveLength(1);
+  row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: "continued-run" }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, watch: { ...row.publication!.watch!, stopped: "expired" } } }, NOW);
+  f.repo.state.dirty = [" M src/checkout/cards.ts"];
+  const second = await f.confirm(row);
+  expect(second.record).toMatchObject({ status: "applied", number: 12, url: URL, existing: true });
+  expect(f.repo.commands("push")).toHaveLength(2);
+  expect(f.repo.commands("push").every(([, args]) => args.at(-1) === `${SHA}:refs/heads/${HEAD}`)).toBe(true);
+  expect(f.repo.commands("pr create")).toHaveLength(1);
+  expect(f.repo.commands("pr ready")).toHaveLength(0);
+  expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ agentRunId: "continued-run", number: 12, branch: HEAD, watch: { fixRounds: 1 } });
+  expect((await f.confirm(f.responsibilities.get(row.id)!)).record.reason).toBe("alreadyPublished");
+});
+
+test("an update refuses a closed original PR before pushing", async () => {
+  const f = fixture(); let row = f.completed();
+  expect((await f.confirm(row)).record.status).toBe("applied"); row = f.responsibilities.get(row.id)!;
+  row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, agentRunId: "old", watch: {
+    startedAt: NOW, nextAt: NOW, polls: 0, stopped: null, fixRounds: 1 } } }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "resultReady", resultVerifiedRunId: row.agentRunId }, NOW);
+  f.repo.state.existing = null;
+  expect((await f.confirm(row)).record.reason).toBe("alreadyPublished");
+  expect(f.repo.commands("push")).toHaveLength(1);
+  expect(f.repo.commands("pr create")).toHaveLength(1);
 });
