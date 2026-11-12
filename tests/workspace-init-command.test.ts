@@ -38,6 +38,29 @@ afterEach(() => {
 });
 
 describe("new workspace init command", () => {
+  test.each(["copied", "fallback", "rejected"] as const)("dependency seed settles before setup and preserves its fallback notice (%s)", async (status) => {
+    const order: string[] = [];
+    setWindowContext({ api: {
+      terminal: { runCommand: async ({ command }: { command: string }) => {
+        if (command === "install-fixture") order.push("setup");
+        return { ok: true, code: 0, stdout: "", stderr: "" };
+      } },
+      sourceControl: { seedWorktreeDependencies: async (args: { sourcePath: string; workspacePath: string }) => {
+        expect(args.sourcePath).toBe("/tmp/stave-project");
+        expect(args.workspacePath).toContain("/.stave/workspaces/");
+        order.push("seed");
+        if (status === "rejected") throw new Error("Bridge unavailable");
+        return { status };
+      } },
+    } });
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({ ...useAppStore.getInitialState(), repositoryPath: "/tmp/stave-project", repositoryName: "stave-project", defaultBranch: "main", recentRepositories: [] });
+    const result = await useAppStore.getState().createWorkspace({ name: "seed-before-setup", mode: "branch", fromBranch: "main", initCommand: "install-fixture", useRootNodeModulesSymlink: false });
+    expect(result.ok).toBe(true);
+    expect(order).toEqual(["seed", "setup"]);
+    if (status !== "copied") expect(result).toMatchObject({ noticeLevel: "warning", message: expect.stringContaining("Continuing normal setup") });
+  });
+
   test("refreshes an explicit remote base branch before creating the workspace", async () => {
     const runCalls: Array<{ cwd?: string; command: string }> = [];
 

@@ -1,6 +1,7 @@
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
 import { parseGitWorktrees } from "../../src/lib/source-control-worktrees";
 import { runWorkspacePreparation, WorkspacePreparationError } from "./workspace-preparation";
+import { seedWorktreeDependencies } from "./worktree-dependencies";
 import { i18n } from "../../src/i18n/runtime";
 import { respondHostUserInput, type HostUserInputArgs } from "./host-user-input";
 import type { RunQuestionAnswer } from "./run-question-answer";
@@ -1615,6 +1616,12 @@ export async function createWorkspace(args: {
       }
     }
   }
+
+  if (!existingTree) {
+    const seed = await seedWorktreeDependencies({ sourcePath: repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink, signal: args.signal });
+    if (seed.status === "fallback") notices.push({ level: "warning", message: i18n.t("workspace:dependencyCopyFallback") });
+  }
+  args.signal?.throwIfAborted();
 
   if (useRootNodeModulesSymlink) {
     const linkResult = await runCommand({

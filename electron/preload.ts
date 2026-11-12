@@ -2475,6 +2475,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   scripts: scriptsApi,
   sourceControl: {
+    seedWorktreeDependencies: (args: import("../src/lib/worktree-dependencies").WorktreeDependenciesArgs) =>
+      ipcRenderer.invoke("scm:seed-worktree-dependencies", args) as Promise<import("../src/lib/worktree-dependencies").WorktreeDependenciesResult>,
     getStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:status", args),
     stageAll: (args: { cwd?: string }) =>
