@@ -471,9 +471,15 @@ autonomy, rules and work limits. Draft edits survive switching tabs; **Save**
 applies all changes. Initial model/account choices come from your app
 settings and are saved for this conversation. The conversation model is only
 for talking with Tars. **Execution model** defaults to **Automatic**: Stave
-Auto routes delegated work, and reviews can run on the other provider. Pin a
-model only when every step and its review should stay on it. Tars runs work
-only on Claude or Codex.
+Auto uses the shared policy selected in Task's Stave Auto controls, including
+**Quality-first**, **Balanced**, **Cost-saver** and custom rules, even when the
+app-wide Auto toggle is off. This does not change your saved settings. Helpers
+use the same policy for their role and provider, including after a restart;
+fixed Agent models and explicit model or effort pins take priority. Reviews
+can run on the other provider. Pin a
+model only when every step and its review should stay on it. With a pinned
+model, helpers may still use app-wide Auto to select effort within that model
+unless effort is pinned too. Tars runs work only on Claude or Codex.
 
 A turn is one request for an agent to work. The turn limit includes the lead agent and its helpers.
 

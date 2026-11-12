@@ -23,7 +23,7 @@ describe("Routing decision status", () => {
     expect(resolveRoutingDecisionStatus({ ...on, value: gateway })).toEqual({ kind: "primary", first: luna, second: haiku });
   });
 
-  test("says the choice is not in use while Auto or model classification is off", () => {
+  test("distinguishes composer Auto off from model classification off", () => {
     expect(resolveRoutingDecisionStatus({ ...on, autoRoutingEnabled: false, value: gateway, connectionLabel: "Company gateway" }).kind).toBe("autoOff");
     expect(resolveRoutingDecisionStatus({ ...on, classifierEnabled: false, value: { mode: "automatic" } }).kind).toBe("classifierOff");
   });
@@ -51,6 +51,7 @@ describe("Routing decision field", () => {
     const text = render(gateway);
     expect(text).toContain("The saved API connection is no longer available. Add a Vercel AI Gateway API connection in Settings > Accounts");
     expect(text).not.toContain("Search");
-    expect(text).toContain("Not in use: Auto is off");
+    expect(text).toContain("Auto is off for the composer and ordinary Agent runs.");
+    expect(text).toContain("Tars Execution set to Automatic still uses this decision model when Model classification is on.");
   });
 });

@@ -1115,7 +1115,7 @@
       "primary": "In use: {{first}} from your signed-in account. If it does not respond, Stave tries {{second}}, then local keyword rules.",
       "gateway": "In use: {{model}} through the {{connection}} API connection. If it fails, Stave tries {{first}}, then {{second}}, then local keyword rules.",
       "inherit": "In use: the Routing decision model set in Settings > Models > Auto (Model Router).",
-      "autoOff": "Not in use: Auto is off, so no work is classified. This choice applies once Auto is on.",
+      "autoOff": "Auto is off for the composer and ordinary Agent runs. Tars Execution set to Automatic still uses this decision model when Model classification is on.",
       "classifierOff": "Not in use: Model classification is off in Settings > Models > Auto (Model Router), so local keyword rules decide. This choice applies once it is on."
     },
     "gatewayNotApplied": "Not applied yet. Add a Vercel AI Gateway API connection in Settings > Accounts, then choose it here.",

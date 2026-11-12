@@ -14,7 +14,8 @@ export type RoutingDecisionStatus =
   | { kind: "primary"; first: string; second: string };
 
 /**
- * Classification runs only while Auto and model classification are both on.
+ * This status describes composer Auto. Host-admitted Tars Automatic execution
+ * may classify while the app-wide Auto switch is off; the status copy names it.
  * A gateway choice whose connection is gone falls straight to the native
  * order, so it reports that order rather than the gateway.
  */

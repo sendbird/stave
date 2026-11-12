@@ -13,14 +13,13 @@ import { findUsageLimitStopInEvents } from "../../../src/lib/providers/usage-lim
 import { findTransientTurnFailure } from "../../../src/lib/providers/provider-error-recovery";
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import { isPoolableAccount } from "../../../src/lib/agent-runs/account-pool";
-import { freezeAdaptivePolicy } from "./adaptive-policy";
+import { createHostConstrainedRouter, createHostResourceFreezer } from "./agent-run-routing-host";
 import { getProviderAccountRegistry } from "../../provider-accounts/registry";
 import { currentProviderAccountId } from "../../provider-accounts/runtime-scope";
 import { exclusiveGatewayModels } from "../../../src/lib/providers/api-connection-routing";
 import { requestHostGatewayCredentials } from "../../provider-accounts/host-gateway-credentials";
 import { hostAgents } from "./assign-host";
 import { createAgentRunRouter } from "./agent-run-route-host";
-import { createConstrainedHostRouter } from "./constrained-route-host";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { classifyUtilityRoute } from "../../providers/utility-inference";
 import { readWorkspaceRevision } from "./workspace-revision";
@@ -119,7 +118,7 @@ export function createHostAgentRunRuntime(args: {
 }) {
   const persistence = ensureHostServicePersistenceReady();
   const readTurnEnding = (turnId: string) => classifyAgentRunTurnEnding(persistence.getStreamEvents({ turnId }));
-  const constrained = createConstrainedHostRouter({ assignment: (taskId) => persistence.agentAssignments.getByTaskId(taskId),
+  const constrained = createHostConstrainedRouter({ runs: persistence.agentRuns, assignment: (taskId) => persistence.agentAssignments.getByTaskId(taskId),
     settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list(),
     history: ({ workspaceId, taskId }) => persistence.loadTaskMessagesPage({ workspaceId, taskId, limit: 12 })?.messages ?? [],
     cwd: resolveWorkspacePath, classify: (request, signal) => classifyUtilityRoute(request, undefined, undefined, signal) });
@@ -165,19 +164,10 @@ export function createHostAgentRunRuntime(args: {
     store: persistence.agentRuns,
     prepareGatewayCredentials: async ({ accounts, signal }) => (await requestHostGatewayCredentials(accounts, undefined, signal))?.credentials,
     routeConstrainedTurn: constrained,
-    freezeResources: ({ run, authority, routingIntent, accounts }) => {
-      if (run.fingerprint.providerId !== "codex" && run.fingerprint.providerId !== "claude-code") throw new Error("Team limits require a supported provider.");
-      return freezeAdaptivePolicy({
-      providerId: run.fingerprint.providerId, model: run.fingerprint.model,
-      agent: args.taskAgent?.(run.leadTaskId) ?? null,
-      draft: authority ? null : routingIntent ?? persistence.loadWorkspaceShell({ workspaceId: run.workspaceId })?.promptDraftByTask?.[run.leadTaskId]?.runtimeOverrides,
-      settings: persistence.delegationPolicies.loadRouteSettings(), maxTurns: run.maxTurns,
-      exclusiveModels: exclusiveGatewayModels(getProviderAccountRegistry().list(), accounts ?? {
-        claudeAccountProfileId: currentProviderAccountId("claude-code"), codexAccountProfileId: currentProviderAccountId("codex"),
-      })[run.fingerprint.providerId],
-      delegated: Boolean(authority), effort: authority?.effort, modelPinned: authority?.modelPinned, effortPinned: authority?.effortPinned,
-      ...(accounts ? { accounts } : {}),
-    }); },
+    freezeResources: createHostResourceFreezer({ assignments: persistence.agentAssignments, tars: persistence.tars,
+      taskAgent: (taskId) => args.taskAgent?.(taskId) ?? null,
+      draft: (workspaceId, taskId) => persistence.loadWorkspaceShell({ workspaceId })?.promptDraftByTask?.[taskId]?.runtimeOverrides,
+      settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list() }),
     stopResourceTask: localMcpRuntime.stopManagedTaskTurn,
     resourceExecutionLive: (childRunId, executionId) => {
       const root = persistence.agentRuns.listActiveAgentRuns().find((run) => persistence.agentRuns.readResources(run.id)?.reservations.some((row) => row.childRunId === childRunId));

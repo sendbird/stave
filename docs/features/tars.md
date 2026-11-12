@@ -1462,13 +1462,21 @@ The **Conversation model** is used only for talking with Tars, including its
 automatic follow-ups. Delegated work runs separately:
 
 - **Execution model: Automatic** (the default) forces no model. Stave Auto
-  routes each turn of the work on the conversation's provider and account, and
+  uses the shared policy selected in Task's Stave Auto controls: **Quality-first**,
+  **Balanced**, **Cost-saver**, or your custom rules. This explicit Automatic
+  choice applies even when the app-wide Stave Auto toggle is off, without
+  changing that toggle or your saved policy. It routes each turn of the work
+  on the conversation's provider and account, and
   helpers, including the reviewer, can run on the other provider so the
-  review is independent of the provider that wrote the change. With Stave Auto
-  turned off in Settings, the work stays on the provider's default model.
+  review is independent of the provider that wrote the change. Helpers use the
+  same saved policy within their own role and provider; fixed Agent models and
+  explicit model or effort pins still take priority. The Automatic choice and
+  shared policy survive a restart through the saved Run and host settings.
 - **Pinning an execution model** runs the work, its helpers and its review on
-  that model and its provider at the model's default effort. A pin on the
-  other provider runs with that provider's System default account.
+  that model and its provider. The lead starts at the model's default effort;
+  helpers can still use Auto to select effort within that model while app-wide
+  Auto is on, unless effort is explicitly pinned. A pin on the other provider
+  runs with that provider's System default account.
 
 Conversation delegation keeps the selected account; other conversation runtime
 preferences, including its reasoning effort, are not copied into supervised

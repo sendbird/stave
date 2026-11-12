@@ -227,10 +227,13 @@ function endedWithoutOutput(row: AgentRunTurnRow): boolean {
   return Boolean(row.completedAt) && row.terminalReceipt?.outcome === "failed" && row.terminalReceipt.outputObserved === false;
 }
 
+/** Host-only admission identity; never part of renderer/IPC start input. */
+export interface AgentRunAdmission { tarsResponsibilityId: string }
+
 export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies {
   store: AgentRunStorePort;
   prepareGatewayCredentials?: (args: { accounts: ProviderAccountSelection; signal: AbortSignal }) => Promise<import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined>;
-  freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection }) => AdaptiveRunPolicy;
+  freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection; admission?: AgentRunAdmission }) => AdaptiveRunPolicy;
   stopResourceTask?: (args: { workspaceId: string; taskId: string }) => Promise<unknown>;
   resourceExecutionLive?: (childRunId: string, executionId: string) => boolean;
   delegatedAssignment?: (taskId: string) => AgentAssignment | null;
@@ -427,7 +430,7 @@ export interface AgentRunRuntime {
    * or replaced. True when a run ended. A legacy run is left alone.
    */
   endAgentRunForTask: (args: { taskId: string; delegatedOnly?: boolean }) => Promise<boolean>;
-  startAgentRun: (input: AgentRunStartInput, guard?: () => void) => Promise<AgentRunDetail>;
+  startAgentRun: (input: AgentRunStartInput, guard?: () => void, admission?: AgentRunAdmission) => Promise<AgentRunDetail>;
   prepareDelegatedAgentRun: (args: { agentRunId: string; model: string; input: AgentRunStartInput; authority: DelegatedAgentRunAuthority; resourceLink?: ResourceLink }) => Promise<AgentRunDetail>;
   isDelegatedExecutionCurrent: (agentRunId: string, taskId: string, authority: DelegatedAgentRunAuthority) => boolean;
   activateDelegatedAgentRun: (args: { agentRunId: string; executionId: string }) => Promise<AgentRunDetail>;
@@ -620,10 +623,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * refuses the start with its reason; a host without resource support starts
    * the run on its own max turns.
    */
-  function freezeTeamLimits(run: AgentRun, input: Pick<AgentRunStartInput, "origin" | "routingIntent" | "accounts">): AdaptiveRunPolicy | null {
+  function freezeTeamLimits(run: AgentRun, input: Pick<AgentRunStartInput, "origin" | "routingIntent" | "accounts">, admission?: AgentRunAdmission): AdaptiveRunPolicy | null {
     if (input.origin !== "agent" || !store.consumeResourceTurn || !deps.freezeResources) return null;
     if (deps.taskRunsAsAgent && !deps.taskRunsAsAgent(run.leadTaskId)) return null;
-    const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run, routingIntent: input.routingIntent, accounts: input.accounts }));
+    const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run, routingIntent: input.routingIntent, accounts: input.accounts, admission }));
     requireInitialEffortSupport(policy);
     return policy;
   }
@@ -1513,6 +1516,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         prompt: actionPrompt ?? agentRun.assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
         effort: adaptive?.effort ?? delegation?.effort, modelPinned: resources?.policy.modelLocked ?? delegation?.modelPinned,
         effortPinned: resources?.policy.effortLocked ?? delegation?.effortPinned, accounts: runAccountOptions(agentRun, resources),
+        autoRouting: resources?.policy.autoRouting,
         allowedModels: resources?.policy.allowedModels ?? delegation?.allowedModels,
       }, controller.signal)) : null;
       if (adaptive && constrained?.route === "auto" && resources) adaptive = selectAdaptiveRoute(resources.policy, aggregate,
@@ -2446,7 +2450,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(agentRunId);
       }),
-    startAgentRun: (rawInput, guard) => {
+    startAgentRun: (rawInput, guard, admission) => {
       const agentRunId = randomUUID();
       return enqueueTask((rawInput as { leadTaskId?: unknown } | null)?.leadTaskId, async () => {
         guard?.();
@@ -2496,7 +2500,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent) change.events = change.events.map((event) => ({ ...event,
           idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, routingIntent: input.routingIntent } }));
-        const policy = freezeTeamLimits(change.agentRun, input);
+        const policy = freezeTeamLimits(change.agentRun, input, admission);
         if (policy) change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
         guard?.();
         const created = store.create(change, now());
