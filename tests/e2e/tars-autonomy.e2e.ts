@@ -33,13 +33,13 @@ test("choosing Careful turns the next delegation into a proposal that starts onl
   const levels = sheet.getByRole("radiogroup", { name: "How independently Tars acts" });
   await expect(levels.getByRole("radio")).toHaveCount(3);
   await expect(levels.getByRole("radio", { name: /^Balanced/ })).toBeChecked();
-  expect(await rowActions(page, "auto")).toContain("delegate");
+  expect(await rowActions(page, "auto")).toEqual(expect.arrayContaining(["workspaceEdit", "workspaceReplace", "delegate", "resume", "retryStage", "message", "requestChanges"]));
   await levels.getByRole("radio", { name: /^Careful/ }).click();
   // The table follows the choice before anything is saved.
   await expect(sheet.locator("[data-tars-autonomy]")).toHaveAttribute("data-tars-autonomy", "careful");
-  expect(await rowActions(page, "auto")).toEqual(["show", "pause", "takeover", "deny"]);
-  expect(await rowActions(page, "confirm")).toEqual(expect.arrayContaining(["delegate", "reprioritize", "startNow"]));
-  expect(await rowActions(page, "always")).toEqual(["cancel", "skipStage", "acceptCompletion", "approve", "publish"]);
+  expect(await rowActions(page, "auto")).toEqual(["show", "workspaceEdit", "pause", "takeover", "deny"]);
+  expect(await rowActions(page, "confirm")).toEqual(expect.arrayContaining(["workspaceReplace", "delegate", "reprioritize", "startNow", "resume", "retryStage", "message", "requestChanges", "publish"]));
+  expect(await rowActions(page, "always")).toEqual(["handBack", "signOff", "answer", "clear", "cancel", "skipStage", "acceptCompletion", "approve"]);
   await expect(sheet.locator("[data-tars-autonomy-details]")).toBeHidden();
   await sheet.locator("[data-tars-autonomy-details-toggle]").click();
   await expect(sheet.locator("[data-tars-autonomy-details]")).toBeVisible();

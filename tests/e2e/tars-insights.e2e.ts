@@ -104,7 +104,15 @@ test.describe("Tars: what it knows and what it spent", () => {
     await expect(body).toHaveAttribute("data-tars-usage-status", "ready");
     await expect(body).toHaveAttribute("data-tars-usage-window", "sevenDays");
     await expect(usage.locator("[data-tars-usage-work]")).toHaveCount(4);
+    // The sheet and its fonts can still move the toolbar after the data is ready.
+    await page.evaluate(() => document.fonts.ready);
+    await usage.evaluate(async (node) => {
+      const animations = node.getAnimations({ subtree: true }).filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime));
+      await Promise.allSettled(animations.map((animation) => animation.finished));
+    });
     const refresh = usage.getByRole("button", { name: "Refresh", exact: true });
+    await expect(refresh).toBeEnabled();
+    await page.mouse.move(0, 0);
     await refresh.hover();
     await expect(page.getByRole("tooltip")).toHaveText("Refresh");
     await refresh.click();
@@ -243,16 +251,22 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
       for (const n of [3, 4, 5, 6]) await expect(details).toContainText(labels.guide[`limit${n}`]);
       await expect(details.getByRole("listitem")).toHaveCount(4);
       await expect(detailToggle).toBeFocused();
-      // Expanded content scrolls inside the popup, never the page or sideways.
+      // A shorter viewport makes expanded content scroll inside the popup, never the page or sideways.
       if (width === 390) {
+        await page.setViewportSize({ width, height: 600 });
         const popup = page.getByRole("dialog", { name: labels.guide.help, exact: true });
         const documentScroll = await page.evaluate(() => document.documentElement.scrollTop);
+        await expect.poll(() => popup.evaluate((node) => node.scrollHeight - node.clientHeight)).toBeGreaterThan(1);
         const last = details.getByRole("listitem").last();
         await last.scrollIntoViewIfNeeded();
-        const geometry = await popup.evaluate((node) => ({ top: node.scrollTop, bottom: node.getBoundingClientRect().bottom }));
+        const geometry = await popup.evaluate((node) => ({ top: node.scrollTop, y: node.getBoundingClientRect().top, bottom: node.getBoundingClientRect().bottom }));
         expect(geometry.top).toBeGreaterThan(0);
+        expect((await last.boundingBox())!.y).toBeGreaterThanOrEqual(geometry.y);
+        expect(geometry.y).toBeGreaterThanOrEqual(0);
+        expect(geometry.bottom).toBeLessThanOrEqual(600);
         expect((await last.boundingBox())!.y + (await last.boundingBox())!.height).toBeLessThanOrEqual(geometry.bottom + 1);
         expect(await page.evaluate(() => document.documentElement.scrollTop)).toBe(documentScroll);
+        await page.setViewportSize({ width, height: 900 });
       }
       await expect.poll(() => content.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
       await page.keyboard.press("Space");

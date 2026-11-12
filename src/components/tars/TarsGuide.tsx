@@ -69,7 +69,7 @@ export function TarsGuideButton({ onExample }: { onExample?: (text: string) => v
     <PopoverTrigger render={(props) => <Tooltip content={label}><Button {...props} variant="ghost" size="icon-sm" aria-label={label} data-tars-guide-open="" /></Tooltip>}>
       <CircleHelp />
     </PopoverTrigger>
-    <PopoverContent ref={popupRef} initialFocus={popupRef} align="end" className={sx(styles.popover)} aria-label={label}>
+    <PopoverContent ref={popupRef} initialFocus={popupRef} align="end" xstyle={styles.popover} aria-label={label}>
       <TarsGuide onExample={onExample} />
     </PopoverContent>
   </Popover>;
@@ -93,5 +93,9 @@ const styles = stylex.create({
   /** Upstream Suggestions layout (#809 R3): short xs chips in a wrapping row; the full request goes into the composer. */
   examples: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
   exampleItem: { maxWidth: "100%", minWidth: 0 },
-  popover: { width: "min(36rem, calc(100vw - 2rem))", maxHeight: "min(32rem, calc(100vh - 6rem))", overflowY: "auto" },
+  popover: {
+    inlineSize: `min(36rem, calc(100dvw - ${vars["--aui-space-32"]}))`,
+    maxBlockSize: `min(var(--available-height, 100dvh), calc(100dvh - ${vars["--aui-space-64"]}))`,
+    overflowY: "auto",
+  },
 });

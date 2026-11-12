@@ -152,9 +152,15 @@ test.describe("Tars clear, retention and suggestions", () => {
     // While the box holds words the chips step aside.
     await expect(chips).toHaveCount(0);
     // The chip row stays inside the composer's column.
-    await editor(page).fill("");
+    await editor(page).press("ControlOrMeta+A");
+    await editor(page).press("Backspace");
+    await expect(editor(page)).toHaveText("");
+    await expect(chips).toHaveCount(3);
     const overflow = await composer(page).locator("[data-tars-suggestions]").evaluate((node) => node.scrollWidth - node.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
+    await chips.first().click();
+    await expect(editor(page)).toHaveText("What needs me right now, and what do you recommend for each?");
+    await expect(view(page).locator("[data-tars-message]")).toHaveCount(before);
   });
 
   test("new and existing empty profiles show default instructions, custom edits can be saved or reset", async ({ page }) => {
