@@ -32,9 +32,11 @@ describe("Tars preview gallery", () => {
     const decisions = projectTarsDecisions({ messages: conversation.messages, receipts: conversation.receipts, records: conversation.records,
       answers: conversation.answers ?? [], activity: conversation.activity, responsibilities });
     const state = (id: string) => decisions.find((view) => view.id === id);
-    // Every waiting confirmation is live and offered; none was superseded by a later proposal.
-    for (const code of ["f1", "f2", "f3", "f6", "f8", "f9", "f10"]) expect(state(`confirm:g-${code}:0`)).toMatchObject({ state: "waiting", checked: true });
-    for (const code of ["f4", "f5", "f7"]) for (const index of [0, 1]) expect(state(`confirm:g-${code}:${index}`)).toMatchObject({ state: "waiting", checked: true });
+    // Later messages moved the conversation on, so no earlier confirmation waits; the release check's resume waits again in the newest message.
+    for (const code of ["f2", "f3", "f6", "f8", "f9", "f10"]) expect(state(`confirm:g-${code}:0`)).toMatchObject({ state: "retired", why: "movedOn" });
+    for (const code of ["f4", "f5", "f7"]) for (const index of [0, 1]) expect(state(`confirm:g-${code}:${index}`)).toMatchObject({ state: "retired", why: "movedOn" });
+    expect(state("confirm:g-f1:0")).toMatchObject({ state: "retired", why: "superseded" });
+    expect(state("confirm:g-m:1")).toMatchObject({ state: "waiting", checked: true, latest: true });
     expect(state("confirm:g-e1:0")?.answer?.status).toBe("applied");
     expect(state("confirm:g-e2:0")).toMatchObject({ state: "answered", answer: null, record: { source: "fleet" } });
     expect(state("confirm:g-e3:0")?.answer?.status).toBe("rejected");
@@ -48,7 +50,7 @@ describe("Tars preview gallery", () => {
     expect(state("ask:g-g5:0")).toMatchObject({ state: "invalid", why: "targetEnded" });
     expect(state("ask:g-g6:0")).toMatchObject({ state: "retired", why: "settled" });
     expect(state("unverified:gallery-audit:3")).toMatchObject({ state: "waiting", failure: { status: "rejected" } });
-    // The one question still waiting is the newest message, so a short answer binds to it.
+    // The one question still waiting is in the newest message.
     expect(state("ask:g-m:0")).toMatchObject({ state: "waiting", latest: true, checked: true });
     expect(decisions.filter((view) => view.state === "waiting" && view.kind === "ask")).toHaveLength(1);
   });

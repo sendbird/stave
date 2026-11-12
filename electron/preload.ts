@@ -137,7 +137,7 @@ import { TARS_IPC, CreateTarsResponsibilityInputSchema, TarsChangedEventSchema, 
   type TarsBridgeApi, type TarsChangedEvent } from "../src/lib/tars/types";
 import { TarsConversationSettingsSchema, TarsMessageInputSchema, GetTarsConversationInputSchema, CancelTarsMessageInputSchema,
   TarsMessageViewSchema, TarsConversationSchema, TarsActInputSchema, TarsActResultSchema, TarsAnswerInputSchema,
-  TarsAnswerResultSchema, TarsReprioritizeInputSchema } from "../src/lib/tars/conversation";
+  TarsAnswerResultSchema, TarsReprioritizeInputSchema, TarsDismissInputSchema } from "../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema, TarsPublishResultSchema } from "../src/lib/tars/publication";
 import { TarsBriefInputSchema, TarsBriefSchema } from "../src/lib/tars/brief";
 import { TarsUsageInputSchema, TarsUsageReportSchema } from "../src/lib/tars/usage";
@@ -830,6 +830,7 @@ const tarsApi: TarsBridgeApi = {
   create: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.create, CreateTarsResponsibilityInputSchema.parse(input))),
   act: async (input) => TarsActResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.act, TarsActInputSchema.parse(input))),
   answer: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.answer, TarsAnswerInputSchema.parse(input))),
+  dismissDecision: async (input) => TarsAnswerResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.dismissDecision, TarsDismissInputSchema.parse(input))),
   publish: async (input) => TarsPublishResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.publish, TarsPublishInputSchema.parse(input))),
   previewPublish: async (input) => TarsPublishPreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.publishPreview, TarsPublishPreviewInputSchema.parse(input))),
   undoAction: async (input) => TarsUndoActionResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoAction, TarsUndoActionInputSchema.parse(input))),

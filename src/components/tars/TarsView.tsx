@@ -19,7 +19,7 @@ import { openFleetAt } from "@/store/fleet-focus-store";
 import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
 import type { TarsFollowUpState, TarsResponsibility } from "@/lib/tars/types";
 import {
-  tarsConfirmationRequestId, type TarsActInput, type TarsActResult, type TarsAnswerInput, type TarsControlOperation, type TarsConversationSettings, type TarsQueueMove,
+  tarsConfirmationRequestId, type TarsActInput, type TarsActResult, type TarsAnswerInput, type TarsDismissInput, type TarsControlOperation, type TarsConversationSettings, type TarsQueueMove,
   type TarsQueueMoveSource,
 } from "@/lib/tars/conversation";
 import { tarsQueueOf } from "@/lib/tars/queue-order";
@@ -279,6 +279,12 @@ function TarsViewContent() {
     void refresh();
     return result;
   }
+  /** A card's Dismiss: the decision leaves Fleet and the tray, so the snapshot is read again like after an answer. */
+  const dismissDecision = conversation.dismiss ? async (input: TarsDismissInput) => {
+    const result = await conversation.dismiss!(input);
+    void refresh();
+    return result;
+  } : undefined;
   // Publish cards: Tars's own proposals in the conversation, and the one card "Create draft PR" opens at its end.
   const publishing = useTarsPublish({ bridge: api, conversation: conversation.conversation, responsibilities: snapshot ? responsibilities : null,
     refresh: () => { void refresh(); void conversation.refresh(); }, focusComposer: () => controller.current?.focusComposer() });
@@ -401,7 +407,7 @@ function TarsViewContent() {
         agentNameOf={(id) => agentNames.get(id)}>
       <TarsStartContext value={startInfo}><TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
-        responsibilities={snapshot ? responsibilities : null} onAnswer={answer} controller={controller} sidePanel={pinned ? null : sideView}
+        responsibilities={snapshot ? responsibilities : null} onAnswer={answer} onDismissDecision={dismissDecision} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
         schedule={scheduling.available ? scheduling.context : undefined} onOpenScheduleRun={(run) => { if (run.taskId) void openTask(run, run.taskId, run.workspaceId); }}
         composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} /></TarsStartContext>

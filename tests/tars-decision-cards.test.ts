@@ -113,12 +113,14 @@ describe("the ask action's schema", () => {
     expect(TarsAskActionSchema.safeParse({ ...ask([reply("A"), reply("B")]), workspaceId: "source" }).success).toBe(false);
     expect(TarsAskActionSchema.safeParse({ ...ask([reply("A"), reply("B")]), question: "x".repeat(501) }).success).toBe(false);
   });
-  test("a reply asks at most one question, and the planner keeps none of an invalid ask", () => {
+  test("a reply asks at most one question, and the planner keeps none of an invalid ask but keeps its reply", () => {
     const one = ask([reply("A"), reply("B")]);
     expect(TarsDecisionSchema.safeParse({ reply: "?", actions: [one] }).success).toBe(true);
     expect(TarsDecisionSchema.safeParse({ reply: "?", actions: [one, one] }).success).toBe(false);
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Choose.", actions: [one] })).actions).toEqual([one]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "Choose.", actions: [ask([reply("A")])] }))).toThrow();
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Choose.", actions: [ask([reply("A")])] })))
+      .toMatchObject({ reply: "Choose.", actions: [], dropped: [{ index: 0, kind: "ask", reason: "invalid" }] });
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Choose.", actions: [one, one] }))).toMatchObject({ actions: [one], dropped: [{ index: 1, reason: "overLimit" }] });
   });
 });
 
@@ -321,8 +323,9 @@ describe("review follow-ups", () => {
     expect(bindTarsShortAnswer("1", selectAnswerableTarsDecisions(f.decisions()))).toMatchObject({ optionIndex: 0 });
     await f.send("Actually, what is it doing now?");
     const answerable = selectAnswerableTarsDecisions(f.decisions());
-    // The proposal still waits for Confirm, but words go to Tars as a message.
-    expect(answerable.map((view) => view.latest)).toEqual([false]);
+    // The user moved on: the proposal no longer waits, and words go to Tars as a message.
+    expect(f.decisions().find((view) => view.kind === "confirm")).toMatchObject({ state: "retired", why: "movedOn" });
+    expect(answerable).toEqual([]);
     for (const word of ["1", "응", "yes"]) expect(bindTarsShortAnswer(word, answerable)).toBeNull();
   });
 

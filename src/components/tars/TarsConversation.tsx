@@ -1,5 +1,5 @@
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
-import { FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
+import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
 import { useTranslation } from "@/i18n";
 import { Toggle } from "@/components/aui/components/Toggle";
@@ -15,7 +15,7 @@ import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
-import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessageView } from "@/lib/tars/conversation";
+import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsDismissInput, TarsMessageView } from "@/lib/tars/conversation";
 import {
   bindTarsShortAnswer, projectTarsDecisions, selectAnswerableTarsDecisions, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "@/lib/tars/decisions";
@@ -163,6 +163,14 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
       : message.state === "failed" ? <TarsMessageFailure key="failure" message={message} onResend={userWords && onResend ? onResend : undefined} />
         : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} /> : null,
+    // Why it has not started yet, or that its first attempt failed and Tars is trying once more: never a silent wait.
+    message.state === "queued" && message.waiting ? <TarsRecordList key="waiting"><TarsRecordRow state="info" icon={Clock} at={message.waiting.since}
+      subject={t(`shell:tars.conversation.waiting.${message.waiting.reason}`)} data-tars-message-waiting={message.waiting.reason} /></TarsRecordList>
+      : message.state === "reasoning" && message.retry ? <TarsRecordList key="retry"><TarsRecordRow state="info" icon={RefreshCw} at={message.retry.at}
+        subject={t(`shell:tars.conversation.retrying.${message.retry.cause}`)} data-tars-message-retry={message.retry.cause} /></TarsRecordList> : null,
+    // Actions the model returned malformed were left out; the reply and the valid ones stay.
+    message.decision?.dropped?.length ? <TarsRecordList key="dropped"><TarsRecordRow state="skipped"
+      subject={t("shell:tars.conversation.droppedActions", { count: message.decision.dropped.length })} data-tars-dropped-actions={message.decision.dropped.length} /></TarsRecordList> : null,
     lines.length ? <TarsRecordList key="lines" aria-label={t("shell:tars.conversation.actions")}>
       {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} />)}
     </TarsRecordList> : null,
@@ -220,7 +228,7 @@ function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pres
   </>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge, clear, suggestions, schedule, onOpenScheduleRun }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, onDismissDecision, sidePanel, controller, publish, composerStatus, draftBridge, clear, suggestions, schedule, onOpenScheduleRun }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -233,6 +241,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   responsibilities?: readonly TarsResponsibility[] | null;
   /** Sends one answer through the host; null when it could not be sent. */
   onAnswer?: (input: TarsAnswerInput) => Promise<TarsAnswerResult | null>;
+  /** Dismisses one waiting decision card; null when it could not be sent. Absent: cards offer no Dismiss. */
+  onDismissDecision?: (input: TarsDismissInput) => Promise<TarsAnswerResult | null>;
   /** The narrow side view: between the transcript and the composer, so both stay in view. */
   sidePanel?: ReactNode;
   controller?: Ref<TarsConversationController>;
@@ -331,8 +341,22 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     }).finally(() => setAnswering(false));
   };
   const cardHandler = onAnswer ? answer : undefined;
-  // Esc on a waiting card leaves it waiting and hands focus back to the message box.
-  const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer, onOpenTask };
+  /** Dismiss closes the card for good without an option; a refusal or a failure stays with the card, like an answer's. */
+  const dismissDecision = onDismissDecision ? (decision: TarsDecisionView, source: TarsDismissInput["source"]) => {
+    if (answering) return;
+    setAnswering(true);
+    void onDismissDecision({ decisionId: decision.id, source }).catch(() => null).then((result) => {
+      const message = !result ? t("shell:tars.decision.refusal.dismissFailed") : result.refusal ? t(`shell:tars.decision.refusal.${result.refusal}`) : null;
+      setAnswerErrors((current) => {
+        const next = new Map(current);
+        if (message) next.set(decision.id, message); else next.delete(decision.id);
+        return next;
+      });
+      if (!message) focusComposer();
+    }).finally(() => setAnswering(false));
+  } : undefined;
+  // Esc on a waiting card leaves it waiting and hands focus back to the message box; Dismiss closes it.
+  const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer, onDismissDecision: dismissDecision, onOpenTask };
   // A record's work chip opens the work's brief in the side view; without a side view it stays a plain value.
   const openSide = flows?.onOpenSide;
   const openWork = useMemo(() => openSide ? (responsibilityId: string) => openSide({ responsibilityId, kind: "brief" }) : null, [openSide]);

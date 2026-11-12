@@ -3025,7 +3025,8 @@ interface WindowApi {
   /**
    * Desktop-owned durable conversation and local responsibility admission.
    * `answer` (`tars:answer`) answers a decision card option; controls it
-   * applies take `act`'s host path. `publish` (`tars:publish`) confirms a
+   * applies take `act`'s host path. `dismissDecision` (`tars:dismiss-decision`)
+   * closes a waiting decision card without an option; nothing applies. `publish` (`tars:publish`) confirms a
    * publish card and `previewPublish` (`tars:publish-preview`) reads what it
    * shows; the host commits, pushes and opens a draft pull request only on
    * that confirmation. `reprioritize` (`tars:reprioritize`) moves queued work

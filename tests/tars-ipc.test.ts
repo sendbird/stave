@@ -394,3 +394,27 @@ test("draft IPC validates the draft before it reaches the conversation service, 
   expect(JSON.parse(exposed.stdout.toString())).toEqual({ empty: null, saved: { text: "Saved", includeWorkingChanges: false, requestId: null }, denied: 2,
     channels: ["tars:get-draft", "tars:get-draft", "tars:save-draft", "tars:get-draft"] });
 });
+
+test("dismiss IPC names a decision and a click or key only, and reaches the conversation service, never the host", () => {
+  const source = `
+    import { mock } from "bun:test";
+    const handlers = new Map(); const calls = [];
+    mock.module("electron", () => ({ webContents: { getAllWebContents: () => [] }, ipcMain: { handle: (key, callback) => handlers.set(key, callback) } }));
+    mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: async () => { throw new Error("Dismissal must not use the host"); } }));
+    mock.module("./electron/main/tars-conversation-instance", () => ({ getTarsConversationService: async () => ({
+      dismissDecision: (input) => { calls.push(input); return { answer: null, refusal: "notWaiting" }; },
+    }) }));
+    const { registerTarsHandlers } = await import("./electron/main/ipc/tars"); registerTarsHandlers();
+    const result = await handlers.get("tars:dismiss-decision")(null, { decisionId: "confirm:message-1:0", source: "click" });
+    let denied = 0;
+    for (const value of [{ decisionId: "confirm:message-1:0", source: "words" }, { decisionId: "confirm:message-1:0", source: "tars" },
+      { decisionId: "anything", source: "click" }, { decisionId: "ask:m:0", source: "key", optionIndex: 0 }, undefined]) {
+      try { await handlers.get("tars:dismiss-decision")(null, value); } catch { denied++; }
+    }
+    console.log(JSON.stringify({ result, calls, denied }));
+  `;
+  const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
+  expect(result.exitCode, result.stderr.toString()).toBe(0);
+  expect(JSON.parse(result.stdout.toString())).toEqual({ result: { answer: null, refusal: "notWaiting" },
+    calls: [{ decisionId: "confirm:message-1:0", source: "click" }], denied: 5 });
+});

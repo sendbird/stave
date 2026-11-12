@@ -104,16 +104,32 @@ describe("Tars pending decisions in the snapshot", () => {
   });
 
   test("a proposal stops waiting when its responsibility moved on or ended", async () => {
+    // One message each, in its own conversation: a newer message would retire the older proposal by itself.
     const f = fixture();
     const moved = f.responsibility("paused");
-    const ended = f.responsibility("paused");
     await f.propose(moved, "resume");
-    await f.propose(ended, "resume");
-    expect(f.store.snapshot().pendingDecisions).toHaveLength(2);
+    expect(f.store.snapshot().pendingDecisions).toHaveLength(1);
     f.store.patch(moved.id, moved.revision, { priority: 80 }, LATER);
-    expect(f.store.snapshot().pendingDecisions.map((decision) => decision.responsibilityId)).toEqual([ended.id]);
-    f.store.patch(ended.id, ended.revision, { state: "cancelled" }, LATER);
     expect(f.store.snapshot().pendingDecisions).toEqual([]);
+    const g = fixture();
+    const ended = g.responsibility("paused");
+    await g.propose(ended, "resume");
+    expect(g.store.snapshot().pendingDecisions).toHaveLength(1);
+    g.store.patch(ended.id, ended.revision, { state: "cancelled" }, LATER);
+    expect(g.store.snapshot().pendingDecisions).toEqual([]);
+  });
+
+  test("a proposal stops waiting once the user sends a newer message, in the snapshot and for a confirmation", async () => {
+    const f = fixture();
+    const row = f.responsibility("paused");
+    const message = await f.propose(row, "resume");
+    expect(f.store.snapshot().pendingDecisions).toHaveLength(1);
+    // The user says something newer, unrelated to the proposal.
+    f.conversations.create({ requestId: "later", text: "What is the release doing now?" }, LATER);
+    expect(f.store.snapshot().pendingDecisions).toEqual([]);
+    expect(f.conversations.isCurrentProposal({ messageId: message.id, actionIndex: 0 })).toBe(false);
+    expect((await f.confirm(row, message.id, "resume")).record).toMatchObject({ status: "rejected", reason: "stale" });
+    expect(f.controls).toEqual([]);
   });
 
   test("a store without the conversation tables has no pending decisions", () => {

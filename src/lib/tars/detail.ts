@@ -90,6 +90,7 @@ export function describeTarsResponsibilityDiagnostic(row: TarsDetailFields): str
 const FAILURE_KEYS = {
   interrupted: "shell:tars.messageFailure.interrupted",
   reasoningFailed: "shell:tars.messageFailure.reasoningFailed",
+  agentsUnavailable: "shell:tars.messageFailure.agentsUnavailable",
 } as const satisfies Record<TarsMessageFailureCode, I18nKey>;
 
 /** A message saved before failure codes existed is recognized by its fixed English diagnostic. */

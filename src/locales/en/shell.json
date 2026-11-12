@@ -1345,7 +1345,8 @@
           "requestChanges": "Changes requested",
           "clear": "Cleared",
           "schedule": "Applied",
-          "scheduleList": "List opened"
+          "scheduleList": "List opened",
+          "withdraw": "Withdrawn"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -1374,7 +1375,18 @@
       "sendFailed": {
         "title": "Message not sent",
         "kept": "Your words are still in the message box."
-      }
+      },
+      "retrying": {
+        "timeout": "The first attempt took too long. Tars is trying once more.",
+        "truncated": "The first answer was cut short. Tars is trying once more.",
+        "provider": "The model had a temporary problem. Tars is trying once more."
+      },
+      "waiting": {
+        "earlierAction": "Waiting for the result of an earlier action. It starts within a minute either way.",
+        "agentCatalog": "Waiting for your saved agents to load. If they do not load within a minute, this message stops and says so."
+      },
+      "droppedActions_one": "{{count}} proposed action was not valid and was left out. Nothing was done for it.",
+      "droppedActions_other": "{{count}} proposed actions were not valid and were left out. Nothing was done for them."
     },
     "record": {
       "status": {
@@ -1786,7 +1798,8 @@
     },
     "messageFailure": {
       "interrupted": "Tars stopped before its reply was saved. Send the message again.",
-      "reasoningFailed": "Check the state of your work before sending it again."
+      "reasoningFailed": "Check the state of your work before sending it again.",
+      "agentsUnavailable": "Your saved agents did not load in time, so this message was not sent to Tars. Send it again."
     },
     "acceptCompletion": "Accept as done",
     "decision": {
@@ -1846,7 +1859,8 @@
         "alreadyAnswered": "This decision was already answered with a different option.",
         "notWaiting": "This decision no longer waits for an answer.",
         "invalidOption": "That option is not available.",
-        "failed": "Your answer could not be sent. Try again."
+        "failed": "Your answer could not be sent. Try again.",
+        "dismissFailed": "This card could not be dismissed. Try again."
       },
       "card": {
         "title": {
@@ -1927,13 +1941,27 @@
         "showDetails": "Details",
         "requestFrom": "Request from {{tool}}",
         "checking": "Checking the work",
-        "attemptRefused": "Not applied: {{option}}"
+        "attemptRefused": "Not applied: {{option}}",
+        "dismiss": "Dismiss",
+        "dismissHint": "Close this card without choosing. Nothing is applied, and it stops waiting."
       },
       "outcome": {
         "pending": "Applying",
         "answered": "Answered",
         "confirmed": "Confirmed",
         "rejected": "Not applied"
+      },
+      "closed": {
+        "dismissed": "Dismissed",
+        "withdrawn": "Withdrawn by Tars",
+        "stillBlocked": "The work stays blocked. Its controls are in the tray."
+      },
+      "withdraw": {
+        "lead": "Withdraw",
+        "subject": {
+          "confirm": "An earlier proposal that was waiting for you",
+          "ask": "An earlier question that was waiting for you"
+        }
       }
     },
     "side": {

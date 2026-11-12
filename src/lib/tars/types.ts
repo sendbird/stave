@@ -7,7 +7,7 @@ import type { TarsBrief, TarsBriefInput } from "./brief";
 import type { TarsUsageInput, TarsUsageReport } from "./usage";
 import type { SaveTarsComposerDraftInput, TarsComposerDraft } from "./composer-draft";
 import type {
-  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView,
+  CancelTarsMessageInput, GetTarsConversationInput, TarsActInput, TarsActResult, TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsMessageView, TarsDismissInput,
   TarsMessageInput, TarsConversationSettings, TarsReprioritizeInput,
 } from "./conversation";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
@@ -38,6 +38,8 @@ export const TARS_IPC = Object.freeze({
   cancelMessage: "tars:cancel-message",
   /** Answers one decision card option (click, key or a bound short answer); controls take `tars:act`'s host path. */
   answer: "tars:answer",
+  /** Closes one waiting decision card without an option (the user's Dismiss); nothing applies. */
+  dismissDecision: "tars:dismiss-decision",
   /** Confirms one publish card: the host commits, pushes and opens a draft pull request. */
   publish: "tars:publish",
   /** Reads what a publish card shows (repository, branches, changed files, body); changes nothing. */
@@ -593,6 +595,8 @@ export interface TarsBridgeApi {
   act(input: TarsActInput): Promise<TarsActResult>;
   /** Answers a decision card; absent on bridges that predate decision cards. */
   answer?(input: TarsAnswerInput): Promise<TarsAnswerResult>;
+  /** Dismisses a waiting decision card: it stops waiting and nothing applies; absent on bridges that predate dismissal. */
+  dismissDecision?(input: TarsDismissInput): Promise<TarsAnswerResult>;
   /** Confirms a publish card through the host's one publish path; absent on bridges that predate publishing. */
   publish?(input: TarsPublishInput): Promise<TarsPublishResult>;
   /** What a publish card shows, read by the host; absent on bridges that predate publishing. */

@@ -1,5 +1,5 @@
 import {
-  TarsActionReceiptSchema, TarsActionRecordSchema, TarsDecisionAnswerSchema, type TarsActionReceipt, type TarsDecisionAnswer,
+  TarsActionReceiptSchema, TarsActionRecordSchema, TarsDecisionAnswerSchema, isTarsDecisionClosure, type TarsActionReceipt, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
 import { tarsDecisionTargets, tarsReceiptDecisionId } from "../../src/lib/tars/decisions";
 
@@ -60,7 +60,8 @@ export function readTarsAnswers(db: unknown, ids: readonly string[]): Map<string
  * `<message>:<responsibility>` pairs settled by an answered decision of that
  * message: its other decisions on the same work were alternatives and retire.
  * Decisions on other work in the same message stay open. A refused answer or
- * confirmation settles nothing; `except` leaves out the decision being
+ * confirmation settles nothing, and neither does a dismissal or a withdrawal,
+ * which closes only its own card; `except` leaves out the decision being
  * confirmed, whose own record exists while it is checked.
  * The conversation card applies the same rule (`projectTarsDecisions`).
  */
@@ -79,7 +80,7 @@ export function readSettledTarsTargets(db: unknown, messageIds: readonly string[
       if (!id || id === except) continue;
       const answer = answers.get(id);
       const record = records.get(id);
-      if (!(answer && answer.status !== "rejected") && !(record && record.status !== "rejected")) continue;
+      if (!(answer && answer.status !== "rejected" && !isTarsDecisionClosure(answer)) && !(record && record.status !== "rejected")) continue;
       for (const target of tarsDecisionTargets(receipt)) settled.add(`${messageId}:${target}`);
     }
   }
@@ -98,4 +99,18 @@ export function readOpenTarsAsks(db: unknown): TarsActionReceipt[] {
       AND NOT EXISTS (SELECT 1 FROM tars_messages later WHERE later.rowid > m.rowid
         AND json_extract(later.body_json, '$.origin.kind') IS NOT 'followUp')
     ORDER BY r.rowid`).all(), TarsActionReceiptSchema);
+}
+
+/**
+ * The messages the conversation moved on from: a later message exists that is
+ * not Tars's own automatic follow-up about other work. A proposal or a
+ * question of such a message no longer waits (`projectTarsDecisions` reads
+ * the same rule from conversation order).
+ */
+export function readMovedOnTarsMessages(db: unknown, messageIds: readonly string[]): Set<string> {
+  if (!messageIds.length) return new Set();
+  const rows = (db as ReceiptDatabase).prepare(`SELECT m.id AS id FROM tars_messages m WHERE m.id IN (SELECT value FROM json_each(?))
+    AND EXISTS (SELECT 1 FROM tars_messages later WHERE later.rowid > m.rowid AND json_extract(later.body_json, '$.origin.kind') IS NOT 'followUp')`)
+    .all(JSON.stringify([...new Set(messageIds)])) as Array<{ id: string }>;
+  return new Set(rows.map((row) => row.id));
 }

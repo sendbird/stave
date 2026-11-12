@@ -238,6 +238,19 @@ export const TarsShowActionSchema = z.object({
 }).strict();
 export type TarsShowAction = z.infer<typeof TarsShowActionSchema>;
 
+/**
+ * Withdraws one of Tars's own earlier decisions that still waits: a proposal
+ * waiting for Confirm (`confirm:<message>:<action>`) or a question
+ * (`ask:<message>:<action>`). It only closes the card; it grants nothing and
+ * applies no option. Stave's own unverified-completion choice is never Tars's
+ * to withdraw.
+ */
+export const TarsWithdrawActionSchema = z.object({
+  kind: z.literal("withdraw"),
+  decisionId: z.string().max(300).regex(/^(?:confirm|ask):[A-Za-z0-9._-]+:[0-7]$/),
+}).strict();
+export type TarsWithdrawAction = z.infer<typeof TarsWithdrawActionSchema>;
+
 export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("delegate"),
@@ -277,11 +290,27 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   TarsControlActionSchema,
   TarsAskActionSchema,
   TarsShowActionSchema,
+  TarsWithdrawActionSchema,
   TarsPublishActionSchema,
   TarsClearActionSchema,
   TarsScheduleActionSchema,
 ]);
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
+
+/**
+ * An action the model returned that the host never saw: it did not match its
+ * schema (`invalid`) or went past a per-reply limit (`overLimit`). The reply
+ * and the valid actions are kept; `index` is its position in the model's
+ * output, `kind` its kind when it named a known one, and `detail` an English
+ * diagnostic (the schema paths), never the model's text.
+ */
+export const TarsDroppedActionSchema = z.object({
+  index: z.number().int().min(0).max(63),
+  kind: z.string().max(40).nullable(),
+  reason: z.enum(["invalid", "overLimit"]),
+  detail: z.string().max(500),
+}).strict();
+export type TarsDroppedAction = z.infer<typeof TarsDroppedActionSchema>;
 
 /** A proposal is not an execution receipt or an authorization grant. One reply asks at most one question. */
 export const TarsDecisionSchema = z.object({
@@ -295,6 +324,8 @@ export const TarsDecisionSchema = z.object({
     .refine((actions) => actions.filter((action) => action.kind === "publish").length <= 1, "A reply proposes at most one publish.")
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((actions) => actions.filter((action) => action.kind === "clear").length <= 1, "A reply proposes at most one clear."),
+  /** Optional so earlier decisions still parse; absent when every action the model returned was kept. */
+  dropped: z.array(TarsDroppedActionSchema).max(64).optional(),
 }).strict();
 export type TarsDecision = z.infer<typeof TarsDecisionSchema>;
 
@@ -303,7 +334,7 @@ export type TarsDecision = z.infer<typeof TarsDecisionSchema>;
  * beside it stays a diagnostic; messages saved before codes existed carry
  * only the English sentence (see `TARS_MESSAGE_FAILURE_TEXT`).
  */
-export const TarsMessageFailureCodeSchema = z.enum(["interrupted", "reasoningFailed"]);
+export const TarsMessageFailureCodeSchema = z.enum(["interrupted", "reasoningFailed", "agentsUnavailable"]);
 export type TarsMessageFailureCode = z.infer<typeof TarsMessageFailureCodeSchema>;
 /** The fixed English diagnostic saved with each failure code. */
 export const TARS_MESSAGE_FAILURE_TEXT: Readonly<Record<TarsMessageFailureCode, string>> = Object.freeze({
@@ -311,7 +342,25 @@ export const TARS_MESSAGE_FAILURE_TEXT: Readonly<Record<TarsMessageFailureCode, 
   interrupted: "Reasoning was interrupted before its result was saved. Send a new message to try again.",
   // i18n-ignore: persisted diagnostic; the interface translates the code
   reasoningFailed: "The representative could not finish this message. Retry explicitly after inspecting its state.",
+  // i18n-ignore: persisted diagnostic; the interface translates the code
+  agentsUnavailable: "The saved agents this message allows did not load in time. Send the message again.",
 });
+
+/**
+ * Why a planner turn is tried once more by itself: the provider timed out,
+ * cut its output short, or failed in a way that passes (rate limit, overload,
+ * a dropped connection). Never for a refusal or a malformed decision.
+ */
+export const TarsRetryCauseSchema = z.enum(["timeout", "truncated", "provider"]);
+export type TarsRetryCause = z.infer<typeof TarsRetryCauseSchema>;
+
+/**
+ * Why a queued message has not started: an earlier message's action whose
+ * outcome is not known yet (`earlierAction`), or the saved agents it allows
+ * have not loaded (`agentCatalog`). Either wait is bounded.
+ */
+export const TarsQueueWaitReasonSchema = z.enum(["earlierAction", "agentCatalog"]);
+export type TarsQueueWaitReason = z.infer<typeof TarsQueueWaitReasonSchema>;
 
 /**
  * A decision's stable identity: `confirm:<message>:<action>` (a proposed
@@ -366,13 +415,17 @@ const messageFields = {
   decision: TarsDecisionSchema.nullable(),
   /** Optional so earlier rows still parse; absent on messages the user typed. */
   origin: TarsMessageOriginSchema.optional(),
+  /** The one automatic retry of its planner turn, once it started; absent when the first attempt was the only one. */
+  retry: z.object({ attempt: z.literal(2), cause: TarsRetryCauseSchema, at: TimestampSchema }).strict().optional(),
+  /** Only on a queued message: why it has not started yet (`TarsQueueWaitReason`). */
+  waiting: z.object({ reason: TarsQueueWaitReasonSchema, since: TimestampSchema }).strict().optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 };
-function checkMessageState(message: { state: string; reply: string | null; error: string | null; errorCode?: string | null; decision: { reply: string } | null },
+function checkMessageState(message: { state: string; reply: string | null; error: string | null; errorCode?: string | null; decision: { reply: string } | null; waiting?: unknown },
   context: z.RefinementCtx) {
   const answered = message.state === "answered";
-  if ((message.errorCode != null && message.state !== "failed") || (answered
+  if ((message.errorCode != null && message.state !== "failed") || (message.waiting !== undefined && message.state !== "queued") || (answered
     ? !message.decision || message.reply !== message.decision.reply || message.error !== null
     : message.decision !== null || message.reply !== null || (message.state === "failed" ? message.error === null : message.error !== null))) {
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
@@ -445,9 +498,9 @@ export const TarsActionReceiptSchema = z.object({
   const proposable = receipt.action.kind === "ask"
     || (receipt.action.kind === "schedule" ? receipt.action.operation !== "list" : isTarsHoldableAction(receipt.action));
   // A clear or a schedule belongs to no responsibility, so its applied receipt names none.
-  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule";
+  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw";
   // An automatic follow-up's refusal carries its one code on any kind of action.
-  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize"
+  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
     : receipt.action.kind === "publish" ? TarsPublishReasonSchema.safeParse(receipt.reason).success
       : receipt.action.kind === "schedule" ? TarsScheduleReasonSchema.safeParse(receipt.reason).success
@@ -634,7 +687,15 @@ export const TarsAnswerEffectSchema = z.discriminatedUnion("kind", [
   ...TarsAskEffectSchema.options,
   // Confirms the held work proposal the decision names (a delegation or a priority change): the host applies the saved action, never the caller's.
   z.object({ kind: z.literal("proposal") }).strict(),
+  // The user closed the card without choosing: nothing applies, the decision stops waiting.
+  z.object({ kind: z.literal("dismiss") }).strict(),
+  // Tars withdrew its own decision with this later action (`TarsWithdrawAction`): nothing applies, the decision stops waiting.
+  z.object({ kind: z.literal("withdraw"), messageId: IdSchema, actionIndex: z.number().int().min(0).max(7) }).strict(),
 ]);
+
+/** A stored answer's source: the user's (`TarsAnswerSource`), or Tars's own for a withdrawal. */
+export const TarsDecisionAnswerSourceSchema = z.enum([...TarsAnswerSourceSchema.options, "tars"]);
+export type TarsDecisionAnswerSource = z.infer<typeof TarsDecisionAnswerSourceSchema>;
 
 /**
  * The first answer to a decision. Its identity is the decision: a repeated
@@ -643,7 +704,7 @@ export const TarsAnswerEffectSchema = z.discriminatedUnion("kind", [
 export const TarsDecisionAnswerSchema = z.object({
   decisionId: TarsDecisionIdSchema,
   optionIndex: z.number().int().min(0).max(TARS_ASK_MAX_OPTIONS - 1),
-  source: TarsAnswerSourceSchema,
+  source: TarsDecisionAnswerSourceSchema,
   effect: TarsAnswerEffectSchema,
   /** The option as the model wrote it; null for Stave's own options, named by their operation. */
   label: z.string().trim().min(1).max(60).nullable(),
@@ -662,8 +723,26 @@ export const TarsDecisionAnswerSchema = z.object({
   const rejected = answer.status === "rejected";
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (answer.error !== null) || (!rejected && answer.reason !== null)) context.addIssue({ code: "custom", message: "Answer status and outcome fields disagree." });
+  // A closure chose no option: it is applied at once, names nothing to act on, and only a withdrawal is Tars's.
+  const closure = answer.effect.kind === "dismiss" || answer.effect.kind === "withdraw";
+  if ((answer.source === "tars") !== (answer.effect.kind === "withdraw") || (closure && (answer.status !== "applied" || answer.optionIndex !== 0
+    || answer.label !== null || answer.actRequestId !== null || answer.attempt !== undefined)))
+    // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
+    context.addIssue({ code: "custom", message: "A dismissal or withdrawal chooses no option and applies nothing." });
 });
 export type TarsDecisionAnswer = z.infer<typeof TarsDecisionAnswerSchema>;
+
+/** Whether an answer closed its decision without choosing an option: the user dismissed it, or Tars withdrew it. */
+export function isTarsDecisionClosure(answer: Pick<TarsDecisionAnswer, "effect">): boolean {
+  return answer.effect.kind === "dismiss" || answer.effect.kind === "withdraw";
+}
+
+/** The user's Dismiss on a waiting decision card: by click or by key on the focused card. */
+export const TarsDismissInputSchema = z.object({
+  decisionId: TarsDecisionIdSchema,
+  source: TarsAnswerSourceSchema.extract(["click", "key"]),
+}).strict();
+export type TarsDismissInput = z.infer<typeof TarsDismissInputSchema>;
 
 /**
  * A refused answer leaves its decision open, for a retry or another option,

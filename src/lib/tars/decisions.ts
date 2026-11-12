@@ -1,5 +1,5 @@
 import {
-  TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
+  TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsDecisionClosure, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
 import type {
   TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
@@ -97,9 +97,11 @@ export type TarsDecisionOption =
  * control, a confirmation from Fleet or the tray) settled it. `invalid`: a
  * target moved past its revision or ended. `retired`: it stopped waiting for
  * a reason that needs nothing from anyone (a newer proposal, the conversation
- * moving on, a sibling answered, or the work settled elsewhere).
+ * moving on, a sibling answered, or the work settled elsewhere). `dismissed`:
+ * the user closed it without choosing. `withdrawn`: Tars took it back with a
+ * later `withdraw` action. Neither applies anything.
  */
-export type TarsDecisionState = "waiting" | "answered" | "invalid" | "retired";
+export type TarsDecisionState = "waiting" | "answered" | "invalid" | "retired" | "dismissed" | "withdrawn";
 export type TarsDecisionWhy = "targetMoved" | "targetEnded" | "superseded" | "movedOn" | "settled";
 
 export interface TarsDecisionView {
@@ -120,6 +122,8 @@ export interface TarsDecisionView {
   answer: TarsDecisionAnswer | null;
   /** The last attempt the host refused for a reason that leaves the decision open. */
   failure: TarsDecisionAnswer | null;
+  /** A dismissal or a withdrawal that closed it without an option (`dismissed`, `withdrawn`); absent or null otherwise. */
+  closure?: TarsDecisionAnswer | null;
   /** It belongs to the newest message and nothing was said after it: only then may a short answer bind to it. */
   latest: boolean;
   /** A confirmation made outside the card (Fleet, the tray): its record. */
@@ -187,6 +191,8 @@ export function tarsReceiptDecisionId(receipt: Pick<TarsActionReceipt, "action" 
 export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecisionView[] {
   const rows = sources.responsibilities ? new Map(sources.responsibilities.map((row) => [row.id, row])) : null;
   const settling = new Map(sources.answers.filter(isTarsAnswerSettling).map((answer) => [answer.decisionId, answer]));
+  // A dismissal or a withdrawal closes only its own card: it chose nothing, so it retires no sibling.
+  const chosen = (id: string) => { const answer = settling.get(id); return answer && !isTarsDecisionClosure(answer) ? answer : undefined; };
   const failures = new Map(sources.answers.filter(isTarsAnswerRetryable).map((answer) => [answer.decisionId, answer]));
   const records = new Map(sources.records.map((record) => [record.requestId, record]));
   const order = new Map(sources.messages.map((message, index) => [message.id, index]));
@@ -206,7 +212,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   for (const receipt of receipts) {
     const id = tarsReceiptDecisionId(receipt);
     // A refused answer or confirmation changed nothing, so it retires nothing (`readSettledTarsTargets`).
-    if (!id || !((settling.get(id)?.status ?? "rejected") !== "rejected" || (records.get(id)?.status ?? "rejected") !== "rejected")) continue;
+    if (!id || !((chosen(id)?.status ?? "rejected") !== "rejected" || (records.get(id)?.status ?? "rejected") !== "rejected")) continue;
     for (const target of tarsDecisionTargets(receipt)) {
       const key = `${receipt.messageId}:${target}`;
       settledBy.set(key, new Set([...(settledBy.get(key) ?? []), id]));
@@ -233,6 +239,9 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const deliveryRecord = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record) ?? null;
     const delivery = deliveryRecord?.delivery ?? null;
     const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery, deliveryRecord };
+    // Closed without an option: before any other rule, so it never reads as invalid, retired or asked again.
+    if (view.answer && isTarsDecisionClosure(view.answer)) return { ...base, answer: null, closure: view.answer,
+      state: view.answer.effect.kind === "withdraw" ? "withdrawn" : "dismissed", why: null, checked: true, reask: false };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
     const targets = targetsOf(view.targets, view.options);
@@ -277,7 +286,8 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
         // Confirming a cancel or an acceptance is always an explicit choice.
         recommended: TARS_IRREVERSIBLE_OPERATIONS.has(action.operation) || receipt.matchedRules?.length ? null : 0, answer, record, since: receipt.updatedAt,
         ...(receipt.matchedRules ? { matchedRules: receipt.matchedRules } : {}) },
-      retiredBy, message.origin));
+      // A proposal waits only until the user says something newer, like a question (`readMovedOnTarsMessages`).
+      retiredBy, message.origin, later));
     } else if (action.kind === "ask" && receipt.status === "proposed") {
       const id = tarsAskDecisionId(receipt.messageId, receipt.actionIndex);
       const answer = settling.get(id) ?? null;

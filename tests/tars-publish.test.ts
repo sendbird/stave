@@ -407,11 +407,13 @@ describe("Tars publish from words", () => {
     expect(receipt).toMatchObject({ status: "rejected", reason: "notByFollowUp" });
   });
 
-  test("the planner may return one publish action, never two", () => {
+  test("the planner may return one publish action, never two: a second or malformed one is dropped, the reply kept", () => {
     const action = { kind: "publish", responsibilityId: "r", expectedRevision: 3 };
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm the card.", actions: [action] })).actions).toEqual([action]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [action, action] }))).toThrow();
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ ...action, base: "main" }] }))).toThrow();
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [action, action] })))
+      .toMatchObject({ reply: "x", actions: [action], dropped: [{ index: 1, kind: "publish", reason: "overLimit" }] });
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ ...action, base: "main" }] })))
+      .toMatchObject({ reply: "x", actions: [], dropped: [{ index: 0, kind: "publish", reason: "invalid" }] });
   });
 });
 

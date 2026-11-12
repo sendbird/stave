@@ -338,7 +338,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
     actions.forEach((_, index) => receipt(message, index, { status: "proposed" }));
     return { message, decisionId: (index = 0) => `confirm:${id}:${index}` };
   }
-  function confirmAnswer(decisionId: string, action: ControlAction, at: string, source: TarsDecisionAnswer["source"], outcome: "applied" | "pending" | { reason: NonNullable<TarsDecisionAnswer["reason"]> },
+  function confirmAnswer(decisionId: string, action: ControlAction, at: string, source: Exclude<TarsDecisionAnswer["source"], "tars">, outcome: "applied" | "pending" | { reason: NonNullable<TarsDecisionAnswer["reason"]> },
     delivery?: TarsMessageDelivery) {
     const rejected = typeof outcome === "object";
     answers.push({ decisionId, optionIndex: 0, source, effect: action, label: null, status: rejected ? "rejected" : outcome, reason: rejected ? outcome.reason : null,
@@ -403,7 +403,8 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
       { status: "queued", agentRunId: "run-gallery-webhook", reason: null, error: null, queuedAt: c.at(20), updatedAt: c.at(20) });
   }
 
-  // F · Confirmations waiting now: each is the newest control proposal for its work.
+  // F · Confirmation cards of every kind. Each was the newest proposal for its work, and later messages moved the
+  // conversation on, so each now reads as no longer waiting; the release check's resume waits again in the last message (M).
   function waiting(code: string, en: string, ko: string, ask: [string, string], reply: [string, string], actions: ControlAction[]) {
     const c = begin(code, en, ko);
     const { message } = propose(`g-${code.toLowerCase()}`, c.at(), `${c.label}: ${l(...ask)}`, l(...reply), actions);
@@ -699,9 +700,16 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
       { label: l("Keep it running", "계속 실행"), rationale: l("The header row is needed either way.", "어느 쪽이든 헤더 행은 필요합니다."), effect: { kind: "reply" } },
       { label: l("Explain the risk", "위험 설명"), rationale: l("Tars explains before you decide.", "결정하기 전에 Tars가 설명합니다."), effect: { kind: "reply" } },
     ] };
+    // A proposal waits only in the newest message: the release check's resume is asked again beside the question.
+    const resume = control(release, "resume");
     const message = said("g-m", c.at(), `${c.label}: ${l("should the billing fix wait for finance?", "결제 수정이 재무팀을 기다려야 할까?")}`,
-      l("The fix is running. Choose how to continue.", "수정이 실행 중입니다. 어떻게 할지 골라 주세요."), [ask]);
+      l("The fix is running. Choose how to continue. Staging is green too, so confirm below to resume the release check.",
+        "수정이 실행 중입니다. 어떻게 할지 골라 주세요. 스테이징도 정상이니 아래에서 확인하시면 릴리스 확인을 재개합니다."), [ask, resume]);
     receipt(message, 0, { status: "proposed" });
+    receipt(message, 1, { status: "proposed" });
+    // The tray keeps one decision row for the release check: the newest proposal's.
+    pendingDecisions.splice(pendingDecisions.findIndex((entry) => entry.messageId === "g-f1"), 1);
+    waitingFor(message, 1, resume);
     pendingDecisions.push({ kind: "ask", responsibilityId: billing.id, messageId: message.id, actionIndex: 0, operation: null, expectedRevision: billing.revision,
       proposedAt: message.createdAt, question, optionCount: 3 });
   }

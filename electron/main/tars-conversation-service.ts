@@ -1,6 +1,7 @@
 import {
   CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
   TarsConversationSchema, TarsConversationSettingsSchema, TarsControlReasonSchema, isTarsHoldableAction, tarsConfirmationRequestId, isTarsAnswerRetryable,
+  TarsDismissInputSchema, TARS_MESSAGE_FAILURE_TEXT, isTarsDecisionClosure, type TarsQueueWaitReason,
   type TarsMessage, type ApplyTarsDecisionInput, type ConfirmTarsProposalInput, type TarsActInput, type TarsActResult, type TarsActionReceipt,
   type TarsAnswerResult, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
@@ -52,9 +53,20 @@ interface ConversationPorts {
   onError?: (error: unknown) => void;
   /** Delays before each consecutive retry of a failed drain; tests shorten them. */
   retryDelaysMs?: readonly number[];
+  /** How long one blocked item may hold the messages after it (`QUEUE_WAIT_MS`); tests shorten it. */
+  queueWaitMs?: number;
 }
 
 const RETRY_DELAYS_MS = [1_000, 5_000, 30_000];
+/**
+ * The longest one blocked item holds the queue: an earlier message's action
+ * whose outcome is not known yet, or a message waiting for the saved agents it
+ * allows. Long enough for a host restart or a window's catalog sync to finish,
+ * short enough that later messages never sit queued without an answer.
+ */
+const QUEUE_WAIT_MS = 60_000;
+/** How long an earlier action may run before the queued messages say they wait for it. */
+const QUEUE_NOTICE_MS = 2_000;
 /** How far back answers, invalidation and re-asks look; older decisions are no longer shown. */
 const DECISION_WINDOW = 200;
 
@@ -74,6 +86,53 @@ export function createTarsConversationService(ports: ConversationPorts) {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let windowTimer: ReturnType<typeof setTimeout> | null = null;
   let failedDrains = 0;
+  /** When each blocked item was first seen blocked: `action:<message>` or `catalog:<message>`. Kept across drains, so the wait stays bounded. */
+  const blockedSince = new Map<string, number>();
+  const queueWaitMs = ports.queueWaitMs ?? QUEUE_WAIT_MS;
+
+  /** Whether a blocked item may still hold the queue; the first call starts its wait. */
+  function stillWaiting(key: string) {
+    const at = Date.parse(now());
+    if (!blockedSince.has(key)) blockedSince.set(key, at);
+    return at - blockedSince.get(key)! < queueWaitMs;
+  }
+
+  /** Says on each queued message why it has not started, or with null that it no longer waits for that. */
+  function noteQueueWait(reason: TarsQueueWaitReason | null) {
+    const queued = ports.conversations.listQueued(32).filter((message) => reason !== null || message.waiting);
+    ports.conversations.noteQueueWait(queued.map((message) => message.id), reason, now());
+  }
+
+  /**
+   * Each saved decision's application under way, settling to its error or
+   * null. A request the host has not answered keeps running and is never sent
+   * again: later drains wait on the same one, and only the queue stops waiting
+   * for it (`QUEUE_WAIT_MS`). One the queue stopped waiting for wakes it when it settles.
+   */
+  const applying = new Map<string, Promise<unknown>>();
+  const detached = new Set<string>();
+  function startApply(message: TarsMessage): Promise<unknown> {
+    let run = applying.get(message.id);
+    if (!run) {
+      run = apply(message).then(() => null, (error: unknown) => error).finally(() => {
+        applying.delete(message.id);
+        if (detached.delete(message.id) && !stopped) requestWork();
+      });
+      applying.set(message.id, run);
+    }
+    return run;
+  }
+
+  const DEADLINE = Symbol("deadline");
+  /** The result, or `DEADLINE` once `ms` pass; the timer never keeps the process alive. */
+  function within<T>(promise: Promise<T>, ms: number): Promise<T | typeof DEADLINE> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<typeof DEADLINE>((resolve) => {
+      timer = setTimeout(() => resolve(DEADLINE), Math.max(0, ms));
+      (timer as { unref?: () => void }).unref?.();
+    });
+    return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
+  }
 
   async function abort(messageId: string) {
     const identity = tarsMessageRunIdentity(messageId);
@@ -158,7 +217,8 @@ export function createTarsConversationService(ports: ConversationPorts) {
    * outcome is unknown leaves the answer pending for the next retry.
    */
   async function settleAnswer(answer: TarsDecisionAnswer): Promise<TarsDecisionAnswer> {
-    if (answer.status !== "pending") return answer;
+    // A withdrawal (Tars's own) is settled when it is recorded; only the user's pending answers apply here.
+    if (answer.status !== "pending" || answer.source === "tars") return answer;
     const { effect } = answer;
     if (effect.kind === "control") {
       if (!ports.act || !answer.actRequestId) throw new Error("The host control path is unavailable.");
@@ -258,20 +318,54 @@ export function createTarsConversationService(ports: ConversationPorts) {
 
   async function drain() {
     const answersFailed = await retryPendingAnswers();
+    // Earlier messages whose actions waited past `QUEUE_WAIT_MS`: still retried, but no longer holding later messages.
+    const passed = new Set<string>();
     while (!stopped) {
-      const proposal = ports.conversations.listPendingActions(1)[0];
-      if (proposal) { await apply(proposal); continue; }
+      const proposal = ports.conversations.listPendingActions(32).find((entry) => !passed.has(entry.id));
+      if (proposal) {
+        const key = `action:${proposal.id}`;
+        // The wait starts when the queue first waits on this action, including a request the host has not answered.
+        stillWaiting(key);
+        const run = startApply(proposal);
+        let result = await within(run, Math.min(QUEUE_NOTICE_MS, queueWaitMs));
+        if (result === DEADLINE) {
+          noteQueueWait("earlierAction");
+          result = await within(run, queueWaitMs - (Date.parse(now()) - blockedSince.get(key)!));
+        }
+        if (stopped) return;
+        if (result === DEADLINE) {
+          // Still unanswered: it keeps running, and later messages stop waiting for it.
+          detached.add(proposal.id);
+          passed.add(proposal.id);
+          continue;
+        }
+        if (result === null) { blockedSince.delete(key); continue; }
+        const error = result;
+        if (!(error instanceof TarsControlOutcomeUnknownError || isTarsAgentCatalogPending(error))) throw error;
+        // Later messages wait in order for a bounded time, and each says why.
+        if (stillWaiting(key)) { noteQueueWait("earlierAction"); throw error; }
+        passed.add(proposal.id);
+        continue;
+      }
       noteInvalidatedDecisions();
       let message = nextStartable();
       // The user's own messages go first; Tars then follows up on what still needs judgment.
       if (!message) { admitFollowUps(); message = nextStartable(); }
       if (!message) {
-        // The rest of the queue went on; the unsettled answer is retried like an unknown control outcome.
-        if (answersFailed && !stopped) throw new TarsControlOutcomeUnknownError();
+        // Nothing waits any more for what held it; deferred follow-ups wake on their own timer.
+        noteQueueWait(null);
+        // The rest of the queue went on; the unsettled answer or action is retried like an unknown control outcome.
+        if ((answersFailed || passed.size) && !stopped) throw new TarsControlOutcomeUnknownError();
         return;
       }
-      // Never claim (or bill) a message before its allowed saved agents are known.
-      if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false) throw new TarsAgentCatalogPendingError();
+      // Never claim (or bill) a message before its allowed saved agents are known: wait a bounded time, then say it failed.
+      if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false) {
+        if (stillWaiting(`catalog:${message.id}`)) { noteQueueWait("agentCatalog"); throw new TarsAgentCatalogPendingError(); }
+        blockedSince.delete(`catalog:${message.id}`);
+        ports.conversations.fail(message.id, message.revision, TARS_MESSAGE_FAILURE_TEXT.agentsUnavailable, now(), "agentsUnavailable");
+        continue;
+      }
+      blockedSince.delete(`catalog:${message.id}`);
       activeMessageId = message.id;
       try {
         await processTarsMessage(message.id, { ...ports, isStopped: () => stopped, historyAfter,
@@ -402,6 +496,8 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
       const input = TarsAnswerInputSchema.parse(rawInput);
       const existing = ports.conversations.getAnswer(input.decisionId);
+      // Dismissed or withdrawn: it chose no option, so no option can join it.
+      if (existing && isTarsDecisionClosure(existing)) return { answer: null, refusal: "notWaiting" };
       // A refusal that leaves the decision open lets the user retry or choose another option.
       if (existing && !isTarsAnswerRetryable(existing)) return existing.optionIndex === input.optionIndex
         ? { answer: await settleAnswer(existing), refusal: null } : { answer: existing, refusal: "alreadyAnswered" };
@@ -416,6 +512,22 @@ export function createTarsConversationService(ports: ConversationPorts) {
         label: option.label, actRequestId: option.kind === "control" ? tarsAnswerActRequestId(view.id) : null }, now());
       if (recorded.refusal) return recorded;
       return { answer: await settleAnswer(recorded.answer), refusal: null };
+    },
+    /**
+     * The user's Dismiss on a waiting card: the decision stops waiting without
+     * an option, so it leaves Fleet and the tray, and nothing applies. The
+     * same dismissal again returns the saved one; an answered decision is
+     * refused. Stave's unverified-completion choice leaves its work blocked.
+     */
+    dismissDecision(rawInput: unknown): TarsAnswerResult {
+      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+      const input = TarsDismissInputSchema.parse(rawInput);
+      const existing = ports.conversations.getAnswer(input.decisionId);
+      if (existing?.effect.kind === "dismiss") return { answer: existing, refusal: null };
+      const view = decisions().find((candidate) => candidate.id === input.decisionId);
+      if (view?.state === "answered") return { answer: view.answer, refusal: "alreadyAnswered" };
+      if (view?.state !== "waiting") return { answer: null, refusal: "notWaiting" };
+      return ports.conversations.closeDecision(view.id, { kind: "dismiss", source: input.source }, now());
     },
     async cancelMessage(rawInput: unknown) {
       const input = CancelTarsMessageInputSchema.parse(rawInput);

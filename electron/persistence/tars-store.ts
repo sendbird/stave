@@ -15,7 +15,7 @@ import {
   type TarsSnapshot,
   type UpdateTarsIdentityInput,
 } from "../../src/lib/tars/types";
-import { hasTarsDecisionTables, readLatestTarsControls, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers } from "./tars-proposals";
+import { hasTarsDecisionTables, readLatestTarsControls, readMovedOnTarsMessages, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers } from "./tars-proposals";
 import { isTarsAnswerSettling, tarsAskDecisionId, tarsUnverifiedDecisionId } from "../../src/lib/tars/decisions";
 import { tarsConfirmationRequestId } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
@@ -166,10 +166,13 @@ export class TarsStore {
    *   controls from the newest message that proposed one for the
    *   responsibility can wait (`readLatestTarsControls`), only while still
    *   proposed, no other decision of their message was answered, the
-   *   responsibility has not ended and its revision is current. The host
-   *   refuses to confirm any other.
+   *   responsibility has not ended, its revision is current, no answer,
+   *   dismissal or withdrawal closed it and the user has not sent a newer
+   *   message since (the conversation moved on). The host refuses to confirm
+   *   any other.
    * - `unverifiedCompletion`: work blocked because Stave could not verify its
-   *   completion, until answered or changed.
+   *   completion, until answered, dismissed or changed. A dismissed one leaves
+   *   the work blocked, so it shows as blocked work with its own controls.
    * - `ask`: an unanswered question of the newest message whose control
    *   options all still target current revisions. A question about no work
    *   stays in the conversation only.
@@ -187,9 +190,10 @@ export class TarsStore {
     const settled = this.hasDecisionTables ? readSettledTarsTargets(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
     const answered = this.hasDecisionTables ? readTarsAnswers(this.db, proposals.map((receipt) => tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)))
       : new Map();
+    const movedOn = this.hasDecisionTables ? readMovedOnTarsMessages(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
     const confirms = proposals.flatMap((receipt): TarsPendingDecision[] => {
       const { action } = receipt;
-      if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) ||
+      if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) || movedOn.has(receipt.messageId) ||
         answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision, action.operation)) return [];
       return [{ responsibilityId: action.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: receipt.updatedAt }];

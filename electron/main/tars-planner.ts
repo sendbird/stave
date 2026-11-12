@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
-  TARS_DELEGATION_REASON_MAX_CHARS, TARS_MESSAGE_FAILURE_TEXT, TARS_REPLY_MAX_CHARS, TarsDecisionSchema, withoutIrreversibleRecommendation, type TarsDecision, type TarsMessage,
+  TARS_DELEGATION_REASON_MAX_CHARS, TARS_MESSAGE_FAILURE_TEXT, TARS_REPLY_MAX_CHARS, TarsDecisionActionSchema, TarsDecisionSchema, withoutIrreversibleRecommendation,
+  type TarsDecision, type TarsDecisionAction, type TarsDroppedAction, type TarsMessage, type TarsRetryCause,
 } from "../../src/lib/tars/conversation";
+import type { SecondaryProviderExecutionResult } from "../../src/lib/runs/secondary-run";
 import { extractJsonObject } from "../../src/lib/workspace-turn-summary";
 import type { TarsSnapshot } from "../../src/lib/tars/types";
 import { buildTarsRuntimeHints } from "../../src/lib/tars/runtime-hints";
@@ -17,6 +19,16 @@ import { tarsPlannerClock, tarsPlannerSchedules, type TarsPlannerClock, type Tar
 import type { createSecondaryRunCoordinator } from "./runs/secondary-run-coordinator";
 
 const ANSWER_LOCK_RETRIES = 2;
+/**
+ * One planner turn's limit. The turn has no tools and one step, but its prompt
+ * carries up to ~95k characters of observations and reasoning models think
+ * before they answer: the two failures seen in local use both hit the earlier
+ * 120 s limit. Five minutes covers a slow, large turn; with the one automatic
+ * retry (`TARS_PLANNER_ATTEMPTS`) a message still settles within ten minutes.
+ */
+export const TARS_PLANNER_TIMEOUT_MS = 300_000;
+/** The first attempt and at most one automatic retry, only for a transient failure (`tarsPlannerRetryCause`). */
+export const TARS_PLANNER_ATTEMPTS = 2;
 const ANSWER_LOCK_RETRY_DELAY_MS = 250;
 
 type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
@@ -94,6 +106,7 @@ export function buildTarsPlannerPrompt(message: TarsMessage, context: TarsPlanne
     `Return only one JSON object with reply (string, at most ${TARS_REPLY_MAX_CHARS} characters) and actions (array). Reply in the user's language. Proposed actions have not executed.`,
     "Allowed actions: {kind:'delegate',workspaceId,title,instruction,acceptanceCriteria:[string],completionGoal?:'design'|'implementation'|'pullRequest'|'merge'|'confirmation',priority:0..100,agentId?,branchName?,reason?,attachments?:[number]}, {kind:'reprioritize',responsibilityId,expectedRevision,priority:0..100}, {kind:'control',responsibilityId,expectedRevision,operation:'pause'|'resume'|'cancel'|'takeover'|'handBack'|'acceptCompletion'|'startNow'|'extend'|'retryStage'|'skipStage'|'signOff'|'approve'|'deny'|'answer'|'message'|'requestChanges',input?}, {kind:'ask',question,options:[{label,rationale,effect}],recommended?}, {kind:'show',responsibilityId,view:'report'|'changes'|'timeline'|'review'}, {kind:'publish',responsibilityId,expectedRevision}, {kind:'clear',scopes:['conversation'|'done'|'outputs']} or {kind:'schedule',operation:'create'|'update'|'pause'|'resume'|'remove'|'list',scheduleId?,title?,request?,workspaceId?,when?}. Use JSON double quotes. Maximum 8 actions.",
     "Use show when the user asks to see one personal responsibility's result report, changes (diff), run timeline or review, for example 'show me the report', '보고서 보여줘' or '바뀐 파일 보여줘'. It only opens that view beside the conversation for the user; it grants nothing, changes no work and needs no expectedRevision. Use the responsibility's exact id from the observations; if it is ambiguous, ask in reply instead. At most one show per reply.",
+    "Use withdraw ({kind:'withdraw',decisionId}) only to take back one of your own earlier proposals or questions that still waits, when it no longer fits, for example because the work changed or you learned the answer elsewhere. decisionId is the exact decisionId from waitingDecisions (never one of kind unverifiedCompletion, which is Stave's own). It only closes that card: it applies nothing, grants nothing and changes no work, and the host refuses it for anything that no longer waits. Say in reply what you withdrew and why.",
     "Use ask when you need the user to choose between 2 to 4 concrete options before you can continue. At most one ask per reply. question: one sentence, at most 500 characters. Each option has label (at most 60 characters, unique), rationale (one line, at most 200 characters) and effect. effect is {kind:'control',responsibilityId,expectedRevision,operation,input?} (input only for the operations that take it) for one personal responsibility at its exact current revision from the observations, applied only if the user chooses it and only after the host checks it like a click, or {kind:'reply'}, which sends the chosen label back to you as the user's answer. No other effects exist. recommended is the 0-based index of the option you advise; omit it when the choice is the user's alone, and never recommend cancel, acceptCompletion, skipStage or approve. An ask grants nothing by itself. Do not combine an ask with another action on the same responsibility in one reply, and do not repeat the options in reply: the conversation shows them as a card.",
     "agentId is optional. Set it only to an id from availableAgents whose useWhen fits the work unit and whose avoidWhen does not; that agent then does the unit's work stage. Omit it to let the execution lead choose its helpers. Built-in agents are always available; saved agents appear only when the user allowed them. Never invent or guess an agent id: the host rejects unknown, disallowed or unsuitable agents.",
     "completionGoal records only the endpoint explicitly requested by the user: design delivery, implementation with validation, pull request creation, merge confirmation, or user confirmation. Omit it when ambiguous; never widen scope. acceptanceCriteria describe the execution result and its validation; keep the external PR/merge endpoint in completionGoal so publication never needs a false execution report. A resultReady responsibility has an ended execution, but its goal still needs the next endpoint. Keep follow-up work on its existing identity through the continuation flow; do not duplicate it with delegate. A merge endpoint remains unverified without an observed merge; a PR link does not prove CI or merge. Publish confirmation remains mandatory.",
@@ -131,6 +144,8 @@ export function buildTarsPlannerPrompt(message: TarsMessage, context: TarsPlanne
       .map((entry) => ({ textExcerpt: entry.text.slice(0, 1000), replyExcerpt: entry.reply?.slice(0, 1000), state: entry.state,
         ...(entry.origin ? { origin: entry.origin.kind } : {}) })),
     waitingDecisions: (context.snapshot.pendingDecisions ?? []).slice(0, 12).map((decision) => ({ kind: decision.kind ?? "confirm",
+      ...(decision.messageId !== null && decision.actionIndex !== null && (decision.kind ?? "confirm") !== "unverifiedCompletion"
+        ? { decisionId: `${decision.kind === "ask" ? "ask" : "confirm"}:${decision.messageId}:${decision.actionIndex}` } : {}),
       responsibilityId: decision.responsibilityId, expectedRevision: decision.expectedRevision,
       ...(decision.operation ? { operation: decision.operation } : {}), ...(decision.question ? { question: decision.question } : {}) })),
     omittedHistory: 0,
@@ -165,9 +180,45 @@ export function buildTarsPlannerPrompt(message: TarsMessage, context: TarsPlanne
 
 // Language-neutral: saved with provider text, which is never translated.
 const TRUNCATED_REPLY_MARKER = "\n\n[…]";
-// z.object drops unknown top-level keys; the action schemas stay strict, so an
-// unexpected action field (such as repositoryPath) still rejects the decision.
-const TarsModelOutputSchema = z.object({ reply: z.string(), actions: TarsDecisionSchema.shape.actions });
+// z.object drops unknown top-level keys. Actions are read one at a time against their strict schemas.
+const TarsModelOutputSchema = z.object({ reply: z.string(), actions: z.unknown().optional() });
+const ACTION_KINDS = new Set(["delegate", "reprioritize", "control", "ask", "show", "withdraw", "publish", "clear", "schedule"]);
+/** Kinds a reply may carry once (`TarsDecisionSchema`), and the most actions one reply holds. */
+const ONCE_PER_REPLY = new Set(["ask", "show", "publish", "clear"]);
+const MAX_ACTIONS = 8;
+/** Model output past this many actions is not read at all. */
+const MAX_READ_ACTIONS = 64;
+
+function issuePaths(error: z.ZodError) {
+  return `Did not match its schema at ${error.issues.slice(0, 5).map((issue) => issue.path.join(".") || "(root)").join(", ")}.`;
+}
+
+/**
+ * Reads the model's actions one by one: an action that does not match its
+ * strict schema (an unexpected field such as repositoryPath included) or goes
+ * past a per-reply limit is dropped with its reason and grants nothing; the
+ * valid ones keep their order. Never repaired.
+ */
+function readTarsActions(raw: unknown): { actions: TarsDecisionAction[]; dropped: TarsDroppedAction[] } {
+  const actions: TarsDecisionAction[] = [];
+  const dropped: TarsDroppedAction[] = [];
+  if (raw === undefined) return { actions, dropped };
+  if (!Array.isArray(raw)) return { actions, dropped: [{ index: 0, kind: null, reason: "invalid", detail: "actions was not an array." }] };
+  for (const [index, value] of raw.slice(0, MAX_READ_ACTIONS).entries()) {
+    const named = value && typeof value === "object" ? (value as { kind?: unknown }).kind : undefined;
+    const kind = typeof named === "string" && ACTION_KINDS.has(named) ? named : null;
+    const parsed = TarsDecisionActionSchema.safeParse(value);
+    if (!parsed.success) { dropped.push({ index, kind, reason: "invalid", detail: issuePaths(parsed.error) }); continue; }
+    // An irreversible option is never a default, whatever the model recommends; the question stays.
+    const action = parsed.data.kind === "ask" ? withoutIrreversibleRecommendation(parsed.data) : parsed.data;
+    if (actions.length >= MAX_ACTIONS || (ONCE_PER_REPLY.has(action.kind) && actions.some((kept) => kept.kind === action.kind))) {
+      dropped.push({ index, kind: action.kind, reason: "overLimit", detail: actions.length >= MAX_ACTIONS ? `A reply holds at most ${MAX_ACTIONS} actions.` : `A reply carries at most one ${action.kind}.` });
+      continue;
+    }
+    actions.push(action);
+  }
+  return { actions, dropped };
+}
 
 function boundReply(reply: string) {
   if (reply.length <= TARS_REPLY_MAX_CHARS) return reply;
@@ -180,15 +231,36 @@ function boundReply(reply: string) {
 /**
  * Keep a paid reply despite presentation drift: a Markdown fence, an over-long
  * reply (truncated with a visible marker) or an extra top-level key. Actions
- * are never repaired; any action violation still rejects the whole decision.
+ * are never repaired: one that is malformed or over a limit is dropped with
+ * its reason (`TarsDecision.dropped`) and the reply and valid actions stay.
+ * Output without a JSON object or a string reply still fails the message.
  */
 export function parseTarsDecisionOutput(text: string): TarsDecision {
   const json = extractJsonObject(text);
   if (!json) throw new Error("The representative did not return a JSON decision.");
   const output = TarsModelOutputSchema.parse(JSON.parse(json));
-  // An irreversible option is never a default, whatever the model recommends; the question stays.
-  return TarsDecisionSchema.parse({ reply: boundReply(output.reply),
-    actions: output.actions.map((action) => action.kind === "ask" ? withoutIrreversibleRecommendation(action) : action) });
+  const { actions, dropped } = readTarsActions(output.actions);
+  return TarsDecisionSchema.parse({ reply: boundReply(output.reply), actions, ...(dropped.length ? { dropped } : {}) });
+}
+
+/** Provider errors that pass by themselves: rate limits, overload, server errors and dropped connections. */
+const TRANSIENT_PROVIDER_ERROR = /\b(?:rate[ _-]?limit|overloaded|too many requests|temporarily unavailable|service unavailable|bad gateway|gateway timeout|internal server error|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|network error|fetch failed|stream (?:closed|ended) unexpectedly|429|500|502|503|504|529)\b/i;
+/** Never retried: the provider refused, or the account or permission does not allow the turn. */
+const REFUSAL = /\b(?:refus|policy|unauthori[sz]ed|forbidden|permission|not logged in|login|invalid api key|authentication|quota exceeded|billing|credit)/i;
+
+/**
+ * Why a finished planner turn is worth one more attempt, or null: it timed
+ * out, its output was cut short, or the provider failed transiently. A
+ * refusal, an authority or account error, a cancellation and a malformed
+ * decision are never retried.
+ */
+export function tarsPlannerRetryCause(execution: Pick<SecondaryProviderExecutionResult, "status" | "truncated" | "stopReason" | "error">): TarsRetryCause | null {
+  if (execution.status === "cancelled") return null;
+  const text = `${execution.stopReason ?? ""} ${execution.error ?? ""}`;
+  if (execution.status === "completed") return execution.truncated && !REFUSAL.test(text) ? "truncated" : null;
+  if (REFUSAL.test(text)) return null;
+  if (/timed out|timeout/i.test(text)) return "timeout";
+  return TRANSIENT_PROVIDER_ERROR.test(text) ? "provider" : null;
 }
 
 /** Where a reasoning job stopped: before the model call (context, prompt, admission) or at or after it. */
@@ -216,7 +288,11 @@ export function describeTarsReasoningFailure(phase: TarsReasoningPhase, error: u
  */
 export const TARS_PLANNER_MAX_EVENTS = 4_096;
 
-/** A durable one-attempt reasoning job. No direct provider calls or execution tools. */
+/**
+ * A durable reasoning job: one attempt, and one automatic retry of the same
+ * input only when the first failed transiently (`tarsPlannerRetryCause`).
+ * No direct provider calls or execution tools.
+ */
 export async function processTarsMessage(id: string, ports: PlannerPorts): Promise<void> {
   const now = ports.now ?? (() => new Date().toISOString());
   const pending = ports.conversations.get(id);
@@ -241,6 +317,8 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
   // error) releases the start the claim recorded; only a call that started keeps it.
   let reachedModel = false;
   let phase: TarsReasoningPhase = "context";
+  // The run ledger's failure key for the attempt under way; the retry records its own.
+  let failKey = `${runId}:failed`;
   try {
     const observed = await ports.context(message);
     // Read when the message is planned, so a level or rule saved since it was sent already applies.
@@ -255,13 +333,14 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
       cwd: context.cwd, toolsDisabled: true as const, runtimeHints: buildTarsRuntimeHints(message.providerId, message.runtimeHints ?? {}),
       prompt: buildTarsPlannerPrompt(message, context, ports.conversations.listBefore(message.id, TARS_PLANNER_HISTORY_MESSAGES, ports.historyAfter?.() ?? null)) };
     phase = "admission";
-    const claim = await ports.coordinator.claim({
-      run: { id: runId, kind: "secondary-provider", origin: { kind: "advisor", id },
+    const claimArgs = {
+      run: { id: runId, kind: "secondary-provider" as const, origin: { kind: "advisor" as const, id },
         ownership: { repositoryPath: context.cwd, workspaceId: "personal-representative", taskId: null },
-        policy: { maxAttempts: 1, timeoutMs: 120_000, maxTurns: 1, maxOutputBytes: 64_000, maxEvents: TARS_PLANNER_MAX_EVENTS },
+        policy: { maxAttempts: TARS_PLANNER_ATTEMPTS, timeoutMs: TARS_PLANNER_TIMEOUT_MS, maxTurns: 1, maxOutputBytes: 64_000, maxEvents: TARS_PLANNER_MAX_EVENTS },
         provenance: { createdBy: "tars", schemaVersion: 2, sourceVersion: "1" } },
-      step: { id: stepId, kind: "secondary-provider-turn", dependencyIds: [], idempotencyKey: `${runId}:claim` }, input,
-    });
+      step: { id: stepId, kind: "secondary-provider-turn" as const, dependencyIds: [], idempotencyKey: `${runId}:claim` }, input,
+    };
+    const claim = await ports.coordinator.claim(claimArgs);
     executionId = claim.aggregate?.step.executionId ?? undefined;
     if (!claim.accepted || !executionId)
       throw new Error(`The representative could not admit its reasoning turn (${claim.accepted ? "no execution" : claim.reason ?? "rejected"}).`);
@@ -273,8 +352,30 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
     }
     reachedModel = true;
     phase = "model";
-    const result = await ports.coordinator.execute({ runId, stepId, executionId, input });
+    let result = await ports.coordinator.execute({ runId, stepId, executionId, input });
     if (ports.isStopped?.()) return;
+    const cause = result.accepted && result.execution ? tarsPlannerRetryCause(result.execution) : null;
+    if (cause) {
+      // Once, with the same input: the first attempt's failure stays in the run ledger, and the message says it is retrying.
+      const firstError = result.execution!.error ?? result.execution!.stopReason ?? cause;
+      await ports.coordinator.fail({ runId, stepId, executionId, idempotencyKey: `${runId}:failed`, error: firstError.slice(0, 1_000) });
+      console.warn("[tars] reasoning retried", { messageId: id, cause });
+      if (ports.isStopped?.() || ports.conversations.get(id)?.state !== "reasoning") return;
+      message = ports.conversations.markRetrying(id, message.revision, cause, now());
+      phase = "admission";
+      const retry = await ports.coordinator.claim({ ...claimArgs, step: { ...claimArgs.step, idempotencyKey: `${runId}:claim:2` } });
+      executionId = retry.aggregate?.step.executionId ?? undefined;
+      failKey = `${runId}:failed:2`;
+      if (!retry.accepted || !executionId)
+        throw new Error(`The representative could not admit its retry (${retry.accepted ? "no execution" : retry.reason ?? "rejected"}).`);
+      if (ports.isStopped?.() || ports.conversations.get(id)?.state !== "reasoning" || ports.supersedeStale?.(id)) {
+        await ports.coordinator.cancel({ runId, stepId, expectedExecutionId: executionId, idempotencyKey: `${runId}:cancel:2` });
+        return;
+      }
+      phase = "model";
+      result = await ports.coordinator.execute({ runId, stepId, executionId, input });
+      if (ports.isStopped?.()) return;
+    }
     const execution = result.execution;
     if (!result.accepted || !execution) throw new Error(`The reasoning turn was not run (${result.reason ?? "no result"}).`);
     if (execution.status !== "completed")
@@ -304,7 +405,7 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
     if (current?.state === "reasoning" && current.revision === message.revision)
       ports.conversations.fail(id, message.revision, failure, now(), "reasoningFailed");
     if (executionId) await ports.coordinator.fail({ runId, stepId, executionId,
-      idempotencyKey: `${runId}:failed`, error: error instanceof Error ? error.message.slice(0, 1000) : "Reasoning failed." });
+      idempotencyKey: failKey, error: error instanceof Error ? error.message.slice(0, 1000) : "Reasoning failed." });
   } finally {
     if (!reachedModel) ports.releaseStart?.(id);
   }

@@ -178,8 +178,10 @@ describe("clear contracts", () => {
     expect(buildTarsPlannerPrompt(message, testContext(store), [])).toContain("{kind:'clear',scopes:['conversation'|'done'|'outputs']}");
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "clear", scopes: ["conversation", "done"] }] })).actions)
       .toEqual([{ kind: "clear", scopes: ["conversation", "done"] }]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"], responsibilityId: "r" }] }))).toThrow();
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"] }, { kind: "clear", scopes: ["outputs"] }] }))).toThrow();
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"], responsibilityId: "r" }] })))
+      .toMatchObject({ actions: [], dropped: [{ index: 0, kind: "clear", reason: "invalid" }] });
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"] }, { kind: "clear", scopes: ["outputs"] }] })))
+      .toMatchObject({ actions: [{ kind: "clear", scopes: ["done"] }], dropped: [{ index: 1, kind: "clear", reason: "overLimit" }] });
   });
 });
 

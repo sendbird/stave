@@ -324,6 +324,11 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
           rejection ? { status: "rejected", ...rejection } : { status: "proposed" }, now()));
         continue;
       }
+      if (action.kind === "withdraw") {
+        // Closes one of Tars's own waiting decisions, with its receipt, in one transaction. It applies nothing and grants nothing.
+        receipts.push(ports.conversations.withdrawDecision(message.id, index, intent.revision, now()));
+        continue;
+      }
       if (action.kind === "show") {
         // View-only: it opens the side view and changes no work, so it needs only a
         // responsibility Tars holds for the user. Anything else is refused with that reason.

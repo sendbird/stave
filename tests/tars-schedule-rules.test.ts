@@ -47,7 +47,9 @@ describe("schedule action contract", () => {
   test("a decision may carry schedule actions, and its receipt waits as proposed with no responsibility", () => {
     const decision = parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm the card.", actions: [CREATE, { kind: "schedule", operation: "list" }] }));
     expect(decision.actions.map((action) => action.kind)).toEqual(["schedule", "schedule"]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ ...CREATE, enabled: true }] }))).toThrow();
+    // A malformed schedule action is dropped with its reason; the reply stays.
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ ...CREATE, enabled: true }] })))
+      .toMatchObject({ reply: "x", actions: [], dropped: [{ index: 0, kind: "schedule", reason: "invalid" }] });
     const base = { messageId: "m1", actionIndex: 0, requestHash: "a".repeat(64), action: TarsDecisionSchema.parse({ reply: "", actions: [CREATE] }).actions[0],
       error: null, reason: null, revision: 1, createdAt: "2026-11-10T00:00:00.000Z", updatedAt: "2026-11-10T00:00:00.000Z" };
     expect(TarsActionReceiptSchema.safeParse({ ...base, status: "proposed", responsibilityId: null }).success).toBe(true);
