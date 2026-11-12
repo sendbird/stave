@@ -801,6 +801,8 @@ Tars says so once and stops monitoring. The card folds to a record row such as "
 request appears in **Outputs** and the report. If a step fails, **Retry** opens
 the card again and continues from that step.
 
+Current-head unresolved code comments and changes-requested reviews wake Tars once per review round. At Balanced or Hands-off it continues the same work, branch and PR, then republishes only after verification; Careful asks first. Review rounds have a separate limit of two per PR across restarts and new heads, then Tars asks you. Approvals and reviews without requested changes only leave a short notice. Reads follow the same bounded PR-watch window; Tars does not post review replies on GitHub.
+
 Tars publishes only a clean workspace matching its verified revision. Commit and verify changed work again. PR monitoring retries temporary errors; when monitoring stops, choose **Keep watching** in its notice to watch for another three hours without resetting automatic fix limits. A merge goal finishes when Tars observes the PR merged; Tars never merges it.
 
 A blocked card in the tray shows why and offers **Open report** (at the end of

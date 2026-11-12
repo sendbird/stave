@@ -1305,6 +1305,8 @@ zero reported checks do not count as passing. Merge remains unavailable.
 
 Publication requires a clean execution workspace matching the full verified revision; changed work must be committed and verified again. Transient PR-read failures retry with backoff. After three hours or an access failure, Tars shows a stopped notice with **Keep watching**, preserving the two-round automatic fix cap. A merge goal completes only when GitHub reports the PR merged; Tars never merges it.
 
+Current-head unresolved code comments and changes-requested reviews wake Tars once per review round. At Balanced or Hands-off it continues the same work, branch and PR, then republishes only after verification; Careful asks first. Review rounds have a separate limit of two per PR across restarts and new heads, then Tars asks you. Approvals and reviews without requested changes only leave a short notice. Reads follow the same bounded PR-watch window; Tars does not post review replies on GitHub.
+
 ### Decisions
 
 One waiting decision at a time appears above the message box, whatever asked it:

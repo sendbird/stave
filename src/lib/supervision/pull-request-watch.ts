@@ -128,7 +128,9 @@ export type PullRequestWatchComment = z.infer<
 const PullRequestWatchReviewSchema = z
   .object({
     id: z.string().trim().min(1).max(PULL_REQUEST_WATCH_LIMITS.maxNameChars),
-    state: z.enum(["APPROVED", "CHANGES_REQUESTED"]),
+    state: z.enum(["APPROVED", "CHANGES_REQUESTED", "COMMENTED"]),
+    commitSha: z.string().max(64).optional(),
+    body: z.string().max(8_000).optional(),
     author: z.string().max(100),
     submittedAt: z.string().max(64),
   })

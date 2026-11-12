@@ -454,7 +454,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       if (action.kind === "control") {
-        if (message.origin?.kind === "followUp" && message.origin.reason === "ciFailed" && receipts.some((entry) => entry.action.kind === "control" && entry.action.operation === "message")) {
+        if (message.origin?.kind === "followUp" && ["ciFailed", "prChangesRequested"].includes(message.origin.reason) && receipts.some((entry) => entry.action.kind === "control" && entry.action.operation === "message")) {
           receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
             { status: "rejected", reason: "notByFollowUp", error: "Only one CI continuation is allowed per head." }, now()));
           continue;

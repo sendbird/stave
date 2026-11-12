@@ -13,6 +13,14 @@ export const TarsPrWatchSchema = z.object({
   startedAt: z.iso.datetime(), nextAt: z.iso.datetime(), polls: z.number().int().min(0),
   stopped: z.enum(["closed", "merged", "expired", "unavailable"]).nullable(),
   fixRounds: z.number().int().min(0).max(2),
+  reviewRounds: z.number().int().min(0).max(2).optional(),
+  feedback: z.object({
+    headSha: z.string().regex(/^[0-9a-f]{7,64}$/),
+    seen: z.array(z.string().max(300)).max(500),
+    episode: z.string().max(100),
+    requestedChanges: z.boolean(),
+    summary: z.string().max(4_000),
+  }).strict().optional(),
   noticeAt: z.iso.datetime().optional(),
   rearmedBy: z.string().optional(),
   reviewHead: z.string().nullable().optional(),
@@ -28,6 +36,7 @@ export const TarsPrReviewEffectSchema = z.object({
 export const TarsPrReviewInputSchema = z.object({ decisionId: z.string().min(1).max(700) }).strict();
 
 export const TARS_CI_FIX_ROUNDS = 2;
+export const TARS_PR_REVIEW_ROUNDS = 2;
 
 /** Parse only the documented gh JSON fields; unknown statuses never count as passing. */
 export function parseTarsPrChecks(raw: unknown, checkedAt: string): {

@@ -128,6 +128,14 @@ export function readTarsPrAskTarget(db: unknown, receipt: TarsActionReceipt, row
   const stored = (db as ReceiptDatabase).prepare("SELECT body_json FROM tars_messages WHERE id = ?").get(receipt.messageId) as { body_json: string } | undefined;
   const message = stored ? TarsMessageSchema.safeParse(JSON.parse(stored.body_json)) : null;
   const origin = message?.success ? message.data.origin : undefined;
+  if (origin?.kind === "followUp" && origin.reason === "prChangesRequested") {
+    const row = rows.get(origin.responsibilityId);
+    const publication = row?.publication;
+    const feedback = publication?.watch?.feedback;
+    return row && (row.state === "completed" || row.state === "resultReady") && publication?.state === "opened"
+      && publication.checks?.headSha === publication.commit && !publication.watch?.stopped?.match(/closed|merged/) && feedback?.headSha === publication.commit && feedback.requestedChanges
+      && origin.eventKey === `prChangesRequested:${row.id}:${feedback.episode}` && (publication.watch?.reviewRounds ?? 0) >= 2 ? row : null;
+  }
   if (origin?.kind !== "followUp" || (origin.reason !== "ciPassed" && origin.reason !== "ciFailed" && origin.reason !== "ciUnavailable")) return null;
   const row = rows.get(origin.responsibilityId);
   const publication = row?.publication;

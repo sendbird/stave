@@ -2174,7 +2174,9 @@
         "waitExpired": "Tars follow-up · No update while waiting: {{title}}",
         "ciFailed": "CI failed for {{title}}",
         "ciPassed": "PR checks finished for {{title}}",
-        "ciUnavailable": "PR checks unavailable for {{title}}"
+        "ciUnavailable": "PR checks unavailable for {{title}}",
+        "prChangesRequested": "Review changes requested for {{title}}",
+        "prReviewNotice": "Review received for {{title}}"
       },
       "exhausted": "Tars stopped checking on {{title}} automatically because it reached its limit for automatic follow-ups. Send a message to continue.",
       "superseded": "Tars skipped this follow-up because the work changed first."
@@ -2886,6 +2888,11 @@
       "refused": "Workspace information could not be edited. Check that the workspace and target item still exist, then try again.",
       "change": "Change to apply",
       "empty": "Empty notes or value"
+    },
+    "prReviews": {
+      "limit": "PR #{{number}} needs another review round after two automatic attempts.",
+      "limitQuestion": "Continue addressing review feedback on PR #{{number}} for “{{title}}”?",
+      "notice": "PR #{{number}} received a review. No new changes requested."
     },
     "prChecks": {
       "stoppedUnavailable": "PR monitoring stopped: access unavailable",
