@@ -3,6 +3,7 @@ import { History } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDate, formatTime } from "@/i18n/format";
 import { Button } from "@/components/ui";
+import { Button as LinkButton } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { ToggleGroup } from "@/components/aui/components/ToggleGroup";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -59,7 +60,7 @@ function ActivityRow({ entry, onOpenWork }: { entry: TarsActivityEntry; onOpenWo
   const { t } = useTranslation(["shell"]);
   const description = useDescription(entry);
   return <li className={sx(activityStyles.row)} data-tars-activity-entry={entry.id}>
-    {entry.responsibilityId ? <Button variant="link" size="xs" xstyle={styles.rowOpen} onClick={() => onOpenWork(entry.responsibilityId!)}>{entry.title ?? t("shell:tars.activityView.workUnavailable")}</Button>
+    {entry.responsibilityId ? <LinkButton type="button" variant="link" size="xs" flushInline xstyle={styles.rowOpen} onClick={() => onOpenWork(entry.responsibilityId!)}>{entry.title ?? t("shell:tars.activityView.workUnavailable")}</LinkButton>
       : <span className={sx(styles.itemTitle)}>{entry.title ?? t("shell:tars.title")}</span>}
     <p className={sx(activityStyles.description)} title={description}>{description}</p>
     <div className={sx(styles.rowMeta)}><time dateTime={entry.at}>{formatTime(entry.at, { hour: "numeric", minute: "2-digit" })}</time>
