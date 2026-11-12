@@ -24,6 +24,7 @@ import {
 import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
 import { currentStageRecord } from "../../src/lib/agent-runs/domain";
 import { TARS_PENDING_REQUESTS_MAX, type TarsPendingRequest } from "../../src/lib/tars/types";
+import { createTarsPrWatcher } from "./tars-pr-watch";
 import { createTarsPublisher, type TarsPublishRunner } from "./tars-publish";
 import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
@@ -424,7 +425,7 @@ const runTarsPublishCommand: TarsPublishRunner = async (command, args, cwd) => {
 /** The host's publish path over the saved responsibilities, the registered workspaces and the run's frozen report. */
 export function createHostTarsPublisher(args: { agentRuns: Pick<AgentRunRuntime, "get"> }) {
   const persistence = ensureHostServicePersistenceReady();
-  return createTarsPublisher({
+  const ports: import("./tars-publish").TarsPublishPorts = {
     conversations: persistence.tarsConversations,
     responsibilities: persistence.tars,
     async resolveWorkspace(row) {
@@ -443,5 +444,7 @@ export function createHostTarsPublisher(args: { agentRuns: Pick<AgentRunRuntime,
     },
     run: runTarsPublishCommand,
     onError: (error) => console.error("[tars] publish bookkeeping failed", error),
-  });
+  };
+  const watcher = createTarsPrWatcher({ ...ports, responsibilities: persistence.tars, conversations: persistence.tarsConversations });
+  return { ...createTarsPublisher(ports), watcher };
 }

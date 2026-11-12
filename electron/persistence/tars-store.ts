@@ -115,9 +115,9 @@ export class TarsStore {
       .map((row) => TarsActivitySchema.parse(JSON.parse((row as StoredRow).body_json))).reverse();
   }
 
-  private journal(row: TarsResponsibility, now: string) {
+  private journal(row: TarsResponsibility, now: string, prChecks?: import("../../src/lib/tars/pr-checks").TarsPrChecks) {
     const event = TarsActivitySchema.parse({ id: randomUUID(), responsibilityId: row.id, revision: row.revision,
-      title: row.title, state: row.state, detail: row.detail, ...detailCodeOf(row), createdAt: now });
+      title: row.title, state: row.state, detail: row.detail, ...detailCodeOf(row), ...(prChecks ? { prChecks } : {}), createdAt: now });
     this.db.prepare("INSERT INTO tars_activity (id, responsibility_id, revision, body_json) VALUES (?, ?, ?, ?)")
       .run(event.id, event.responsibilityId, event.revision, JSON.stringify(event));
     // The conversation timeline shows activity.
@@ -273,7 +273,7 @@ export class TarsStore {
       if ("agentRunId" in patch && patch.agentRunId !== previous.agentRunId && previous.publication) {
         merged.publicationHistory = [...(previous.publicationHistory ?? []),
           { ...previous.publication, agentRunId: previous.publication.agentRunId ?? previous.agentRunId ?? undefined }];
-        delete merged.publication;
+        if (previous.publication.state !== "opened" || !previous.publication.watch) delete merged.publication;
       }
       // A detail written without a code is free text, so it never keeps an earlier sentence's code.
       if ("detail" in patch) {
@@ -291,6 +291,16 @@ export class TarsStore {
       const observed = { responsibilityId: next.id, episode: String(next.revision), observedRevision: next.revision,
         observedState: next.state, attempt: next.agentRunId };
       if (options.recovered) this.events.record({ ...observed, kind: "hostRecovery" }, now);
+      const checks = next.publication?.checks;
+      const oldChecks = previous.publication?.checks;
+      const ciKind = checks && next.publication?.state === "opened" && checks.headSha === next.publication.commit
+        && !next.publication.watch?.stopped?.match(/closed|expired/)
+        && (checks.state !== oldChecks?.state || checks.headSha !== oldChecks?.headSha)
+        ? ({ failed: "ciFailed", passed: "ciPassed", unavailable: "ciUnavailable" } as const)[checks.state as "failed" | "passed" | "unavailable"] : undefined;
+      if (ciKind && !this.events.get(`${ciKind}:${next.id}:${checks!.headSha}`)) {
+        this.events.record({ ...observed, kind: ciKind, episode: checks!.headSha! }, now);
+        this.journal(next, now, checks);
+      }
       const kind = classifyTarsTransition(previous, next);
       if (kind) this.events.record({ ...observed, kind }, now);
       return next;

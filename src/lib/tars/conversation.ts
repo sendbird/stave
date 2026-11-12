@@ -1,3 +1,4 @@
+import { TarsPrReviewEffectSchema } from "./pr-checks";
 import { z } from "zod";
 import { TarsWorkspaceActionSchema } from "./workspace-action";
 import { TarsCompletionGoalSchema } from "./completion";
@@ -179,6 +180,7 @@ export type TarsAnswerSource = z.infer<typeof TarsAnswerSourceSchema>;
  */
 export const TarsAskEffectSchema = z.discriminatedUnion("kind", [
   TarsControlActionSchema,
+  TarsPrReviewEffectSchema,
   z.object({ kind: z.literal("reply") }).strict(),
 ]);
 export type TarsAskEffect = z.infer<typeof TarsAskEffectSchema>;
@@ -216,7 +218,7 @@ export type TarsAskAction = z.infer<typeof TarsAskActionSchema>;
 
 /** Whether an ask option's effect cannot be undone. */
 export function isTarsIrreversibleEffect(effect: TarsAskEffect) {
-  return effect.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(effect.operation);
+  return effect.kind === "prReview" && effect.choice === "ready" || effect.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(effect.operation);
 }
 
 /** The ask with any recommendation of an irreversible option dropped; the question itself is kept. */

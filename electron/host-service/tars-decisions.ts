@@ -133,23 +133,24 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
   const rules = [...new Set([...(saved?.neverDo ?? []), ...(message.neverDo ?? [])])];
   // Origins share bounded run controls; follow-up scope is admitted separately.
   const origin: TarsActionOrigin = message.origin?.kind === "followUp" || message.origin?.kind === "reask" ? "automatic" : "user";
-  const subject = (action: TarsDecisionAction) => {
+  const subject = (action: TarsDecisionAction, registry?: PersistenceRepositoryRegistryEntry[]) => {
     if (action.kind === "delegate" || action.kind === "workspace") {
-      const registry = ports.readRegistry();
-      const repository = registry.find((entry) => entry.workspaces.some((workspace) => workspace.id === action.workspaceId));
+      const repository = (registry ?? ports.readRegistry()).find((entry) => entry.workspaces.some((workspace) => workspace.id === action.workspaceId));
       return { repositoryPath: repository?.repositoryPath, repository: repository?.repositoryName || tarsRepositoryName(repository?.repositoryPath),
         branches: [action.kind === "delegate" ? action.branchName : null, repository?.workspaceBranchById?.[action.workspaceId]] };
     }
     const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
     return { repositoryPath: row?.repositoryPath, repository: tarsRepositoryName(row?.repositoryPath), branches: [row?.branchName] };
   };
-  return (action: TarsDecisionAction): { confirm: boolean; matches: TarsNeverRuleMatch[] } => {
+  return (action: TarsDecisionAction, registry?: PersistenceRepositoryRegistryEntry[]): { confirm: boolean; matches: TarsNeverRuleMatch[] } => {
     // A schedule change is outside the level's table: it always waits for the user's confirmation on its card.
     const key = action.kind === "schedule" ? null : tarsActionKey(action);
     if (!key) return { confirm: true, matches: [] };
-    const target = subject(action);
-    const matches = rules.length ? matchTarsNeverRules(rules, { key, ...target }) : [];
     const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
+    // Allow rules use an owned responsibility's path. Delegation and workspace edits
+    // already default to auto; only never-do rules need their registry subject.
+    const target = rules.length ? subject(action, registry) : { repositoryPath: row?.repositoryPath };
+    const matches = rules.length ? matchTarsNeverRules(rules, { key, ...target }) : [];
     const run = key === "extend" && row?.agentRunId ? ports.readRunBudget?.(row.agentRunId) : null;
     const context = { allowRules: saved?.allowRules, repositoryPath: target.repositoryPath, responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
     return { confirm: tarsActionDisposition({ key, level, origin, matches, context }) === "confirm", matches };
@@ -164,13 +165,17 @@ function tarsWorkingChangesReader(ports: TarsDecisionPorts, message: TarsMessage
    * cannot run inside it. The snapshot's ref makes a retried admission reuse
    * the same commit, so the unit's request hash stays the same.
    */
-  return (workspaceId: string): Promise<TarsWorkingChanges> => {
+  return (workspaceId: string, beforeSnapshot?: (registry: PersistenceRepositoryRegistryEntry[]) => void): Promise<TarsWorkingChanges> => {
     let pending = snapshots.get(workspaceId);
     if (!pending) {
+      const registry = ports.readRegistry();
+      const target = resolveTarsWorkspace(workspaceId, registry);
+      // Policy and snapshot scope share this read, but it never grants authority
+      // after asynchronous Git I/O: admission reads again inside its transaction.
+      beforeSnapshot?.(registry);
+      if (!ports.snapshotWorkingChanges) throw new Error("This host cannot snapshot working changes.");
       pending = (async () => {
-        if (!ports.snapshotWorkingChanges) throw new Error("This host cannot snapshot working changes.");
-        const target = resolveTarsWorkspace(workspaceId, ports.readRegistry());
-        return ports.snapshotWorkingChanges({ workspaceId: target.workspaceId, repositoryPath: target.repositoryPath,
+        return ports.snapshotWorkingChanges!({ workspaceId: target.workspaceId, repositoryPath: target.repositoryPath,
           messageId: message.id, date: message.updatedAt });
       })();
       snapshots.set(workspaceId, pending);
@@ -183,6 +188,12 @@ function tarsWorkingChangesReader(ports: TarsDecisionPorts, message: TarsMessage
 interface TarsWorkLedger {
   apply(effect: () => { responsibilityId: string }): TarsActionReceipt;
   reject(outcome: { error: string; reason?: TarsActionReason }): TarsActionReceipt;
+  propose?(matches: TarsNeverRuleMatch[]): TarsActionReceipt;
+}
+
+/** Rolls back admission without an effect when policy requires the user's confirmation. */
+class TarsWorkProposalHeld extends Error {
+  constructor(readonly matches: TarsNeverRuleMatch[]) { super("The work requires confirmation."); }
 }
 
 /**
@@ -192,23 +203,30 @@ interface TarsWorkLedger {
  * all checked here, at the moment it takes effect.
  */
 async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, index: number, action: Exclude<TarsWorkProposalAction, { kind: "workspace" }>,
-  workingChangesFor: (workspaceId: string) => Promise<TarsWorkingChanges>, ledger: TarsWorkLedger, now: () => string): Promise<TarsActionReceipt> {
+  workingChangesFor: ReturnType<typeof tarsWorkingChangesReader>, ledger: TarsWorkLedger, now: () => string,
+  guard?: ReturnType<typeof tarsAdmissionGuard>): Promise<TarsActionReceipt> {
   try {
     // Attachment contents are context, never a substitute for the user's written mandate.
     if (action.kind === "delegate" && !message.text.trim()) {
       // i18n-ignore: diagnostic only; the interface translates the typed refusal reason
       throw new TarsDelegateRejection("missingMandate", "Attachments alone do not authorize delegated work.");
     }
+    const hold = (registry: PersistenceRepositoryRegistryEntry[]) => {
+      const verdict = guard?.(action, registry);
+      if (verdict?.confirm) throw new TarsWorkProposalHeld(verdict.matches);
+    };
     let workingChanges: TarsWorkingChanges | undefined;
     if (action.kind === "delegate" && message.includeWorkingChanges) {
-      try { workingChanges = await workingChangesFor(action.workspaceId); }
-      catch (error) { throw new TarsWorkingChangesRejection(error); }
+      try { workingChanges = await workingChangesFor(action.workspaceId, hold); }
+      catch (error) { if (error instanceof TarsWorkProposalHeld) throw error; throw new TarsWorkingChangesRejection(error); }
     }
     return ledger.apply(() => {
       // Recheck admission inside the transaction that writes both effect and receipt.
       const admitted = requireDecision(ports, message.id, message.revision);
+      const registry = ports.readRegistry();
       if (action.kind === "delegate") {
-        const target = resolveTarsWorkspace(action.workspaceId, ports.readRegistry());
+        const target = resolveTarsWorkspace(action.workspaceId, registry);
+        hold(registry);
         const execution = tarsExecutionTarget(admitted);
         let agentId: string | undefined;
         if (action.agentId) {
@@ -243,11 +261,13 @@ async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, ind
         return { responsibilityId: row.id };
       }
       // The same admission as a click or drag in the tray (`tars-queue.ts`); words set the priority itself.
-      const row = admitTarsReprioritize(ports.responsibilities.get(action.responsibilityId), action, ports.readRegistry());
+      const row = admitTarsReprioritize(ports.responsibilities.get(action.responsibilityId), action, registry);
+      hold(registry);
       return { responsibilityId: ports.responsibilities.patch(row.id, action.expectedRevision,
         { priority: action.priority }, now()).id };
     });
   } catch (error) {
+    if (error instanceof TarsWorkProposalHeld && ledger.propose) return ledger.propose(error.matches);
     // A lock wait that outlasted busy_timeout changed nothing and is not a
     // verdict on the action: keep the intent pending for the next attempt.
     if (isTarsStorageBusy(error)) throw error;
@@ -331,6 +351,10 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         // An option that could never apply is refused now, with its reason, instead of a dead button.
         let rejection: ReturnType<typeof tarsControlRejection> | null = null;
         for (const option of action.options) {
+          if (option.effect.kind === "prReview") {
+            rejection = { reason: "runRefused", error: "PR review choices are offered by the host after checks pass." };
+            break;
+          }
           if (option.effect.kind !== "control") continue;
           try { admitTarsControl(ports.responsibilities.get(option.effect.responsibilityId), option.effect); }
           catch (error) { rejection = tarsControlRejection(error); break; }
@@ -396,6 +420,14 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
           refusal ? { status: "rejected", ...refusal } : { status: "proposed" }, now()));
         continue;
       }
+      if (action.kind === "delegate" || action.kind === "reprioritize") {
+        receipts.push(await admitTarsWork(ports, message, index, action, workingChangesFor, {
+          apply: (effect) => ports.conversations.applyReceipt(message.id, index, intent.revision, effect, now()),
+          reject: (outcome) => ports.conversations.settleReceipt(message.id, index, intent.revision, { status: "rejected", ...outcome }, now()),
+          propose: (matches) => ports.conversations.settleReceipt(message.id, index, intent.revision, proposed(matches), now()),
+        }, now, guard));
+        continue;
+      }
       const held = guard(action);
       if (action.kind === "workspace") {
         receipts.push(await applyTarsWorkspace(ports, message, index, action, held));
@@ -414,6 +446,11 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       if (action.kind === "control") {
+        if (message.origin?.kind === "followUp" && message.origin.reason === "ciFailed" && receipts.some((entry) => entry.action.kind === "control" && entry.action.operation === "message")) {
+          receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
+            { status: "rejected", reason: "notByFollowUp", error: "Only one CI continuation is allowed per head." }, now()));
+          continue;
+        }
         // Words take the same admission, run control and atomic outcome as a click.
         const row = ports.responsibilities.get(action.responsibilityId);
         const request = action.operation === "extend" && row && !tarsHasAllowRule("extend", { allowRules: ports.conversations.getSettings()?.allowRules, repositoryPath: row.repositoryPath }) ? { ...action, autoExtendMaxTurns: row.maxTurns * TARS_AUTO_EXTEND_MULTIPLIER } : action;
@@ -421,26 +458,6 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
           action, now, () => !tarsAdmissionGuard(ports, message)(action).confirm)));
         continue;
       }
-      if (held.confirm) {
-        // The level, or one of the user's rules, holds this work for the user's confirmation. What could never
-        // be admitted is refused now instead of offering a dead button; the full admission runs when it is confirmed.
-        let rejection: { error: string; reason?: TarsActionReason } | null = null;
-        try {
-          // i18n-ignore: diagnostic only; the interface translates the typed refusal reason
-          if (action.kind === "delegate" && !message.text.trim()) throw new TarsDelegateRejection("missingMandate", "Attachments alone do not authorize delegated work.");
-          if (action.kind === "delegate") resolveTarsWorkspace(action.workspaceId, ports.readRegistry());
-          else admitTarsReprioritize(ports.responsibilities.get(action.responsibilityId), action, ports.readRegistry());
-        } catch (error) {
-          rejection = { error: boundedError(error), ...(error instanceof TarsDelegateRejection || error instanceof TarsControlRejection ? { reason: error.reason } : {}) };
-        }
-        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
-          rejection ? { status: "rejected", ...rejection } : proposed(held.matches), now()));
-        continue;
-      }
-      receipts.push(await admitTarsWork(ports, message, index, action, workingChangesFor, {
-        apply: (effect) => ports.conversations.applyReceipt(message.id, index, intent.revision, effect, now()),
-        reject: (outcome) => ports.conversations.settleReceipt(message.id, index, intent.revision, { status: "rejected", ...outcome }, now()),
-      }, now));
     }
     return receipts;
   } catch (error) {

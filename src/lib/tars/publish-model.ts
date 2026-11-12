@@ -1,3 +1,4 @@
+import { tarsCanUpdatePublication } from "./publication";
 import type { TarsActionReceipt } from "./conversation";
 import { tarsPublishProposalRequestId, tarsPublicationResumeStep, type TarsPublishRecord, type TarsPublicationStep } from "./publication";
 import type { TarsResponsibility } from "./types";
@@ -24,7 +25,7 @@ export interface TarsPublishProposalView {
 export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication" | "resultVerifiedRunId" | "agentRunId" | "executionPending"> | undefined) {
   return Boolean(row && !row.executionPending && (row.state === "completed" || row.state === "resultReady") && row.detailCode !== "acceptedWithoutVerification" && row.executionWorkspaceId
     && (row.state !== "resultReady" || Boolean(row.agentRunId && row.resultVerifiedRunId === row.agentRunId))
-    && row.publication?.state !== "opened");
+    && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
 }
 
 export function projectTarsPublishProposals(sources: {

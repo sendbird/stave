@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TarsPrChecksSchema, TarsPrWatchSchema } from "./pr-checks";
 
 /**
  * Publishing a responsibility's verified work: commit, push and a draft pull
@@ -65,6 +66,8 @@ export type TarsPublishReason = z.infer<typeof TarsPublishReasonSchema>;
 export const TarsPublicationSchema = z.object({
   /** The execution whose result the host published; absent on older records. */
   agentRunId: IdSchema.optional(),
+  checks: TarsPrChecksSchema.optional(),
+  watch: TarsPrWatchSchema.optional(),
   state: TarsPublicationStateSchema,
   /** The step a retry resumes; only a failed publication has one. */
   failedStep: TarsPublicationStepSchema.nullable(),
@@ -286,4 +289,13 @@ export function tarsDefaultCommitSubject(title: string, type?: TarsCommitType): 
 export function tarsPullRequestNumber(url: string): number | null {
   const match = /\/pull\/(\d{1,9})(?:[/?#]|$)/.exec(url);
   return match ? Number(match[1]) : null;
+}
+
+/** An open PR can receive a newly verified execution, on its original branch only. */
+export function tarsCanUpdatePublication(row: { state: string; agentRunId?: string | null; resultVerifiedRunId?: string | null;
+  publication?: TarsPublication; executionPending?: boolean }) {
+  return Boolean(row.publication?.state === "opened" && row.publication.number && row.publication.url
+    && row.publication.watch?.stopped !== "closed" && row.publication.agentRunId && row.agentRunId
+    && row.publication.agentRunId !== row.agentRunId && row.resultVerifiedRunId === row.agentRunId
+    && row.state === "resultReady" && !row.executionPending);
 }

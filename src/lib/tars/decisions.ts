@@ -89,6 +89,7 @@ export type TarsDecisionOption =
   | { kind: "control"; control: ControlRequest; label: string | null; rationale: string | null }
   /** A held work proposal (a delegation or a priority change): Confirm applies the saved action through the host. */
   | { kind: "proposal"; action: TarsWorkProposalAction; label: null; rationale: null }
+  | { kind: "prReview"; effect: import("./conversation").TarsAskEffect & { kind: "prReview" }; label: string; rationale: string }
   | { kind: "reply"; label: string; rationale: string }
   | { kind: "verify"; responsibilityId: string };
 
@@ -301,6 +302,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
         options: action.options.map((option): TarsDecisionOption => option.effect.kind === "control"
           ? { kind: "control", control: { responsibilityId: option.effect.responsibilityId, expectedRevision: option.effect.expectedRevision,
             operation: option.effect.operation, ...(option.effect.input ? { input: option.effect.input } : {}) }, label: option.label, rationale: option.rationale }
+          : option.effect.kind === "prReview" ? { kind: "prReview", effect: option.effect, label: option.label, rationale: option.rationale }
           : { kind: "reply", label: option.label, rationale: option.rationale }),
         recommended: safe.recommended ?? null, answer, record: null, since: receipt.updatedAt }, retiredBy, message.origin, later));
     }
@@ -357,7 +359,7 @@ export function bindTarsShortAnswer(text: string, answerable: readonly TarsDecis
 
 /** Whether choosing an option cannot be undone. */
 export function isIrreversibleOption(option: TarsDecisionOption) {
-  return option.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(option.control.operation);
+  return option.kind === "prReview" && option.effect.choice === "ready" || option.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(option.control.operation);
 }
 
 /**

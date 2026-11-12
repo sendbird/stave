@@ -42,6 +42,7 @@ export function getTarsConversationService() {
       agentCatalogReady: areCustomAgentsSynced, resyncAgentCatalog: syncAgentsToHost,
       applyDecision: (input) => invokeHostService("tars.apply-decision", input),
       // Decision answers that control work take the same host path as a click.
+      confirmPrReview: async (decisionId) => { await invokeHostService("tars.pr-review", { decisionId }); },
       act: (input) => invokeHostService("tars.act", input),
       // A confirmed work proposal is admitted by the host from its saved receipt.
       confirmProposal: (input) => invokeHostService("tars.confirm-proposal", input),

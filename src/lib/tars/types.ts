@@ -218,6 +218,7 @@ const DetailCodeFields = {
 };
 
 export const TarsActivitySchema = z.object({
+  prChecks: TarsPublicationSchema.shape.checks,
   id: IdSchema, responsibilityId: IdSchema, revision: z.number().int().min(1),
   title: z.string().min(1).max(120), state: TarsStateSchema,
   detail: z.string().max(2_000).nullable(), ...DetailCodeFields, createdAt: z.iso.datetime(),
@@ -550,7 +551,7 @@ export type TarsPendingDecision = z.infer<typeof TarsPendingDecisionSchema>;
  * the host settles itself; they are recorded, never followed up.
  */
 export const TarsEventKindSchema = z.enum([
-  "resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "completed", "hostRecovery",
+  "resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "completed", "hostRecovery", "ciFailed", "ciPassed", "ciUnavailable",
 ]);
 export type TarsEventKind = z.infer<typeof TarsEventKindSchema>;
 
