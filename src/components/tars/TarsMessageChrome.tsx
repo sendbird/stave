@@ -109,9 +109,11 @@ function CancelMessageButton({ state, busy, onCancel }: { state: "queued" | "rea
  * (the moving mark and a shimmer), waiting behind another message, or
  * cancelled. A message in progress can be cancelled from here.
  */
-export function TarsMessageStatus({ state, busy, onCancel }: { state: "queued" | "reasoning" | "cancelled"; busy: boolean; onCancel: () => void }) {
+export function TarsMessageStatus({ state, busy, onCancel, inspection }: { state: "queued" | "reasoning" | "cancelled"; busy: boolean; onCancel: () => void; inspection?: TarsMessageView["inspection"] }) {
   const { t } = useTranslation(["shell"]);
-  const label = t(`shell:tars.conversation.states.${state}`);
+  const label = state === "reasoning" && inspection?.reading
+    ? t(`shell:tars.conversation.inspecting.${inspection.view}`, { title: inspection.title })
+    : t(`shell:tars.conversation.states.${state}`);
   return <div className={sx(styles.status)} data-tars-message-state={state}>
     {/* The mark sits in the records' mark column, so a message's state lines up with the rail beside it. */}
     <span className={sx(styles.statusMark)}><StateMark state={state === "reasoning" ? "working" : state === "queued" ? "queued" : "stopped"} size="xs" motion={state === "reasoning" ? "moving" : "still"} /></span>

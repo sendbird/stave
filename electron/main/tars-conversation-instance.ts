@@ -1,3 +1,4 @@
+import { createTarsInspectionReader } from "./tars-inspection-readers";
 import { app } from "electron";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
@@ -27,6 +28,7 @@ export function getTarsConversationService() {
     const service = createTarsConversationService({
       conversations: store.tarsConversations,
       coordinator: secondaryRunCoordinator,
+      inspect: createTarsInspectionReader(store, invokeHostService),
       responsibilities: store.tars,
       context: async (message) => {
         const execution = tarsExecutionTarget(message);

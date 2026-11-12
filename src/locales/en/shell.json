@@ -1386,7 +1386,14 @@
         "agentCatalog": "Waiting for your saved agents to load. If they do not load within a minute, this message stops and says so."
       },
       "droppedActions_one": "{{count}} proposed action was not valid and was left out. Nothing was done for it.",
-      "droppedActions_other": "{{count}} proposed actions were not valid and were left out. Nothing was done for them."
+      "droppedActions_other": "{{count}} proposed actions were not valid and were left out. Nothing was done for them.",
+      "inspecting": {
+        "report": "Reading the report of {{title}}…",
+        "changes": "Reading the changes of {{title}}…",
+        "transcript": "Reading the transcript of {{title}}…",
+        "checks": "Reading the checks of {{title}}…",
+        "pullRequest": "Reading the pull request of {{title}}…"
+      }
     },
     "record": {
       "status": {

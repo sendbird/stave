@@ -158,3 +158,18 @@ test("a queued message says why it waits, a retried one says it is trying once m
   expect(render({ ...message, state: "reasoning", revision: 3, retry: { attempt: 2, cause: "provider", at: message.createdAt } })).toContain("한 번 더 시도합니다");
   await applyAppLocale("en");
 });
+
+test("a persisted inspection status names the view and work in English and Korean", async () => {
+  try {
+    for (const locale of ["en", "ko"] as const) {
+      applyAppLocale(locale); await i18n.changeLanguage(locale);
+      const html = render({ ...message, state: "reasoning", inspection: { responsibilityId: "work", title: "Search",
+        view: "report", round: 1, reading: true, at: message.createdAt } });
+      expect(tarsRecordText(html)).toContain(locale === "en" ? "Reading the report of Search" : "Search 보고서를 읽고 있어요");
+      expect(html).toContain('role="status"');
+      const settled = render({ ...message, state: "reasoning", inspection: { responsibilityId: "work", title: "Search",
+        view: "report", round: 1, reading: false, at: message.createdAt } });
+      expect(tarsRecordText(settled)).not.toContain(locale === "en" ? "Reading the report" : "보고서를 읽고");
+    }
+  } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
+});

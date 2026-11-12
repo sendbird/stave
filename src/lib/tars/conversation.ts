@@ -238,6 +238,22 @@ export const TarsShowActionSchema = z.object({
 }).strict();
 export type TarsShowAction = z.infer<typeof TarsShowActionSchema>;
 
+/** Host-only reads: never a tool grant or an executable work action. */
+export const TarsInspectActionSchema = z.object({
+  kind: z.literal("inspect"),
+  responsibilityId: IdSchema,
+  view: z.enum(["report", "changes", "transcript", "checks", "pullRequest"]),
+}).strict();
+export type TarsInspectAction = z.infer<typeof TarsInspectActionSchema>;
+
+/** Last read under way, persisted so reconnecting windows show the same status. */
+export const TarsInspectionProgressSchema = TarsInspectActionSchema.omit({ kind: true }).extend({
+  round: z.number().int().min(1).max(2),
+  reading: z.boolean(),
+  title: z.string().max(120),
+  at: TimestampSchema,
+}).strict();
+
 /**
  * Withdraws one of Tars's own earlier decisions that still waits: a proposal
  * waiting for Confirm (`confirm:<message>:<action>`) or a question
@@ -251,7 +267,7 @@ export const TarsWithdrawActionSchema = z.object({
 }).strict();
 export type TarsWithdrawAction = z.infer<typeof TarsWithdrawActionSchema>;
 
-export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
+export const TarsWorkActionSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("delegate"),
     workspaceId: IdSchema,
@@ -295,6 +311,7 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   TarsClearActionSchema,
   TarsScheduleActionSchema,
 ]);
+export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [...TarsWorkActionSchema.options, TarsInspectActionSchema]);
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
 
 /**
@@ -419,6 +436,8 @@ const messageFields = {
   retry: z.object({ attempt: z.literal(2), cause: TarsRetryCauseSchema, at: TimestampSchema }).strict().optional(),
   /** Only on a queued message: why it has not started yet (`TarsQueueWaitReason`). */
   waiting: z.object({ reason: TarsQueueWaitReasonSchema, since: TimestampSchema }).strict().optional(),
+  /** Read status only; inspected content stays in the host. */
+  inspection: TarsInspectionProgressSchema.optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 };
@@ -480,7 +499,7 @@ export const TarsActionReceiptSchema = z.object({
   messageId: IdSchema,
   actionIndex: z.number().int().min(0).max(7),
   requestHash: z.string().regex(/^[a-f0-9]{64}$/),
-  action: TarsDecisionActionSchema,
+  action: TarsWorkActionSchema,
   /** `proposed`: a model-proposed control awaiting the user's confirming click, or an ask awaiting the user's answer. */
   status: z.enum(["pending", "applied", "rejected", "proposed"]),
   responsibilityId: IdSchema.nullable(),

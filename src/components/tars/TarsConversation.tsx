@@ -162,7 +162,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       {/* A wide table may claim the transcript's wide measure; prose, code and cards keep the reading column. */}
       <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
       : message.state === "failed" ? <TarsMessageFailure key="failure" message={message} onResend={userWords && onResend ? onResend : undefined} />
-        : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} /> : null,
+        : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} inspection={message.inspection} /> : null,
     // Why it has not started yet, or that its first attempt failed and Tars is trying once more: never a silent wait.
     message.state === "queued" && message.waiting ? <TarsRecordList key="waiting"><TarsRecordRow state="info" icon={Clock} at={message.waiting.since}
       subject={t(`shell:tars.conversation.waiting.${message.waiting.reason}`)} data-tars-message-waiting={message.waiting.reason} /></TarsRecordList>

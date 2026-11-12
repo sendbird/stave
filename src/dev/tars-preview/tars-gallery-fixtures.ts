@@ -1,3 +1,4 @@
+import { TarsWorkActionSchema } from "@/lib/tars/conversation";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
   TARS_MESSAGE_FAILURE_TEXT, type TarsActionReason, type TarsActionReceipt, type TarsActionRecord, type TarsConversation, type TarsDecisionAction,
@@ -146,7 +147,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
     return message;
   }
   function receipt(message: TarsMessage, actionIndex: number, outcome: ReceiptOutcome) {
-    const value: TarsActionReceipt = { messageId: message.id, actionIndex, requestHash: "a".repeat(64), action: message.decision!.actions[actionIndex]!,
+    const value: TarsActionReceipt = { messageId: message.id, actionIndex, requestHash: "a".repeat(64), action: TarsWorkActionSchema.parse(message.decision!.actions[actionIndex]),
       status: outcome.status, responsibilityId: outcome.status === "applied" ? outcome.responsibilityId : null,
       error: outcome.status === "rejected" ? DIAGNOSTIC : null, reason: outcome.status === "rejected" ? outcome.reason : null,
       revision: outcome.status === "proposed" || outcome.status === "pending" ? 1 : 2, createdAt: message.createdAt, updatedAt: message.createdAt };

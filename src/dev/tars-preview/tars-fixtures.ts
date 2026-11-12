@@ -1,3 +1,4 @@
+import { TarsWorkActionSchema } from "@/lib/tars/conversation";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -74,7 +75,7 @@ export function buildTarsTrayFixtures(start: Date) {
         acceptanceCriteria: billing.acceptanceCriteria, priority: billing.priority, agentId: "debugger",
         reason: "The failure only shows on empty lists, so the Debugger reproduces it before changing code." }] },
     error: null, createdAt: at(1), updatedAt: at(1) };
-  const receipt: TarsActionReceipt = { messageId: message.id, actionIndex: 0, requestHash: "c".repeat(64), action: message.decision!.actions[0]!,
+  const receipt: TarsActionReceipt = { messageId: message.id, actionIndex: 0, requestHash: "c".repeat(64), action: TarsWorkActionSchema.parse(message.decision!.actions[0]),
     status: "applied", responsibilityId: billing.id, error: null, reason: null, revision: 2, createdAt: at(1), updatedAt: at(1) };
   const activity: TarsActivity[] = [
     { id: "activity-billing-running", responsibilityId: billing.id, revision: 2, title: billing.title, state: "running", detail: null, createdAt: at(2) },
