@@ -5,7 +5,7 @@ import { AgentRunStore } from "../electron/persistence/agent-run-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { createAssignRuntime } from "../electron/host-service/supervision/assign-runtime";
 import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsOwnershipLostError } from "../electron/host-service/tars-ownership";
-import { tarsWorkflow } from "../electron/host-service/tars-execution";
+import { tarsExecutionAgentInstructions, tarsWorkflow } from "../electron/host-service/tars-execution";
 import { compileStagePrompt } from "../src/lib/workflows/stage-prompt";
 import { createAgentRun } from "../src/lib/agent-runs/domain";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
@@ -94,7 +94,9 @@ describe("Tars persisted ownership", () => {
     expect(prompt).toContain("Do not create an empty commit");
     expect(prompt).toContain("same-workspace");
     expect(prompt).toContain("expectedHead");
-    expect(prompt).toContain("Do not push, open or update pull requests");
+    // Authority is in the frozen lead instructions, not repeated in each workflow prompt.
+    const leadInput = `${tarsExecutionAgentInstructions(getBuiltinAgent("supervisor")!.instructions, f.row)}\n\n${prompt}`;
+    expect(leadInput).toContain("Do not push, open or update pull requests");
     f.database.close();
   });
 });

@@ -40,7 +40,8 @@ export const TARS_REVIEW_CHECK_SCOPE = "Check reported evidence against the diff
 
 /**
  * The run's initial context: the user's whole message when it did not fit
- * the assignment and the personal portfolio, replayed on every lead turn, and
+ * the assignment and the personal portfolio, restored for a cold provider
+ * session but omitted once its transcript is primed (`canonical-request`), and
  * a reference to the attachments the work carries, which only the first turn
  * receives (`resolveTarsRunAttachments`). Summaries are bounded context,
  * never cross-task control grants or transcript copies.
@@ -129,7 +130,8 @@ export function tarsWorkflow(row: TarsResponsibility, now: string): Workflow {
     version: 1, id: `tars-${row.id}`, name: "Tars", // i18n-ignore: model-facing workflow identity
     purpose: "Carry this delegated responsibility to a verified result, with an independent review when it changes files.", // i18n-ignore: model-facing
     checkIns: "when-stuck", team: "workers", createdAt: now, updatedAt: now,
-    constraints: TARS_EXECUTION_POLICY,
+    // Authority lives in the frozen lead instructions, including on nudge turns.
+    // Repeating it as workflow constraints sends the same policy twice per stage.
     stages: [
       { id: "work", title: "Work", kind: "ai", // i18n-ignore: canonical stage title
         instruction: withCommitForReview(work, "behavior-changes"),
