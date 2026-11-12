@@ -193,8 +193,10 @@ function gitIn(cwd: string, ...args: string[]) {
 /** Which completion rule the run met: a host-observed passing check on the final revision, or a same-revision passed review. */
 function verification(detail: AgentRunDetail) {
   const stages = detail.agentRun.workflow.stages;
-  const finalId = stages.at(-1)?.id;
-  const final = [...detail.stages].reverse().find((stage) => stage.stageId === finalId);
+  // The run ends on the last stage that ran: a passed review skips the fix stage.
+  const ran = stages.flatMap((stage) => { const record = [...detail.stages].reverse().find((entry) => entry.stageId === stage.id);
+    return record && record.status !== "skipped" ? [record] : []; });
+  const final = ran.at(-1);
   const reviewId = stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
   const review = [...detail.stages].reverse().find((stage) => stage.stageId === reviewId);
   const report = final?.report?.outcome === "complete" ? final.report : null;
@@ -202,7 +204,8 @@ function verification(detail: AgentRunDetail) {
   const commands = (final?.facts?.commands ?? []).filter((command) => command.turnId === report?.turnId)
     .map((command) => ({ command: command.command, exitCode: command.exitCode, outcome: command.outcome, provenance: Boolean(command.provenance),
       current: JSON.stringify(command.sourceRevision) === JSON.stringify(revision) }));
-  const hostChecks = (final?.facts?.workspaceScripts ?? []).map((check) => ({ scriptId: check.scriptId, exitCode: check.exitCode, source: check.source,
+  // Stave's own check runs from any stage that ran on the final revision.
+  const hostChecks = ran.flatMap((record) => JSON.stringify(record.facts?.workspaceRevision) === JSON.stringify(revision) ? record.facts?.workspaceScripts ?? [] : []).map((check) => ({ scriptId: check.scriptId, exitCode: check.exitCode, source: check.source,
     completedRevision: check.verification.completedRevision }));
   const reviewReport = review?.report?.outcome === "complete" ? review.report : null;
   return { finalStage: final ? { attempt: final.attempt, status: final.status, startedAt: final.startedAt, outcome: final.report?.outcome } : null,
@@ -257,6 +260,9 @@ async function openReport(page: Page, testInfo: TestInfo, name: string) {
   if (!(await output.isVisible().catch(() => false))) return null;
   await output.click();
   await page.waitForTimeout(1_500);
+  // Criteria and their sources fold under the full summary.
+  const full = page.getByTestId("tars-view").getByRole("button", { name: /Full summary, criteria and evidence/ }).last();
+  if (await full.isVisible().catch(() => false)) { await full.click(); await page.waitForTimeout(500); }
   const text = await page.getByTestId("tars-view").innerText();
   await page.screenshot({ path: testInfo.outputPath(`${name}-report.png`) });
   return text;
@@ -345,7 +351,8 @@ test("A: words — Tars delegates real work that completes only on verified evid
     if (running.row.state === "running") entry.fleetWhileRunning = await fleetWhileRunning(page, testInfo, "A-running");
     const end = await watch(live, id, timeline, (row) => SETTLED.has(row.state) || (row.state === "waiting" && (row.detailCode === "runPaused")), DEADLINE_MS);
     const detail = end.row.agentRunId ? await api.run(page, end.row.agentRunId) : null;
-    const stageOrder = detail ? [...new Set([...detail.stages].sort((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? "")).map((stage) => stage.stageId))] : [];
+    const stageOrder = detail ? [...new Set(detail.stages.filter((stage) => stage.status !== "skipped" && stage.startedAt)
+      .sort((a, b) => a.startedAt!.localeCompare(b.startedAt!)).map((stage) => stage.stageId))] : [];
     // One work stage, then a review because files changed; the fix stage runs only when the review asked for changes.
     check(expectations, "the run goes work → review (→ fix only on findings)", stageOrder[0] === "work" && stageOrder[1] === "review" &&
       stageOrder.every((stage) => ["work", "review", "fix-review"].includes(stage)), { stageOrder, run: runSummary(detail) });
