@@ -9,6 +9,7 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
       const root = page.locator(`[data-surface="${surface}"]`);
       await expect(root.locator('[data-tars-completion-summary]')).toBeVisible();
       await expect(root.locator('[data-tars-completion-outputs] a')).toBeVisible();
+      await expect(root.locator('[data-tars-completion-warnings]')).toBeVisible();
       await expect(root.locator('[data-tars-completion-warnings]')).toContainText(lang === 'ko' ? '실제 운영 데이터' : 'production data');
       await expect(root.locator('[data-tars-completion-warnings]')).toContainText(lang === 'ko' ? '미검증' : 'Unverified');
       await expect(root.locator('[data-tars-full-summary]').last()).toBeHidden();
@@ -18,6 +19,17 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
       await expect(root.locator('[data-tars-full-summary]').last()).toBeVisible();
       await expect(root.locator('[data-tars-evidence-group]')).not.toHaveCount(0);
+      for (const summary of await root.locator('[data-tars-full-summary]').all()) await expect(summary).toBeVisible();
+      const headline = await root.locator('[data-tars-completion-summary]').evaluate((node) => {
+        const style = getComputedStyle(node);
+        return { whiteSpace: style.whiteSpace, overflow: style.overflowX, ellipsis: style.textOverflow,
+          complete: node.getAttribute('title'), lineHeight: parseFloat(style.lineHeight), height: node.getBoundingClientRect().height };
+      });
+      expect(headline.whiteSpace).toBe('nowrap');
+      expect(headline.overflow).toBe('hidden');
+      expect(headline.ellipsis).toBe('ellipsis');
+      expect(headline.height).toBeLessThanOrEqual(headline.lineHeight + 1);
+      expect(await root.locator('[data-tars-full-summary]').allTextContents()).toContain(headline.complete);
       // Actual descendants, including unbroken text, stay inside their owning surface.
       const geometry = await root.evaluate((node) => {
         const box = node.getBoundingClientRect();
@@ -70,7 +82,7 @@ for (const [lang, theme] of [['en', 'light'], ['ko', 'dark']]) test(`standalone 
   await page.goto(`/tests/e2e/fixtures/tars-result-first.html?case=none&lang=${lang}&theme=${theme}`);
   for (const surface of ['result', 'report']) {
     const root = page.locator(`[data-surface="${surface}"]`);
-    await expect(root.locator('[data-tars-completion-summary]')).toHaveText('Completed regression checks.…');
+    await expect(root.locator('[data-tars-completion-summary]')).toHaveText('Completed regression checks.');
     await expect(root.locator('[data-tars-completion-warnings]')).toHaveCount(0);
     await root.locator('[data-tars-result-details] > button').click();
     await expect(root.locator('[data-tars-full-summary]').last()).toContainText('No known limitations.');
@@ -78,6 +90,7 @@ for (const [lang, theme] of [['en', 'light'], ['ko', 'dark']]) test(`standalone 
   await page.goto(`/tests/e2e/fixtures/tars-result-first.html?case=none-with-caveat&lang=${lang}&theme=${theme}`);
   for (const surface of ['result', 'report']) {
     const warnings = page.locator(`[data-surface="${surface}"] [data-tars-completion-warnings]`);
+    await expect(warnings).toBeVisible();
     await expect(warnings).toContainText('Production deployment was skipped.');
     await expect(warnings).toContainText('Release remains pending.');
     await expect(warnings).not.toContainText('No known limitations.');
@@ -88,11 +101,13 @@ test('earlier limitations are visible as historical notes and heading bodies lea
   await page.goto('/tests/e2e/fixtures/tars-result-first.html?case=history');
   for (const surface of ['result', 'report']) {
     const root = page.locator(`[data-surface="${surface}"]`);
-    await expect(root.locator('[data-tars-completion-summary]')).toHaveText('Completed regression checks.…');
+    await expect(root.locator('[data-tars-completion-summary]')).toHaveText('Completed regression checks.');
+    await expect(root.locator('[data-tars-completion-warnings]')).toBeVisible();
     await expect(root.locator('[data-tars-completion-warnings]')).toContainText('Production deployment was skipped.');
     await expect(root.locator('[data-tars-completion-warnings]')).toContainText('Release remains pending.');
     await expect(root.locator('[data-tars-completion-warnings]')).not.toContainText('Packaged Electron');
     await expect(root.locator('[data-tars-completion-earlier]')).toContainText('Earlier stage note · Work · may be superseded');
+    await expect(root.locator('[data-tars-completion-earlier]')).toBeVisible();
     await expect(root.locator('[data-tars-completion-earlier]')).toContainText('Packaged Electron was skipped.');
   }
 });

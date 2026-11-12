@@ -52,7 +52,7 @@ describe("Tars result card", () => {
     expect(html).toContain(error);
   });
 
-  test("full stage summaries, criteria and warnings follow the existing disclosure", async () => {
+  test("full stage summaries and criteria follow the disclosure, while limitations stay visible", async () => {
     await applyAppLocale("en");
     const html = render(noticeOf(rowOf("verified")));
     const disclosure = html.indexOf('data-tars-result-details');
@@ -60,6 +60,12 @@ describe("Tars result card", () => {
       expect(html.indexOf(marker)).toBeGreaterThan(disclosure);
     }
     expect(html.indexOf('data-tars-completion-summary')).toBeLessThan(disclosure);
+    for (const key of ["stalled", "reported"] as const) {
+      const result = render(noticeOf(rowOf(key)));
+      const warnings = result.indexOf('data-tars-completion-warnings');
+      expect(warnings).toBeGreaterThan(0);
+      expect(warnings).toBeLessThan(result.indexOf('data-tars-result-details'));
+    }
   });
   test("completed and verified: each criterion says what confirmed it, then the summary, changes, review and views", async () => {
     await applyAppLocale("en");

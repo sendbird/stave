@@ -119,12 +119,18 @@ test("the card's buttons open their views by keyboard, with a visible focus ring
   await press("result-stalled", "report");
   await expect(page.locator("[data-tars-report-unmet]").first()).toBeVisible();
   await page.keyboard.press("Escape");
-  // The run's own words are one keypress away, and the state's next steps are the tray's controls.
+  // Full summary keeps diagnostics reachable by keyboard; next steps stay outside it.
   const stalled = card(page, "result-stalled");
+  const details = stalled.locator('[data-tars-result-details] > button');
+  await details.focus();
+  await page.keyboard.press("Enter");
+  await expect(details).toHaveAttribute("aria-expanded", "true");
   const disclosure = stalled.locator("[data-tars-diagnostic] button");
+  await expect(disclosure).toBeVisible();
   await disclosure.focus();
   await page.keyboard.press("Enter");
   await expect(stalled).toContainText("The load test kept p95 at 840 ms");
+  await expect(stalled.locator('[data-tars-diagnostic] p')).toBeVisible();
   await expect(stalled.locator('[data-tars-action="resume"]')).toBeEnabled();
   // A run that never ended has no report to open.
   await expect(card(page, "result-failed").locator('[data-tars-result-open="report"]')).toHaveCount(0);
