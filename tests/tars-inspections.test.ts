@@ -1,3 +1,4 @@
+import { projectTarsActivity } from "../src/lib/tars/activity";
 import { Database } from "bun:sqlite";
 import { afterEach, expect, test } from "bun:test";
 import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
@@ -179,4 +180,21 @@ test("the full loop respects one serialized observation budget across both inspe
   expect(JSON.stringify(data.inspections).length).toBeLessThanOrEqual(TARS_INSPECTION_TOTAL_CHARS);
   expect(data.inspections.some((observation: { truncated: boolean }) => observation.truncated)).toBe(true);
   expect(f.requests.every((request) => request.input.prompt.length <= 95_002)).toBe(true);
+});
+
+test("Activity retains every inspection's metadata across reads without exporting inspected content", async () => {
+  const f = fixture((_request, round) => round === 0
+    ? { reply: "Reading", actions: [{ ...inspect, responsibilityId: f.row.id }, { ...inspect, responsibilityId: f.row.id, view: "checks" }] }
+    : { reply: "Checked", actions: [] });
+  try {
+    await processTarsMessage(f.message.id, f.ports);
+    const message = f.conversations.listViews(10).find(message => message.id === f.message.id)!;
+    expect(message.inspections?.map(inspection => [inspection.view, inspection.reading, inspection.status])).toEqual([
+      ["report", false, "read"], ["checks", false, "read"],
+    ]);
+    expect(JSON.stringify(message.inspections)).not.toContain("Search assertion failed");
+    expect(message.inspections).toHaveLength(2);
+    const activity = projectTarsActivity({ settings: null, messages: [message], receipts: [], activity: [], records: [] }, [f.row]);
+    expect(activity.filter(entry => entry.content.kind === "inspection")).toHaveLength(2);
+  } finally { f.db.close(); }
 });
