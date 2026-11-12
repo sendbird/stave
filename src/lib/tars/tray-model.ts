@@ -143,11 +143,12 @@ export interface TarsTrayModel<T extends TarsTrayAttentionInput = TarsTrayAttent
  * otherwise pause or resume plus take over.
  * Cancel is offered whenever the work has not ended.
  */
-export function tarsControlsFor(row: Pick<TarsResponsibility, "state" | "detailCode">): TarsControlOperation[] {
+export function tarsControlsFor(row: Pick<TarsResponsibility, "state" | "detailCode" | "completionGoal">): TarsControlOperation[] {
   if (isTarsResponsibilityTerminal(row)) return [];
+  if (row.state === "resultReady") return row.completionGoal === "pullRequest" || row.completionGoal === "merge" ? ["cancel"] : ["acceptCompletion", "cancel"];
   if (row.state === "takenOver") return ["handBack", "cancel"];
   // The run ended reporting success Stave could not verify: only the user's decision is left.
-  if (row.state === "blocked" && row.detailCode === "unverifiedCompletion") return ["acceptCompletion", "cancel"];
+  if (row.state === "blocked" && row.detailCode === "unverifiedCompletion") return row.completionGoal === "pullRequest" || row.completionGoal === "merge" ? ["cancel"] : ["acceptCompletion", "cancel"];
   if (row.state === "queued") return ["startNow", "pause", "takeover", "cancel"];
   return [row.state === "paused" || row.state === "blocked" ? "resume" : "pause", "takeover", "cancel"];
 }

@@ -1,3 +1,4 @@
+import { tarsGoalReached } from "../../src/lib/tars/completion";
 import { createHash, randomUUID } from "node:crypto";
 import {
   TarsActivitySchema, type TarsActivity,
@@ -125,7 +126,15 @@ export class TarsStore {
 
   private readResponsibility(row: unknown): TarsResponsibility | null {
     if (!row) return null;
-    return TarsResponsibilitySchema.parse(JSON.parse((row as StoredRow).body_json));
+    return this.restoreCompletion(TarsResponsibilitySchema.parse(JSON.parse((row as StoredRow).body_json)));
+  }
+
+  private restoreCompletion(saved: TarsResponsibility): TarsResponsibility {
+    // Older completion records establish an execution result, not a requested goal.
+    // Read conservatively without rewriting history or its idempotency hash.
+    const external = saved.completionGoal === "pullRequest" || saved.completionGoal === "merge";
+    const accepted = !external && (saved.completionConfirmedAt || saved.detailCode === "acceptedWithoutVerification");
+    return saved.state === "completed" && !tarsGoalReached(saved) && !accepted ? { ...saved, state: "resultReady" } : saved;
   }
 
   get(id: string): TarsResponsibility | null {
@@ -172,7 +181,7 @@ export class TarsStore {
     }
     this.hasDecisionTables ||= hasTarsDecisionTables(this.db);
     const rows = new Map(responsibilities.map((entry) => [entry.id, entry]));
-    const live = (id: string, revision: number) => { const owner = rows.get(id); return Boolean(owner) && !isTarsResponsibilityTerminal(owner!) && owner!.revision === revision; };
+    const live = (id: string, revision: number, operation?: string) => { const owner = rows.get(id); return Boolean(owner) && (!isTarsResponsibilityTerminal(owner!) || owner!.state === "completed" && operation === "message") && owner!.revision === revision; };
     const proposals = [...readLatestTarsControls(this.db).values()].flat()
       .filter((receipt) => receipt.status === "proposed" && receipt.action.kind === "control");
     const settled = this.hasDecisionTables ? readSettledTarsTargets(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
@@ -181,7 +190,7 @@ export class TarsStore {
     const confirms = proposals.flatMap((receipt): TarsPendingDecision[] => {
       const { action } = receipt;
       if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) ||
-        answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision)) return [];
+        answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision, action.operation)) return [];
       return [{ responsibilityId: action.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: receipt.updatedAt }];
     });
@@ -194,7 +203,7 @@ export class TarsStore {
     const unverifiedAnswers = readTarsAnswers(this.db, blocked.map((row) => tarsUnverifiedDecisionId(row.id, row.revision)));
     const unverified = blocked.flatMap((row): TarsPendingDecision[] => settlingAnswer(unverifiedAnswers, tarsUnverifiedDecisionId(row.id, row.revision)) ? []
       : [{ kind: "unverifiedCompletion", responsibilityId: row.id, messageId: null, actionIndex: null, operation: null,
-        expectedRevision: row.revision, proposedAt: row.updatedAt, optionCount: 3 }]);
+        expectedRevision: row.revision, proposedAt: row.updatedAt, optionCount: row.completionGoal === "pullRequest" || row.completionGoal === "merge" ? 2 : 3 }]);
     const open = readOpenTarsAsks(this.db);
     const askAnswers = readTarsAnswers(this.db, open.map((receipt) => tarsAskDecisionId(receipt.messageId, receipt.actionIndex)));
     const askSettled = readSettledTarsTargets(this.db, open.map((receipt) => receipt.messageId));
@@ -202,7 +211,7 @@ export class TarsStore {
       if (receipt.action.kind !== "ask" || settlingAnswer(askAnswers, tarsAskDecisionId(receipt.messageId, receipt.actionIndex))) return [];
       const targets = receipt.action.options.flatMap((option) => option.effect.kind === "control" ? [option.effect] : []);
       if (!targets.length || targets.some((target) => askSettled.has(`${receipt.messageId}:${target.responsibilityId}`))) return [];
-      if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision))) return [];
+      if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision, target.operation))) return [];
       return [{ kind: "ask", responsibilityId: targets[0]!.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: null, expectedRevision: targets[0]!.expectedRevision, proposedAt: receipt.updatedAt,
         question: receipt.action.question, optionCount: receipt.action.options.length }];
@@ -252,12 +261,22 @@ export class TarsStore {
       if (!previous) throw new Error("The responsibility was not found.");
       if (previous.revision !== expectedRevision) throw new Error("The responsibility changed. Refresh it before trying again.");
       const merged: Record<string, unknown> = { ...previous, ...patch, revision: previous.revision + 1, updatedAt: now };
+      if (("agentRunId" in patch && patch.agentRunId !== previous.agentRunId) ||
+        (patch.state === "running" && previous.state !== "running")) {
+        delete merged.completionConfirmedAt;
+        merged.resultVerifiedRunId = null;
+      }
+      if ("agentRunId" in patch && patch.agentRunId !== previous.agentRunId && previous.publication) {
+        merged.publicationHistory = [...(previous.publicationHistory ?? []),
+          { ...previous.publication, agentRunId: previous.publication.agentRunId ?? previous.agentRunId ?? undefined }];
+        delete merged.publication;
+      }
       // A detail written without a code is free text, so it never keeps an earlier sentence's code.
       if ("detail" in patch) {
         delete merged.detailCode; delete merged.detailParams;
         Object.assign(merged, detailCodeOf(patch));
       }
-      const next = TarsResponsibilitySchema.parse(merged);
+      const next = this.restoreCompletion(TarsResponsibilitySchema.parse(merged));
       const result = this.db.prepare(`UPDATE tars_responsibilities
         SET revision = ?, priority = ?, body_json = ? WHERE id = ? AND revision = ?`)
         .run(next.revision, next.priority, JSON.stringify(next), id, expectedRevision);

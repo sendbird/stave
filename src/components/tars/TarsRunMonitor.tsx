@@ -25,13 +25,13 @@ type TarsState = TarsResponsibility["state"];
 /** A Tars state drawn in the design system's work-state vocabulary. */
 export const WORK_STATE_OF: Record<TarsState, WorkState> = {
   queued: "queued", preparing: "queued", running: "working", waiting: "waiting", paused: "paused",
-  completed: "ready", blocked: "halted", cancelled: "stopped", takenOver: "idle",
+  resultReady: "waiting", completed: "ready", blocked: "halted", cancelled: "stopped", takenOver: "idle",
 };
 
 /** The run lifecycle a Tars state stands for: only `running` is live (spinner, moving strip). */
 const RUN_STATE_OF: Record<TarsState, AgentStepState> = {
   queued: "queued", preparing: "pending", running: "running", waiting: "pending", paused: "interrupted",
-  completed: "completed", blocked: "interrupted", cancelled: "canceled", takenOver: "interrupted",
+  resultReady: "pending", completed: "completed", blocked: "interrupted", cancelled: "canceled", takenOver: "interrupted",
 };
 
 const SEGMENT_OF: Record<TarsStageSegment, RunMonitorSegment["state"]> = { finished: "done", current: "now", pending: "pending", stopped: "stopped" };

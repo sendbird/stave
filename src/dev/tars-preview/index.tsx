@@ -109,6 +109,30 @@ export function TarsPreview() {
     const publishMode = params.get("publish");
     const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" || galleryMode ? buildTarsSideViewFixtures(new Date(now)) : null;
     if (side && params.has("artifacts")) installTarsArtifactFixtures(side.runs["run-checkout"]!, params.get("artifacts") === "before");
+    // Endpoint fixture uses the actual tray/report components without executing publication.
+    const completionGoal = params.get("goal");
+    if (side && ["pullRequest", "merge", "confirmation"].includes(completionGoal ?? "")) {
+      const checkout = side.responsibilities.find((row) => row.id === "checkout")!;
+      checkout.state = "resultReady";
+      checkout.completionGoal = completionGoal as "pullRequest" | "merge" | "confirmation";
+      checkout.resultVerifiedRunId = checkout.agentRunId;
+    }
+    if (side && params.get("history") === "true") {
+      const checkout = side.responsibilities.find((row) => row.id === "checkout")!;
+      const previousRunId = checkout.agentRunId!;
+      const next = structuredClone(side.runs[previousRunId]!);
+      next.agentRun.id = `continued-${previousRunId}`;
+      next.agentRun.assignment = "Verify the follow-up correction";
+      if (next.report) {
+        next.report.agentRunId = next.agentRun.id;
+        next.report.acceptanceCriteria = [{ text: "The follow-up correction is verified.", required: true, status: "met" }];
+      }
+      checkout.previousRunIds = [previousRunId];
+      checkout.agentRunId = next.agentRun.id;
+      checkout.continuation = { requestId: "preview-correction", previousRunId, previousInstruction: checkout.instruction,
+        previousCriteria: checkout.acceptanceCriteria, text: next.agentRun.assignment, requestedAt: now };
+      side.runs[next.agentRun.id] = next;
+    }
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
     const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
     // `days=true`: the gallery's cases spread over the last week up to now, so the transcript's day rules show.

@@ -149,7 +149,9 @@ export function observeTarsContext(store: ObservationPorts,
       run.repositoryPath === row.repositoryPath ? run : null;
     const instruction = row.delegatedInstruction ? excerpt(row.delegatedInstruction, TARS_INSTRUCTION_EXCERPT_CHARS) : null;
     return { id: row.id, revision: row.revision, title: row.title, workspaceId: row.workspaceId, repositoryPath: row.repositoryPath,
-      state: row.state, detail: row.detail, priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
+      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId,
+      previousRunIds: row.previousRunIds ?? [],
+      ...(row.continuation ? { followUpScope: excerpt(row.continuation.text, 500).text } : {}), priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
       // The user's message that admitted it, in `requests`; "notStored" when Stave has no copy of it.
       request: asked.resolved.has(row.id) ? { messageId: asked.resolved.get(row.id)! } : "notStored" as const,
       // Tars's own instruction for the unit, as it proposed it; absent on work admitted before it was kept.

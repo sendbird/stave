@@ -93,17 +93,53 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
   };
   const publisher = createTarsPublisher(ports);
   /** Completed, verified work with an execution workspace, unless the patch says otherwise. */
-  const completed = (patch: Partial<Pick<TarsResponsibility, "state" | "detail" | "detailCode" | "executionWorkspaceId">> = {}) => {
-    const created = responsibilities.create({ requestId: `work-${clock++}`, title: "Show the saved card first at checkout", instruction: "Do the work.",
+  const completed = (patch: Partial<Pick<TarsResponsibility, "state" | "detail" | "detailCode" | "executionWorkspaceId" | "completionGoal" | "resultVerifiedRunId">> = {}) => {
+    const created = responsibilities.create({ completionGoal: patch.completionGoal ?? "implementation", requestId: `work-${clock++}`, title: "Show the saved card first at checkout", instruction: "Do the work.",
       acceptanceCriteria: ["Checkout shows the saved card first."], workspaceId: "source", repositoryPath: "/tmp/web", providerId: "codex", branchName: HEAD }, NOW);
+    const { completionGoal: _goal, ...change } = patch;
     return responsibilities.patch(created.id, created.revision, { state: "completed", detail: null, taskId: `tars-${created.id}`,
-      executionWorkspaceId: "exec-checkout", agentRunId: `run-${created.id}`, ...patch }, NOW);
+      executionWorkspaceId: "exec-checkout", agentRunId: `run-${created.id}`, ...change }, NOW);
   };
   const confirm = (row: TarsResponsibility, patch: Partial<{ requestId: string; expectedRevision: number; commitMessage: string; title: string }> = {}) =>
     publisher.publish({ requestId: patch.requestId ?? `publish-click:${clock++}`, responsibilityId: row.id, expectedRevision: patch.expectedRevision ?? row.revision,
       commitMessage: patch.commitMessage ?? "feat: show the saved card first at checkout", title: patch.title ?? "feat: show the saved card first at checkout", source: "click" });
   return { database, responsibilities, conversations, repo, publisher, completed, confirm, ports, now };
 }
+
+describe("Tars goal publication boundary", () => {
+  test("a PR goal stays open through failed publishing and completes only after the observed PR result", async () => {
+    const f = fixture();
+    let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.publisher.preview({ responsibilityId: row.id })).reason).toBeNull();
+    expect(f.repo.commands("commit")).toHaveLength(0);
+    f.repo.state.fail.create = 1;
+    expect((await f.confirm(row)).record.status).toBe("rejected");
+    row = f.responsibilities.get(row.id)!;
+    expect(row.state).toBe("resultReady");
+    expect(row.publication?.state).toBe("failed");
+    expect((await f.confirm(row)).record.status).toBe("applied");
+    const done = f.responsibilities.get(row.id)!;
+    expect(done).toMatchObject({ state: "completed", publication: { state: "opened", agentRunId: row.agentRunId, url: URL } });
+    expect(done.taskId).toBe(row.taskId);
+    expect(done.executionWorkspaceId).toBe(row.executionWorkspaceId);
+    expect(f.repo.commands("commit")).toHaveLength(1);
+  });
+
+  test("publishing a merge goal records a PR without claiming CI or merge", async () => {
+    const f = fixture();
+    let row = f.completed({ state: "resultReady", completionGoal: "merge" });
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.confirm(row)).record.status).toBe("applied");
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "resultReady", publication: { state: "opened", url: URL } });
+  });
+
+  test("a restored execution without current verification cannot publish", async () => {
+    const f = fixture(); const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+    expect(f.repo.commands("commit")).toHaveLength(0);
+  });
+});
 
 describe("Tars publish pins what it confirmed", () => {
   test("a retried push sends the commit the first attempt made, even when the branch moved since", async () => {
@@ -402,4 +438,38 @@ describe("Tars publish words and results", () => {
     const row = { id: "r", title: "Checkout", updatedAt: NOW, agentRunId: null, publication: { state: "opened", url: URL, number: 12 } } as unknown as TarsResponsibility;
     expect(buildTarsOutputs({ responsibilities: [row], runs: {} })).toEqual([{ kind: "pullRequest", responsibilityId: "r", title: "Checkout", url: URL, number: 12 }]);
   });
+});
+
+test("publishing refuses an uncertain continuation before any Git operation", async () => {
+  const f = fixture(); let row = f.completed();
+  row = f.responsibilities.patch(row.id, row.revision, { executionPending: true }, NOW);
+  expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "inProgress" });
+  expect(f.repo.calls).toEqual([]);
+});
+
+test("a queued message blocks publication both before and after asynchronous inspection", async () => {
+  const { createTarsRuntime } = await import("../electron/host-service/tars-runtime");
+  const { actTars } = await import("../electron/host-service/tars-control");
+  for (const duringInspect of [false, true]) {
+    const f = fixture(); const row = f.completed();
+    const blocker = f.completed({ state: "running" });
+    const runtime = createTarsRuntime({ store: f.responsibilities, messages: f.conversations, now: () => NOW, concurrencyLimit: () => 1,
+      validateScope: async () => {}, prepareWorkspace: async () => "unused", prepareTask: async () => {}, findRun: async () => null,
+      startRun: async () => "unused", observe: async () => ({ state: "running", detail: null }), controlRun: async () => {},
+      respondTask: async () => { throw new Error("Must queue"); }, hasUserTurn: () => false, deliverMessage: async () => "busy",
+      continueWork: async () => { throw new Error("No slot"); } });
+    const send = () => actTars({ requestId: `queued-${duringInspect}`, responsibilityId: row.id, expectedRevision: row.revision,
+      operation: "message", input: { text: "Correct this result" }, source: "click" }, { conversations: f.conversations, runtime, now: () => NOW });
+    let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
+    if (duringInspect) f.ports.resolveWorkspace = async () => { await gate; return { path: "/tmp/exec-checkout", base: "main", repositoryName: "web" }; };
+    let publication: ReturnType<typeof f.confirm>;
+    if (duringInspect) { publication = f.confirm(row); await send(); release(); }
+    else { await send(); publication = f.confirm(row); }
+    expect((await publication).record).toMatchObject({ status: "rejected", reason: "inProgress" });
+    expect(f.repo.commands("commit")).toHaveLength(0);
+    expect(f.repo.commands("push")).toHaveLength(0);
+    expect(f.repo.commands("pr create")).toHaveLength(0);
+    expect(f.responsibilities.get(blocker.id)?.state).toBe("running");
+    runtime.stop(); await runtime.drain();
+  }
 });

@@ -1,3 +1,4 @@
+import { TarsGoalSummary } from "./TarsGoalSummary";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
@@ -70,6 +71,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish, outp
   // Sections sit on the section rhythm; the lead says how the run ended and why, then when the report was taken.
   return <div className={sx(styles.stack)} data-tars-report={model.state}>
     <div ref={unmetRef} className={sx(styles.summary, styles.anchor)} data-tars-report-summary="">
+      <TarsGoalSummary row={row} />
       {model.outcome ? <div className={sx(styles.row)}><Badge size="md" tone={model.outcome === "completed" ? "success" : model.outcome === "stopped" ? "danger" : "neutral"}>
         {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge></div> : null}
       {model.outcome && model.reason ? <p className={sx(styles.text)} data-tars-report-reason="">{model.reason}</p> : null}

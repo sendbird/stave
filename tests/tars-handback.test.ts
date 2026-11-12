@@ -24,7 +24,7 @@ function fixture() {
   let clock = Date.parse("2026-11-05T00:00:00.000Z");
   const now = () => new Date(clock += 1_000);
   const iso = () => now().toISOString();
-  const created = store.create({ requestId: "owned", title: "Fix search", instruction: "Fix and verify search.",
+  const created = store.create({ completionGoal: "implementation", requestId: "owned", title: "Fix search", instruction: "Fix and verify search.",
     acceptanceCriteria: ["Search works"], workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }, iso());
   const row = store.patch(created.id, created.revision, { state: "running", taskId: `tars-${created.id}`,
     executionWorkspaceId: "execution", agentRunId: "owned-run" }, iso());
@@ -57,7 +57,7 @@ function fixture() {
     cancel: command((aggregate) => cancelAgentRun({ aggregate, now: now() })) };
   const runtime = createTarsRuntime({ store, now: iso, validateScope: async () => {}, prepareWorkspace: async () => "execution",
     prepareTask: async () => {}, findRun: async () => "owned-run", startRun: async () => "owned-run",
-    observe: async (current) => tarsObservation(detail(), current.acceptanceCriteria, current.reverifyAfter),
+    observe: async (current) => tarsObservation(detail(), current.acceptanceCriteria, current.reverifyAfter, current),
     controlRun: (current, operation) => controlTarsRun(current, operation, { agentRuns, hasAssignment: () => true,
       readTask: async () => ({ activeTurnId: null }), readRun: () => run.agentRun, linkedTurns: () => [], userTurnIds: () => [], abortTurn: () => {} }) });
   let clicks = 0;

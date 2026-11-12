@@ -154,9 +154,10 @@ function isUnverified(row: Pick<TarsResponsibility, "state" | "detailCode">) {
 }
 
 /** Stave's options for a completion it could not verify, at the revision that waits. */
-export function tarsUnverifiedOptions(responsibilityId: string, revision: number): TarsDecisionOption[] {
+export function tarsUnverifiedOptions(responsibilityId: string, revision: number, goal?: TarsResponsibility["completionGoal"]): TarsDecisionOption[] {
+  const accept: TarsDecisionOption = { kind: "control", control: { responsibilityId, expectedRevision: revision, operation: "acceptCompletion" }, label: null, rationale: null };
   return [
-    { kind: "control", control: { responsibilityId, expectedRevision: revision, operation: "acceptCompletion" }, label: null, rationale: null },
+    ...(goal === "pullRequest" || goal === "merge" ? [] : [accept]),
     { kind: "control", control: { responsibilityId, expectedRevision: revision, operation: "cancel" }, label: null, rationale: null },
     { kind: "verify", responsibilityId },
   ];
@@ -211,10 +212,10 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   }
   const retiredBySibling = (receipt: TarsActionReceipt, id: string) => tarsDecisionTargets(receipt)
     .some((target) => [...(settledBy.get(`${receipt.messageId}:${target}`) ?? [])].some((other) => other !== id));
-  function targetsOf(targets: TarsDecisionView["targets"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
+  function targetsOf(targets: TarsDecisionView["targets"], options: TarsDecisionView["options"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
     if (!targets.length) return "live";
     if (!rows) return "unknown";
-    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state); })) return "targetEnded";
+    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state) && !(row.state === "completed" && options.some((option) => option.kind === "control" && option.control.responsibilityId === target.responsibilityId && option.control.operation === "message")); })) return "targetEnded";
     return targets.some((target) => rows.get(target.responsibilityId)!.revision !== target.expectedRevision) ? "targetMoved" : "live";
   }
   /**
@@ -231,7 +232,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
-    const targets = targetsOf(view.targets);
+    const targets = targetsOf(view.targets, view.options);
     if ((targets === "live" || targets === "unknown") && movedOn) return { ...base, state: "retired", why: "movedOn", checked: true, reask: false };
     if (targets === "live" || targets === "unknown") return { ...base, state: "waiting", why: null, checked: targets === "live", reask: false };
     // Only Tars's own questions are asked again, once per message, and only while nothing newer was said.
@@ -304,7 +305,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const current = !rows || (row !== undefined && row.revision === entry.revision && isUnverified(row));
     views.push(settle({ id, kind: "unverifiedCompletion", messageId: null, actionIndex: null, question: null,
       targets: [{ responsibilityId: entry.responsibilityId, expectedRevision: entry.revision }],
-      options: tarsUnverifiedOptions(entry.responsibilityId, entry.revision), recommended: null, answer, record: null, since: entry.since },
+      options: tarsUnverifiedOptions(entry.responsibilityId, entry.revision, row?.completionGoal), recommended: null, answer, record: null, since: entry.since },
     current ? null : "settled", undefined));
   }
   return views;

@@ -1265,7 +1265,8 @@
       "completed": "Completed",
       "blocked": "Blocked",
       "cancelled": "Cancelled",
-      "takenOver": "Taken over"
+      "takenOver": "Taken over",
+      "resultReady": "Result ready"
     },
     "conversation": {
       "workUpdate": "Work update",
@@ -2224,8 +2225,8 @@
       },
       "reason": {
         "notOwned": "Tars does not hold this work.",
-        "notCompleted": "Only completed work can be published.",
-        "notVerified": "Stave did not verify this work: it was accepted as done without a check. Publish it yourself if you want it.",
+        "notCompleted": "Only verified execution results can be published.",
+        "notVerified": "Stave has no verified result for this execution. Verify it before publishing.",
         "stale": "The work changed since this card was shown. Open it again.",
         "noWorkspace": "The work's workspace is no longer available.",
         "noChanges": "There is nothing to publish: no uncommitted change and no commit ahead of the base branch.",
@@ -2233,7 +2234,7 @@
         "ghUnavailable": "Stave could not use the GitHub CLI. Install it, run gh auth login in a terminal, then try again.",
         "wrongBranch": "The workspace is not on the work's own branch, or that branch is the base branch.",
         "alreadyPublished": "Its draft pull request is already open.",
-        "inProgress": "This work is already being published.",
+        "inProgress": "Publication or follow-up work is pending. Wait for it to finish.",
         "publishFailed": "A publish step failed.",
         "notByFollowUp": "An automatic follow-up cannot propose publishing; only your own request can.",
         "unknown": "The work could not be published."
@@ -2756,6 +2757,26 @@
       "stale": "Some checks do not verify the final revision. Read their source and revision in details.",
       "acceptedWithoutVerification": "Completion was accepted without a Stave-verified check.",
       "details": "Full summary, criteria and evidence"
+    },
+    "goal": {
+      "target": "Goal: {{goal}}",
+      "kind": {
+        "unspecified": "Endpoint not specified",
+        "design": "Design delivery",
+        "implementation": "Implementation and validation",
+        "pullRequest": "Pull request creation",
+        "merge": "Merge confirmation",
+        "confirmation": "Your confirmation"
+      },
+      "next": {
+        "execution": "Execution status shown separately",
+        "complete": "Requested goal completed",
+        "confirm": "Execution result ready; confirm the endpoint before closing",
+        "publish": "Result ready; confirm publication to create a draft PR",
+        "publishFailed": "Publication failed; retry from its confirmation card",
+        "mergeUnknown": "PR recorded; CI and merge are not confirmed",
+        "publishing": "Creating the draft PR; waiting for the recorded result"
+      }
     }
   }
 }

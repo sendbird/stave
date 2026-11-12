@@ -215,6 +215,7 @@ async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, ind
         const row = ports.responsibilities.create({
           requestId,
           title: action.title, instruction, acceptanceCriteria: action.acceptanceCriteria, priority: action.priority,
+          ...(action.completionGoal ? { completionGoal: action.completionGoal } : {}),
           workspaceId: target.workspaceId, repositoryPath: target.repositoryPath,
           // Every work unit gets the whole saved turn limit; the message's unit count is bounded by the decision schema.
           providerId: execution.providerId, model: execution.model, maxTurns: message.maxTurns,

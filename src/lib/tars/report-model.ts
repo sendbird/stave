@@ -1,3 +1,4 @@
+import { tarsExecutionCriteria } from "./continuation";
 import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { latestStageRecord, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
@@ -162,8 +163,11 @@ function criterionSource(detail: AgentRunDetail, text: string, final: WorkspaceR
  * stays grouped by the stage that reported it. The report never mixes in live
  * data: an unended run has no report, only its delegated criteria.
  */
-export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCriteria" | "agentRunId">, detail: AgentRunDetail | undefined): TarsReportModel {
-  const delegated = row.acceptanceCriteria.map((text): TarsReportCriterion => ({ text, required: true, status: "notReported", source: { kind: "none" } }));
+export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCriteria" | "agentRunId" | "continuation">, detail: AgentRunDetail | undefined): TarsReportModel {
+  const executionCriteria = detail && row.agentRunId !== detail.agentRun.id
+    ? [...new Set(detail.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).map((item) => item.text) : []))]
+    : tarsExecutionCriteria(row);
+  const delegated = executionCriteria.map((text): TarsReportCriterion => ({ text, required: true, status: "notReported", source: { kind: "none" } }));
   const report = detail?.report ?? null;
   if (!detail || !report) {
     return { state: detail ? "pending" : "unavailable", frozenAt: null, outcome: null, reason: null, summary: null, summaries: [], criteria: delegated,

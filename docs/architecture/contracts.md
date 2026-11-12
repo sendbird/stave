@@ -1033,6 +1033,23 @@ presented as a host check or external-service outcome. The service is desktop
 hosted; there is no corresponding execution service in the browser dev bridge
 or ordinary task Local MCP tool catalog.
 
+`completionGoal` is an optional endpoint admitted with the responsibility and
+delegate action. `tarsObservation` checks the Run's evidence first; a verified
+result stays nonterminal `resultReady` until that endpoint is established.
+`resultVerifiedRunId` and publication's `agentRunId` bind evidence to an execution.
+Only the host's recorded PR fulfills `pullRequest`; a link never proves CI or
+merge. Unknown scope waits for explicit acceptance (`completionConfirmedAt`).
+Restart reads old unscoped completions conservatively without rewriting their
+history or admission hash. A confirmed message to `completed` or `resultReady`
+work enters the persisted delivery ledger, reserves a continuation scope and
+starts or reconciles a Run in the same task and execution workspace.
+`previousRunIds` retains prior executions; report loading and output targets
+include those IDs. `publicationHistory` retains earlier publications while the
+new execution clears active publication, acceptance and verification evidence.
+Completion observation and report projection use execution-specific criteria.
+An uncertain start retains one concurrency slot until reconciled; cancellation
+reconciles without starting work, then stops the actual Run.
+
 Focused coverage: `tests/tars-store.test.ts`,
 `tests/tars-runtime.test.ts`, `tests/tars-control.test.ts`,
 `tests/tars-agents.test.ts`, `tests/tars-execution-resources.test.ts`,
