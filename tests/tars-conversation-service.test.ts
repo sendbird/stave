@@ -390,6 +390,7 @@ test("a claim lock failure keeps the message queued and the service reschedules 
 test("a message-originated control is admitted through the same host path as a click", async () => {
   let reply = "";
   const f = fixture({ answer: async () => reply });
+  f.conversations.configure({ ...SETTINGS, autonomy: "careful" });
   const created = f.responsibilities.create({ requestId: "owned", title: "Fix search", instruction: "Fix search.",
     acceptanceCriteria: ["Search works"], workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, NOW);
   const row = f.responsibilities.patch(created.id, created.revision, { state: "running", taskId: "task", executionWorkspaceId: "execution", agentRunId: "run" }, NOW);
@@ -412,7 +413,7 @@ test("a message-originated control is admitted through the same host path as a c
   expect(f.runControls).toEqual(["takeover"]);
   // The timeline carries the click as a record, separate from user messages.
   const conversation = f.service.getConversation();
-  expect(conversation.records.map((record) => record.requestId)).toEqual(["click-resume"]);
+  expect(conversation.records.map((record) => record.requestId)).toEqual([`auto:${spoken.id}:0`, "click-resume"]);
   expect(conversation.messages.map((message) => message.text)).toEqual(["내가 할게", "계속해"]);
   expect(f.errors).toEqual([]);
   await f.service.stop(); f.runtime.stop();

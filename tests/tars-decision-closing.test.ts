@@ -29,7 +29,7 @@ function fixture(replies: TarsDecision[] = []) {
   const database = new Database(":memory:");
   cleanup.push(() => { if (!database.closed) database.close(); });
   const conversations = new TarsConversationStore(database);
-  conversations.configure(SETTINGS);
+  conversations.configure({ ...SETTINGS, autonomy: "careful" });
   const responsibilities = new TarsStore(database);
   const ledger = new RunLedgerStore(database);
   const queue = [...replies];

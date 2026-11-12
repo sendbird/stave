@@ -204,3 +204,25 @@ describe("Tars takeover and hand-back use the run's own takeover semantics", () 
     f.database.close(); reassigned.database.close();
   });
 });
+
+test("automatic extension rechecks its budget inside the run command queue", async () => {
+  const f = fixture();
+  try {
+    const run = { ...f.change.agentRun, state: "paused" as const, pauseReason: "limit-reached" as const, maxTurns: 50 };
+    const detail: AgentRunDetail = { agentRun: run, stages: f.change.upserts, events: [], report: null };
+    let extended = false;
+    const ports = { autoExtendMaxTurns: 60, hasAssignment: f.hasAssignment,
+      readTask: async () => ({ activeTurnId: null }), readRun: () => run, linkedTurns: () => [], userTurnIds: () => [], abortTurn: () => {},
+      agentRuns: { get: async () => detail, extend: async (_input: unknown, guard: (current: typeof run) => void) => {
+        // Another command used the last automatic allowance while this one waited.
+        guard({ ...run, maxTurns: 60 });
+        extended = true;
+        return detail;
+      } } };
+    await expect(controlTarsRun(f.row, "extend", ports as never)).rejects.toThrow("needs your confirmation");
+    expect(extended).toBe(false);
+    // An explicit confirmation has no automatic allowance fence; the normal run ceiling still owns its budget.
+    await controlTarsRun(f.row, "extend", { ...ports, autoExtendMaxTurns: undefined } as never);
+    expect(extended).toBe(true);
+  } finally { f.database.close(); }
+});

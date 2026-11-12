@@ -312,10 +312,11 @@ export function createHostTarsRuntime(args: {
         throw error;
       }
     },
-    controlRun: (row, operation) => {
+    controlRun: (row, operation, autoExtendMaxTurns) => {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (latest) assertTarsRun(row, latest);
       return controlTarsRun(row, operation, {
+        autoExtendMaxTurns,
         agentRuns: args.agentRuns,
         hasAssignment: (row) => {
           const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);

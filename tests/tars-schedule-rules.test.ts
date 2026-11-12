@@ -210,7 +210,7 @@ describe("what the planner is told about schedules", () => {
       expect(prompt).toContain("{kind:'schedule',operation:'create'|'update'|'pause'|'resume'|'remove'|'list'");
       expect(prompt).toContain("never convert to UTC");
       expect(prompt).toContain("Never propose a schedule action on your own initiative");
-      expect(prompt).toContain("Never propose publish or any schedule action.");
+      expect(prompt).toContain("Never propose any schedule action.");
       const data = JSON.parse(prompt.slice(prompt.lastIndexOf("\n\n") + 2)) as { clock: unknown; schedules: Array<Record<string, unknown>>; schedulesAvailable: boolean };
       expect(data.clock).toEqual(context.clock);
       expect(data.schedulesAvailable).toBe(true);

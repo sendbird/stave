@@ -1402,6 +1402,7 @@
         "rejected": "Not applied"
       },
       "by": {
+        "automatic": "Tars applied this automatically",
         "you": {
           "click": "You did this in Tars",
           "key": "You did this in Tars with the keyboard",
@@ -2150,6 +2151,7 @@
     },
     "followUp": {
       "line": {
+        "resultReady": "Tars follow-up · Result verified; next step: {{title}}",
         "blocked": "Tars follow-up · Work cannot continue: {{title}}",
         "unverifiedCompletion": "Tars follow-up · Reported done, not yet confirmed: {{title}}",
         "verificationFailed": "Tars follow-up · Completion checks incomplete: {{title}}",
@@ -2208,7 +2210,7 @@
       "step3Text": "Read the report and changes beside the conversation.",
       "detailsTitle": "More about running tasks",
       "examplesTitle": "Try a request",
-      "limit1": "Each commit, push or draft PR needs your confirmation. Tars never merges or deploys.",
+      "limit1": "Requested draft PRs open automatically after verification at Balanced or Hands-off. Other publication asks first. Tars never merges or deploys.",
       "limit2": "Keep Stave open and this computer awake.",
       "limit3": "Tasks can run at the same time. Set a limit in Settings; 0 adds no task limit.",
       "limit4": "Work starts from the workspace branch. Turn on Include my working changes to include edits you haven't committed. Files ignored by Git are not copied.",
@@ -2455,11 +2457,11 @@
         },
         "balanced": {
           "label": "Balanced",
-          "description": "Default. Start tasks you request; ask before resuming, replying for you or ending work."
+          "description": "Default. Continue admitted work automatically within its budget; open requested draft PRs after verification."
         },
         "handsOff": {
           "label": "Hands-off",
-          "description": "Also resume, retry and add turns when you ask. Each action is recorded."
+          "description": "Continue admitted work automatically, including follow-ups. Each action is recorded."
         }
       },
       "table": {
@@ -2471,6 +2473,10 @@
           "never": "Never does"
         },
         "none": "Nothing"
+      },
+      "conditional": {
+        "extend": "add turns beyond the automatic cap or with an unknown budget",
+        "publish": "publish without a verified PR or merge goal"
       },
       "action": {
         "show": "open a report, changes, timeline or review",
@@ -2486,8 +2492,8 @@
         "handBack": "take back work you took over",
         "signOff": "approve a waiting stage",
         "answer": "answer a question in a task",
-        "message": "send your words to a task",
-        "requestChanges": "ask for changes to a stage",
+        "message": "instruct Tars’s own task",
+        "requestChanges": "request changes from Tars’s own run",
         "clear": "clear the conversation or lists",
         "cancel": "cancel work",
         "skipStage": "skip a stage",
@@ -2504,7 +2510,7 @@
         "spendMoney": "spend money",
         "contactOthers": "message other people"
       },
-      "footnote": "When Tars checks on work without a message from you, it can only ask questions, open views or request your confirmation.",
+      "footnote": "Balanced and Hands-off also apply to automatic follow-ups. Add turns automatically up to twice the original task budget; overruns ask first. Verified results open a draft PR automatically only when your original goal asks for a PR or merge. Other publication asks first. Resume and retry offer Undo to pause the same run; instructions already sent cannot be undone.",
       "never": {
         "title": "Never do",
         "hint": "Add rules for what Tars must avoid. Matching proposals require confirmation; rules do not automatically block actions.",

@@ -87,6 +87,12 @@ for (const lang of ["en", "ko"] as const) for (const theme of ["light", "dark"] 
     await page.screenshot({ path: testInfo.outputPath("settings-work-overview-390.png") });
     await toggle.click();
     await expect(details).toBeVisible();
+    const autoActions = await details.locator('[data-tars-autonomy-row="auto"]').getAttribute("data-tars-autonomy-actions");
+    expect(autoActions?.split(",")).toEqual(expect.arrayContaining(["resume", "retryStage", "message", "requestChanges"]));
+    expect(autoActions?.split(",")).not.toContain("answer");
+    const alwaysActions = await details.locator('[data-tars-autonomy-row="always"]').getAttribute("data-tars-autonomy-actions");
+    expect(alwaysActions?.split(",")).toEqual(expect.arrayContaining(["cancel", "handBack", "signOff", "answer", "clear"]));
+    expect(alwaysActions?.split(",")).not.toContain("publish");
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 800 });
       await expectActiveIndicator(sheet);

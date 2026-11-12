@@ -3,10 +3,10 @@ import { tarsPublishProposalRequestId, tarsPublicationResumeStep, type TarsPubli
 import type { TarsResponsibility } from "./types";
 
 /**
- * A publish proposal Tars made from the user's words, as the conversation
+ * A publish proposal from the user's words or a verified-result follow-up, as the conversation
  * shows it. `waiting`: the card can be confirmed; `invalid`: the work moved
  * past the revision Tars saw (or its draft pull request opened) before the
- * user confirmed; `settled`: confirmed, and its record says how it went.
+ * user confirmed; `settled`: admitted by confirmation or policy, with its recorded outcome.
  */
 export interface TarsPublishProposalView {
   requestId: string;

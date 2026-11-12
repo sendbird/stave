@@ -35,7 +35,7 @@ function fixture(options: { validScope?: boolean } = {}) {
     return store.patch(row.id, row.revision, { state, taskId: `tars-${row.id}`, executionWorkspaceId: "execution", agentRunId: "owned-run" }, NOW);
   };
   const propose = async (row: TarsResponsibility, operation: TarsControlOperation, ...alternatives: TarsControlOperation[]) => {
-    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
+    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
     const queued = conversations.create({ requestId: `message-${requests++}`, text: "다시 맡아줘" }, clock);
     const claimed = conversations.claim(queued.id, queued.revision, clock);
     const actions: TarsDecisionAction[] = [operation, ...alternatives]

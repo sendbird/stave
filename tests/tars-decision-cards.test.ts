@@ -41,7 +41,8 @@ function fixture(replies: TarsDecision[] = []) {
   const database = new Database(":memory:");
   cleanup.push(() => { if (!database.closed) database.close(); });
   const conversations = new TarsConversationStore(database);
-  conversations.configure(SETTINGS);
+  // Confirmation-card coverage uses the level that holds reversible controls.
+  conversations.configure({ ...SETTINGS, autonomy: "careful" });
   const responsibilities = new TarsStore(database);
   const ledger = new RunLedgerStore(database);
   const requests: SecondaryProviderExecutionRequest[] = [];

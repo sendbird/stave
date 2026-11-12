@@ -53,7 +53,7 @@ export type TarsPublicationState = z.infer<typeof TarsPublicationStateSchema>;
  * - `alreadyPublished`: its draft pull request is already open.
  * - `inProgress`: another publish of the same work is running.
  * - `publishFailed`: a step failed; the diagnostic says which and why.
- * - `notByFollowUp`: an automatic follow-up proposed it.
+ * - `notByFollowUp`: a proposal falls outside its automatic follow-up scope.
  */
 export const TarsPublishReasonSchema = z.enum([
   "notOwned", "notCompleted", "notVerified", "stale", "noWorkspace", "noChanges", "noRemote", "ghUnavailable",
@@ -94,8 +94,8 @@ export type TarsPublication = z.infer<typeof TarsPublicationSchema>;
 
 /**
  * The model's proposal to publish one completed responsibility at the
- * revision it saw. It grants nothing: the host saves it as proposed and only
- * the user's confirmation on its card publishes.
+ * revision it saw. The host records the proposal and applies it automatically
+ * only for a verified PR goal allowed by policy; otherwise its card waits.
  */
 export const TarsPublishActionSchema = z.object({
   kind: z.literal("publish"),
@@ -104,15 +104,15 @@ export const TarsPublishActionSchema = z.object({
 }).strict();
 export type TarsPublishAction = z.infer<typeof TarsPublishActionSchema>;
 
-/** How the card was confirmed: its button, or Enter while it has focus. */
-export const TarsPublishSourceSchema = z.enum(["click", "key"]);
+/** Card confirmation, or host-authorized automatic draft publication. */
+export const TarsPublishSourceSchema = z.enum(["click", "key", "automatic"]);
 export type TarsPublishSource = z.infer<typeof TarsPublishSourceSchema>;
 
 const NO_NUL = (value: string) => !value.includes("\u0000");
 const singleLine = (value: string) => !/[\r\n]/.test(value);
 
 /**
- * The user's confirmation of one card. The host derives everything else
+ * A card confirmation or host-authorized automatic publication. The host derives
  * (repository, base, head, the body) itself; only the words the user may edit
  * cross from the renderer. `publish:<message>:<index>` confirms that word
  * proposal and must repeat it exactly; any other request id is a click on a

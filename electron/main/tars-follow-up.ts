@@ -10,6 +10,7 @@ import type { TarsMessage } from "../../src/lib/tars/conversation";
 export const TARS_REASK_TEXT = "Automatic follow-up: the work behind an earlier question changed. Review whether the earlier question is still needed after the work changed, and ask again only if a choice is still needed.";
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
 const FOLLOW_UP_TEXT: Readonly<Record<TarsFollowUpReason, string>> = Object.freeze({
+  resultReady: "Automatic follow-up: the execution is verified but the requested endpoint is not reached. Offer publication of its draft pull request when appropriate; the host applies the autonomy policy. Never merge.",
   blocked: "Automatic follow-up: delegated work cannot continue. Judge what it needs next.",
   unverifiedCompletion: "Automatic follow-up: delegated work reported it was done, but Stave could not confirm it. Judge what it needs next.",
   verificationFailed: "Automatic follow-up: delegated work ended, but its completion checks are incomplete or need to be repeated. Judge what it needs next.",

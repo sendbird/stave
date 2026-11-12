@@ -466,7 +466,7 @@ Running work cards show the selected model and effort below the branch, for exam
 
 Beside the Work tray title, the **Group by project** icon adds folding project groups and card/output counts within each lane. Its tooltip names the option, and it highlights while on. Names come from registered projects or repository folders; missing ownership says **Unknown project**. Queued work keeps its order across all projects outside the groups. Drag and earlier/later actions still change that global queue. Clear and Undo apply to the whole lane. The grouping choice lasts while the tray is open.
 
-The Work tray and result report show the requested completion goal separately from an execution ending. A PR goal stays **Result ready** until you confirm publishing and Stave records that execution’s PR. A failed publish remains unfinished. A PR link does not confirm CI or merge; merge completion is not observed here. If the endpoint is unclear, confirm it before closing the goal. Older saved work without an endpoint keeps its history and appears as result ready until checked or explicitly accepted. For further edits, ask Tars to correct the same work and confirm its message card. A completed or result-ready execution continues as a new run in the existing task, workspace and branch. The original goal, earlier reports, artifacts and PR links stay available; historical reports open their own execution. Each new run needs fresh verification and publication confirmation. Follow-ups survive restart. Messages cannot restart paused, cancelled or taken-over work.
+The Work tray and result report show the requested completion goal separately from an execution ending. A PR goal stays **Result ready** until Stave records that execution’s PR under the autonomy policy. A failed publish remains unfinished. A PR link does not confirm CI or merge; merge completion is not observed here. If the endpoint is unclear, confirm it before closing the goal. Older saved work without an endpoint keeps its history and appears as result ready until checked or explicitly accepted. For further edits, ask Tars to correct the same work (Careful asks you to confirm its message card). A completed or result-ready execution continues as a new run in the existing task, workspace and branch. The original goal, earlier reports, artifacts and PR links stay available; historical reports open their own execution. Each new run needs fresh verification; publication follows the autonomy policy. Follow-ups survive restart. Messages cannot restart paused, cancelled or taken-over work.
 
 Open **Tars** in the sidebar to delegate an outcome across registered
 repositories. Unlike the saved Supervisor Agent, Tars keeps one personal
@@ -513,13 +513,22 @@ them **Until I clear it**.
 
 **How independently Tars acts** offers three levels.
 **Actions and confirmations** expands what Tars does on its own,
-asks first, always asks and never does at the level you picked. **Balanced** is the default and behaves as
-Tars did without levels. **Careful** also makes starting new work, changing the
-queue order and starting queued work now wait for your confirmation. **Hands-off**
-lets Tars resume work, retry a stage and add turns to the task at once when you
-ask, leaving a record of each. At every level cancelling work, skipping a stage,
-accepting a completion Stave could not verify, approving a tool request and
-publishing wait for you, and an automatic follow-up gains nothing from a level.
+asks first, always asks and never does at the level you picked.
+**Careful** keeps confirmations for starting, reordering and continuing work.
+**Balanced** (default) and **Hands-off** immediately resume, retry, instruct
+Tars's own run and request changes, including in automatic follow-ups. Extra
+turns apply automatically only within twice the original task budget; exceeding
+it needs your confirmation. Each action leaves a visible record. Resume and
+retry offer **Undo** to pause that execution; already sent instructions and
+consumed turns cannot be undone.
+When your original goal asks for a PR or merge, a verified result opens a
+**draft PR** automatically at Balanced or Hands-off. Other publication asks
+"Open a PR?"; Careful always asks. The host rechecks the revision and branches,
+never pushes the default branch and never force-pushes. Tars never merges or
+deploys. Cancel, skip, accept completion, approve a tool request, hand back
+work you took over, sign off, answer for you and clear always need confirmation.
+Pause, take over and deny always apply immediately. Automatic follow-ups never
+start new work or reclaim work you paused or took over.
 **Never do** holds rules in your own words, such as "never touch production
 branches". Tars receives them as hard limits, and Stave asks you first and shows
 the rule on the card when a proposed action names the rule's repository, branch
@@ -595,8 +604,8 @@ with **Open repository** in the sidebar).
 
 Built-in agents are always available to Tars. Allow a saved agent under
 **Agents Tars may use** before Tars can hand it work. Agents that publish,
-such as Shipper, are never used: only Stave publishes, and only after you
-confirm a publish card.
+such as Shipper, are never used: only Stave publishes through its guarded
+publication path under the autonomy policy.
 Tars refuses an agent that is unknown, not allowed, unable to take delegated
 work, unable to run on a pinned execution model or above the permission
 delegated work allows, and the conversation shows why. Admitted
@@ -741,14 +750,14 @@ conversation.
 
 Completed work that Stave verified can become a draft pull request. Choose
 **Create draft PR** on its card in **Done** or in its report, or ask Tars
-("open a draft PR for it"). A confirmation card shows the repository, the base
+("open a draft PR for it"). At Balanced or Hands-off, a verified PR or merge
+goal opens a draft PR automatically. Otherwise a confirmation card shows the repository, the base
 and head branch, the changed files, the commit message and pull request title
 (you can edit both and change the commit type) and the body built from the
 report, rendered as markdown; **Raw text** shows exactly what is sent. **Open
 draft PR** or Enter publishes; **Decline** or Esc publishes
 nothing. Stave then commits, pushes the work's branch and opens a draft pull
-request; it never merges, deploys or force-pushes, and it asks again every
-time. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
+request; it never merges, deploys or force-pushes. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
 request appears in **Outputs** and the report. If a step fails, **Retry** opens
 the card again and continues from that step.
 

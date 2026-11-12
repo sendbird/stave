@@ -75,7 +75,7 @@ function fixture() {
     return { db, store, conversations, runtime, close };
   }
   let current = open();
-  current.conversations.configure({ providerId: "codex", model: "test", maxTurns: 6 });
+  current.conversations.configure({ providerId: "codex", model: "test", maxTurns: 6, autonomy: "careful" });
   const created = current.store.create({ requestId: "source-request", title: "Split shared UI work", instruction: "Split and verify shared components.",
     acceptanceCriteria: ["Existing behavior is preserved"], workspaceId: "registered-source", repositoryPath: "/tmp/project", providerId: "codex" }, NOW);
   createdId = created.id;

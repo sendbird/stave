@@ -76,10 +76,10 @@ including the header, side views, question navigation and attachment removal.
    whether to accept it.
 7. **Report and publish.** A completed or ended run leaves a frozen **Result
    report**, its **Changes** and **Review**. Verified changes are committed on
-   the Tars workspace's own branch; nothing is pushed until you decide. For completed, verified work, **Create
+   the Tars workspace's own branch. Requested draft PRs can publish automatically after verification. For completed, verified work, **Create
    draft PR** (or asking Tars, such as "open a draft PR for it") opens a
-   confirmation card; only your confirmation on that card makes Stave commit,
-   push the work's branch and open a draft pull request. See
+   confirmation card unless Balanced or Hands-off already authorizes the verified
+   PR endpoint. Stave commits, pushes the work's branch and opens a draft pull request. See
    [Publish completed work](#publish-completed-work).
 
 **Follow-ups.** Saved status changes appear in the conversation and the
@@ -168,12 +168,14 @@ reports on the work.
 - Do what you would do to the run in its task, from your words: give a run
   paused at its turn limit more turns, retry a blocked or stuck stage, skip
   the current stage, sign off a stage waiting for your approval, or resume a
-  run paused by a usage limit. Each waits for your confirmation on its card.
+  run paused by a usage limit. Resume, retry and bounded extensions apply at
+  once at Balanced or Hands-off; skip and sign-off always need confirmation.
 - Answer what waits in the work's task from your words: approve or deny a
   tool approval, answer a question the run asked, send your words to the run
   as your reply ("tell it to use the existing index"), or request changes on a
-  stage waiting for your sign-off. Denying applies at once; the rest wait for
-  your confirmation on a card that shows the exact request, answers or words.
+  stage waiting for your sign-off. Denying applies at once. Approving and
+  answering for you always need confirmation; instructions to Tars's run follow
+  the autonomy level.
 - Supervise each unit through work, an independent review when it changed
   files, and fixes when the review asks for them, and refuse to call it done on
   the agent's word alone.
@@ -187,7 +189,8 @@ reports on the work.
   completion criteria), report, changes, timeline or review beside the
   conversation, also on request ("show me the report", "what changed?").
 - Commit, push and open a draft pull request for completed, verified work,
-  each time only after you confirm its card.
+  automatically for a verified PR goal at Balanced or Hands-off; otherwise after
+  you confirm its card.
 - Quote selected diff lines into your message so you can ask about them.
 - Act as independently as you choose: one setting with three levels decides
   what Tars applies at once and what waits for you, and **Never do** rules in
@@ -203,10 +206,10 @@ reports on the work.
 
 ## Limits
 
-- **No publishing on its own.** Delegated work does not commit, push, open
+- **Publishing through the host only.** Delegated work does not commit, push, open
   pull requests, merge, deploy, send messages or spend money. Stave itself
-  commits, pushes and opens a **draft** pull request only when you confirm a
-  publish card, every time; there is no "always allow", and nothing is ever
+  commits, pushes and opens a **draft** pull request automatically for a verified
+  PR goal at Balanced or Hands-off, or after you confirm a publish card; there is no "always allow", and nothing is ever
   merged, deployed or force-pushed. Agents that publish or deliver outside the
   workspace, such as Shipper, are never used. This is enforced by refusing
   publishing agents and by authorizing no publishing stage; it is not a shell
@@ -383,12 +386,12 @@ explicitly. Details are in [Decisions](#decisions).
 | **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
 You can ask in words too ("run the queued work now", "바로 실행해"). Start now,
-pause and take over apply at once; resume, hand back and cancel wait for your
-confirmation on a card. **Stop** in a Tars task or in
+pause and take over apply at once at the default level. Resume follows the
+autonomy level; hand back and cancel always need confirmation. **Stop** in a Tars task or in
 Fleet pauses the work rather than cancelling it.
 
-Words also reach what you would do to the run in its task. Each waits for your
-confirmation, and the run checks its own state again, so a command that does not
+Words also reach what you would do to the run in its task. The autonomy policy
+decides confirmation, and the run checks its own state again, so a command that does not
 fit (for example, sign-off while no stage waits for it) is refused with
 "The run cannot do this in its current state":
 
@@ -791,8 +794,8 @@ Polisher, Reviewer and Researcher) are always available. Your saved agents are
 available only after you allow them under **Agents Tars may use** in Tars
 settings; none are allowed at first. Agents that publish or deliver outside
 the workspace, such as Shipper or a saved agent with a pull request or publish
-stage, are never used: publishing happens only through a publish card you
-confirm, and Stave, not an agent, carries it out.
+stage, are never used: Stave carries out publication through its guarded host
+path under the autonomy policy.
 When reasoning, Tars sees only the agents it may use, with each one's name,
 kind of work, and "use when" and "don't use when" descriptions.
 
@@ -824,7 +827,7 @@ work** there to include it.
 Each responsibility owns a normal Stave task and agent run. It may create
 tasks and isolated worktrees, execute, repair and review within the delegated
 goal, and commit verified work on its own execution branch. It does not push
-or open pull requests; publishing stays Tars's confirmed publish card. The
+or open pull requests; publication follows Tars's host policy. The
 generated workflow authorizes no publishing action stage at admission. Its
 lead runs the Supervisor's own instructions with Tars's rules after them. Instructions describing the delegated scope are not an additional
 shell sandbox; review the configured provider safeguards before leaving work
@@ -869,7 +872,7 @@ The tray and result report show **Goal** separately from the execution report.
 An explicitly requested design delivery or implementation with validation can
 finish after the existing evidence checks. A PR goal stays **Result ready**
 until the host records the PR for that exact execution through the existing
-publish confirmation card. A failed publish remains unfinished and can retry
+publication path, automatically when the autonomy policy allows it. A failed publish remains unfinished and can retry
 from that card. A merge goal stays open after PR creation: neither CI nor merge
 is inferred from a PR link. This version does not observe merge completion.
 When the endpoint was not specified, Tars leaves the result ready for your
@@ -1210,13 +1213,14 @@ opens at most one view, and reopening Tars never replays an earlier one.
 
 ### Publish completed work
 
-Completed work that Stave verified can become a draft pull request, and only
-through a confirmation card each time:
+Work that Stave verified can become a draft pull request. At Balanced or
+Hands-off, a `resultReady` execution with an originally requested PR or merge
+goal publishes automatically. Other eligible results show a confirmation card:
 
 - **Words**: ask Tars to commit, push or open a pull request for one completed
   piece of work. Tars may propose a `publish` at the revision it saw; it is
-  saved as proposed and shows as the card under the reply. An automatic
-  follow-up can never propose it.
+  applied automatically when the policy allows it, or saved as a proposal with
+  a confirmation card. An automatic follow-up may propose publication too.
 - **Click**: **Create draft PR** on a **Done** card or in the work's report
   opens the same card at the end of the conversation (or brings Tars's waiting
   proposal for that work into view).
@@ -1234,7 +1238,7 @@ undone** tag say what it is. Enter, while the card or one of its fields has
 focus, or **Open draft PR** (the card's primary button, in the danger tone)
 publishes; Esc or **Decline** publishes nothing and records nothing.
 
-When you confirm, the host checks everything again from saved state, not from
+Before publishing, the host checks everything again from saved state, not from
 the card or Tars's words: Tars holds the work, it is completed with Stave's
 verification, its revision is still the one you saw, its execution workspace
 exists and has uncommitted changes or commits ahead of the base, it is on its
@@ -1447,8 +1451,10 @@ line's mark on the record rail, so they read as one item Tars wrote by itself.
 It goes through the same queue as your messages: it is only added while none
 of your messages can start, and a follow-up still queued starts nothing once
 you have written to Tars about the change. It may ask a question, propose a
-resume, cancel, stage retry, more turns or sign-off that waits for your
-confirmation when what it observed fits, or open a view. It never proposes
+resume, cancel, stage retry, more turns, instructions or sign-off when what
+it observed fits, or open a view. The autonomy policy decides which need
+confirmation. A verified resultReady execution can also offer or open its
+draft PR under the publication rule. It never proposes
 skipping a stage or starting queued work now, and never answers in the task
 for you: for a waiting approval it can only ask you with **Approve** and
 **Deny** options, and your choice applies it. It never
@@ -1456,7 +1462,7 @@ changes a priority, because that applies at once; it can ask whether you want it
 example "Start new work to fix it?", and only your answer can lead to it. It
 never pauses, takes over or hands back anything, never offers accept as done
 (or repeats the cancel Stave's own unverified-completion card offers), and
-proposes nothing about work you paused or took over, or that ended, including
+proposes no controls for work you paused or took over, or that ended, including
 when that happened while Tars was thinking. The run's own words reach Tars only
 as an untrusted observation. A change you already wrote about after it
 happened starts nothing, and a follow-up whose change is no longer current
@@ -1532,31 +1538,38 @@ An empty field means Tars follows only its built-in rules.
 which of Tars's proposals Stave applies at once and which wait for your
 confirmation on a card. **Actions and confirmations** expands a list for the level you
 picked: what Tars does on its own, asks first, always asks and never does.
-The list reads the same policy Stave applies; confirmation requirements for
-commits, pushes and draft PRs remain visible while it is collapsed. A saved change applies from
+The list reads the same policy Stave applies. A saved change applies from
 Tars's next decision, without a restart.
 
-| Level | What changes |
-| --- | --- |
-| **Careful** | Starting new work, changing the queue order and starting queued work now wait for your confirmation. A held delegation shows a **Start this work?** card with **Start work**; nothing is created until you confirm it. |
-| **Balanced** (default) | Exactly the behavior without levels: work you ask for starts, and continuing, answering for you or ending work waits for you. |
-| **Hands-off** | When you ask in your own words, Tars also resumes work, retries a stage and adds turns to the task at once. Each leaves an applied record in the conversation. |
+| Action | Careful | Balanced (default) / Hands-off |
+| --- | --- | --- |
+| Start requested work, reorder the queue, start queued work now | Confirm | Immediate |
+| Resume, retry a stage, instruct Tars's own run, request changes | Confirm | Immediate, including automatic follow-ups |
+| Extend the run's turn budget | Confirm | Immediate only up to twice the originally admitted `maxTurns`; otherwise confirm |
+| Publish a verified `resultReady` execution whose original goal is a PR or merge | Confirm | Automatically commit, push the execution branch and open a **draft** PR |
+| Publish other eligible results | Confirm | Confirm: "Open a PR?" |
+| Cancel, skip a stage, accept completion, approve a tool request, hand back authority, sign off, answer for the user, clear | Confirm | Confirm |
+| Pause, take over, deny a tool request | Immediate | Immediate |
 
-No level loosens a safeguard:
+The extension cap uses the original task budget, not a repeatedly enlarged
+budget. Missing budget evidence asks first. Every automatic action leaves a
+visible receipt or activity record. Resume and retry offer **Undo** to pause
+the same execution; Undo does not rewind code already changed. Instructions
+already sent to a run and consumed turn budgets cannot be undone. Pending
+message delivery retains its existing withdrawal control.
 
-- Cancelling work, skipping a stage, accepting a completion Stave could not
-  verify, approving a tool request and publishing always wait for you.
-- Handing back work you took over, approving a waiting stage and anything Tars
-  says for you in a task (an answer, your words, requested changes) also wait
-  at every level.
-- Pausing work, handing it over to you and denying a tool request always apply
-  at once, because they only reduce what Tars does.
-- An [automatic follow-up](#automatic-follow-up) gains nothing from a level.
-  Without your words Tars can still only ask, show a view or propose something
-  for you to confirm.
-- Tars never merges, deploys, force-pushes, deletes branches, worktrees or
-  tasks, creates an "always allow" rule, spends money or messages other people.
-  Stave offers it no action for these.
+After execution verifies, an automatic follow-up may offer publication without
+another user message. Only an originally requested PR or merge endpoint can
+authorize automatic publication, and only after verification of the current
+run. Other publication remains a confirmation card. Existing revision,
+workspace, base/branch and default-branch guards still apply. There is no
+force-push, automatic merge or deploy.
+
+Automatic follow-ups never delegate new work, reorder the queue, answer a
+question for you or reclaim work you paused or took over. Pausing, taking over
+and denying a tool request remain immediate at every level. Tars never deletes
+branches, worktrees or tasks, grants permanent approval, spends money or
+messages other people.
 
 Stave uses the more careful of the level saved now and the level that was saved
 when you sent the message, so lowering the level takes effect immediately and a
