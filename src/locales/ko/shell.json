@@ -1790,7 +1790,8 @@
       "workingChangesUnavailable": "저장해 둔 작업 중 변경 사항이 저장소에 더 이상 없어 Tars가 이 작업을 준비하지 못했습니다. 취소한 뒤 다시 요청하세요.",
       "runCancelled": "작업이 취소되었습니다. 이미 만든 변경은 그대로 남습니다.",
       "turnStartFailed": "현재 단계를 시작하지 못했습니다. Tars에게 다시 시도해 달라고 하거나 작업을 열어 확인하세요.",
-      "diagnostic": "기술 정보"
+      "diagnostic": "기술 정보",
+      "dailyUsageLimit": "일일 한도에 도달했습니다. 설정 > 프로바이더에서 한도를 변경한 뒤 재개하세요."
     },
     "messageFailure": {
       "interrupted": "답변이 저장되기 전에 Tars가 멈췄습니다. 메시지를 다시 보내세요.",

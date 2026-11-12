@@ -9,7 +9,7 @@ import { hasEndedTarsExecution } from "./continuation";
 export type TarsDetailFields = Pick<TarsResponsibility, "detail" | "detailCode" | "detailParams">;
 
 const DETAIL_KEYS = {
-  dailyUsageLimit: "usage:dailyLimit.reached",
+  dailyUsageLimit: "shell:tars.detail.dailyUsageLimit",
   preparationFailed: "shell:tars.detail.preparationFailed",
   waitingForUser: "shell:tars.detail.waitingForUser",
   runPaused: "shell:tars.detail.runPaused",

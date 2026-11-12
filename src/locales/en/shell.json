@@ -1815,7 +1815,8 @@
       "workingChangesUnavailable": "The saved copy of your working changes is no longer in the repository, so Tars could not set up this work. Cancel it and ask again.",
       "runCancelled": "This work was cancelled. Changes already made stay.",
       "turnStartFailed": "The current stage could not start. Ask Tars to retry it, or open its task to check.",
-      "diagnostic": "Technical details"
+      "diagnostic": "Technical details",
+      "dailyUsageLimit": "Daily limit reached. Change it in Settings > Providers, then resume."
     },
     "messageFailure": {
       "interrupted": "Tars stopped before its reply was saved. Send the message again.",

@@ -8,8 +8,11 @@ import type { TarsPublication } from "../../src/lib/tars/publication";
 /** Same authenticated, read-only gh readers as the general PR watch. Never read logs or post replies. */
 export async function readTarsPrFeedback(publication: TarsPublication, cwd: string, run: TarsPublishRunner) {
   if (!publication.url || !publication.commit) return undefined;
-  const runner: ScmCommandRunner = (request) =>
-    run("gh", request.commandArgs ?? [], request.cwd ?? cwd);
+  // The publish runner reports no exit code for a process it could not start; the shared readers expect a number.
+  const runner: ScmCommandRunner = async (request) => {
+    const result = await run("gh", request.commandArgs ?? [], request.cwd ?? cwd);
+    return { ...result, code: result.code ?? -1 };
+  };
   const index = await fetchPrContextIndex({ cwd, prUrl: publication.url, runCommand: runner });
   if (!index.ok || !index.index) throw new Error("Pull request comments are temporarily unavailable.");
   if (index.index.headSha !== publication.commit) return undefined;
