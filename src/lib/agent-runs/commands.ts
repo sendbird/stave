@@ -327,7 +327,7 @@ function resumeTransition(aggregate: AgentRunAggregate, now: Date): AgentRunChan
   return {
     agentRun: touch(
       agentRun,
-      { state: "running", pauseReason: null, reasonDetail: null, ...(lapsed ? { eventWait: lapsed } : {}) },
+      { state: "running", pauseReason: null, reasonDetail: null, dailyUsageLimit: undefined, ...(lapsed ? { eventWait: lapsed } : {}) },
       now,
     ),
     upserts: [],

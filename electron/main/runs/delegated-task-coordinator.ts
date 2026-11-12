@@ -251,6 +251,7 @@ export interface DelegateCaller {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  dailyUsageLimit?: (providerId: "claude-code" | "codex") => Promise<string | null>;
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
   resolveTurnRoute?: (input: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput) => Promise<import("../../../src/lib/routing/constrained-route").ConstrainedRouteResult>;
   getLedger: (() => DelegatedTaskLedgerPort) | (() => Promise<DelegatedTaskLedgerPort>);
@@ -786,6 +787,8 @@ export function createDelegatedTaskCoordinator(
           settleAgentRun({ ...args, detail });
           return;
         }
+        const dailyRefusal = dependencies.dailyUsageLimit ? await dependencies.dailyUsageLimit(args.target.providerId) : null;
+        if (dailyRefusal) throw new Error(dailyRefusal);
         const result = await dependencies.host.runTask({
           workspaceId: args.target.workspaceId,
           taskId: args.target.taskId,
@@ -1333,6 +1336,11 @@ export function createDelegatedTaskCoordinator(
         : null;
       const admission = admitDelegationUsage({ providerId: args.providerId, model: args.model, usage, override: usageCheck.override });
       if (!admission.ok) return rejected("usage-limited", existingSummary, admission.message.slice(0, 500));
+    }
+
+    if (dependencies.dailyUsageLimit && (!existingSummary || args.retry)) {
+      const dailyRefusal = await dependencies.dailyUsageLimit(args.providerId);
+      if (dailyRefusal) return rejected("usage-limited", existingSummary, dailyRefusal);
     }
 
     // ── Pinned commit ───────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
 import { TarsGoalSummary } from "./TarsGoalSummary";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { i18n, useTranslation } from "@/i18n";
@@ -90,6 +91,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish, outp
     </div>
     {/* Only blocked work has a reason and next steps; nothing else gets this landmark. */}
     {blocked ? <section className={sx(styles.section)} aria-label={t("shell:tars.side.report.blockedTitle")} data-tars-report-blocked="">
+      {row.detailCode === "dailyUsageLimit" ? <DailyLimitSettingsLink /> : null}
       {reason ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.report.blockedTitle")}.</strong> {reason}</span></p> : null}
       {actions}
     </section> : null}

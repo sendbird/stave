@@ -648,6 +648,8 @@ export const AgentRunSchema = z
     pauseReason: z.enum(AGENT_RUN_PAUSE_REASONS).nullable(),
     stopReason: z.enum(AGENT_RUN_STOP_REASONS).nullable(),
     reasonDetail: ReasonSchema.nullable(),
+    /** A local daily budget pause, distinct from a provider subscription reset. */
+    dailyUsageLimit: z.literal(true).optional(),
     /** Persisted reservation and the interrupted turn's exact runtime. Old rows omit it. */
     usageLimit: z.object({
       turnId: IdSchema,
@@ -925,6 +927,7 @@ export function replaceStageRecord(
 }
 
 export type AgentRunCommandErrorCode =
+  | "daily-usage-limit"
   /** An agent run cannot start or change runtime on this task right now. */
   | "refused"
   | "not-active"

@@ -6,7 +6,7 @@ import type { AgentRunAggregate, AgentRunChange, AgentRunEvent } from "../../src
 import { tarsExecutionScope } from "../../src/lib/tars/continuation";
 import path from "node:path";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
-import { AGENT_RUN_LIMITS, currentStageRecord, type AgentRun, type AgentRunPauseReason } from "../../src/lib/agent-runs/domain";
+import { AGENT_RUN_LIMITS, AgentRunCommandError, currentStageRecord, type AgentRun, type AgentRunPauseReason } from "../../src/lib/agent-runs/domain";
 import { isTarsRunCommandOperation, type TarsDetailCode, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation } from "../../src/lib/tars/types";
 
 /**
@@ -24,6 +24,8 @@ export class TarsOwnershipLostError extends Error {
 
 /** The detail a failure leaves on its responsibility: a coded host sentence, or the error's own text. */
 export function tarsDetailFromError(error: unknown): Required<Pick<TarsResponsibilityPatch, "detail" | "detailCode" | "detailParams">> {
+  if (error instanceof AgentRunCommandError && error.code === "daily-usage-limit")
+    return { detail: error.message, detailCode: "dailyUsageLimit", detailParams: null };
   if (!(error instanceof Error)) {
     // i18n-ignore: persisted diagnostic; the interface translates the code
     return { detail: "Tars could not observe this responsibility.", detailCode: "observationFailed", detailParams: null };

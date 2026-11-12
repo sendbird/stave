@@ -149,6 +149,7 @@ function createHarness(
     resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
     readProviderUsage?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"];
+    dailyUsageLimit?: Parameters<typeof createDelegatedTaskCoordinator>[0]["dailyUsageLimit"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
   } = {},
@@ -172,6 +173,7 @@ function createHarness(
       ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
       ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
       ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
+      dailyUsageLimit: options.dailyUsageLimit,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -231,6 +233,13 @@ describe("account usage admission", () => {
     const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false, ...input }, caller);
     return { harness, response };
   };
+
+  test("a daily limit refuses a new helper without starting its task", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, dailyUsageLimit: async () => "Daily limit reached." });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false }, caller);
+    expect(response).toMatchObject({ accepted: false, reason: "usage-limited", message: "Daily limit reached." });
+    expect(harness.runTaskCalls).toHaveLength(0);
+  });
 
   test("a model's new subagent does not start where the account is exhausted, and the refusal names the other provider", async () => {
     const { harness, response } = await start(async () => usage({ status: "headroom", usedPercent: 20 }, { status: "exhausted", usedPercent: 100, resetsAt: RESET }));

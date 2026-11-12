@@ -575,6 +575,17 @@ model, and each work's title opens that work. A cost appears only when a
 provider reported one; nothing is estimated. Tars's own replies are counted but
 their tokens are not recorded, and turns of helper tasks are not counted.
 
+**Settings > Providers > Today’s daily limits** sets a daily token limit per
+provider, or a USD limit once that provider reports a cost. Limits start off.
+AI usage and Tars usage insights show today’s recorded task usage across all
+accounts and workspaces, including helpers. Completed turns count on their
+local start date; limits reset at local midnight. Only reported usage counts;
+Tars conversation replies are excluded. At the limit, new work on that
+provider is refused. Active turns finish, then the run pauses before its next
+stage; concurrent turns may exceed the limit. **Change daily limit** opens
+Settings. Raise or disable it, or wait for tomorrow, then resume. Daily pauses
+stay paused across restart and do not resume automatically.
+
 New queue-move records offer **Undo**, which restores the earlier priorities,
 including any neighboring work that the move renumbered. A pause or takeover
 of queued work also offers **Undo** if execution had never started. Undo

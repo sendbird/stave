@@ -151,6 +151,7 @@ export function createHostTarsRuntime(args: {
     return { task, scope, workflow, existingRunId: null };
   }
   return createTarsRuntime({
+    dailyUsageLimit: (providerId) => persistence.dailyUsage.refusal(providerId),
     store: persistence.tars,
     controls: persistence.tarsConversations,
     hasControlEffect: (row, id) => Boolean(row.agentRunId && tarsRunControlApplied(persistence.agentRuns.listEventsByKind(row.agentRunId, ["control-applied"]), id)),

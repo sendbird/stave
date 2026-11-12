@@ -281,6 +281,40 @@ async function startedAgentRun(
   return detail.agentRun.id;
 }
 
+test("daily usage refuses new Runs, pauses at the next stage boundary and resumes after a limit change", async () => {
+  let limited = true;
+  const reason = "Daily limit reached. Change it in Settings > Providers, then resume.";
+  const harness = createHarness({ extra: { dailyUsageLimit: () => limited ? reason : null } });
+  await expect(harness.runtime.startAgentRun(startInput())).rejects.toThrow(reason);
+  expect(harness.store.listActiveAgentRuns()).toHaveLength(0);
+  expect(harness.runCalls).toHaveLength(0);
+  limited = false;
+  const id = await startedAgentRun(harness);
+  expect(harness.runCalls).toHaveLength(1);
+  limited = true;
+  // Spending in this turn does not interrupt it or start another one.
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun.state).toBe("running");
+  expect(harness.runCalls).toHaveLength(1);
+  await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  harness.endTurn("turn-1");
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", dailyUsageLimit: true, reasonDetail: reason, turnCount: 1 });
+  expect(harness.aggregate(id).agentRun.usageLimit).toBeUndefined();
+  expect(harness.runCalls).toHaveLength(1);
+  // A restart preserves the pause, even if the local day has since rolled over.
+  const restored = createHarness({ store: harness.store, turns: harness.turns, extra: { dailyUsageLimit: () => null } });
+  await restored.tick();
+  expect(restored.aggregate(id).agentRun.state).toBe("paused");
+  expect(restored.runCalls).toHaveLength(0);
+  limited = false;
+  await harness.runtime.resume({ agentRunId: id });
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun.state).toBe("running");
+  expect(harness.aggregate(id).agentRun.dailyUsageLimit).toBeUndefined();
+  expect(harness.runCalls).toHaveLength(2);
+});
+
 test("a report that paraphrases a required criterion is refused in the turn instead of halting the run", async () => {
   // A Tars Work stage reported every criterion met but rewrote each text with its evidence, so none matched and the run halted.
   const readable = "Tars text keeps a readable size and hierarchy without clipping.";

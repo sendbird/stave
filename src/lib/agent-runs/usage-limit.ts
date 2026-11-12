@@ -29,7 +29,8 @@ export function awaitsUsageReset(run: Pick<AgentRun, "usageLimit">): boolean {
   return Boolean(run.usageLimit?.resumeAt);
 }
 
-export function describeAgentRunUsageLimit(run: Pick<AgentRun, "usageLimit"> & Partial<Pick<AgentRun, "accountPool">>): string {
+export function describeAgentRunUsageLimit(run: Pick<AgentRun, "usageLimit"> & Partial<Pick<AgentRun, "accountPool" | "dailyUsageLimit">>): string {
+  if (run.dailyUsageLimit) return i18n.t("usage:dailyLimit.reached");
   if (!awaitsUsageReset(run)) return i18n.t("agentRuns:usageLimit.unknownReset");
   // An unreadable usage window re-reads at the resume time; the reset stays unknown.
   const time = run.usageLimit!.resetsAt ?? run.usageLimit!.resumeAt!;

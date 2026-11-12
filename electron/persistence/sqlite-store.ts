@@ -1,4 +1,5 @@
 import { DelegationPolicyStore } from "./delegation-policy-store";
+import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
 import { TarsStore } from "./tars-store";
 import { TarsConversationStore } from "./tars-conversation-store";
@@ -196,6 +197,7 @@ export class SqliteStore {
   readonly turnDigests: TurnDigestStore;
   readonly taskHandoffs: TaskHandoffStore;
   readonly usageStatistics: UsageStatisticsStore;
+  readonly dailyUsage: DailyUsageStore;
   readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
@@ -248,6 +250,7 @@ export class SqliteStore {
     this.turnDigests = new TurnDigestStore(this.db);
     this.taskHandoffs = new TaskHandoffStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
+    this.dailyUsage = new DailyUsageStore(this.db, this.usageStatistics);
     this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);

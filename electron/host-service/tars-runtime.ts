@@ -44,6 +44,7 @@ export interface TarsExecutionObservation {
 }
 
 export interface TarsRuntimePorts {
+  dailyUsageLimit?: (providerId: TarsResponsibility["providerId"]) => string | null;
   store: Pick<TarsStore, "snapshot" | "create" | "patch" | "get" | "updateIdentity" | "recordEvent">;
   validateScope: (row: Pick<TarsResponsibility, "workspaceId" | "repositoryPath">) => Promise<void>;
   prepareWorkspace: (row: TarsResponsibility, signal?: AbortSignal) => Promise<string>;
@@ -196,6 +197,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       }
       await ports.validateScope({ ...row, workspaceId: row.executionWorkspaceId ?? row.workspaceId });
       if (stopped || held.has(row.id)) return;
+      const limitReason = ports.dailyUsageLimit?.(row.providerId);
+      if (limitReason) throw new TarsDetailError("dailyUsageLimit", limitReason);
       row = patch(row, { state: "preparing", taskId: row.taskId ?? `tars-${row.id}`, detail: null });
       if (!row.executionWorkspaceId) {
         const executionWorkspaceId = await abortable(ports.prepareWorkspace(row, controller.signal), controller.signal);

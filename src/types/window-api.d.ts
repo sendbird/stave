@@ -2193,6 +2193,7 @@ interface WindowPersistenceApi {
   usageStatistics?: (
     args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs,
   ) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsResponse>;
+  dailyUsage?: import("@/lib/usage/daily-limit").DailyUsageApi;
   /** Activity's turn picker: a task's turns, newest first. */
   listTaskTurnHistory?: (
     args: import("@/lib/providers/turn-history").ListTaskTurnHistoryArgs,

@@ -1,3 +1,4 @@
+import { DailyLimits } from "@/components/usage/DailyLimits";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
@@ -106,10 +107,11 @@ function Report({ report, window, onOpenWork }: { report: TarsUsageReport; windo
  * what turn rows recorded: tokens where a provider reported them, money only
  * where a provider reported a cost, and turns and time for every turn.
  */
-export function TarsUsageView({ state, onReload, onOpenWork }: { state: TarsUsageState; onReload: () => void; onOpenWork?: (responsibilityId: string) => void }) {
+export function TarsUsageView({ state, onReload, onOpenWork, onOpenSettings }: { state: TarsUsageState; onReload: () => void; onOpenWork?: (responsibilityId: string) => void; onOpenSettings?: () => void }) {
   const { t } = useTranslation(["shell", "common"]);
   const [window, setWindow] = useState<TarsUsageWindow>("sevenDays");
   return <div className={sx(styles.body)} data-testid="tars-usage-view" data-tars-usage-status={state.status} data-tars-usage-window={window}>
+    <DailyLimits refreshKey={state.report} onOpenSettings={onOpenSettings} />
     <div className={sx(styles.toolbar)}>
       <ToggleGroup density="compact" aria-label={t("shell:tars.usage.period.label")} value={[window]}
         options={TARS_USAGE_WINDOWS.map((value) => ({ value, label: t(`shell:tars.usage.period.${value}`) }))}
