@@ -26,7 +26,7 @@ for (const withScripts of [false, true]) {
       const saved = store.getAgentRun("continued")!;
       expect(saved.workflow).toMatchObject(identity);
       expect(saved.assignment).toBe(row.instruction);
-      expect(saved.workflow.stages.at(-1)?.acceptanceCriteria?.some(criterion => criterion.verification === "stave-check") ?? false).toBe(withScripts);
+      expect(saved.workflow.stages[0]?.acceptanceCriteria?.some(criterion => criterion.verification === "stave-check") ?? false).toBe(withScripts);
     } finally { db.close(); }
   });
 }

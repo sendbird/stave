@@ -86,10 +86,36 @@ describe("Supervisor", () => {
     expect(supervisor().workflow).toBeUndefined();
   });
 
-  test("has a larger shared turn budget than Lead and ends with Stave's own review", () => {
+  test("has a larger shared turn budget than Lead and ends with Stave's review only on behavior changes", () => {
     expect(supervisor().tools.maxTurns).toBe(60);
     expect(getBuiltinAgent("lead")!.tools.maxTurns).toBeUndefined();
-    expect(supervisor().reviewBeforeDone).toBeUndefined();
+    // The skip flags apply: no review of unchanged work, no fix stage after a passed review.
+    expect(supervisor().reviewBeforeDone).toBe("behavior-changes");
+    expect(getBuiltinAgent("lead")!.reviewBeforeDone).toBe("off");
+  });
+
+  test("works like Lead: does small work itself and verifies in proportion to risk", () => {
+    const instructions = supervisor().instructions;
+    expect(instructions).toContain("not until your turn ends");
+    expect(instructions).toContain("Do small or tightly coupled work yourself");
+    expect(instructions).toContain("check it against the real diff and the real check output");
+    expect(instructions).toContain("narrowest checks that cover what changed");
+    expect(instructions).toContain("Run the full suite once, on the final revision");
+    expect(instructions).toContain("never rerun a check that already passed on the same revision");
+    expect(instructions).toContain("brief correctness check");
+    expect(instructions).toContain("provider that did not write the diff");
+    // The full suite is named once, not at every step.
+    expect(instructions.match(/full suite/g)).toHaveLength(1);
+  });
+
+  test("commits on its own branch, drafts a pull request only through Shipper, and never lands work itself", () => {
+    const instructions = supervisor().instructions;
+    expect(instructions).toContain("Commit verified work on your own working branch");
+    expect(instructions).toContain("draft pull request through Shipper");
+    expect(instructions).toContain("Never push to the default branch, force-push, merge, release");
+    expect(instructions).toContain("decisions that change scope, correctness or authority");
+    expect(instructions).toContain("Report the outcome first");
+    expect(supervisor().canCall).toContain("shipper");
   });
 
   test("reads provider usage and names only models the catalog has", () => {

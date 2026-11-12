@@ -39,8 +39,8 @@ export function offersReviewBeforeDone(agent: Partial<Pick<AgentConfig, "permiss
 
 // Model-facing stage text; the stage titles are localized for display by `stage-display.ts`.
 const COMMIT_FOR_REVIEW: Record<Exclude<ReviewBeforeDone, "off">, string> = {
-  "behavior-changes": "If this assignment changes repository files, verify and commit only its changes, then name the actual starting commit and the resulting commits in your report; a Reviewer checks them next. If it changes no files, such as a question you answer or research you report, do not create an empty commit: put the answer, its conclusions and sources in your report, and the run ends after it without a review.",
-  always: "If this assignment changes repository files, verify and commit only its changes, then name the actual starting commit and the resulting commits in your report. For research or an answer, identify the conclusions, sources and artifacts to review; do not create an empty commit. A Reviewer checks the assignment's result next.",
+  "behavior-changes": "If this assignment changes repository files, commit only its changes, then run the final checks on that commit (a commit after a check makes the check stale), and name the actual starting commit and the resulting commits in your report; a Reviewer checks them next. If it changes no files, such as a question you answer or research you report, do not create an empty commit: put the answer, its conclusions and sources in your report, and the run ends after it without a review.",
+  always: "If this assignment changes repository files, commit only its changes, then run the final checks on that commit (a commit after a check makes the check stale), and name the actual starting commit and the resulting commits in your report. For research or an answer, identify the conclusions, sources and artifacts to review; do not create an empty commit. A Reviewer checks the assignment's result next.",
 };
 
 /** The two stages that follow the work stage. */
@@ -68,7 +68,7 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
       title: "Fix review findings", // i18n-ignore: canonical stage title, localized by stage-display.ts
       kind: "ai",
       skipIfReviewPassed: true,
-      instruction: "Fix each defect the review found at its cause, verify the fix the way you verified the work, and commit it. If the review found none, report the stage complete without changing anything.",
+      instruction: "Fix each defect the review found at its cause and commit the fix, then verify the committed result the way you verified the work. If the review found none, report the stage complete without changing anything.",
       doneWhen: "Every defect the review found is fixed and verified, or the review found none.",
     },
   ];
