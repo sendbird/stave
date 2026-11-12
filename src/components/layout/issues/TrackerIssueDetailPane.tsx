@@ -1,3 +1,4 @@
+import { askTarsAboutIssue } from "@/components/tars/ask-tars";
 import { formatDateTime } from "@/i18n/format";
 import { useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -61,7 +62,7 @@ export interface TrackerIssueDetailPaneProps {
 }
 
 export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
-  const { t: tI18n } = useTranslation(["issues"]);
+  const { t: tI18n } = useTranslation(["issues", "shell"]);
   const { task } = props.item;
   const key = trackerIssueKey(task.source, task.ref);
   const detail = useTrackerIssueDetail(key);
@@ -96,6 +97,10 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
         </div>
         <h2 className={sx(taskLayoutStyles.detailTitle)}>{task.title}</h2>
         <div className={sx(taskLayoutStyles.detailActions)}>
+          <Button type="button" size="sm" variant="outline" xstyle={taskLayoutStyles.detailAction}
+            onClick={() => void askTarsAboutIssue(task)}>
+            {tI18n("shell:tars.intake.ask")}
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -161,7 +166,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
                 <Link2 className={sx(taskLayoutStyles.icon14)} />
                 {tI18n("issues:trackerIssueDetailPane.copyLink")}</DropdownMenuItem>
               <DropdownMenuItem
-                disabled={props.attachTargetLabel === null}
+                disabled={props.attachTargetLabel === null || task.source === "github"}
                 onSelect={() => props.onAttach(key)}
               >
                 <Paperclip className={sx(taskLayoutStyles.icon14)} />

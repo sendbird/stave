@@ -441,6 +441,11 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
+In **Issues**, **Ask Tars** drafts a GitHub, Jira or Crane issue's title, link and body excerpt with its mapped target. Enable GitHub in **Settings > Integrations > Issues** after `gh auth login`; it reads up to 200 assigned issues without writing back. The kickoff form can remember the GitHub repository mapping.
+
+In a Markdown editor's **More** menu, **Ask Tars** attaches the current document, including `.stave/context/plans/*.md` (32 KB total text). In Tars, **Attach document link** adds an HTTPS link without fetching its contents. Existing draft text and files stay; edit your direction and send to start. Pasted Slack thread links tell the execution lead to read with your Slack tools read-only, or ask for pasted text if unavailable; no Slack token setup is needed.
+
+
 Tars keeps status replies to four short lines: Done, Not working, Needs you and Next, omitting empty items. Results show a one-line headline; open Full summary for the original text, criteria, evidence and diagnostics. Long record lines show their full text on hover.
 
 While an agent run or Tars execution is active, Stave prevents idle app suspension and releases that blocker when idle. The screen may turn off; a closed lid can still put a Mac to sleep. New Tars work defaults to a shared 60-turn budget for the lead and helpers; your saved explicit limit stays in effect. The lead integrates changes, commits them and runs final checks itself in the reporting turn, using Stave workspace check scripts when configured. Helpers must not push or open pull requests.

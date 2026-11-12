@@ -2912,6 +2912,16 @@
       },
       "inspectionUnavailable": "{{view}} 확인 불가",
       "failed": "활동을 새로 불러오지 못했어요."
+    },
+    "intake": {
+      "ask": "Tars에게 요청",
+      "issueRequest": "이 이슈를 처리해 주세요. 출처를 참고하고 결과를 검증해 주세요.",
+      "documentRequest": "첨부 문서를 참고해 계획을 세워 주세요. 구현을 시작하기 전에는 확인해 주세요.",
+      "documentLink": "문서 링크 첨부",
+      "url": "문서 URL",
+      "linkHint": "초안에 링크를 추가합니다. 요청 내용을 검토한 뒤 전송하세요.",
+      "failed": "출처를 추가하지 못했습니다. HTTPS 링크나 32 KB 이하 Markdown 파일을 사용하고 초안과 첨부 용량을 확인해 주세요.",
+      "issueBodyUnavailable": "이슈 본문을 읽지 못했습니다. 초안에는 제목과 링크가 포함됩니다."
     }
   }
 }

@@ -12,7 +12,7 @@ import {
  * primary key, and in retrieved-context source ids, so renaming one is a
  * migration rather than a refactor.
  */
-export const TRACKER_SOURCE_IDS = ["jira", "crane"] as const;
+export const TRACKER_SOURCE_IDS = ["jira", "crane", "github"] as const;
 export type TrackerSourceId = (typeof TRACKER_SOURCE_IDS)[number];
 
 /** Lower rank sorts earlier. Jira is the product list; Crane follows. */
@@ -140,7 +140,7 @@ const TrackerIssuePrioritySchema = z
 
 const TrackerIssueProjectSchema = z
   .object({
-    id: z.string().trim().min(1).max(128),
+    id: z.string().trim().min(1).max(200),
     name: z.string().trim().min(1).max(200),
   })
   .strict();
@@ -170,7 +170,7 @@ const TrackerIssueSubtasksSchema = z
 export const TrackerIssueSchema = z
   .object({
     source: z.enum(TRACKER_SOURCE_IDS),
-    ref: z.string().trim().min(1).max(128),
+    ref: z.string().trim().min(1).max(256),
     key: z.string().trim().min(1).max(64),
     title: z.string().trim().min(1).max(500),
     url: httpsUrlSchema,
@@ -252,7 +252,7 @@ export const TrackerIssueStaveLinkSchema = z
   .object({
     id: z.string().trim().min(1).max(128),
     source: z.enum(TRACKER_SOURCE_IDS),
-    taskRef: z.string().trim().min(1).max(128),
+    taskRef: z.string().trim().min(1).max(256),
     taskKey: z.string().trim().min(1).max(64),
     workspaceId: z.string().trim().min(1).max(256),
     staveTaskId: z.string().trim().min(1).max(256).nullable(),
@@ -298,7 +298,7 @@ export const TrackerIssuesRefreshArgsSchema = z
 export const TrackerIssueRefArgsSchema = z
   .object({
     source: z.enum(TRACKER_SOURCE_IDS),
-    taskRef: z.string().trim().min(1).max(128),
+    taskRef: z.string().trim().min(1).max(256),
   })
   .strict();
 
@@ -314,7 +314,7 @@ export type TrackerIssueStartMode = (typeof TRACKER_ISSUE_START_MODES)[number];
 export const TrackerIssueKickoffArgsSchema = z
   .object({
     source: z.enum(TRACKER_SOURCE_IDS),
-    taskRef: z.string().trim().min(1).max(128),
+    taskRef: z.string().trim().min(1).max(256),
     repositoryPath: z.string().trim().min(1).max(4_096),
     workspace: CraneDispatchWorkspaceChoiceSchema,
     runtime: CraneDispatchRuntimeChoiceSchema,

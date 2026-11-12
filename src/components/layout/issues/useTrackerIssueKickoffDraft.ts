@@ -123,6 +123,7 @@ export function useTrackerIssueKickoffDraft(args: {
     const mappingSettings = {
       craneMappings: currentSettings.craneConnector.repositoryMappings,
       jiraMappings: currentSettings.jiraConnector.repositoryMappings,
+      githubMappings: currentSettings.trackerIssues.githubMappings,
     };
     const lastUsed = readTrackerIssueLastRepository(task.source);
     const activeRegistered =
@@ -220,6 +221,14 @@ export function useTrackerIssueKickoffDraft(args: {
           },
         },
       });
+      return;
+    }
+    if (task.source === "github") {
+      const settings = store.settings.trackerIssues;
+      store.updateSettings({ patch: { trackerIssues: { ...settings,
+        githubMappings: [{ repository: scopeKey, staveProjectPath: chosenRepositoryPath },
+          ...settings.githubMappings.filter((entry) => entry.repository.toLowerCase() !== scopeKey.toLowerCase())].slice(0, 100),
+      } } });
       return;
     }
     const jiraConnector = store.settings.jiraConnector;

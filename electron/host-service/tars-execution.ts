@@ -1,3 +1,4 @@
+import { tarsSourceLinkGuidance } from "../../src/lib/tars/intake";
 import { tarsGoalReached } from "../../src/lib/tars/completion";
 import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-context";
@@ -71,8 +72,10 @@ function tarsAttachmentsGuidance(names: readonly string[]): string {
  * the Supervisor's own instructions (`tarsExecutionAgentInstructions`) and
  * replace conflicting routing and publication advice before dispatch.
  */
-export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" | "agentId"> & Partial<Pick<TarsResponsibility, "workingChanges" | "attachments">>): string {
+export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" | "agentId"> & Partial<Pick<TarsResponsibility, "workingChanges" | "attachments" | "mandate" | "instruction">>): string {
+  const links = tarsSourceLinkGuidance(`${row.mandate ?? ""}\n${row.instruction ?? ""}`);
   return [TARS_EXECUTION_POLICY,
+    ...(links ? [links] : []),
     // i18n-ignore: model-facing instructions
     "You are the execution lead of one responsibility Tars delegated. Publication is not part of this run: do not push, open or update a pull request, or call Shipper, even when the goal mentions one. Commit verified work on this workspace's branch so the review has a commit range. In every helper brief, including in-turn subagents and the reviewer, include: do not push or open pull requests. Integrating accepted changes, committing and final checks are your job as lead.",
     tarsReviewGuidance(row),
