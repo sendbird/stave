@@ -9,6 +9,7 @@ const OUT_OF_REACH = new Set(["paused", "takenOver", "cancelled", "completed"]);
  * They never delegate, reorder, speak for the user or reclaim user-held work.
  */
 export function tarsFollowUpRefusal(action: TarsDecisionAction, origin: FollowUpOrigin, responsibilities: Pick<TarsStore, "get">): string | null {
+  if (action.kind === "open") return "Only the user can request navigation to another screen.";
   if (action.kind === "workspace") return "An automatic follow-up cannot edit workspace information; only the user can request it.";
   if (action.kind === "delegate") return "An automatic follow-up cannot start work; it can ask whether the user wants it.";
   if (action.kind === "reprioritize") return "An automatic follow-up cannot change a priority; it can ask whether the user wants it.";

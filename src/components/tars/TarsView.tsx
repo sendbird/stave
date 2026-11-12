@@ -1,3 +1,5 @@
+import { TarsActivityPanel } from "./TarsActivityView";
+import { useTarsOpenRequests } from "./use-tars-open";
 import { TarsAllowRulesProvider } from "./TarsAllowRules";
 import { ReportArtifactPreviewProvider } from "@/components/agent-runs/ReportArtifactLink";
 import { Tooltip } from "@/components/aui/components/Tooltip";
@@ -117,6 +119,7 @@ function TarsViewContent() {
   const pendingShow = useRef<TarsPendingShow | null>(null);
   const trayId = useId();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   // Showing or folding the tray is view-only: never recorded in the conversation.
   const [pinnedTrayOpen, setPinnedTrayOpen] = useState(true);
   const [trayPopoverOpen, setTrayPopoverOpen] = useState(false);
@@ -170,6 +173,9 @@ function TarsViewContent() {
   }, []);
   // "Show me the report": a show action the host admitted opens the side view once; reading the conversation again never replays it.
   const receipts = conversation.conversation?.receipts;
+  const openActivity = useCallback(() => setActivityOpen(true), []);
+  const navigationFailed = useCallback(() => setOpenError(true), []);
+  useTarsOpenRequests(receipts, responsibilities, Boolean(snapshot), openActivity, navigationFailed);
   useEffect(() => {
     if (!receipts) return;
     const { requests, seen } = selectNewTarsShowRequests(receipts, shown.current);
@@ -386,6 +392,9 @@ function TarsViewContent() {
       onAnswer={(view, index, source) => controller.current?.answer(view, index, source)} />} /> : null;
   // Esc anywhere in the view closes the side view, unless something nearer (a menu, a palette) used it.
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!event.defaultPrevented && !event.nativeEvent.isComposing && (event.metaKey || event.ctrlKey) && event.shiftKey && event.code === "KeyA") {
+      event.preventDefault(); setActivityOpen(true); return;
+    }
     if (!side || !isTarsSideViewEscape({ key: event.key, defaultPrevented: event.defaultPrevented, isComposing: event.nativeEvent.isComposing, keyCode: event.keyCode })) return;
     event.preventDefault();
     closeSide();
@@ -393,6 +402,8 @@ function TarsViewContent() {
   return <div ref={viewRef} className={sx(styles.root, textWrap.keepAll)} data-testid="tars-view" data-tars-tray-pinned={pinned ? "true" : "false"} onKeyDown={onKeyDown}>
     <GlobalPageHeader title={snapshot?.identity.name ?? t("shell:tars.title")} titleIcon={<TarsMark />} actions={<div className={sx(styles.actions)}>
       <TarsTrayToggle pinned={pinned} counts={tray.counts} status={trayStatus} outputs={outputs.length} open={trayOpen} onOpenChange={onTrayOpenChange} panelId={trayId} headerActions={trayGrouping}>{trayBody}</TarsTrayToggle>
+      <TarsActivityPanel open={activityOpen} onOpenChange={setActivityOpen} conversation={conversation.conversation} responsibilities={snapshot ? responsibilities : null}
+        failed={Boolean(conversation.error)} onReload={() => void conversation.refresh()} onOpenWork={(id) => openSide({ responsibilityId: id, kind: "brief" })} />
       <TarsGuideButton onExample={(text) => controller.current?.insert(text)} />
       <TarsInsights identity={snapshot?.identity ?? null} settings={conversation.conversation?.settings ?? null} bridge={api} onEditSettings={() => setSettingsOpen(true)}
         onOpenWork={(id) => { const row = rowOf(id); if (row) openSide({ responsibilityId: id, kind: row.agentRunId ? "timeline" : "brief" }); }} />

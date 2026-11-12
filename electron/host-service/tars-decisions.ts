@@ -1,3 +1,4 @@
+import { admitTarsOpen } from "./tars-open";
 import { tarsAutoControlLedger } from "./tars-auto-control";
 import { tarsDefaultCommitSubject, tarsPublishProposalRequestId, type TarsPublishInput, type TarsPublishResult } from "../../src/lib/tars/publication";
 import { applyTarsWorkspace, type TarsWorkspacePorts } from "./tars-workspace";
@@ -368,6 +369,13 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         receipts.push(ports.conversations.withdrawDecision(message.id, index, intent.revision, now()));
         continue;
       }
+      if (action.kind === "open") {
+        const refusal = admitTarsOpen(action, ports.readRegistry(), ports.responsibilities.snapshot().responsibilities);
+        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision, refusal
+          ? { status: "rejected", reason: "notOwned", error: refusal }
+          : { status: "applied", responsibilityId: null }, now()));
+        continue;
+      }
       if (action.kind === "show") {
         // View-only: it opens the side view and changes no work, so it needs only a
         // responsibility Tars holds for the user. Anything else is refused with that reason.
@@ -466,6 +474,6 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
   } finally {
     // Retried applied receipts also wake the queue after a lost acknowledgement.
     // An opened view or list changes no work, so it never wakes the queue.
-    if (receipts.some((receipt) => receipt.status === "applied" && receipt.action.kind !== "show" && receipt.action.kind !== "schedule" && receipt.action.kind !== "workspace")) ports.requestTick();
+    if (receipts.some((receipt) => receipt.status === "applied" && receipt.action.kind !== "show" && receipt.action.kind !== "open" && receipt.action.kind !== "schedule" && receipt.action.kind !== "workspace")) ports.requestTick();
   }
 }

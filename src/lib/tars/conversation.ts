@@ -1,5 +1,7 @@
 import { TarsPrReviewEffectSchema } from "./pr-checks";
 import { z } from "zod";
+import { TarsOpenActionSchema } from "./open";
+export { TarsOpenActionSchema, type TarsOpenAction } from "./open";
 import { TarsWorkspaceActionSchema } from "./workspace-action";
 import { TarsCompletionGoalSchema } from "./completion";
 import { AttachmentContextsSchema, type AttachmentContext } from "../providers/attachment-context";
@@ -257,6 +259,7 @@ export const TarsInspectionProgressSchema = TarsInspectActionSchema.omit({ kind:
   reading: z.boolean(),
   title: z.string().max(120),
   at: TimestampSchema,
+  status: z.enum(["read", "notOwned", "unavailable", "sizeLimit"]).optional(),
 }).strict();
 
 /**
@@ -311,6 +314,7 @@ export const TarsWorkActionSchema = z.discriminatedUnion("kind", [
   TarsControlActionSchema,
   TarsAskActionSchema,
   TarsShowActionSchema,
+  TarsOpenActionSchema,
   TarsWithdrawActionSchema,
   TarsPublishActionSchema,
   TarsClearActionSchema,
@@ -343,6 +347,8 @@ export const TarsDecisionSchema = z.object({
     .refine((actions) => actions.filter((action) => action.kind === "ask").length <= 1, "A reply asks at most one question.")
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((actions) => actions.filter((action) => action.kind === "show").length <= 1, "A reply opens at most one view.")
+    // i18n-ignore: schema diagnostic, not user-facing copy
+    .refine((actions) => actions.filter((action) => action.kind === "open").length <= 1, "A reply opens at most one screen.")
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((actions) => actions.filter((action) => action.kind === "publish").length <= 1, "A reply proposes at most one publish.")
     // i18n-ignore: schema diagnostic, not user-facing copy
@@ -444,6 +450,8 @@ const messageFields = {
   waiting: z.object({ reason: TarsQueueWaitReasonSchema, since: TimestampSchema }).strict().optional(),
   /** Read status only; inspected content stays in the host. */
   inspection: TarsInspectionProgressSchema.optional(),
+  /** Bounded read metadata for Activity; inspected content never crosses to the renderer. */
+  inspections: z.array(TarsInspectionProgressSchema).max(16).optional(),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 };
@@ -523,9 +531,9 @@ export const TarsActionReceiptSchema = z.object({
   const proposable = receipt.action.kind === "ask"
     || (receipt.action.kind === "schedule" ? receipt.action.operation !== "list" : isTarsHoldableAction(receipt.action));
   // A clear or a schedule belongs to no responsibility, so its applied receipt names none.
-  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw" || receipt.action.kind === "workspace";
+  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw" || receipt.action.kind === "workspace" || receipt.action.kind === "open";
   // An automatic follow-up's refusal carries its one code on any kind of action.
-  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
+  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "open" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
     : receipt.action.kind === "publish" ? TarsPublishReasonSchema.safeParse(receipt.reason).success
       : receipt.action.kind === "schedule" ? TarsScheduleReasonSchema.safeParse(receipt.reason).success

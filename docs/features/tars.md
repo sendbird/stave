@@ -1831,3 +1831,18 @@ promote another task's inline render. `livePreview` is supported only on saved o
 local HTML artifacts. HTTP links must omit it. Root-relative asset paths require
 a static export with relative paths. Markdown copied outside Stave describes
 saved artifacts as local-only and omits their app-specific URI.
+
+### Activity and opening screens
+
+The header's **Activity** button (Ctrl/Command+Shift+A while Tars has focus) opens
+a separate history panel, newest first and grouped by local day. **All**, **Done
+by Tars**, and **Needs you** filter retained actions, workspace edits, delegation,
+publications, PR checks, inspections and decisions that were dismissed, withdrawn
+or stopped waiting. Each entry shows its time, work and origin. **Undo** uses
+the existing guarded restoration only; old or irreversible actions have none.
+Clearing the conversation and its retention limit also limit this history.
+
+Ask Tars to open a task, a registered workspace, Fleet or Activity. Navigation
+applies immediately and is recorded without granting authority or changing work.
+Task navigation requires the exact task ID of Tars work; workspace navigation
+requires a registered workspace ID. Unknown or ambiguous targets are refused.

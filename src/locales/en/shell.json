@@ -1351,7 +1351,8 @@
           "schedule": "Applied",
           "scheduleList": "List opened",
           "withdraw": "Withdrawn",
-          "workspace": "Information updated"
+          "workspace": "Information updated",
+          "open": "Screen opened"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -2898,6 +2899,61 @@
       "continueHint": "Ask Tars to continue this work with your direction.",
       "stop": "Keep the draft and stop fixing CI",
       "stopHint": "Leave the current changes for your review."
+    },
+    "activityView": {
+      "title": "Activity",
+      "shortcut": "Open Activity (Ctrl/⌘+Shift+A)",
+      "description": "What Tars did and what happened to its work, newest first.",
+      "filtersLabel": "Filter activity",
+      "filters": {
+        "all": "All",
+        "tars": "Done by Tars",
+        "needsYou": "Needs you"
+      },
+      "retention": "History retained in this conversation. Cleared or expired history is not included.",
+      "loading": "Loading activity…",
+      "empty": "No activity to show.",
+      "origin": {
+        "you": "You",
+        "tars": "Tars automatically"
+      },
+      "workUnavailable": "Work outside the current list",
+      "confirmation": "Confirmation",
+      "decision": "{{question}} · {{state}}",
+      "action": "{{action}} · {{status}}",
+      "decisions": {
+        "waiting": "Waiting for you",
+        "answered": "Answered",
+        "invalid": "No longer valid",
+        "retired": "No longer waiting",
+        "dismissed": "Dismissed",
+        "withdrawn": "Withdrawn"
+      },
+      "publication": "PR publication · {{status}}",
+      "inspecting": "Inspecting {{view}}",
+      "inspected": "Inspected {{view}}",
+      "views": {
+        "report": "report",
+        "changes": "changes",
+        "transcript": "transcript",
+        "checks": "checks",
+        "pullRequest": "pull request"
+      },
+      "open": {
+        "task": "Open task",
+        "workspace": "Open workspace",
+        "fleet": "Open Fleet",
+        "activity": "Open Activity"
+      },
+      "checks": {
+        "pending": "PR checks pending",
+        "passed": "PR checks passed",
+        "failed": "PR checks failed",
+        "none": "No PR checks",
+        "unavailable": "PR checks unavailable"
+      },
+      "inspectionUnavailable": "Could not inspect {{view}}",
+      "failed": "Activity could not be refreshed."
     }
   }
 }

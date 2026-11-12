@@ -633,6 +633,16 @@ work retains its account and execution choice. A reply is a proposal; action
 outcomes show whether work was admitted, and saved status changes appear back
 in the conversation.
 
+
+**Activity** in the Tars header (Ctrl/Command+Shift+A while Tars has focus)
+shows retained actions and work events, newest first and grouped by day. Filter
+by **All**, **Done by Tars** or **Needs you**. Each row shows the time, work,
+what happened and who initiated it. **Undo** appears only for actions the host
+can safely reverse; it refuses changed work. Cleared and expired history is
+not included. You can also ask “Open Fleet”, “Open Activity”, or ask to open
+a task Tars owns or a registered workspace. Opening a screen is recorded and
+applies immediately; it grants no permission and changes no work.
+
 The header shows where your work stands, such as "1 needs you · 2 in progress ·
 3 done", in the tray's own lane names and with the same numbers its lane
 headers show; running work that needs you is counted under **Needs you**.
