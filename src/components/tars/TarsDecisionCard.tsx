@@ -1,3 +1,4 @@
+import { describeTarsWorkspaceAction } from "./TarsWorkspaceReceipt";
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, Info, MessageCircleQuestion, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, X, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -39,6 +40,7 @@ function proposalOf(decision: TarsDecisionView) {
 function titleFor(decision: TarsDecisionView, titleOf?: TitleOf) {
   // New work has no responsibility yet: its title is the one Tars proposed.
   const proposal = proposalOf(decision);
+  if (proposal?.kind === "workspace") return proposal.workspaceId;
   if (proposal?.kind === "delegate") return proposal.title;
   const id = decision.targets[0]?.responsibilityId ?? "";
   return titleOf?.(id) ?? id;
@@ -50,6 +52,7 @@ export function describeTarsDecisionSubject(decision: TarsDecisionView, titleOf?
   const title = titleFor(decision, titleOf);
   if (decision.kind === "unverifiedCompletion") return i18n.t("shell:tars.decision.unverified.question", { title });
   const proposal = proposalOf(decision);
+  if (proposal?.kind === "workspace") return describeTarsWorkspaceAction(proposal, proposal.workspaceId);
   if (proposal) return i18n.t(`shell:tars.autonomy.proposal.subject.${proposal.kind}`, { title });
   const option = decision.options[0];
   return option?.kind === "control" ? i18n.t(`shell:tars.conversation.control.${option.control.operation}`, { title }) : "";
@@ -129,7 +132,7 @@ export function describeTarsDecisionTarget(decision: TarsDecisionView, context: 
   const repository = row?.repositoryPath ? row.repositoryPath.split(/[\\/]/).filter(Boolean).at(-1) ?? row.repositoryPath : null;
   const proposal = proposalOf(decision);
   // New work names the workspace it would start from; it has no row yet.
-  const workspaceId = proposal?.kind === "delegate" ? proposal.workspaceId : row ? row.executionWorkspaceId ?? row.workspaceId : null;
+  const workspaceId = proposal?.kind === "delegate" || proposal?.kind === "workspace" ? proposal.workspaceId : row ? row.executionWorkspaceId ?? row.workspaceId : null;
   return {
     repository, repositoryPath: row?.repositoryPath ?? null,
     workspace: workspaceId ? context.workspaceNameOf?.(workspaceId) ?? null : null,
@@ -352,11 +355,14 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const irreversible = decision.options.some(isIrreversibleOption);
   const target = describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf });
   const effect = operation ? t(`shell:tars.decision.card.effect.${operation}`)
-    : proposal ? t(`shell:tars.autonomy.proposal.effect.${proposal.kind}`, { priority: proposal.priority }) : t("shell:tars.decision.card.unverifiedEffect");
+    : proposal ? t(`shell:tars.autonomy.proposal.effect.${proposal.kind}`, { priority: proposal.kind === "reprioritize" ? proposal.priority : undefined }) : t("shell:tars.decision.card.unverifiedEffect");
   const workId = decision.targets[0]?.responsibilityId;
   // A task operation shows exactly what it answers or sends before anyone confirms it.
   const row = option?.kind === "control" ? rowOf?.(option.control.responsibilityId) : undefined;
-  const payload = option?.kind === "control" ? describeTarsControlInput(option.control, row) : null;
+  const workspaceValue = proposal?.kind === "workspace" ? ("notes" in proposal ? proposal.notes : "text" in proposal ? proposal.text
+    : "value" in proposal ? String(proposal.value ?? "") : "url" in proposal ? proposal.url : describeTarsWorkspaceAction(proposal, workspaceNameOf?.(proposal.workspaceId) ?? proposal.workspaceId)) : null;
+  const payload = option?.kind === "control" ? describeTarsControlInput(option.control, row)
+    : workspaceValue !== null ? { key: "words" as const, value: workspaceValue || t("shell:tars.workspaceAction.empty") } : null;
   const request = option?.kind === "control" && option.control.input?.requestRef ? row?.pendingRequests?.find((entry) => entry.ref === option.control.input?.requestRef) : undefined;
   // A request cut to fit says so under its text and opens the task that shows it whole: part of a command never reads as all of it.
   const source = payload?.key === "request" && payload.truncated ? payload.source : null;
@@ -368,7 +374,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   </span> : null;
   const carried = payload ? <div className={sx(styles.payload)} data-tars-decision-row={payload.key}>
     <p className={sx(styles.payloadLabel)}>{payload.key === "request" && request?.toolName
-      ? t("shell:tars.decision.card.requestFrom", { tool: request.toolName }) : t(`shell:tars.decision.card.rows.${payload.key}`)}</p>
+      ? t("shell:tars.decision.card.requestFrom", { tool: request.toolName }) : proposal?.kind === "workspace" ? t("shell:tars.workspaceAction.change") : t(`shell:tars.decision.card.rows.${payload.key}`)}</p>
     {/* The request as the tool wrote it, in the code register; the answers and words as the user said them. */}
     {payload.key === "request"
       ? <pre className={sx(agentSurface.well, styles.command)} data-tars-decision-command=""><code className={sx(styles.commandCode)}>{request ? request.summary : payload.value}</code></pre>

@@ -764,7 +764,7 @@ export async function cleanupLocalMcpRuntime() {
   latestTurnUsageById.clear();
 }
 
-function emitWorkspaceInformationUpdate(
+export function emitWorkspaceInformationUpdate(
   payload: WorkspaceInformationMutationResult,
 ) {
   localMcpEventListener?.({

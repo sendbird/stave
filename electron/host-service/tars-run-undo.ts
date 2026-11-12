@@ -16,12 +16,13 @@ export interface TarsRunUndoPorts {
 
 /** Undo means pause the same run, never rewind work it already performed. The runtime serializes and admits the stop. */
 export async function undoTarsRun(input: TarsUndoActionInput, initial: TarsActionRecord, ports: TarsRunUndoPorts): Promise<TarsUndoActionResult> {
-  if (!ports.control || initial.undo?.kind !== "run") return { record: initial, refusal: "unsupported" };
+  if (!ports.control || initial.undo?.kind !== "run" || initial.action.kind !== "control") return { record: initial, refusal: "unsupported" };
+  const responsibilityId = initial.action.responsibilityId;
   if (initial.undo.undoneAt) return { record: initial, refusal: null };
   const refusal = (reason: "stale" | "outOfScope") => ({ record: ports.conversations.getAction(input.requestId), refusal: reason });
   const check = () => {
     const record = ports.conversations.getAction(input.requestId);
-    const row = ports.responsibilities.get(initial.action.responsibilityId);
+    const row = ports.responsibilities.get(responsibilityId);
     if (!record || record.revision !== input.expectedRevision || record.undo?.kind !== "run" || !row
       || row.revision !== record.undo.afterRevision || row.agentRunId !== record.undo.agentRunId
       || (row.state !== "running" && row.state !== "waiting" && row.state !== "queued")) throw new TarsUndoActionRefused("stale");
@@ -30,7 +31,7 @@ export async function undoTarsRun(input: TarsUndoActionInput, initial: TarsActio
   };
   try {
     check();
-    return await ports.control({ responsibilityId: initial.action.responsibilityId,
+    return await ports.control({ responsibilityId,
       expectedRevision: initial.undo.afterRevision, operation: "pause" }, {
       key: `undo:${input.requestId}`,
       settled: () => {

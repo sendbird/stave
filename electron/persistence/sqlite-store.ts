@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdirSync, rmSync, statfsSync } from "node:fs";
 import Database from "better-sqlite3";
+import { WorkspaceInformationStore } from "./workspace-information-store";
 import {
   hydratePersistedWorkspaceEditorTabs,
   prepareWorkspaceShellEditorTabsPersistence,
@@ -99,11 +100,9 @@ interface WorkspaceMetaRow {
   shell_lite_json?: string | null;
   shell_summary_json?: string | null;
 }
-
 interface WorkspaceSnapshotRow {
   snapshot_json: string;
 }
-
 interface WorkspaceMessageRow {
   id: string;
   task_id: string;
@@ -115,7 +114,6 @@ interface WorkspaceMessageRow {
   parts_json: string;
   message_json: string | null;
 }
-
 interface WorkspaceTaskRow {
   id: string;
   workspace_id: string;
@@ -178,6 +176,7 @@ function normalizePersistedProviderId(
 }
 
 export class SqliteStore {
+  readonly workspaceInformation: WorkspaceInformationStore;
   private db: Database.Database;
   private readonly dbPath: string;
   private artifactRootDir: string;
@@ -262,6 +261,7 @@ export class SqliteStore {
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.tars = new TarsStore(this.db);
     this.tarsConversations = new TarsConversationStore(this.db);
+    this.workspaceInformation = new WorkspaceInformationStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {

@@ -1,3 +1,4 @@
+import { tarsWorkspaceRecordId } from "../../src/lib/tars/workspace-action";
 import { TarsUndoActionRefused, type TarsActionUndo, type TarsUndoActionInput } from "../../src/lib/tars/action-undo";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -660,6 +661,24 @@ export class TarsConversationStore {
     return next;
   }
 
+  /** Information edit, activity record and receipt settle atomically on this connection. */
+  applyWorkspaceReceipt(ref: TarsProposalRef, apply: () => TarsActionUndo, now: string): TarsActionReceipt {
+    return this.write(() => {
+      const current = this.getReceipt(ref.messageId, ref.actionIndex);
+      if (!current || current.action.kind !== "workspace") throw new Error("The workspace receipt was not found.");
+      if (current.status === "applied" || current.status === "rejected") return current;
+      if (this.get(ref.messageId)?.state !== "answered") throw new Error("The message no longer authorizes this edit.");
+      const undo = apply();
+      const record = TarsActionRecordSchema.parse({ requestId: tarsWorkspaceRecordId(ref.messageId, ref.actionIndex),
+        requestHash: current.requestHash, source: "words", action: current.action, status: "applied", error: null, reason: null,
+        undo, revision: 1, createdAt: now, updatedAt: now });
+      this.db.prepare("INSERT INTO tars_action_records (request_id, request_hash, revision, created_at, body_json) VALUES (?, ?, ?, ?, ?)")
+        .run(record.requestId, record.requestHash, record.revision, now, JSON.stringify(record));
+      return current.status === "proposed" ? this.settleProposal(ref, { status: "applied", responsibilityId: null }, now)
+        : this.settleReceipt(ref.messageId, ref.actionIndex, current.revision, { status: "applied", responsibilityId: null }, now);
+    });
+  }
+
   /** The restoration and its durable receipt commit together; an acknowledged replay has no effect. */
   undoAction(input: TarsUndoActionInput, restore: (record: TarsActionRecord) => void, now: string): TarsActionRecord {
     return this.write(() => {
@@ -832,7 +851,7 @@ export class TarsConversationStore {
       const undo = apply();
       const record = this.settleRecord(requestId, { status: "applied", ...(queue ? { undo: { kind: "delivery" as const } } : undo ? { undo } : {}), ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
         reason: null, error: null, queuedAt: now, updatedAt: now } } : {}) }, now);
-      if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
+      if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.kind === "workspace" ? null : record.action.responsibilityId }, now);
       return record;
     });
   }
@@ -901,7 +920,7 @@ export class TarsConversationStore {
   }
 
   /** Only the confirming click moves a proposal on; it is never applied by the conversation itself. */
-  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string } | { status: "rejected"; error: string; reason: TarsActionReason | null },
+  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string | null } | { status: "rejected"; error: string; reason: TarsActionReason | null },
     now: string): TarsActionReceipt {
     const current = this.getReceipt(ref.messageId, ref.actionIndex);
     if (current?.status !== "proposed") throw new Error("The proposal is not awaiting confirmation.");
@@ -1090,7 +1109,7 @@ export class TarsConversationStore {
       const order = (id: string) => (this.db.prepare("SELECT rowid AS position FROM tars_messages WHERE id = ?").get(id) as { position: number } | undefined)?.position;
       const earlier = target && (order(target.messageId) ?? Infinity) < (order(messageId) ?? -Infinity);
       const kindMatches = target && (match[1] === "ask" ? target.action.kind === "ask"
-        : target.action.kind === "control" || target.action.kind === "delegate" || target.action.kind === "reprioritize");
+        : target.action.kind === "control" || target.action.kind === "delegate" || target.action.kind === "reprioritize" || target.action.kind === "workspace");
       const refuse = (reason: TarsControlReason, error: string) => this.settleReceipt(messageId, actionIndex, expectedRevision, { status: "rejected", reason, error }, now);
       // i18n-ignore: diagnostic only; the interface translates the reason
       if (!target || !earlier || !kindMatches) return refuse("notOwned", "Tars can withdraw only a decision it proposed in an earlier message.");

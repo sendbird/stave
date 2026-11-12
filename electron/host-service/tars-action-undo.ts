@@ -1,4 +1,5 @@
 import { undoTarsRun, type TarsRunUndoPorts } from "./tars-run-undo";
+import { restoreTarsWorkspace, type TarsWorkspacePorts } from "./tars-workspace";
 import { canUndoTarsAction, isUnstartedTarsWork, isTarsDeliveryAction, TarsUndoActionInputSchema, TarsUndoActionRefused } from "../../src/lib/tars/action-undo";
 import type { TarsUndoActionResult } from "../../src/lib/tars/conversation";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -15,6 +16,7 @@ interface UndoPorts extends TarsRunUndoPorts {
   serialize<T>(responsibilityId: string, restore: () => T): Promise<T>;
   /** Request-local withdrawal uses the runtime queue and its final run-admission fence. */
   withdrawDelivery?: (input: unknown) => Promise<TarsUndoActionResult>;
+  workspace?: TarsWorkspacePorts;
   now?: () => string;
 }
 
@@ -25,7 +27,7 @@ export async function undoTarsAction(rawInput: unknown, ports: UndoPorts): Promi
   if (initial?.undo?.kind === "run") return undoTarsRun(input, initial, ports);
   if (initial && isTarsDeliveryAction(initial)) return ports.withdrawDelivery?.(input) ?? { record: initial, refusal: "unsupported" };
   if (!initial || initial.status !== "applied" || !initial.undo) return { record: initial, refusal: "unsupported" };
-  return ports.serialize(initial.action.responsibilityId, () => {
+  const result = await ports.serialize(initial.action.kind === "workspace" ? `workspace:${initial.action.workspaceId}` : initial.action.responsibilityId, () => {
     try {
       const record = ports.conversations.undoAction(input, (current) => {
         if (!canUndoTarsAction(current)) throw new TarsUndoActionRefused("unsupported");
@@ -40,7 +42,10 @@ export async function undoTarsAction(rawInput: unknown, ports: UndoPorts): Promi
           return row;
         };
         const now = ports.now?.() ?? new Date().toISOString();
-        if (undo.kind === "queue") {
+        if (current.action.kind === "workspace") {
+          if (!ports.workspace) throw new TarsUndoActionRefused("unsupported");
+          restoreTarsWorkspace(current.action, undo, ports.workspace, registry, now);
+        } else if (undo.kind === "queue") {
           // New work, a started neighbor or any intervening edit invalidates the original position.
           const queue = store.snapshot().responsibilities.filter((row) => row.state === "queued");
           const expected = new Map(undo.queue.map((row) => [row.id, row.revision]));
@@ -65,4 +70,8 @@ export async function undoTarsAction(rawInput: unknown, ports: UndoPorts): Promi
       return { record: ports.conversations.getAction(input.requestId), refusal: error.reason };
     }
   });
+  if (!result.refusal && initial.action.kind === "workspace" && ports.workspace) {
+    try { ports.workspace.changed?.(initial.action.workspaceId, ports.workspace.read(initial.action.workspaceId)); } catch { /* The restoration already committed. */ }
+  }
+  return result;
 }

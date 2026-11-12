@@ -375,7 +375,7 @@ function TarsViewContent() {
   const loadBrief = useMemo<TarsBriefLoader | undefined>(() => api?.getBrief ? (input) => api.getBrief!(input) : undefined, [api]);
   const sideView = side && sideRow ? <TarsSideView target={side.target} row={sideRow} run={side.target.agentRunId ? tarsRunIds(sideRow).includes(side.target.agentRunId) ? runs[side.target.agentRunId] : undefined : tarsRunOf(sideRow, runs)} cwd={sideCwd}
     placement={pinned ? { placement: "column" } : { placement: "inline", maxHeight: placement.placement === "inline" ? placement.maxHeight : 0 }}
-    records={conversation.conversation?.records.filter((record) => record.action.responsibilityId === sideRow.id) ?? []}
+    records={conversation.conversation?.records.filter((record) => "responsibilityId" in record.action && record.action.responsibilityId === sideRow.id) ?? []}
     publishAction={(!side.target.agentRunId || side.target.agentRunId === sideRow.agentRunId) && (sideRow.state === "completed" || sideRow.state === "resultReady") ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined} loadBrief={loadBrief}
     takeFocus={side.takeFocus} onClose={closeSide} onKind={(kind) => setSide({ target: { ...side.target, kind }, takeFocus: false })}
     onQuote={(text) => controller.current?.insert(text)}

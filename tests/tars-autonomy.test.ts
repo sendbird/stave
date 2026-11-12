@@ -103,22 +103,22 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
   return { database, conversations, responsibilities, runtime, service, ports, runControls, prompts, responsibility, admit, send, decisions, ticks: () => ticks };
 }
 
-/** What the host did with every action kind before autonomy levels existed, written out by hand. */
+/** The base policy for every action before autonomy overrides, written out by hand. */
 const BEFORE_LEVELS: Readonly<Record<TarsActionKey, "auto" | "confirm">> = {
-  show: "auto", delegate: "auto", reprioritize: "auto", startNow: "auto", pause: "auto", takeover: "auto", deny: "auto",
+  show: "auto", workspaceEdit: "auto", workspaceReplace: "auto", delegate: "auto", reprioritize: "auto", startNow: "auto", pause: "auto", takeover: "auto", deny: "auto",
   resume: "confirm", extend: "confirm", retryStage: "confirm", handBack: "confirm", signOff: "confirm", answer: "confirm", message: "confirm",
   requestChanges: "confirm", clear: "confirm", cancel: "confirm", skipStage: "confirm", acceptCompletion: "confirm", approve: "confirm", publish: "confirm",
 };
 
 describe("the autonomy policy table", () => {
   test("covers every action the planner can propose", () => {
-    expect([...TARS_ACTION_KEYS].sort()).toEqual([...TarsControlOperationSchema.options, "show", "delegate", "reprioritize", "publish", "clear"].sort());
+    expect([...TARS_ACTION_KEYS].sort()).toEqual([...TarsControlOperationSchema.options, "show", "delegate", "reprioritize", "publish", "clear", "workspaceEdit", "workspaceReplace"].sort());
   });
 
   test.each(TARS_AUTONOMY_LEVELS)("%s has the explicit policy for every action and origin", (level) => {
     for (const origin of ["user", "automatic"] as const) for (const key of TARS_ACTION_KEYS) {
       const expected = level === "careful"
-        ? ["delegate", "reprioritize", "startNow"].includes(key) ? "confirm" : BEFORE_LEVELS[key]
+        ? ["delegate", "reprioritize", "startNow", "workspaceReplace"].includes(key) ? "confirm" : BEFORE_LEVELS[key]
         : ["resume", "retryStage", "message", "requestChanges"].includes(key) ? "auto" : BEFORE_LEVELS[key];
       expect(tarsActionMode(key, level, origin)).toBe(expected);
     }

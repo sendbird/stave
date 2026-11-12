@@ -511,6 +511,19 @@ fills it again. Opening settings changes nothing until you choose **Save**.
 tray once it last changed 1, 3, 7 (the default), 14 or 30 days ago, or keeps
 them **Until I clear it**.
 
+**Edit workspace information.** Ask Tars to add or replace notes, add/update/remove
+a todo, update/remove an existing custom field, or link/remove a resource in a
+registered workspace. For example: “Add a release-check todo to the API workspace.”
+Tars edits the Information panel without starting a coding task. An existing
+item's ID must be available; Tars asks when it cannot identify the target.
+Edits apply immediately, except **Careful** asks before replacing notes or
+removing a todo, field or resource. A matching **Never do** rule still asks first.
+Each edit leaves a receipt with **Undo**. Undo restores the saved prior information
+and refuses if the panel changed afterward or the workspace moved out of its
+registered repository. Retrying does not duplicate the edit. Automatic follow-ups
+cannot make these edits. Creating fields or workspaces and reading/inspection are
+outside this action; scheduled work keeps its existing confirmation flow.
+
 **How independently Tars acts** offers three levels.
 **Actions and confirmations** expands what Tars does on its own,
 asks first, always asks and never does at the level you picked.

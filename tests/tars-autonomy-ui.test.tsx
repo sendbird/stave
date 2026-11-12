@@ -54,9 +54,9 @@ describe("the autonomy settings table", () => {
     const careful = rowsOf(settings("careful").html);
     const balanced = rowsOf(settings("balanced").html);
     const handsOff = rowsOf(settings("handsOff").html);
-    expect(balanced.auto).toEqual(["show", "delegate", "reprioritize", "startNow", "pause", "takeover", "deny", "resume", "retryStage", "message", "requestChanges"]);
-    expect(careful.auto).toEqual(["show", "pause", "takeover", "deny"]);
-    expect(careful.confirm).toEqual(expect.arrayContaining(["delegate", "reprioritize", "startNow"]));
+    expect(balanced.auto).toEqual(["show", "workspaceEdit", "workspaceReplace", "delegate", "reprioritize", "startNow", "pause", "takeover", "deny", "resume", "retryStage", "message", "requestChanges"]);
+    expect(careful.auto).toEqual(["show", "workspaceEdit", "pause", "takeover", "deny"]);
+    expect(careful.confirm).toEqual(expect.arrayContaining(["workspaceReplace", "delegate", "reprioritize", "startNow"]));
     expect(handsOff.auto).toEqual(balanced.auto);
     expect(handsOff.confirm).not.toEqual(expect.arrayContaining(["resume"]));
   });
