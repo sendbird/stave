@@ -257,8 +257,8 @@ export function parseTarsDecisionOutput(text: string): TarsDecision {
   return TarsDecisionSchema.parse({ reply: boundReply(output.reply), actions, ...(dropped.length ? { dropped } : {}) });
 }
 
-/** Provider errors that pass by themselves: rate limits, overload, server errors and dropped connections. */
-const TRANSIENT_PROVIDER_ERROR = /\b(?:rate[ _-]?limit|overloaded|too many requests|temporarily unavailable|service unavailable|bad gateway|gateway timeout|internal server error|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|network error|fetch failed|stream (?:closed|ended) unexpectedly|429|500|502|503|504|529)\b/i;
+/** Provider errors that pass by themselves: a provider runtime that failed to start up (seen live as "workspace routing discovery failed"), rate limits, overload, server errors and dropped connections. */
+const TRANSIENT_PROVIDER_ERROR = /\b(?:discovery (?:failed|timed out)|rate[ _-]?limit|overloaded|too many requests|temporarily unavailable|service unavailable|bad gateway|gateway timeout|internal server error|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|network error|fetch failed|stream (?:closed|ended) unexpectedly|429|500|502|503|504|529)\b/i;
 /** Never retried: the provider refused, or the account or permission does not allow the turn. */
 const REFUSAL = /\b(?:refus|policy|unauthori[sz]ed|forbidden|permission|not logged in|login|invalid api key|authentication|quota exceeded|billing|credit)/i;
 

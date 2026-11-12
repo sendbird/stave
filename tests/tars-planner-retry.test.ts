@@ -106,6 +106,8 @@ test("only transient provider failures are worth a retry", () => {
   const failed = (error: string, stopReason: string | null = "runtime_failure") => ({ status: "failed" as const, truncated: false, stopReason, error });
   expect(tarsPlannerRetryCause(failed("Provider turn timed out. timeout=120000ms"))).toBe("timeout");
   expect(tarsPlannerRetryCause(failed("529 Overloaded"))).toBe("provider");
+  // Seen live: the provider runtime failed to start up; the next attempt succeeded.
+  expect(tarsPlannerRetryCause(failed("workspace routing discovery failed"))).toBe("provider");
   expect(tarsPlannerRetryCause(failed("Rate limit reached for requests"))).toBe("provider");
   expect(tarsPlannerRetryCause(failed("socket hang up"))).toBe("provider");
   expect(tarsPlannerRetryCause({ status: "completed", truncated: true, stopReason: "max_tokens", error: null })).toBe("truncated");
