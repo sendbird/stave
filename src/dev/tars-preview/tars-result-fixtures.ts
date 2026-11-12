@@ -29,7 +29,7 @@ const TEST_SCRIPT_HASH = "e".repeat(64);
  *   kept, and the run never ended, so there is no report.
  * Times count from `start`; nothing here runs.
  */
-export function buildTarsResultFixtures(start: Date) {
+export function buildTarsResultFixtures(start: Date, korean = false) {
   const at = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();
   const base = (patch: Partial<TarsResponsibility> & Pick<TarsResponsibility, "id" | "title" | "acceptanceCriteria">): TarsResponsibility => ({
     requestId: `request-${patch.id}`, instruction: "Inspect the actual result.", workspaceId: "preview-workspace", executionWorkspaceId: `exec-${patch.id}`,
@@ -37,7 +37,8 @@ export function buildTarsResultFixtures(start: Date) {
     taskId: `task-${patch.id}`, agentRunId: `run-${patch.id}`, reverifyAfter: null, createdAt: at(0), updatedAt: at(40), ...patch,
   });
   const verified = base({ id: "result-verified", title: "Export invoices as CSV", agentId: "implementer",
-    acceptanceCriteria: ["The exported file opens in a spreadsheet with one row per invoice.", "The export tests pass."] });
+    // i18n-ignore: synthetic user-authored criteria, including a long Korean wrapping case
+    acceptanceCriteria: korean ? ["내보낸 파일이 스프레드시트에서 정상적으로 열리고, 청구서마다 한 행씩 표시되며 긴 고객 이름과 여러 줄의 메모가 있어도 원래의 열 순서와 내용을 유지한다.", "현재 버전에서 내보내기 검사가 통과한다."] : ["The exported file opens in a spreadsheet with one row per invoice.", "The export tests pass."] });
   const reported = base({ id: "result-reported", title: "Tidy the notification settings copy", revision: 4,
     detail: "Completion was accepted without a Stave-verified check.", detailCode: "acceptedWithoutVerification",
     acceptanceCriteria: ["Every toggle has a one-line description.", "No description is longer than its toggle's row."] });

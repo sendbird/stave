@@ -2058,7 +2058,24 @@
         "unmet": "Not met",
         "unverified": "Not confirmed",
         "staveChecks": "Passed checks run by Stave: {{checks}}",
-        "notReported": "Not reported"
+        "notReported": "Not reported",
+        "short": {
+          "verifiedCheck": "Check passed",
+          "verifiedReview": "Reviewed",
+          "reported": "Reported",
+          "unmet": "Not met",
+          "unverified": "Unconfirmed",
+          "notReported": "Not reported"
+        },
+        "confirmedCount_one": "{{count}}/{{total}} confirmed",
+        "confirmedCount_other": "{{count}}/{{total}} confirmed",
+        "reportedCount_one": "{{count}}/{{total}} reported met",
+        "reportedCount_other": "{{count}}/{{total}} reported met",
+        "evidence": "Evidence & review",
+        "openReview": "Open review",
+        "evidenceNote": "Confirmation can come from a check or the review of this result. Checks listed here support the stage as a whole; they are not proof of every criterion.",
+        "evidenceFor": "Evidence and review for {{title}}",
+        "openReviewFor": "Open review for {{title}}"
       },
       "changes_one": "{{count}} file changed",
       "changes_other": "{{count}} files changed",

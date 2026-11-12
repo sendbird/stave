@@ -32,6 +32,8 @@ const MARK_CENTER = `calc(${vars["--aui-space-4"]} + 0.5lh)`;
 const MARK_CLEARANCE = `calc(${vars["--aui-space-8"]} + ${vars["--aui-space-2"]})`;
 /** Whether the row is hovered or holds focus, so a later row's time can appear (always on a touch screen). */
 const REVEAL = "--tars-record-reveal";
+/** The list item and its absolute rail segments share the result group inset. */
+const GROUP_SPACE = "--tars-record-group-space";
 
 /**
  * A Tars record on the transcript's timeline rail: what an action, a control
@@ -50,6 +52,8 @@ export const tarsRecordStyles = stylex.create({
   listStandalone: { paddingBlock: vars["--aui-space-8"] },
   item: {
     position: "relative", minWidth: 0,
+    [GROUP_SPACE]: { default: "0px", ":not(:first-child):has([data-tars-result])": vars["--aui-space-16"] },
+    paddingBlockStart: `var(${GROUP_SPACE})`,
     // A full-width surface interrupts the rail. Its next item starts afresh,
     // without an orphan connector above its mark; text-only records still join.
     "--tars-rail-below": { default: "block", ":has([data-tars-record-surface])": "none" },
@@ -79,14 +83,14 @@ export const tarsRecordStyles = stylex.create({
   railAbove: {
     display: "var(--tars-rail-above)",
     position: "absolute", insetInlineStart: `calc(${MARK_SLOT} / 2 - ${vars["--aui-border-width-hairline"]} / 2)`, insetBlockStart: 0,
-    inlineSize: vars["--aui-border-width-hairline"], blockSize: `calc(${MARK_CENTER} - ${MARK_CLEARANCE})`,
+    inlineSize: vars["--aui-border-width-hairline"], blockSize: `calc(${MARK_CENTER} + var(${GROUP_SPACE}) - ${MARK_CLEARANCE})`,
     backgroundColor: vars["--aui-color-border-strong"], pointerEvents: "none",
   },
   /** The segment from this row's mark down to the row below. */
   railBelow: {
     display: "var(--tars-rail-below)",
     position: "absolute", insetInlineStart: `calc(${MARK_SLOT} / 2 - ${vars["--aui-border-width-hairline"]} / 2)`,
-    insetBlockStart: `calc(${MARK_CENTER} + ${MARK_CLEARANCE})`, insetBlockEnd: 0,
+    insetBlockStart: `calc(${MARK_CENTER} + var(${GROUP_SPACE}) + ${MARK_CLEARANCE})`, insetBlockEnd: 0,
     inlineSize: vars["--aui-border-width-hairline"], backgroundColor: vars["--aui-color-border-strong"], pointerEvents: "none",
   },
   body: { display: "flex", flexDirection: "column", rowGap: vars["--aui-space-2"], flex: 1, minWidth: 0 },

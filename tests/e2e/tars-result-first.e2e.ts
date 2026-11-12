@@ -12,7 +12,7 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
       await expect(root.locator('[data-tars-completion-warnings]')).toContainText(lang === 'ko' ? '실제 운영 데이터' : 'production data');
       await expect(root.locator('[data-tars-completion-warnings]')).toContainText(lang === 'ko' ? '미검증' : 'Unverified');
       await expect(root.locator('[data-tars-full-summary]').last()).toBeHidden();
-      const trigger = root.locator('[data-tars-result-details] button');
+      const trigger = root.locator('[data-tars-result-details] > button');
       await trigger.focus();
       await page.keyboard.press('Enter');
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -26,7 +26,10 @@ for (const width of [360, 800]) for (const lang of ["en", "ko"]) for (const them
           const rect = item.getBoundingClientRect(); return rect.left < box.left - 1 || rect.right > box.right + 1;
         }).map((item) => item.tagName) };
       });
-      expect(geometry).toEqual({ overflow: 0, escaped: [] });
+      // CSSOM scroll/client widths are integers. Use the same one-CSS-pixel
+      // precision as the descendant bounds above (compact density on Linux).
+      expect(geometry.overflow).toBeLessThanOrEqual(1);
+      expect(geometry.escaped).toEqual([]);
       await page.keyboard.press('Enter');
       await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     }
@@ -69,7 +72,7 @@ for (const [lang, theme] of [['en', 'light'], ['ko', 'dark']]) test(`standalone 
     const root = page.locator(`[data-surface="${surface}"]`);
     await expect(root.locator('[data-tars-completion-summary]')).toHaveText('Completed regression checks.…');
     await expect(root.locator('[data-tars-completion-warnings]')).toHaveCount(0);
-    await root.locator('[data-tars-result-details] button').click();
+    await root.locator('[data-tars-result-details] > button').click();
     await expect(root.locator('[data-tars-full-summary]').last()).toContainText('No known limitations.');
   }
   await page.goto(`/tests/e2e/fixtures/tars-result-first.html?case=none-with-caveat&lang=${lang}&theme=${theme}`);
@@ -114,8 +117,8 @@ for (const size of [16, 20]) test(`Result uses chat scale and Report keeps panel
   await page.evaluate(() => document.fonts.ready);
   for (const surface of ['result', 'report']) {
     const root = page.locator(`[data-surface="${surface}"]`);
-    await root.locator('[data-tars-result-details] button').click();
-    for (const selector of ['[data-tars-completion-summary]', '[data-tars-completion-count]', '[data-tars-completion-warnings]', '[data-tars-result-details] button', '[data-tars-full-summary]']) {
+    await root.locator('[data-tars-result-details] > button').click();
+    for (const selector of ['[data-tars-completion-summary]', '[data-tars-completion-count]', '[data-tars-completion-warnings]', '[data-tars-result-details] > button', '[data-tars-full-summary]']) {
       const expected = surface === 'result' ? size === 20 ? 18 : 14 : selector.includes('summary') ? 14 : 13;
       expect(await root.locator(selector).first().evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBe(expected);
     }

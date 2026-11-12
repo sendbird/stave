@@ -23,7 +23,7 @@ export const tarsResultStyles = stylex.create({
   groupLabel: { margin: 0, color: vars["--aui-color-text-muted"], fontWeight: vars["--aui-font-weight-medium"] },
   /** Why the work stopped, in readable ink: it is the card's lead, not a footnote. */
   reason: { margin: 0, minWidth: 0, color: vars["--aui-color-text"], overflowWrap: "anywhere" },
-  criteria: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
+  criteria: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0, margin: 0, padding: 0, listStyle: "none" },
   /** Mark, the criterion, then what backs it at the trailing edge; narrow, that goes under the criterion. */
   criterion: {
     display: "grid", gridTemplateColumns: { default: `${vars["--aui-space-16"]} minmax(0, 1fr) auto`, [NARROW]: `${vars["--aui-space-16"]} minmax(0, 1fr)` },
@@ -34,9 +34,13 @@ export const tarsResultStyles = stylex.create({
   criterionIcon: { flexShrink: 0, inlineSize: "1em", blockSize: "1em" },
   criterionText: { minWidth: 0, overflowWrap: "anywhere" },
   criterionState: {
-    minWidth: 0, fontWeight: vars["--aui-font-weight-medium"],
+    minWidth: 0, alignSelf: "start", justifySelf: "start", fontWeight: vars["--aui-font-weight-medium"],
     whiteSpace: { default: "nowrap", [NARROW]: "normal" }, gridColumnStart: { default: "auto", [NARROW]: 2 }, overflowWrap: "anywhere",
   },
+  criteriaHeader: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: vars["--aui-space-8"], minWidth: 0 },
+  criteriaCount: { margin: 0, minWidth: 0, fontWeight: vars["--aui-font-weight-semibold"], fontVariantNumeric: "tabular-nums" },
+  evidenceSources: { margin: 0, paddingInlineStart: vars["--aui-space-20"], color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
+  evidenceNote: { margin: 0, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
   /** What Stave itself ran and saw pass, under the criteria: it backs the whole result, not one line. */
   checks: {
     display: "grid", gridTemplateColumns: `${vars["--aui-space-16"]} minmax(0, 1fr)`, alignItems: "start", columnGap: vars["--aui-space-8"],
