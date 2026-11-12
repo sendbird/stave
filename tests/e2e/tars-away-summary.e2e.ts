@@ -85,7 +85,9 @@ test("leaving, work going on and coming back shows one summary where the user le
   // A waiting decision's link goes to its card; a finished item's link opens its report beside the conversation.
   await card(page).locator("[data-tars-away-link='decision']").focus();
   await page.keyboard.press("Enter");
-  await expect(transcript(page).locator("[data-tars-decision='ask:away-message-ask:0']")).toBeFocused();
+  await expect(page.locator("[data-tars-decision-dock] [data-tars-decision='ask:away-message-ask:0']")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-tars-composer] [contenteditable='true']")).toBeFocused();
   await card(page).locator("[data-tars-away-group='finished'] [data-tars-away-link='report']").first().click();
   await expect(page.locator("[data-tars-side-view]")).toBeVisible();
   await page.keyboard.press("Escape");

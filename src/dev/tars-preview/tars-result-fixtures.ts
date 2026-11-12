@@ -1,3 +1,4 @@
+import { reviewStages } from "@/lib/agents/review-before-done";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -55,13 +56,12 @@ export function buildTarsResultFixtures(start: Date, korean = false) {
     acceptanceCriteria: ["The generated client matches the current schema."] });
 
   const criteriaOf = (row: TarsResponsibility) => row.acceptanceCriteria.map((text) => ({ text, required: true }));
-  const workflowOf = (row: TarsResponsibility, verify: Partial<Extract<WorkflowStage, { kind: "ai" }>> = {}): Workflow => ({
+  const workflowOf = (row: TarsResponsibility, work: Partial<Extract<WorkflowStage, { kind: "ai" }>> = {}): Workflow => ({
     version: 1, id: `tars-${row.id}`, name: "Tars", purpose: "Carry this delegated responsibility through a reviewed, verified result.",
     checkIns: "when-stuck", team: "workers", createdAt: at(0), updatedAt: at(0),
     stages: [
-      { id: "work", title: "Work", kind: "ai", instruction: "Plan and execute the responsibility.", doneWhen: "The result is implemented and verified.", acceptanceCriteria: criteriaOf(row) },
-      { id: "review", title: "Review", kind: "ai", agentConfigId: "reviewer", instruction: "Independently review the result.", doneWhen: "A review reported findings or a passed verdict." },
-      { id: "verify", title: "Verify", kind: "ai", instruction: "Resolve findings and rerun the decisive checks.", doneWhen: "All required criteria are met and verified.", ...verify },
+      { id: "work", title: "Work", kind: "ai", instruction: "Plan and execute the responsibility.", doneWhen: "The result is implemented and verified.", acceptanceCriteria: criteriaOf(row), ...work },
+      ...reviewStages("behavior-changes"),
     ],
   });
   const runOf = (row: TarsResponsibility, workflow: Workflow, patch: Partial<AgentRun>) => {
@@ -76,39 +76,38 @@ export function buildTarsResultFixtures(start: Date, korean = false) {
   const met = (row: TarsResponsibility) => row.acceptanceCriteria.map((text) => ({ text, status: "met" as const, required: true }));
   const ended = (run: ReturnType<typeof runOf>, stages: AgentRunStageRecord[], branch: string, minute: number): AgentRunDetail => ({ agentRun: run.agentRun, stages, events: [],
     report: buildAgentRunReport({ aggregate: { agentRun: run.agentRun, stages }, workspace: { branch, branchPushed: false, openPullRequest: null }, endedAt: new Date(at(minute)) }) });
-  /** The three stages of work that completed: its report, a review (or none) and the final verification. */
+  /** A passed or explicitly skipped review leaves the conditional fix stage skipped. */
   const completedStages = (row: TarsResponsibility, run: ReturnType<typeof runOf>, parts: { summary: string; diff: NonNullable<StageFacts["diff"]>; paths: string[];
-    review: Partial<AgentRunStageRecord>; verifyFacts?: Partial<StageFacts> }) => [
+    review: Partial<AgentRunStageRecord>; workFacts?: Partial<StageFacts> }) => [
     run.record("work", { status: "completed", startedAt: at(1), endedAt: at(20), startHeadSha: "c0ffee1",
-      report: { outcome: "complete", summary: "Implemented the change.", decisions: [], evidence: [], artifacts: [], acceptanceCriteria: met(row),
-        workspaceRevision: REV_WORK, reportedAt: at(20), turnId: "turn-work" },
-      facts: facts({ diff: parts.diff, changedPaths: parts.paths, currentTurnId: "turn-work", workspaceRevision: REV_WORK }) }),
-    run.record("review", { startedAt: at(21), endedAt: at(30), startHeadSha: "c0ffee1", ...parts.review }),
-    run.record("verify", { status: "completed", startedAt: at(31), endedAt: at(40), startHeadSha: "c0ffee1",
       report: { outcome: "complete", summary: parts.summary, decisions: [], evidence: [], artifacts: [], acceptanceCriteria: met(row),
-        workspaceRevision: REV_FINAL, reportedAt: at(40), turnId: "turn-verify" },
-      facts: facts({ diff: parts.diff, changedPaths: parts.paths, currentTurnId: "turn-verify", workspaceRevision: REV_FINAL, ...parts.verifyFacts }) }),
+        workspaceRevision: REV_FINAL, reportedAt: at(20), turnId: "turn-work" },
+      facts: facts({ diff: parts.diff, changedPaths: parts.paths, currentTurnId: "turn-work", workspaceRevision: REV_FINAL, ...parts.workFacts }) }),
+    run.record("review", { startedAt: at(21), endedAt: at(40), startHeadSha: "c0ffee1", ...parts.review,
+      ...(parts.review.report?.outcome === "complete" ? { report: { ...parts.review.report, summary: parts.summary },
+        facts: facts({ ...parts.review.facts, diff: parts.diff, changedPaths: parts.paths }) } : {}) }),
+    run.record("fix-review", { status: "skipped", startedAt: null, endedAt: at(40) }),
   ];
   const passedReview: Partial<AgentRunStageRecord> = { status: "completed",
     report: { outcome: "complete", summary: "The change does what the criteria ask.", reviewVerdict: "passed", decisions: [],
-      evidence: [{ label: "Reviewed the diff and the test run", kind: "observation" }], artifacts: [], workspaceRevision: REV_FINAL, reportedAt: at(30), turnId: "turn-review" },
+      evidence: [{ label: "Reviewed the diff and the test run", kind: "observation" }], artifacts: [], workspaceRevision: REV_FINAL, reportedAt: at(40), turnId: "turn-review" },
     facts: facts({ currentTurnId: "turn-review", workspaceRevision: REV_FINAL }) };
 
-  // Verified: the final stage owns a Stave check for the tests criterion, and the review passed on the final revision.
+  // Verified: the work stage owns a Stave check for the tests criterion, and the review passed on the final revision.
   const verifiedRun = runOf(verified, workflowOf(verified, { acceptanceCriteria: [{ text: verified.acceptanceCriteria[1]!, required: true, verification: "stave-check", scriptIds: ["test"],
     scriptDefinitions: [{ scriptId: "test", definitionHash: TEST_SCRIPT_HASH }] }] }),
     { state: "completed", currentStageIndex: 2, turnCount: 16, updatedAt: at(40) });
   const verifiedDetail = ended(verifiedRun, completedStages(verified, verifiedRun, {
     summary: "Added the CSV export with a header row and one line per invoice. The export tests and the spreadsheet import check pass on the final revision.",
     diff: { filesChanged: 3, insertions: 42, deletions: 7 }, paths: ["src/billing/export.ts", "src/billing/export.test.ts", "src/billing/csv.ts"], review: passedReview,
-    verifyFacts: { workspaceScripts: [{ source: "stave", type: "run-script", scriptId: "test", exitCode: 0, verification: { sourceRevision: REV_FINAL, completedRevision: REV_FINAL },
+    workFacts: { workspaceScripts: [{ source: "stave", type: "run-script", scriptId: "test", exitCode: 0, verification: { sourceRevision: REV_FINAL, completedRevision: REV_FINAL },
       durationMs: 8_200, outputTail: "12 pass, 0 fail", definitionHash: TEST_SCRIPT_HASH }] } }), "tars/invoice-csv", 40);
 
   // Reported: the review stage was skipped and no Stave check ran, so the agent's report is all there is.
   const reportedRun = runOf(reported, workflowOf(reported), { state: "completed", currentStageIndex: 2, turnCount: 7, updatedAt: at(40) });
   const reportedDetail = ended(reportedRun, completedStages(reported, reportedRun, {
     summary: "Rewrote the twelve toggle descriptions to one line each.", diff: { filesChanged: 1, insertions: 12, deletions: 12 }, paths: ["src/settings/notifications.tsx"],
-    review: { status: "skipped" } }), "tars/notification-copy", 40);
+    review: { status: "skipped", startedAt: null } }), "tars/notification-copy", 40);
 
   const publishedRun = runOf(published, workflowOf(published), { state: "completed", currentStageIndex: 2, turnCount: 11, updatedAt: at(40) });
   const publishedDetail = ended(publishedRun, completedStages(published, publishedRun, {

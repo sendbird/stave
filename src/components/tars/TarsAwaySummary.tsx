@@ -10,7 +10,7 @@ import type { TarsDecisionView } from "@/lib/tars/decisions";
 import type { TarsPublishProposalView } from "@/lib/tars/publish-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import {
-  buildTarsAwaySummary, placeTarsAwayCard, type TarsAwayGroupKind, type TarsAwayItem, type TarsAwayLink, type TarsAwaySummary,
+  buildTarsAwaySummary, placeTarsAwayCard, tarsAwayDockId, type TarsAwayGroupKind, type TarsAwayItem, type TarsAwayLink, type TarsAwaySummary,
 } from "@/lib/tars/away-summary";
 import { TarsRecordMark, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
 import { layoutTarsTranscript, type TarsTranscriptEntry } from "./TarsTranscriptLayout";
@@ -128,13 +128,14 @@ export function TarsAwaySummaryCard({ summary, onOpenSide, onGoTo, onJump, onDis
  * window already holds, and lays the entries out as before. Without a summary
  * the layout is exactly the entries'.
  */
-export function TarsAwayTranscript({ entries, conversation, decisions, publishProposals, titleOf, onOpenSide }: {
+export function TarsAwayTranscript({ entries, conversation, decisions, publishProposals, titleOf, onOpenSide, onOpenWaiting }: {
   entries: readonly TarsTranscriptEntry[];
   conversation: TarsConversation | null;
   decisions: readonly TarsDecisionView[];
   publishProposals?: readonly TarsPublishProposalView[];
   titleOf?: (responsibilityId: string) => string | undefined;
   onOpenSide?: (target: TarsSideViewTarget) => void;
+  onOpenWaiting?: (id: string) => void;
 }) {
   const host = useConversationFrameHost();
   const container = host?.scrollContainer ?? null;
@@ -168,7 +169,11 @@ export function TarsAwayTranscript({ entries, conversation, decisions, publishPr
     return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
   }, [arrived, container, loaded, markUserScrollIntent, settle, shown]);
   if (!summary) return <>{layoutTarsTranscript(entries)}</>;
-  const goTo = (link: Exclude<TarsAwayLink, { kind: "side" }>) => goToTranscriptPlace(container?.querySelector(linkSelector(link)), markUserScrollIntent);
+  const goTo = (link: Exclude<TarsAwayLink, { kind: "side" }>) => {
+    const dockId = tarsAwayDockId(link, decisions, publishProposals);
+    if (dockId && onOpenWaiting) { onOpenWaiting(dockId); return; }
+    goToTranscriptPlace(container?.querySelector(linkSelector(link)), markUserScrollIntent);
+  };
   /** The first thing after the card that is not a day rule: the first entry the user has not seen. */
   const jump = () => {
     let next = card.current?.nextElementSibling;

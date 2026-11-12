@@ -6,6 +6,7 @@ import { TarsConversationSchema, TarsMessageSchema, tarsMessageView } from "../s
 import { projectTarsDecisions } from "../src/lib/tars/decisions";
 import { projectTarsPublishProposals } from "../src/lib/tars/publish-model";
 import { selectTarsActivityNotices } from "../src/lib/tars/flow-model";
+import { WorkflowSchema } from "../src/lib/workflows/schema";
 import { TarsSnapshotSchema } from "../src/lib/tars/types";
 
 const START = new Date("2026-11-05T00:00:00.000Z");
@@ -53,6 +54,36 @@ describe("Tars preview gallery", () => {
     // The one question still waiting is in the newest message.
     expect(state("ask:g-m:0")).toMatchObject({ state: "waiting", latest: true, checked: true });
     expect(decisions.filter((view) => view.state === "waiting" && view.kind === "ask")).toHaveLength(1);
+  });
+
+  for (const korean of [false, true]) test(`the tray lists exactly the conversation's waiting decisions (${korean ? "ko" : "en"})`, () => {
+    const { conversation, responsibilities, pendingDecisions } = gallery(korean);
+    expect(pendingDecisions.map((decision) => [decision.kind, decision.messageId, decision.actionIndex, decision.responsibilityId]).sort())
+      .toEqual([["ask", "g-m", 0, "billing"], ["confirm", "g-m", 1, "release"], ["unverifiedCompletion", null, null, "gallery-audit"]].sort());
+    const waiting = projectTarsDecisions({ ...conversation, responsibilities }).filter((decision) => decision.state === "waiting");
+    expect(pendingDecisions).toHaveLength(waiting.length);
+    for (const pending of pendingDecisions) {
+      const decision = waiting.find((view) => view.kind === pending.kind && view.messageId === pending.messageId && view.actionIndex === pending.actionIndex)!;
+      expect(decision.targets).toContainEqual({ responsibilityId: pending.responsibilityId, expectedRevision: pending.expectedRevision });
+      expect(pending.proposedAt).toBe(decision.since);
+      expect(pending.optionCount).toBe(decision.options.length);
+      if (pending.kind === "ask") expect(pending.question).toBe(decision.question);
+    }
+  });
+
+  test("preview runs use the conditional review workflow and skip fixes after a passed review", () => {
+    const { runs } = gallery(false);
+    for (const detail of Object.values(runs).filter((detail) => detail.agentRun.workflow.stages.some((stage) => stage.id === "review"))) {
+      const workflow = WorkflowSchema.parse(detail.agentRun.workflow);
+      expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
+      expect(workflow.stages[1]).toMatchObject({ agentConfigId: "reviewer", pinCommit: true, skipIfWorkUnchanged: true });
+      expect(workflow.stages[2]).toMatchObject({ skipIfReviewPassed: true });
+      expect(detail.stages.some((stage) => stage.stageId === "verify")).toBe(false);
+      const review = detail.stages.find((stage) => stage.stageId === "review");
+      const fix = detail.stages.find((stage) => stage.stageId === "fix-review");
+      if (review?.report?.outcome === "complete" && review.report.reviewVerdict === "passed") expect(fix?.status).toBe("skipped");
+      if (fix?.status === "completed") expect(review?.report?.outcome === "complete" && review.report.reviewVerdict).toBe("changes-requested");
+    }
   });
 
   test("notices and publish proposals take their case's state", () => {

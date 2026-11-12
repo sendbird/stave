@@ -48,6 +48,27 @@ test("old completed records restore conservatively without rewriting history or 
   db.close();
 });
 
+test("a verified implementation completion remains completed and publishable after a SQLite restart", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tars-completed-")); dirs.push(dir);
+  const file = join(dir, "tasks.sqlite");
+  let db = new Database(file);
+  const store = new TarsStore(db);
+  const created = store.create(input, NOW);
+  // Match the publish e2e's direct seed after the held execution is taken over.
+  const completed = { ...created, state: "completed", completionGoal: "implementation", resultVerifiedRunId: "run-1",
+    agentRunId: "run-1", taskId: "same-task", executionWorkspaceId: "same-workspace", revision: created.revision + 1 };
+  db.prepare("UPDATE tars_responsibilities SET revision = ?, body_json = ? WHERE id = ?")
+    .run(completed.revision, JSON.stringify(completed), created.id);
+  const history = store.listActivity();
+  db.close(); db = new Database(file);
+  const restored = new TarsStore(db);
+  expect(restored.get(created.id)).toEqual(completed);
+  expect(restored.snapshot().responsibilities).toEqual([completed]);
+  expect(isTarsPublishable(restored.get(created.id)!)).toBe(true);
+  expect(restored.listActivity()).toEqual(history);
+  db.close();
+});
+
 test("repeated result checks retain the goal and identities and invalidate old execution evidence", () => {
   const db = new Database(":memory:"); const store = new TarsStore(db);
   let row = store.create({ ...input, completionGoal: "pullRequest", branchName: "feat/search" }, NOW);

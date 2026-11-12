@@ -1669,14 +1669,15 @@ evidence, turns, wall time and the run's recorded cost, appends that entry to
 `STAVE_TARS_LIVE_RESULTS`, then fails if any expectation failed.
 
 - **A, words**: a message asks for a small function and its test. Tars
-  delegates, the run goes work → review → verify, completion needs a passing
-  check Stave observed on the final revision or a same-revision passed
-  review, the frozen report lists every criterion with its source, the flow
-  block, tray and Fleet agree, nothing is committed. A Codex conversation
+  delegates, the run starts with work and conditionally runs review and
+  fix-review. Completion needs a passing check Stave observed on the final
+  revision or a same-revision passed review. The frozen report lists every
+  criterion with its source; the flow block, tray and Fleet agree. Changed
+  work is committed locally for review; publication is separate. A Codex conversation
   then opens the report with a `show`.
 - **B, clicks**: pause, resume, take over, a refused resume while taken
   over, and hand back, each a click record in the conversation; the hand-back
-  restarts the final verification before completion.
+  restarts the final stage that ran before completion.
 - **C+D, a failing decisive check and a restart**: the required check cannot
   pass without editing generated files the repository forbids. Stave is
   closed while the first turn runs and relaunched on the same profile: the

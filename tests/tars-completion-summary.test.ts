@@ -7,11 +7,13 @@ test('only frozen final text leads; every stage summary stays whole', () => {
   const f = buildTarsResultFixtures(new Date('2026-11-05T00:00:00Z'));
   const row = f.responsibilities[0]!;
   const run = f.runs[row.agentRunId!]!;
-  const original = run.report!.stages.at(-1)!.summary!;
+  const finalStage = run.report!.stages.find((stage) => stage.stageId === 'review')!;
+  expect(run.report!.stages.at(-1)!.status).toBe('skipped');
+  const original = finalStage.summary!;
   expect(projectTarsReport(row, run).summary).toBe(original);
   expect(projectTarsReport(row, { ...run, report: null }).summary).toBeNull();
   const text = 'Exported invoices with stable columns.\n\nNot verified on production data.';
-  run.report!.stages.at(-1)!.summary = text;
+  finalStage.summary = text;
   const model = projectTarsReport(row, run);
   expect(tarsSummaryExcerpt(text)).toBe('Exported invoices with stable columns.…');
   expect(model.summaries.at(-1)!.text).toBe(text);
@@ -51,7 +53,7 @@ for (const text of ['- None', 'None.', 'N/A', '- 없음', 'No known limitations.
     model.summary = `Done.\n\n## Limitations\n\n${text}`;
     model.leftBehind = [];
     expect(tarsSummaryCaveats(model)).toEqual([]);
-    model.summaries = [{ stageId: 'work', title: 'Work', text: model.summary }, { stageId: 'verify', title: 'Verify', text: 'Done.' }];
+    model.summaries = [{ stageId: 'work', title: 'Work', text: model.summary }, { stageId: 'fix-review', title: 'Fix review findings', text: 'Done.' }];
     expect(tarsEarlierSummaryCaveats(model)).toEqual([]);
   });
 }
@@ -96,7 +98,7 @@ test('earlier caveats retain their stage without claiming the final status', () 
   const model = projectTarsReport(row, f.runs[row.agentRunId!]);
   model.summaries = [
     { stageId: 'work', title: 'Work', text: 'Implemented.\n\nNot verified on packaged Electron.' },
-    { stageId: 'verify', title: 'Verify', text: 'Packaged Electron verified successfully. No limitations.' },
+    { stageId: 'fix-review', title: 'Fix review findings', text: 'Packaged Electron verified successfully. No limitations.' },
   ];
   model.summary = model.summaries[1]!.text;
   model.leftBehind = [];

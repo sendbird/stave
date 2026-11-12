@@ -647,8 +647,8 @@ test("an output in the tray opens the frozen report beside the conversation; Esc
   await expect(side.locator("[data-tars-report-frozen]")).toContainText("when the run ended");
   await expect(side.locator('[data-tars-criterion="met"]')).toHaveCount(2);
   // Each criterion names what decided it; evidence is shown once, under the stage that reported it.
-  await expect(side.locator('[data-tars-criterion-source="agent"]').first()).toContainText("Reported by the agent in Verify");
-  await expect(side.locator('[data-tars-evidence-group="verify"] [data-evidence-revision]')).toContainText("the final revision");
+  await expect(side.locator('[data-tars-criterion-source="agent"]').first()).toContainText("Reported by the agent in Fix review findings");
+  await expect(side.locator('[data-tars-evidence-group="fix-review"] [data-evidence-revision]')).toContainText("the final revision");
   await expect(side.locator('[data-tars-evidence-group="work"] [data-evidence-revision]')).toContainText("not the final revision");
   await expect(side.locator('[data-tars-report-blocked]')).toHaveCount(0);
   // The side view takes the tray's column at the tray's width: the conversation does not move.
@@ -708,7 +708,7 @@ test("a flow's review node opens the review and its completion node the report",
   await flow.getByRole("button", { expanded: false }).click();
   await flow.locator('[data-tars-flow-stage="review"]').click();
   await expect(sideView(page)).toHaveAttribute("data-tars-side-view", "review");
-  await expect(sideView(page)).toContainText("리뷰 통과");
+  await expect(sideView(page)).toContainText("수정 요청");
   await expect(sideView(page).locator("[data-tars-finding]")).toHaveCount(2);
   await flow.locator("[data-tars-flow-completion]").click();
   await expect(sideView(page)).toHaveAttribute("data-tars-side-view", "report");

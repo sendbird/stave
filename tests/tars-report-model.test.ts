@@ -25,10 +25,10 @@ describe("result report projection", () => {
     const f = fixtures();
     const model = projectTarsReport(rowOf(f, "checkout"), runOf(f, "checkout"));
     expect(model).toMatchObject({ state: "frozen", frozenAt: "2026-11-05T00:40:00.000Z", outcome: "completed", finalRevision: "9e2b7c11", unmet: [] });
-    // Verify reported both last, on the final revision: that report decided them.
+    // Fix review findings reported both last, on the final revision: that report decided them.
     expect(model.criteria.map((criterion) => [criterion.text, criterion.status, criterion.source])).toEqual([
-      ["Checkout shows the saved card first.", "met", { kind: "agent", stageTitle: "Verify", revision: "9e2b7c11", freshness: "current" }],
-      ["The checkout tests pass.", "met", { kind: "agent", stageTitle: "Verify", revision: "9e2b7c11", freshness: "current" }],
+      ["Checkout shows the saved card first.", "met", { kind: "agent", stageTitle: "Fix review findings", revision: "9e2b7c11", freshness: "current" }],
+      ["The checkout tests pass.", "met", { kind: "agent", stageTitle: "Fix review findings", revision: "9e2b7c11", freshness: "current" }],
     ]);
     expect(model.links).toEqual([{ label: "Draft pull request #42", url: "https://example.com/acme/shop/pull/42", source: "agent" }]);
   });
@@ -38,8 +38,8 @@ describe("result report projection", () => {
     const model = projectTarsReport(rowOf(f, "checkout"), runOf(f, "checkout"));
     expect(model.evidenceGroups.map((group) => [group.stageTitle, group.evidence.map((item) => [item.evidence.label, item.source, item.verified, item.revision, item.freshness])])).toEqual([
       ["Work", [["Checkout unit tests", "stave", true, "4f1c9a20", "superseded"]]],
-      ["Review", [["Reviewed the diff and the test run", "agent", false, "9e2b7c11", "current"]]],
-      ["Verify", [["Checkout unit tests", "stave", true, "9e2b7c11", "current"]]],
+      ["Review", [["Reviewed the diff and the test run", "agent", false, "4f1c9a20", "superseded"]]],
+      ["Fix review findings", [["Checkout unit tests", "stave", true, "9e2b7c11", "current"]]],
     ]);
     // No criterion carries a copy of a stage's evidence.
     expect(model.criteria.every((criterion) => !("evidence" in criterion))).toBe(true);
@@ -49,15 +49,15 @@ describe("result report projection", () => {
     const f = fixtures();
     const run = runOf(f, "checkout");
     const text = "The checkout tests pass.";
-    const workflow = { ...run.agentRun.workflow, stages: run.agentRun.workflow.stages.map((stage) => stage.id === "verify" && stage.kind === "ai"
+    const workflow = { ...run.agentRun.workflow, stages: run.agentRun.workflow.stages.map((stage) => stage.id === "fix-review" && stage.kind === "ai"
       ? { ...stage, acceptanceCriteria: [{ text, required: true, verification: "stave-check" as const, scriptIds: ["test"] }] } : stage) };
     const revision = { status: "known" as const, revision: "9e2b7c11a0d4f853" };
     const check = (exitCode: number) => ({ source: "stave" as const, type: "run-script" as const, scriptId: "test", exitCode,
       verification: { sourceRevision: revision, completedRevision: revision }, durationMs: 1000, outputTail: "" });
     const withCheck = (exitCode: number) => ({ ...run, agentRun: { ...run.agentRun, workflow },
-      stages: run.stages.map((record) => record.stageId === "verify" ? { ...record, facts: { ...record.facts!, workspaceScripts: [check(exitCode)] } } : record) });
+      stages: run.stages.map((record) => record.stageId === "fix-review" ? { ...record, facts: { ...record.facts!, workspaceScripts: [check(exitCode)] } } : record) });
     expect(projectTarsReport(rowOf(f, "checkout"), withCheck(0)).criteria[1]!.source)
-      .toEqual({ kind: "check", stageTitle: "Verify", name: "test", exitCode: 0, revision: "9e2b7c11", freshness: "current" });
+      .toEqual({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: 0, revision: "9e2b7c11", freshness: "current" });
     expect(projectTarsReport(rowOf(f, "checkout"), withCheck(1)).criteria[1]!.source).toMatchObject({ kind: "check", exitCode: 1 });
     const notRun = { ...withCheck(0), stages: run.stages };
     expect(projectTarsReport(rowOf(f, "checkout"), { ...notRun, agentRun: { ...run.agentRun, workflow } }).criteria[1]!.source).toMatchObject({ kind: "check", exitCode: null });
@@ -102,7 +102,7 @@ describe("review projection", () => {
   test("is the reviewer stage's verdict, findings and the revision it reviewed", () => {
     const f = fixtures();
     expect(projectTarsReview(runOf(f, "checkout"))).toMatchObject({
-      stageId: "review", verdict: "passed", attempts: 1, revision: "9e2b7c11", freshness: "current", blocked: null,
+      stageId: "review", verdict: "changes-requested", attempts: 1, revision: "4f1c9a20", freshness: "superseded", blocked: null,
       findings: [{ decision: "Rename savedId to preferredCardId" }, { decision: "Cover a wallet with no saved card" }],
     });
   });

@@ -261,11 +261,12 @@ test("a confirmed publish card commits, pushes the work's branch and opens a dra
       ?.events.some((event) => event.kind === "turn-interrupted"), { timeout: 30_000 }).toBe(true);
     await stave.close(); stave = null;
 
-    // Completing a supervised run needs a real provider (the live e2e covers it), so the saved row is moved to completed here.
+    // Seed the verified implementation endpoint, not a legacy unscoped completion (which restores as resultReady).
+    // Real supervised completion is exercised by the live-provider e2e; this test owns publication.
     const database = new DatabaseSync(path.join(profileDir, "stave.sqlite"));
     const stored = database.prepare("SELECT body_json, revision FROM tars_responsibilities WHERE id = ?").get(id) as { body_json: string; revision: number };
     const { detailCode: _code, detailParams: _params, ...body } = JSON.parse(stored.body_json) as TarsResponsibility;
-    const completed = { ...body, state: "completed", detail: null, revision: stored.revision + 1, updatedAt: new Date().toISOString() };
+    const completed = { ...body, state: "completed", completionGoal: "implementation", resultVerifiedRunId: body.agentRunId, detail: null, revision: stored.revision + 1, updatedAt: new Date().toISOString() };
     database.prepare("UPDATE tars_responsibilities SET revision = ?, body_json = ? WHERE id = ?").run(completed.revision, JSON.stringify(completed), id);
     database.close();
     const head = `tars/${id}`;

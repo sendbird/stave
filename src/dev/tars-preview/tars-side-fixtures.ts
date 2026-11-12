@@ -1,3 +1,4 @@
+import { reviewStages } from "@/lib/agents/review-before-done";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -31,7 +32,7 @@ const TEST = `test("the saved card comes first", () => {
 /**
  * Tars work with artifacts for the side-view preview and its tests: a
  * completed checkout fix whose run ended with a frozen report, an independent
- * review that passed with findings, changed files and a recorded pull request
+ * review that requested fixes, changed files and a recorded pull request
  * link; and a search speed-up whose run stopped stuck, leaving unmet criteria
  * and a pushed branch. Times count from `start`; nothing here runs.
  */
@@ -54,8 +55,7 @@ export function buildTarsSideViewFixtures(start: Date) {
     stages: [
       { id: "work", title: "Work", kind: "ai", instruction: "Plan and execute the responsibility.", doneWhen: "The result is implemented and verified.",
         acceptanceCriteria: row.acceptanceCriteria.map((text) => ({ text, required: true })) },
-      { id: "review", title: "Review", kind: "ai", agentConfigId: "reviewer", instruction: "Independently review the result.", doneWhen: "A review reported findings or a passed verdict." },
-      { id: "verify", title: "Verify", kind: "ai", instruction: "Resolve findings and rerun the decisive checks.", doneWhen: "All required criteria are met and verified." },
+      ...reviewStages("behavior-changes"),
     ],
   });
   const runOf = (row: TarsResponsibility, patch: Partial<AgentRun>) => {
@@ -79,20 +79,20 @@ export function buildTarsSideViewFixtures(start: Date) {
         commands: [{ command: "bun test checkout", exitCode: 0, toolCallId: null, turnId: "turn-work", outcome: "succeeded", provenance: "provider-structured", sourceRevision: REV_WORK }],
         toolCalls: [{ toolCallId: "tool-edit", name: "apply_patch", ok: true, turnId: "turn-work" }], currentTurnId: "turn-work", workspaceRevision: REV_WORK }) }),
     checkoutRun.record("review", { status: "completed", startedAt: at(21), endedAt: at(30), startHeadSha: "a1b2c3d",
-      report: { outcome: "complete", summary: "The change does what the criteria ask. Two small findings were fixed in Verify.", reviewVerdict: "passed",
+      report: { outcome: "complete", summary: "The change does what the criteria ask. Two findings need fixes.", reviewVerdict: "changes-requested",
         decisions: [{ decision: "Rename savedId to preferredCardId", reason: "It is the user's preference, not the last saved card." },
           { decision: "Cover a wallet with no saved card", reason: "The fallback order had no test." }],
-        evidence: [{ label: "Reviewed the diff and the test run", kind: "observation" }], artifacts: [], workspaceRevision: REV_FINAL, reportedAt: at(30), turnId: "turn-review" },
-      facts: facts({ currentTurnId: "turn-review", workspaceRevision: REV_FINAL }) }),
-    checkoutRun.record("verify", { status: "completed", startedAt: at(31), endedAt: at(40), startHeadSha: "a1b2c3d",
+        evidence: [{ label: "Reviewed the diff and the test run", kind: "observation" }], artifacts: [], workspaceRevision: REV_WORK, reportedAt: at(30), turnId: "turn-review" },
+      facts: facts({ currentTurnId: "turn-review", workspaceRevision: REV_WORK }) }),
+    checkoutRun.record("fix-review", { status: "completed", startedAt: at(31), endedAt: at(40), startHeadSha: "a1b2c3d",
       report: { outcome: "complete", summary: "Resolved both findings and reran the checks on the final revision.", decisions: [],
         evidence: [{ label: "Checkout unit tests", kind: "check", command: "bun test checkout" }],
         artifacts: [{ label: "Draft pull request #42", url: "https://example.com/acme/shop/pull/42" }],
         acceptanceCriteria: checkout.acceptanceCriteria.map((text) => ({ text, status: "met" as const, required: true })),
-        workspaceRevision: REV_FINAL, reportedAt: at(40), turnId: "turn-verify" },
+        workspaceRevision: REV_FINAL, reportedAt: at(40), turnId: "turn-fix-review" },
       facts: facts({ diff: { filesChanged: 2, insertions: 18, deletions: 2 }, changedPaths: ["src/checkout/cards.ts", "src/checkout/cards.test.ts"],
-        commands: [{ command: "bun test checkout", exitCode: 0, toolCallId: null, turnId: "turn-verify", outcome: "succeeded", provenance: "stave-runner", sourceRevision: REV_FINAL }],
-        currentTurnId: "turn-verify", workspaceRevision: REV_FINAL }) }),
+        commands: [{ command: "bun test checkout", exitCode: 0, toolCallId: null, turnId: "turn-fix-review", outcome: "succeeded", provenance: "stave-runner", sourceRevision: REV_FINAL }],
+        currentTurnId: "turn-fix-review", workspaceRevision: REV_FINAL }) }),
   ];
   const checkoutDetail: AgentRunDetail = { agentRun: checkoutRun.agentRun, stages: checkoutStages, events: [],
     report: buildAgentRunReport({ aggregate: { agentRun: checkoutRun.agentRun, stages: checkoutStages }, workspace: { branch: "tars/checkout", branchPushed: false, openPullRequest: null }, endedAt: new Date(at(40)) }) };
