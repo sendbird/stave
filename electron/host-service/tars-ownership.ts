@@ -1,4 +1,8 @@
 import { TARS_EXTEND_TURNS } from "../../src/lib/tars/autonomy";
+import { WorkspacePreparationError } from "./workspace-preparation";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash } from "node:crypto";
+import type { AgentRunAggregate, AgentRunChange, AgentRunEvent } from "../../src/lib/agent-runs/domain";
 import { tarsExecutionScope } from "../../src/lib/tars/continuation";
 import path from "node:path";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
@@ -24,7 +28,7 @@ export function tarsDetailFromError(error: unknown): Required<Pick<TarsResponsib
     // i18n-ignore: persisted diagnostic; the interface translates the code
     return { detail: "Tars could not observe this responsibility.", detailCode: "observationFailed", detailParams: null };
   }
-  const code = error instanceof TarsDetailError || error instanceof TarsOwnershipLostError ? error.detailCode : null;
+  const code = error instanceof WorkspacePreparationError ? "preparationFailed" : error instanceof TarsDetailError || error instanceof TarsOwnershipLostError ? error.detailCode : null;
   return { detail: error.message.slice(0, 2_000), detailCode: code, detailParams: null };
 }
 
@@ -95,6 +99,8 @@ export function assertTarsControl(row: TarsResponsibility, run: AgentRun): void 
 
 
 interface TarsControlPorts {
+  commandId?: string;
+  commandEvents?: (id: string) => AgentRunEvent[];
   autoExtendMaxTurns?: number;
   agentRuns: Pick<import("./supervision/agent-run-runtime").AgentRunRuntime,
     "get" | "pause" | "resume" | "cancel" | "takeOver" | "restartStageAndResume" | "extend" | "retryStage" | "skipStage" | "signOff">;
@@ -117,10 +123,13 @@ export async function controlTarsRun(
   operation: TarsRunControlOperation,
   ports: TarsControlPorts,
 ) {
+  const applied = Boolean(ports.commandId && ports.commandEvents && tarsRunControlApplied(ports.commandEvents(row.agentRunId!), ports.commandId));
+  if (applied && operation !== "pause" && operation !== "cancel" && operation !== "takeover") return;
+  const invoke = <T>(step: string, run: () => Promise<T>, final = true) => withTarsRunCommand(ports.commandId, step, run, final);
   const detail = await ports.agentRuns.get({ agentRunId: row.agentRunId! });
   assertTarsRun(row, detail.agentRun);
   // Pausing, cancelling or taking over leaves an already human-owned task untouched.
-  if (detail.agentRun.pauseReason === "taken-over" && operation !== "handBack") {
+  if (!applied && detail.agentRun.pauseReason === "taken-over" && operation !== "handBack") {
     // Continuing or commanding a run the user holds in its task is refused, never a silent no-op.
     if (operation === "resume" || isTarsRunCommandOperation(operation)) assertTarsControl(row, detail.agentRun);
     return;
@@ -141,9 +150,10 @@ export async function controlTarsRun(
         !ports.userTurnIds(row.agentRunId!).includes(turnId)) ports.abortTurn(turnId);
   };
   const run = detail.agentRun;
+  if (applied) { await stopAutomaticTurn((current) => assertTarsRun(row, current)); return; }
   if (operation === "resume") {
     guard(run);
-    if (run.state === "paused") await ports.agentRuns.resume({ agentRunId: row.agentRunId! }, guard);
+    if (run.state === "paused") await invoke("resume", () => ports.agentRuns.resume({ agentRunId: row.agentRunId! }, guard));
     else if (run.state !== "running") throw new TarsRunEndedError();
     // Waiting work over a running run waits on its stage or task, not a pause: resuming would change nothing.
     else if (row.state === "waiting") throw new TarsRunRefusedError("The run is not paused. Its stage or task is waiting for an answer.");
@@ -153,12 +163,12 @@ export async function controlTarsRun(
     const agentRunId = row.agentRunId!;
     // The run's own command checks the stage state, exactly as when the user gives it in the task,
     // and the guard rechecks ownership inside the run's command queue.
-    if (operation === "extend") await ports.agentRuns.extend({ agentRunId, additionalTurns: TARS_EXTEND_TURNS }, guard);
+    if (operation === "extend") await invoke(operation, () => ports.agentRuns.extend({ agentRunId, additionalTurns: TARS_EXTEND_TURNS }, guard));
     else {
       // Only the attempt Tars observed at the revision the user confirmed: a later stage is never retried, skipped or signed off by it.
       const record = currentStageRecord(detail);
       if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
-      await ports.agentRuns[operation]({ agentRunId, stageId: record.stageId, attempt: record.attempt }, guard);
+      await invoke(operation, () => ports.agentRuns[operation]({ agentRunId, stageId: record.stageId, attempt: record.attempt }, guard));
     }
   } else if (operation === "handBack") {
     const reclaim = (current: AgentRun) => {
@@ -177,22 +187,45 @@ export async function controlTarsRun(
     const mayEndRun = !next || (next.kind === "ai" && next.skipIfReviewPassed === true);
     const stale = mayEndRun && Boolean(record?.startedAt);
     if (!stale) {
-      if (run.state === "paused") await ports.agentRuns.resume({ agentRunId: row.agentRunId! }, reclaim);
+      if (run.state === "paused") await invoke("resume", () => ports.agentRuns.resume({ agentRunId: row.agentRunId! }, reclaim));
       return;
     }
     if (record!.attempt >= AGENT_RUN_LIMITS.maxStageAttempts) throw new Error("The final verification has no attempts left. Open its task to continue.");
     if (run.state === "running" || run.pauseReason !== "taken-over") {
       // The user resumed or paused it meanwhile: hold it first so the old attempt stops.
-      await ports.agentRuns.takeOver({ agentRunId: row.agentRunId! }, reclaim);
+      await invoke("takeOver", () => ports.agentRuns.takeOver({ agentRunId: row.agentRunId! }, reclaim), false);
       await stopAutomaticTurn(reclaim);
     }
-    await ports.agentRuns.restartStageAndResume({ agentRunId: row.agentRunId! }, reclaim);
+    await invoke("restartStageAndResume", () => ports.agentRuns.restartStageAndResume({ agentRunId: row.agentRunId! }, reclaim));
   } else if (run.state === "running" || run.state === "paused") {
     // Admission may have been queued behind a turn start. Read the active turn
     // after the control applies, then check its durable automatic/user provenance.
-    await ports.agentRuns[operation === "takeover" ? "takeOver" : operation]({ agentRunId: row.agentRunId! }, guard);
+    await invoke(operation, () => ports.agentRuns[operation === "takeover" ? "takeOver" : operation]({ agentRunId: row.agentRunId! }, guard));
     // After a takeover the run is the user's; only its identity is rechecked.
     await stopAutomaticTurn(operation === "takeover" ? (current: AgentRun) => assertTarsRun(row, current) : guard);
   }
   // An ended run has nothing left to stop: pause, cancel or takeover only change the responsibility.
+}
+
+// Context is host-only and scoped to one Run command queue entry, never a provider payload.
+const tarsRunCommand = new AsyncLocalStorage<{ id: string; step: string; final: boolean }>();
+export function withTarsRunCommand<T>(id: string | undefined, step: string, work: () => Promise<T>, final = true): Promise<T> {
+  return id ? tarsRunCommand.run({ id, step, final }, work) : work();
+}
+export function tarsRunControlApplied(events: readonly AgentRunEvent[], id: string): boolean {
+  return events.some((event) => event.detail.tarsCommandId === id && event.detail.final === true);
+}
+
+/** The command receipt shares the Run mutation's savepoint; keyed events are never pruned. */
+export async function buildTarsRunCommand(aggregate: AgentRunAggregate,
+  build: (aggregate: AgentRunAggregate) => AgentRunChange | Promise<AgentRunChange>,
+  store: { listEventsByKind(id: string, kinds: ["control-applied"]): AgentRunEvent[] }): Promise<AgentRunChange> {
+  const command = tarsRunCommand.getStore();
+  if (!command) return build(aggregate);
+  const key = `tars-control:${createHash("sha256").update(JSON.stringify([command.id, command.step])).digest("hex")}`;
+  if (store.listEventsByKind(aggregate.agentRun.id, ["control-applied"]).some((event) => event.idempotencyKey === key))
+    return { agentRun: aggregate.agentRun, upserts: [], events: [] };
+  const change = await build(aggregate);
+  return { ...change, events: [...change.events, { kind: "control-applied", idempotencyKey: key,
+    detail: { tarsCommandId: command.id, step: command.step, final: command.final } }] };
 }

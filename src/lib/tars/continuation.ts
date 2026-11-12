@@ -19,8 +19,16 @@ export function tarsExecutionScope(row: TarsResponsibility, pending = false): Ta
 }
 
 /** An execution can end while the user's delegated goal remains open. */
-export function hasEndedTarsExecution(row: Pick<TarsResponsibility, "state">): boolean {
-  return row.state === "completed" || row.state === "resultReady";
+export function hasEndedTarsExecution(row: Pick<TarsResponsibility, "state" | "detailCode">): boolean {
+  return row.state === "completed" || row.state === "resultReady" || row.state === "blocked" &&
+    ["unverifiedCompletion", "incompleteReport", "staleVerification"].includes(row.detailCode ?? "");
+}
+
+/** Only the observer's single completion transition can refresh a correction's saved revision. */
+export function canContinueTarsControl(row: Pick<TarsResponsibility, "state" | "detailCode" | "revision" | "continuationFromRevision">,
+  expectedRevision: number, operation?: string): boolean {
+  return hasEndedTarsExecution(row) && ["message", "requestChanges", "retryStage"].includes(operation ?? "") &&
+    (row.revision === expectedRevision || row.continuationFromRevision === expectedRevision && row.revision === expectedRevision + 1);
 }
 
 /** Stable run identities for reports and artifact navigation, newest first. */

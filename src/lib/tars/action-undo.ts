@@ -62,7 +62,7 @@ export function captureTarsQueueUndo(before: readonly TarsResponsibility[], afte
 
 /** A saved pending delivery can be withdrawn; this never invents an inverse operation for a run. */
 export function isTarsDeliveryAction(record: TarsActionRecord) {
-  return record.status === "applied" && record.action.kind === "control" && record.action.operation === "message" && Boolean(record.delivery);
+  return record.status === "applied" && record.action.kind === "control" && ["message", "requestChanges", "retryStage"].includes(record.action.operation) && Boolean(record.delivery);
 }
 
 /** Old and unsupported effects never acquire an Undo by guessing prior values. */

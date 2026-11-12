@@ -1769,6 +1769,7 @@
       "takenOverInTask": "직접 맡은 작업입니다. 해당 작업에서 계속하세요.",
       "admissionWithdrawn": "실행이 시작되기 전에 작업이 일시 정지되거나 취소되었습니다.",
       "observationFailed": "Tars가 이 작업의 진행 상황을 확인하지 못했습니다.",
+      "preparationFailed": "워크스페이스 준비에 실패했거나 제한 시간을 넘겼습니다. 생성 후 실행 명령을 확인한 뒤 작업을 재개해 다시 시도하세요.",
       "pauseReason": {
         "pausedByUser": "작업이 일시 정지되었습니다. 계속하려면 재개하세요.",
         "takenOver": "이 작업을 직접 맡았습니다. Tars가 이어서 하려면 다시 맡기세요.",

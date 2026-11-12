@@ -9,6 +9,7 @@ import { hasEndedTarsExecution } from "./continuation";
 export type TarsDetailFields = Pick<TarsResponsibility, "detail" | "detailCode" | "detailParams">;
 
 const DETAIL_KEYS = {
+  preparationFailed: "shell:tars.detail.preparationFailed",
   waitingForUser: "shell:tars.detail.waitingForUser",
   runPaused: "shell:tars.detail.runPaused",
   runStopped: "shell:tars.detail.runStopped",
@@ -71,7 +72,7 @@ export function describeTarsResponsibilityDetail(row: TarsDetailFields): string 
 }
 
 /** Codes whose `detail` holds the run's or provider's own words rather than Tars's fixed sentence. */
-const DIAGNOSTIC_CODES: ReadonlySet<TarsDetailCode> = new Set(["runStopped", "runCancelled", "turnStartFailed"]);
+const DIAGNOSTIC_CODES: ReadonlySet<TarsDetailCode> = new Set(["runStopped", "runCancelled", "turnStartFailed", "preparationFailed"]);
 // i18n-ignore: the fixed diagnostic Tars saves for a stop with no reason; it adds nothing to the translated line
 const BARE_STOP_DETAIL = "The run stopped.";
 

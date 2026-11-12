@@ -34,7 +34,7 @@ export function createTarsWithdrawal(deps: {
       const input = TarsUndoActionInputSchema.parse(raw);
       const queue = deps.ports.messages;
       const initial = queue?.getAction(input.requestId);
-      if (!initial?.delivery || initial.action.kind !== "control" || initial.action.operation !== "message")
+      if (!initial?.delivery || initial.action.kind !== "control" || !["message", "requestChanges", "retryStage"].includes(initial.action.operation))
         return { record: initial ?? null, refusal: "unsupported" };
       const id = initial.action.responsibilityId;
       if (initial.delivery.status !== "withdrawn" && !initial.delivery.withdrawRequestedAt && initial.revision !== input.expectedRevision)

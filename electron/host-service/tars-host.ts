@@ -1,4 +1,5 @@
 import { hasEndedTarsExecution, tarsExecutionScope } from "../../src/lib/tars/continuation";
+import { WorkspacePreparationError } from "./workspace-preparation";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -19,7 +20,7 @@ import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import {
   assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
-  TarsRunEndedError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError,
+  TarsRunEndedError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError, tarsRunControlApplied, withTarsRunCommand,
 } from "./tars-ownership";
 import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
 import { currentStageRecord } from "../../src/lib/agent-runs/domain";
@@ -151,10 +152,12 @@ export function createHostTarsRuntime(args: {
   }
   return createTarsRuntime({
     store: persistence.tars,
+    controls: persistence.tarsConversations,
+    hasControlEffect: (row, id) => Boolean(row.agentRunId && tarsRunControlApplied(persistence.agentRuns.listEventsByKind(row.agentRunId, ["control-applied"]), id)),
     onQueueChanged: () => args.emitChanged?.({ scope: "snapshot" }),
     concurrencyLimit: () => persistence.tarsConversations.getSettings()?.maxConcurrentResponsibilities ?? 0,
     validateScope,
-    async prepareWorkspace(row) {
+    async prepareWorkspace(row, signal) {
       await validateScope(row);
       const repositories = await tasks.listKnownRepositories();
       const repository = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath))!;
@@ -166,13 +169,15 @@ export function createHostTarsRuntime(args: {
       // Stable branch name reconciles a lost creation acknowledgement without another checkout.
       // Admission builds it under the repository's naming rule with a unique suffix; older work keeps `tars/<id>`.
       const create = (name: string) => tasks.createWorkspace({ repositoryPath: row.repositoryPath, name, label: row.title,
-        mode: "branch", ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
+        mode: "branch", signal, ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
       const fallback = `tars/${row.id}`;
       let workspaceId: string;
       if (!row.branchName) workspaceId = (await create(fallback)).workspaceId;
       else {
         try { workspaceId = (await create(row.branchName)).workspaceId; }
         catch (error) {
+          signal?.throwIfAborted();
+          if (error instanceof WorkspacePreparationError) throw error;
           // git can still refuse a rule-following name, for example `ABC-123/x` when a branch `ABC-123` exists.
           // The name is deterministic, so retrying it would fail forever; `tars/<id>` is unique and equally stable.
           try { workspaceId = (await create(fallback)).workspaceId; } catch { throw error; }
@@ -290,7 +295,7 @@ export function createHostTarsRuntime(args: {
         const detail = await args.agentRuns.get({ agentRunId });
         const record = currentStageRecord(detail);
         if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
-        await args.agentRuns.requestChanges({ agentRunId, stageId: record.stageId, attempt: record.attempt, feedback: request.input!.text! }, guard);
+        await withTarsRunCommand(options?.commandId, "requestChanges", () => args.agentRuns.requestChanges({ agentRunId, stageId: record.stageId, attempt: record.attempt, feedback: request.input!.text! }, guard));
         return;
       }
       // Only a request Tars observed in the work's own task or a helper task of its run, read again here.
@@ -313,10 +318,11 @@ export function createHostTarsRuntime(args: {
         throw error;
       }
     },
-    controlRun: (row, operation, autoExtendMaxTurns) => {
+    controlRun: (row, operation, autoExtendMaxTurns, commandId) => {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (latest) assertTarsRun(row, latest);
       return controlTarsRun(row, operation, {
+        commandId, commandEvents: (id) => persistence.agentRuns.listEventsByKind(id, ["control-applied"]),
         autoExtendMaxTurns,
         agentRuns: args.agentRuns,
         hasAssignment: (row) => {

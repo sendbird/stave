@@ -1,4 +1,5 @@
 import { captureTarsControlUndo } from "../../src/lib/tars/action-undo";
+import { canContinueTarsControl, hasEndedTarsExecution } from "../../src/lib/tars/continuation";
 import type { TarsStore } from "../persistence/tars-store";
 import {
   parseTarsConfirmationRequestId, TarsActInputSchema, type TarsActInput, type TarsActResult, type TarsActionRecord,
@@ -74,16 +75,16 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
   stage: "admission" | "dispatch" = "admission"): TarsResponsibility {
   const refuse = (reason: TarsControlReason, message: string): never => { throw new TarsControlRejection(reason, message); };
   if (!row) return refuse("notOwned", "The responsibility is not owned by the personal representative.");
+  if (canContinueTarsControl(row, request.expectedRevision, request.operation))
+    request = { ...request, expectedRevision: row.revision };
   if (stage === "admission" && row.revision !== request.expectedRevision) refuse("stale", TARS_CONTROL_STALE);
-  if ((row.state === "completed" && request.operation !== "message") || row.state === "cancelled") refuse("ended", "This responsibility has already ended.");
+  if ((row.state === "completed" && !["message", "requestChanges", "retryStage"].includes(request.operation)) || row.state === "cancelled") refuse("ended", "This responsibility has already ended.");
   if (isTarsPublicationUnfinished(row.publication)) refuse("runRefused", "Publication is in progress. Wait for its recorded outcome.");
   const userOwned = row.state === "takenOver";
-  if (row.state === "resultReady" && request.operation !== "acceptCompletion" && request.operation !== "cancel" && request.operation !== "message")
+  if (row.state === "resultReady" && !["acceptCompletion", "cancel", "message", "requestChanges", "retryStage"].includes(request.operation))
     refuse("runEnded", "The execution ended. Continue this work through the follow-up flow, or confirm its requested endpoint.");
-  // Its run already ended reporting success Stave could not verify: only the user's
-  // acceptance or a cancel settles it; new work to verify it is a new request.
-  if (row.state === "blocked" && row.detailCode === "unverifiedCompletion" &&
-      request.operation !== "acceptCompletion" && request.operation !== "cancel")
+  if (row.state === "blocked" && hasEndedTarsExecution(row) &&
+      !["acceptCompletion", "cancel", "message", "requestChanges", "retryStage"].includes(request.operation))
     refuse("runEnded", "Its run already ended. Accept it as done, cancel it, or ask Tars for new verification work.");
   switch (request.operation) {
     case "pause":
@@ -165,7 +166,7 @@ export function tarsControlRejection(error: unknown): TarsControlRejectionOutcom
 }
 
 export function tarsActionLedger(conversations: TarsConversationStore, requestId: string,
-  now: () => string, proposal?: TarsProposalRef, responsibilities?: TarsStore): TarsControlLedger<TarsActionRecord> {
+  now: () => string, proposal?: TarsProposalRef, responsibilities?: Pick<TarsStore, "get">): TarsControlLedger<TarsActionRecord> {
   return {
     key: `click:${requestId}`,
     settled: () => {

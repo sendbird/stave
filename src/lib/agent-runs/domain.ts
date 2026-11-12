@@ -699,6 +699,7 @@ export type AgentRun = z.infer<typeof AgentRunSchema>;
 /* -------------------------------------------------------------------------- */
 
 export const AGENT_RUN_EVENT_KINDS = [
+  "control-applied",
   "agent-run-started",
   "resource-budget",
   "resource-request",

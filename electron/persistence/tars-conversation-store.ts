@@ -581,6 +581,14 @@ export class TarsConversationStore {
       .all(limit).map((row) => this.readRecord(row)!).reverse();
   }
 
+  /** Automatic controls recover through their message receipt, which rechecks the current autonomy fence. */
+  listPendingControls(): TarsActionRecord[] {
+    return this.db.prepare("SELECT body_json FROM tars_action_records WHERE json_extract(body_json, '$.status') = 'pending' AND json_extract(body_json, '$.action.kind') = 'control' AND json_extract(body_json, '$.source') != 'automatic' ORDER BY created_at, rowid LIMIT 32").all().map((row) => this.readRecord(row)!);
+  }
+  hasPendingControlForTask(taskId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM tars_action_records a JOIN tars_responsibilities r ON r.id = json_extract(a.body_json, '$.action.responsibilityId') WHERE json_extract(a.body_json, '$.status') = 'pending' AND json_extract(a.body_json, '$.action.kind') = 'control' AND json_extract(r.body_json, '$.taskId') = ? LIMIT 1").get(taskId));
+  }
+
   /**
    * A pending record is intent only. Its request ID is the retry identity of one click.
    * A confirmation (`confirm:<message>:<index>`) is one user decision whichever
