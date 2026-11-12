@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setSystemTime, test } from "bun:test";
 import {
   buildClaudeApprovalPermissionResult,
   buildClaudeApprovalTimeoutBridgeEvent,
@@ -198,27 +198,36 @@ describe("mapClaudeMessageToEvents", () => {
       },
     ]);
   });
-  test("keeps the generic rate limit wording when the window is unknown", () => {
-    const resetsAt = Math.floor(Date.now() / 1000) + 600;
-    const events = mapClaudeMessageToEvents({
-      message: {
-        type: "rate_limit_event",
-        rate_limit_info: { status: "rejected", resetsAt },
-        uuid: "msg-rl-6",
-        session_id: "session-1",
-      } as never,
-      claudeDebugStream: false,
+  for (const hour of [12, 23]) {
+    test(`keeps generic rate limit wording with a ${hour === 12 ? "same-day" : "next-day"} reset`, () => {
+      setSystemTime(new Date(2026, 10, 11, hour, 55, 0));
+      try {
+        const resetsAt = Math.floor(Date.now() / 1000) + 600;
+        const events = mapClaudeMessageToEvents({
+          message: {
+            type: "rate_limit_event",
+            rate_limit_info: { status: "rejected", resetsAt },
+            uuid: "msg-rl-6",
+            session_id: "session-1",
+          } as never,
+          claudeDebugStream: false,
+        });
+        const reset = new Date(resetsAt * 1000);
+        const expectedReset = hour === 12
+          ? reset.toLocaleTimeString()
+          : reset.toLocaleString();
+        expect(events).toEqual([
+          {
+            type: "error",
+            message: `Rate limit reached. Resets at ${expectedReset}.`,
+            recoverable: true,
+          },
+        ]);
+      } finally {
+        setSystemTime();
+      }
     });
-    expect(events).toEqual([
-      {
-        type: "error",
-        message: `Rate limit reached. Resets at ${new Date(
-          resetsAt * 1000,
-        ).toLocaleTimeString()}.`,
-        recoverable: true,
-      },
-    ]);
-  });
+  }
   test("ignores rate limit events that only report the allowed state", () => {
     expect(
       mapClaudeMessageToEvents({
