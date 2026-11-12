@@ -6,8 +6,9 @@ const Id = z.string().trim().min(1).max(256);
 const Revision = z.number().int().min(1);
 const Priority = z.number().int().min(0).max(100);
 
-/** Prior values only for effects that never reached a run. Guards describe the saved state after the effect. */
+/** Host-owned restoration values or a guarded stop of a resumed run. */
 export const TarsActionUndoSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("run"), afterRevision: Revision, agentRunId: Id.nullable(), undoneAt: z.iso.datetime().optional() }).strict(),
   z.object({ kind: z.literal("delivery"), undoneAt: z.iso.datetime().optional() }).strict(),
   z.object({ kind: z.literal("queue"),
     priorities: z.array(z.object({ id: Id, before: Priority, afterRevision: Revision }).strict()).min(1).max(10_000),
@@ -39,6 +40,9 @@ export function isUnstartedTarsWork(row: TarsResponsibility) {
 
 export function captureTarsControlUndo(action: TarsActionRecord["action"], before: TarsResponsibility | null,
   after: TarsResponsibility | null): TarsActionUndo | undefined {
+  if (action.kind === "control" && (action.operation === "resume" || action.operation === "retryStage") && before && after
+    && after.revision === before.revision + 1 && (after.state === "running" || after.state === "waiting" || after.state === "queued")
+    && before.agentRunId === after.agentRunId) return { kind: "run", afterRevision: after.revision, agentRunId: after.agentRunId };
   if (action.kind !== "control" || (action.operation !== "pause" && action.operation !== "takeover") || !before || !after ||
     before.state !== "queued" || !isUnstartedTarsWork(before) || !isUnstartedTarsWork(after) ||
     after.revision !== before.revision + 1 || after.state !== (action.operation === "pause" ? "paused" : "takenOver")) return undefined;
@@ -65,6 +69,7 @@ export function canUndoTarsAction(record: TarsActionRecord): boolean {
     (record.delivery?.status === "queued" || record.delivery?.status === "delivering");
   if (record.status !== "applied" || !record.undo || record.undo.undoneAt) return false;
   if (record.undo.kind === "delivery") return false;
+  if (record.undo.kind === "run") return record.action.kind === "control" && (record.action.operation === "resume" || record.action.operation === "retryStage");
   return record.undo.kind === "queue" ? record.action.kind === "move"
     : record.action.kind === "control" && (record.action.operation === "pause" || record.action.operation === "takeover");
 }

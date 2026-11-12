@@ -44,7 +44,7 @@ function fixture() {
   let messages = 0;
   /** The user's words become this decision, admitted by the host exactly as a planner reply would be. */
   const say = async (operation: TarsControlOperation, input?: TarsControlInput) => {
-    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
+    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
     const queued = conversations.create({ requestId: `message-${messages++}`, text: "승인해줘" }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
     const current = store.get(row.id)!;
@@ -180,8 +180,9 @@ describe("Task operation rules", () => {
     const responsibilities = { get: () => ({ state: "waiting", detailCode: null }) as never };
     const origin = { kind: "followUp", responsibilityId: "r", observedRevision: 3, reason: "waitExpired", summary: "" } as never;
     const control = (operation: TarsControlOperation, input: TarsControlInput) => ({ kind: "control" as const, responsibilityId: "r", expectedRevision: 3, operation, input });
-    for (const [operation, input] of [["approve", { requestRef: "a" }], ["deny", { requestRef: "a" }], ["message", { text: "go" }]] as const)
+    for (const [operation, input] of [["approve", { requestRef: "a" }], ["deny", { requestRef: "a" }], ["answer", { requestRef: "q", answers: { index: "existing" } }]] as const)
       expect(tarsFollowUpRefusal(control(operation, input), origin, responsibilities)).not.toBeNull();
+    expect(tarsFollowUpRefusal(control("message", { text: "Verify the fix" }), origin, responsibilities)).toBeNull();
     const ask = (operation: TarsControlOperation, input: TarsControlInput) => ({ kind: "ask" as const, question: "The run asks to run bun test. Allow it?", options: [
       { label: "Pick", rationale: "Answers it.", effect: control(operation, input) }, { label: "Later", rationale: "Keeps it waiting.", effect: { kind: "reply" as const } }] });
     expect(tarsFollowUpRefusal(ask("approve", { requestRef: "a" }), origin, responsibilities)).toBeNull();

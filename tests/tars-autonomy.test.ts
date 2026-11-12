@@ -10,7 +10,7 @@ import { applyTarsDecision, confirmTarsProposal } from "../electron/host-service
 import { createTarsRuntime } from "../electron/host-service/tars-runtime";
 import { actTars } from "../electron/host-service/tars-control";
 import {
-  TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS, TarsActionReceiptSchema, TarsConversationSettingsSchema, tarsConfirmationRequestId,
+  TARS_IRREVERSIBLE_OPERATIONS, TarsActionReceiptSchema, TarsConversationSettingsSchema, tarsConfirmationRequestId,
   type TarsConversationSettings, type TarsDecision, type TarsDecisionAction, type TarsMessageOrigin,
 } from "../src/lib/tars/conversation";
 import {
@@ -50,7 +50,8 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
   const runtime = createTarsRuntime({ store: responsibilities, now: () => NOW, validateScope: async () => {},
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
     startRun: async (row) => `run-${row.id}`, observe: async () => ({ state: "running", detail: null }),
-    controlRun: async (_row, operation) => { runControls.push(operation); } });
+    controlRun: async (_row, operation) => { runControls.push(operation); },
+    respondTask: async (_row, request) => { runControls.push(request.operation); return "sent"; } });
   const coordinator = createSecondaryRunCoordinator({
     getLedger: () => ({ getRunAggregate: ledger.getAggregate.bind(ledger), claimRunStep: ledger.claimStep.bind(ledger),
       markRunStepWaiting: ledger.markStepWaiting.bind(ledger), completeRunStep: ledger.completeStep.bind(ledger),
@@ -65,7 +66,8 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
     cancelHost: async () => ({ ok: true }), now: () => NOW,
   });
   let ticks = 0;
-  const ports = { conversations, responsibilities, readRegistry: () => REGISTRY, requestTick: () => { ticks++; runtime.requestTick(); }, control: runtime.act, now: () => NOW };
+  const ports = { conversations, responsibilities, readRegistry: () => REGISTRY,
+    readRunBudget: () => ({ maxTurns: 30 }), requestTick: () => { ticks++; runtime.requestTick(); }, control: runtime.act, now: () => NOW };
   const service = createTarsConversationService({ conversations, responsibilities, coordinator, now: () => NOW,
     context: async () => testContext(responsibilities, REGISTRY),
     applyDecision: (input) => applyTarsDecision(input, ports),
@@ -113,41 +115,26 @@ describe("the autonomy policy table", () => {
     expect([...TARS_ACTION_KEYS].sort()).toEqual([...TarsControlOperationSchema.options, "show", "delegate", "reprioritize", "publish", "clear"].sort());
   });
 
-  test.each(TARS_ACTION_KEYS.map((key) => [key] as const))("the default level treats %s exactly as before levels existed", (key) => {
-    expect(TARS_DEFAULT_AUTONOMY).toBe("balanced");
-    expect(tarsActionMode(key, "balanced")).toBe(BEFORE_LEVELS[key]);
-    // An absent or unknown level is the default, never something looser.
-    expect(tarsActionMode(key, undefined)).toBe(BEFORE_LEVELS[key]);
-    expect(tarsActionMode(key, "unrestricted" as TarsAutonomyLevel)).toBe(BEFORE_LEVELS[key]);
-  });
-
-  test("the confirmed and irreversible control sets are the ones the default level reads", () => {
-    for (const operation of TarsControlOperationSchema.options)
-      expect(tarsActionMode(operation, "balanced") === "confirm").toBe(TARS_CONFIRMED_OPERATIONS.has(operation));
-    expect([...TARS_ALWAYS_CONFIRMED].sort()).toEqual([...TARS_IRREVERSIBLE_OPERATIONS, "publish"].sort());
-  });
-
-  test("careful adds a confirmation to starting and reordering work, and to nothing that stops Tars", () => {
-    const added = TARS_ACTION_KEYS.filter((key) => tarsActionMode(key, "careful") !== tarsActionMode(key, "balanced"));
-    expect(added).toEqual(["delegate", "reprioritize", "startNow"]);
-    for (const key of added) expect(tarsActionMode(key, "careful")).toBe("confirm");
-    for (const key of ["show", "pause", "takeover", "deny"] as const) expect(tarsActionMode(key, "careful")).toBe("auto");
-  });
-
-  test("hands-off applies only resume, more steps and a retry, and only for the user's own message", () => {
-    const loosened = TARS_ACTION_KEYS.filter((key) => tarsActionMode(key, "handsOff") !== tarsActionMode(key, "balanced"));
-    expect(loosened).toEqual(["resume", "extend", "retryStage"]);
-    for (const key of TARS_ACTION_KEYS) expect(tarsActionMode(key, "handsOff", "automatic")).toBe(tarsActionMode(key, "balanced", "automatic"));
-  });
-
-  test.each(TARS_AUTONOMY_LEVELS.map((level) => [level] as const))("at %s every irreversible action and publishing still waits for the user", (level) => {
-    for (const key of [...TARS_IRREVERSIBLE_OPERATIONS, "publish"] as TarsActionKey[]) {
-      expect(tarsActionMode(key, level, "user")).toBe("confirm");
-      expect(tarsActionMode(key, level, "automatic")).toBe("confirm");
+  test.each(TARS_AUTONOMY_LEVELS)("%s has the explicit policy for every action and origin", (level) => {
+    for (const origin of ["user", "automatic"] as const) for (const key of TARS_ACTION_KEYS) {
+      const expected = level === "careful"
+        ? ["delegate", "reprioritize", "startNow"].includes(key) ? "confirm" : BEFORE_LEVELS[key]
+        : ["resume", "retryStage", "message", "requestChanges"].includes(key) ? "auto" : BEFORE_LEVELS[key];
+      expect(tarsActionMode(key, level, origin)).toBe(expected);
     }
-    // No level makes anything apply at once that the default confirms, except hands-off's three.
     const summary = tarsAutonomySummary(level);
     expect([...summary.auto, ...summary.confirm].sort()).toEqual([...TARS_ACTION_KEYS].sort());
+    for (const key of TARS_ALWAYS_CONFIRMED) expect(tarsActionMode(key, level)).toBe("confirm");
+    for (const key of ["show", "pause", "takeover", "deny"] as const) expect(tarsActionMode(key, level)).toBe("auto");
+  });
+
+  test("missing and unknown levels use balanced", () => {
+    expect(TARS_DEFAULT_AUTONOMY).toBe("balanced");
+    for (const key of TARS_ACTION_KEYS) {
+      expect(tarsActionMode(key, undefined)).toBe(tarsActionMode(key, "balanced"));
+      expect(tarsActionMode(key, "unrestricted" as TarsAutonomyLevel)).toBe(tarsActionMode(key, "balanced"));
+    }
+    expect([...TARS_ALWAYS_CONFIRMED].sort()).toEqual([...TARS_IRREVERSIBLE_OPERATIONS, "handBack", "signOff", "answer", "clear"].sort());
   });
 
   test("the level one decision is admitted at is the more careful of the saved one and the message's copy", () => {
@@ -192,7 +179,7 @@ describe("autonomy settings contract", () => {
 });
 
 describe("host admission by autonomy level", () => {
-  test("at the default level the host applies and holds what it did before levels existed", async () => {
+  test("the default applies reversible controls and still confirms irreversible ones", async () => {
     const f = fixture();
     const queued = f.responsibility("queued");
     const paused = f.responsibility("paused");
@@ -202,14 +189,14 @@ describe("host admission by autonomy level", () => {
       { kind: "reprioritize", responsibilityId: queued.id, expectedRevision: queued.revision, priority: 80 },
       { kind: "control", responsibilityId: running.id, expectedRevision: running.revision, operation: "pause" },
       { kind: "control", responsibilityId: paused.id, expectedRevision: paused.revision, operation: "resume" },
-      { kind: "control", responsibilityId: paused.id, expectedRevision: paused.revision, operation: "cancel" },
+      { kind: "control", responsibilityId: paused.id, expectedRevision: paused.revision + 1, operation: "cancel" },
       { kind: "show", responsibilityId: running.id, view: "report" },
     ]);
-    expect(receipts.map((receipt) => receipt.status)).toEqual(["applied", "applied", "applied", "proposed", "proposed", "applied"]);
+    expect(receipts.map((receipt) => receipt.status)).toEqual(["applied", "applied", "applied", "applied", "proposed", "applied"]);
     expect(f.responsibilities.snapshot().responsibilities).toHaveLength(4);
     expect(f.responsibilities.get(queued.id)).toMatchObject({ priority: 80 });
     expect(f.responsibilities.get(running.id)).toMatchObject({ state: "paused" });
-    expect(f.responsibilities.get(paused.id)).toMatchObject({ state: "paused" });
+    expect(f.responsibilities.get(paused.id)).toMatchObject({ state: "running" });
   });
 
   test("careful holds new work, a priority change and starting queued work as proposals; a view still opens", async () => {
@@ -322,7 +309,7 @@ describe("host admission by autonomy level", () => {
 
   test("hands-off leaves every other confirmed control as a proposal", async () => {
     const f = fixture({ autonomy: "handsOff" });
-    const others: TarsControlOperation[] = ["cancel", "skipStage", "signOff", "message", "requestChanges"];
+    const others: TarsControlOperation[] = ["cancel", "skipStage", "signOff"];
     const rows = others.map(() => f.responsibility("blocked"));
     const taken = f.responsibility("takenOver");
     const unverified = f.responsibility("blocked", { detailCode: "unverifiedCompletion" });
@@ -332,7 +319,7 @@ describe("host admission by autonomy level", () => {
       { kind: "control", responsibilityId: taken.id, expectedRevision: taken.revision, operation: "handBack" },
       { kind: "control", responsibilityId: unverified.id, expectedRevision: unverified.revision, operation: "acceptCompletion" },
     ]);
-    expect(receipts.map((receipt) => receipt.status)).toEqual(Array.from({ length: 7 }, () => "proposed"));
+    expect(receipts.map((receipt) => receipt.status)).toEqual(Array.from({ length: 5 }, () => "proposed"));
     expect(f.runControls).toEqual([]);
     expect(f.responsibilities.get(unverified.id)).toMatchObject({ state: "blocked" });
     expect(f.responsibilities.get(taken.id)).toMatchObject({ state: "takenOver" });
@@ -360,7 +347,7 @@ describe("host admission by autonomy level", () => {
     for (const row of [blocked, second, unverified, asking]) expect(f.responsibilities.get(row.id)).toMatchObject({ state: row.state, revision: row.revision });
   });
 
-  test.each(TARS_AUTONOMY_LEVELS.map((level) => [level] as const))("at %s an automatic follow-up keeps today's restrictions", async (level) => {
+  test.each(TARS_AUTONOMY_LEVELS.map((level) => [level] as const))("at %s a follow-up continues its work but cannot delegate, reorder or skip", async (level) => {
     const f = fixture({ autonomy: level });
     const blocked = f.responsibility("blocked");
     const queued = f.responsibility("queued");
@@ -374,13 +361,13 @@ describe("host admission by autonomy level", () => {
       { kind: "control", responsibilityId: queued.id, expectedRevision: queued.revision, operation: "startNow" },
       { kind: "control", responsibilityId: blocked.id, expectedRevision: blocked.revision, operation: "skipStage" },
     ], origin);
-    // It may still only propose resume and a retry; hands-off never applies them for it.
+    // Resume applies outside careful; the second proposal correctly loses its now-stale revision.
     expect(receipts.map((receipt) => [receipt.status, receipt.reason])).toEqual([
-      ["proposed", null], ["proposed", null], ["rejected", "notByFollowUp"], ["rejected", "notByFollowUp"], ["rejected", "notByFollowUp"], ["rejected", "notByFollowUp"],
+      [level === "careful" ? "proposed" : "applied", null], [level === "careful" ? "proposed" : "rejected", level === "careful" ? null : "stale"], ["rejected", "notByFollowUp"], ["rejected", "notByFollowUp"], ["rejected", "notByFollowUp"], ["rejected", "notByFollowUp"],
     ]);
-    expect(f.runControls).toEqual([]);
+    expect(f.runControls).toEqual(level === "careful" ? [] : ["resume"]);
     expect(f.responsibilities.snapshot().responsibilities).toHaveLength(2);
-    expect(f.responsibilities.get(queued.id)).toMatchObject({ priority: queued.priority, state: "queued" });
+    expect(f.responsibilities.get(queued.id)).toMatchObject({ priority: queued.priority, state: level === "careful" ? "queued" : "running" });
   });
 
   test("a message that claims a looser level than the saved settings is admitted at the saved one", async () => {
@@ -476,7 +463,7 @@ describe("the user's never-do rules", () => {
     const plain = buildTarsPlannerPrompt(message, context, []);
     expect(buildTarsPlannerPrompt(message, { ...context, guard: tarsPlannerGuard(message, f.conversations.getSettings()) }, [])).toBe(plain);
     expect(plain).not.toContain("hardConstraints");
-    expect(plain).not.toContain("autonomy level");
+    expect(plain).toContain("autonomy level to balanced");
   });
 
   test("the level and the rules reach the planner as the host's own lists and as hard constraints", async () => {
@@ -503,14 +490,15 @@ describe("the user's never-do rules", () => {
     expect(JSON.parse(f.prompts[0]!.split("\n\n").at(-1)!)).toMatchObject({ autonomy: { level: "careful" }, hardConstraints: ["Never deploy on Fridays"] });
   });
 
-  test("a follow-up is told the default lists whatever the level, so hands-off promises it nothing", async () => {
+  test("a follow-up receives bounded automatic controls at hands-off", async () => {
     const f = fixture({ autonomy: "handsOff" });
     const blocked = f.responsibility("blocked");
     const message = f.conversations.create({ requestId: `followup:blocked:${blocked.id}:1`, text: "Automatic follow-up." }, NOW, undefined,
       { kind: "followUp", eventKey: `blocked:${blocked.id}:1`, responsibilityId: blocked.id, reason: "blocked", observedRevision: blocked.revision, summary: "Blocked." });
     const prompt = buildTarsPlannerPrompt(message, { ...testContext(f.responsibilities, REGISTRY), guard: tarsPlannerGuard(message, f.conversations.getSettings()) }, []);
     const data = JSON.parse(prompt.split("\n\n").at(-1)!);
-    expect(data.autonomy.waitsForConfirm).toEqual(expect.arrayContaining(["resume", "extend", "retryStage"]));
+    expect(data.autonomy.waitsForConfirm).toEqual(expect.arrayContaining(["extend", "publish", "answer"]));
+    expect(data.autonomy.appliesAtOnce).toEqual(expect.arrayContaining(["resume", "retryStage", "message", "requestChanges"]));
     expect(data.autonomy.appliesAtOnce).toEqual(tarsAutonomySummary("balanced").auto);
   });
 });

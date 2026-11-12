@@ -2220,6 +2220,8 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
+        readRunBudget: (id) => persistence.agentRuns.getAggregate(id)?.agentRun ?? null,
+        publish: (input) => tarsPublisher.publish(input),
         scheduleRefusal: (action, requestId) => tarsScheduler.proposalRefusal(action, requestId),
         snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
           workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
@@ -2265,6 +2267,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await undoTarsAction(request.params, {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
         readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo, withdrawDelivery: tarsRuntime.withdrawDelivery,
+        control: (action, ledger) => tarsRuntime.act(action, ledger),
       }));
       return;
     }

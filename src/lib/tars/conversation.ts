@@ -529,7 +529,7 @@ export type TarsReceiptOutcome = z.infer<typeof TarsReceiptOutcomeSchema>;
  * bound short answer. Every source takes the same admission path and
  * is recorded in the conversation; only the record's wording differs.
  */
-export const TarsActSourceSchema = z.enum(["click", "fleet", "task", "key", "words"]);
+export const TarsActSourceSchema = z.enum(["click", "fleet", "task", "key", "words", "automatic"]);
 export type TarsActSource = z.infer<typeof TarsActSourceSchema>;
 
 /** A direct control (a click) admitted by the host on the same path as a proposed control. */
@@ -624,9 +624,9 @@ export const TarsActionRecordSourceSchema = z.enum([...TarsActSourceSchema.optio
 export type TarsActionRecordSource = z.infer<typeof TarsActionRecordSourceSchema>;
 
 /**
- * Timeline record of a direct control or queue move. It is never a user
- * message or a model proposal. Records saved before queue moves existed are
- * all controls.
+ * Timeline record of an admitted control or queue move, including automatic
+ * actions. It is never a user message or an unexecuted model proposal. Records
+ * saved before queue moves existed are all controls.
  */
 export const TarsActionRecordSchema = z.object({
   requestId: IdSchema,
@@ -651,6 +651,7 @@ export const TarsActionRecordSchema = z.object({
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
   if (record.undo && (record.status !== "applied" || (record.undo.kind === "queue" ? record.action.kind !== "move"
+    : record.undo.kind === "run" ? record.action.kind !== "control" || (record.action.operation !== "resume" && record.action.operation !== "retryStage")
     : record.undo.kind === "delivery" ? record.action.kind !== "control" || record.action.operation !== "message" || !record.delivery
       : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
     // i18n-ignore: persisted-state integrity diagnostic

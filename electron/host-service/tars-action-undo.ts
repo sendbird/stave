@@ -1,3 +1,4 @@
+import { undoTarsRun, type TarsRunUndoPorts } from "./tars-run-undo";
 import { canUndoTarsAction, isUnstartedTarsWork, isTarsDeliveryAction, TarsUndoActionInputSchema, TarsUndoActionRefused } from "../../src/lib/tars/action-undo";
 import type { TarsUndoActionResult } from "../../src/lib/tars/conversation";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -6,7 +7,7 @@ import type { TarsStore } from "../persistence/tars-store";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { assertTarsSource } from "../main/tars-scope";
 
-interface UndoPorts {
+interface UndoPorts extends TarsRunUndoPorts {
   conversations: TarsConversationStore;
   responsibilities: TarsStore;
   readRegistry(): PersistenceRepositoryRegistryEntry[];
@@ -21,6 +22,7 @@ interface UndoPorts {
 export async function undoTarsAction(rawInput: unknown, ports: UndoPorts): Promise<TarsUndoActionResult> {
   const input = TarsUndoActionInputSchema.parse(rawInput);
   const initial = ports.conversations.getAction(input.requestId);
+  if (initial?.undo?.kind === "run") return undoTarsRun(input, initial, ports);
   if (initial && isTarsDeliveryAction(initial)) return ports.withdrawDelivery?.(input) ?? { record: initial, refusal: "unsupported" };
   if (!initial || initial.status !== "applied" || !initial.undo) return { record: initial, refusal: "unsupported" };
   return ports.serialize(initial.action.responsibilityId, () => {

@@ -150,7 +150,7 @@ test("the prompt offers start now for queued work, applied at once, and never fo
   const prompt = f.requests[0]?.input.prompt ?? "";
   expect(prompt).toContain("'acceptCompletion'|'startNow'");
   expect(prompt).toContain("propose startNow for each queued responsibility they named");
-  expect(prompt).toContain("pause, takeover and startNow apply at once");
+  expect(prompt).toContain("Pause and takeover always apply at once; startNow and resume follow the autonomy policy");
   expect(prompt).toContain("Never claim you cannot start queued work.");
   // The decision schema holds 8 actions; more queued work than that is started in turns, and the reply says so.
   expect(prompt).toContain("propose startNow for the first ones in queue order up to that limit");

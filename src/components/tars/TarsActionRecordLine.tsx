@@ -69,7 +69,8 @@ function DeliveryLine({ delivery, children, wait }: { delivery: TarsMessageDeliv
  */
 export function useTarsDirectActor(): (source: TarsActionRecordSource) => TarsRecordActor {
   const { t } = useTranslation(["shell"]);
-  return (source) => ({ by: "you", hint: t(`shell:tars.record.by.you.${source}`) });
+  return (source) => source === "automatic" ? { by: "tars", hint: t("shell:tars.record.by.automatic") }
+    : { by: "you", hint: t(`shell:tars.record.by.you.${source}`) };
 }
 
 /**

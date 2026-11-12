@@ -1,3 +1,4 @@
+import { TARS_EXTEND_TURNS } from "../../src/lib/tars/autonomy";
 import { tarsExecutionScope } from "../../src/lib/tars/continuation";
 import path from "node:path";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
@@ -94,6 +95,7 @@ export function assertTarsControl(row: TarsResponsibility, run: AgentRun): void 
 
 
 interface TarsControlPorts {
+  autoExtendMaxTurns?: number;
   agentRuns: Pick<import("./supervision/agent-run-runtime").AgentRunRuntime,
     "get" | "pause" | "resume" | "cancel" | "takeOver" | "restartStageAndResume" | "extend" | "retryStage" | "skipStage" | "signOff">;
   hasAssignment: (row: TarsResponsibility) => boolean;
@@ -125,6 +127,8 @@ export async function controlTarsRun(
   }
   const guard = (run: AgentRun) => {
     assertTarsControl(row, run);
+    if (operation === "extend" && ports.autoExtendMaxTurns !== undefined && Math.min(run.maxTurns + TARS_EXTEND_TURNS, AGENT_RUN_LIMITS.maxTurnsCeiling) > ports.autoExtendMaxTurns)
+      throw new TarsRunRefusedError("Extending beyond twice the admitted turn budget needs your confirmation.");
     if (!ports.hasAssignment(row)) throw new Error("The task's agent assignment is unavailable.");
   };
   // Interrupt only a proven automatic turn that is active after a control applied.
@@ -149,7 +153,7 @@ export async function controlTarsRun(
     const agentRunId = row.agentRunId!;
     // The run's own command checks the stage state, exactly as when the user gives it in the task,
     // and the guard rechecks ownership inside the run's command queue.
-    if (operation === "extend") await ports.agentRuns.extend({ agentRunId }, guard);
+    if (operation === "extend") await ports.agentRuns.extend({ agentRunId, additionalTurns: TARS_EXTEND_TURNS }, guard);
     else {
       // Only the attempt Tars observed at the revision the user confirmed: a later stage is never retried, skipped or signed off by it.
       const record = currentStageRecord(detail);

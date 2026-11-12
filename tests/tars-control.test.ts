@@ -48,8 +48,8 @@ function fixture(overrides: Partial<TarsRuntimePorts> = {}) {
   const controls = () => calls.filter((call) => (OPERATIONS as string[]).includes(call));
   const settle = async () => { await runtime.drain(); await Promise.resolve(); await runtime.drain(); };
   // Words reach the host as a saved decision; the same runtime admits them.
-  const say = async (actions: TarsDecisionAction[], text = "멈춰") => {
-    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
+  const say = async (actions: TarsDecisionAction[], text = "멈춰", autonomy: "balanced" | "careful" = "careful") => {
+    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy });
     const queued = conversations.create({ requestId: `message-${requests++}`, text }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
     const message = conversations.answer(claimed.id, claimed.revision, { reply: "Done as asked.", actions }, NOW);
@@ -205,7 +205,7 @@ describe("Tars control through the host path", () => {
     const first = f.responsibility("queued", false);
     const second = f.responsibility("queued", false);
     const unnamed = f.responsibility("queued", false);
-    const spoken = await f.say([first, second].map((row) => ({ kind: "control" as const, responsibilityId: row.id, expectedRevision: row.revision, operation: "startNow" as const })), "queued된 작업 바로 실행해");
+    const spoken = await f.say([first, second].map((row) => ({ kind: "control" as const, responsibilityId: row.id, expectedRevision: row.revision, operation: "startNow" as const })), "queued된 작업 바로 실행해", "balanced");
     const receipts = await spoken.apply();
     // Not a proposal waiting for Confirm: the user's words already asked for it.
     expect(receipts.map((receipt) => receipt.status)).toEqual(["applied", "applied"]);

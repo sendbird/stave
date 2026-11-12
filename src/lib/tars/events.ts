@@ -18,9 +18,9 @@ export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
 export const TARS_WAIT_FOLLOW_UP_MS = 60 * 60_000;
 
-export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated"]);
+export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated"]);
 /** The kinds an automatic follow-up message can carry; an invalidated decision keeps its own re-ask message. */
-export const TarsFollowUpReasonSchema = z.enum(["blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired"]);
+export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired"]);
 export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
 
 /**
@@ -105,6 +105,7 @@ function sameAsk(previous: Pick<TarsResponsibility, AskEpisodeFields>, next: Pic
  */
 export function classifyTarsTransition(previous: Pick<TarsResponsibility, "detailCode" | AskEpisodeFields> | null,
   next: Pick<TarsResponsibility, "detailCode" | AskEpisodeFields>): TarsEventKind | null {
+  if (next.state === "resultReady") return previous?.state === "resultReady" ? null : "resultReady";
   if (next.state === "completed") return previous?.state === "completed" ? null : "completed";
   // A stage that asks starts its episode when the ask is new; the run continuing ends it.
   if (isTarsStageAskingUser(next)) return previous && sameAsk(previous, next) ? null : "stageAsksUser";

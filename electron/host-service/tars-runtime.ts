@@ -51,7 +51,7 @@ export interface TarsRuntimePorts {
   findRun: (row: TarsResponsibility) => Promise<string | null>;
   startRun: (row: TarsResponsibility, assertAdmitted: () => void) => Promise<string>;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
-  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation) => Promise<void>;
+  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, autoExtendMaxTurns?: number) => Promise<void>;
   /** Live persisted setting: 0 or absent admits all independent responsibilities. */
   concurrencyLimit?: () => number;
   onQueueChanged?: () => void;
@@ -587,7 +587,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             }
           }
           else if (row.agentRunId && request.operation !== "acceptCompletion" && request.operation !== "startNow")
-            await ports.controlRun(row, request.operation as TarsRunControlOperation);
+            await ports.controlRun(row, request.operation as TarsRunControlOperation, request.autoExtendMaxTurns);
         } catch (error) {
           if (!(error instanceof TarsOwnershipLostError) || TARS_GRANTING_OPERATIONS.has(request.operation)) throw error;
           // Confirmed transfer relinquishes only this responsibility. Never send

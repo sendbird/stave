@@ -97,6 +97,7 @@ test("automatic turns draw from the saved shared turn limit and stop cleanly, wi
 
 test("an event never resumes or reclaims work the user took over or paused", async () => {
   const f = fixture();
+  f.conversations.configure({ ...f.conversations.getSettings()!, autonomy: "careful" });
   const taken = f.responsibility("running");
   f.observations.set(taken.id, blocked());
   f.runtime.requestTick(); await f.runtime.drain();

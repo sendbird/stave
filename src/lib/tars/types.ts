@@ -546,11 +546,11 @@ export type TarsPendingDecision = z.infer<typeof TarsPendingDecisionSchema>;
  * `verificationFailed` (the run ended with required criteria unmet or a
  * verification older than a hand-back), `stageAsksUser` (the run's own stage
  * stopped to ask the user; followed up at once, not after the quiet wait),
- * `waitExpired` and `decisionInvalidated` need Tars's judgment. `completed` and `hostRecovery`
+ * `resultReady`, `waitExpired` and `decisionInvalidated` need Tars's judgment. `completed` and `hostRecovery`
  * the host settles itself; they are recorded, never followed up.
  */
 export const TarsEventKindSchema = z.enum([
-  "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "completed", "hostRecovery",
+  "resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "completed", "hostRecovery",
 ]);
 export type TarsEventKind = z.infer<typeof TarsEventKindSchema>;
 

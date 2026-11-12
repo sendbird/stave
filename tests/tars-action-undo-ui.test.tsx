@@ -69,3 +69,20 @@ test("an answered decision keeps withdrawal on the same delivery record", async 
     createElement(TarsDecisionCard, { decision, onAnswer: () => {}, titleOf: () => "Existing work" })));
   expect(html).toContain('data-tars-record-undo="delivery"'); expect(html).toContain("Withdraw request");
 });
+
+
+test("automatic continuation shows Tars as the actor and offers a pause Undo in both locales", () => {
+  const resumed: TarsActionRecord = { ...record, requestId: "auto:message:0", source: "automatic",
+    action: { kind: "control", responsibilityId: "work", expectedRevision: 1, operation: "resume" },
+    undo: { kind: "run", agentRunId: "run", afterRevision: 2 } };
+  try {
+    for (const locale of ["en", "ko"] as const) {
+      applyAppLocale(locale);
+      const html = render(resumed);
+      expect(html).toContain('data-tars-record-actor="tars"');
+      expect(html).toContain('data-tars-record-source="automatic"');
+      expect(html).toContain("data-tars-record-undo");
+      expect(html).toContain(locale === "en" ? "Tars applied this automatically" : "Tars가 자동으로 실행했습니다");
+    }
+  } finally { applyAppLocale("en"); }
+});

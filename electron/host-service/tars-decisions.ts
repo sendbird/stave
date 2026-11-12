@@ -1,10 +1,12 @@
+import { tarsAutoControlLedger } from "./tars-auto-control";
+import { tarsDefaultCommitSubject, tarsPublishProposalRequestId, type TarsPublishInput, type TarsPublishResult } from "../../src/lib/tars/publication";
 import { resolveTarsWorkspace } from "../main/tars-scope";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema, ConfirmTarsProposalInputSchema } from "../../src/lib/tars/conversation";
 import type { TarsActionReason, TarsActionReceipt, TarsDecisionAction, TarsMessage } from "../../src/lib/tars/conversation";
 import {
   matchTarsNeverRules, tarsActionDisposition, tarsActionKey, tarsEffectiveAutonomy, tarsRepositoryName,
-  type TarsActionOrigin, type TarsNeverRuleMatch,
+  TARS_AUTO_EXTEND_MULTIPLIER, type TarsActionOrigin, type TarsNeverRuleMatch,
 } from "../../src/lib/tars/autonomy";
 import { isTarsWorkProposal, type TarsWorkProposalAction } from "../../src/lib/tars/decisions";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -68,6 +70,10 @@ export interface TarsDecisionPorts {
    * schedules and every schedule change is refused.
    */
   scheduleRefusal?: (action: TarsScheduleAction, requestId: string) => Promise<{ reason: TarsScheduleReason; error: string } | null>;
+  /** Current run budget, read from the host ledger rather than the planner's observation. */
+  readRunBudget?: (agentRunId: string) => { maxTurns: number } | null;
+  /** The same guarded draft publication path as a confirmed card. */
+  publish?: (input: TarsPublishInput) => Promise<TarsPublishResult>;
   now?: () => string;
 }
 
@@ -123,7 +129,7 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
   const saved = ports.conversations.getSettings();
   const level = tarsEffectiveAutonomy(saved?.autonomy, message.autonomy);
   const rules = [...new Set([...(saved?.neverDo ?? []), ...(message.neverDo ?? [])])];
-  // A follow-up Tars started by itself has no user mandate: no level gives it more than it has today.
+  // Origins share bounded run controls; follow-up scope is admitted separately.
   const origin: TarsActionOrigin = message.origin?.kind === "followUp" || message.origin?.kind === "reask" ? "automatic" : "user";
   const subject = (action: TarsDecisionAction) => {
     if (action.kind === "delegate") {
@@ -140,7 +146,10 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
     const key = action.kind === "schedule" ? null : tarsActionKey(action);
     if (!key) return { confirm: true, matches: [] };
     const matches = rules.length ? matchTarsNeverRules(rules, { key, ...subject(action) }) : [];
-    return { confirm: tarsActionDisposition({ key, level, origin, matches }) === "confirm", matches };
+    const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
+    const run = key === "extend" && row?.agentRunId ? ports.readRunBudget?.(row.agentRunId) : null;
+    const context = { responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
+    return { confirm: tarsActionDisposition({ key, level, origin, matches, context }) === "confirm", matches };
   };
 }
 
@@ -297,7 +306,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
   try {
     for (const [index, action] of actions.entries()) {
       const intent = ports.conversations.recordReceipt(message.id, message.revision, index, action, now());
-      if (intent.status !== "pending") { receipts.push(intent); continue; }
+      if (intent.status !== "pending" && !(intent.status === "proposed" && action.kind === "publish")) { receipts.push(intent); continue; }
       // A follow-up Tars started by itself carries no user mandate: it may only ask.
       if (message.origin?.kind === "reask" && action.kind !== "ask") {
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
@@ -339,12 +348,26 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       if (action.kind === "publish") {
-        // Publishing is never applied from words: the proposal waits for the user's
-        // confirmation on its card, which takes the host's publish path and checks
-        // the workspace and GitHub again. Work that could never publish is refused now.
+        const requestId = tarsPublishProposalRequestId(message.id, index);
+        const pending = ports.conversations.getPublish(requestId);
+        // An admitted automatic publish may have advanced its own revision before a lost acknowledgement.
+        // Resume that same request; the publisher rechecks ownership, branches and its saved progress.
+        if (pending?.source === "automatic" && pending.status === "pending" && ports.publish) {
+          await ports.publish({ requestId, responsibilityId: pending.responsibilityId, expectedRevision: pending.expectedRevision,
+            commitMessage: pending.commitMessage, title: pending.title, source: "automatic" });
+          receipts.push(ports.conversations.getReceipt(message.id, index)!);
+          continue;
+        }
         const refusal = tarsPublishProposalRefusal(ports.responsibilities.get(action.responsibilityId), action);
-        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
-          refusal ? { status: "rejected", ...refusal } : proposed(guard(action).matches), now()));
+        if (intent.status === "pending") ports.conversations.settleReceipt(message.id, index, intent.revision,
+          refusal ? { status: "rejected", ...refusal } : proposed(guard(action).matches), now());
+        if (!refusal && !guard(action).confirm && ports.publish) await ports.publish({
+          requestId, responsibilityId: action.responsibilityId,
+          expectedRevision: action.expectedRevision, source: "automatic",
+          commitMessage: tarsDefaultCommitSubject(ports.responsibilities.get(action.responsibilityId)!.title),
+          title: tarsDefaultCommitSubject(ports.responsibilities.get(action.responsibilityId)!.title),
+        });
+        receipts.push(ports.conversations.getReceipt(message.id, index)!);
         continue;
       }
       if (action.kind === "clear") {
@@ -382,20 +405,10 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
       }
       if (action.kind === "control") {
         // Words take the same admission, run control and atomic outcome as a click.
-        receipts.push(await ports.control(action, {
-          key: `message:${message.id}:${index}`,
-          settled: () => {
-            const receipt = ports.conversations.getReceipt(message.id, index);
-            return receipt && receipt.status !== "pending" ? receipt : null;
-          },
-          apply: (effect) => ports.conversations.applyReceipt(message.id, index, intent.revision, () => {
-            requireDecision(ports, message.id, message.revision);
-            effect();
-            return { responsibilityId: action.responsibilityId };
-          }, now()),
-          reject: ({ reason, error }) => ports.conversations.settleReceipt(message.id, index, intent.revision,
-            { status: "rejected", error, reason }, now()),
-        }));
+        const row = ports.responsibilities.get(action.responsibilityId);
+        const request = action.operation === "extend" && row ? { ...action, autoExtendMaxTurns: row.maxTurns * TARS_AUTO_EXTEND_MULTIPLIER } : action;
+        receipts.push(await ports.control(request, tarsAutoControlLedger(ports, message.id, index, intent.revision,
+          action, now, () => !tarsAdmissionGuard(ports, message)(action).confirm)));
         continue;
       }
       if (held.confirm) {

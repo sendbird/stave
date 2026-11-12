@@ -13,7 +13,10 @@ import { isTarsPublicationUnfinished } from "../../src/lib/tars/publication";
 import { tarsControlInputProblem } from "../../src/lib/tars/types";
 import { AGENT_RUN_LIMITS, AgentRunCommandError } from "../../src/lib/agent-runs/domain";
 
-export type TarsControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation" | "input">;
+export type TarsControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation" | "input"> & {
+  /** Host-only automatic extension fence; never part of a renderer or model payload. */
+  autoExtendMaxTurns?: number;
+};
 
 /**
  * Where one control request settles: a message receipt or a click record. Both

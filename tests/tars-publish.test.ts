@@ -4,7 +4,7 @@ import { createTarsPublisher, tarsPublishCommands, type TarsCommandResult, type 
 import { applyTarsDecision, type TarsDecisionPorts } from "../electron/host-service/tars-decisions";
 import { tarsFollowUpRefusal } from "../electron/host-service/tars-follow-up-admission";
 import { parseTarsDecisionOutput } from "../electron/main/tars-planner";
-import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
+import { TarsConversationStore, TarsStorageBusyError } from "../electron/persistence/tars-conversation-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import type { TarsDecisionAction, TarsMessageOrigin } from "../src/lib/tars/conversation";
 import { CreateTarsResponsibilityInputSchema, type TarsResponsibility } from "../src/lib/tars/types";
@@ -334,15 +334,54 @@ describe("Tars publish steps", () => {
 
 describe("Tars publish from words", () => {
   let sequence = 0;
-  function words(f: ReturnType<typeof fixture>, actions: TarsDecisionAction[], origin?: TarsMessageOrigin) {
-    f.conversations.configure({ providerId: "codex", model: "m", maxTurns: 5 });
+  function words(f: ReturnType<typeof fixture>, actions: TarsDecisionAction[], origin?: TarsMessageOrigin, autonomy: "careful" | "balanced" | "handsOff" = "balanced") {
+    f.conversations.configure({ providerId: "codex", model: "m", maxTurns: 5, autonomy });
     const queued = f.conversations.create({ requestId: `${origin ? "followup" : "message"}-${sequence++}`, text: "Open a draft PR for the checkout work." }, NOW, 32, origin);
     const claimed = f.conversations.claim(queued.id, queued.revision, NOW);
     const message = f.conversations.answer(claimed.id, claimed.revision, { reply: "Confirm the card to publish.", actions }, NOW);
     const ports: TarsDecisionPorts = { conversations: f.conversations, responsibilities: f.responsibilities, readRegistry: () => [], requestTick: () => {},
-      control: () => { throw new Error("no control"); }, now: () => NOW };
+      control: () => { throw new Error("no control"); }, publish: (input) => f.publisher.publish(input), now: () => NOW };
     return { message, apply: () => applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, ports) };
   }
+
+  test("verified PR goals publish through the guarded draft path at both automatic levels and origins", async () => {
+    for (const level of ["careful", "balanced", "handsOff"] as const) for (const automatic of [false, true]) for (const completionGoal of ["pullRequest", "merge"] as const) {
+      const f = fixture();
+      const initial = f.completed({ completionGoal });
+      const row = f.responsibilities.patch(initial.id, initial.revision, { state: "resultReady", resultVerifiedRunId: initial.agentRunId }, NOW);
+      const origin: TarsMessageOrigin | undefined = automatic ? { kind: "followUp", reason: "resultReady", eventKey: `ready:${row.id}`,
+        responsibilityId: row.id, observedRevision: row.revision, summary: "Execution verified." } : undefined;
+      const request = words(f, [{ kind: "publish", responsibilityId: row.id, expectedRevision: row.revision }], origin, level);
+      expect((await request.apply())[0]?.status).toBe(level === "careful" ? "proposed" : "applied");
+      expect(f.repo.commands("pr create")).toHaveLength(level === "careful" ? 0 : 1);
+      if (level === "careful") continue;
+      expect(f.repo.commands("pr create")[0]![1]).toContain("--draft");
+      expect(f.conversations.listPublishes()[0]).toMatchObject({ status: "applied", source: "automatic", url: URL });
+      await request.apply();
+      expect(f.repo.commands("push")).toHaveLength(1);
+    }
+  });
+
+  test("automatic publication retries its own progressed revision after a lost acknowledgement", async () => {
+    const f = fixture(), initial = f.completed({ completionGoal: "pullRequest" });
+    const row = f.responsibilities.patch(initial.id, initial.revision, { state: "resultReady", resultVerifiedRunId: initial.agentRunId }, NOW);
+    const request = words(f, [{ kind: "publish", responsibilityId: row.id, expectedRevision: row.revision }]);
+    const run = f.ports.run;
+    let interrupted = false;
+    f.ports.run = async (command, args, cwd) => {
+      if (!interrupted && command === "gh" && args[0] === "pr" && args[1] === "create") {
+        interrupted = true;
+        throw new TarsStorageBusyError();
+      }
+      return run(command, args, cwd);
+    };
+    await expect(request.apply()).rejects.toThrow();
+    expect(f.responsibilities.get(row.id)!.revision).toBeGreaterThan(row.revision);
+    expect((await request.apply())[0]?.status).toBe("applied");
+    expect(f.repo.commands("commit")).toHaveLength(1);
+    expect(f.repo.commands("push")).toHaveLength(1);
+    expect(f.repo.commands("pr create")).toHaveLength(1);
+  });
 
   test("a publish proposal waits as proposed; only its card's confirmation publishes, and it settles the proposal", async () => {
     const f = fixture();
@@ -396,15 +435,15 @@ describe("Tars publish from words", () => {
     expect(tarsFollowUpRefusal(ask, origin, f.responsibilities)).toContain("cannot offer");
   });
 
-  test("an automatic follow-up cannot propose publishing", async () => {
+  test("an automatic follow-up offers publishing with confirmation for other goals", async () => {
     const f = fixture();
     const row = f.completed();
     const origin: TarsMessageOrigin = { kind: "followUp", eventKey: `${row.id}:completed:2`, responsibilityId: row.id, reason: "blocked", observedRevision: row.revision, summary: "x" };
     const action: TarsDecisionAction = { kind: "publish", responsibilityId: row.id, expectedRevision: row.revision };
-    expect(tarsFollowUpRefusal(action, origin, f.responsibilities)).toContain("cannot propose publishing");
+    expect(tarsFollowUpRefusal(action, origin, f.responsibilities)).toBeNull();
     const { apply } = words(f, [action], origin);
     const [receipt] = await apply();
-    expect(receipt).toMatchObject({ status: "rejected", reason: "notByFollowUp" });
+    expect(receipt).toMatchObject({ status: "proposed", reason: null });
   });
 
   test("the planner may return one publish action, never two: a second or malformed one is dropped, the reply kept", () => {
