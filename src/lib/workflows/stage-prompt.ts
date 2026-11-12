@@ -158,16 +158,17 @@ export function compileStagePrompt(input: StagePromptInput): string {
   return [
     `# ${workflow.name} — ${position}: ${stage.title}`,
     section("Purpose", workflow.purpose),
-    section("Assignment", input.assignment.trim()),
-    section(`This stage: ${stage.title}`, stageBody),
-    retry,
-    priorStages,
-    criteria,
     section("Reporting", REPORTING_CONTRACT),
     // A delegated stage needs delegation even in a solo workflow.
     section("Working rules", stage.agentConfigId ? TEAM_RULES.workers : TEAM_RULES[workflow.team]),
     constraints ? section("Constraints", constraints) : null,
     PERMISSION_RULE,
+    section("Assignment", input.assignment.trim()),
+    section(`This stage: ${stage.title}`, stageBody),
+    // Keep changing attempts, reports and criterion statuses after the rules.
+    criteria,
+    retry,
+    priorStages,
   ]
     .filter((part): part is string => part !== null)
     .join("\n\n");

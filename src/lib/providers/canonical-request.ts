@@ -337,6 +337,10 @@ export const FIRST_TURN_ONLY_RETRIEVED_CONTEXT_SOURCE_IDS: ReadonlySet<string> =
   new Set([
     STAVE_WORKSPACE_GUIDANCE_SOURCE_ID,
     STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
+    // Tars freezes these for its dedicated execution task. Keep the snapshot
+    // in the request so a new session or unsynced history restores it in full.
+    "tars:mandate",
+    "tars:portfolio",
   ]);
 
 export function buildLegacyPromptFromCanonicalRequest(args: {
