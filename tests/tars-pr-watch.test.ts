@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { describeTarsNotifications, readTarsNotificationTarget } from "../src/lib/tars/notifications";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -150,6 +151,7 @@ test("two failure heads wake Tars, the third asks the user without another autom
   expect(messages.at(-1)?.state).toBe("answered");
   expect(messages.at(-1)?.reply).toContain("two automatic CI-fix attempts");
   expect(messages.at(-1)?.decision?.actions[0]?.kind).toBe("ask");
+  expect(describeTarsNotifications(f.responsibilities.snapshot())).toMatchObject([{ kind: "tars.decision_requested" }]);
   expect(f.admit().created).toBe(0);
 });
 
@@ -159,11 +161,15 @@ for (const choice of ["ready", "keepDraft"] as const) test(`${choice}: only an e
   expect(f.calls.every((args) => args[1] === "view")).toBe(true);
   const decision = f.view().find((v) => v.state === "waiting")!;
   expect(decision.question).toContain("Mark it ready for review");
+  const notifications = describeTarsNotifications(f.responsibilities.snapshot());
+  expect(notifications).toHaveLength(1);
+  expect(readTarsNotificationTarget(notifications[0]!)).toEqual({ responsibilityId: f.row.id, decisionId: decision.id });
   expect(bindTarsShortAnswer("yes", [decision])).toBeNull();
   await expect(f.watcher.confirm({ decisionId: decision.id })).rejects.toThrow("explicit saved");
   const answer = f.answer(choice === "ready" ? 0 : 1);
   await Promise.all([f.watcher.confirm({ decisionId: answer.decisionId }), f.watcher.confirm({ decisionId: answer.decisionId })]);
   await f.watcher.confirm({ decisionId: answer.decisionId });
+  expect(describeTarsNotifications(f.responsibilities.snapshot())).toEqual([]);
   expect(f.calls.filter((args) => args[1] === "ready")).toHaveLength(choice === "ready" ? 1 : 0);
   f.advance(); await f.watcher.tick(); expect(f.admit().created).toBe(0);
   expect(f.conversations.list(200).filter((m) => m.reply === "PR #7: all checks passed")).toHaveLength(1);
@@ -178,6 +184,15 @@ test("ready refuses changed or failing heads and a words-only answer", async () 
     await expect(f.watcher.confirm({ decisionId: answer.decisionId })).rejects.toThrow();
     expect(f.calls.filter((args) => args[1] === "ready")).toHaveLength(0);
   }
+});
+
+test("PR decision notifications disappear when checks or the published head move on", async () => {
+  const f = fixture(); await f.watcher.tick(); f.admit();
+  expect(describeTarsNotifications(f.responsibilities.snapshot())).toHaveLength(1);
+  f.live.headRefOid = SHA2;
+  f.patch({ publication: { ...f.get().publication!, commit: SHA2 } });
+  f.advance(); await f.watcher.tick();
+  expect(describeTarsNotifications(f.responsibilities.snapshot())).toEqual([]);
 });
 
 test("unavailable gh stops once, persists one notice, and never issues another read after restart", async () => {

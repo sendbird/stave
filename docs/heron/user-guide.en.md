@@ -935,6 +935,14 @@ controls still apply: these instructions are not an extra shell sandbox.
 Existing tasks are not adopted automatically. A run's acceptance report is distinct from host-verified checks
 or a live external outcome.
 
+Tars notifies you in the bell when a decision waits, a result is ready for
+your next step, or work is blocked. A PR review decision and CI fixes that
+reach their automatic attempt limit also notify you. Each fact notifies once
+and resolves when it no longer needs you; actions Tars applies by itself stay
+quiet. Open a notification to focus its decision card in Tars or the work's
+report. Your existing sound and desktop notification settings apply; desktop
+notifications stay quiet while Stave's window has focus.
+
 Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
 
 @page review | Hand off | Review and delegation | guide

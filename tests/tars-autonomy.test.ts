@@ -23,6 +23,7 @@ import { TarsControlOperationSchema, type TarsControlOperation, type TarsRespons
 import type { PersistenceRepositoryRegistryEntry } from "../electron/persistence/types";
 import { SETTINGS, testContext } from "./tars-test-context";
 import { tarsPlannerClock } from "../src/lib/tars/schedules";
+import { describeTarsNotifications } from "../src/lib/tars/notifications";
 
 const NOW = "2026-11-05T00:00:00.000Z";
 const cleanup: Array<() => void> = [];
@@ -235,6 +236,7 @@ describe("host admission by autonomy level", () => {
     const other = f.responsibility("running");
     expect((await f.admit([{ kind: "control", responsibilityId: other.id, expectedRevision: other.revision, operation: "takeover" }])).receipts).toMatchObject([{ status: "applied" }]);
     expect(f.responsibilities.get(other.id)).toMatchObject({ state: "takenOver" });
+    expect(describeTarsNotifications(f.responsibilities.snapshot())).toEqual([]);
     expect(tarsActionMode("deny", level)).toBe("auto");
   });
 

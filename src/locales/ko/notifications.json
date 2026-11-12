@@ -123,5 +123,10 @@
   },
   "notificationUtils.questions_other": "질문 {{count}}개",
   "appNotificationBuilders.questions_other": "질문 {{count}}개",
-  "supportActions.prUnavailable": "PR 상태를 확인할 수 없습니다."
+  "supportActions.prUnavailable": "PR 상태를 확인할 수 없습니다.",
+  "tars": {
+    "decisionRequested": "Tars가 결정을 기다립니다: {{title}}",
+    "resultReady": "Tars가 결과를 준비했습니다: {{title}}",
+    "blocked": "Tars에게 도움이 필요합니다: {{title}}"
+  }
 }

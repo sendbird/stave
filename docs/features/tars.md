@@ -1390,6 +1390,17 @@ A waiting card also closes in three other ways, none of which applies anything:
   the reply says why. A withdrawal only closes a card that still waits; it
   applies no option and grants nothing.
 
+Tars also notifies you through the notification bell when a decision waits,
+a result is ready for your next step, or work is blocked. This includes an
+unverified completion, a pull request ready for your review decision, and CI
+fixes that reached their automatic attempt limit. Each fact notifies once;
+answered, dismissed, expired or withdrawn decisions resolve automatically, as
+does work that moves on. Actions Tars applies by itself stay quiet. Opening a
+notification focuses its decision in Tars's decision dock, or opens the work's
+report for a result or blocker. Sound and desktop notifications use your
+existing notification settings; desktop notifications are suppressed while
+Stave's window has focus.
+
 Decisions about work also wait in the tray's **Needs you** and as **Tars
 decision** rows in [Fleet](fleet-needs-me.md). Every Tars row there offers
 **Open in Tars**, and a single proposal also keeps its **Confirm**. A question

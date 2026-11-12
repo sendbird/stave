@@ -126,5 +126,10 @@
   "notificationUtils.questions_other": "{{count}} questions",
   "appNotificationBuilders.questions_one": "{{count}} question",
   "appNotificationBuilders.questions_other": "{{count}} questions",
-  "supportActions.prUnavailable": "PR status unavailable."
+  "supportActions.prUnavailable": "PR status unavailable.",
+  "tars": {
+    "decisionRequested": "Tars needs your decision: {{title}}",
+    "resultReady": "Tars has a result for you: {{title}}",
+    "blocked": "Tars needs your help: {{title}}"
+  }
 }

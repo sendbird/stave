@@ -2,6 +2,10 @@ import {
   TarsActionReceiptSchema, TarsActionRecordSchema, TarsDecisionAnswerSchema, isTarsDecisionClosure, type TarsActionReceipt, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
 import { tarsDecisionTargets, tarsReceiptDecisionId } from "../../src/lib/tars/decisions";
+import { TarsMessageSchema } from "../../src/lib/tars/conversation";
+import { tarsEventKey } from "../../src/lib/tars/events";
+import { TARS_CI_FIX_ROUNDS } from "../../src/lib/tars/pr-checks";
+import type { TarsResponsibility } from "../../src/lib/tars/types";
 
 interface ReceiptDatabase {
   prepare(sql: string): { all(...params: unknown[]): unknown[]; get(...params: unknown[]): unknown };
@@ -99,6 +103,22 @@ export function readOpenTarsAsks(db: unknown): TarsActionReceipt[] {
       AND NOT EXISTS (SELECT 1 FROM tars_messages later WHERE later.rowid > m.rowid
         AND json_extract(later.body_json, '$.origin.kind') IS NOT 'followUp')
     ORDER BY r.rowid`).all(), TarsActionReceiptSchema);
+}
+
+/** PR notices have reply/review options rather than revision-bound run controls. */
+export function readTarsPrAskTarget(db: unknown, receipt: TarsActionReceipt, rows: ReadonlyMap<string, TarsResponsibility>): TarsResponsibility | null {
+  const stored = (db as ReceiptDatabase).prepare("SELECT body_json FROM tars_messages WHERE id = ?").get(receipt.messageId) as { body_json: string } | undefined;
+  const message = stored ? TarsMessageSchema.safeParse(JSON.parse(stored.body_json)) : null;
+  const origin = message?.success ? message.data.origin : undefined;
+  if (origin?.kind !== "followUp" || (origin.reason !== "ciPassed" && origin.reason !== "ciFailed")) return null;
+  const row = rows.get(origin.responsibilityId);
+  const publication = row?.publication;
+  const head = publication?.commit;
+  if (!row || row.state !== "completed" || publication?.state !== "opened" || !head || publication.checks?.headSha !== head ||
+      origin.eventKey !== tarsEventKey({ kind: origin.reason, responsibilityId: row.id, episode: head })) return null;
+  const current = origin.reason === "ciPassed" ? publication.checks.state === "passed"
+    : publication.checks.state === "failed" && (publication.watch?.fixRounds ?? 0) >= TARS_CI_FIX_ROUNDS;
+  return current ? row : null;
 }
 
 /**

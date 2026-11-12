@@ -55,6 +55,7 @@ import type { TarsClearContext } from "./use-tars-clear";
 import { TarsScheduleProposal, TarsScheduleRecordLine, TarsScheduleRunLine } from "./TarsSchedule";
 import type { TarsScheduleContext } from "./use-tars-schedules";
 import type { TarsSuggestion } from "@/lib/tars/suggestions";
+import { useTarsNotificationFocus } from "./use-tars-notification-focus";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -447,6 +448,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     const record = composerRef.current?.closest("[data-tars-chat]")?.querySelector<HTMLElement>(`[data-tars-decision="${CSS.escape(id)}"] [tabindex="-1"]`);
     if (record) record.focus({ preventScroll: true }); else focusComposer();
   };
+  useTarsNotificationFocus({ ready: Boolean(state.conversation && responsibilities), busy: state.busy || answering || Boolean(publish?.busyId),
+    items: dockItems, responsibilities, dock: dockRef, openSide: flows?.onOpenSide, focusComposer });
   // The transcript and the composer take the same width step, measured on this column.
   return <div className={sx(styles.chat, transcriptWidthStyles.surface, floor && trayStyles.conversationFloor)} style={textScale} data-tars-chat="">
     <Conversation className={sx(widthTheme)}>

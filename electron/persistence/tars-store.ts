@@ -15,7 +15,7 @@ import {
   type TarsSnapshot,
   type UpdateTarsIdentityInput,
 } from "../../src/lib/tars/types";
-import { hasTarsDecisionTables, readLatestTarsControls, readMovedOnTarsMessages, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers } from "./tars-proposals";
+import { hasTarsDecisionTables, readLatestTarsControls, readMovedOnTarsMessages, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers, readTarsPrAskTarget } from "./tars-proposals";
 import { isTarsAnswerSettling, tarsAskDecisionId, tarsUnverifiedDecisionId } from "../../src/lib/tars/decisions";
 import { tarsConfirmationRequestId } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
@@ -175,7 +175,8 @@ export class TarsStore {
    *   the work blocked, so it shows as blocked work with its own controls.
    * - `ask`: an unanswered question of the newest message whose control
    *   options all still target current revisions. A question about no work
-   *   stays in the conversation only.
+   *   stays in the conversation only. Host PR review and CI-limit questions
+   *   stay bound to the current published head even after execution completes.
    */
   private pendingDecisions(responsibilities: readonly TarsResponsibility[]): TarsPendingDecision[] {
     if (!this.hasReceipts) {
@@ -214,10 +215,11 @@ export class TarsStore {
     const asks = open.flatMap((receipt): TarsPendingDecision[] => {
       if (receipt.action.kind !== "ask" || settlingAnswer(askAnswers, tarsAskDecisionId(receipt.messageId, receipt.actionIndex))) return [];
       const targets = receipt.action.options.flatMap((option) => option.effect.kind === "control" ? [option.effect] : []);
-      if (!targets.length || targets.some((target) => askSettled.has(`${receipt.messageId}:${target.responsibilityId}`))) return [];
+      const prTarget = targets.length ? null : readTarsPrAskTarget(this.db, receipt, rows);
+      if ((!targets.length && !prTarget) || targets.some((target) => askSettled.has(`${receipt.messageId}:${target.responsibilityId}`))) return [];
       if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision, target.operation))) return [];
-      return [{ kind: "ask", responsibilityId: targets[0]!.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
-        operation: null, expectedRevision: targets[0]!.expectedRevision, proposedAt: receipt.updatedAt,
+      return [{ kind: "ask", responsibilityId: targets[0]?.responsibilityId ?? prTarget!.id, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
+        operation: null, expectedRevision: targets[0]?.expectedRevision ?? prTarget!.revision, proposedAt: receipt.updatedAt,
         question: receipt.action.question, optionCount: receipt.action.options.length }];
     });
     return [...confirms, ...unverified, ...asks];

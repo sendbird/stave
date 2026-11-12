@@ -66,6 +66,9 @@ const NOTIFICATION_ENTRY_KIND: Record<AppNotificationKind, FleetAttentionKind> =
   "agent_run.blocked": "agent-run-blocked",
   "agent_run.stuck": "agent-run-stuck",
   "agent_run.completed": "result-ready",
+  "tars.decision_requested": "tars-decision",
+  "tars.result_ready": "tars-decision",
+  "tars.blocked": "tars-blocked",
 };
 
 /** Kinds the Errors filter collects: something failed or cannot proceed. */
@@ -154,10 +157,10 @@ export function notificationBelongsToItem(
     case "pr-merge-conflict":
     case "pr-behind-base":
     case "pr-ready-to-merge":
-    // Tars rows come from Tars's own state; no notification speaks for them.
+      return false;
     case "tars-decision":
     case "tars-blocked":
-      return false;
+      return getNotificationEntryKind(notification.kind) === item.kind && notification.payload.tarsSignalId === item.id;
   }
 }
 

@@ -13,6 +13,9 @@ export const APP_NOTIFICATION_KINDS = [
   "agent_run.blocked",
   "agent_run.stuck",
   "agent_run.completed",
+  "tars.decision_requested",
+  "tars.result_ready",
+  "tars.blocked",
 ] as const;
 
 export type AppNotificationKind = (typeof APP_NOTIFICATION_KINDS)[number];
@@ -26,6 +29,10 @@ export type NotificationsLoad =
 /** An agent run that stopped for the user: a sign-off, a blocker or a stuck stage. */
 export function isAgentRunAttentionNotificationKind(kind: AppNotificationKind) {
   return kind === "agent_run.sign_off_requested" || kind === "agent_run.blocked" || kind === "agent_run.stuck";
+}
+
+export function isTarsNotificationKind(kind: AppNotificationKind) {
+  return kind === "tars.decision_requested" || kind === "tars.result_ready" || kind === "tars.blocked";
 }
 
 export interface AppNotificationApprovalAction {
@@ -77,7 +84,7 @@ export const MAX_NOTIFICATION_HISTORY = 50;
 
 export function isNotificationAttentionKind(kind: AppNotificationKind) {
   return (
-    kind === "task.approval_requested" || kind === "task.user_input_requested"
+    kind === "task.approval_requested" || kind === "task.user_input_requested" || isTarsNotificationKind(kind)
   );
 }
 
