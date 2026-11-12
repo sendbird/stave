@@ -101,7 +101,8 @@ describe("Supervisor", () => {
     expect(instructions).toContain("check it against the real diff and the real check output");
     expect(instructions).toContain("narrowest checks that cover what changed");
     expect(instructions).toContain("Run the full suite once, on the final revision");
-    expect(instructions).toContain("never rerun a check that already passed on the same revision");
+    expect(instructions).toContain("Rerun checks a helper ran");
+    expect(instructions).toContain("skip only checks you already ran on this revision in this reporting turn in a way Stave recorded");
     expect(instructions).toContain("brief correctness check");
     expect(instructions).toContain("provider that did not write the diff");
     // The full suite is named once, not at every step.

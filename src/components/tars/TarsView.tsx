@@ -1,3 +1,4 @@
+import { TARS_DEFAULT_MAX_TURNS } from "@/lib/tars/types";
 import { TarsActivityPanel } from "./TarsActivityView";
 import { useTarsOpenRequests } from "./use-tars-open";
 import { TarsAllowRulesProvider } from "./TarsAllowRules";
@@ -135,7 +136,7 @@ function TarsViewContent() {
   // The conversation's reasoning model and account. Execution has no pin here, so delegated work routes automatically.
   const initialSettings = useMemo<TarsConversationSettings>(() => {
     const providerId = availability.codex || !availability["claude-code"] ? "codex" : "claude-code";
-    return { providerId, model: providerId === "codex" ? appSettings.modelCodex : appSettings.modelClaude, maxTurns: 30, runtimeHints: buildTarsRuntimeHints(providerId, appSettings) };
+    return { providerId, model: providerId === "codex" ? appSettings.modelCodex : appSettings.modelClaude, maxTurns: TARS_DEFAULT_MAX_TURNS, runtimeHints: buildTarsRuntimeHints(providerId, appSettings) };
   }, [appSettings, availability]);
   const responsibilities = snapshot?.responsibilities ?? NO_RESPONSIBILITIES;
   const runs = useTarsRunDetails(responsibilities, fleetRuns);

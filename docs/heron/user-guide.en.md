@@ -441,6 +441,8 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
+While an agent run or Tars execution is active, Stave prevents idle app suspension and releases that blocker when idle. The screen may turn off; a closed lid can still put a Mac to sleep. New Tars work defaults to a shared 60-turn budget for the lead and helpers; your saved explicit limit stays in effect. The lead integrates changes, commits them and runs final checks itself in the reporting turn, using Stave workspace check scripts when configured. Helpers must not push or open pull requests.
+
 Tars can read a responsibility’s report, changes, recent execution conversation, recorded checks and pull request state before answering about it. A status line names what it is reading. It can make up to two additional reading rounds per message; large results are excerpts, and missing evidence stays unknown. Opening a view for you remains separate from reading it. If Stave closes before an answer is saved, the message is marked interrupted and does not automatically run again.
 
 When you check earlier work and ask for a correction or addition, Tars proposes
