@@ -25,3 +25,12 @@ test.each(["en", "ko"] as const)("Activity exposes translated filters, visible t
   expect(html).not.toContain("shell:tars");
   expect(html).toContain(locale === "en" ? "Pause" : "일시 정지");
 });
+
+test('long Activity descriptions retain their full text in a title', async () => {
+  await applyAppLocale('en');
+  const question = 'Export is blocked.\n' + 'Please choose the account. '.repeat(30);
+  const record = { ...conversation.records[0]!, undo: null, action: { kind: 'ask' as const, question, options: [] } };
+  const html = renderToStaticMarkup(<TarsActivityView conversation={{ ...conversation, records: [record] }} responsibilities={[]} onOpenWork={() => {}} />);
+  const title = html.match(/<p[^>]*title="([^"]*)"/s)?.[1];
+  expect(title).toContain(question);
+});

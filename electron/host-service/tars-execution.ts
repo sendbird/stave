@@ -4,7 +4,7 @@ import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-co
 import { tarsAttachmentSource } from "../../src/lib/tars/work-attachments";
 import type { AgentRunStageRecord } from "../../src/lib/agent-runs/domain";
 import type { Workflow, WorkflowStage } from "../../src/lib/workflows/schema";
-import { reviewStages, withCommitForReview } from "../../src/lib/agents/review-before-done";
+import { reviewStages } from "../../src/lib/agents/review-before-done";
 import type { AgentRunDetail } from "../../src/lib/agent-runs/api";
 import type { TarsExecutionObservation } from "./tars-runtime";
 import { classifyStageEvidence, isVerifiedEvidence } from "../../src/lib/agent-runs/evidence";
@@ -117,6 +117,9 @@ const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover wha
 // i18n-ignore: model-facing instructions
 const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
 
+// i18n-ignore: model-facing report instructions
+const TARS_REPORT_STYLE = "Summary in the user's language, at most two plain sentences: what changed for the user and what is left. Put commit ranges, commands and file lists in evidence, not the summary.";
+
 /** A shared stage with Tars's own words after its instruction. */
 const withInstruction = (stage: WorkflowStage, extra: string): WorkflowStage =>
   stage.kind === "ai" ? { ...stage, instruction: `${stage.instruction} ${extra}` } : stage;
@@ -142,13 +145,13 @@ export function tarsWorkflow(row: TarsResponsibility, now: string): Workflow {
     // Repeating it as workflow constraints sends the same policy twice per stage.
     stages: [
       { id: "work", title: "Work", kind: "ai", // i18n-ignore: canonical stage title
-        instruction: withCommitForReview(`${work} Helper briefs: do not push or open pull requests.`, "behavior-changes"),
+        instruction: `${work} ${TARS_REPORT_STYLE} Helper briefs: do not push or open pull requests. If files change, commit only its changes, then run the final checks on that commit yourself in the reporting turn; later commits make checks stale. Record starting/result commits in evidence for review. If no files change, do not create an empty commit: report the answer, conclusions and sources; finish without review.`,
         ...(row.agentId ? { agentConfigId: row.agentId } : {}),
         doneWhen: "The requested result is done and verified on its final revision, with each required criterion's evidence.", // i18n-ignore: model-facing
         acceptanceCriteria: row.acceptanceCriteria.map((text) => ({ text, required: true })),
       },
-      withInstruction(review!, `${TARS_REVIEW_CHECK_SCOPE} Do not push or open pull requests.`),
-      withInstruction(fix!, TARS_FIX_CHECKS),
+      withInstruction(review!, `${TARS_REVIEW_CHECK_SCOPE} Summary in the user's language: verdict plus at most one plain sentence. Put commit ranges, commands and file lists in evidence, not the summary. Do not push or open pull requests.`),
+      withInstruction(fix!, `${TARS_FIX_CHECKS} ${TARS_REPORT_STYLE}`),
     ],
   };
 }

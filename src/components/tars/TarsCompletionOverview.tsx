@@ -9,7 +9,16 @@ import { TarsOutputList } from "./TarsTray";
 import { tarsCompletionStyles as styles } from "./tars-completion.styles";
 
 /** The Report and Result share the frozen text, exceptions and existing output-opening interface. */
-export function TarsCompletionOverview({ model, row, outputs, textScale = "panel" }: { model: TarsReportModel; row: TarsResponsibility; outputs?: ReactNode; textScale?: MessageTextScale }) {
+export function TarsCompletionOverview({ model, textScale = "panel" }: { model: TarsReportModel; row: TarsResponsibility; outputs?: ReactNode; textScale?: MessageTextScale }) {
+  const { t } = useTranslation(["shell"]);
+  if (model.state !== "frozen") return null;
+  return <p className={sx(styles.lead, styles.headline, textScale === "conversation" && styles.chatText)} data-tars-completion-summary="" title={model.summary ?? undefined}>
+    {tarsSummaryExcerpt(model.summary ?? "") || t("shell:tars.completion.noSummary")}
+  </p>;
+}
+
+/** Original detail stays available in the existing disclosure. */
+export function TarsCompletionDetail({ model, row, outputs, textScale = "panel" }: Parameters<typeof TarsCompletionOverview>[0]) {
   const { t } = useTranslation(["shell"]);
   if (model.state !== "frozen") return null;
   const caveats = tarsSummaryCaveats(model);
@@ -17,7 +26,6 @@ export function TarsCompletionOverview({ model, row, outputs, textScale = "panel
   const chatText = textScale === "conversation" && styles.chatText;
   const stale = model.criteria.some((item) => item.status === "met" && item.source.kind === "check" && (item.source.exitCode !== 0 || item.source.freshness !== "current"));
   return <div className={sx(styles.overview)} data-tars-completion-overview="">
-    <p className={sx(styles.lead, chatText)} data-tars-completion-summary="">{tarsSummaryExcerpt(model.summary ?? "") || t("shell:tars.completion.noSummary")}</p>
     {outputs || model.links.length ? <div data-tars-completion-outputs="">{outputs ?? <TarsOutputList outputs={model.links.map((link) => ({
       ...link, kind: "link", responsibilityId: row.id, title: row.title,
     }))} />}</div> : null}

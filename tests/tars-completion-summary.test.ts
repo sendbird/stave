@@ -16,7 +16,7 @@ test('only frozen final text leads; every stage summary stays whole', () => {
   const text = 'Exported invoices with stable columns.\n\nNot verified on production data.';
   finalStage.summary = text;
   const model = projectTarsReport(row, run);
-  expect(tarsSummaryExcerpt(text)).toBe('Exported invoices with stable columns.…');
+  expect(tarsSummaryExcerpt(text)).toBe('Exported invoices with stable columns.');
   expect(model.summaries.at(-1)!.text).toBe(text);
   expect(tarsSummaryCaveats(model)).toContain('Not verified on production data.');
   model.summary = 'Done.\n\n## Limitations\n\nDeployment was skipped.\n\n## Verification\n\nTests passed.';
@@ -88,7 +88,7 @@ test('a standalone absence statement does not hide following limitations or stru
 
 test('extracts content after summary headings without changing the original', () => {
   for (const heading of ['## Summary', '**요약**']) {
-    expect(tarsSummaryExcerpt(`${heading}\n\nImplemented CSV export.\n\nMore detail.`)).toBe('Implemented CSV export.…');
+    expect(tarsSummaryExcerpt(`${heading}\n\nImplemented CSV export.\n\nMore detail.`)).toBe('Implemented CSV export.');
   }
 });
 
@@ -108,4 +108,19 @@ test('earlier caveats retain their stage without claiming the final status', () 
   model.leftBehind = ['Pending release'];
   expect(tarsSummaryCaveats(model)).toEqual(['Pending release']);
   expect(model.summaries[0]!.text).toContain('Not verified on packaged Electron.');
+});
+
+
+test('headlines omit technical lines and retain the first plain outcome sentence', () => {
+  for (const prefix of ['bun test tests/export.test.ts', '$ git status', 'commit: abc1234', 'abc1234..def5678', '```sh\nbun run lint\n```']) {
+    expect(tarsSummaryExcerpt(`${prefix}\nAdded CSV export (abc1234). More detail.`)).toBe('Added CSV export.');
+  }
+  expect(tarsSummaryExcerpt('CSV 내보내기가 추가됐습니다. 운영 검증은 남았습니다.')).toBe('CSV 내보내기가 추가됐습니다.');
+  expect(tarsSummaryExcerpt('Export is blocked. Checks passed.')).toBe('Export is blocked.');
+  expect(tarsSummaryExcerpt('Checks passed (`bun test`). Export is ready.')).toBe('Checks passed.');
+  expect(tarsSummaryExcerpt('Exported 12345678 rows.')).toBe('Exported 12345678 rows.');
+  expect(tarsSummaryExcerpt('The defaced page is fixed.')).toBe('The defaced page is fixed.');
+  expect(tarsSummaryExcerpt('Added CSV export (commit deadbeef).')).toBe('Added CSV export.');
+  expect(tarsSummaryExcerpt('bun test')).toBe('');
+  expect(tarsSummaryExcerpt('Do not run `bun test`. Export remains blocked.')).toBe('Export remains blocked.');
 });

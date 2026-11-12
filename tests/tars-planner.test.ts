@@ -123,6 +123,12 @@ test("a paid reply survives a Markdown fence, an over-long reply and an extra to
   expect(truncated?.reply?.endsWith("\n\n[…]")).toBe(true);
   expect(extra?.decision).toEqual({ reply: "Extra key.", actions: [action] });
   expect(f.requests[0]?.input.prompt).toContain("reply (string, at most 8000 characters)");
+  const prompt = f.requests[0]!.input.prompt;
+  expect(prompt).toContain("user's language and at most 4 short lines");
+  expect(prompt).toContain("done / not working / needs you / next");
+  expect(prompt).toContain("localized in the reply language; omit empty items");
+  expect(prompt).toContain("one plain sentence per item");
+  expect(prompt).toContain("No commands, commit hashes, ids, file paths or stack traces unless the user asks for details");
   f.database.close();
 });
 

@@ -20,13 +20,25 @@ const instructionOf = (workflow: Workflow, index: number) => {
 };
 
 describe("Tars execution workflow", () => {
+  test("all stages keep short user summaries and technical evidence separate", () => {
+    for (const agentId of [null, "implementer"]) {
+      const workflow = tarsWorkflow(row({ agentId }), NOW);
+      for (const index of [0, 2]) {
+        const instruction = instructionOf(workflow, index);
+        expect(instruction).toContain("at most two plain sentences");
+        expect(instruction).toContain("what changed for the user and what is left");
+        expect(instruction).toContain("commit ranges, commands and file lists in evidence, not the summary");
+      }
+      expect(instructionOf(workflow, 1)).toContain("verdict plus at most one plain sentence");
+    }
+  });
   test("is one Supervisor work stage followed by the conditional review and fix stages", () => {
     for (const patch of [{}, { agentId: "implementer" }, { model: "gpt-6.1-sol" }]) {
       const workflow = WorkflowSchema.parse(tarsWorkflow(row(patch), NOW));
       expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", REVIEW_STAGE_ID, FIX_REVIEW_STAGE_ID]);
       expect(workflowTextLength(workflow)).toBeLessThan(MAX_WORKFLOW_TEXT_LENGTH);
       const [work, review, fix] = workflow.stages;
-      expect(instructionOf(workflow, 1).length).toBeLessThanOrEqual(WORKFLOW_LIMITS.instruction - 150);
+      expect(instructionOf(workflow, 1).length).toBeLessThanOrEqual(WORKFLOW_LIMITS.instruction);
       expect(work).toMatchObject({ kind: "ai", acceptanceCriteria: [{ text: "Search works", required: true }] });
       // Review runs only when files changed, and the fix stage only when the review asked for changes.
       expect(review).toMatchObject({ kind: "ai", agentConfigId: "reviewer", pinCommit: true, skipIfWorkUnchanged: true });

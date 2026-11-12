@@ -136,9 +136,9 @@ export function TarsMessageFailure({ message, onResend }: { message: Pick<TarsMe
     data-tars-message-failure={message.errorCode ?? "diagnostic"}>
     <Banner.Title xstyle={styles.noticeTitle}>{t(interrupted ? "shell:tars.conversation.failure.interruptedTitle" : "shell:tars.conversation.failure.title")}</Banner.Title>
     <Banner.Description xstyle={styles.noticeBody}>
-      {reason ? <p className={sx(styles.noticeText)}>{reason}</p> : null}
-      <p className={sx(styles.noticeText)}>{t(onResend ? "shell:tars.conversation.failure.hintWithResend" : "shell:tars.conversation.failedHint")}</p>
-      {onResend && message.attachments?.length ? <p className={sx(styles.noticeText)}>{t("shell:tars.conversation.failure.reattach")}</p> : null}
+      {reason ? <p className={sx(styles.noticeText)} title={reason}>{reason}</p> : null}
+      <p className={sx(styles.noticeText)} title={t(onResend ? "shell:tars.conversation.failure.hintWithResend" : "shell:tars.conversation.failedHint")}>{t(onResend ? "shell:tars.conversation.failure.hintWithResend" : "shell:tars.conversation.failedHint")}</p>
+      {onResend && message.attachments?.length ? <p className={sx(styles.noticeText)} title={t("shell:tars.conversation.failure.reattach")}>{t("shell:tars.conversation.failure.reattach")}</p> : null}
     </Banner.Description>
     {onResend ? <Banner.Action><TarsNoticeAction icon={<RotateCcw aria-hidden="true" className={sx(styles.actionIcon)} />} onClick={onResend} data-tars-message-resend="">
       {t("shell:tars.conversation.failure.resend")}</TarsNoticeAction></Banner.Action> : null}
@@ -160,8 +160,8 @@ export function TarsConversationError({ error, send, onRetry }: { error: string;
   return <Banner.Root tone="danger" xstyle={styles.notice} data-tars-conversation-error={send ? "send" : "request"}>
     <Banner.Title xstyle={styles.noticeTitle}>{send ? t("shell:tars.conversation.sendFailed.title") : error}</Banner.Title>
     {send ? <Banner.Description xstyle={styles.noticeBody}>
-      <p className={sx(styles.noticeText)}>{error}</p>
-      <p className={sx(styles.noticeText)}>{t("shell:tars.conversation.sendFailed.kept")}</p>
+      <p className={sx(styles.noticeText)} title={error}>{error}</p>
+      <p className={sx(styles.noticeText)} title={t("shell:tars.conversation.sendFailed.kept")}>{t("shell:tars.conversation.sendFailed.kept")}</p>
     </Banner.Description> : null}
     <Banner.Action><TarsNoticeAction icon={<RotateCcw aria-hidden="true" className={sx(styles.actionIcon)} />} onClick={onRetry}>{t("shell:tars.retry")}</TarsNoticeAction></Banner.Action>
   </Banner.Root>;

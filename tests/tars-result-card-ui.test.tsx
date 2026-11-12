@@ -6,6 +6,9 @@ import type { TarsActivityNotice } from "../src/lib/tars/flow-model";
 import type { TarsActivity, TarsResponsibility } from "../src/lib/tars/types";
 import { buildTarsResultFixtures } from "../src/dev/tars-preview/tars-result-fixtures";
 import { TarsActivityNoticeLine } from "../src/components/tars/TarsFlowBlock";
+import { TarsConversationError } from "../src/components/tars/TarsMessageChrome";
+import { TarsRecordDetail, TarsRecordSub } from "../src/components/tars/TarsRecord";
+import { readFileSync } from "node:fs";
 import { TarsResultProvider } from "../src/components/tars/TarsResultCard";
 import type { TarsTrayActions } from "../src/components/tars/TarsTray";
 
@@ -28,6 +31,36 @@ function render(notice: TarsActivityNotice, options: { responsibilities?: TarsRe
 const criteria = (html: string) => [...html.matchAll(/data-tars-result-criterion="([^"]+)"/g)].map((match) => match[1]);
 
 describe("Tars result card", () => {
+  test("headlines and record descriptions use single-line ellipsis and keep complete text", () => {
+    for (const file of ['tars-completion.styles.ts', 'tars-record.styles.ts', 'tars-activity.styles.ts', 'tars-message.styles.ts']) {
+      const source = readFileSync(new URL(`../src/components/tars/${file}`, import.meta.url), 'utf8');
+      expect(source).toContain('whiteSpace: "nowrap"');
+      expect(source).toContain('textOverflow: "ellipsis"');
+    }
+    const text = 'Blocked while checking exports.\n' + 'bun test tests/export.test.ts '.repeat(20);
+    for (const Component of [TarsRecordDetail, TarsRecordSub]) {
+      const html = renderToStaticMarkup(createElement(Component, { state: "halted", children: text }));
+      expect(html).toContain(`title="${text}"`);
+      expect(html).toContain(text);
+    }
+  });
+
+  test("long failure notices preserve the original error on hover", () => {
+    const error = 'Export failed.\n' + 'bun test tests/export.test.ts '.repeat(20);
+    const html = renderToStaticMarkup(createElement(TarsConversationError, { error, send: true, onRetry: () => undefined }));
+    expect(html).toContain(`title="${error}"`);
+    expect(html).toContain(error);
+  });
+
+  test("full stage summaries, criteria and warnings follow the existing disclosure", async () => {
+    await applyAppLocale("en");
+    const html = render(noticeOf(rowOf("verified")));
+    const disclosure = html.indexOf('data-tars-result-details');
+    for (const marker of ['data-tars-full-summary', 'data-tars-result-criterion', 'data-tars-completion-count', 'data-tars-evidence-group']) {
+      expect(html.indexOf(marker)).toBeGreaterThan(disclosure);
+    }
+    expect(html.indexOf('data-tars-completion-summary')).toBeLessThan(disclosure);
+  });
   test("completed and verified: each criterion says what confirmed it, then the summary, changes, review and views", async () => {
     await applyAppLocale("en");
     const html = render(noticeOf(rowOf("verified")));

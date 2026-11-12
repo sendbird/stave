@@ -15,6 +15,12 @@ conditions. Selecting a request example fills the composer without sending it.
 Icon buttons show their action in a tooltip on hover or keyboard focus,
 including the header, side views, question navigation and attachment removal.
 
+Tars replies in your language in up to four short lines: **Done**, **Not working**,
+**Needs you**, and **Next**, omitting empty items. Technical details appear only
+when requested. Result and report headlines show one plain sentence; **Full
+summary…** keeps the complete summary, criteria, evidence and diagnostics.
+Long record and Activity descriptions stay on one line with their full text on hover.
+
 ## How it works
 
 1. **You talk.** Open **Tars** at the top of the sidebar and write. There is

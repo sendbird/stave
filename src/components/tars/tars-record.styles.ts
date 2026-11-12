@@ -121,8 +121,8 @@ export const tarsRecordStyles = stylex.create({
     display: { default: "contents", [NARROW]: "flex" }, flexWrap: "wrap", alignItems: "flex-start", columnGap: vars["--aui-space-8"], rowGap: vars["--aui-space-4"],
     minWidth: 0, gridColumn: { default: null, [NARROW]: "1 / -1" }, gridRow: { default: null, [NARROW]: "2" },
   },
-  lead: { minWidth: 0, color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
-  subject: { minWidth: 0, color: vars["--aui-color-text"], overflowWrap: "anywhere" },
+  lead: { minWidth: 0, color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  subject: { minWidth: 0, color: vars["--aui-color-text"], overflowWrap: "anywhere", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   /**
    * Who did it: a person for the user's own control, Tars's mark for what Tars
    * did. It stays inline, so a long sentence wraps after it, in a box as tall
@@ -157,11 +157,11 @@ export const tarsRecordStyles = stylex.create({
     transitionDuration: vars["--aui-motion-duration-quick"], transitionTimingFunction: vars["--aui-motion-ease-standard"],
   },
   /** A reason or what followed: its own line in readable ink, never a red tail on the first line. */
-  detail: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
+  detail: { margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   /** A follow-on line with its own mark (words waiting for a busy run). */
   sub: { display: "flex", alignItems: "flex-start", columnGap: vars["--aui-space-4"], minWidth: 0, color: vars["--aui-color-text-muted"] },
   subMark: { display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, blockSize: "1lh" },
-  subText: { display: "inline-flex", flexWrap: "wrap", columnGap: vars["--aui-space-4"], minWidth: 0, overflowWrap: "anywhere" },
+  subText: { display: "block", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", columnGap: vars["--aui-space-4"], minWidth: 0, overflowWrap: "anywhere" },
   /**
    * A record that heads what follows from it (an automatic follow-up and the
    * reply Tars wrote for it): the head row is the reply's origin label, and
@@ -181,7 +181,7 @@ export const tarsRecordStyles = stylex.create({
     paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`,
   },
   /** A diagnostic in the tool's own words, shown as written. */
-  diagnostic: { display: "block", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: RECORD_TIME, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere" },
+  diagnostic: { display: "inline", minWidth: 0, fontFamily: vars["--aui-font-mono"], fontSize: RECORD_TIME, color: vars["--aui-color-text-muted"], overflowWrap: "anywhere", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   /** Controls ride the outcome's place at the trailing edge, centred on the line in a box no taller than it, so a button never moves the line (it reaches into the row's own padding). */
   actions: { display: "inline-flex", alignItems: "center", alignSelf: "center", gap: vars["--aui-space-4"], minWidth: 0, blockSize: LINE },
   /**

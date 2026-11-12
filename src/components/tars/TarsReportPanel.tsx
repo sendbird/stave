@@ -11,7 +11,7 @@ import { describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic,
 import { describeUsageLong } from "@/lib/agent-runs/usage";
 import type { TarsCriterionSource, TarsCriterionStatus, TarsReportEvidence, TarsReportModel, TarsRevisionFreshness } from "@/lib/tars/report-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
-import { TarsCompletionOverview } from "./TarsCompletionOverview";
+import { TarsCompletionOverview, TarsCompletionDetail } from "./TarsCompletionOverview";
 import { TarsResultDetails } from "./TarsResultDetails";
 import { tarsCompletionStyles as completionStyles } from "./tars-completion.styles";
 import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
@@ -74,7 +74,7 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish, outp
       <TarsGoalSummary row={row} />
       {model.outcome ? <div className={sx(styles.row)}><Badge size="md" tone={model.outcome === "completed" ? "success" : model.outcome === "stopped" ? "danger" : "neutral"}>
         {t(`shell:tars.side.report.outcome.${model.outcome}`)}</Badge></div> : null}
-      {model.outcome && model.reason ? <p className={sx(styles.text)} data-tars-report-reason="">{model.reason}</p> : null}
+      {model.outcome && model.reason ? <p className={sx(styles.text, completionStyles.headline)} title={model.reason} data-tars-report-reason="">{model.reason}</p> : null}
       {model.state === "frozen" ? <section className={sx(styles.section)} data-tars-report-unmet={model.unmet.length}>
         <TarsCompletionOverview model={model} row={row} outputs={outputs} />
       </section> : null}
@@ -91,10 +91,11 @@ export function TarsReportPanel({ model, row, focusUnmet, actions, publish, outp
     {/* Only blocked work has a reason and next steps; nothing else gets this landmark. */}
     {blocked ? <section className={sx(styles.section)} aria-label={t("shell:tars.side.report.blockedTitle")} data-tars-report-blocked="">
       {reason ? <p className={sx(agentRunStyles.callout)} role="note"><span><strong>{t("shell:tars.side.report.blockedTitle")}.</strong> {reason}</span></p> : null}
-      {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
       {actions}
     </section> : null}
     <TarsResultDetails key={row.id} label={t("shell:tars.completion.details")}>
+      {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
+      <TarsCompletionDetail model={model} row={row} outputs={outputs} />
       {model.summaries.map((summary) => <section key={summary.stageId} className={sx(styles.section)}>
         <h3 className={sx(styles.sectionTitle)}>{summary.title}</h3>
         <p className={sx(completionStyles.lead)} data-tars-full-summary={summary.stageId}>{summary.text}</p>
