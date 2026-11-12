@@ -199,6 +199,7 @@ export function isTarsRunCommandOperation(operation: TarsControlOperation): oper
  * subsystems' errors carry no code.
  */
 export const TarsDetailCodeSchema = z.enum([
+  "preparationFailed",
   "waitingForUser", "runPaused", "runStopped", "incompleteReport", "staleVerification",
   "scopeUnregistered", "taskIdentityChanged", "taskInUse", "executionAgentUnavailable", "assignmentUnavailable",
   "executionExists", "ownershipUnverified", "ownershipChanged", "taskUnavailable", "takenOverInTask",
@@ -405,6 +406,7 @@ export const TarsContinuationSchema = z.object({
 export type TarsContinuation = z.infer<typeof TarsContinuationSchema>;
 
 export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.extend({
+  continuationFromRevision: z.number().int().min(1).optional(),
   id: IdSchema,
   /** The execution model pin; null runs the work on automatic routing. */
   model: ModelSchema,
@@ -504,6 +506,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 }
 
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
+  continuationFromRevision: true,
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
   executionPending: true, resultVerifiedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,

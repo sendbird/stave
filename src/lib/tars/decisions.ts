@@ -5,6 +5,7 @@ import type {
   TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
 import type { TarsNeverRuleMatch } from "./autonomy";
+import { canContinueTarsControl } from "./continuation";
 import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
 
 /**
@@ -224,8 +225,9 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   function targetsOf(targets: TarsDecisionView["targets"], options: TarsDecisionView["options"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
     if (!targets.length) return "live";
     if (!rows) return "unknown";
-    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state) && !(row.state === "completed" && options.some((option) => option.kind === "control" && option.control.responsibilityId === target.responsibilityId && option.control.operation === "message")); })) return "targetEnded";
-    return targets.some((target) => rows.get(target.responsibilityId)!.revision !== target.expectedRevision) ? "targetMoved" : "live";
+    const continuation = (target: TarsDecisionView["targets"][number]) => { const row = rows.get(target.responsibilityId); return row && options.some((option) => option.kind === "control" && option.control.responsibilityId === target.responsibilityId && canContinueTarsControl(row, target.expectedRevision, option.control.operation)); };
+    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state) && !continuation(target); })) return "targetEnded";
+    return targets.some((target) => rows.get(target.responsibilityId)!.revision !== target.expectedRevision && !continuation(target)) ? "targetMoved" : "live";
   }
   /**
    * Answered first, then a retirement that settles it, then its targets: a

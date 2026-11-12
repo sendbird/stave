@@ -1,4 +1,5 @@
 import { tarsGoalReached } from "../../src/lib/tars/completion";
+import { canContinueTarsControl } from "../../src/lib/tars/continuation";
 import { createHash, randomUUID } from "node:crypto";
 import {
   TarsActivitySchema, type TarsActivity,
@@ -185,7 +186,7 @@ export class TarsStore {
     }
     this.hasDecisionTables ||= hasTarsDecisionTables(this.db);
     const rows = new Map(responsibilities.map((entry) => [entry.id, entry]));
-    const live = (id: string, revision: number, operation?: string) => { const owner = rows.get(id); return Boolean(owner) && (!isTarsResponsibilityTerminal(owner!) || owner!.state === "completed" && operation === "message") && owner!.revision === revision; };
+    const live = (id: string, revision: number, operation?: string) => { const owner = rows.get(id); return Boolean(owner) && (canContinueTarsControl(owner!, revision, operation) || !isTarsResponsibilityTerminal(owner!) && owner!.revision === revision); };
     const proposals = [...readLatestTarsControls(this.db).values()].flat()
       .filter((receipt) => receipt.status === "proposed" && receipt.action.kind === "control");
     const settled = this.hasDecisionTables ? readSettledTarsTargets(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();

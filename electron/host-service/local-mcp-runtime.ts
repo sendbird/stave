@@ -1,4 +1,6 @@
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
+import { parseGitWorktrees } from "../../src/lib/source-control-worktrees";
+import { runWorkspacePreparation, WorkspacePreparationError } from "./workspace-preparation";
 import { i18n } from "../../src/i18n/runtime";
 import { respondHostUserInput, type HostUserInputArgs } from "./host-user-input";
 import type { RunQuestionAnswer } from "./run-question-answer";
@@ -1439,6 +1441,7 @@ export async function registerRepository(args: {
 }
 
 export async function createWorkspace(args: {
+  signal?: AbortSignal;
   repositoryPath: string;
   name: string;
   /** Human-facing sidebar label. Falls back to the derived branch name. */
@@ -1450,6 +1453,7 @@ export async function createWorkspace(args: {
   initCommand?: string;
   useRootNodeModulesSymlink?: boolean;
 }) {
+  args.signal?.throwIfAborted();
   const trimmedName = args.name.trim();
   if (!trimmedName) {
     throw new Error("Workspace name is required.");
@@ -1526,6 +1530,7 @@ export async function createWorkspace(args: {
                 cwd: repositoryPath,
                 command: "git",
                 commandArgs: ["show-ref", "--verify", "--quiet", ref],
+                signal: args.signal, timeoutMs: 30_000,
               })
             ).ok,
         })
@@ -1535,11 +1540,13 @@ export async function createWorkspace(args: {
       cwd: repositoryPath,
       command: "git",
       commandArgs: ["fetch", remoteTarget.remoteName, "--prune"],
+      signal: args.signal, timeoutMs: 60_000,
     });
     if (!fetchResult.ok) {
       const localBranchProbe = await runCommandArgs({
         cwd: repositoryPath,
         command: "git",
+        signal: args.signal, timeoutMs: 30_000,
         commandArgs: [
           "show-ref",
           "--verify",
@@ -1569,34 +1576,43 @@ export async function createWorkspace(args: {
     }
   }
 
-  await runCommand({
-    cwd: repositoryPath,
-    command: "mkdir -p .stave/workspaces",
-  });
-  // `--no-track`: a branch started from `origin/main` would otherwise track it,
-  // and a bare `git push` then suggests `git push origin HEAD:main`.
-  const addResult = await runCommandArgs({
-    cwd: repositoryPath,
-    command: "git",
-    commandArgs:
-      args.mode === "clean"
-        ? ["worktree", "add", "--no-track", "-b", branchName, workspacePath]
-        : ["worktree", "add", "--no-track", "-b", branchName, workspacePath, baseBranch],
-  });
-  if (!addResult.ok) {
-    const fallbackResult = await runCommandArgs({
+  const worktrees = await runCommandArgs({ cwd: repositoryPath, command: "git", commandArgs: ["worktree", "list", "--porcelain", "-z"], signal: args.signal, timeoutMs: 30_000 });
+  if (!worktrees.ok) throw new WorkspacePreparationError("Could not reconcile Git worktrees. Check repository access, then resume to retry.");
+  const comparable = (value: string) => fs.realpath(value).catch(() => path.resolve(value));
+  const expectedPath = await comparable(workspacePath);
+  const listed = await Promise.all(parseGitWorktrees({ stdout: worktrees.stdout }).map(async (entry) => ({ ...entry, resolved: await comparable(entry.path) })));
+  const existingTree = listed.find((entry) => entry.branch === branchName || entry.resolved === expectedPath);
+  if (existingTree && (existingTree.branch !== branchName || existingTree.resolved !== expectedPath))
+    throw new WorkspacePreparationError("The execution branch or path belongs to a different worktree. Resolve that conflict, then resume to retry.");
+  if (!existingTree) {
+    await fs.mkdir(path.join(repositoryPath, ".stave/workspaces"), { recursive: true });
+    // `--no-track`: a branch started from `origin/main` would otherwise track it,
+    // and a bare `git push` then suggests `git push origin HEAD:main`.
+    const addResult = await runCommandArgs({
       cwd: repositoryPath,
       command: "git",
-      commandArgs: ["worktree", "add", workspacePath, branchName],
+      signal: args.signal, timeoutMs: 60_000,
+      commandArgs:
+        args.mode === "clean"
+          ? ["worktree", "add", "--no-track", "-b", branchName, workspacePath]
+          : ["worktree", "add", "--no-track", "-b", branchName, workspacePath, baseBranch],
     });
-    if (!fallbackResult.ok) {
-      throw new Error(
-        (
-          fallbackResult.stderr ||
-          addResult.stderr ||
-          "Failed to create git worktree."
-        ).trim(),
-      );
+    if (!addResult.ok) {
+      const fallbackResult = await runCommandArgs({
+        cwd: repositoryPath,
+        command: "git",
+        signal: args.signal, timeoutMs: 60_000,
+        commandArgs: ["worktree", "add", workspacePath, branchName],
+      });
+      if (!fallbackResult.ok) {
+        throw new Error(
+          (
+            fallbackResult.stderr ||
+            addResult.stderr ||
+            "Failed to create git worktree."
+          ).trim(),
+        );
+      }
     }
   }
 
@@ -1626,31 +1642,18 @@ export async function createWorkspace(args: {
   }
 
   if (initCommand) {
-    const initResult = await runCommand({
-      cwd: workspacePath,
-      command: initCommand,
-    });
-    const summarizedCommand = summarizeWorkspaceInitCommand({
-      command: initCommand,
-    });
-    if (initResult.ok) {
-      notices.push({
-        level: "success",
-        message: `Ran the post-create command: ${summarizedCommand}`,
-      });
-    } else {
-      notices.push({
-        level: "warning",
-        message: `The post-create command failed: ${summarizedCommand}. ${summarizeTerminalCommandDetail(
-          {
-            stderr: initResult.stderr,
-            stdout: initResult.stdout,
-            fallback: "Command failed.",
-          },
-        )}`,
-      });
+    const summarizedCommand = summarizeWorkspaceInitCommand({ command: initCommand });
+    try {
+      await runWorkspacePreparation({ cwd: workspacePath, command: initCommand, signal: args.signal });
+      notices.push({ level: "success", message: `Ran the post-create command: ${summarizedCommand}` });
+    } catch (error) {
+      // Tars must not execute in a workspace whose preparation failed; ordinary creation keeps its warning contract.
+      if (args.signal) throw error;
+      notices.push({ level: "warning", message: `The post-create command failed: ${summarizedCommand}. ${error instanceof Error ? error.message : String(error)}` });
     }
   }
+
+  args.signal?.throwIfAborted();
 
   const store = ensureHostServicePersistenceReady();
   const snapshot = createEmptyWorkspaceSnapshot();

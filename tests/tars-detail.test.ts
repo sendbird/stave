@@ -13,6 +13,7 @@ import { TarsConversationStore } from "../electron/persistence/tars-conversation
 import { tarsObservation } from "../electron/host-service/tars-execution";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError } from "../electron/host-service/tars-ownership";
 import { agentRunFixture } from "./fixtures/agent-run-fixtures";
+import { WorkspacePreparationError } from "../electron/host-service/workspace-preparation";
 
 const NOW = "2026-11-05T00:00:00.000Z";
 const LATER = "2026-11-05T00:05:00.000Z";
@@ -35,6 +36,13 @@ async function inBoth(describe: () => string | null) {
 }
 
 describe("Tars responsibility detail codes", () => {
+  test("preparation failures retain command diagnostics and translated recovery instructions", async () => {
+    const detail = tarsDetailFromError(new WorkspacePreparationError("The post-create watcher timed out."));
+    expect(detail.detailCode).toBe("preparationFailed");
+    const { en, ko } = await inBoth(() => describeTarsResponsibilityDetail(detail));
+    expect(en).toContain("resume"); expect(ko).toContain("재개");
+    expect(describeTarsResponsibilityDiagnostic(detail)).toBe("The post-create watcher timed out.");
+  });
   test.each(TarsDetailCodeSchema.options)("%s translates in English and Korean", async (detailCode) => {
     const { en, ko } = await inBoth(() => describeTarsResponsibilityDetail({ detail: "English host sentence.", detailCode }));
     expect(en).toBe(english.detail[detailCode]);

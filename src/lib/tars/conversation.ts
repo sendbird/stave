@@ -685,7 +685,7 @@ export const TarsActionRecordSchema = z.object({
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
   if (record.undo && (record.status !== "applied" || (record.undo.kind === "workspace" ? record.action.kind !== "workspace" : record.undo.kind === "queue" ? record.action.kind !== "move"
     : record.undo.kind === "run" ? record.action.kind !== "control" || (record.action.operation !== "resume" && record.action.operation !== "retryStage")
-    : record.undo.kind === "delivery" ? record.action.kind !== "control" || record.action.operation !== "message" || !record.delivery
+    : record.undo.kind === "delivery" ? record.action.kind !== "control" || !["message", "requestChanges", "retryStage"].includes(record.action.operation) || !record.delivery
       : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
     // i18n-ignore: persisted-state integrity diagnostic
     context.addIssue({ code: "custom", message: "Only reversible applied actions retain prior state." });
@@ -693,7 +693,7 @@ export const TarsActionRecordSchema = z.object({
   if ((record.source === "drag" && !move) || (record.priority !== undefined && !(move && record.status === "applied")))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "Only an applied queue move records a priority, and only a queue move comes from a drag." });
-  if (record.delivery && !(record.status === "applied" && record.action.kind === "control" && record.action.operation === "message"))
+  if (record.delivery && !(record.status === "applied" && record.action.kind === "control" && ["message", "requestChanges", "retryStage"].includes(record.action.operation)))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "Only an applied message to a run waits for delivery." });
 });

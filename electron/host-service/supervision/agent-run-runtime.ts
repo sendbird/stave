@@ -1,4 +1,5 @@
 import { i18n } from "../../../src/i18n/runtime";
+import { buildTarsRunCommand } from "../tars-ownership";
 import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
 import { mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
 import type { RunQuestionAnswer } from "../run-question-answer";
@@ -231,6 +232,7 @@ function endedWithoutOutput(row: AgentRunTurnRow): boolean {
 export interface AgentRunAdmission { tarsResponsibilityId: string }
 
 export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies {
+  hasPendingControl?: (taskId: string) => boolean;
   store: AgentRunStorePort;
   prepareGatewayCredentials?: (args: { accounts: ProviderAccountSelection; signal: AbortSignal }) => Promise<import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined>;
   freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection; admission?: AgentRunAdmission }) => AdaptiveRunPolicy;
@@ -1812,6 +1814,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       step += 1
     ) {
       signal.throwIfAborted();
+      if (deps.hasPendingControl?.(aggregate.agentRun.leadTaskId)) return;
       const { observation, turns } = await observe(aggregate, signal);
       signal.throwIfAborted();
       observeUserWait(aggregate, observation);
@@ -2199,7 +2202,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   ): Promise<AgentRunDetail> {
     return enqueueRun(agentRunId, async () => {
       const aggregate = requireAggregate(agentRunId);
-      const change = await build(aggregate);
+      const change = await buildTarsRunCommand(aggregate, build, store);
       if (hasEffect(change, aggregate)) applyChange(change);
       void requestTick();
       return detailOf(agentRunId);

@@ -83,10 +83,10 @@ function fixture() {
   let sequence = 0;
   const tick = async () => { current.runtime.requestTick(); await current.runtime.drain(); };
   const currentRow = () => current.store.get(row.id)!;
-  const propose = async (text: string) => {
+  const propose = async (text: string, expectedRevision = currentRow().revision) => {
     const saved = current.conversations.create({ requestId: `follow-up-${sequence++}`, text }, NOW);
     const claimed = current.conversations.claim(saved.id, saved.revision, NOW);
-    const action = { kind: "control" as const, responsibilityId: row.id, expectedRevision: currentRow().revision, operation: "message" as const, input: { text } };
+    const action = { kind: "control" as const, responsibilityId: row.id, expectedRevision, operation: "message" as const, input: { text } };
     const message = current.conversations.answer(claimed.id, claimed.revision, { reply: "Confirm the follow-up.", actions: [action] }, NOW);
     await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, {
       conversations: current.conversations, responsibilities: current.store, readRegistry: () => [], control: current.runtime.act, requestTick: () => {}, now: () => NOW });
@@ -127,6 +127,21 @@ test("confirmed corrections wait in order on the actual task; concurrent duplica
   expect(f.current.store.snapshot().responsibilities).toHaveLength(1);
   expect(f.starts()).toBe(0);
   expect(f.scopeChecks.every((id) => id === "actual-workspace")).toBe(true);
+});
+
+test("#12 a correction planned before completion stays visible and confirmable against its saved revision", async () => {
+  const f = fixture(); const before = f.currentRow();
+  await f.complete();
+  const next = await f.propose("Correct the result in this same work", before.revision);
+  const snapshot = f.current.store.snapshot();
+  expect(snapshot.pendingDecisions.some((decision) => decision.messageId === next.message.id)).toBe(true);
+  const decisions = projectTarsDecisions({ messages: [next.message], receipts: f.current.conversations.listReceipts(next.message.id),
+    records: [], answers: [], activity: [], responsibilities: snapshot.responsibilities });
+  expect(decisions[0]?.state).toBe("waiting");
+  expect((await next.confirm()).record.status).toBe("applied");
+  await f.tick();
+  expect(f.starts()).toBe(1);
+  expect(f.currentRow()).toMatchObject({ taskId: before.taskId, executionWorkspaceId: before.executionWorkspaceId, previousRunIds: ["original-run"] });
 });
 
 test.each([false, true])("completed work keeps identity and original scope, starts fresh verification, and recovers a lost start acknowledgement (%s)", async (unknown) => {
@@ -219,7 +234,7 @@ test("concurrent distinct submissions at one observed revision queue without dup
 });
 
 
-test.each(["runStopped", "incompleteReport", "staleVerification", "unverifiedCompletion"] as const)("an ended run observed as blocked (%s) settles its queued words without repeating delivery", async (code) => {
+test.each(["runStopped"] as const)("an ended run observed as blocked (%s) settles its queued words without repeating delivery", async (code) => {
   const f = fixture();
   const next = await f.propose("Preserve this queued correction"); await next.confirm();
   f.endBlocked(code); await f.tick();
@@ -232,6 +247,20 @@ test.each(["runStopped", "incompleteReport", "staleVerification", "unverifiedCom
   expect(f.current.conversations.getAction(requestId)).toEqual(record);
   expect(f.deliveries()).toBe(count); expect(f.starts()).toBe(0);
   expect(f.currentRow()).toMatchObject({ state: "blocked", detailCode: code });
+});
+
+test.each(["incompleteReport", "staleVerification", "unverifiedCompletion"] as const)("queued corrections continue failed verification (%s) once in the same work", async (code) => {
+  const f = fixture();
+  const before = f.currentRow();
+  const next = await f.propose("Repair and verify the result in this existing work"); await next.confirm();
+  const deliveries = f.deliveries();
+  f.endBlocked(code); await f.tick();
+  const requestId = tarsConfirmationRequestId(next.message.id, 0);
+  expect(f.current.conversations.getAction(requestId)?.delivery).toMatchObject({ status: "delivered", agentRunId: "follow-up-1" });
+  expect(f.currentRow()).toMatchObject({ taskId: before.taskId, executionWorkspaceId: before.executionWorkspaceId, previousRunIds: ["original-run"] });
+  expect(f.starts()).toBe(1); expect(f.deliveries()).toBe(deliveries);
+  f.restart(); await f.tick();
+  expect(f.starts()).toBe(1);
 });
 
 test("completed follow-up waits for capacity across restart and starts once when a slot is released", async () => {
