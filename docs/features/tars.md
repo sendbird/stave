@@ -604,8 +604,7 @@ Accept it, cancel it, or ask Tars for new verification work.
 
 **Tars did not follow up.** It follows up once per change; plain waits wait an
 hour; at most six follow-ups start per hour (the card shows **Next check**);
-the automatic-turn counter pauses follow-ups at the configured limit (subject
-to the accounting limitation in [Automatic follow-up](#automatic-follow-up)); nothing
+the automatic-turn counter pauses follow-ups at its cap of 20; nothing
 follows up while Stave is closed, for work you paused or took over, or for a
 change you already wrote about.
 
@@ -1552,9 +1551,7 @@ changes of the same work are combined into one. Follow-ups are limited:
   card; your next action starts the count again. This count is separate from
   the turns of delegated work, which it does not use up. One follow-up counts
   as one automatic turn even when it uses inspection rounds or transient retries
-  (up to six provider attempts). Currently, saved automatic action records and
-  decision closures can also restart this count; it is not a hard cap on autonomous
-  activity until that accounting limitation is corrected.
+  (up to six provider attempts).
 
 Automatic controls and Tars-authored withdrawals never reset this count. A stalled answer delivery explains its wait and releases later conversation messages within one minute, without resending an in-flight request; settlement wakes the queue. Storage contention keeps retrying at a capped delay until storage becomes available.
 
