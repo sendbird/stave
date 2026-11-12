@@ -32,11 +32,14 @@ const criteria = (html: string) => [...html.matchAll(/data-tars-result-criterion
 
 describe("Tars result card", () => {
   test("headlines and record descriptions use single-line ellipsis and keep complete text", () => {
-    for (const file of ['tars-completion.styles.ts', 'tars-record.styles.ts', 'tars-activity.styles.ts', 'tars-message.styles.ts']) {
+    for (const file of ['tars-completion.styles.ts', 'tars-record.styles.ts', 'tars-activity.styles.ts']) {
       const source = readFileSync(new URL(`../src/components/tars/${file}`, import.meta.url), 'utf8');
       expect(source).toContain('whiteSpace: "nowrap"');
       expect(source).toContain('textOverflow: "ellipsis"');
     }
+    // A failure notice says what to do next, so it wraps inside the column instead of cutting words.
+    const message = readFileSync(new URL('../src/components/tars/tars-message.styles.ts', import.meta.url), 'utf8');
+    expect(message).toContain('noticeText: { margin: 0, minWidth: 0, overflowWrap: "anywhere" }');
     const text = 'Blocked while checking exports.\n' + 'bun test tests/export.test.ts '.repeat(20);
     for (const Component of [TarsRecordDetail, TarsRecordSub]) {
       const html = renderToStaticMarkup(createElement(Component, { state: "halted", children: text }));
