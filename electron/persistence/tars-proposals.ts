@@ -1,3 +1,4 @@
+import { tarsPrWatchEpisode } from "../../src/lib/tars/pr-checks";
 import {
   TarsActionReceiptSchema, TarsActionRecordSchema, TarsDecisionAnswerSchema, isTarsDecisionClosure, type TarsActionReceipt, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
@@ -127,13 +128,14 @@ export function readTarsPrAskTarget(db: unknown, receipt: TarsActionReceipt, row
   const stored = (db as ReceiptDatabase).prepare("SELECT body_json FROM tars_messages WHERE id = ?").get(receipt.messageId) as { body_json: string } | undefined;
   const message = stored ? TarsMessageSchema.safeParse(JSON.parse(stored.body_json)) : null;
   const origin = message?.success ? message.data.origin : undefined;
-  if (origin?.kind !== "followUp" || (origin.reason !== "ciPassed" && origin.reason !== "ciFailed")) return null;
+  if (origin?.kind !== "followUp" || (origin.reason !== "ciPassed" && origin.reason !== "ciFailed" && origin.reason !== "ciUnavailable")) return null;
   const row = rows.get(origin.responsibilityId);
   const publication = row?.publication;
   const head = publication?.commit;
-  if (!row || row.state !== "completed" || publication?.state !== "opened" || !head || publication.checks?.headSha !== head ||
-      origin.eventKey !== tarsEventKey({ kind: origin.reason, responsibilityId: row.id, episode: head })) return null;
+  if (!row || (row.state !== "completed" && row.state !== "resultReady") || publication?.state !== "opened" || !head || publication.checks?.headSha !== head ||
+      origin.eventKey !== tarsEventKey({ kind: origin.reason, responsibilityId: row.id, episode: origin.reason === "ciUnavailable" ? tarsPrWatchEpisode(head, publication.watch?.startedAt) : head })) return null;
   const current = origin.reason === "ciPassed" ? publication.checks.state === "passed"
+    : origin.reason === "ciUnavailable" ? publication.checks.state === "unavailable" && Boolean(publication.watch?.stopped)
     : publication.checks.state === "failed" && (publication.watch?.fixRounds ?? 0) >= TARS_CI_FIX_ROUNDS;
   return current ? row : null;
 }

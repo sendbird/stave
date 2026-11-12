@@ -786,7 +786,7 @@ and head branch, the changed files, the commit message and pull request title
 (you can edit both and change the commit type) and the body built from the
 report, rendered as markdown; **Raw text** shows exactly what is sent. **Open
 draft PR** or Enter publishes; **Decline** or Esc publishes
-nothing. Stave then commits, pushes the work's branch and opens a draft pull
+nothing. Stave then pushes the verified commit to the work's branch and opens a draft pull
 request; it never merges, deploys or force-pushes. After opening the PR,
 Tars watches its checks for up to three hours, with one-to-five-minute intervals.
 At Balanced or Hands-off, it can continue the same work to fix CI at most twice
@@ -796,6 +796,8 @@ marking ready always requires your choice. If GitHub CLI is unavailable,
 Tars says so once and stops monitoring. The card folds to a record row such as "Draft PR #12 opened · the work · click", and the pull
 request appears in **Outputs** and the report. If a step fails, **Retry** opens
 the card again and continues from that step.
+
+Tars publishes only a clean workspace matching its verified revision. Commit and verify changed work again. PR monitoring retries temporary errors; when monitoring stops, choose **Keep watching** in its notice to watch for another three hours without resetting automatic fix limits. A merge goal finishes when Tars observes the PR merged; Tars never merges it.
 
 A blocked card in the tray shows why and offers **Open report** (at the end of
 its **Blocked** line when the card lists the block), which opens

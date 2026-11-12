@@ -1,3 +1,4 @@
+import { tarsPrWatchEpisode } from "./pr-checks";
 import { z } from "zod";
 import { TarsEventKindSchema, TarsStateSchema, type TarsEventKind, type TarsResponsibility } from "./types";
 
@@ -130,9 +131,9 @@ export function isTarsEventCurrent(event: Pick<TarsEvent, "kind" | "observedStat
   if (!row || row.revision < event.observedRevision || row.state !== event.observedState) return false;
   if (event.kind.startsWith("ci")) {
     const checks = row.publication?.checks;
-    return (row.state === "completed" || row.state === "resultReady") && row.publication?.state === "opened" && !row.publication.watch?.stopped?.match(/closed|expired/)
+    return (row.state === "completed" || row.state === "resultReady") && row.publication?.state === "opened" && !row.publication.watch?.stopped?.match(/closed|merged/)
       && row.agentRunId === event.attempt && row.publication.agentRunId === row.agentRunId
-      && row.publication.commit === event.episode && checks?.headSha === event.episode
+      && (event.kind === "ciUnavailable" ? tarsPrWatchEpisode(row.publication.commit ?? "", row.publication.watch?.startedAt) === event.episode : row.publication.commit === event.episode) && checks?.headSha === row.publication.commit
       && checks?.state === ({ ciFailed: "failed", ciPassed: "passed", ciUnavailable: "unavailable" } as Record<string, string>)[event.kind];
   }
   if (event.kind === "waitExpired") return row.state === "waiting" && row.revision === event.observedRevision;

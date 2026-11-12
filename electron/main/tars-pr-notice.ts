@@ -12,14 +12,17 @@ export function recordTarsPrNotice(conversations: TarsConversationStore, row: Ta
   const t = i18n.getFixedT(null, "shell");
   const number = row.publication!.number!;
   const reply = cap ? t("tars.prChecks.limit", { number }) : event.kind === "ciPassed"
-    ? t("tars.prChecks.passedNotice", { number }) : t("tars.prChecks.unavailableNotice", { number });
-  const effect = (choice: "ready" | "keepDraft") => ({ kind: "prReview" as const, responsibilityId: row.id, headSha: event.episode, choice });
+    ? t("tars.prChecks.passedNotice", { number }) : t(row.publication?.watch?.stopped === "expired" ? "tars.prChecks.expiredNotice" : row.publication?.watch?.stopped ? "tars.prChecks.unavailableNotice" : "tars.prChecks.retryNotice", { number });
+  const effect = (choice: "ready" | "keepDraft" | "watch") => ({ kind: "prReview" as const, responsibilityId: row.id, headSha: row.publication!.commit!, choice });
   const ask: TarsAskAction | null = event.kind === "ciPassed" ? { kind: "ask", question: t("tars.prChecks.question", { number }), options: [
     { label: t("tars.prChecks.ready"), rationale: t("tars.prChecks.readyHint"), effect: effect("ready") },
     { label: t("tars.prChecks.keepDraft"), rationale: t("tars.prChecks.keepHint"), effect: effect("keepDraft") },
   ] } : cap ? { kind: "ask", question: t("tars.prChecks.limitQuestion", { number, title: row.title }), options: [
     { label: t("tars.prChecks.continue"), rationale: t("tars.prChecks.continueHint"), effect: { kind: "reply" } },
     { label: t("tars.prChecks.stop"), rationale: t("tars.prChecks.stopHint"), effect: { kind: "reply" } },
+  ] } : row.publication?.watch?.stopped ? { kind: "ask", question: t("tars.prChecks.watchQuestion", { number }), options: [
+    { label: t("tars.prChecks.watch"), rationale: t("tars.prChecks.watchHint"), effect: effect("watch") },
+    { label: t("tars.prChecks.leaveStopped"), rationale: t("tars.prChecks.leaveStoppedHint"), effect: { kind: "reply" } },
   ] } : null;
   // The request text is stable across locale changes and is hidden as an automatic origin.
   // i18n-ignore: internal host notice identity, never rendered as user text

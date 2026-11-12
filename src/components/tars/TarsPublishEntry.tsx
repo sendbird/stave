@@ -34,8 +34,9 @@ export function TarsPrChecksLine({ row }: { row: TarsResponsibility }) {
   const { t } = useTranslation(["shell"]);
   if (!row.publication?.number) return null;
   const checks = row.publication.checks;
-  const state = checks && checks.headSha === row.publication.commit ? checks.state : "pending";
+  const stopped = row.publication.watch?.stopped;
+  const state = stopped ?? (checks && checks.headSha === row.publication.commit ? checks.state : "pending");
   return <span className={sx(styles.text)} data-tars-pr-checks={state}>
-    {" · "}{t(`shell:tars.prChecks.${state}`, { count: checks?.failing.length ?? 0 })}
+    {" · "}{t(`shell:tars.prChecks.${stopped === "unavailable" ? "stoppedUnavailable" : state}`, { count: checks?.failing.length ?? 0 })}
   </span>;
 }

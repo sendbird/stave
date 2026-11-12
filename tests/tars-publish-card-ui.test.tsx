@@ -205,3 +205,21 @@ for (const locale of ["en", "ko"] as const) test(`PR entry translates check stat
   expect(html).toContain('data-tars-pr-checks="pending"');
   expect(html).not.toContain(copy.passed);
 });
+
+
+test("a stopped PR watch renders its actual state in English and Korean", async () => {
+  const sha = "a".repeat(40);
+  for (const locale of ["en", "ko"]) {
+    applyAppLocale(locale); await i18n.changeLanguage(locale);
+    for (const stopped of ["expired", "unavailable", "closed", "merged"] as const) {
+      const work = row({ publication: { state: "opened", failedStep: null, commit: sha, branch: "work", base: "main", commitMessage: "fix: work", title: "fix: work",
+        url: "https://github.com/example/web/pull/7", number: 7, error: null, reason: null, updatedAt: NOW,
+        checks: { state: "pending", failing: [], checkedAt: NOW, headSha: sha },
+        watch: { startedAt: NOW, nextAt: NOW, polls: 1, stopped, fixRounds: 0 } } });
+      const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: work }));
+      expect(html).toContain(`data-tars-pr-checks="${stopped}"`);
+      expect(html).not.toContain('data-tars-pr-checks="pending"');
+      expect(html).toContain(i18n.t(`shell:tars.prChecks.${stopped === "unavailable" ? "stoppedUnavailable" : stopped}`));
+    }
+  }
+});

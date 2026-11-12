@@ -1264,10 +1264,9 @@ publishes; Esc or **Decline** publishes nothing and records nothing.
 Before publishing, the host checks everything again from saved state, not from
 the card or Tars's words: Tars holds the work, it is completed with Stave's
 verification, its revision is still the one you saw, its execution workspace
-exists and has uncommitted changes or commits ahead of the base, it is on its
+exists, is clean, matches the full verified workspace revision, and has commits ahead of the base, it is on its
 own branch (never the base), and the repository has a GitHub `origin` that the
-GitHub CLI can reach. Then, in the execution workspace, it runs `git add -A`,
-`git commit`, `git push -u origin` of the work's branch (never forced) and
+GitHub CLI can reach. Then, in the execution workspace, it pushes the exact verified commit to the work's branch (never forced) and
 `gh pr create --draft` against the base, or records the pull request that
 already exists for the branch. Each step is saved on the work, so **Retry**
 continues where it stopped, and a restart in the middle turns it into a
@@ -1285,6 +1284,8 @@ Stave verification before it can update the PR. Further failures ask you.
 Once all reported checks pass for the published head, Tars offers **Mark ready
 for review** or **Keep as draft**. Only your explicit choice marks it ready;
 zero reported checks do not count as passing. Merge remains unavailable.
+
+Publication requires a clean execution workspace matching the full verified revision; changed work must be committed and verified again. Transient PR-read failures retry with backoff. After three hours or an access failure, Tars shows a stopped notice with **Keep watching**, preserving the two-round automatic fix cap. A merge goal completes only when GitHub reports the PR merged; Tars never merges it.
 
 ### Decisions
 
@@ -1594,7 +1595,7 @@ Tars's next decision, without a restart.
 | Start requested work, reorder the queue, start queued work now | Confirm | Immediate |
 | Resume, retry a stage, instruct Tars's own run, request changes | Confirm | Immediate, including automatic follow-ups |
 | Extend the run's turn budget | Confirm | Immediate only up to twice the originally admitted `maxTurns`; otherwise confirm |
-| Publish a verified `resultReady` execution whose original goal is a PR or merge | Confirm | Automatically commit, push the execution branch and open a **draft** PR |
+| Publish a verified `resultReady` execution whose original goal is a PR or merge | Confirm | Push the verified commit to the execution branch and open a **draft** PR |
 | Publish other eligible results | Confirm | Confirm: "Open a PR?" |
 | Cancel, skip a stage, accept completion, approve a tool request, hand back authority, sign off, answer for the user, clear | Confirm | Confirm |
 | Pause, take over, deny a tool request | Immediate | Immediate |

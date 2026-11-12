@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { createTarsPublisher, tarsPublishCommands, type TarsCommandResult, type TarsPublishPorts } from "../electron/host-service/tars-publish";
+import { createTarsPublisher, type TarsCommandResult, type TarsPublishPorts } from "../electron/host-service/tars-publish";
 import { applyTarsDecision, type TarsDecisionPorts } from "../electron/host-service/tars-decisions";
 import { tarsFollowUpRefusal } from "../electron/host-service/tars-follow-up-admission";
 import { parseTarsDecisionOutput } from "../electron/main/tars-planner";
@@ -25,10 +25,10 @@ afterEach(() => { for (const database of databases.splice(0)) database.close(); 
 /** A scripted stand-in for git and gh in the execution workspace; it records every argument array. */
 function fakeRepository() {
   const state = {
-    branch: HEAD, dirty: [" M src/checkout/cards.ts", "?? src/checkout/cards.test.ts"], ahead: 0, remote: true as boolean,
+    branch: HEAD, dirty: [] as string[], ahead: 1, remote: true as boolean,
     gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number } | null,
-    fail: { commit: 0, push: 0, create: 0 }, sha: "1111111111111111111111111111111111111111",
-    commits: new Set<string>(["1111111111111111111111111111111111111111"]),
+    fail: { commit: 0, push: 0, create: 0 }, sha: SHA,
+    commits: new Set<string>([SHA]),
   };
   const calls: Array<[string, string[]]> = [];
   const ok = (stdout = ""): TarsCommandResult => ({ ok: true, code: 0, stdout, stderr: "" });
@@ -85,8 +85,9 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
   const now = () => new Date(Date.parse(NOW) + (clock++) * 1_000).toISOString();
   const ports: TarsPublishPorts = {
     conversations, responsibilities, run: repo.run, now,
+    readRevision: async () => ({ status: "known", revision: repo.state.sha }),
     resolveWorkspace: async () => options.workspace === false ? null : { path: "/tmp/exec-checkout", base: options.base ?? "main", repositoryName: "web" },
-    readReport: async () => ({ state: "frozen", frozenAt: NOW, finalRevision: "f00ba12", outcome: "completed",
+    readReport: async () => ({ state: "frozen", publicationRevision: { status: "known", revision: SHA }, frozenAt: NOW, finalRevision: "f00ba12", outcome: "completed",
       criteria: [{ text: "Checkout shows the saved card first.", required: true, status: "met", source: { kind: "check", stageTitle: "Verify", name: "test", exitCode: 0, revision: "f00ba12", freshness: "current" } },
         { text: "The checkout tests pass.", required: true, status: "unmet", source: { kind: "none" } }],
       evidenceGroups: [{ stageId: "verify", stageTitle: "Verify", evidence: [{ evidence: { label: "bun test passed", kind: "check", command: "bun test", source: "stave", outcome: "succeeded", freshness: "current" },
@@ -124,7 +125,7 @@ describe("Tars goal publication boundary", () => {
     expect(done).toMatchObject({ state: "completed", publication: { state: "opened", agentRunId: row.agentRunId, url: URL } });
     expect(done.taskId).toBe(row.taskId);
     expect(done.executionWorkspaceId).toBe(row.executionWorkspaceId);
-    expect(f.repo.commands("commit")).toHaveLength(1);
+    expect(f.repo.commands("commit")).toHaveLength(0);
   });
 
   test("publishing a merge goal records a PR without claiming CI or merge", async () => {
@@ -143,7 +144,7 @@ describe("Tars goal publication boundary", () => {
 });
 
 describe("Tars publish pins what it confirmed", () => {
-  test("a retried push sends the commit the first attempt made, even when the branch moved since", async () => {
+  test("a retried push refuses when the branch moved after verification", async () => {
     const f = fixture(); const row = f.completed();
     f.repo.state.fail.push = 1;
     expect((await f.confirm(row)).record).toMatchObject({ status: "rejected" });
@@ -152,7 +153,7 @@ describe("Tars publish pins what it confirmed", () => {
     const moved = "2222222222222222222222222222222222222222";
     f.repo.state.sha = moved; f.repo.state.commits.add(moved);
     const retried = f.responsibilities.get(row.id)!;
-    expect((await f.confirm(retried)).record).toMatchObject({ status: "applied" });
+    expect((await f.confirm(retried)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
     const pushes = f.repo.commands("push").map(([, args]) => args);
     expect(pushes.at(-1)).toEqual(["push", "origin", `${SHA}:refs/heads/${HEAD}`]);
     expect(pushes.flat().join(" ")).not.toContain(moved);
@@ -192,7 +193,7 @@ describe("Tars publish admission", () => {
     const gone = fixture({ workspace: false });
     expect((await gone.confirm(gone.completed())).record).toMatchObject({ status: "rejected", reason: "noWorkspace" });
     const clean = fixture();
-    clean.repo.state.dirty = [];
+    clean.repo.state.dirty = []; clean.repo.state.ahead = 0;
     expect((await clean.confirm(clean.completed())).record).toMatchObject({ status: "rejected", reason: "noChanges" });
     expect(clean.repo.commands("commit")).toEqual([]);
     const elsewhere = fixture();
@@ -228,12 +229,12 @@ describe("Tars publish admission", () => {
 });
 
 describe("Tars publish steps", () => {
-  test("commits, pushes the work's own branch without force and opens a draft pull request against the base", async () => {
+  test("pushes the verified work's own branch without force and opens a draft pull request against the base", async () => {
     const f = fixture();
     const row = f.completed();
     const result = await f.confirm(row);
     expect(result.record).toMatchObject({ status: "applied", url: URL, number: 12, reason: null });
-    expect(f.repo.commands("commit").map(([, args]) => args)).toEqual([tarsPublishCommands.commit("feat: show the saved card first at checkout")]);
+    expect(f.repo.commands("commit").map(([, args]) => args)).toEqual([]);
     const push = f.repo.commands("push").map(([, args]) => args);
     expect(push).toEqual([["push", "origin", `${SHA}:refs/heads/${HEAD}`]]);
     expect(push.flat().some((arg) => /^(--force|-f|--force-with-lease|\+)/.test(arg) || arg.includes(":refs/heads/main"))).toBe(false);
@@ -265,7 +266,7 @@ describe("Tars publish steps", () => {
     expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ state: "opened", existing: true, number: 7 });
   });
 
-  test.each([["commit", { commit: 1 }, 2, 1, 1], ["push", { push: 1 }, 1, 2, 1], ["pr", { create: 1 }, 1, 1, 2]] as const)(
+  test.each([["push", { push: 1 }, 0, 2, 1], ["pr", { create: 1 }, 0, 1, 2]] as const)(
     "a failed %s step is saved and a retry resumes there without repeating finished steps", async (step, fail, commits, pushes, creates) => {
       const f = fixture();
       Object.assign(f.repo.state.fail, fail);
@@ -379,7 +380,7 @@ describe("Tars publish from words", () => {
     await expect(request.apply()).rejects.toThrow();
     expect(f.responsibilities.get(row.id)!.revision).toBeGreaterThan(row.revision);
     expect((await request.apply())[0]?.status).toBe("applied");
-    expect(f.repo.commands("commit")).toHaveLength(1);
+    expect(f.repo.commands("commit")).toHaveLength(0);
     expect(f.repo.commands("push")).toHaveLength(1);
     expect(f.repo.commands("pr create")).toHaveLength(1);
   });
@@ -532,7 +533,6 @@ test("a verified continuation updates the same open PR, with no second create or
   expect(f.repo.commands("push")).toHaveLength(1);
   row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: "continued-run" }, NOW);
   row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, watch: { ...row.publication!.watch!, stopped: "expired" } } }, NOW);
-  f.repo.state.dirty = [" M src/checkout/cards.ts"];
   const second = await f.confirm(row);
   expect(second.record).toMatchObject({ status: "applied", number: 12, url: URL, existing: true });
   expect(f.repo.commands("push")).toHaveLength(2);
@@ -553,4 +553,25 @@ test("an update refuses a closed original PR before pushing", async () => {
   expect((await f.confirm(row)).record.reason).toBe("alreadyPublished");
   expect(f.repo.commands("push")).toHaveLength(1);
   expect(f.repo.commands("pr create")).toHaveLength(1);
+});
+
+
+test("publication refuses dirty files, changed commits, missing and mismatched verification before any external write", async () => {
+  for (const mode of ["dirty", "commit", "unknown", "missing"] as const) {
+    const f = fixture(); const row = f.completed();
+    if (mode === "dirty") f.repo.state.dirty = ["?? unverified.txt"];
+    if (mode === "commit") f.repo.state.sha = "2".repeat(40);
+    if (mode === "unknown") f.ports.readRevision = async () => ({ status: "unknown", reason: "changing" });
+    if (mode === "missing") f.ports.readReport = async () => null;
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+    for (const command of ["add", "commit", "push", "pr create"]) expect(f.repo.commands(command)).toHaveLength(0);
+  }
+});
+
+test("automatic publication describes its actual origin in the PR body", async () => {
+  const f = fixture(); const row = f.completed();
+  const report = await f.ports.readReport(row);
+  const body = buildTarsPublicationBody({ title: row.title, report, source: "automatic" });
+  expect(body).toContain("automatically"); expect(body).not.toContain("after the user confirmed");
+  expect(buildTarsPublicationBody({ title: row.title, report, source: "click" })).toContain("after the user confirmed");
 });
