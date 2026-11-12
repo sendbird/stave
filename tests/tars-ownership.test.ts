@@ -85,13 +85,16 @@ describe("Tars persisted ownership", () => {
     expect(() => assertTarsRun({ ...f.row, agentRunId: null }, latest)).toThrow("identity changed");
     f.database.close();
   });
-  test("review prompt never asks for a commit and explicitly reviews the same workspace diff", () => {
+  test("review prompt reviews the committed work in the same workspace at a pinned commit", () => {
     const f = fixture();
     const prompt = compileStagePrompt({ workflow: tarsWorkflow(f.row, NOW), stageIndex: 1, assignment: f.row.instruction,
       priorStages: [], acceptanceCriteria: [], attempt: 1 });
-    expect(prompt).not.toContain("commit only that work first");
-    expect(prompt).toContain("Do not create a commit for review");
-    expect(prompt).toContain("same workspace");
+    // The work is committed on the execution branch so the review has a commit range; nothing is published.
+    expect(prompt).toContain("commit only that work first");
+    expect(prompt).toContain("Do not create an empty commit");
+    expect(prompt).toContain("same-workspace");
+    expect(prompt).toContain("expectedHead");
+    expect(prompt).toContain("Do not push, open or update pull requests");
     f.database.close();
   });
 });

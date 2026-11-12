@@ -108,7 +108,7 @@ interface TarsControlPorts {
  * Control admission is rechecked in the run queue; only a proven automatic turn
  * is interrupted. Takeover uses the run's own taken-over pause. Only an explicit
  * hand-back clears it, and only while the run and assignment are still Tars's;
- * a hand-back during the final stage always restarts that verification.
+ * a hand-back during a stage that may end the run always restarts that attempt.
  */
 export async function controlTarsRun(
   row: TarsResponsibility,
@@ -166,9 +166,12 @@ export async function controlTarsRun(
     if (run.state !== "running" && run.state !== "paused") throw new TarsRunEndedError();
     if (run.state === "paused" && (!run.pauseReason || !HAND_BACK_CLEARABLE.has(run.pauseReason))) throw new TarsRunHeldError(run.pauseReason ?? "unknown");
     const record = [...detail.stages].reverse().find((stage) => stage.stageId === run.workflow.stages[run.currentStageIndex]?.id);
-    // A final verification that started before the hand-back may rest on evidence
-    // from before the user's changes. Only a fresh attempt may complete the work.
-    const stale = run.currentStageIndex === run.workflow.stages.length - 1 && Boolean(record?.startedAt);
+    // A stage that may end the run (the last one, or a review whose pass skips the
+    // fix stage) and started before the hand-back may rest on evidence from before
+    // the user's changes. Only a fresh attempt may complete the work.
+    const next = run.workflow.stages[run.currentStageIndex + 1];
+    const mayEndRun = !next || (next.kind === "ai" && next.skipIfReviewPassed === true);
+    const stale = mayEndRun && Boolean(record?.startedAt);
     if (!stale) {
       if (run.state === "paused") await ports.agentRuns.resume({ agentRunId: row.agentRunId! }, reclaim);
       return;

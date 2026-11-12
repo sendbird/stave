@@ -211,10 +211,10 @@ describe("Tars responsibility execution", () => {
 });
 
 describe("Tars acceptance boundary", () => {
-  test("workflow is valid, always reviews, carries exact required criteria and grants no publication stage", () => {
+  test("workflow is valid, reviews changed work, carries exact required criteria and grants no publication stage", () => {
     const f = fixture(); const row = f.store.create(input(), NOW);
     const workflow = WorkflowSchema.parse(tarsWorkflow(row, NOW));
-    expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "verify"]);
+    expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
     expect(workflow.stages[0]?.acceptanceCriteria?.[0]?.text).toBe(row.acceptanceCriteria[0]);
     expect(workflow.stages.every((stage) => stage.kind === "ai")).toBe(true);
     f.database.close();

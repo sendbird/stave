@@ -3,7 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
-  tarsExecutionInstructions, tarsRunInitialContext, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+  tarsExecutionAgentInstructions, tarsRunInitialContext, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
@@ -201,7 +201,7 @@ export function createHostTarsRuntime(args: {
       const agents = hostAgents();
       const publishes = (id: string) => { const found = agents.find((entry) => entry.id === id); return !found || tarsAgentPublishes(found); };
       const canCall = [...new Set([...(template.canCall ?? []).filter((id) => !publishes(id)), ...(row.agentId ? [row.agentId] : [])])];
-      const agent = { ...template, name: identity.name, instructions: tarsExecutionInstructions(row), canCall,
+      const agent = { ...template, name: identity.name, instructions: tarsExecutionAgentInstructions(template.instructions, row), canCall,
         tools: { ...template.tools, maxTurns: row.maxTurns }, reviewBeforeDone: "off" as const };
       args.assignments.recordTaskAgent({ requestId: `tars-${row.id}`, taskId, workspaceId,
         repositoryPath: row.repositoryPath, agent, providerId: row.providerId, model: row.model, assignment: row.instruction,

@@ -121,7 +121,7 @@ test("actual host continuation reuses execution identity, persists a separate wo
   expect(output.beforeStart).toBeNull(); expect(output.raceRefused).toBe(true); expect(output.startsBeforeActual).toBe(0);
   expect(output.reconciled).toBe(output.id);
   expect(output.next).toMatchObject({ workspaceId: "execution", leadTaskId: "success-task", assignment: "Add and verify error handling" });
-  expect(output.next.workflow.stages.map((stage: { id: string }) => stage.id)).toEqual(["work", "review", "verify"]);
+  expect(output.next.workflow.stages.map((stage: { id: string }) => stage.id)).toEqual(["work", "review", "fix-review"]);
   expect(output.original).toMatchObject({ state: "completed", assignment: "Original delegation" });
   expect(output.artifact).toBe("existing artifact");
   expect(output.savedAssignmentText).toBe("Original delegation");
