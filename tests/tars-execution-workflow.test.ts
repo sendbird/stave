@@ -8,7 +8,7 @@ import { mayFinishUnchangedWork } from "../src/lib/agent-runs/review-finalizatio
 import { FIX_REVIEW_STAGE_ID, REVIEW_STAGE_ID } from "../src/lib/agents/review-before-done";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { AGENT_CONFIG_LIMITS } from "../src/lib/agents/schema";
-import { WorkflowSchema, workflowTextLength, MAX_WORKFLOW_TEXT_LENGTH, type Workflow } from "../src/lib/workflows/schema";
+import { WorkflowSchema, workflowTextLength, MAX_WORKFLOW_TEXT_LENGTH, WORKFLOW_LIMITS, type Workflow } from "../src/lib/workflows/schema";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 
 const NOW = "2026-11-12T00:00:00.000Z";
@@ -26,6 +26,7 @@ describe("Tars execution workflow", () => {
       expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", REVIEW_STAGE_ID, FIX_REVIEW_STAGE_ID]);
       expect(workflowTextLength(workflow)).toBeLessThan(MAX_WORKFLOW_TEXT_LENGTH);
       const [work, review, fix] = workflow.stages;
+      expect(instructionOf(workflow, 1).length).toBeLessThanOrEqual(WORKFLOW_LIMITS.instruction - 150);
       expect(work).toMatchObject({ kind: "ai", acceptanceCriteria: [{ text: "Search works", required: true }] });
       // Review runs only when files changed, and the fix stage only when the review asked for changes.
       expect(review).toMatchObject({ kind: "ai", agentConfigId: "reviewer", pinCommit: true, skipIfWorkUnchanged: true });

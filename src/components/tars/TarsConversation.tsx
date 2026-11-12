@@ -459,7 +459,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         <TarsRecordOpenWorkContext value={openWork}>
         {/* The transcript, with the "while you were away" summary where the user left. */}
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
-          decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} />
+          decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}

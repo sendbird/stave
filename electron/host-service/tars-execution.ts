@@ -24,9 +24,9 @@ export const TARS_EXECUTION_POLICY = "Work only within this delegated responsibi
 export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): string {
   return row.model
     // i18n-ignore: model-facing instructions
-    ? "The user pinned the execution model, so every helper, including the reviewer, stays on this provider and model. Say in the report that the review ran on the same provider."
+    ? "Every helper, including the reviewer, stays on this provider and model the user pinned. Report the same-provider review."
     // i18n-ignore: model-facing instructions
-    : "Execution routes automatically: Stave Auto picks each unit's model and effort. Run the review on the provider that did not write the change; delegated tasks may use either Claude or Codex.";
+    : "Auto picks each unit's model and effort. Run the review on the provider that did not write the change; helpers may use Claude or Codex.";
 }
 
 /**
@@ -36,7 +36,7 @@ export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): stri
  * revision is never run through the whole suite twice.
  */
 // i18n-ignore: model-facing instructions
-export const TARS_REVIEW_CHECK_SCOPE = "Confirm the reported check evidence against the diff. With the repository's check scripts, run only checks covering the changed files, and broader ones only when that evidence is missing, failed or from another revision.";
+export const TARS_REVIEW_CHECK_SCOPE = "Check reported evidence against the diff. Run repository checks for changed files; broaden only for missing, failed or stale evidence.";
 
 /**
  * The run's initial context: the user's whole message when it did not fit

@@ -1,3 +1,4 @@
+import { projectTarsDecisions } from "@/lib/tars/decisions";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
   TARS_MESSAGE_FAILURE_TEXT, type TarsActionReason, type TarsActionReceipt, type TarsActionRecord, type TarsConversation, type TarsDecisionAction,
@@ -43,8 +44,8 @@ const DIAGNOSTIC = "Preview diagnostic: the host refused this.";
  * - an unanswered question folds as soon as anything is said after it, so the
  *   one question still waiting is the last message;
  * - a newer control proposal for the same work supersedes an older one, so
- *   each waiting confirmation targets work no later message proposes a
- *   control for, and the folded outcomes come before the waiting cards.
+ *   only the newest message can leave a confirmation waiting; the folded
+ *   outcomes come before it.
  * Work comes from the tray and side-view fixtures plus a few rows of its own,
  * so the tray beside the conversation shows the work each card names.
  * Times count from an hour after `start`, two minutes per case; with
@@ -111,7 +112,6 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   const activity: TarsActivity[] = [];
   const events: TarsEvent[] = [];
   const publications: TarsPublishRecord[] = [];
-  const pendingDecisions: TarsPendingDecision[] = [];
   let section = 0;
   const spreadCount = new Map<(typeof GALLERY_DAYS)[number], number>();
   /** Where a case starts: its two-minute slot after the last, or with `spreadUntil` the next slot in its family's run. */
@@ -163,8 +163,6 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   }
   const control = (target: TarsResponsibility, operation: TarsControlOperation, expectedRevision = target.revision, input?: ControlAction["input"]): ControlAction =>
     ({ kind: "control", responsibilityId: target.id, expectedRevision, operation, ...(input ? { input } : {}) });
-  const waitingFor = (message: TarsMessage, actionIndex: number, action: ControlAction) => pendingDecisions.push({ responsibilityId: action.responsibilityId,
-    messageId: message.id, actionIndex, operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: message.createdAt });
 
   // A · The user's own messages.
   {
@@ -407,8 +405,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   // conversation on, so each now reads as no longer waiting; the release check's resume waits again in the last message (M).
   function waiting(code: string, en: string, ko: string, ask: [string, string], reply: [string, string], actions: ControlAction[]) {
     const c = begin(code, en, ko);
-    const { message } = propose(`g-${code.toLowerCase()}`, c.at(), `${c.label}: ${l(...ask)}`, l(...reply), actions);
-    actions.forEach((action, index) => waitingFor(message, index, action));
+    propose(`g-${code.toLowerCase()}`, c.at(), `${c.label}: ${l(...ask)}`, l(...reply), actions);
   }
   waiting("F1", "Confirm card: resume", "확인 카드: 재개", ["staging is green, resume the release check.", "스테이징이 정상이야. 릴리스 확인을 재개해."],
     ["Staging is green. Confirm and the release check continues.", "스테이징이 정상입니다. 확인하시면 릴리스 확인을 이어갑니다."], [control(release, "resume")]);
@@ -617,8 +614,6 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
     // A retryable refusal leaves Stave's decision open, showing the attempt on the card.
     answers.push({ decisionId, optionIndex: 0, source: "click", effect: control(audit, "acceptCompletion"), label: null, status: "rejected", reason: "unknown",
       error: DIAGNOSTIC, actRequestId: `answer:${decisionId}`, messageId: null, revision: 2, createdAt: c.at(20), updatedAt: c.at(20) });
-    pendingDecisions.push({ kind: "unverifiedCompletion", responsibilityId: audit.id, messageId: null, actionIndex: null, operation: null,
-      expectedRevision: audit.revision, proposedAt: c.at(10), optionCount: 3 });
   }
 
   // K3–K7 · Result cards: ended work the view still holds shows what it came to, where its notice would be one line.
@@ -707,11 +702,6 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
         "수정이 실행 중입니다. 어떻게 할지 골라 주세요. 스테이징도 정상이니 아래에서 확인하시면 릴리스 확인을 재개합니다."), [ask, resume]);
     receipt(message, 0, { status: "proposed" });
     receipt(message, 1, { status: "proposed" });
-    // The tray keeps one decision row for the release check: the newest proposal's.
-    pendingDecisions.splice(pendingDecisions.findIndex((entry) => entry.messageId === "g-f1"), 1);
-    waitingFor(message, 1, resume);
-    pendingDecisions.push({ kind: "ask", responsibilityId: billing.id, messageId: message.id, actionIndex: 0, operation: null, expectedRevision: billing.revision,
-      proposedAt: message.createdAt, question, optionCount: 3 });
   }
 
   const responsibilities = [...byId.values()].map((entry) => entry.id === docs.id ? docs : entry)
@@ -719,6 +709,14 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   const followUps: TarsFollowUpState[] = [{ responsibilityId: search.id, kind: "blocked", status: "exhausted", at: null },
     { responsibilityId: release.id, kind: "waitExpired", status: "nextCheck", at: new Date(Math.max(Date.now(), galleryStart) + 55 * 60_000).toISOString() }];
   const conversation: GalleryConversation = { settings, messages, receipts, records, answers, activity, events, publications };
+  // The tray and dock describe the same live decisions, including retirement when later messages arrive.
+  const pendingDecisions: TarsPendingDecision[] = projectTarsDecisions({ ...conversation, answers, responsibilities })
+    .filter((decision) => decision.state === "waiting").flatMap((decision) => decision.targets.map((target) => ({
+      kind: decision.kind, ...target, messageId: decision.messageId, actionIndex: decision.actionIndex,
+      operation: decision.kind === "confirm" && decision.options[0]?.kind === "control" ? decision.options[0].control.operation : null,
+      proposedAt: decision.since, ...(decision.kind === "ask" ? { question: decision.question ?? "" } : {}),
+      optionCount: decision.options.length,
+    })));
   const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs, ...result.runs };
   // Named so a confirmation card can say where the work runs.
   const workspaceNames = Object.fromEntries(responsibilities.flatMap((entry) => entry.executionWorkspaceId
