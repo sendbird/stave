@@ -128,3 +128,20 @@ test("the decisions projection is read once, outside the write lock; the lock co
   expect(result.created).toBe(1);
   expect(f.store.events.listRecent(5).map((event) => [event.kind, event.status])).toEqual([["blocked", "followedUp"], ["decisionInvalidated", "superseded"]]);
 });
+
+test("automatic controls and Tars withdrawals never reset the follow-up budget; real user clicks do", () => {
+  const f = shared();
+  const row = blockedResponsibility(f.store);
+  admit(f);
+  const later = (seconds: number) => new Date(Date.parse(NOW) + seconds * 1_000).toISOString();
+  expect(f.store.events.gate(later(1)).usedTurns).toBe(1);
+  f.conversations.recordAction({ requestId: "automatic-retry", responsibilityId: row.id, expectedRevision: row.revision,
+    operation: "retryStage", source: "automatic" }, later(2));
+  f.conversations.closeDecision("ask:old-question:0", { kind: "withdraw", messageId: "withdrawal", actionIndex: 0 }, later(3));
+  expect(f.store.events.gate(later(4)).usedTurns).toBe(1);
+  expect(f.store.events.userActedSince(later(1))).toBe(false);
+  f.conversations.recordAction({ requestId: "user-retry", responsibilityId: row.id, expectedRevision: row.revision,
+    operation: "retryStage", source: "click" }, later(5));
+  expect(f.store.events.gate(later(6)).usedTurns).toBe(0);
+  expect(f.store.events.userActedSince(later(4))).toBe(true);
+});

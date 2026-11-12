@@ -11,7 +11,7 @@ import { followUpFixture, minutes } from "./tars-follow-up-fixture";
 import { REGISTRY, testContext } from "./tars-test-context";
 
 // Guards on the automatic follow-up budget and its rechecks: the window
-// counts planner starts, a follow-up never runs after the user spoke or after
+// counts planner starts, a follow-up never runs after the user addressed its work or after
 // a newer change, a valid event is never hidden behind a page of stale ones,
 // a new run turn restarts the quiet wait, and past times leave the tray.
 
@@ -93,18 +93,18 @@ describe("the window counts planner starts", () => {
 });
 
 describe("rechecks right before the model call", () => {
-  test("a follow-up queued before the user spoke starts no model call; the user's message does", async () => {
+  test("an unrelated message does not cancel an already queued follow-up", async () => {
     const f = fixture();
     const row = f.responsibility("running");
     f.observations.set(row.id, blocked()); await hostTick(f);
     expect(admitOnly(f).created).toBe(1);
     f.advance(1_000);
-    f.conversations.create({ requestId: "user-words", text: "I am looking at the release check myself." }, f.now());
+    f.conversations.create({ requestId: "user-words", text: "What is a workspace?" }, f.now());
     f.service.start(); await f.settle();
-    expect(f.planner).toHaveLength(1);
-    expect(f.planner[0]!.input.prompt).not.toContain('"automaticFollowUp"');
-    expect(f.automatic().map((message) => message.state)).toEqual(["cancelled"]);
-    expect(eventsOf(f, row.id).map((event) => event.status)).toEqual(["superseded"]);
+    expect(f.planner).toHaveLength(2);
+    expect(f.planner[1]!.input.prompt).not.toContain('"automaticFollowUp"');
+    expect(f.automatic().map((message) => message.state)).toEqual(["answered"]);
+    expect(eventsOf(f, row.id).map((event) => event.status)).toEqual(["followedUp"]);
   });
 
   test("a queued follow-up whose work changed again yields to the newer episode", async () => {
@@ -121,7 +121,7 @@ describe("rechecks right before the model call", () => {
     expect(f.automatic().map((message) => message.state)).toEqual(["cancelled", "answered"]);
   });
 
-  test("after the asynchronous claim, the user's message cancels the follow-up without executing it", async () => {
+  test("after the asynchronous claim, a user control on that work cancels its follow-up before execution", async () => {
     const f = fixture();
     const row = f.responsibility("running");
     f.observations.set(row.id, blocked()); await hostTick(f);
@@ -131,8 +131,9 @@ describe("rechecks right before the model call", () => {
     const coordinator = {
       claim: async () => {
         calls.push("claim");
-        // The user writes while the run step is being admitted.
-        f.conversations.create({ requestId: "user-during-claim", text: "Hold on, I will handle it." }, f.now());
+        // The user takes responsibility for this exact work while its planner step is admitted.
+        f.conversations.recordAction({ requestId: "user-during-claim", responsibilityId: row.id,
+          expectedRevision: f.responsibilities.get(row.id)!.revision, operation: "takeover", source: "click" }, f.now());
         return { accepted: true, aggregate: { step: { executionId: "execution-1" } } };
       },
       execute: async () => { calls.push("execute"); throw new Error("must not run"); },
@@ -211,6 +212,8 @@ test("cancelled follow-ups take no start: a new change right after them is follo
   expect(admitOnly(f).created).toBe(TARS_FOLLOW_UP_WINDOW_CAP);
   f.advance(1_000);
   f.conversations.create({ requestId: "user-words", text: "I will look at these myself." }, f.now());
+  for (const row of queued) f.conversations.recordAction({ requestId: `takeover-${row.id}`, responsibilityId: row.id,
+    expectedRevision: f.responsibilities.get(row.id)!.revision, operation: "takeover", source: "click" }, f.now());
   f.advance(1_000);
   const fresh = f.responsibility("running");
   f.observations.set(fresh.id, blocked()); await hostTick(f);
@@ -252,6 +255,8 @@ describe("each ask is its own episode", () => {
     f.advance(1_000);
     // The user wrote to Tars about it, so the immediate follow-up is superseded.
     f.conversations.create({ requestId: "user-words", text: "I saw the question." }, f.now());
+    f.conversations.recordAction({ requestId: "look-at-question", responsibilityId: row.id,
+      expectedRevision: f.responsibilities.get(row.id)!.revision, operation: "resume", source: "click" }, f.now());
     f.service.start(); await f.settle();
     expect(eventsOf(f, row.id).map((event) => [event.kind, event.status])).toEqual([["stageAsksUser", "superseded"]]);
     expect(f.planner).toHaveLength(1);

@@ -110,6 +110,13 @@ describe("Tars completion over the conditional stages", () => {
   const reviewed = (verdict: "passed" | "changes-requested", rev = "r2", patch: Patch = {}) => record(REVIEW_STAGE_ID, {
     report: complete({ reviewVerdict: verdict, workspaceRevision: revision(rev) }), facts: facts(rev), ...patch });
 
+  test("a turn-limit pause preserves its reason even when the current stage has explanatory words", () => {
+    const detail = ended([record("work", { status: "running", detail: "Finishing the checks." })]);
+    detail.agentRun = { ...detail.agentRun, state: "paused", pauseReason: "limit-reached", currentStageIndex: 0, turnCount: 30 };
+    expect(observe(detail)).toMatchObject({ state: "waiting", detail: "Finishing the checks.", detailCode: "runPaused",
+      detailParams: { reason: "limit-reached" }, runTurns: 30, runStage: "work#1" });
+  });
+
   test("unchanged work completes from its report with the review and fix skipped", () => {
     const detail = ended([answer(), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]);
     expect(tarsFinalStageRecord(detail)?.stageId).toBe("work");

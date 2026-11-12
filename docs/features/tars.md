@@ -1366,7 +1366,7 @@ not applied and why, so you can try again or choose another option. Answering on
 the other options for that same responsibility. A decision is bound to the
 work its options control: when that work moves past the revision Tars saw, or
 ends, the card says it is no longer valid, offers no buttons, and Tars asks
-again by itself, at most once per reply and only while nothing newer was said.
+again by itself, at most once per reply while its work has not been addressed.
 That follow-up can only ask; it cannot act. Stave's unverified-completion
 choice is not asked again: it simply stops waiting once the work changes.
 
@@ -1380,8 +1380,8 @@ A waiting card also closes in three other ways, none of which applies anything:
   it stays in the tray as blocked work with its own controls, and the record
   line says so.
 - **The conversation moves on.** A question or a proposed control stops
-  waiting when you send a newer message, reading "No longer waiting: the
-  conversation moved on." Tars's own automatic follow-up about other work does
+  waiting when a newer request addresses that same work, reading "No longer waiting: the
+  conversation moved on." Unrelated messages and automatic follow-ups do
   not count. Short answers still bind only to the newest message's one
   decision. Stave's unverified-completion choice does not expire this way: it
   waits until you answer or dismiss it, or the work changes.
@@ -1461,6 +1461,7 @@ follow-up turn of Tars's own, so blocked work does not wait silently for you to
 ask:
 
 - the work became blocked,
+- its run paused at its turn limit (`limitReached`): Tars follows up immediately and may propose an extension under the autonomy policy,
 - its run's own stage stopped while the run is still running: the stage
   blocked, got stuck or awaits your sign-off. A helper the run delegated to
   counts the same way when its stage stops, since the run waits for that
@@ -1533,11 +1534,13 @@ changes of the same work are combined into one. Follow-ups are limited:
   next.
 - Automatic turns (follow-ups and re-asks) are counted since your last action
   toward Tars: a message, an answer, a **Confirm** or any control click in
-  Tars, Fleet or the task. When their number reaches the turn limit in
-  settings, Tars stops following up and says so in the conversation and on the
+  Tars, Fleet or the task. At the separate cap of 20 automatic follow-ups,
+  independent of execution turn limits, Tars stops and says so in the conversation and on the
   card; your next action starts the count again. This count is separate from
   the turns of delegated work, which it does not use up. Each follow-up is one
   call on the conversation model.
+
+Automatic controls and Tars-authored withdrawals never reset this count. A stalled answer delivery explains its wait and releases later conversation messages within one minute, without resending an in-flight request; settlement wakes the queue. Storage contention keeps retrying at a capped delay until storage becomes available.
 
 A waiting card shows **Next check** with the time Tars follows up if nothing
 changes before then; it never shows a time that has passed, and shows nothing

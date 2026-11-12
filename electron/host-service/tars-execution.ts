@@ -287,6 +287,8 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
     const asks = run.state !== "paused" ? { stageAsksUser: true, ...(wait ? { stageWait: wait } : {}) } : {};
     // The turn count lets a turn taken between two looks restart the quiet wait.
     const turns = { runTurns: run.turnCount, ...(current ? { runStage: `${current.stageId}#${current.attempt}` } : {}) };
+    if (run.state === "paused" && run.pauseReason === "limit-reached") return { state: "waiting", detail: words ?? run.pauseReason,
+      detailCode: "runPaused", detailParams: { reason: run.pauseReason }, ...turns };
     // A bare pause reason is a code, never words to show as written.
     if (parseAgentRunTurnStartFailure(words)) return { state: "waiting", detail: words, detailCode: "turnStartFailed", detailParams: null, ...asks, ...turns };
     return words || !run.pauseReason ? { state: "waiting", detail: words, ...asks, ...turns }

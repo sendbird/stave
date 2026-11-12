@@ -1,6 +1,7 @@
 import {
-  TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsDecisionClosure, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
+  TarsMessageSchema, TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsDecisionClosure, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
+import { z } from "zod";
 import type {
   TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
@@ -183,6 +184,25 @@ export function tarsDecisionTargets(receipt: Pick<TarsActionReceipt, "action">):
   return [...new Set(action.options.flatMap((option) => option.effect.kind === "control" ? [option.effect.responsibilityId] : []))];
 }
 
+/** Exact work identities in a saved message; prose recency alone never resolves another work's obligation. */
+export const TarsMessageTargetSchema = z.object({ id: TarsMessageSchema.shape.id,
+  origin: TarsMessageSchema.shape.origin, decision: TarsMessageSchema.shape.decision });
+
+export function tarsMessageTargets(message: Pick<TarsMessage, "origin" | "decision">): string[] {
+  return [...new Set([
+    ...(message.origin?.kind === "followUp" ? [message.origin.responsibilityId] : []),
+    ...(message.decision?.actions ?? []).flatMap((action) => "responsibilityId" in action ? [action.responsibilityId]
+      : action.kind === "ask" ? action.options.flatMap((option) => "responsibilityId" in option.effect ? [option.effect.responsibilityId] : []) : []),
+  ])];
+}
+
+/** The user addressed these exact targets in later saved messages. Automatic messages grant no user intent. */
+export function tarsTargetsMovedOn(targets: readonly string[], later: readonly Pick<TarsMessage, "origin" | "decision">[]): boolean {
+  if (!targets.length) return false;
+  const addressed = new Set(later.filter((message) => !message.origin || message.origin.kind === "answer").flatMap(tarsMessageTargets));
+  return targets.every((id) => addressed.has(id));
+}
+
 /** A decision's id from its receipt, for the kinds that are decisions. */
 export function tarsReceiptDecisionId(receipt: Pick<TarsActionReceipt, "action" | "messageId" | "actionIndex">): string | null {
   return receipt.action.kind === "ask" ? tarsAskDecisionId(receipt.messageId, receipt.actionIndex)
@@ -198,8 +218,6 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   const records = new Map(sources.records.map((record) => [record.requestId, record]));
   const order = new Map(sources.messages.map((message, index) => [message.id, index]));
   const lastMessage = sources.messages.at(-1);
-  // Tars's own follow-up about other work is not the conversation moving on: a waiting question stays open.
-  const lastSpoken = sources.messages.findLastIndex((message) => message.origin?.kind !== "followUp");
   const reasked = new Set(sources.messages.flatMap((message) => message.origin?.kind === "reask" ? [message.origin.decisionId] : []));
   // At most one automatic follow-up per message, whichever of its decisions caused it.
   const reaskedMessages = new Set([...reasked].flatMap((id) => { const parsed = parseTarsDecisionId(id); return parsed && parsed.kind !== "unverifiedCompletion" ? [parsed.messageId] : []; }));
@@ -248,8 +266,8 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const targets = targetsOf(view.targets, view.options);
     if ((targets === "live" || targets === "unknown") && movedOn) return { ...base, state: "retired", why: "movedOn", checked: true, reask: false };
     if (targets === "live" || targets === "unknown") return { ...base, state: "waiting", why: null, checked: targets === "live", reask: false };
-    // Only Tars's own questions are asked again, once per message, and only while nothing newer was said.
-    const reask = view.kind !== "unverifiedCompletion" && view.messageId !== null && latest && origin?.kind !== "reask" && !reaskedMessages.has(view.messageId);
+    // Only Tars's own questions are asked again, once per message, while their own work has not been addressed.
+    const reask = view.kind !== "unverifiedCompletion" && view.messageId !== null && !movedOn && origin?.kind !== "reask" && !reaskedMessages.has(view.messageId);
     return { ...base, state: "invalid", why: targets, checked: true, reask };
   }
   const views: TarsDecisionView[] = [];
@@ -257,7 +275,9 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const { action } = receipt;
     const message = sources.messages[order.get(receipt.messageId) ?? -1];
     if (!message) continue;
-    const later = (order.get(receipt.messageId) ?? 0) < lastSpoken;
+    const targets = tarsDecisionTargets(receipt);
+    const later = tarsTargetsMovedOn(targets.length ? targets : message.origin?.kind === "followUp" ? [message.origin.responsibilityId] : [],
+      sources.messages.slice((order.get(receipt.messageId) ?? 0) + 1));
     if (isTarsWorkProposal(receipt)) {
       // Held by the autonomy level or one of the user's rules; an unheld one was applied or refused and stays a receipt line.
       const id = tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex);

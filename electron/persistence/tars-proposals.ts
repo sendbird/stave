@@ -1,7 +1,7 @@
 import {
   TarsActionReceiptSchema, TarsActionRecordSchema, TarsDecisionAnswerSchema, isTarsDecisionClosure, type TarsActionReceipt, type TarsDecisionAnswer,
 } from "../../src/lib/tars/conversation";
-import { tarsDecisionTargets, tarsReceiptDecisionId } from "../../src/lib/tars/decisions";
+import { tarsDecisionTargets, tarsReceiptDecisionId, tarsMessageTargets, tarsTargetsMovedOn, TarsMessageTargetSchema } from "../../src/lib/tars/decisions";
 import { TarsMessageSchema } from "../../src/lib/tars/conversation";
 import { tarsEventKey } from "../../src/lib/tars/events";
 import { TARS_CI_FIX_ROUNDS } from "../../src/lib/tars/pr-checks";
@@ -52,6 +52,16 @@ function parseRows<T>(rows: unknown[], schema: { safeParse(value: unknown): { su
   return rows.flatMap((row) => { const parsed = schema.safeParse(JSON.parse((row as { body_json: string }).body_json)); return parsed.success ? [parsed.data] : []; });
 }
 
+/** Sources plus later user messages with target-bearing actions; attachment payloads never enter this projection. */
+function readProposalMessages(db: ReceiptDatabase, messageIds: readonly string[]) {
+  if (!messageIds.length) return [];
+  const ids = JSON.stringify([...new Set(messageIds)]);
+  return parseRows(db.prepare(`SELECT json_remove(body_json, '$.attachments') AS body_json FROM tars_messages
+    WHERE id IN (SELECT value FROM json_each(?)) OR (rowid > (SELECT MIN(rowid) FROM tars_messages WHERE id IN (SELECT value FROM json_each(?)))
+      AND (json_extract(body_json, '$.origin.kind') IS NULL OR json_extract(body_json, '$.origin.kind') = 'answer')
+      AND json_array_length(body_json, '$.decision.actions') > 0) ORDER BY rowid`).all(ids, ids), TarsMessageTargetSchema);
+}
+
 /** Answers by decision id, in one read. */
 export function readTarsAnswers(db: unknown, ids: readonly string[]): Map<string, TarsDecisionAnswer> {
   if (!ids.length) return new Map();
@@ -92,17 +102,24 @@ export function readSettledTarsTargets(db: unknown, messageIds: readonly string[
 }
 
 /**
- * Questions that can still wait: proposed asks of the newest message (a later
- * message means the conversation moved on, except Tars's own automatic
- * follow-up about other work). Answers, siblings and their targets' revisions
+ * Questions that can still wait: proposed asks whose own work has not
+ * been addressed by a later user request. Unrelated conversation does not
+ * resolve a question. Answers, siblings and their targets' revisions
  * are checked by the caller, as the card does.
  */
 export function readOpenTarsAsks(db: unknown): TarsActionReceipt[] {
-  return parseRows((db as ReceiptDatabase).prepare(`SELECT r.body_json FROM tars_action_receipts r JOIN tars_messages m ON m.id = r.message_id
+  const database = db as ReceiptDatabase;
+  const receipts = parseRows(database.prepare(`SELECT r.body_json FROM tars_action_receipts r
     WHERE json_extract(r.body_json, '$.action.kind') = 'ask' AND json_extract(r.body_json, '$.status') = 'proposed'
-      AND NOT EXISTS (SELECT 1 FROM tars_messages later WHERE later.rowid > m.rowid
-        AND json_extract(later.body_json, '$.origin.kind') IS NOT 'followUp')
     ORDER BY r.rowid`).all(), TarsActionReceiptSchema);
+  const messages = readProposalMessages(database, receipts.map((receipt) => receipt.messageId));
+  return receipts.filter((receipt) => {
+    const index = messages.findIndex((message) => message.id === receipt.messageId);
+    if (index < 0) return false;
+    const targets = tarsDecisionTargets(receipt);
+    const origin = messages[index]!.origin;
+    return !tarsTargetsMovedOn(targets.length ? targets : origin?.kind === "followUp" ? [origin.responsibilityId] : [], messages.slice(index + 1));
+  });
 }
 
 /** PR notices have reply/review options rather than revision-bound run controls. */
@@ -122,15 +139,22 @@ export function readTarsPrAskTarget(db: unknown, receipt: TarsActionReceipt, row
 }
 
 /**
- * The messages the conversation moved on from: a later message exists that is
- * not Tars's own automatic follow-up about other work. A proposal or a
+ * Messages whose exact work targets a later user message addressed. A proposal or a
  * question of such a message no longer waits (`projectTarsDecisions` reads
- * the same rule from conversation order).
+ * the same rule from conversation order). The set includes message ids when all
+ * their work was addressed, and `<message>:<responsibility>` for individual work.
  */
 export function readMovedOnTarsMessages(db: unknown, messageIds: readonly string[]): Set<string> {
   if (!messageIds.length) return new Set();
-  const rows = (db as ReceiptDatabase).prepare(`SELECT m.id AS id FROM tars_messages m WHERE m.id IN (SELECT value FROM json_each(?))
-    AND EXISTS (SELECT 1 FROM tars_messages later WHERE later.rowid > m.rowid AND json_extract(later.body_json, '$.origin.kind') IS NOT 'followUp')`)
-    .all(JSON.stringify([...new Set(messageIds)])) as Array<{ id: string }>;
-  return new Set(rows.map((row) => row.id));
+  const messages = readProposalMessages(db as ReceiptDatabase, messageIds);
+  const ids = new Set(messageIds);
+  const moved = new Set<string>();
+  for (const [index, message] of messages.entries()) {
+    if (!ids.has(message.id)) continue;
+    const targets = tarsMessageTargets(message);
+    const later = messages.slice(index + 1);
+    for (const target of targets) if (tarsTargetsMovedOn([target], later)) moved.add(`${message.id}:${target}`);
+    if (tarsTargetsMovedOn(targets, later)) moved.add(message.id);
+  }
+  return moved;
 }

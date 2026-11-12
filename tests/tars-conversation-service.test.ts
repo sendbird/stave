@@ -367,7 +367,7 @@ test("a host lock failure keeps a saved proposal pending and retries it instead 
   await service.stop();
 });
 
-test("a claim lock failure keeps the message queued and the service reschedules it a bounded number of times", async () => {
+test("storage contention keeps retrying past the last backoff step and resumes without another send", async () => {
   const f = fixture();
   const claim = f.conversations.claim.bind(f.conversations);
   let failures = 1;
@@ -378,12 +378,14 @@ test("a claim lock failure keeps the message queued and the service reschedules 
   await eventually(() => f.conversations.get(message.id)?.state === "answered");
   expect(f.requests).toHaveLength(1); expect(f.errors).toHaveLength(1);
 
-  // Retries stop once the delays are spent; the work stays saved for the next send or restart.
-  failures = 3;
+  // More failures than configured delays must still recover without a send, wake or restart.
+  failures = 6;
   const stuck = service.sendMessage(input("still-busy")); await service.whenIdle();
-  await new Promise((resolve) => setTimeout(resolve, 20)); await service.whenIdle();
-  expect(f.conversations.get(stuck.id)?.state).toBe("queued");
-  expect(f.errors).toHaveLength(3);
+  expect(f.conversations.get(stuck.id)?.waiting?.reason).toBe("storageBusy");
+  await eventually(() => f.conversations.get(stuck.id)?.state === "answered");
+  await service.whenIdle();
+  expect(f.errors).toHaveLength(7);
+  expect(f.requests).toHaveLength(2);
   await service.stop();
 });
 
@@ -489,4 +491,39 @@ test("an unresolved control delivery keeps retrying past the backoff steps, then
   expect(f.responsibilities.get(row.id)?.state).toBe("paused");
   expect(f.conversations.get(later.id)?.state).toBe("answered");
   await service.stop(); host.stop();
+});
+
+
+test("a hung saved answer releases the queue, joins delivery once and wakes queued work when it settles", async () => {
+  const gate = deferred<void>();
+  const f = fixture({ answer: async () => JSON.stringify({ reply: "Noted.", actions: [] }) });
+  const created = f.responsibilities.create({ requestId: "owned-answer", title: "Search", instruction: "Fix search.",
+    acceptanceCriteria: ["Search works"], workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, NOW);
+  const row = f.responsibilities.patch(created.id, created.revision, { state: "running", taskId: "task", executionWorkspaceId: "execution", agentRunId: "run" }, NOW);
+  const decisionId = "ask:held-question:0";
+  f.conversations.recordAnswer({ decisionId, optionIndex: 0, source: "click", label: "Pause",
+    effect: { kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: "pause" }, actRequestId: "answer:held-question" }, NOW);
+  let deliveries = 0;
+  const waits: string[] = [];
+  const note = f.conversations.noteQueueWait.bind(f.conversations);
+  f.conversations.noteQueueWait = (...args) => { if (args[1]) waits.push(args[1]); return note(...args); };
+  const now = () => NOW;
+  const service = createTarsConversationService({ ...f.ports, now, queueWaitMs: 20, retryDelaysMs: [60_000],
+    act: async (input) => { deliveries++; await gate.promise; return actTars(input, { conversations: f.conversations, runtime: f.runtime, now: () => NOW }); } });
+  service.start();
+  const later = service.sendMessage(input("after-answer", { text: "Discuss something else." }));
+  try {
+    await eventually(() => f.conversations.get(later.id)?.state === "answered");
+    expect(waits).toContain("earlierAnswer");
+    expect(deliveries).toBe(1);
+    service.wake(); await service.whenIdle();
+    expect(deliveries).toBe(1);
+    // Only settlement wakes this directly saved message; there is no send/wake after this point.
+    const after = f.conversations.create(input("wake-on-answer"), now());
+    gate.resolve();
+    await eventually(() => f.conversations.get(after.id)?.state === "answered");
+    expect(f.conversations.getAnswer(decisionId)?.status).toBe("applied");
+    expect(f.runControls).toEqual(["pause"]);
+    expect(deliveries).toBe(1);
+  } finally { gate.resolve(); await service.stop(); f.runtime.stop(); }
 });

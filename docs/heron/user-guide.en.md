@@ -882,7 +882,7 @@ card for good without choosing, applies nothing and removes the decision from
 **Needs you** and Fleet; the card folds to a "Dismissed" record. Dismissing
 Stave's check for an unverified completion leaves the work blocked in the tray
 with its own controls. A question or a proposed control also stops waiting
-when you send a newer message ("the conversation moved on"), and Tars can
+when a newer request addresses that same work ("the conversation moved on"), and Tars can
 withdraw one of its own earlier cards that no longer fits ("Withdrawn by
 Tars"). Decision cards also wait in **Needs you** and in Fleet
 View; cards with several options open Tars from Fleet. In **Agents**, the
@@ -933,7 +933,7 @@ queued priority or open a view. It never starts work by itself (it asks you
 instead), never pauses, takes over or accepts work as done, and proposes
 nothing about work you paused, took over or that ended. Each change gets one
 follow-up; at most six start per hour, and each counts as one turn toward the
-turn limit, counted since your last message, answer or click toward Tars.
+separate cap of 20, counted since your last message, answer or click toward Tars; execution limits are independent and automatic actions never reset this count. A turn-limit pause gets an immediate follow-up under the autonomy policy. Unrelated messages leave other work's questions open. A stalled answer delivery explains its wait and releases later conversation messages within one minute; it is not sent twice, and settlement wakes the queue. Storage contention retries automatically at a capped delay.
 When the limit is used up, Tars says so and waits for you. A tray card shows when Tars looks next, such
 as **Next check** on waiting work.
 

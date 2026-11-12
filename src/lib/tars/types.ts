@@ -551,7 +551,7 @@ export type TarsPendingDecision = z.infer<typeof TarsPendingDecisionSchema>;
  * the host settles itself; they are recorded, never followed up.
  */
 export const TarsEventKindSchema = z.enum([
-  "resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated", "completed", "hostRecovery", "ciFailed", "ciPassed", "ciUnavailable",
+  "resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "decisionInvalidated", "completed", "hostRecovery", "ciFailed", "ciPassed", "ciUnavailable",
 ]);
 export type TarsEventKind = z.infer<typeof TarsEventKindSchema>;
 

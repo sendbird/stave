@@ -1393,6 +1393,8 @@
       },
       "waiting": {
         "earlierAction": "Waiting for the result of an earlier action. It starts within a minute either way.",
+        "earlierAnswer": "Waiting for delivery of an earlier answer. This message starts within a minute either way.",
+        "storageBusy": "Waiting for storage to become available. Tars retries automatically; your message is saved.",
         "agentCatalog": "Waiting for your saved agents to load. If they do not load within a minute, this message stops and says so."
       },
       "droppedActions_one": "{{count}} proposed action was not valid and was left out. Nothing was done for it.",
@@ -2166,6 +2168,7 @@
         "unverifiedCompletion": "Tars follow-up · Reported done, not yet confirmed: {{title}}",
         "verificationFailed": "Tars follow-up · Completion checks incomplete: {{title}}",
         "stageAsksUser": "Tars follow-up · Needs your answer or approval: {{title}}",
+        "limitReached": "Tars follow-up · Execution turn limit reached: {{title}}",
         "stageGate": "Tars follow-up · A Stave check stopped progress: {{title}}",
         "waitExpired": "Tars follow-up · No update while waiting: {{title}}",
         "ciFailed": "CI failed for {{title}}",

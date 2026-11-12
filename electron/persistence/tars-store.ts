@@ -194,7 +194,7 @@ export class TarsStore {
     const movedOn = this.hasDecisionTables ? readMovedOnTarsMessages(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
     const confirms = proposals.flatMap((receipt): TarsPendingDecision[] => {
       const { action } = receipt;
-      if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) || movedOn.has(receipt.messageId) ||
+      if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) || movedOn.has(`${receipt.messageId}:${action.responsibilityId}`) ||
         answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision, action.operation)) return [];
       return [{ responsibilityId: action.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: receipt.updatedAt }];

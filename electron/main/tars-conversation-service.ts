@@ -90,7 +90,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let windowTimer: ReturnType<typeof setTimeout> | null = null;
   let failedDrains = 0;
-  /** When each blocked item was first seen blocked: `action:<message>` or `catalog:<message>`. Kept across drains, so the wait stays bounded. */
+  /** When each action, answer or catalog item first blocked the queue. Kept across drains, so the wait stays bounded. */
   const blockedSince = new Map<string, number>();
   const queueWaitMs = ports.queueWaitMs ?? QUEUE_WAIT_MS;
 
@@ -115,6 +115,20 @@ export function createTarsConversationService(ports: ConversationPorts) {
    */
   const applying = new Map<string, Promise<unknown>>();
   const detached = new Set<string>();
+  /** Public answer calls and recovery join the same delivery; a queue deadline never resends it. */
+  const answering = new Map<string, Promise<TarsDecisionAnswer>>();
+  const detachedAnswers = new Set<string>();
+  function startAnswer(answer: TarsDecisionAnswer): Promise<TarsDecisionAnswer> {
+    let run = answering.get(answer.decisionId);
+    if (!run) {
+      run = settleAnswer(answer).finally(() => {
+        answering.delete(answer.decisionId);
+        if (detachedAnswers.delete(answer.decisionId) && !stopped) requestWork();
+      });
+      answering.set(answer.decisionId, run);
+    }
+    return run;
+  }
   function startApply(message: TarsMessage): Promise<unknown> {
     let run = applying.get(message.id);
     if (!run) {
@@ -326,8 +340,22 @@ export function createTarsConversationService(ports: ConversationPorts) {
   async function retryPendingAnswers(): Promise<boolean> {
     let failed = false;
     for (const answer of ports.conversations.listPendingAnswers(8)) {
-      try { await settleAnswer(answer); }
+      const key = `answer:${answer.decisionId}`;
+      stillWaiting(key);
+      try {
+        const run = startAnswer(answer);
+        const remaining = Math.max(0, queueWaitMs - (Date.parse(now()) - blockedSince.get(key)!));
+        let result = await within(run, Math.min(QUEUE_NOTICE_MS, remaining));
+        if (result === DEADLINE) {
+          noteQueueWait("earlierAnswer");
+          result = await within(run, queueWaitMs - (Date.parse(now()) - blockedSince.get(key)!));
+        }
+        if (result === DEADLINE) { detachedAnswers.add(answer.decisionId); failed = true; }
+        else if (result.status === "pending") failed = true;
+        else blockedSince.delete(key);
+      }
       catch (error) { failed = true; ports.onError?.(error); }
+      if (stopped) break;
     }
     return failed;
   }
@@ -394,15 +422,19 @@ export function createTarsConversationService(ports: ConversationPorts) {
   }
 
   // A failed drain (such as a lock wait that outlasted busy_timeout) leaves its
-  // work saved. Retry a bounded number of times instead of waiting for the next
-  // send or restart; a later successful drain resets the count.
+  // work saved. Recoverable contention keeps retrying at the last delay;
+  // a later successful drain resets the count.
   function scheduleRetry(error: unknown) {
     const delays = ports.retryDelaysMs ?? RETRY_DELAYS_MS;
     // An unresolved control delivery holds the queue in order, so keep retrying it
     // at the capped delay until the host answers. It never starts a model call.
-    const waits = error instanceof TarsControlOutcomeUnknownError || isTarsAgentCatalogPending(error);
+    const waits = error instanceof TarsControlOutcomeUnknownError || isTarsAgentCatalogPending(error) || isTarsStorageBusy(error);
     const delay = delays[failedDrains] ?? (waits ? delays.at(-1) : undefined);
     if (stopped || retryTimer || delay === undefined) return;
+    if (isTarsStorageBusy(error)) {
+      // The same lock may prevent the notice; it must never prevent the retry timer.
+      try { noteQueueWait("storageBusy"); } catch (noticeError) { ports.onError?.(noticeError); }
+    }
     failedDrains++;
     retryTimer = setTimeout(() => { retryTimer = null; requestWork(); }, delay);
   }
@@ -516,7 +548,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
       if (existing && isTarsDecisionClosure(existing)) return { answer: null, refusal: "notWaiting" };
       // A refusal that leaves the decision open lets the user retry or choose another option.
       if (existing && !isTarsAnswerRetryable(existing)) return existing.optionIndex === input.optionIndex
-        ? { answer: await settleAnswer(existing), refusal: null } : { answer: existing, refusal: "alreadyAnswered" };
+        ? { answer: await startAnswer(existing), refusal: null } : { answer: existing, refusal: "alreadyAnswered" };
       const view = decisions().find((candidate) => candidate.id === input.decisionId);
       if (view?.state === "answered") return { answer: view.answer, refusal: "alreadyAnswered" };
       if (!view || view.state !== "waiting" || !view.checked) return { answer: null, refusal: "notWaiting" };
@@ -527,7 +559,9 @@ export function createTarsConversationService(ports: ConversationPorts) {
         effect: option.kind === "control" ? { kind: "control", ...option.control } : option.kind === "prReview" ? option.effect : { kind: option.kind },
         label: option.label, actRequestId: option.kind === "control" ? tarsAnswerActRequestId(view.id) : null }, now());
       if (recorded.refusal) return recorded;
-      return { answer: await settleAnswer(recorded.answer), refusal: null };
+      // Wake the queue even while the caller is waiting for an unbounded host delivery.
+      requestWork();
+      return { answer: await startAnswer(recorded.answer), refusal: null };
     },
     /**
      * The user's Dismiss on a waiting card: the decision stops waiting without
