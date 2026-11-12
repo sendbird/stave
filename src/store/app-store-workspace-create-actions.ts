@@ -298,6 +298,12 @@ export function createWorkspaceCreateActions(args: {
         // Keep workspace registration and use the existing file list as fallback.
       }
 
+      const seed = window.api?.sourceControl?.seedWorktreeDependencies;
+      if (runner && seed) {
+        const result = await seed({ sourcePath: current.repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink }).catch(() => ({ status: "fallback" }));
+        if (result.status === "fallback") creationNotices.push({ level: "warning", message: i18n.t("workspace:dependencyCopyFallback") });
+      }
+
       if (useRootNodeModulesSymlink) {
         if (!runner) {
           creationNotices.push({

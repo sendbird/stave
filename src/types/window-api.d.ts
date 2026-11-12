@@ -1431,6 +1431,7 @@ interface SourceControlCommandResult {
 }
 
 interface WindowSourceControlApi {
+  seedWorktreeDependencies?: (args: import("@/lib/worktree-dependencies").WorktreeDependenciesArgs) => Promise<import("@/lib/worktree-dependencies").WorktreeDependenciesResult>;
   getStatus?: (args: { cwd?: string }) => Promise<SourceControlStatusResult>;
   stageAll?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   unstageAll?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
